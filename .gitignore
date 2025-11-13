@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.env
+*.env.*
+*.sqlite3
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+
+# Next.js
+.next/
+out/
+*.next.config.js
+
+# TypeScript
+*.tsbuildinfo
+
+# General
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+*.lock
+*.bak
+*.swp
+*.swo
+*.tmp
+*.temp

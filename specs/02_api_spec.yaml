@@ -1,0 +1,39 @@
+### specs/02_api_spec.yaml (snippet)
+
+openapi: 3.0.0
+info:
+  title: MTF Trading API
+  version: 0.1.0
+paths:
+  /api/v1/signal/check:
+    post:
+      summary: Check if a signal is valid given current state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalRequest'
+      responses:
+        '200':
+          description: signal check response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalResponse'
+components:
+  schemas:
+    SignalRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+    SignalResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        reason:
+          type: string

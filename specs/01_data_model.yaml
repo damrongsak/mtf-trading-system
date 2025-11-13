@@ -1,0 +1,33 @@
+### specs/01_data_model.yaml (example)
+entities:
+  Candle:
+    fields:
+      - name: timestamp
+        type: datetime
+      - name: open
+        type: float
+      - name: high
+        type: float
+      - name: low
+        type: float
+      - name: close
+        type: float
+      - name: volume
+        type: float
+
+  Trade:
+    fields:
+      - name: id
+        type: uuid
+      - name: strategy_name
+        type: string
+      - name: entry_price
+        type: float
+      - name: sl_price
+        type: float
+      - name: tp_price
+        type: float
+      - name: lot
+        type: float
+      - name: pnl
+        type: float
