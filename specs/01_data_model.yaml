@@ -1,33 +1,404 @@
-### specs/01_data_model.yaml (example)
+# MTF Trading System - Data Model Specification (v1.0)
+# This is the source of truth for all database entities and their relationships
+# All Pydantic models and Alembic migrations must align with this specification
+
 entities:
   Candle:
-    fields:
-      - name: timestamp
-        type: datetime
-      - name: open
-        type: float
-      - name: high
-        type: float
-      - name: low
-        type: float
-      - name: close
-        type: float
-      - name: volume
-        type: float
-
-  Trade:
+    description: "OHLCV candlestick data with multi-timeframe indicators"
+    table_name: "candles"
+    indexes:
+      - fields: ["symbol", "timeframe", "timestamp"]
+        unique: true
+      - fields: ["timestamp"]
     fields:
       - name: id
         type: uuid
+        primary_key: true
+        description: "Unique identifier for the candle"
+      - name: symbol
+        type: string
+        required: true
+        max_length: 20
+        description: "Trading pair symbol (e.g., XAU/USD)"
+      - name: timeframe
+        type: string
+        required: true
+        max_length: 10
+        description: "Timeframe identifier (15m, 1h, 4h, D)"
+      - name: timestamp
+        type: datetime
+        required: true
+        description: "Candle open timestamp (UTC)"
+      - name: open
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Opening price"
+      - name: high
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Highest price"
+      - name: low
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Lowest price"
+      - name: close
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Closing price"
+      - name: volume
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Trading volume"
+      # MTF Indicators (Computed, Non-Look-Ahead)
+      - name: ema_9_4h
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "EMA(9) on 4H timeframe (for 15m candles, aligned)"
+      - name: ema_200_4h
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "EMA(200) on 4H timeframe (macro bias filter)"
+      - name: ema_200_d
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "EMA(200) on Daily timeframe (macro bias filter)"
+      - name: atr_14_15m
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "ATR(14) on 15m timeframe (for stop loss calculation)"
+      - name: body_to_wick_ratio
+        type: decimal
+        precision: 5
+        scale: 4
+        nullable: true
+        description: "Body-to-Wick Ratio (Rv) for vector candle confirmation"
+      - name: created_at
+        type: datetime
+        default: "now()"
+        description: "Record creation timestamp"
+
+  Trade:
+    description: "Individual trade records with risk and execution details"
+    table_name: "trades"
+    indexes:
+      - fields: ["signal_timestamp"]
+      - fields: ["status"]
+      - fields: ["strategy_run_id"]
+    fields:
+      - name: trade_id
+        type: uuid
+        primary_key: true
+        description: "Unique identifier for the trade"
+      - name: strategy_run_id
+        type: uuid
+        nullable: true
+        foreign_key: "strategy_runs.run_id"
+        description: "Link to the strategy run that generated this trade"
+      - name: symbol
+        type: string
+        required: true
+        max_length: 20
+        description: "Trading pair symbol (e.g., XAU/USD)"
       - name: strategy_name
         type: string
+        required: true
+        max_length: 100
+        description: "Name of the strategy that generated the signal"
+      - name: signal_timestamp
+        type: datetime
+        required: true
+        description: "Timestamp when the signal was generated"
+      - name: status
+        type: enum
+        enum_values: ["OPEN", "CLOSED", "REJECTED"]
+        required: true
+        description: "Trade execution status (REJECTED tracks risk violations)"
+      - name: rejection_reason
+        type: string
+        max_length: 500
+        nullable: true
+        description: "Reason for trade rejection (e.g., 'Risk exceeds $10 cap')"
+      - name: direction
+        type: enum
+        enum_values: ["LONG", "SHORT"]
+        required: true
+        description: "Trade direction"
       - name: entry_price
-        type: float
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Planned or actual entry price"
       - name: sl_price
-        type: float
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Stop loss price"
       - name: tp_price
-        type: float
-      - name: lot
-        type: float
-      - name: pnl
-        type: float
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+        description: "Take profit price"
+      - name: lot_size
+        type: decimal
+        precision: 10
+        scale: 2
+        required: true
+        description: "Calculated lot size (must be >= 0.01)"
+      - name: risk_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        required: true
+        description: "Calculated risk in USD (must be <= $10)"
+      - name: atr_pips
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "ATR-based stop loss distance in pips"
+      - name: rr_ratio
+        type: decimal
+        precision: 5
+        scale: 2
+        nullable: true
+        description: "Risk-to-reward ratio (minimum 1:2)"
+      - name: pnl_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Realized profit/loss in USD (for closed trades)"
+      - name: mae_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Maximum Adverse Excursion in USD"
+      - name: mfe_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Maximum Favorable Excursion in USD"
+      - name: exit_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "Actual exit price (for closed trades)"
+      - name: exit_timestamp
+        type: datetime
+        nullable: true
+        description: "Timestamp when the trade was closed"
+      - name: metadata_json
+        type: jsonb
+        nullable: true
+        description: "Additional trade metadata (confluence zones, indicators, etc.)"
+      - name: created_at
+        type: datetime
+        default: "now()"
+        description: "Record creation timestamp"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+        description: "Record last update timestamp"
+
+  StrategyRun:
+    description: "Backtest run results and performance metrics"
+    table_name: "strategy_runs"
+    indexes:
+      - fields: ["start_date", "end_date"]
+      - fields: ["created_at"]
+    fields:
+      - name: run_id
+        type: uuid
+        primary_key: true
+        description: "Unique identifier for the strategy run"
+      - name: strategy_name
+        type: string
+        required: true
+        max_length: 100
+        description: "Name of the strategy being tested"
+      - name: start_date
+        type: date
+        required: true
+        description: "Backtest start date"
+      - name: end_date
+        type: date
+        required: true
+        description: "Backtest end date"
+      - name: parameters_json
+        type: jsonb
+        required: true
+        description: "Strategy parameters (EMA periods, ATR multiplier, Rv threshold, etc.)"
+      # Performance Metrics (G2 Success Criteria)
+      - name: sharpe_ratio
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Sharpe Ratio (target > 0.8)"
+      - name: max_drawdown
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Maximum Drawdown percentage (target < 15%)"
+      - name: win_rate
+        type: decimal
+        precision: 5
+        scale: 4
+        nullable: true
+        description: "Win rate (winning trades / total trades)"
+      - name: total_trades
+        type: integer
+        nullable: true
+        description: "Total number of trades executed"
+      - name: winning_trades
+        type: integer
+        nullable: true
+        description: "Number of winning trades"
+      - name: losing_trades
+        type: integer
+        nullable: true
+        description: "Number of losing trades"
+      - name: total_pnl_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Total profit/loss in USD"
+      - name: avg_win_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Average winning trade amount"
+      - name: avg_loss_usd
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Average losing trade amount"
+      - name: max_consecutive_wins
+        type: integer
+        nullable: true
+        description: "Maximum consecutive winning trades"
+      - name: max_consecutive_losses
+        type: integer
+        nullable: true
+        description: "Maximum consecutive losing trades"
+      - name: status
+        type: enum
+        enum_values: ["RUNNING", "COMPLETED", "FAILED"]
+        default: "RUNNING"
+        description: "Run execution status"
+      - name: error_message
+        type: text
+        nullable: true
+        description: "Error message if run failed"
+      - name: created_at
+        type: datetime
+        default: "now()"
+        description: "Run start timestamp"
+      - name: completed_at
+        type: datetime
+        nullable: true
+        description: "Run completion timestamp"
+
+  RiskRule:
+    description: "Configurable risk guardrail thresholds (F2.2, F2.3, F2.4)"
+    table_name: "risk_rules"
+    fields:
+      - name: rule_id
+        type: uuid
+        primary_key: true
+        description: "Unique identifier for the risk rule"
+      - name: rule_name
+        type: string
+        required: true
+        unique: true
+        max_length: 100
+        description: "Name of the risk rule (e.g., 'MAX_RISK_PER_TRADE')"
+      - name: rule_type
+        type: enum
+        enum_values: ["RISK_CAP", "LOT_SIZE", "VOLATILITY", "RR_RATIO"]
+        required: true
+        description: "Category of risk rule"
+      - name: threshold_value
+        type: decimal
+        precision: 10
+        scale: 2
+        required: true
+        description: "Threshold value (e.g., 10.00 for $10 risk cap)"
+      - name: threshold_unit
+        type: string
+        max_length: 20
+        required: true
+        description: "Unit of measurement (USD, LOT, PIPS, RATIO)"
+      - name: is_active
+        type: boolean
+        default: true
+        description: "Whether this rule is currently enforced"
+      - name: description
+        type: text
+        nullable: true
+        description: "Human-readable description of the rule"
+      - name: created_at
+        type: datetime
+        default: "now()"
+        description: "Rule creation timestamp"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+        description: "Rule last update timestamp"
+
+relationships:
+  - from: Trade
+    to: StrategyRun
+    type: many_to_one
+    foreign_key: strategy_run_id
+    description: "Each trade belongs to a strategy run (or null for manual trades)"
+
+validation_rules:
+  Trade:
+    - field: risk_usd
+      rule: "risk_usd <= 10.00"
+      error: "Risk per trade must not exceed $10 (F2.2)"
+    - field: lot_size
+      rule: "lot_size >= 0.01"
+      error: "Lot size must be at least 0.01 (F2.3)"
+    - field: atr_pips
+      rule: "atr_pips <= 100.0 OR atr_pips IS NULL"
+      error: "ATR-based stop loss must not exceed 100 pips (F2.4)"
+    - field: rr_ratio
+      rule: "rr_ratio >= 2.0 OR rr_ratio IS NULL"
+      error: "Risk-to-reward ratio must be at least 1:2"
+
+  StrategyRun:
+    - field: end_date
+      rule: "end_date >= start_date"
+      error: "End date must be after or equal to start date"
