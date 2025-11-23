@@ -86,6 +86,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Implement Strategy Core API.
-2.  **[Medium]** Implement SMC logic (Order Blocks, FVG).
-3.  **[Medium]** Implement AI Analyst scaffolding.
+1.  **[Medium]** Implement SMC logic (Order Blocks, FVG).
+2.  **[Medium]** Implement AI Analyst scaffolding.
+3.  **[Medium]** Implement Frontend UI for Signals.
