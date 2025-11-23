@@ -32,7 +32,7 @@
 - **Features:**
     - `/risk/check` route implemented and connected to Execution service.
     - `/signal` routes implemented (`GET /latest`, `POST /check`).
-    - **Missing:** `/backtest` routes (defined in spec but not implemented).
+    - `/backtest` routes implemented (`POST /run`, `GET /results`).
     - **Missing:** Auth middleware.
 
 ### **2. Frontend (`frontend`)**
