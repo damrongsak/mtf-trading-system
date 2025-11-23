@@ -54,8 +54,9 @@
     - OHLCV loader and resampling utils implemented.
     - Dockerfile created and build verified.
     - **Database Integration:** Alembic configured, initial migration applied, `candles` table verified.
+    - **API:** `POST /upload_csv` and `GET /candles` implemented and verified.
 - **Next Steps:**
-    - Implement API endpoints for data ingestion and retrieval.
+    - Implement automated data ingestion (e.g., cron job).
 
 ### **2. Strategy Core (`services/strategy-core`)**
 - **Status:** 🚧 Scaffolded
