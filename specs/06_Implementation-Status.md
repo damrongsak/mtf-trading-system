@@ -85,6 +85,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Implement Backtest routes in API Gateway.
-2.  **[Medium]** Implement MTF indicators in Strategy Core.
-3.  **[Medium]** Implement Strategy Core API.
+1.  **[Medium]** Implement MTF indicators in Strategy Core.
+2.  **[Medium]** Implement Strategy Core API.
+3.  **[Medium]** Implement SMC logic (Order Blocks, FVG).
