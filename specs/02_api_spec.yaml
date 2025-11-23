@@ -37,3 +37,47 @@ components:
           type: boolean
         reason:
           type: string
+
+  /api/v1/risk/check:
+    post:
+      summary: Check if a trade execution is allowed based on risk rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskCheckRequest'
+      responses:
+        '200':
+          description: Risk check decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskCheckResponse'
+
+    RiskCheckRequest:
+      type: object
+      required:
+        - risk_usd
+        - sl_distance_usd
+        - min_lot
+      properties:
+        risk_usd:
+          type: number
+          description: Maximum risk in USD allowed for this trade
+        sl_distance_usd:
+          type: number
+          description: Distance to stop loss in USD (per unit/contract)
+        min_lot:
+          type: number
+          description: Minimum allowed lot size (e.g., 0.01)
+
+    RiskCheckResponse:
+      type: object
+      properties:
+        can_execute:
+          type: boolean
+        lot:
+          type: number
+        reason:
+          type: string

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from pydantic_models import SignalRequest, SignalResponse
+from app.schemas import SignalRequest, SignalResponse
 
 router = APIRouter()
 

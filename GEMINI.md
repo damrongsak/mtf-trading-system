@@ -49,9 +49,10 @@ The project distinguishes itself through:
 
 *   **Frontend Only:**
     ```bash
-    cd frontend
+    nvm use 22
     pnpm install
-    pnpm dev
+    pnpm --filter frontend dev
+    # Or: pnpm --filter frontend build / test
     ```
 
 *   **Backend Service (Standalone):**
@@ -73,7 +74,10 @@ The project distinguishes itself through:
     *   **Trigger:** 15m Candle with high Body-to-Wick ratio.
 *   **Status:** The project is evolving. While the PRD defines a strict MVP, the codebase includes "Future" features like the AI Analyst and Frontend, indicating active expansion.
 
-## 📝 Common Commands
+## � Inspiration & Examples
+*   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration (Vite + React).
+
+## �📝 Common Commands
 | Action | Command |
 | :--- | :--- |
 | **Start All** | `docker compose up` |

@@ -1,0 +1,5 @@
+{
+  "name": "GridBot AI - Volatility Harvester",
+  "description": "A professional Grid Trading Simulator with Monte Carlo price generation, portfolio management, and Gemini-powered strategy analysis.",
+  "requestFramePermissions": []
+}

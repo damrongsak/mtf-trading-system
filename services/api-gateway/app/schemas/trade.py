@@ -30,18 +30,18 @@ class TradeBase(BaseModel):
     strategy_name: str = Field(..., max_length=100, description="Name of the strategy")
     signal_timestamp: datetime = Field(..., description="Timestamp when signal was generated")
     direction: TradeDirection = Field(..., description="Trade direction (LONG/SHORT)")
-    entry_price: Decimal = Field(..., description="Entry price", decimal_places=8)
-    sl_price: Decimal = Field(..., description="Stop loss price", decimal_places=8)
-    tp_price: Decimal = Field(..., description="Take profit price", decimal_places=8)
+    entry_price: Decimal = Field(..., description="Entry price")
+    sl_price: Decimal = Field(..., description="Stop loss price")
+    tp_price: Decimal = Field(..., description="Take profit price")
 
 
 class TradeCreate(TradeBase):
     """Schema for creating a new trade (signal proposal)."""
     strategy_run_id: Optional[UUID] = Field(None, description="Link to strategy run")
-    lot_size: Decimal = Field(..., description="Calculated lot size", ge=0.01, decimal_places=2)
-    risk_usd: Decimal = Field(..., description="Calculated risk in USD", le=10.00, decimal_places=2)
-    atr_pips: Optional[Decimal] = Field(None, description="ATR-based SL distance in pips", le=100.0, decimal_places=2)
-    rr_ratio: Optional[Decimal] = Field(None, description="Risk-to-reward ratio", ge=2.0, decimal_places=2)
+    lot_size: Decimal = Field(..., description="Calculated lot size", ge=0.01)
+    risk_usd: Decimal = Field(..., description="Calculated risk in USD", le=10.00)
+    atr_pips: Optional[Decimal] = Field(None, description="ATR-based SL distance in pips", le=100.0)
+    rr_ratio: Optional[Decimal] = Field(None, description="Risk-to-reward ratio", ge=2.0)
     metadata_json: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
     @field_validator('risk_usd')
@@ -73,11 +73,11 @@ class TradeUpdate(BaseModel):
     """Schema for updating trade status and exit details."""
     status: Optional[TradeStatus] = None
     rejection_reason: Optional[str] = Field(None, max_length=500)
-    exit_price: Optional[Decimal] = Field(None, decimal_places=8)
+    exit_price: Optional[Decimal] = Field(None)
     exit_timestamp: Optional[datetime] = None
-    pnl_usd: Optional[Decimal] = Field(None, decimal_places=2)
-    mae_usd: Optional[Decimal] = Field(None, decimal_places=2)
-    mfe_usd: Optional[Decimal] = Field(None, decimal_places=2)
+    pnl_usd: Optional[Decimal] = Field(None)
+    mae_usd: Optional[Decimal] = Field(None)
+    mfe_usd: Optional[Decimal] = Field(None)
 
 
 class TradeResponse(TradeBase):
@@ -104,18 +104,13 @@ class TradeResponse(TradeBase):
 
 class RiskCheckRequest(BaseModel):
     """Schema for risk validation endpoint (US3)."""
-    symbol: str = Field(..., max_length=20)
-    direction: TradeDirection
-    entry_price: Decimal = Field(..., decimal_places=8)
-    sl_price: Decimal = Field(..., decimal_places=8)
-    tp_price: Decimal = Field(..., decimal_places=8)
-    atr_pips: Optional[Decimal] = Field(None, decimal_places=2)
+    risk_usd: Decimal = Field(..., description="Maximum risk in USD allowed for this trade")
+    sl_distance_usd: Decimal = Field(..., description="Distance to stop loss in USD (per unit/contract)")
+    min_lot: Decimal = Field(..., description="Minimum allowed lot size (e.g., 0.01)")
 
 
 class RiskCheckResponse(BaseModel):
     """Schema for risk validation response."""
     can_execute: bool = Field(..., description="Whether the trade passes all risk checks")
-    calculated_lot_size: Decimal = Field(..., description="Calculated lot size", decimal_places=2)
-    calculated_risk_usd: Decimal = Field(..., description="Calculated risk in USD", decimal_places=2)
-    violations: list[str] = Field(default_factory=list, description="List of risk rule violations")
-    warnings: list[str] = Field(default_factory=list, description="Non-blocking warnings")
+    lot: Decimal = Field(..., description="Calculated lot size")
+    reason: str = Field(..., description="Reason for decision")

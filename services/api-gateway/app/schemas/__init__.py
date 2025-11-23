@@ -37,7 +37,13 @@ from app.schemas.risk_rule import (
     RiskRuleCreate,
     RiskRuleUpdate,
     RiskRuleResponse,
+    RiskRuleResponse,
     RuleType
+)
+
+from app.schemas.signal import (
+    SignalRequest,
+    SignalResponse
 )
 
 __all__ = [
@@ -71,4 +77,8 @@ __all__ = [
     "RiskRuleUpdate",
     "RiskRuleResponse",
     "RuleType",
+
+    # Signal schemas
+    "SignalRequest",
+    "SignalResponse",
 ]

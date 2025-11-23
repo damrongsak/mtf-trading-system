@@ -23,7 +23,7 @@ class RiskRuleBase(BaseModel):
     """Base risk rule schema."""
     rule_name: str = Field(..., max_length=100, description="Unique rule name")
     rule_type: RuleType = Field(..., description="Category of risk rule")
-    threshold_value: Decimal = Field(..., description="Threshold value", decimal_places=2)
+    threshold_value: Decimal = Field(..., description="Threshold value")
     threshold_unit: str = Field(..., max_length=20, description="Unit of measurement")
     is_active: bool = Field(True, description="Whether rule is enforced")
     description: Optional[str] = Field(None, description="Human-readable description")
@@ -36,7 +36,7 @@ class RiskRuleCreate(RiskRuleBase):
 
 class RiskRuleUpdate(BaseModel):
     """Schema for updating a risk rule."""
-    threshold_value: Optional[Decimal] = Field(None, decimal_places=2)
+    threshold_value: Optional[Decimal] = Field(None)
     is_active: Optional[bool] = None
     description: Optional[str] = None
 

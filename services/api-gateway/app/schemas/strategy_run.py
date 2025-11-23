@@ -41,15 +41,15 @@ class StrategyRunCreate(StrategyRunBase):
 
 class StrategyRunUpdate(BaseModel):
     """Schema for updating strategy run results."""
-    sharpe_ratio: Optional[Decimal] = Field(None, description="Sharpe Ratio", decimal_places=4)
-    max_drawdown: Optional[Decimal] = Field(None, description="Maximum Drawdown %", decimal_places=4)
-    win_rate: Optional[Decimal] = Field(None, description="Win rate", decimal_places=4)
+    sharpe_ratio: Optional[Decimal] = Field(None, description="Sharpe Ratio")
+    max_drawdown: Optional[Decimal] = Field(None, description="Maximum Drawdown %")
+    win_rate: Optional[Decimal] = Field(None, description="Win rate")
     total_trades: Optional[int] = None
     winning_trades: Optional[int] = None
     losing_trades: Optional[int] = None
-    total_pnl_usd: Optional[Decimal] = Field(None, decimal_places=2)
-    avg_win_usd: Optional[Decimal] = Field(None, decimal_places=2)
-    avg_loss_usd: Optional[Decimal] = Field(None, decimal_places=2)
+    total_pnl_usd: Optional[Decimal] = Field(None)
+    avg_win_usd: Optional[Decimal] = Field(None)
+    avg_loss_usd: Optional[Decimal] = Field(None)
     max_consecutive_wins: Optional[int] = None
     max_consecutive_losses: Optional[int] = None
     status: Optional[RunStatus] = None

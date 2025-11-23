@@ -16,30 +16,44 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - qdrant
-
-  postgres:
-    image: postgres:15
+      # - postgres
+      # - qdrant
+      - execution
     environment:
-      POSTGRES_USER: trader
-      POSTGRES_PASSWORD: trader
-      POSTGRES_DB: mtf_db
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      - EXECUTION_SERVICE_URL=http://execution:8000
 
-  qdrant:
-    image: qdrant/qdrant:latest
+  execution:
+    build: ./services/execution
     ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
+      - "8001:8000"
+
+  # Already exists in localhost
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_USER: trader
+  #     POSTGRES_PASSWORD: trader
+  #     POSTGRES_DB: mtf_db
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+
+  # Already exists in localhost
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   ports:
+  #     - "6333:6333"
+  #   volumes:
+  #     - qdrant_storage:/qdrant/storage
 
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
 
-volumes:
-  pgdata:
-  qdrant_storage:
+# volumes:
+#   pgdata:
+#   qdrant_storage:
+
+networks:
+  external:
+    name: orignx-network

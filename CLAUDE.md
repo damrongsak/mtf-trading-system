@@ -39,22 +39,20 @@ docker compose logs -f [service-name]
 ### Frontend (Next.js)
 
 ```bash
-cd frontend
-
-# Install dependencies
+nvm use 22
 pnpm install
 
 # Development server (port 3000)
-pnpm dev
+pnpm --filter frontend dev
 
 # Production build
-pnpm build
+pnpm --filter frontend build
 
 # Start production server
-pnpm start
+pnpm --filter frontend start
 
 # Lint
-pnpm lint
+pnpm --filter frontend lint
 ```
 
 ### Backend Services
@@ -146,6 +144,10 @@ Next.js 16 app router structure:
 - `frontend/app/page.tsx`: Main dashboard page
 - `frontend/app/layout.tsx`: Root layout component
 - Uses App Router (not Pages Router)
+
+### Reference Implementation
+For UI/UX inspiration, check the example project at:
+`example/gridbot-ai-volatility-harvester` (Vite + React)
 
 ### Database Migrations
 
