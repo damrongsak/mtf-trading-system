@@ -1,10 +1,45 @@
-from fastapi import APIRouter
-from app.schemas import SignalRequest, SignalResponse
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List
+from datetime import datetime
+from app.schemas.signal import SignalResponse, SignalDirection
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/signal",
+    tags=["signal"],
+    responses={404: {"description": "Not found"}},
+)
 
+@router.get("/latest/{symbol}", response_model=SignalResponse)
+async def get_latest_signal(symbol: str):
+    """
+    Get the latest signal for a specific symbol.
+    Currently returns a mock response until Strategy Core is integrated.
+    """
+    # Mock response for MVP verification
+    return SignalResponse(
+        symbol=symbol.upper(),
+        timeframe="15m",
+        timestamp=datetime.utcnow(),
+        direction=SignalDirection.LONG,
+        entry_price=2000.00,
+        sl_price=1990.00,
+        tp_price=2020.00,
+        reason="Mock signal for testing"
+    )
 
-@router.post("/check")
-async def check_signal(req: SignalRequest) -> SignalResponse:
-    # Contract-first: implement logic to call strategy-core service
-    return SignalResponse(allowed=False, reason="not implemented")
+@router.post("/check", response_model=SignalResponse)
+async def check_signal(symbol: str):
+    """
+    Trigger a manual signal check.
+    """
+    # Mock response
+    return SignalResponse(
+        symbol=symbol.upper(),
+        timeframe="15m",
+        timestamp=datetime.utcnow(),
+        direction=SignalDirection.SHORT,
+        entry_price=2050.00,
+        sl_price=2060.00,
+        tp_price=2030.00,
+        reason="Manual check triggered"
+    )

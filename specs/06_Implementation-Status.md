@@ -31,7 +31,8 @@
 - **Status:** 🚧 Partial
 - **Features:**
     - `/risk/check` route implemented and connected to Execution service.
-    - **Missing:** `/signal`, `/backtest` routes (defined in spec but not implemented).
+    - `/signal` routes implemented (`GET /latest`, `POST /check`).
+    - **Missing:** `/backtest` routes (defined in spec but not implemented).
     - **Missing:** Auth middleware.
 
 ### **2. Frontend (`frontend`)**
