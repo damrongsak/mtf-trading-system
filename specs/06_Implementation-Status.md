@@ -58,11 +58,15 @@
     - Implement API endpoints for data ingestion and retrieval.
 
 ### **2. Strategy Core (`services/strategy-core`)**
-- **Status:** ❌ Scaffolded Only
+- **Status:** 🚧 Scaffolded
+- **Features:**
+    - Service structure created.
+    - `Dockerfile` and `requirements.txt` (with `vectorbt`) created.
+    - Basic FastAPI app with health check.
+    - Added to `docker-compose.yml`.
 - **Next Steps:**
     - Implement MTF indicators (EMA, ATR).
     - Implement SMC logic (Order Blocks, FVG).
-    - Integrate `vectorbt` for backtesting.
 
 ### **3. AI Analyst (`services/ai-analyst`)**
 - **Status:** ❌ Scaffolded Only
@@ -80,6 +84,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Implement `/signal` routes in API Gateway.
-2.  **[Medium]** Scaffold **Strategy Core** service.
-3.  **[Medium]** Implement API endpoints for Data Pipeline.
+1.  **[Medium]** Scaffold **Strategy Core** service.
+2.  **[Medium]** Implement API endpoints for Data Pipeline.
+3.  **[Medium]** Implement Backtest routes in API Gateway.

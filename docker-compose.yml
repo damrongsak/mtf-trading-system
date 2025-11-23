@@ -40,6 +40,18 @@ services:
       - default
       - external
 
+  strategy-core:
+    build: ./services/strategy-core
+    ports:
+      - "8003:8000"
+    depends_on:
+      - data-pipeline
+    environment:
+      - DATABASE_URL=postgresql://trader:trader@pgvector:5432/mtf_db
+    networks:
+      - default
+      - external
+
   # Already exists in localhost
   # postgres:
   #   image: postgres:15
