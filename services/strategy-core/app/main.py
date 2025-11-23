@@ -48,3 +48,28 @@ def get_atr(req: ATRRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+from app.schemas import SMCRequest, SMCResponse
+from app.smc import detect_order_blocks, detect_fvg
+
+@app.post("/calculate/smc", response_model=SMCResponse)
+def get_smc(req: SMCRequest):
+    try:
+        df = pd.DataFrame({
+            "open": req.open,
+            "high": req.high,
+            "low": req.low,
+            "close": req.close
+        })
+        
+        if len(df) < 3:
+             raise HTTPException(status_code=400, detail="Not enough data points")
+
+        obs = detect_order_blocks(df)
+        fvgs = detect_fvg(df)
+        
+        return SMCResponse(order_blocks=obs, fvgs=fvgs)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

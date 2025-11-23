@@ -13,3 +13,13 @@ class ATRRequest(BaseModel):
 
 class IndicatorResponse(BaseModel):
     values: List[Optional[float]]
+
+class SMCRequest(BaseModel):
+    open: List[float]
+    high: List[float]
+    low: List[float]
+    close: List[float]
+
+class SMCResponse(BaseModel):
+    order_blocks: List[Dict[str, Any]]
+    fvgs: List[Dict[str, Any]]

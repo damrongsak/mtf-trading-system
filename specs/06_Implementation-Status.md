@@ -67,8 +67,9 @@
     - Added to `docker-compose.yml` (with volume mount).
     - **Indicators:** EMA and ATR implemented and tested.
     - **API:** `/calculate/ema` and `/calculate/atr` endpoints implemented.
+    - **SMC:** Order Block and FVG detection implemented and tested.
 - **Next Steps:**
-    - Implement SMC logic (Order Blocks, FVG).
+    - Implement AI Analyst scaffolding.
 
 ### **3. AI Analyst (`services/ai-analyst`)**
 - **Status:** ❌ Scaffolded Only
