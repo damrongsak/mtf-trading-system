@@ -66,6 +66,7 @@
     - Basic FastAPI app with health check.
     - Added to `docker-compose.yml` (with volume mount).
     - **Indicators:** EMA and ATR implemented and tested.
+    - **API:** `/calculate/ema` and `/calculate/atr` endpoints implemented.
 - **Next Steps:**
     - Implement SMC logic (Order Blocks, FVG).
 
@@ -85,6 +86,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Implement MTF indicators in Strategy Core.
-2.  **[Medium]** Implement Strategy Core API.
-3.  **[Medium]** Implement SMC logic (Order Blocks, FVG).
+1.  **[Medium]** Implement Strategy Core API.
+2.  **[Medium]** Implement SMC logic (Order Blocks, FVG).
+3.  **[Medium]** Implement AI Analyst scaffolding.
