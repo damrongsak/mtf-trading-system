@@ -84,6 +84,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Scaffold **Strategy Core** service.
-2.  **[Medium]** Implement API endpoints for Data Pipeline.
-3.  **[Medium]** Implement Backtest routes in API Gateway.
+1.  **[Medium]** Implement API endpoints for Data Pipeline.
+2.  **[Medium]** Implement Backtest routes in API Gateway.
+3.  **[Medium]** Implement MTF indicators in Strategy Core.
