@@ -64,9 +64,9 @@
     - Service structure created.
     - `Dockerfile` and `requirements.txt` (with `vectorbt`) created.
     - Basic FastAPI app with health check.
-    - Added to `docker-compose.yml`.
+    - Added to `docker-compose.yml` (with volume mount).
+    - **Indicators:** EMA and ATR implemented and tested.
 - **Next Steps:**
-    - Implement MTF indicators (EMA, ATR).
     - Implement SMC logic (Order Blocks, FVG).
 
 ### **3. AI Analyst (`services/ai-analyst`)**

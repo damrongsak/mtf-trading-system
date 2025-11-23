@@ -44,6 +44,8 @@ services:
     build: ./services/strategy-core
     ports:
       - "8003:8000"
+    volumes:
+      - ./services/strategy-core:/app
     depends_on:
       - data-pipeline
     environment:
