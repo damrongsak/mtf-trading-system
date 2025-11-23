@@ -80,7 +80,9 @@ The project distinguishes itself through:
 ## �📝 Common Commands
 | Action | Command |
 | :--- | :--- |
-| **Start All** | `docker compose up` |
-| **Rebuild** | `docker compose up --build` |
-| **Stop** | `docker compose down` |
+| **Start Full Stack** | `docker compose up --build` |
+| **Start Backend Only** | `docker compose up api execution` |
+| **Start Frontend Only** | `docker compose up frontend` |
+| **Rebuild Specific** | `docker compose up --build <service_name>` |
+| **Stop All** | `docker compose down` |
 | **Deploy** | `./deploy.sh` |
