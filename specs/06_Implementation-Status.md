@@ -52,9 +52,9 @@
     - `Candle` model defined (`services/data-pipeline/app/models/candle.py`).
     - OHLCV loader and resampling utils implemented.
     - Dockerfile created and build verified.
+    - **Database Integration:** Alembic configured, initial migration applied, `candles` table verified.
 - **Next Steps:**
-    - Implement database migration (Alembic).
-    - Integrate with PostgreSQL.
+    - Implement API endpoints for data ingestion and retrieval.
 
 ### **2. Strategy Core (`services/strategy-core`)**
 - **Status:** ❌ Scaffolded Only
@@ -79,6 +79,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Integrate **Data Pipeline** with PostgreSQL (Alembic migrations).
-2.  **[High]** Implement `/signal` routes in API Gateway.
-3.  **[Medium]** Scaffold **Strategy Core** service.
+1.  **[High]** Implement `/signal` routes in API Gateway.
+2.  **[Medium]** Scaffold **Strategy Core** service.
+3.  **[Medium]** Implement API endpoints for Data Pipeline.

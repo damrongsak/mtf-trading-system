@@ -27,6 +27,19 @@ services:
     ports:
       - "8001:8000"
 
+  data-pipeline:
+    build: ./services/data-pipeline
+    ports:
+      - "8002:8000"
+    depends_on:
+      # - postgres
+      - execution # Just to ensure order, though not strictly dependent
+    environment:
+      - DATABASE_URL=postgresql://trader:trader@pgvector:5432/mtf_db
+    networks:
+      - default
+      - external
+
   # Already exists in localhost
   # postgres:
   #   image: postgres:15
@@ -56,4 +69,5 @@ services:
 
 networks:
   external:
+    external: true
     name: orignx-network
