@@ -41,6 +41,7 @@
     - Next.js 16 + React 19 setup.
     - Tailwind CSS v4 configured with "Gridbot AI" theme.
     - `SignalCard` component and `/signals` page implemented.
+    - **Layout:** Fixed Sidebar and Sticky Header implemented.
 - **Next Steps:**
     - Implement Backtest UI.
     - Connect to real API endpoints. Signals, Trades, and Backtest views.
