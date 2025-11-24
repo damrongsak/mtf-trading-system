@@ -40,6 +40,7 @@ The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, and Oanda Integra
 | **G3** | **Multi-Tenancy** | Support for multiple users and funds with distinct roles (Owner, Trader, Viewer). |
 | **G4** | **Multi-Strategy** | Concurrent execution of at least 3 distinct strategies with independent state management. |
 | **G5** | **Data Integration** | Successful ingestion and processing of live market data from Oanda v20 API. |
+| **G6** | **Trading Journal** | Structured psychological journal capturing mental patterns, game levels, and root cause analysis for AI-driven performance improvement. |
 
 ---
 

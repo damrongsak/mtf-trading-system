@@ -497,6 +497,181 @@ entities:
         on_update: "now()"
         description: "Rule last update timestamp"
 
+  JournalEntry:
+    description: "Trading Journal Entry - 'Psychological MRI' for performance analysis"
+    table_name: "journal_entries"
+    indexes:
+      - fields: ["user_id", "created_at"]
+      - fields: ["game_level"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: symbol
+        type: string
+        required: true
+        max_length: 20
+        description: "Trading pair (e.g., XAU/USD)"
+      - name: direction
+        type: enum
+        enum_values: ["LONG", "SHORT"]
+        required: true
+      - name: entry_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: exit_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: pnl_amount
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Realized P&L in USD"
+      - name: pnl_r
+        type: decimal
+        precision: 5
+        scale: 2
+        nullable: true
+        description: "R-Multiple"
+      - name: risk_amount
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+      - name: stop_loss_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: take_profit_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: session
+        type: string
+        max_length: 20
+        nullable: true
+        description: "Trading session (Asian, London, NY)"
+      - name: context_score
+        type: integer
+        nullable: true
+        description: "Self-rated market understanding (1-10)"
+      - name: game_level
+        type: enum
+        enum_values: ["A_GAME", "B_GAME", "C_GAME"]
+        nullable: true
+        description: "Performance quality categorization"
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
+  MentalState:
+    description: "Emotional severity levels for journal entry"
+    table_name: "mental_states"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: journal_entry_id
+        type: uuid
+        foreign_key: "journal_entries.id"
+        required: true
+      - name: greed_level
+        type: integer
+        default: 0
+        description: "Greed severity (0-10)"
+      - name: fear_level
+        type: integer
+        default: 0
+        description: "Fear severity (0-10)"
+      - name: tilt_level
+        type: integer
+        default: 0
+        description: "Tilt/Anger severity (0-10)"
+      - name: confidence_level
+        type: integer
+        default: 0
+        description: "Confidence level (0-10, 5=ideal)"
+      - name: discipline_level
+        type: integer
+        default: 0
+        description: "Discipline level (0-10)"
+
+  TimelineEvent:
+    description: "Mental pattern timeline sequence"
+    table_name: "timeline_events"
+    indexes:
+      - fields: ["journal_entry_id", "order_index"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: journal_entry_id
+        type: uuid
+        foreign_key: "journal_entries.id"
+        required: true
+      - name: type
+        type: string
+        required: true
+        max_length: 20
+        description: "Event type (TRIGGER, THOUGHT, EMOTION, BEHAVIOR)"
+      - name: description
+        type: text
+        required: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+      - name: order_index
+        type: integer
+        required: true
+        description: "Sequence order in timeline"
+
+  RootCauseAnalysis:
+    description: "5-field structured root cause analysis"
+    table_name: "root_cause_analyses"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: journal_entry_id
+        type: uuid
+        foreign_key: "journal_entries.id"
+        required: true
+      - name: problem
+        type: text
+        nullable: true
+        description: "What's the problem?"
+      - name: why_exist
+        type: text
+        nullable: true
+        description: "Why does the problem exist?"
+      - name: flaw
+        type: text
+        nullable: true
+        description: "What is flawed?"
+      - name: correction
+        type: text
+        nullable: true
+        description: "What's the correction?"
+      - name: logic
+        type: text
+        nullable: true
+        description: "What logic confirms the correction?"
+
 relationships:
   - from: Trade
     to: StrategyRun
