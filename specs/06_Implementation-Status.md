@@ -36,11 +36,14 @@
     - **Missing:** Auth middleware.
 
 ### **2. Frontend (`frontend`)**
-- **Status:** 🚧 Scaffolded
-- **Features:**
+- **Status:** ✅ Implemented (Signals UI)
+- **Completed:**
     - Next.js 16 + React 19 setup.
-    - Dockerfile fixed and building.
-    - **Missing:** UI implementation for Signals, Trades, and Backtest views.
+    - Tailwind CSS v4 configured with "Gridbot AI" theme.
+    - `SignalCard` component and `/signals` page implemented.
+- **Next Steps:**
+    - Implement Backtest UI.
+    - Connect to real API endpoints. Signals, Trades, and Backtest views.
 
 ---
 
