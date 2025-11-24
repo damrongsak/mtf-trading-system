@@ -54,6 +54,18 @@ services:
       - default
       - external
 
+  ai-analyst:
+    build: ./services/ai-analyst
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./services/ai-analyst:/app
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    networks:
+      - default
+      - external
+
   # Already exists in localhost
   # postgres:
   #   image: postgres:15

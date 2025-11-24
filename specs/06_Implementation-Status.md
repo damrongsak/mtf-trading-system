@@ -72,10 +72,14 @@
     - Implement AI Analyst scaffolding.
 
 ### **3. AI Analyst (`services/ai-analyst`)**
-- **Status:** ❌ Scaffolded Only
+- **Status:** ✅ Scaffolded
+- **Completed:**
+    - Service structure created.
+    - `Dockerfile` and `requirements.txt` created.
+    - Basic FastAPI app with health check.
+    - Added to `docker-compose.yml` (with volume mount).
 - **Next Steps:**
-    - Define Gemini prompt schema.
-    - Implement Qdrant retrieval.
+    - Implement AI Analyst API.retrieval.
 
 ### **4. Documentation / Specs**
 - **Status:** ⚠️ Needs Update
