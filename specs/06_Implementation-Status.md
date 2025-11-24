@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** 2025-11-23
-**Current Phase:** Phase 4 - Implementation (Module A & B)
+**Last Updated:** 2025-11-24
+**Current Phase:** Phase 5 - Multi-Tenancy, Multi-Strategy & Trading Journal
 
 ---
 
@@ -16,6 +16,41 @@
     - Docker container builds successfully.
     - Health check endpoint active.
 
+### **3. Multi-Tenancy & Authentication**
+- **Status:** ✅ Complete
+- **Features:**
+    - JWT-based authentication implemented.
+    - User registration and login endpoints (`/api/v1/auth/token`, `/api/v1/auth/register`).
+    - Multi-user support with UUID-based User model.
+    - Fund and UserFund models for multi-tenancy.
+    - RBAC roles (Owner, Manager, Trader, Viewer).
+    - Database migrations applied via Alembic.
+    - Password hashing with `bcrypt`.
+
+### **4. Trading Journal Module**
+- **Status:** ✅ Complete
+- **Features:**
+    - **Backend:**
+        - 4 database models: `JournalEntry`, `MentalState`, `TimelineEvent`, `RootCauseAnalysis`.
+        - CRUD API endpoints (`POST /journal`, `GET /journal`, `GET /journal/{id}`).
+        - Full integration with User authentication.
+        - Database migrations applied.
+    - **Frontend:**
+        - "Psychological MRI" 4-step wizard:
+            - Step 1: Technical Context (Risk/Money Management)
+            - Step 2: Game Level (A/B/C categorization)
+            - Step 3: Mental Pattern (Timeline builder + Severity sliders)
+            - Step 4: Root Cause Analysis (5-field structured diagnosis)
+        - Glassmorphism UI with color-coded severity feedback.
+        - Auto-save support and API integration.
+
+### **5. Strategy Engine & Oanda Integration**
+- **Status:** ✅ Scaffolded
+- **Features:**
+    - `OandaAdapter` for market data ingestion (`services/strategy-core/app/adapters/oanda.py`).
+    - `StrategyEngine` for managing concurrent strategy execution.
+    - Strategy and DataSource models implemented.
+
 ### **2. Infrastructure (Local)**
 - **Status:** ✅ Functional
 - **Features:**
@@ -28,23 +63,29 @@
 ## 🟡 In Progress / Partial
 
 ### **1. API Gateway (`services/api-gateway`)**
-- **Status:** 🚧 Partial
+- **Status:** ✅ Core Complete
 - **Features:**
     - `/risk/check` route implemented and connected to Execution service.
     - `/signal` routes implemented (`GET /latest`, `POST /check`).
     - `/backtest` routes implemented (`POST /run`, `GET /results`).
-    - **Missing:** Auth middleware.
+    - `/auth` routes: Login, Register, User details.
+    - `/strategy` routes: List and Create strategies.
+    - `/journal` routes: Create, List, Get journal entries.
+    - Auth middleware with JWT token validation.
 
 ### **2. Frontend (`frontend`)**
-- **Status:** ✅ Implemented (Signals UI)
+- **Status:** ✅ Implemented (Signals UI + Trading Journal)
 - **Completed:**
     - Next.js 16 + React 19 setup.
     - Tailwind CSS v4 configured with "Gridbot AI" theme.
     - `SignalCard` component and `/signals` page implemented.
     - **Layout:** Fixed Sidebar and Sticky Header implemented.
+    - **Authentication:** `AuthContext` and Login Page (`/login`).
+    - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
 - **Next Steps:**
     - Implement Backtest UI.
-    - Connect to real API endpoints. Signals, Trades, and Backtest views.
+    - Connect to real API endpoints for Signals, Trades, and Backtest views.
+    - Add Journal list view (`/journal`).
 
 ---
 
@@ -95,6 +136,7 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Implement AI Analyst API.
-2.  **[Medium]** Implement Backtest UI.
-3.  **[Low]** Connect Frontend to Real API.
+1.  **[High]** Implement GRID Trading Simulation Lab (per `specs/modules/02_professional-grade_simulation_lab.md`).
+2.  **[Medium]** Add Journal list view and analytics dashboard.
+3.  **[Medium]** Implement AI Analyst API integration with Gemini.
+4.  **[Low]** Connect Frontend to Real API for live data.
