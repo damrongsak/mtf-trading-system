@@ -88,7 +88,35 @@ To apply schema changes to the database:
     ```bash
     ./venv/bin/alembic upgrade head
     ```
+### 5. Git Flow & Version Control
+**Strictly follow this workflow for all changes:**
+1.  **Checkout `dev` branch:** `git checkout dev`
+2.  **Pull latest changes:** `git pull origin dev`
+3.  **Create a feature branch:** `git checkout -b feature/your-feature-name`
+4.  **Implement changes:** Follow SDD and Clean Code principles.
+5.  **Commit changes:** Use descriptive commit messages (e.g., `feat: add user auth`, `fix: resolve db connection`).
+6.  **Merge to `dev`:**
+    ```bash
+    git checkout dev
+    git merge feature/your-feature-name
+    git push origin dev
+    ```
 
+### 6. Frontend Clean Code Guidelines
+Adhere to these principles for a scalable and maintainable frontend:
+*   **Modularization:** Break down the app into small, independent components.
+*   **Directory Structure:** Use a clear layout (e.g., `src/components`, `src/hooks`, `src/context`).
+*   **Naming Conventions:**
+    *   **Components:** `UpperCamelCase` (e.g., `SignalCard.tsx`)
+    *   **Functions/Hooks:** `camelCase` (e.g., `useAuth`, `fetchSignals`)
+*   **State Management:**
+    *   Use `useContext` + `useReducer` for global state (Auth, Theme).
+    *   Keep form/toggle state local to components.
+    *   Avoid overusing global state libraries unless necessary.
+*   **Performance:**
+    *   Implement **Code-Splitting** and **Lazy-Loading** for routes.
+    *   Optimize images and assets.
+*   **Design Consistency:** Always use the design system tokens (colors, spacing) defined in `globals.css` / Tailwind config.
 ## 🔑 Key Logic & Constraints (from PRD)
 *   **Risk Management:** Strict **$10 max risk per trade**. Minimum lot **0.01**.
 *   **Strategy:**
