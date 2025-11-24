@@ -91,6 +91,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[Medium]** Implement AI Analyst scaffolding.
-2.  **[Medium]** Implement Frontend UI for Signals.
-3.  **[Medium]** Implement AI Analyst API.
+1.  **[Medium]** Implement Frontend UI for Signals (Theme: Gridbot AI).
+2.  **[Medium]** Implement AI Analyst API.
+3.  **[Medium]** Implement Backtest UI.
