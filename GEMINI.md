@@ -66,6 +66,29 @@ The project distinguishes itself through:
 *   **Backend:** `pytest` (Contract tests derived from specs).
 *   **Backtesting:** `vectorbt` based simulations.
 
+### 4. Database Migration (Alembic)
+To apply schema changes to the database:
+
+1.  **Connect to the API Gateway service:**
+    ```bash
+    cd services/api-gateway
+    ```
+
+2.  **Set the Database URL (if running locally against Docker DB):**
+    ```bash
+    export DATABASE_URL=postgresql://trader:trader@localhost:5432/mtf_db
+    ```
+
+3.  **Create a new migration (after modifying models):**
+    ```bash
+    ./venv/bin/alembic revision --autogenerate -m "Description of changes"
+    ```
+
+4.  **Apply migrations:**
+    ```bash
+    ./venv/bin/alembic upgrade head
+    ```
+
 ## 🔑 Key Logic & Constraints (from PRD)
 *   **Risk Management:** Strict **$10 max risk per trade**. Minimum lot **0.01**.
 *   **Strategy:**
@@ -86,3 +109,4 @@ The project distinguishes itself through:
 | **Rebuild Specific** | `docker compose up --build <service_name>` |
 | **Stop All** | `docker compose down` |
 | **Deploy** | `./deploy.sh` |
+| **Connect to DB** | `docker exec -it pgvector psql -U trader -d mtf_db` |

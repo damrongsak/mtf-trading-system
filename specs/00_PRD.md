@@ -9,10 +9,10 @@ This PRD defines the **What** and **Why** of the product; the **How** (architect
 | Key Detail | Value |
 | :--- | :--- |
 | **Product Name** | XAU/USD MTF Alpha Engine (Codename: *Phoenix*) |
-| **Document Version** | 1.0 (MVP) |
-| **Target Audience** | Sole Trader / Dedicated AI Engineer (User Persona: Analytical Logic & Creative Vision) |
-| **Release Target** | Phase 1 Completion (Full Risk Guardrail + Backtest Harness) |
-| **Status** | Specification Complete (Ready for Plan/Task Generation) |
+| **Document Version** | 2.0 (Expansion Phase) |
+| **Target Audience** | Quant Funds, Prop Firms, Individual Traders |
+| **Release Target** | Phase 2 Completion (Multi-Tenancy, Multi-Strategy, Oanda) |
+| **Status** | In Progress |
 
 ---
 
@@ -26,9 +26,8 @@ Automated trading systems often fail due to undisciplined risk management, look-
 
 To build a robust, reproducible, and capital-preserving XAU/USD algorithmic trading system that integrates proven Smart Money Concepts (SMC) and Multi-Timeframe (MTF) analysis, enforced by a non-negotiable risk engine, allowing the trader to focus on system optimization and strategic enhancement rather than manual execution or emotional risk.
 
-### 1.3. MVP Scope Focus
-
-The **Initial Focus (MVP)** is the **Risk Engine, Signal Generation, and Backtest Validation**. The system must demonstrate its capability to identify a trade, calculate size based on strict $10 risk, and execute a fully non-lookahead-biased backtest before any live deployment is considered.
+### 1.3. Expansion Scope Focus
+The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, and Oanda Integration**. The system will support multiple users/funds, concurrent execution of diverse strategies, and live data ingestion from Oanda.
 
 ---
 
@@ -36,10 +35,11 @@ The **Initial Focus (MVP)** is the **Risk Engine, Signal Generation, and Backtes
 
 | ID | Goal | Success Metric (KPI) |
 | :--- | :--- | :--- |
-| **G1** | **Capital Preservation** (Highest Priority) | Zero instances of trades where the per-trade risk exceeds the defined $10 absolute maximum during paper trading and backtesting. |
+| **G1** | **Capital Preservation** (Highest Priority) | Zero instances of trades where the per-trade risk exceeds the defined limit per fund/strategy. |
 | **G2** | **Strategy Validation** | Vectorized backtest (Vectorbt) yields a Sharpe Ratio > 0.8 and Max Drawdown < 15% across a 3-year historical period. |
-| **G3** | **Signal Precision** | The system successfully executes a minimum of 20 high-confidence trades per month in simulation, adhering to the minimum R:R of 1:2. |
-| **G4** | **Reproducibility** | All backtest results (trade log, metrics) are identical across different runs given the same historical data and parameters. |
+| **G3** | **Multi-Tenancy** | Support for multiple users and funds with distinct roles (Owner, Trader, Viewer). |
+| **G4** | **Multi-Strategy** | Concurrent execution of at least 3 distinct strategies with independent state management. |
+| **G5** | **Data Integration** | Successful ingestion and processing of live market data from Oanda v20 API. |
 
 ---
 
@@ -48,6 +48,8 @@ The **Initial Focus (MVP)** is the **Risk Engine, Signal Generation, and Backtes
 | User Type | Profile | Core Need Solved by MVP |
 | :--- | :--- | :--- |
 | **Primary User (The Engineer)** | A full-stack AI engineer (analytical, design-focused) managing their own capital. | **Reliable Core Platform:** Provides a risk-guaranteed Python/FastAPI foundation for building advanced AI/ML features (e.g., LLM agent). |
+| **Fund Manager** | Manager of a quantitative trading fund. | **Multi-Tenancy:** Manage multiple strategies and users within a fund structure. |
+| **Trader** | Individual trader executing strategies. | **Execution & Monitoring:** Monitor signals and trade execution in real-time. |
 
 ---
 

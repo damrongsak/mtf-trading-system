@@ -21,6 +21,9 @@ services:
       - execution
     environment:
       - EXECUTION_SERVICE_URL=http://execution:8000
+      - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   execution:
     build: ./services/execution
@@ -83,6 +86,12 @@ services:
   #     - "6333:6333"
   #   volumes:
   #     - qdrant_storage:/qdrant/storage
+  #   environment:
+  #     - QDRANT__STORAGE__PATH=/qdrant/storage
+  #     - QDRANT__SERVICE__GRPC_PORT=6334
+  #     - QDRANT__LOGGING__LEVEL=info
+  #     - QDRANT__SERVICE__API_KEY=pqFOJtR5GfwW0pzcrit6qVdgj0PuSa8jHWT7lnux3Dk=
+  #     - QDRANT__CLUSTER__ENABLED=false
 
   frontend:
     build: ./frontend

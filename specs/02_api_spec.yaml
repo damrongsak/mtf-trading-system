@@ -55,6 +55,102 @@ components:
               schema:
                 $ref: '#/components/schemas/RiskCheckResponse'
 
+  /api/v1/auth/token:
+    post:
+      summary: Login to get access token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+
+  /api/v1/users/me:
+    get:
+      summary: Get current user details
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/v1/funds:
+    get:
+      summary: List funds for current user
+      responses:
+        '200':
+          description: List of funds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Fund'
+    post:
+      summary: Create a new fund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundCreate'
+      responses:
+        '201':
+          description: Fund created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fund'
+
+  /api/v1/strategies:
+    get:
+      summary: List strategies for a fund
+      parameters:
+        - name: fund_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Strategy'
+    post:
+      summary: Create a new strategy configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyCreate'
+      responses:
+        '201':
+          description: Strategy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Strategy'
+
     RiskCheckRequest:
       type: object
       required:
@@ -81,3 +177,78 @@ components:
           type: number
         reason:
           type: string
+
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+
+    Fund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+
+    FundCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        config_json:
+          type: object
+        is_active:
+          type: boolean
+
+    StrategyCreate:
+      type: object
+      required:
+        - name
+        - fund_id
+        - type
+        - config_json
+      properties:
+        name:
+          type: string
+        fund_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        config_json:
+          type: object

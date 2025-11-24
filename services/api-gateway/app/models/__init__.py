@@ -9,6 +9,9 @@ from app.models.candle import Candle
 from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.models.strategy_run import StrategyRun, RunStatus
 from app.models.risk_rule import RiskRule, RuleType
+from app.models.user_fund import User, Fund, UserFund, UserRole
+from app.models.strategy import Strategy
+from app.models.data_source import DataSource
 
 __all__ = [
     "Candle",
@@ -19,4 +22,10 @@ __all__ = [
     "RunStatus",
     "RiskRule",
     "RuleType",
+    "User",
+    "Fund",
+    "UserFund",
+    "UserRole",
+    "Strategy",
+    "DataSource",
 ]

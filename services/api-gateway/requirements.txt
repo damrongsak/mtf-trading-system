@@ -29,6 +29,9 @@ yfinance==0.2.35
 python-dotenv==1.0.0
 python-multipart==0.0.6
 aiofiles==23.2.1
+# Auth
+python-jose[cryptography]
+bcrypt
 
 # Testing
 pytest==7.4.4

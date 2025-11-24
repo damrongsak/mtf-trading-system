@@ -3,6 +3,127 @@
 # All Pydantic models and Alembic migrations must align with this specification
 
 entities:
+  User:
+    description: "System users (Traders, Admins, etc.)"
+    table_name: "users"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: username
+        type: string
+        required: true
+        unique: true
+        max_length: 50
+      - name: email
+        type: string
+        required: true
+        unique: true
+        max_length: 100
+      - name: password_hash
+        type: string
+        required: true
+      - name: is_active
+        type: boolean
+        default: true
+      - name: is_superuser
+        type: boolean
+        default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  Fund:
+    description: "Quant Fund or Trading Group"
+    table_name: "funds"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+      - name: description
+        type: text
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  UserFund:
+    description: "Many-to-Many relationship between Users and Funds with Roles"
+    table_name: "user_funds"
+    indexes:
+      - fields: ["user_id", "fund_id"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+      - name: role
+        type: enum
+        enum_values: ["OWNER", "MANAGER", "TRADER", "VIEWER"]
+        required: true
+
+  Strategy:
+    description: "Trading Strategy Configuration"
+    table_name: "strategies"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+      - name: type
+        type: string
+        required: true
+        description: "Strategy class/type identifier"
+      - name: config_json
+        type: jsonb
+        required: true
+        description: "Strategy-specific configuration parameters"
+      - name: is_active
+        type: boolean
+        default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  DataSource:
+    description: "Market Data Source Configuration"
+    table_name: "data_sources"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: name
+        type: string
+        required: true
+        unique: true
+        description: "Provider name (e.g., OANDA, BINANCE)"
+      - name: config_json
+        type: jsonb
+        required: true
+        description: "Connection details (API keys, URLs) - Encrypted in app"
+      - name: is_active
+        type: boolean
+        default: true
+
   Candle:
     description: "OHLCV candlestick data with multi-timeframe indicators"
     table_name: "candles"

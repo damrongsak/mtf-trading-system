@@ -12,7 +12,7 @@ import os
 # Database URL from environment variables
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://lab:lab1234@localhost:5432/mtf_trading"
+    "postgresql://trader:trader@localhost:5432/mtf_db"
 )
 
 # Create SQLAlchemy engine

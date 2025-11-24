@@ -53,10 +53,10 @@ Create a `.env` file in the `services/api-gateway` directory:
 
 ```bash
 # Database Configuration
-DATABASE_URL=postgresql://lab:lab1234@localhost:5432/mtf_trading
-POSTGRES_USER=lab
-POSTGRES_PASSWORD=lab1234
-POSTGRES_DB=mtf_trading
+DATABASE_URL=postgresql://trader:trader@localhost:5432/mtf_db
+POSTGRES_USER=trader
+POSTGRES_PASSWORD=trader
+POSTGRES_DB=mtf_db
 
 # Qdrant Configuration
 QDRANT_URL=http://localhost:6333
