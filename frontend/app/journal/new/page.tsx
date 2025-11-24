@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import WizardLayout from "@/components/journal/WizardLayout";
 import Step1Technical from "@/components/journal/Step1Technical";
 import Step2GameLevel from "@/components/journal/Step2GameLevel";
+import Step3MentalPattern from "@/components/journal/Step3MentalPattern";
+import Step4RootCause from "@/components/journal/Step4RootCause";
 
 export default function NewJournalPage() {
   const router = useRouter();
@@ -27,6 +29,25 @@ export default function NewJournalPage() {
   // Step 2 Data
   const [gameLevel, setGameLevel] = useState("");
 
+  // Step 3 Data
+  const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  const [mentalState, setMentalState] = useState({
+    greed_level: 0,
+    fear_level: 0,
+    tilt_level: 0,
+    confidence_level: 5,
+    discipline_level: 5,
+  });
+
+  // Step 4 Data
+  const [rootCause, setRootCause] = useState({
+    problem: "",
+    why_exist: "",
+    flaw: "",
+    correction: "",
+    logic: "",
+  });
+
   const handleNext = () => {
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
@@ -43,7 +64,7 @@ export default function NewJournalPage() {
     const payload = {
       symbol: step1Data.symbol,
       direction: step1Data.direction,
-      session: step1Data.session,
+      session: step1Data.session || null,
       entry_price: parseFloat(step1Data.entryPrice) || null,
       exit_price: parseFloat(step1Data.exitPrice) || null,
       pnl_amount: parseFloat(step1Data.pnl) || null,
@@ -52,6 +73,15 @@ export default function NewJournalPage() {
       risk_amount: parseFloat(step1Data.riskAmount) || null,
       context_score: step1Data.contextScore,
       game_level: gameLevel || null,
+      mental_state: mentalState,
+      timeline_events: timelineEvents,
+      root_cause: {
+        problem: rootCause.problem || null,
+        why_exist: rootCause.why_exist || null,
+        flaw: rootCause.flaw || null,
+        correction: rootCause.correction || null,
+        logic: rootCause.logic || null,
+      },
     };
 
     try {
@@ -60,29 +90,28 @@ export default function NewJournalPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        router.push("/journal");
+        alert("Journal entry created successfully!");
+        router.push("/");
       } else {
-        console.error("Failed to create journal entry");
+        const error = await res.json();
+        alert(`Failed to create journal entry: ${JSON.stringify(error)}`);
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("Network error. Please try again.");
     }
   };
 
   return (
     <WizardLayout currentStep={currentStep} totalSteps={4}>
       {currentStep === 1 && (
-        <Step1Technical
-          data={step1Data}
-          onChange={setStep1Data}
-          onNext={handleNext}
-        />
+        <Step1Technical data={step1Data} onChange={setStep1Data} onNext={handleNext} />
       )}
 
       {currentStep === 2 && (
@@ -95,34 +124,23 @@ export default function NewJournalPage() {
       )}
 
       {currentStep === 3 && (
-        <div className="text-center">
-          <p className="text-gray-400">Mental Pattern (Timeline) - Coming Soon</p>
-          <div className="flex gap-4 mt-8">
-            <button onClick={handleBack} className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-lg">
-              ← Back
-            </button>
-            <button onClick={handleNext} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold rounded-lg">
-              Next: Root Cause →
-            </button>
-          </div>
-        </div>
+        <Step3MentalPattern
+          timelineEvents={timelineEvents}
+          mentalState={mentalState}
+          onTimelineChange={setTimelineEvents}
+          onMentalStateChange={setMentalState}
+          onNext={handleNext}
+          onBack={handleBack}
+        />
       )}
 
       {currentStep === 4 && (
-        <div className="text-center">
-          <p className="text-gray-400">Root Cause Analysis - Coming Soon</p>
-          <div className="flex gap-4 mt-8">
-            <button onClick={handleBack} className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-lg">
-              ← Back
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold rounded-lg"
-            >
-              Submit Journal Entry
-            </button>
-          </div>
-        </div>
+        <Step4RootCause
+          rootCause={rootCause}
+          onChange={setRootCause}
+          onSubmit={handleSubmit}
+          onBack={handleBack}
+        />
       )}
     </WizardLayout>
   );
