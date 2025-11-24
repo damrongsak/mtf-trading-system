@@ -12,6 +12,7 @@ from app.models.risk_rule import RiskRule, RuleType
 from app.models.user_fund import User, Fund, UserFund, UserRole
 from app.models.strategy import Strategy
 from app.models.data_source import DataSource
+from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 
 __all__ = [
     "Candle",
@@ -28,4 +29,8 @@ __all__ = [
     "UserRole",
     "Strategy",
     "DataSource",
+    "JournalEntry",
+    "MentalState",
+    "TimelineEvent",
+    "RootCauseAnalysis",
 ]

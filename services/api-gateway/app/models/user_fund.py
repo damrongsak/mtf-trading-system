@@ -25,6 +25,7 @@ class User(Base):
 
     # Relationships
     funds = relationship("UserFund", back_populates="user")
+    journal_entries = relationship("JournalEntry", back_populates="user")
 
 class Fund(Base):
     __tablename__ = "funds"

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import signal, risk, auth, backtest, strategy
+from app.routers import signal, risk, auth, backtest, strategy, journal
 
 app = FastAPI(
     title="MTF Trading System API",
@@ -22,6 +22,7 @@ app.include_router(auth.router)
 app.include_router(signal.router)
 app.include_router(risk.router)
 app.include_router(strategy.router)
+app.include_router(journal.router)
 app.include_router(backtest.router, prefix="/api/v1")
 
 
