@@ -1,0 +1,10 @@
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# vscode project settings
+.vscode
+
+# Mac folder settings
+**/.DS_Store
+
