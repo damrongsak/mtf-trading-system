@@ -2,38 +2,25 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { login } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login: loginUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
-      const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
-
-      const res = await fetch("http://localhost:8000/api/v1/auth/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Invalid credentials");
-      }
-
-      const data = await res.json();
-      login(data.access_token);
+      const data = await login(username, password);
+      // Call the login function from AuthContext which handles token storage
+      // and user state management
+      loginUser(data.access_token);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Invalid credentials");
     }
   };
 

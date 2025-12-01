@@ -9,6 +9,8 @@ services:
     depends_on:
       - api
       # - frontend # manually run `npm run build` and `npm run start` in frontend directory
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   api:
     build: ./services/api-gateway

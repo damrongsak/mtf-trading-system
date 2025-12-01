@@ -1,68 +1,23 @@
 
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext'; // Assuming AuthContext provides API token and user info
+import React from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useJournalEntries } from '@/lib/hooks';
 import Link from 'next/link';
 
-interface JournalEntry {
-  id: string;
-  user_id: string;
-  symbol: string;
-  direction: 'LONG' | 'SHORT';
-  entry_price?: number;
-  exit_price?: number;
-  pnl_amount?: number;
-  pnl_r?: number;
-  risk_amount?: number;
-  stop_loss_price?: number;
-  take_profit_price?: number;
-  session?: string;
-  context_score?: number;
-  game_level?: 'A_GAME' | 'B_GAME' | 'C_GAME';
-  created_at: string;
-  updated_at: string;
-}
-
 const JournalListPage: React.FC = () => {
-  const { authToken, user } = useAuth();
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { authToken } = useAuth();
+  const { entries: journalEntries, loading, error } = useJournalEntries();
 
-  useEffect(() => {
-    const fetchJournalEntries = async () => {
-      if (!authToken) {
-        setError('Authentication token not found. Please log in.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-        const response = await fetch(`${API_BASE_URL}/api/v1/journal`, {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Failed to fetch journal entries');
-        }
-
-        const data: JournalEntry[] = await response.json();
-        setJournalEntries(data);
-      } catch (err: any) {
-        setError(err.message || 'An unexpected error occurred.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchJournalEntries();
-  }, [authToken]);
+  if (!authToken) {
+    return (
+      <div className="flex justify-center items-center min-h-screen text-xl text-red-500">
+        Authentication token not found. Please log in.
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen text-xl">Loading journal entries...</div>;

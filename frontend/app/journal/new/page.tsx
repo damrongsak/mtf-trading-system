@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createJournalEntry } from "@/lib/api/journal";
 import WizardLayout from "@/components/journal/WizardLayout";
 import Step1Technical from "@/components/journal/Step1Technical";
 import Step2GameLevel from "@/components/journal/Step2GameLevel";
@@ -85,27 +86,11 @@ export default function NewJournalPage() {
     };
 
     try {
-      const token = localStorage.getItem("token");
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE_URL}/api/v1/journal/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        alert("Journal entry created successfully!");
-        router.push("/");
-      } else {
-        const error = await res.json();
-        alert(`Failed to create journal entry: ${JSON.stringify(error)}`);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Network error. Please try again.");
+      await createJournalEntry(payload);
+      alert("Journal entry created successfully!");
+      router.push("/journal");
+    } catch (error: any) {
+      alert(`Failed to create journal entry: ${error.message}`);
     }
   };
 
