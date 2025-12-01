@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2025-11-24
+**Last Updated:** 2025-12-01
 **Current Phase:** Phase 5 - Multi-Tenancy, Multi-Strategy & Trading Journal
 
 ---
@@ -32,7 +32,7 @@
 - **Features:**
     - **Backend:**
         - 4 database models: `JournalEntry`, `MentalState`, `TimelineEvent`, `RootCauseAnalysis`.
-        - CRUD API endpoints (`POST /journal`, `GET /journal`, `GET /journal/{id}`).
+        - CRUD API endpoints (`POST /api/v1/journal`, `GET /api/v1/journal`, `GET /api/v1/journal/{id}`).
         - Full integration with User authentication.
         - Database migrations applied.
     - **Frontend:**
@@ -57,6 +57,9 @@
     - `docker-compose.yml` orchestrates API, Execution, Frontend, and Nginx.
     - Shared network `orignx-network` configured.
     - Hot-reload enabled for development.
+    - **Nginx Reverse Proxy:** Configured to expose all services via port 80 (`infra/nginx/default.conf`).
+    - **API Versioning:** All services exposed under `/api/v1/`.
+    - **Automated Testing:** `tests/test_endpoints.sh` verifies service health and signal endpoints.
 
 ---
 
@@ -65,12 +68,12 @@
 ### **1. API Gateway (`services/api-gateway`)**
 - **Status:** ✅ Core Complete
 - **Features:**
-    - `/risk/check` route implemented and connected to Execution service.
-    - `/signal` routes implemented (`GET /latest`, `POST /check`).
-    - `/backtest` routes implemented (`POST /run`, `GET /results`).
-    - `/auth` routes: Login, Register, User details.
-    - `/strategy` routes: List and Create strategies.
-    - `/journal` routes: Create, List, Get journal entries.
+    - `/api/v1/risk/check` route implemented and connected to Execution service.
+    - `/api/v1/signal` routes implemented (`GET /latest`, `POST /check`).
+    - `/api/v1/backtest` routes implemented (`POST /run`, `GET /results`).
+    - `/api/v1/auth` routes: Login, Register, User details.
+    - `/api/v1/strategies` routes: List and Create strategies.
+    - `/api/v1/journal` routes: Create, List, Get journal entries.
     - Auth middleware with JWT token validation.
 
 ### **2. Frontend (`frontend`)**

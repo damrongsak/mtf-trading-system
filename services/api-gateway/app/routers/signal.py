@@ -4,7 +4,7 @@ from datetime import datetime
 from app.schemas.signal import SignalResponse, SignalDirection
 
 router = APIRouter(
-    prefix="/signal",
+    prefix="/api/v1/signal",
     tags=["signal"],
     responses={404: {"description": "Not found"}},
 )

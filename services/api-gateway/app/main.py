@@ -29,3 +29,7 @@ app.include_router(backtest.router, prefix="/api/v1")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+@app.get("/api/v1/health")
+async def health_v1():
+    return {"status": "ok"}

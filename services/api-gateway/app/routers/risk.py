@@ -3,7 +3,10 @@ from app.schemas.trade import RiskCheckRequest, RiskCheckResponse
 import httpx
 import os
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/v1/risk",
+    tags=["risk"]
+)
 EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:8000")
 
 @router.post("/check", response_model=RiskCheckResponse)
