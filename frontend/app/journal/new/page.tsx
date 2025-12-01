@@ -86,7 +86,8 @@ export default function NewJournalPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8000/api/v1/journal/", {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+      const res = await fetch(`${API_BASE_URL}/api/v1/journal/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

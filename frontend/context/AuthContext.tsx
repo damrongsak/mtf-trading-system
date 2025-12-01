@@ -11,6 +11,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  authToken: string | null;
   login: (token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -20,11 +21,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
+      setAuthToken(token);
       // Validate token and fetch user details (mock for now)
       setUser({ username: "Trader", email: "trader@example.com", is_active: true });
     }
@@ -32,18 +35,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (token: string) => {
     localStorage.setItem("token", token);
+    setAuthToken(token);
     setUser({ username: "Trader", email: "trader@example.com", is_active: true });
     router.push("/");
   };
 
   const logout = () => {
     localStorage.removeItem("token");
+    setAuthToken(null);
     setUser(null);
     router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, authToken, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
