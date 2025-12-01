@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:api": "openapi-generator-cli generate -i ../specs/02_api_spec.yaml -g typescript-axios -o lib/api/generated --additional-properties=useSingleRequestParameter=true"
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -15,6 +16,7 @@
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.25.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

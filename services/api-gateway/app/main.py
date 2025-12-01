@@ -1,3 +1,5 @@
+import os
+import yaml
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import signal, risk, auth, backtest, strategy, journal
@@ -7,6 +9,14 @@ app = FastAPI(
     description="API Gateway for Signal Generation, Risk Management, and AI Analysis",
     version="0.1.0"
 )
+
+# Attempt to load OpenAPI spec from file (SDD)
+# This path works for local dev when running from services/api-gateway
+# In Docker, you would need to mount/copy the spec file.
+SPEC_PATH = "../../specs/02_api_spec.yaml"
+if os.path.exists(SPEC_PATH):
+    with open(SPEC_PATH, "r") as f:
+        app.openapi_schema = yaml.safe_load(f)
 
 # CORS Middleware
 app.add_middleware(

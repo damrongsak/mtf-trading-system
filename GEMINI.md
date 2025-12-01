@@ -34,7 +34,10 @@ The project distinguishes itself through:
 **Do not write code without checking specs first.**
 1.  **Read Specs:** Check `specs/` for defining behavior.
 2.  **Update Specs:** If a new feature is needed, modify `01_data_model.yaml` or `02_api_spec.yaml` first.
-3.  **Implement:** Scaffold code based on the updated specs.
+3.  **Generate Code:**
+    *   **Backend Models:** `services/api-gateway/scripts/gen_backend.sh`
+    *   **Frontend Client:** `cd frontend && pnpm run gen:api`
+4.  **Implement:** Scaffold code based on the updated specs and generated types.
 
 ### 2. Running the System
 **Prerequisites:** Docker & Docker Compose, Node.js (pnpm).

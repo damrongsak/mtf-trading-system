@@ -1,5 +1,3 @@
-### specs/02_api_spec.yaml (snippet)
-
 openapi: 3.0.0
 info:
   title: MTF Trading API
@@ -21,23 +19,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignalResponse'
-components:
-  schemas:
-    SignalRequest:
-      type: object
-      properties:
-        symbol:
-          type: string
-        timeframe:
-          type: string
-    SignalResponse:
-      type: object
-      properties:
-        allowed:
-          type: boolean
-        reason:
-          type: string
-
   /api/v1/risk/check:
     post:
       summary: Check if a trade execution is allowed based on risk rules
@@ -54,7 +35,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/RiskCheckResponse'
-
   /api/v1/auth/token:
     post:
       summary: Login to get access token
@@ -76,7 +56,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/Token'
-
   /api/v1/users/me:
     get:
       summary: Get current user details
@@ -87,7 +66,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-
   /api/v1/funds:
     get:
       summary: List funds for current user
@@ -115,7 +93,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/Fund'
-
   /api/v1/strategies:
     get:
       summary: List strategies for a fund
@@ -150,109 +127,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/Strategy'
-
-    RiskCheckRequest:
-      type: object
-      required:
-        - risk_usd
-        - sl_distance_usd
-        - min_lot
-      properties:
-        risk_usd:
-          type: number
-          description: Maximum risk in USD allowed for this trade
-        sl_distance_usd:
-          type: number
-          description: Distance to stop loss in USD (per unit/contract)
-        min_lot:
-          type: number
-          description: Minimum allowed lot size (e.g., 0.01)
-
-    RiskCheckResponse:
-      type: object
-      properties:
-        can_execute:
-          type: boolean
-        lot:
-          type: number
-        reason:
-          type: string
-
-    Token:
-      type: object
-      properties:
-        access_token:
-          type: string
-        token_type:
-          type: string
-
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        username:
-          type: string
-        email:
-          type: string
-        is_active:
-          type: boolean
-
-    Fund:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        description:
-          type: string
-
-    FundCreate:
-      type: object
-      required:
-        - name
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-
-    Strategy:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        type:
-          type: string
-        config_json:
-          type: object
-        is_active:
-          type: boolean
-
-    StrategyCreate:
-      type: object
-      required:
-        - name
-        - fund_id
-        - type
-        - config_json
-      properties:
-        name:
-          type: string
-        fund_id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        config_json:
-          type: object
-
   /api/v1/journal/:
     get:
       summary: List journal entries for current user
@@ -280,7 +154,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/JournalEntryResponse'
-
   /api/v1/journal/{entry_id}:
     get:
       summary: Get journal entry details
@@ -301,6 +174,114 @@ components:
 
 components:
   schemas:
+    SignalRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+    SignalResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        reason:
+          type: string
+    RiskCheckRequest:
+      type: object
+      required:
+        - risk_usd
+        - sl_distance_usd
+        - min_lot
+      properties:
+        risk_usd:
+          type: number
+          description: Maximum risk in USD allowed for this trade
+        sl_distance_usd:
+          type: number
+          description: Distance to stop loss in USD (per unit/contract)
+        min_lot:
+          type: number
+          description: Minimum allowed lot size (e.g., 0.01)
+    RiskCheckResponse:
+      type: object
+      properties:
+        can_execute:
+          type: boolean
+        lot:
+          type: number
+        reason:
+          type: string
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+    Fund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+    FundCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        config_json:
+          type: object
+        is_active:
+          type: boolean
+    StrategyCreate:
+      type: object
+      required:
+        - name
+        - fund_id
+        - type
+        - config_json
+      properties:
+        name:
+          type: string
+        fund_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        config_json:
+          type: object
     JournalEntryCreate:
       type: object
       required:
@@ -372,7 +353,6 @@ components:
               type: string
             logic:
               type: string
-
     JournalEntryResponse:
       allOf:
         - $ref: '#/components/schemas/JournalEntryCreate'
