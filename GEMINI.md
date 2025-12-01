@@ -117,6 +117,152 @@ Adhere to these principles for a scalable and maintainable frontend:
     *   Implement **Code-Splitting** and **Lazy-Loading** for routes.
     *   Optimize images and assets.
 *   **Design Consistency:** Always use the design system tokens (colors, spacing) defined in `globals.css` / Tailwind config.
+
+### 7. Frontend API Client Architecture
+**All API calls MUST use the centralized axios client in `frontend/lib/api/`.** Do not use `fetch()` directly.
+
+#### 📂 lib/ Structure
+```
+frontend/lib/
+├── api/
+│   ├── client.ts       # Axios instance with interceptors (NEVER modify directly)
+│   ├── types.ts        # Shared TypeScript interfaces
+│   ├── auth.ts         # Auth endpoints
+│   ├── journal.ts      # Journal endpoints
+│   └── index.ts        # Barrel export
+├── hooks/
+│   ├── useJournalEntries.ts
+│   ├── useAsync.ts     # Generic async handler
+│   └── index.ts
+└── utils.ts            # Formatting, storage, helpers
+```
+
+#### ✅ Adding New API Endpoints
+
+**Step 1: Add Types** (`lib/api/types.ts`)
+```typescript
+export interface Signal {
+  id: string;
+  symbol: string;
+  direction: 'BULLISH' | 'BEARISH';
+  confidence: number;
+}
+
+export interface CreateSignalDto {
+  symbol: string;
+  direction: string;
+  reasoning?: string;
+}
+```
+
+**Step 2: Create Service File** (`lib/api/signals.ts`)
+```typescript
+import { apiClient } from './client';
+import { Signal, CreateSignalDto } from './types';
+
+export async function getSignals(): Promise<Signal[]> {
+  const response = await apiClient.get<Signal[]>('/api/v1/signals');
+  return response.data;
+}
+
+export async function createSignal(data: CreateSignalDto): Promise<Signal> {
+  const response = await apiClient.post<Signal>('/api/v1/signals', data);
+  return response.data;
+}
+```
+
+**Step 3: Export in Barrel** (`lib/api/index.ts`)
+```typescript
+export * from './signals';
+```
+
+**Step 4: Use in Components**
+```typescript
+import { getSignals } from '@/lib/api';
+
+const signals = await getSignals();
+```
+
+#### 🎣 Creating Custom Hooks
+
+**For Auto-Fetch on Mount:**
+```typescript
+// lib/hooks/useSignals.ts
+import { useState, useEffect } from 'react';
+import { getSignals } from '../api/signals';
+import { Signal, ApiError } from '../api/types';
+
+export function useSignals() {
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSignals = async () => {
+    try {
+      setLoading(true);
+      const data = await getSignals();
+      setSignals(data);
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSignals();
+  }, []);
+
+  return { signals, loading, error, refetch: fetchSignals };
+}
+```
+
+**For Manual Operations (Forms):**
+```typescript
+import { useAsync } from '@/lib/hooks';
+import { createSignal } from '@/lib/api';
+
+const { execute: submitSignal, loading, error } = useAsync(createSignal);
+
+await submitSignal({ symbol: 'XAU/USD', direction: 'BULLISH' });
+```
+
+#### ⚠️ Error Handling
+
+**Client-Side (Automatic via Interceptor):**
+- ✅ Token injection: Auto-adds `Authorization: Bearer {token}`
+- ✅ Error transformation: Converts axios errors to `ApiError`
+- ✅ Status code handling: 401, 403, 404, 422, 500
+- ✅ Dev logging: Console logs in development mode
+
+**Component-Level:**
+```typescript
+try {
+  const data = await createJournalEntry(payload);
+  alert('Success!');
+} catch (error) {
+  const apiError = error as ApiError;
+  alert(`Error: ${apiError.message}`);
+  // apiError.status - HTTP status code
+  // apiError.details - Backend error details
+}
+```
+
+#### 🔐 Authentication Flow
+
+1. **Login:** Call `login(username, password)` from `lib/api/auth`
+2. **Token Storage:** AuthContext stores token in localStorage
+3. **Auto-Injection:** Request interceptor reads token and adds to headers
+4. **401 Handling:** Response interceptor logs warnings (future: auto-logout)
+
+**DO NOT:**
+- ❌ Use `fetch()` directly
+- ❌ Manually add `Authorization` headers (interceptor handles this)
+- ❌ Access `localStorage` directly for tokens (use AuthContext)
+- ❌ Create axios instances outside `lib/api/client.ts`
+
+**Environment Variables:**
+- `NEXT_PUBLIC_API_BASE_URL`: Set to `''` (empty) for Nginx routing, or `http://localhost:8000` for direct dev
 ## 🔑 Key Logic & Constraints (from PRD)
 *   **Risk Management:** Strict **$10 max risk per trade**. Minimum lot **0.01**.
 *   **Strategy:**
