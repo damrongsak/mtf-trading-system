@@ -19,8 +19,8 @@ export default function LoginPage() {
       // Call the login function from AuthContext which handles token storage
       // and user state management
       loginUser(data.access_token);
-    } catch (err: any) {
-      setError(err.message || "Invalid credentials");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid credentials");
     }
   };
 

@@ -57,7 +57,7 @@ export default function Step4RootCause({ rootCause, onChange, onSubmit, onBack }
     <div className="space-y-6">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-white mb-2">Root Cause Analysis</h2>
-        <p className="text-gray-400">The "Mental Hand History" - Structured self-coaching</p>
+        <p className="text-gray-400">The &ldquo;Mental Hand History&rdquo; - Structured self-coaching</p>
       </div>
 
       <div className="space-y-4">

@@ -2,7 +2,7 @@
 export interface ApiError {
     message: string;
     status?: number;
-    details?: any;
+    details?: unknown;
 }
 
 // Auth Types
@@ -63,9 +63,12 @@ export interface MentalState {
 }
 
 export interface TimelineEvent {
-    timestamp?: string;
-    event?: string;
-    emotion?: string;
+  type: string;
+  description: string;
+  order_index: number;
+  timestamp?: string;
+  event?: string;
+  emotion?: string;
 }
 
 export interface RootCauseAnalysis {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface User {
@@ -20,18 +20,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setAuthToken(token);
-      // Validate token and fetch user details (mock for now)
-      setUser({ username: "Trader", email: "trader@example.com", is_active: true });
+  // Lazy initialization to avoid effect setState warning
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem("token");
     }
-  }, []);
+    return null;
+  });
+  
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem("token")) {
+      // Mock user data - in production, validate token and fetch real user
+      return { username: "Trader", email: "trader@example.com", is_active: true };
+    }
+    return null;
+  });
+  
+  const router = useRouter();
 
   const login = (token: string) => {
     localStorage.setItem("token", token);

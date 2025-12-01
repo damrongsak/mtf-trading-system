@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createJournalEntry } from "@/lib/api/journal";
+import type { TimelineEvent } from "@/lib/api/types";
 import WizardLayout from "@/components/journal/WizardLayout";
 import Step1Technical from "@/components/journal/Step1Technical";
 import Step2GameLevel from "@/components/journal/Step2GameLevel";
@@ -31,7 +32,7 @@ export default function NewJournalPage() {
   const [gameLevel, setGameLevel] = useState("");
 
   // Step 3 Data
-  const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [mentalState, setMentalState] = useState({
     greed_level: 0,
     fear_level: 0,
@@ -75,7 +76,7 @@ export default function NewJournalPage() {
       context_score: step1Data.contextScore,
       game_level: gameLevel || null,
       mental_state: mentalState,
-      timeline_events: timelineEvents,
+      timeline_events: timelineEvents as TimelineEvent[],
       root_cause: {
         problem: rootCause.problem || null,
         why_exist: rootCause.why_exist || null,
@@ -89,8 +90,9 @@ export default function NewJournalPage() {
       await createJournalEntry(payload);
       alert("Journal entry created successfully!");
       router.push("/journal");
-    } catch (error: any) {
-      alert(`Failed to create journal entry: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create journal entry';
+      alert(`Failed to create journal entry: ${errorMessage}`);
     }
   };
 
@@ -111,7 +113,7 @@ export default function NewJournalPage() {
 
       {currentStep === 3 && (
         <Step3MentalPattern
-          timelineEvents={timelineEvents}
+          timelineEvents={timelineEvents as TimelineEvent[]}
           mentalState={mentalState}
           onTimelineChange={setTimelineEvents}
           onMentalStateChange={setMentalState}

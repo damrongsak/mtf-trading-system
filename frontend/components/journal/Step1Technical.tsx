@@ -20,7 +20,7 @@ interface Step1Props {
 }
 
 export default function Step1Technical({ data, onChange, onNext }: Step1Props) {
-  const updateField = (field: keyof Step1Data, value: any) => {
+  const updateField = (field: keyof Step1Data, value: string | number) => {
     onChange({ ...data, [field]: value });
   };
 

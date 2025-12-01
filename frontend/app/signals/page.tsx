@@ -54,7 +54,7 @@ export default function SignalsPage() {
         
         setSignals(mockData);
         setLoading(false);
-      } catch (err) {
+      } catch {
         setError('Failed to fetch signals');
         setLoading(false);
       }
