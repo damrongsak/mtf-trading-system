@@ -56,21 +56,21 @@ export default function LoginPage() {
         {/* Sign In Form */}
         <form className="space-y-6" onSubmit={handleSubmit}>
           
-          {/* Email Field */}
+          {/* Email/Username Field */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-[#e2e8f0]">
-              Email
+              Email or Username
             </label>
             <div className="mt-1">
               <input
                 id="email"
                 name="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                placeholder="Example@email.com"
+                placeholder="username or email@example.com"
                 className="appearance-none block w-full px-3 py-3 border border-[#1f2937] rounded-lg shadow-sm 
                            placeholder-[#6b7280] text-[#e2e8f0] bg-transparent
                            focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6] 
