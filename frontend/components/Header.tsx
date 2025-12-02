@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ProfileDropdown } from './ProfileDropdown';
 
 export const Header = () => {
   return (
@@ -23,6 +24,10 @@ export const Header = () => {
         <button className="px-4 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold rounded border border-red-500/20 transition-colors">
           STOP ALL
         </button>
+
+        <div className="h-6 w-px bg-gray-800 mx-2" />
+        
+        <ProfileDropdown />
       </div>
     </header>
   );
