@@ -3,6 +3,22 @@ info:
   title: MTF Trading API
   version: 0.1.0
 paths:
+  /api/v1/signal/latest/{symbol}:
+    get:
+      summary: Get the latest signal for a specific symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Latest signal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalResponse'
   /api/v1/signal/check:
     post:
       summary: Check if a signal is valid given current state
@@ -18,7 +34,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SignalResponse'
+                $ref: '#/components/schemas/APIResponse_SignalResponse'
   /api/v1/risk/check:
     post:
       summary: Check if a trade execution is allowed based on risk rules
@@ -34,7 +50,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RiskCheckResponse'
+                $ref: '#/components/schemas/APIResponse_RiskCheckResponse'
   /api/v1/auth/token:
     post:
       summary: Login to get access token
@@ -55,17 +71,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Token'
-  /api/v1/users/me:
-    get:
-      summary: Get current user details
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
       responses:
         '200':
-          description: Current user
+          description: User registered successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/profile:
+    get:
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
   /api/v1/funds:
     get:
       summary: List funds for current user
@@ -75,9 +107,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Fund'
+                $ref: '#/components/schemas/PaginatedResponse_Fund'
     post:
       summary: Create a new fund
       requestBody:
@@ -92,7 +122,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Fund'
+                $ref: '#/components/schemas/APIResponse_Fund'
   /api/v1/strategies:
     get:
       summary: List strategies for a fund
@@ -103,15 +133,23 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
       responses:
         '200':
           description: List of strategies
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Strategy'
+                $ref: '#/components/schemas/PaginatedResponse_StrategyResponse'
     post:
       summary: Create a new strategy configuration
       requestBody:
@@ -126,19 +164,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Strategy'
+                $ref: '#/components/schemas/APIResponse_StrategyResponse'
   /api/v1/journal/:
     get:
       summary: List journal entries for current user
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
       responses:
         '200':
           description: List of journal entries
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JournalEntryResponse'
+                $ref: '#/components/schemas/PaginatedResponse_JournalEntryResponse'
     post:
       summary: Create a new journal entry
       requestBody:
@@ -153,7 +200,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JournalEntryResponse'
+                $ref: '#/components/schemas/APIResponse_JournalEntryResponse'
   /api/v1/journal/{entry_id}:
     get:
       summary: Get journal entry details
@@ -170,10 +217,396 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JournalEntryResponse'
+                $ref: '#/components/schemas/APIResponse_JournalEntryResponse'
+  /backtest/run:
+    post:
+      summary: Trigger a backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequest'
+      responses:
+        '200':
+          description: Backtest started/completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /backtest/results/{backtest_id}:
+    get:
+      summary: Get results of a specific backtest
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
 
 components:
   schemas:
+    # --- Standard Response Wrappers ---
+    ResponseStatus:
+      type: string
+      enum: [success, error, fail]
+    
+    ErrorCode:
+      type: string
+      enum:
+        - AUTH_1001
+        - AUTH_1002
+        - AUTH_1003
+        - AUTH_1004
+        - AUTH_1005
+        - VAL_2001
+        - VAL_2002
+        - VAL_2003
+        - VAL_2004
+        - VAL_2005
+        - VAL_2006
+        - VAL_2007
+        - RES_3001
+        - RES_3002
+        - RES_3003
+        - BIZ_4001
+        - BIZ_4002
+        - BIZ_4003
+        - BIZ_4004
+        - RATE_5001
+        - RATE_5002
+        - SRV_9001
+        - SRV_9002
+        - SRV_9003
+        - SRV_9004
+
+    Meta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    AuthTokens:
+      type: object
+      required:
+        - access_token
+        - expires_in
+        - expires_at
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          default: Bearer
+        expires_in:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+
+    RateLimitInfo:
+      type: object
+      required:
+        - limit
+        - remaining
+        - reset
+        - reset_in_seconds
+      properties:
+        limit:
+          type: integer
+        remaining:
+          type: integer
+        reset:
+          type: string
+          format: date-time
+        reset_in_seconds:
+          type: integer
+
+    ErrorDetail:
+      type: object
+      required:
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+
+    # --- Generic Wrappers (instantiated for each type) ---
+    # Note: OpenAPI 3.0 doesn't support generics directly, so we define explicit types.
+    
+    APIResponse_SignalResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/SignalResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_RiskCheckResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/RiskCheckResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_UserResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/UserResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_Fund:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/Fund'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_StrategyResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/StrategyResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_JournalEntryResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/JournalEntryResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BacktestResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/BacktestResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_Fund:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fund'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_StrategyResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrategyResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_JournalEntryResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntryResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    # --- Domain Schemas ---
     SignalRequest:
       type: object
       properties:
@@ -184,8 +617,22 @@ components:
     SignalResponse:
       type: object
       properties:
-        allowed:
-          type: boolean
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
         reason:
           type: string
     RiskCheckRequest:
@@ -213,14 +660,20 @@ components:
           type: number
         reason:
           type: string
-    Token:
+    UserCreate:
       type: object
+      required:
+        - username
+        - email
+        - password
       properties:
-        access_token:
+        username:
           type: string
-        token_type:
+        email:
           type: string
-    User:
+        password:
+          type: string
+    UserResponse:
       type: object
       properties:
         id:
@@ -251,7 +704,7 @@ components:
           type: string
         description:
           type: string
-    Strategy:
+    StrategyResponse:
       type: object
       properties:
         id:
@@ -370,3 +823,43 @@ components:
             updated_at:
               type: string
               format: date-time
+    
+    BacktestRequest:
+      type: object
+      required:
+        - strategy_id
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        initial_capital:
+          type: number
+    
+    BacktestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        metrics:
+          type: object
+        trades:
+          type: array
+          items:
+            type: object
