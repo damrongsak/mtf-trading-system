@@ -1,0 +1,45 @@
+import { useState, useEffect } from 'react';
+import { getDashboardStats } from '../api/dashboard';
+import { DashboardStats, ApiError } from '../api/types';
+
+interface UseDashboardStatsReturn {
+    stats: DashboardStats | null;
+    loading: boolean;
+    error: string | null;
+    refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for fetching dashboard statistics
+ * Auto-fetches on mount and provides manual refetch capability
+ */
+export function useDashboardStats(): UseDashboardStatsReturn {
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchStats = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await getDashboardStats();
+            setStats(data);
+        } catch (err: unknown) {
+            const apiError = err as ApiError;
+            setError(apiError.message || 'Failed to fetch dashboard statistics');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStats();
+
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(fetchStats, 30000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    return { stats, loading, error, refetch: fetchStats };
+}

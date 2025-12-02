@@ -63,12 +63,12 @@ export interface MentalState {
 }
 
 export interface TimelineEvent {
-  type: string;
-  description: string;
-  order_index: number;
-  timestamp?: string;
-  event?: string;
-  emotion?: string;
+    type: string;
+    description: string;
+    order_index: number;
+    timestamp?: string;
+    event?: string;
+    emotion?: string;
 }
 
 export interface RootCauseAnalysis {
@@ -95,4 +95,26 @@ export interface PaginatedResponse<T> {
     total: number;
     page: number;
     limit: number;
+}
+
+// Dashboard Types
+export interface DashboardStats {
+    total_pnl: number;
+    total_trades: number;
+    winning_trades: number;
+    losing_trades: number;
+    win_rate: number;
+    open_positions: number;
+    avg_win: number;
+    avg_loss: number;
+}
+
+export interface RecentSignal {
+    id: string;
+    symbol: string;
+    direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    confidence: number;
+    timeframe: string;
+    timestamp: string;
+    entry_price?: number;
 }

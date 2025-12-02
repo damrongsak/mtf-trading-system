@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_fund import User
-from app.security import verify_password, create_access_token, get_password_hash
+from app.security import verify_password, create_access_token, get_password_hash, get_current_user
 from pydantic import BaseModel
 from datetime import timedelta
 
@@ -22,6 +22,14 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
+
+class UserResponse(BaseModel):
+    username: str
+    email: str
+    is_active: bool
+    
+    class Config:
+        from_attributes = True
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -59,3 +67,14 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
     
     access_token = create_access_token(data={"sub": new_user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/profile", response_model=UserResponse)
+async def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    """
+    Get the current authenticated user's profile
+    """
+    return UserResponse(
+        username=current_user.username,
+        email=current_user.email,
+        is_active=current_user.is_active
+    )

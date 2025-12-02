@@ -1,5 +1,5 @@
-// Export all API services
-export * from './client';
-export * from './types';
+// Barrel export for all API modules
 export * from './auth';
 export * from './journal';
+export * from './dashboard';
+export * from './types';

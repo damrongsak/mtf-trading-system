@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
 export const ProfileDropdown = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -24,6 +24,14 @@ export const ProfileDropdown = () => {
     };
   }, []);
 
+  // Show loading skeleton while auth is loading
+  if (loading) {
+    return (
+      <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse"></div>
+    );
+  }
+
+  // Don't show dropdown if not authenticated
   if (!user) {
     return null;
   }

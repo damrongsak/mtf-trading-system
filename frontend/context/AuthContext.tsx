@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { getProfile } from "@/lib/api/auth";
 
 interface User {
   username: string;
@@ -12,37 +13,79 @@ interface User {
 interface AuthContextType {
   user: User | null;
   authToken: string | null;
+  loading: boolean;
   login: (token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  refetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Lazy initialization to avoid effect setState warning
-  const [authToken, setAuthToken] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem("token");
-    }
-    return null;
-  });
-  
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem("token")) {
-      // Mock user data - in production, validate token and fetch real user
-      return { username: "Trader", email: "trader@example.com", is_active: true };
-    }
-    return null;
-  });
+  // Initialize with null to ensure server/client match during hydration
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Fetch user profile from backend
+  const fetchProfile = React.useCallback(async () => {
+    try {
+      const userData = await getProfile();
+      setUser(userData);
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+      // If profile fetch fails, clear token and redirect to login
+      localStorage.removeItem("token");
+      setAuthToken(null);
+      setUser(null);
+      if (pathname !== "/login") {
+        router.push("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [pathname, router]);
+
+  const refetchProfile = async () => {
+    if (authToken) {
+      await fetchProfile();
+    }
+  };
+
+  useEffect(() => {
+    // Check localStorage only on the client after mount
+    const token = localStorage.getItem("token");
+    if (token) {
+      setAuthToken(token);
+      fetchProfile();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchProfile]);
+
+  // Redirect unauthenticated users from protected routes
+  useEffect(() => {
+    if (!loading && !authToken && pathname !== "/login") {
+      const protectedRoutes = ['/dashboard', '/journal', '/signals', '/backtest', '/ai-analyst', '/settings'];
+      const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+      
+      if (isProtectedRoute) {
+        router.push("/login");
+      }
+    }
+  }, [loading, authToken, pathname, router]);
 
   const login = (token: string) => {
     localStorage.setItem("token", token);
     setAuthToken(token);
-    setUser({ username: "Trader", email: "trader@example.com", is_active: true });
-    router.push("/");
+    setLoading(true);
+    fetchProfile().then(() => {
+      router.push("/dashboard");
+    });
   };
 
   const logout = () => {
@@ -53,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, authToken, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, authToken, loading, login, logout, isAuthenticated: !!user, refetchProfile }}>
       {children}
     </AuthContext.Provider>
   );
