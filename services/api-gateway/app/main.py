@@ -1,14 +1,46 @@
 import os
 import yaml
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import signal, risk, auth, backtest, strategy, journal
+from app.routers import signal, risk, backtest, strategy, journal, auth
+from app.schemas.response import ErrorCode
+from app.utils.response import error_response
 
 app = FastAPI(
     title="MTF Trading System API",
     description="API Gateway for Signal Generation, Risk Management, and AI Analysis",
     version="0.1.0"
 )
+
+# Exception Handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    error_code_map = {
+        401: ErrorCode.UNAUTHORIZED,
+        403: ErrorCode.FORBIDDEN,
+        404: ErrorCode.NOT_FOUND,
+        429: ErrorCode.RATE_LIMIT_EXCEEDED,
+        500: ErrorCode.INTERNAL_ERROR,
+    }
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(
+            message=exc.detail,
+            error_code=error_code_map.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
+        )
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content=error_response(
+            message="Internal Server Error",
+            error_code=ErrorCode.INTERNAL_ERROR
+        )
+    )
 
 # Attempt to load OpenAPI spec from file (SDD)
 # This path works for local dev when running from services/api-gateway
@@ -37,6 +69,7 @@ app.include_router(risk.router)
 app.include_router(strategy.router)
 app.include_router(journal.router)
 app.include_router(backtest.router, prefix="/api/v1")
+
 
 
 @app.get("/health")

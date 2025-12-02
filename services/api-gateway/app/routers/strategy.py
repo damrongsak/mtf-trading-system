@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models.strategy import Strategy
 from app.models.user_fund import Fund
 from app.routers.auth import oauth2_scheme
+from app.schemas.response import APIResponse, PaginatedResponse
+from app.utils.response import success_response, paginated_response
 
 router = APIRouter(
     prefix="/api/v1/strategies",
@@ -28,7 +30,7 @@ class StrategyResponse(BaseModel):
     class Config:
         orm_mode = True
 
-@router.post("/", response_model=StrategyResponse)
+@router.post("/", response_model=APIResponse[StrategyResponse])
 def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     # Verify fund exists
     fund = db.query(Fund).filter(Fund.id == strategy.fund_id).first()
@@ -44,9 +46,23 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
     db.add(new_strategy)
     db.commit()
     db.refresh(new_strategy)
-    return new_strategy
+    return success_response(data=new_strategy)
 
-@router.get("/", response_model=List[StrategyResponse])
-def list_strategies(fund_id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    strategies = db.query(Strategy).filter(Strategy.fund_id == fund_id).all()
-    return strategies
+@router.get("/", response_model=PaginatedResponse[StrategyResponse])
+def list_strategies(
+    fund_id: UUID4, 
+    page: int = 1,
+    per_page: int = 10,
+    db: Session = Depends(get_db), 
+    token: str = Depends(oauth2_scheme)
+):
+    query = db.query(Strategy).filter(Strategy.fund_id == fund_id)
+    total = query.count()
+    strategies = query.offset((page - 1) * per_page).limit(per_page).all()
+    
+    return paginated_response(
+        data=strategies,
+        page=page,
+        per_page=per_page,
+        total=total
+    )

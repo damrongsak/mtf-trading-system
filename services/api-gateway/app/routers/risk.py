@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas.trade import RiskCheckRequest, RiskCheckResponse
+from app.schemas.response import APIResponse
+from app.utils.response import success_response
 import httpx
 import os
 
@@ -9,7 +11,7 @@ router = APIRouter(
 )
 EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:8000")
 
-@router.post("/check", response_model=RiskCheckResponse)
+@router.post("/check", response_model=APIResponse[RiskCheckResponse])
 async def check_risk(req: RiskCheckRequest):
     """
     Proxy risk check to the Execution Service.
@@ -24,7 +26,7 @@ async def check_risk(req: RiskCheckRequest):
                 timeout=5.0
             )
             response.raise_for_status()
-            return response.json()
+            return success_response(data=response.json())
         except httpx.RequestError as exc:
             raise HTTPException(status_code=503, detail=f"Execution service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:

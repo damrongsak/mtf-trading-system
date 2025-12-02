@@ -6,34 +6,16 @@ from app.database import get_db
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.user_fund import User
 from app.schemas.journal import JournalEntryCreate, JournalEntryResponse
-from app.routers.auth import oauth2_scheme
-from jose import jwt
-from app.security import SECRET_KEY, ALGORITHM
+from app.schemas.response import APIResponse, PaginatedResponse
+from app.utils.response import success_response, paginated_response
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/v1/journal",
     tags=["journal"]
 )
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except Exception:
-        raise credentials_exception
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-@router.post("/", response_model=JournalEntryResponse)
+@router.post("/", response_model=APIResponse[JournalEntryResponse])
 def create_journal_entry(entry: JournalEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # 1. Create Main Entry
     db_entry = JournalEntry(
@@ -79,15 +61,32 @@ def create_journal_entry(entry: JournalEntryCreate, db: Session = Depends(get_db
 
     db.commit()
     db.refresh(db_entry)
-    return db_entry
+    return success_response(data=JournalEntryResponse.model_validate(db_entry))
 
-@router.get("/", response_model=List[JournalEntryResponse])
-def list_journal_entries(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id).order_by(JournalEntry.created_at.desc()).all()
+@router.get("/", response_model=PaginatedResponse[JournalEntryResponse])
+def list_journal_entries(
+    page: int = 1,
+    per_page: int = 10,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id)
+    total = query.count()
+    entries = query.order_by(JournalEntry.created_at.desc())\
+                   .offset((page - 1) * per_page)\
+                   .limit(per_page)\
+                   .all()
+    
+    return paginated_response(
+        data=[JournalEntryResponse.model_validate(e) for e in entries],
+        page=page,
+        per_page=per_page,
+        total=total
+    )
 
-@router.get("/{entry_id}", response_model=JournalEntryResponse)
+@router.get("/{entry_id}", response_model=APIResponse[JournalEntryResponse])
 def get_journal_entry(entry_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     entry = db.query(JournalEntry).filter(JournalEntry.id == entry_id, JournalEntry.user_id == current_user.id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return entry
+    return success_response(data=JournalEntryResponse.model_validate(entry))

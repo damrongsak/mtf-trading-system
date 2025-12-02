@@ -3,6 +3,8 @@ from typing import List
 from datetime import datetime
 import uuid
 from app.schemas.backtest import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult
+from app.schemas.response import APIResponse
+from app.utils.response import success_response
 
 router = APIRouter(
     prefix="/backtest",
@@ -10,14 +12,14 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/run", response_model=BacktestResponse)
+@router.post("/run", response_model=APIResponse[BacktestResponse])
 async def run_backtest(req: BacktestRequest):
     """
     Trigger a backtest.
     Currently returns a mock response until Strategy Core is integrated.
     """
     # Mock response
-    return BacktestResponse(
+    data = BacktestResponse(
         id=str(uuid.uuid4()),
         status="COMPLETED",
         metrics=BacktestMetrics(
@@ -42,14 +44,15 @@ async def run_backtest(req: BacktestRequest):
             )
         ]
     )
+    return success_response(data=data)
 
-@router.get("/results/{backtest_id}", response_model=BacktestResponse)
+@router.get("/results/{backtest_id}", response_model=APIResponse[BacktestResponse])
 async def get_backtest_results(backtest_id: str):
     """
     Get results of a specific backtest.
     """
     # Mock response
-    return BacktestResponse(
+    data = BacktestResponse(
         id=backtest_id,
         status="COMPLETED",
         metrics=BacktestMetrics(
@@ -64,3 +67,4 @@ async def get_backtest_results(backtest_id: str):
         ),
         trades=[]
     )
+    return success_response(data=data)
