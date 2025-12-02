@@ -1,0 +1,234 @@
+import React, { useState } from 'react';
+
+// Define the type for the form submission event
+type FormEvent = React.FormEvent<HTMLFormElement>;
+
+// Google Icon SVG (Small and simple)
+const GoogleIcon: React.FC = () => (
+  <svg
+    className="w-5 h-5 mr-3"
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M44.5 20H24V28H36.4C35.8 30.6 34.1 33.2 31.8 35L38.4 40.2C42.8 35.1 45.5 28.5 45.5 21C45.5 19.8 45.4 18.7 45.2 17.6L44.5 20Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M24 45.5C30.4 45.5 35.8 43.4 39.8 39.8L31.8 35C29.6 36.6 26.9 37.6 24 37.6C18.6 37.6 14 34 12.3 28.9L5.7 34.1C8.2 39.5 15.6 43.5 24 43.5C24 43.5 24 43.5 24 43.5L24 45.5Z"
+      fill="#34A853"
+    />
+    <path
+      d="M12.3 28.9C11.8 27.6 11.5 26.3 11.5 24.9C11.5 23.5 11.8 22.2 12.3 20.9L5.7 15.7C4.1 19.3 4.1 23.9 5.7 27.5L12.3 28.9Z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M24 10.5C27.2 10.5 30 11.7 32.2 13.6L39.8 6.4C35.8 2.8 30.4 0.5 24 0.5C15.6 0.5 8.2 4.5 5.7 9.9L12.3 15.1C14 10.1 18.6 6.5 24 6.5C24 6.5 24 6.5 24 6.5L24 10.5Z"
+      fill="#EA4335"
+    />
+  </svg>
+);
+
+// Facebook Icon SVG (Small and simple)
+const FacebookIcon: React.FC = () => (
+  <svg
+    className="w-5 h-5 mr-3 text-[#1877F2]"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+  >
+    <path d="M12 0C5.373 0 0 5.373 0 12c0 5.099 3.736 9.388 8.618 10.879V14.89h-2.732v-2.887h2.732v-2.203c0-2.71 1.658-4.184 4.075-4.184 1.157 0 2.149.206 2.441.296v2.791h-1.659c-1.309 0-1.564.622-1.564 1.536v2.004h3.12l-.504 2.887h-2.616v6.075C16.264 21.388 20 17.099 20 12c0-6.627-5.373-12-12-12z" />
+  </svg>
+);
+
+const App: React.FC = () => {
+  // Explicitly typing state variables
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Design System Colors (for reference)
+  // Primary Text: #e2e8f0
+  // Secondary Text: #9ca3af
+  // Accent Blue: #3b82f6
+  // Card Background: #2d3748 (Gray-750)
+  // Default Border: #1f2937 (Gray-800)
+  // Primary Background: #0B0F19
+
+  // Typing the form event
+  const handleSignIn = (e: FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    // Placeholder for actual sign-in logic (e.g., API call)
+    setTimeout(() => {
+      console.log('Signing in with:', { email, password });
+      setIsLoading(false);
+      // In a real app, you would redirect the user here.
+    }, 1500);
+  };
+
+  // Typing the provider argument
+  const handleSocialSignIn = (provider: 'Google' | 'Facebook') => {
+    console.log(`Signing in with ${provider}`);
+    // Placeholder for actual social sign-in logic
+  };
+
+  return (
+    // Primary Background and Default Text Color
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#0B0F19] text-[#e2e8f0] font-sans">
+      
+      {/* Glassmorphic Card Container */}
+      <div className="w-full max-w-md bg-[#2d3748]/50 backdrop-blur-sm border border-[#1f2937] rounded-xl p-8 space-y-8 
+                    transition-all duration-300 hover:scale-[1.005] 
+                    shadow-[0_0_20px_-5px_rgba(59,130,246,0.1)]">
+        
+        {/* Header Section */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-[#e2e8f0]">
+            Welcome Back <span role="img" aria-label="waving hand">👋</span>
+          </h1>
+          <p className="text-[#9ca3af] mt-2 text-sm">
+            Today is a new day. It's your day. You shape it. Sign in to start managing your projects.
+          </p>
+        </div>
+
+        {/* Sign In Form */}
+        <form className="space-y-6" onSubmit={handleSignIn}>
+          
+          {/* Email Field */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-[#e2e8f0]">
+              Email
+            </label>
+            <div className="mt-1">
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                // Typing the change event for the input
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                placeholder="Example@email.com"
+                // Dark Theme Input Styling
+                className="appearance-none block w-full px-3 py-3 border border-[#1f2937] rounded-lg shadow-sm 
+                           placeholder-[#6b7280] text-[#e2e8f0] bg-transparent
+                           focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6] 
+                           sm:text-sm transition duration-150 ease-in-out"
+              />
+            </div>
+          </div>
+
+          {/* Password Field */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-[#e2e8f0]">
+              Password
+            </label>
+            <div className="mt-1">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                // Typing the change event for the input
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                placeholder="at least 8 characters"
+                // Dark Theme Input Styling
+                className="appearance-none block w-full px-3 py-3 border border-[#1f2937] rounded-lg shadow-sm 
+                           placeholder-[#6b7280] text-[#e2e8f0] bg-transparent
+                           focus:outline-none focus:ring-1 focus:ring-[#3b82f6] focus:border-[#3b82f6] 
+                           sm:text-sm transition duration-150 ease-in-out"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            {/* Link uses Accent Blue */}
+            <a href="#" className="text-sm font-medium text-[#3b82f6] hover:text-[#3b82f6]/80 transition duration-200">
+              Forgot Password?
+            </a>
+          </div>
+
+          {/* Sign In Button (Primary CTA) */}
+          <div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              // Uses Accent Blue, Blue Glow, and Hover Transform
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white 
+                         bg-[#3b82f6] hover:bg-[#3b82f6]/90 
+                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3b82f6] focus:ring-offset-[#0B0F19]
+                         transition-all duration-300 ease-in-out hover:scale-[1.01]
+                         shadow-[0_0_20px_-5px_rgba(59,130,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                // Loading spinner uses Accent Blue
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : 'Sign in'}
+            </button>
+          </div>
+        </form>
+
+        {/* OR Separator */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            {/* Divider uses Default Border */}
+            <div className="w-full border-t border-[#1f2937]"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            {/* Background transparent, text Muted/Secondary */}
+            <span className="px-2 bg-[#2d3748]/50 backdrop-blur-sm text-[#9ca3af]">
+              Or
+            </span>
+          </div>
+        </div>
+
+        {/* Social Sign In Buttons */}
+        <div className="space-y-3">
+          {/* Social buttons use Secondary Background and Default Border */}
+          
+          {/* Google Button */}
+          <button
+            onClick={() => handleSocialSignIn('Google')}
+            className="w-full flex items-center justify-center py-3 px-4 border border-[#1f2937] rounded-lg shadow-sm 
+                       text-sm font-medium text-[#e2e8f0] bg-[#111827] 
+                       hover:bg-[#1a202c] transition-all duration-300 hover:scale-[1.01]"
+          >
+            <GoogleIcon />
+            Sign in with Google
+          </button>
+
+          {/* Facebook Button */}
+          <button
+            onClick={() => handleSocialSignIn('Facebook')}
+            className="w-full flex items-center justify-center py-3 px-4 border border-[#1f2937] rounded-lg shadow-sm 
+                       text-sm font-medium text-[#e2e8f0] bg-[#111827] 
+                       hover:bg-[#1a202c] transition-all duration-300 hover:scale-[1.01]"
+          >
+            <FacebookIcon />
+            Sign in with Facebook
+          </button>
+        </div>
+
+        {/* Footer/Sign Up Link */}
+        <div className="text-center mt-6">
+          <p className="text-sm text-[#9ca3af]">
+            Don't you have an account?{' '}
+            <a href="#" className="font-medium text-[#3b82f6] hover:text-[#3b82f6]/80 transition duration-200">
+              Sign up
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
