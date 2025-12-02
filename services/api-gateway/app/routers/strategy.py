@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
 from app.models.user_fund import Fund
@@ -27,8 +27,7 @@ class StrategyResponse(BaseModel):
     config_json: dict
     is_active: bool
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 @router.post("/", response_model=APIResponse[StrategyResponse])
 def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
@@ -46,7 +45,7 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
     db.add(new_strategy)
     db.commit()
     db.refresh(new_strategy)
-    return success_response(data=new_strategy)
+    return success_response(data=StrategyResponse.model_validate(new_strategy))
 
 @router.get("/", response_model=PaginatedResponse[StrategyResponse])
 def list_strategies(
@@ -61,7 +60,7 @@ def list_strategies(
     strategies = query.offset((page - 1) * per_page).limit(per_page).all()
     
     return paginated_response(
-        data=strategies,
+        data=[StrategyResponse.model_validate(s) for s in strategies],
         page=page,
         per_page=per_page,
         total=total

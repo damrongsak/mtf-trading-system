@@ -21,7 +21,7 @@ def success_response(
         auth=auth,
         rate_limit=rate_limit
     )
-    return response.model_dump(exclude_none=True)
+    return response.model_dump(mode='json', exclude_none=True)
 
 def error_response(
     message: str,
@@ -43,7 +43,7 @@ def error_response(
         message=message,
         errors=error_details
     )
-    return response.model_dump(exclude_none=True)
+    return response.model_dump(mode='json', exclude_none=True)
 
 def paginated_response(
     data: List[Any],
@@ -67,7 +67,7 @@ def paginated_response(
         ),
         rate_limit=rate_limit
     )
-    return response.model_dump(exclude_none=True)
+    return response.model_dump(mode='json', exclude_none=True)
 
 def create_auth_tokens(
     user_id: str,
