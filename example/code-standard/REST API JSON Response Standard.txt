@@ -1,0 +1,821 @@
+"""
+REST API JSON Response Standard for FastAPI + Next.js
+=====================================================
+
+This standard provides consistent response formats across your API.
+"""
+
+from typing import Generic, TypeVar, Optional, Any, List, Dict
+from pydantic import BaseModel, Field
+from datetime import datetime, timedelta
+from enum import Enum
+
+# Generic type for data payload
+T = TypeVar('T')
+
+
+class ResponseStatus(str, Enum):
+    """Standard response status values"""
+    SUCCESS = "success"
+    ERROR = "error"
+    FAIL = "fail"
+
+
+class ErrorCode(str, Enum):
+    """Standard error codes for client-side handling"""
+    # Authentication & Authorization (1xxx)
+    UNAUTHORIZED = "AUTH_1001"
+    FORBIDDEN = "AUTH_1002"
+    TOKEN_EXPIRED = "AUTH_1003"
+    TOKEN_INVALID = "AUTH_1004"
+    INSUFFICIENT_PERMISSIONS = "AUTH_1005"
+    
+    # Validation Errors (2xxx)
+    VALIDATION_ERROR = "VAL_2001"
+    REQUIRED_FIELD = "VAL_2002"
+    INVALID_FORMAT = "VAL_2003"
+    INVALID_EMAIL = "VAL_2004"
+    INVALID_PHONE = "VAL_2005"
+    INVALID_DATE = "VAL_2006"
+    OUT_OF_RANGE = "VAL_2007"
+    
+    # Resource Errors (3xxx)
+    NOT_FOUND = "RES_3001"
+    ALREADY_EXISTS = "RES_3002"
+    CONFLICT = "RES_3003"
+    
+    # Business Logic Errors (4xxx)
+    INSUFFICIENT_BALANCE = "BIZ_4001"
+    OPERATION_NOT_ALLOWED = "BIZ_4002"
+    QUOTA_EXCEEDED = "BIZ_4003"
+    INVALID_STATE = "BIZ_4004"
+    
+    # Rate Limiting (5xxx)
+    RATE_LIMIT_EXCEEDED = "RATE_5001"
+    TOO_MANY_REQUESTS = "RATE_5002"
+    
+    # Server Errors (9xxx)
+    INTERNAL_ERROR = "SRV_9001"
+    SERVICE_UNAVAILABLE = "SRV_9002"
+    DATABASE_ERROR = "SRV_9003"
+    EXTERNAL_SERVICE_ERROR = "SRV_9004"
+
+
+class Meta(BaseModel):
+    """Metadata for pagination and additional info"""
+    page: Optional[int] = Field(None, description="Current page number")
+    per_page: Optional[int] = Field(None, description="Items per page")
+    total: Optional[int] = Field(None, description="Total items")
+    total_pages: Optional[int] = Field(None, description="Total pages")
+    
+    class Config:
+        extra = "allow"  # Allow additional metadata fields
+
+
+class RateLimitInfo(BaseModel):
+    """Rate limiting information"""
+    limit: int = Field(..., description="Maximum requests allowed")
+    remaining: int = Field(..., description="Remaining requests")
+    reset: datetime = Field(..., description="When the limit resets")
+    reset_in_seconds: int = Field(..., description="Seconds until reset")
+
+
+class AuthTokens(BaseModel):
+    """Authentication tokens"""
+    access_token: str = Field(..., description="JWT access token")
+    refresh_token: Optional[str] = Field(None, description="JWT refresh token")
+    token_type: str = Field(default="Bearer", description="Token type")
+    expires_in: int = Field(..., description="Access token expiry in seconds")
+    expires_at: datetime = Field(..., description="Access token expiry timestamp")
+
+
+class ErrorDetail(BaseModel):
+    """Detailed error information"""
+    field: Optional[str] = Field(None, description="Field that caused the error")
+    message: str = Field(..., description="Error message")
+    code: Optional[ErrorCode] = Field(None, description="Error code for client handling")
+
+
+class APIResponse(BaseModel, Generic[T]):
+    """
+    Standard API Response Format
+    
+    Success Example:
+    {
+        "status": "success",
+        "data": {...},
+        "message": "Operation completed successfully",
+        "timestamp": "2024-01-15T10:30:00Z"
+    }
+    
+    Error Example:
+    {
+        "status": "error",
+        "data": null,
+        "message": "Validation failed",
+        "errors": [
+            {"field": "email", "message": "Invalid email format", "code": "VAL_2004"}
+        ],
+        "timestamp": "2024-01-15T10:30:00Z"
+    }
+    
+    With Auth & Rate Limit:
+    {
+        "status": "success",
+        "data": {...},
+        "auth": {
+            "access_token": "eyJ...",
+            "refresh_token": "eyJ...",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "expires_at": "2024-01-15T11:30:00Z"
+        },
+        "rate_limit": {
+            "limit": 100,
+            "remaining": 95,
+            "reset": "2024-01-15T11:00:00Z",
+            "reset_in_seconds": 1800
+        },
+        "timestamp": "2024-01-15T10:30:00Z"
+    }
+    """
+    status: ResponseStatus = Field(..., description="Response status: success, error, or fail")
+    data: Optional[T] = Field(None, description="Response payload data")
+    message: Optional[str] = Field(None, description="Human-readable message")
+    errors: Optional[List[ErrorDetail]] = Field(None, description="List of errors if any")
+    meta: Optional[Meta] = Field(None, description="Metadata (pagination, etc.)")
+    auth: Optional[AuthTokens] = Field(None, description="Authentication tokens")
+    rate_limit: Optional[RateLimitInfo] = Field(None, description="Rate limiting info")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "success",
+                "data": {"id": 1, "name": "Example"},
+                "message": "Retrieved successfully",
+                "timestamp": "2024-01-15T10:30:00Z"
+            }
+        }
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Standard paginated response"""
+    status: ResponseStatus = ResponseStatus.SUCCESS
+    data: List[T] = Field(..., description="List of items")
+    message: Optional[str] = None
+    meta: Meta = Field(..., description="Pagination metadata")
+    rate_limit: Optional[RateLimitInfo] = Field(None, description="Rate limiting info")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ============================================
+# Helper Functions for FastAPI Routes
+# ============================================
+
+def success_response(
+    data: Any = None,
+    message: str = "Operation completed successfully",
+    meta: Optional[Meta] = None,
+    auth: Optional[AuthTokens] = None,
+    rate_limit: Optional[RateLimitInfo] = None
+) -> dict:
+    """Create a success response"""
+    response = APIResponse(
+        status=ResponseStatus.SUCCESS,
+        data=data,
+        message=message,
+        meta=meta,
+        auth=auth,
+        rate_limit=rate_limit
+    )
+    return response.model_dump(exclude_none=True)
+
+
+def error_response(
+    message: str,
+    errors: Optional[List[dict]] = None,
+    error_code: Optional[ErrorCode] = None,
+    status_code: int = 400
+) -> dict:
+    """Create an error response"""
+    if errors:
+        error_details = [ErrorDetail(**e) for e in errors]
+    elif error_code:
+        error_details = [ErrorDetail(message=message, code=error_code)]
+    else:
+        error_details = [ErrorDetail(message=message)]
+    
+    response = APIResponse(
+        status=ResponseStatus.ERROR,
+        data=None,
+        message=message,
+        errors=error_details
+    )
+    return response.model_dump(exclude_none=True)
+
+
+def paginated_response(
+    data: List[Any],
+    page: int,
+    per_page: int,
+    total: int,
+    message: Optional[str] = None,
+    rate_limit: Optional[RateLimitInfo] = None
+) -> dict:
+    """Create a paginated response"""
+    total_pages = (total + per_page - 1) // per_page
+    
+    response = PaginatedResponse(
+        data=data,
+        message=message or "Data retrieved successfully",
+        meta=Meta(
+            page=page,
+            per_page=per_page,
+            total=total,
+            total_pages=total_pages
+        ),
+        rate_limit=rate_limit
+    )
+    return response.model_dump(exclude_none=True)
+
+
+def create_auth_tokens(
+    user_id: str,
+    access_token: str,
+    refresh_token: Optional[str] = None,
+    expires_in: int = 3600
+) -> AuthTokens:
+    """Create authentication tokens"""
+    expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    return AuthTokens(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=expires_in,
+        expires_at=expires_at
+    )
+
+
+def create_rate_limit_info(
+    limit: int,
+    remaining: int,
+    reset_after_seconds: int
+) -> RateLimitInfo:
+    """Create rate limit information"""
+    reset_time = datetime.utcnow() + timedelta(seconds=reset_after_seconds)
+    return RateLimitInfo(
+        limit=limit,
+        remaining=remaining,
+        reset=reset_time,
+        reset_in_seconds=reset_after_seconds
+    )
+
+
+# ============================================
+# Usage Examples in FastAPI
+# ============================================
+
+"""
+Example 1: Simple Success Response
+-----------------------------------
+from fastapi import FastAPI
+from typing import List
+
+app = FastAPI()
+
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: int):
+    user = {"id": user_id, "name": "John Doe", "email": "john@example.com"}
+    return success_response(data=user, message="User retrieved successfully")
+
+
+Example 2: Login with Auth Tokens
+----------------------------------
+from datetime import timedelta
+from jose import jwt
+
+@app.post("/auth/login")
+async def login(email: str, password: str):
+    # Verify credentials
+    user = authenticate_user(email, password)
+    if not user:
+        return error_response(
+            message="Invalid credentials",
+            error_code=ErrorCode.UNAUTHORIZED
+        )
+    
+    # Generate tokens
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
+    
+    auth_tokens = create_auth_tokens(
+        user_id=str(user.id),
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=3600
+    )
+    
+    return success_response(
+        data={"user": user},
+        message="Login successful",
+        auth=auth_tokens
+    )
+
+
+Example 3: Rate Limited Endpoint
+---------------------------------
+from fastapi import Request, Depends
+from app.middleware.rate_limit import check_rate_limit
+
+@app.get("/api/data")
+async def get_data(
+    request: Request,
+    rate_limit_info: RateLimitInfo = Depends(check_rate_limit)
+):
+    data = {"items": [...]}
+    return success_response(
+        data=data,
+        rate_limit=rate_limit_info
+    )
+
+
+Example 4: Paginated List with Rate Limit
+------------------------------------------
+@app.get("/users")
+async def list_users(
+    page: int = 1, 
+    per_page: int = 10,
+    rate_limit_info: RateLimitInfo = Depends(check_rate_limit)
+):
+    users = [...]  # Your user list
+    total = 100  # Total count from DB
+    
+    return paginated_response(
+        data=users,
+        page=page,
+        per_page=per_page,
+        total=total,
+        rate_limit=rate_limit_info
+    )
+
+
+Example 5: Error Response with Validation
+------------------------------------------
+from fastapi import HTTPException
+
+@app.post("/users")
+async def create_user(user: User):
+    if not user.email:
+        return error_response(
+            message="Validation failed",
+            errors=[
+                {
+                    "field": "email", 
+                    "message": "Email is required", 
+                    "code": ErrorCode.REQUIRED_FIELD
+                }
+            ]
+        )
+    
+    return success_response(data=user, message="User created successfully")
+
+
+Example 6: Rate Limit Middleware
+---------------------------------
+from fastapi import Request, HTTPException
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+
+def get_rate_limit_info(request: Request) -> RateLimitInfo:
+    # Get rate limit info from Redis or memory store
+    limit = 100
+    remaining = get_remaining_requests(request.client.host)
+    reset_after = get_reset_time(request.client.host)
+    
+    return create_rate_limit_info(
+        limit=limit,
+        remaining=remaining,
+        reset_after_seconds=reset_after
+    )
+
+@app.middleware("http")
+async def add_rate_limit_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Add rate limit headers
+    rate_limit = get_rate_limit_info(request)
+    response.headers["X-RateLimit-Limit"] = str(rate_limit.limit)
+    response.headers["X-RateLimit-Remaining"] = str(rate_limit.remaining)
+    response.headers["X-RateLimit-Reset"] = rate_limit.reset.isoformat()
+    
+    return response
+
+
+Example 7: Token Refresh Endpoint
+----------------------------------
+@app.post("/auth/refresh")
+async def refresh_token(refresh_token: str):
+    try:
+        # Verify refresh token
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        
+        # Generate new access token
+        new_access_token = create_access_token(user_id)
+        
+        auth_tokens = create_auth_tokens(
+            user_id=user_id,
+            access_token=new_access_token,
+            refresh_token=refresh_token,  # Keep same refresh token
+            expires_in=3600
+        )
+        
+        return success_response(
+            data=None,
+            message="Token refreshed successfully",
+            auth=auth_tokens
+        )
+    except Exception as e:
+        return error_response(
+            message="Invalid refresh token",
+            error_code=ErrorCode.TOKEN_INVALID
+        )
+
+
+Example 8: Global Exception Handler with Error Codes
+-----------------------------------------------------
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    error_code_map = {
+        401: ErrorCode.UNAUTHORIZED,
+        403: ErrorCode.FORBIDDEN,
+        404: ErrorCode.NOT_FOUND,
+        429: ErrorCode.RATE_LIMIT_EXCEEDED,
+        500: ErrorCode.INTERNAL_ERROR,
+    }
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(
+            message=exc.detail,
+            error_code=error_code_map.get(exc.status_code, ErrorCode.INTERNAL_ERROR)
+        )
+    )
+
+
+Example 9: Protected Route with Rate Limit
+-------------------------------------------
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+@app.get("/protected/data")
+async def protected_route(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    rate_limit_info: RateLimitInfo = Depends(check_rate_limit)
+):
+    # Verify token
+    user = verify_token(credentials.credentials)
+    if not user:
+        return error_response(
+            message="Invalid or expired token",
+            error_code=ErrorCode.TOKEN_INVALID
+        )
+    
+    data = {"sensitive": "information"}
+    return success_response(
+        data=data,
+        rate_limit=rate_limit_info
+    )
+
+
+Example 10: Business Logic Error
+---------------------------------
+@app.post("/transactions")
+async def create_transaction(amount: float, user_id: int):
+    user = get_user(user_id)
+    
+    if user.balance < amount:
+        return error_response(
+            message="Insufficient balance for this transaction",
+            error_code=ErrorCode.INSUFFICIENT_BALANCE,
+            errors=[{
+                "field": "amount",
+                "message": f"Required: {amount}, Available: {user.balance}",
+                "code": ErrorCode.INSUFFICIENT_BALANCE
+            }]
+        )
+    
+    transaction = process_transaction(user_id, amount)
+    return success_response(
+        data=transaction,
+        message="Transaction completed successfully"
+    )
+"""
+
+
+# ============================================
+# Next.js TypeScript Types (for frontend)
+# ============================================
+
+"""
+// types/api.ts
+
+export enum ResponseStatus {
+  SUCCESS = 'success',
+  ERROR = 'error',
+  FAIL = 'fail'
+}
+
+export enum ErrorCode {
+  // Authentication & Authorization (1xxx)
+  UNAUTHORIZED = 'AUTH_1001',
+  FORBIDDEN = 'AUTH_1002',
+  TOKEN_EXPIRED = 'AUTH_1003',
+  TOKEN_INVALID = 'AUTH_1004',
+  INSUFFICIENT_PERMISSIONS = 'AUTH_1005',
+  
+  // Validation Errors (2xxx)
+  VALIDATION_ERROR = 'VAL_2001',
+  REQUIRED_FIELD = 'VAL_2002',
+  INVALID_FORMAT = 'VAL_2003',
+  INVALID_EMAIL = 'VAL_2004',
+  INVALID_PHONE = 'VAL_2005',
+  INVALID_DATE = 'VAL_2006',
+  OUT_OF_RANGE = 'VAL_2007',
+  
+  // Resource Errors (3xxx)
+  NOT_FOUND = 'RES_3001',
+  ALREADY_EXISTS = 'RES_3002',
+  CONFLICT = 'RES_3003',
+  
+  // Business Logic Errors (4xxx)
+  INSUFFICIENT_BALANCE = 'BIZ_4001',
+  OPERATION_NOT_ALLOWED = 'BIZ_4002',
+  QUOTA_EXCEEDED = 'BIZ_4003',
+  INVALID_STATE = 'BIZ_4004',
+  
+  // Rate Limiting (5xxx)
+  RATE_LIMIT_EXCEEDED = 'RATE_5001',
+  TOO_MANY_REQUESTS = 'RATE_5002',
+  
+  // Server Errors (9xxx)
+  INTERNAL_ERROR = 'SRV_9001',
+  SERVICE_UNAVAILABLE = 'SRV_9002',
+  DATABASE_ERROR = 'SRV_9003',
+  EXTERNAL_SERVICE_ERROR = 'SRV_9004'
+}
+
+export interface ErrorDetail {
+  field?: string;
+  message: string;
+  code?: ErrorCode;
+}
+
+export interface Meta {
+  page?: number;
+  per_page?: number;
+  total?: number;
+  total_pages?: number;
+  [key: string]: any;
+}
+
+export interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  reset: string;
+  reset_in_seconds: number;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token?: string;
+  token_type: string;
+  expires_in: number;
+  expires_at: string;
+}
+
+export interface APIResponse<T = any> {
+  status: ResponseStatus;
+  data?: T;
+  message?: string;
+  errors?: ErrorDetail[];
+  meta?: Meta;
+  auth?: AuthTokens;
+  rate_limit?: RateLimitInfo;
+  timestamp: string;
+}
+
+export interface PaginatedResponse<T = any> {
+  status: ResponseStatus;
+  data: T[];
+  message?: string;
+  meta: Meta;
+  rate_limit?: RateLimitInfo;
+  timestamp: string;
+}
+
+// ============================================
+// API Client with Token Management
+// ============================================
+
+class ApiClient {
+  private baseUrl: string;
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+    this.loadTokens();
+  }
+
+  private loadTokens() {
+    this.accessToken = localStorage.getItem('access_token');
+    this.refreshToken = localStorage.getItem('refresh_token');
+  }
+
+  private saveTokens(auth: AuthTokens) {
+    this.accessToken = auth.access_token;
+    localStorage.setItem('access_token', auth.access_token);
+    
+    if (auth.refresh_token) {
+      this.refreshToken = auth.refresh_token;
+      localStorage.setItem('refresh_token', auth.refresh_token);
+    }
+    
+    localStorage.setItem('token_expires_at', auth.expires_at);
+  }
+
+  private clearTokens() {
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expires_at');
+  }
+
+  private async refreshAccessToken(): Promise<boolean> {
+    if (!this.refreshToken) return false;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: this.refreshToken })
+      });
+
+      const data: APIResponse<null> = await response.json();
+      
+      if (data.status === ResponseStatus.SUCCESS && data.auth) {
+        this.saveTokens(data.auth);
+        return true;
+      }
+      
+      this.clearTokens();
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      this.clearTokens();
+      return false;
+    }
+  }
+
+  async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<APIResponse<T>> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    try {
+      let response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      let data: APIResponse<T> = await response.json();
+
+      // Handle token expiration
+      if (
+        data.errors?.some(e => e.code === ErrorCode.TOKEN_EXPIRED) ||
+        response.status === 401
+      ) {
+        const refreshed = await this.refreshAccessToken();
+        
+        if (refreshed) {
+          // Retry request with new token
+          headers['Authorization'] = `Bearer ${this.accessToken}`;
+          response = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers,
+          });
+          data = await response.json();
+        } else {
+          // Redirect to login
+          window.location.href = '/login';
+          throw new Error('Session expired');
+        }
+      }
+
+      // Save auth tokens if present in response
+      if (data.auth) {
+        this.saveTokens(data.auth);
+      }
+
+      // Log rate limit info
+      if (data.rate_limit) {
+        console.log('Rate Limit:', data.rate_limit);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+
+  async get<T>(endpoint: string): Promise<APIResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  async post<T>(endpoint: string, body?: any): Promise<APIResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async put<T>(endpoint: string, body?: any): Promise<APIResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<APIResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async login(email: string, password: string): Promise<APIResponse<any>> {
+    const response = await this.post<any>('/auth/login', { email, password });
+    return response;
+  }
+
+  logout() {
+    this.clearTokens();
+    window.location.href = '/login';
+  }
+}
+
+// Usage example
+export const api = new ApiClient(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+
+// Example usage in Next.js component
+export async function fetchUsers(page: number = 1): Promise<PaginatedResponse<User>> {
+  const response = await api.get<User[]>(`/users?page=${page}&per_page=10`);
+  return response as PaginatedResponse<User>;
+}
+
+// Example with error handling
+export async function createUser(userData: Partial<User>): Promise<User | null> {
+  try {
+    const response = await api.post<User>('/users', userData);
+    
+    if (response.status === ResponseStatus.SUCCESS && response.data) {
+      return response.data;
+    }
+    
+    // Handle specific error codes
+    if (response.errors) {
+      response.errors.forEach(error => {
+        if (error.code === ErrorCode.INVALID_EMAIL) {
+          console.error('Invalid email format');
+        } else if (error.code === ErrorCode.ALREADY_EXISTS) {
+          console.error('User already exists');
+        }
+      });
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to create user:', error);
+    return null;
+  }
+}
+"""
