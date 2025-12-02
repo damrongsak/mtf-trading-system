@@ -15,7 +15,7 @@ MTF Trading System is a spec-driven development (SDD) project that implements a 
 - **LLM**: Google Gemini via Vertex AI API
 - **Reverse Proxy**: Nginx
 - **Containerization**: Docker Compose (dev), targeting GCP Cloud Run/GKE (prod)
-- **Package Manager**: pnpm for frontend
+- **Package Manager**: pnpm for frontend, uv for backend Python services
 
 ## Development Commands
 
@@ -62,8 +62,14 @@ Each Python service (api-gateway, strategy-core, ai-analyst, execution) follows 
 ```bash
 cd services/[service-name]
 
+# Install uv (first time only)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
 # Run with uvicorn (if FastAPI service)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Deployment
@@ -195,7 +201,7 @@ The execution service enforces strict guardrails:
 
 ### Testing Strategy
 
-- Pytest for Python services
+- Pytest for Python services (run with `uv run pytest`)
 - Contract tests derived from OpenAPI specs
 - Backtest validation using vectorbt
 - Frontend testing with Playwright

@@ -1,0 +1,36 @@
+[project]
+name = "api-gateway"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "aiofiles==23.2.1",
+    "alembic==1.13.1",
+    "asyncpg==0.29.0",
+    "bcrypt>=5.0.0",
+    "fastapi==0.115.5",
+    "google-auth==2.26.2",
+    "google-cloud-aiplatform==1.38.1",
+    "numpy==1.26.3",
+    "pandas==2.1.4",
+    "psycopg2-binary==2.9.9",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.0",
+    "python-dotenv==1.0.0",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart==0.0.6",
+    "pyyaml==6.0.1",
+    "qdrant-client==1.7.0",
+    "sqlalchemy==2.0.25",
+    "uvicorn[standard]==0.32.1",
+    "vectorbt==0.26.1",
+    "yfinance==0.2.35",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator==0.25.2",
+    "httpx==0.26.0",
+    "pytest==7.4.4",
+    "pytest-asyncio==0.23.3",
+]

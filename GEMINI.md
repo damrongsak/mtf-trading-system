@@ -40,7 +40,12 @@ The project distinguishes itself through:
 4.  **Implement:** Scaffold code based on the updated specs and generated types.
 
 ### 2. Running the System
-**Prerequisites:** Docker & Docker Compose, Node.js (pnpm).
+**Prerequisites:** Docker & Docker Compose, Node.js (pnpm), `uv` (for backend development).
+
+*   **Install uv (first time only):**
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
 
 *   **Full Stack (Recommended):**
     ```bash
@@ -61,12 +66,14 @@ The project distinguishes itself through:
 *   **Backend Service (Standalone):**
     ```bash
     cd services/api-gateway
-    # Create venv and install requirements first
-    uvicorn app.main:app --reload
+    # Install dependencies (first time or when dependencies change)
+    uv sync
+    # Run the server
+    uv run uvicorn app.main:app --reload
     ```
 
 ### 3. Testing
-*   **Backend:** `pytest` (Contract tests derived from specs).
+*   **Backend:** `uv run pytest` (Contract tests derived from specs).
 *   **Backtesting:** `vectorbt` based simulations.
 
 ### 4. Database Migration (Alembic)
