@@ -1,20 +1,126 @@
-// API Response Types
+// ========================================
+// Backend Standard Response Types
+// ========================================
+
+export enum ResponseStatus {
+    SUCCESS = 'success',
+    ERROR = 'error',
+    FAIL = 'fail',
+}
+
+export type ErrorCode =
+    // Authentication & Authorization (1xxx)
+    | 'AUTH_1001' // UNAUTHORIZED
+    | 'AUTH_1002' // FORBIDDEN
+    | 'AUTH_1003' // TOKEN_EXPIRED
+    | 'AUTH_1004' // TOKEN_INVALID
+    | 'AUTH_1005' // INSUFFICIENT_PERMISSIONS
+    // Validation Errors (2xxx)
+    | 'VAL_2001' // VALIDATION_ERROR
+    | 'VAL_2002' // REQUIRED_FIELD
+    | 'VAL_2003' // INVALID_FORMAT
+    | 'VAL_2004' // INVALID_EMAIL
+    | 'VAL_2005' // INVALID_PHONE
+    | 'VAL_2006' // INVALID_DATE
+    | 'VAL_2007' // OUT_OF_RANGE
+    // Resource Errors (3xxx)
+    | 'RES_3001' // NOT_FOUND
+    | 'RES_3002' // ALREADY_EXISTS
+    | 'RES_3003' // CONFLICT
+    // Business Logic Errors (4xxx)
+    | 'BIZ_4001' // INSUFFICIENT_BALANCE
+    | 'BIZ_4002' // OPERATION_NOT_ALLOWED
+    | 'BIZ_4003' // QUOTA_EXCEEDED
+    | 'BIZ_4004' // INVALID_STATE
+    // Rate Limiting (5xxx)
+    | 'RATE_5001' // RATE_LIMIT_EXCEEDED
+    | 'RATE_5002' // TOO_MANY_REQUESTS
+    // Server Errors (9xxx)
+    | 'SRV_9001' // INTERNAL_ERROR
+    | 'SRV_9002' // SERVICE_UNAVAILABLE
+    | 'SRV_9003' // DATABASE_ERROR
+    | 'SRV_9004'; // EXTERNAL_SERVICE_ERROR
+
+export interface ErrorDetail {
+    field?: string;
+    message: string;
+    code?: ErrorCode;
+}
+
+export interface Meta {
+    page?: number;
+    per_page?: number;
+    total?: number;
+    total_pages?: number;
+    [key: string]: unknown; // Allow additional metadata
+}
+
+export interface AuthTokens {
+    access_token: string;
+    refresh_token?: string;
+    token_type: string;
+    expires_in: number;
+    expires_at: string;
+}
+
+export interface RateLimitInfo {
+    limit: number;
+    remaining: number;
+    reset: string;
+    reset_in_seconds: number;
+}
+
+export interface APIResponse<T> {
+    status: ResponseStatus;
+    data?: T;
+    message?: string;
+    errors?: ErrorDetail[];
+    meta?: Meta;
+    auth?: AuthTokens;
+    rate_limit?: RateLimitInfo;
+    timestamp: string;
+}
+
+export interface PaginatedResponse<T> {
+    status: ResponseStatus;
+    data: T[];
+    message?: string;
+    meta: Meta;
+    rate_limit?: RateLimitInfo;
+    timestamp: string;
+}
+
+// ========================================
+// Legacy/Internal Types (for backwards compatibility)
+// ========================================
+
 export interface ApiError {
     message: string;
     status?: number;
     details?: unknown;
 }
 
+// ========================================
 // Auth Types
-export interface LoginResponse {
-    access_token: string;
-    token_type: string;
-}
+// ========================================
 
-export interface User {
+export interface UserResponse {
+    id: string;
     username: string;
     email: string;
     is_active: boolean;
+}
+
+export interface User {
+    id?: string;
+    username: string;
+    email: string;
+    is_active: boolean;
+}
+
+export interface LoginResult {
+    user: UserResponse;
+    auth: AuthTokens;
 }
 
 // Journal Types
@@ -89,13 +195,9 @@ export interface Signal {
     reasoning?: string;
 }
 
-// Pagination
-export interface PaginatedResponse<T> {
-    data: T[];
-    total: number;
-    page: number;
-    limit: number;
-}
+// ========================================
+// Signal Types
+// ========================================
 
 // Dashboard Types
 export interface DashboardStats {

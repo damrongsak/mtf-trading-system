@@ -17,9 +17,10 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Backend expects 'username' field, but we use email as username
-      const data = await login(email, password);
-      loginUser(data.access_token);
+      // Backend expects 'username' field, and returns LoginResult with user and auth
+      const result = await login(email, password);
+      // Extract access token from auth object
+      loginUser(result.auth.access_token);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid credentials");
     } finally {

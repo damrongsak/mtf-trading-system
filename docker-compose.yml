@@ -72,7 +72,7 @@ services:
       - external
 
   # Already exists in localhost
-  # postgres:
+  # postgresql:
   #   image: postgres:15
   #   environment:
   #     POSTGRES_USER: trader

@@ -1,33 +1,46 @@
 import { apiClient } from './client';
-import { LoginResponse, User } from './types';
+import { APIResponse, UserResponse, LoginResult } from './types';
 
 /**
  * Login with username and password
  * @param username - User's username
  * @param password - User's password
- * @returns Login response with access token
+ * @returns Login result with user data and auth tokens
  */
-export async function login(username: string, password: string): Promise<LoginResponse> {
+export async function login(username: string, password: string): Promise<LoginResult> {
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
 
-    const response = await apiClient.post<LoginResponse>('/api/v1/auth/token', formData, {
+    const response = await apiClient.post<APIResponse<UserResponse>>('/api/v1/auth/token', formData, {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
     });
 
-    return response.data;
+    // Extract user data and auth tokens from wrapped response
+    if (!response.data.data || !response.data.auth) {
+        throw new Error('Invalid response from login endpoint');
+    }
+
+    return {
+        user: response.data.data,
+        auth: response.data.auth,
+    };
 }
 
 /**
  * Get current user profile
  * @returns User profile data
  */
-export async function getProfile(): Promise<User> {
-    const response = await apiClient.get<User>('/api/v1/auth/profile');
-    return response.data;
+export async function getProfile(): Promise<UserResponse> {
+    const response = await apiClient.get<APIResponse<UserResponse>>('/api/v1/auth/profile');
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from profile endpoint');
+    }
+
+    return response.data.data;
 }
 
 /**
@@ -35,13 +48,22 @@ export async function getProfile(): Promise<User> {
  * @param username - Username for the new account
  * @param email - Email address
  * @param password - Password
- * @returns User data
+ * @returns Login result with user data and auth tokens
  */
-export async function register(username: string, email: string, password: string): Promise<User> {
-    const response = await apiClient.post<User>('/api/v1/auth/register', {
+export async function register(username: string, email: string, password: string): Promise<LoginResult> {
+    const response = await apiClient.post<APIResponse<UserResponse>>('/api/v1/auth/register', {
         username,
         email,
         password,
     });
-    return response.data;
+
+    // Extract user data and auth tokens from wrapped response
+    if (!response.data.data || !response.data.auth) {
+        throw new Error('Invalid response from register endpoint');
+    }
+
+    return {
+        user: response.data.data,
+        auth: response.data.auth,
+    };
 }

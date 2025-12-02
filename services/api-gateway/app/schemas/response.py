@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Generic, TypeVar, Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime

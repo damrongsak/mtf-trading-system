@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 import bcrypt
 import os
+from app.database import get_db
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
@@ -30,11 +31,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends()):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
     Validate JWT token and return current user
     """
-    from app.database import get_db
     from app.models.user_fund import User
     
     credentials_exception = HTTPException(
@@ -51,14 +51,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise credentials_exception
     
-    # Get database session
-    db_gen = get_db()
-    db = next(db_gen)
-    
     try:
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             raise credentials_exception
         return user
     finally:
-        db.close()
+        # db session is handled by the dependency, but we can close it if we want to be explicit,
+        # though get_db yields and closes automatically.
+        # The original code manually did db.close() because it manually created the session.
+        # With Depends(get_db), we don't need to manually close it here as get_db handles it.
+        pass

@@ -3,15 +3,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getProfile } from "@/lib/api/auth";
-
-interface User {
-  username: string;
-  email: string;
-  is_active: boolean;
-}
+import { UserResponse } from "@/lib/api/types";
 
 interface AuthContextType {
-  user: User | null;
+  user: UserResponse | null;
   authToken: string | null;
   loading: boolean;
   login: (token: string) => void;
@@ -25,7 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize with null to ensure server/client match during hydration
   const [authToken, setAuthToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   
   const router = useRouter();
