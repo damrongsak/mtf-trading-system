@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getJournalEntries } from '../api/journal';
-import { JournalEntry, ApiError } from '../api/types';
+import { JournalEntry } from '../api/types';
+import { ApiError } from '../api/client';
 
 interface UseJournalEntriesReturn {
   entries: JournalEntry[];
@@ -23,7 +24,7 @@ export function useJournalEntries(): UseJournalEntriesReturn {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
 
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -35,16 +36,20 @@ export function useJournalEntries(): UseJournalEntriesReturn {
       setPage(response.meta.page || 1);
       setTotalPages(response.meta.total_pages || 0);
     } catch (err) {
-      const apiError = err as ApiError;
-      setError(apiError.message || 'Failed to fetch journal entries');
+      // Check if it's our custom ApiError
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to fetch journal entries');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchEntries();
-  }, [page]);
+  }, [fetchEntries]);
 
   return {
     entries,

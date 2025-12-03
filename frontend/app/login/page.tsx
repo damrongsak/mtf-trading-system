@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { login } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import Link from "next/link";
-import { ArrowRight, Lock, Mail, TrendingUp, User } from "lucide-react";
+import { ArrowRight, Lock, TrendingUp, User } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -24,7 +25,13 @@ export default function LoginPage() {
       // Extract access token from auth object
       loginUser(result.auth.access_token);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invalid credentials");
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Invalid credentials");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -91,16 +91,6 @@ export interface PaginatedResponse<T> {
 }
 
 // ========================================
-// Legacy/Internal Types (for backwards compatibility)
-// ========================================
-
-export interface ApiError {
-    message: string;
-    status?: number;
-    details?: unknown;
-}
-
-// ========================================
 // Auth Types
 // ========================================
 

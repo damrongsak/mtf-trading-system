@@ -1,5 +1,18 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { ApiError } from './types';
+
+// Custom API Error class
+export class ApiError extends Error {
+    status?: number;
+    details?: unknown;
+
+    constructor(message: string, status?: number, details?: unknown) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.details = details;
+        Object.setPrototypeOf(this, ApiError.prototype);
+    }
+}
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
@@ -42,22 +55,19 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error: AxiosError) => {
-        // Transform axios error to our custom ApiError
-        const apiError: ApiError = {
-            message: 'An unexpected error occurred',
-            status: error.response?.status,
-            details: error.response?.data,
-        };
+        let message = 'An unexpected error occurred';
+        const status = error.response?.status;
+        const details = error.response?.data;
 
         if (error.response) {
             // Server responded with error status
             const data = error.response.data as Record<string, unknown>;
-            apiError.message = (data?.detail as string) || (data?.message as string) || `Error: ${error.response.status}`;
+            message = (data?.detail as string) || (data?.message as string) || `Error: ${error.response.status}`;
 
             // Handle specific status codes
             switch (error.response.status) {
                 case 401:
-                    apiError.message = 'Authentication required. Please log in.';
+                    message = 'Authentication required. Please log in.';
                     // Optionally redirect to login or trigger logout
                     if (typeof window !== 'undefined') {
                         // You could dispatch a logout event here
@@ -65,34 +75,40 @@ apiClient.interceptors.response.use(
                     }
                     break;
                 case 403:
-                    apiError.message = 'You do not have permission to perform this action.';
+                    message = 'You do not have permission to perform this action.';
                     break;
                 case 404:
-                    apiError.message = 'The requested resource was not found.';
+                    message = 'The requested resource was not found.';
                     break;
                 case 422:
-                    apiError.message = 'Validation error. Please check your input.';
+                    message = 'Validation error. Please check your input.';
                     break;
                 case 500:
-                    apiError.message = 'Server error. Please try again later.';
+                    message = 'Server error. Please try again later.';
                     break;
             }
         } else if (error.request) {
             // Request was made but no response received
-            apiError.message = 'Network error. Please check your connection.';
+            message = 'Network error. Please check your connection.';
         } else {
             // Something else happened
-            apiError.message = error.message || 'An unexpected error occurred';
+            message = error.message || 'An unexpected error occurred';
         }
+
+        // Create proper ApiError instance
+        const apiError = new ApiError(message, status, details);
 
         // Log errors in development
         if (process.env.NODE_ENV === 'development') {
-            console.error('[API Error]', apiError);
+            console.error('[API Error]', {
+                message: apiError.message,
+                status: apiError.status,
+                details: apiError.details,
+            });
         }
 
-        return Promise.reject(apiError);
+        throw apiError;
     }
 );
 
-export { apiClient };
-export type { ApiError };
+export { apiClient, ApiError };
