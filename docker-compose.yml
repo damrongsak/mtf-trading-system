@@ -24,8 +24,6 @@ services:
     environment:
       - EXECUTION_SERVICE_URL=http://execution:8000
       - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   execution:
     build: ./services/execution
@@ -40,7 +38,7 @@ services:
       # - postgres
       - execution # Just to ensure order, though not strictly dependent
     environment:
-      - DATABASE_URL=postgresql://trader:trader@pgvector:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
     networks:
       - default
       - external
@@ -54,7 +52,7 @@ services:
     depends_on:
       - data-pipeline
     environment:
-      - DATABASE_URL=postgresql://trader:trader@pgvector:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
     networks:
       - default
       - external
