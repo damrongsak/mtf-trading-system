@@ -26,14 +26,17 @@ export default function RootLayout({
   const pathname = usePathname();
   
   // Pages that should not show Sidebar/Header
-  const isAuthPage = pathname === '/login';
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isGuestPage = pathname === '/';
 
-  // Auth pages (login) render without Sidebar/Header
-  if (isAuthPage) {
+  // Guest/Auth pages render without Sidebar/Header
+  if (isAuthPage || isGuestPage) {
+    const pageTitle = isAuthPage ? 'MTF Trading System - Auth' : 'MTF Trading System - AI-Powered Gold Trading';
+    
     return (
       <html lang="en">
         <head>
-          <title>MTF Trading System - Login</title>
+          <title>{pageTitle}</title>
           <meta name="description" content="Algorithmic Trading Dashboard" />
         </head>
         <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>

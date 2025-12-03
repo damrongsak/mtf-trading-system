@@ -1,8 +1,26 @@
+import { GuestHeader } from '@/components/guest/GuestHeader';
+import { HeroSection } from '@/components/guest/HeroSection';
+import { FeaturesGrid } from '@/components/guest/FeaturesGrid';
+import { LiveSignalPreview } from '@/components/guest/LiveSignalPreview';
+import { HowItWorks } from '@/components/guest/HowItWorks';
+import { CTASection } from '@/components/guest/CTASection';
+import { GuestFooter } from '@/components/guest/GuestFooter';
+
 export default function Home() {
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold">MTF Trading Dashboard (placeholder)</h1>
-      <p>Open /specs to follow the Spec-Driven Development flow.</p>
-    </main>
-  )
+    <div className="min-h-screen bg-gray-950">
+      <GuestHeader />
+      <HeroSection />
+      <div id="features">
+        <FeaturesGrid />
+      </div>
+      <LiveSignalPreview />
+      <div id="how-it-works">
+        <HowItWorks />
+      </div>
+      <CTASection />
+      <GuestFooter />
+    </div>
+  );
 }
+
