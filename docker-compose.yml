@@ -7,12 +7,12 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api
+      - api-gateway
       # - frontend # manually run `npm run build` and `npm run start` in frontend directory
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  api:
+  api-gateway:
     build: ./services/api-gateway
     env_file: .env
     ports:

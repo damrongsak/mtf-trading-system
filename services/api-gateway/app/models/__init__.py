@@ -13,6 +13,7 @@ from app.models.user_fund import User, Fund, UserFund, UserRole
 from app.models.strategy import Strategy
 from app.models.data_source import DataSource
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
+from app.models.user_preferences import UserPreferences
 
 __all__ = [
     "Candle",
@@ -33,4 +34,5 @@ __all__ = [
     "MentalState",
     "TimelineEvent",
     "RootCauseAnalysis",
+    "UserPreferences",
 ]
