@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** 2025-12-01
-**Current Phase:** Phase 5 - Multi-Tenancy, Multi-Strategy & Trading Journal
+**Last Updated:** 2025-12-04
+**Current Phase:** Phase 6 - Portfolio Management & Transaction Tracking
 
 ---
 
@@ -50,6 +50,54 @@
     - `OandaAdapter` for market data ingestion (`services/strategy-core/app/adapters/oanda.py`).
     - `StrategyEngine` for managing concurrent strategy execution.
     - Strategy and DataSource models implemented.
+
+### **6. Transaction Management & Portfolio Tracking**
+- **Status:** ✅ Complete (2025-12-04)
+- **Features:**
+    - **Backend:**
+        - Transaction model (Deposit/Withdrawal) with fund linkage.
+        - CRUD API endpoints: List, Create, Update, Delete transactions.
+        - Balance calculation endpoint.
+        - Excel import with duplicate detection.
+        - Database migrations applied.
+    - **Frontend:**
+        - Complete transactions page (`/transactions`).
+        - Balance card with real-time updates.
+        - Transaction list with pagination.
+        - Create/Edit/Delete transactions UI.
+        - Excel file import dialog.
+        - Export to CSV/PDF.
+        - Filter by type and date range.
+        - Balance history chart (recharts).
+        - Navigation link in sidebar.
+    - **Commits:**
+        - `d2d4771` (2025-12-04): Backend implementation
+        - `eaacc69` (2025-12-04): Frontend integration
+        - `6ca22d4` (2025-12-04): Enhancement features
+
+### **7. Settings & User Preferences**
+- **Status:** ✅ Complete (2025-12-04)
+- **Features:**
+    - User preferences model with strategy configuration.
+    - Portfolio (Fund) management.
+    - Settings page UI with 4 sections (Profile, Strategy, Portfolio, Trading).
+    - Unit tests with 100% endpoint coverage.
+    - **Commits:**
+        - `bdbec98` (2025-12-04): Backend preferences model
+        - `e2e9c8d` (2025-12-04): API client layer
+        - `9b8112d` (2025-12-04): Settings page UI
+        - `e62f561` (2025-12-04): Unit tests
+
+### **8. Dashboard & Analytics**
+- **Status:** ✅ Complete (2025-12-04)
+- **Features:**
+    - Realtime dashboard updates.
+    - Manual refresh capability.
+    - cTrader history import.
+    - Advanced dashboard metrics.
+    - **Commits:**
+        - `9d036e5` (2025-12-04): Dashboard implementation
+        - `ba83189` (2025-12-04): Realtime updates
 
 ### **2. Infrastructure (Local)**
 - **Status:** ✅ Functional
