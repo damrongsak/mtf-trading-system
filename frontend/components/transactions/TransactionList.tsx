@@ -6,9 +6,11 @@ import { formatDistanceToNow } from 'date-fns';
 interface TransactionListProps {
     transactions: Transaction[];
     loading?: boolean;
+    onEdit?: (transaction: Transaction) => void;
+    onDelete?: (id: string) => void;
 }
 
-export function TransactionList({ transactions, loading }: TransactionListProps) {
+export function TransactionList({ transactions, loading, onEdit, onDelete }: TransactionListProps) {
     if (loading) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -38,6 +40,9 @@ export function TransactionList({ transactions, loading }: TransactionListProps)
                         <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Amount</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Status</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Description</th>
+                        {(onEdit || onDelete) && (
+                            <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Actions</th>
+                        )}
                     </tr>
                 </thead>
                 <tbody>
@@ -87,6 +92,28 @@ export function TransactionList({ transactions, loading }: TransactionListProps)
                                     {transaction.description || '-'}
                                 </span>
                             </td>
+                            {(onEdit || onDelete) && (
+                                <td className="py-4 px-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        {onEdit && (
+                                            <button
+                                                onClick={() => onEdit(transaction)}
+                                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+                                        {onDelete && (
+                                            <button
+                                                onClick={() => onDelete(transaction.id)}
+                                                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>

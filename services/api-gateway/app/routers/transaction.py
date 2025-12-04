@@ -113,6 +113,46 @@ def get_balance(
         message="Balance calculated successfully"
     )
 
+@router.put("/{transaction_id}", response_model=APIResponseTransactionResponse)
+def update_transaction(
+    transaction_id: uuid.UUID,
+    transaction_in: TransactionCreate,
+    db: Session = Depends(get_db)
+):
+    # Verify transaction exists
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Update fields
+    transaction_data = transaction_in.model_dump()
+    # Convert Pydantic Enum to SQLAlchemy Enum
+    if hasattr(transaction_data['type'], 'value'):
+        transaction_data['type'] = TransactionType(transaction_data['type'].value)
+    
+    for key, value in transaction_data.items():
+        setattr(transaction, key, value)
+    
+    db.commit()
+    db.refresh(transaction)
+    
+    return create_response(data=transaction, message="Transaction updated successfully")
+
+@router.delete("/{transaction_id}")
+def delete_transaction(
+    transaction_id: uuid.UUID,
+    db: Session = Depends(get_db)
+):
+    # Verify transaction exists
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    db.delete(transaction)
+    db.commit()
+    
+    return create_response(data={"id": str(transaction_id)}, message="Transaction deleted successfully")
+
 @router.post("/import", response_model=APIResponseTransactionImportResponse)
 async def import_transactions(
     fund_id: uuid.UUID = Form(...),

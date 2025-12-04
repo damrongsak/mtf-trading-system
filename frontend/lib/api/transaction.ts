@@ -50,3 +50,27 @@ export async function getBalance(fundId: string): Promise<BalanceResponse> {
 
     return response.data.data;
 }
+
+/**
+ * Update an existing transaction
+ * @param id - Transaction ID
+ * @param data - Updated transaction data
+ * @returns Updated transaction
+ */
+export async function updateTransaction(id: string, data: CreateTransactionDto): Promise<Transaction> {
+    const response = await apiClient.put<APIResponse<Transaction>>(`/api/v1/transactions/${id}`, data);
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from transaction endpoint');
+    }
+
+    return response.data.data;
+}
+
+/**
+ * Delete a transaction
+ * @param id - Transaction ID
+ */
+export async function deleteTransaction(id: string): Promise<void> {
+    await apiClient.delete(`/api/v1/transactions/${id}`);
+}

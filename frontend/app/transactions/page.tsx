@@ -1,25 +1,60 @@
 'use client';
 
 import { useState } from 'react';
-import { BalanceCard, TransactionList, TransactionForm } from '@/components/transactions';
-import { useTransactions } from '@/lib/hooks';
-import { useFunds } from '@/lib/hooks/useFunds';
+import { BalanceCard, TransactionList, TransactionForm, FilterBar, EditDialog, ImportDialog, BalanceChart } from '@/components/transactions';
+import { Pagination } from '@/components/common';
+import { useTransactions, useFunds, useBalance } from '@/lib/hooks';
+import { Transaction } from '@/lib/api/types';
+import { exportToCSV, exportToPDF } from '@/lib/utils/exportTransactions';
+import { deleteTransaction } from '@/lib/api';
+import type { TransactionFilters } from '@/components/transactions/FilterBar';
 
 export default function TransactionsPage() {
     const [showForm, setShowForm] = useState(false);
+    const [showImport, setShowImport] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const perPage = 10;
+    const [perPage, setPerPage] = useState(10);
+    const [filters, setFilters] = useState<TransactionFilters>({ type: 'ALL', dateFrom: '', dateTo: '' });
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
     // Get user's funds
     const { funds, loading: fundsLoading } = useFunds();
     const fundId = funds.length > 0 ? funds[0].id : null;
 
-    // Get transactions
+    // Get transactions and balance
     const { transactions, loading, error, refetch, pagination } = useTransactions(fundId, currentPage, perPage);
+    const { balance, currency } = useBalance(fundId);
 
     const handleTransactionCreated = () => {
         setShowForm(false);
         refetch();
+    };
+
+    const handleTransactionUpdated = () => {
+        setEditingTransaction(null);
+        refetch();
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this transaction?')) return;
+        
+        try {
+            await deleteTransaction(id);
+            refetch();
+        } catch (err) {
+            alert('Failed to delete transaction: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        }
+    };
+
+    const handleExportCSV = () => {
+        exportToCSV(transactions, `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+        setShowExportMenu(false);
+    };
+
+    const handleExportPDF = () => {
+        exportToPDF(transactions, balance, currency, `transactions_${new Date().toISOString().split('T')[0]}.pdf`);
+        setShowExportMenu(false);
     };
 
     if (fundsLoading) {
@@ -62,17 +97,60 @@ export default function TransactionsPage() {
                 <BalanceCard fundId={fundId} />
             </div>
 
+            {/* Balance Chart */}
+            <div className="mb-8">
+                <BalanceChart transactions={transactions} />
+            </div>
+
+            {/* Filters */}
+            <FilterBar onFilterChange={setFilters} />
+
             {/* Action Buttons */}
             <div className="mb-6 flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                     Transaction History
                 </h2>
-                <button
-                    onClick={() => setShowForm(true)}
-                    className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                >
-                    + Add Transaction
-                </button>
+                <div className="flex gap-2">
+                    {/* Export Menu */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            disabled={transactions.length === 0}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+                        >
+                            Export ▾
+                        </button>
+                        {showExportMenu && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                                <button
+                                    onClick={handleExportCSV}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg"
+                                >
+                                    Export as CSV
+                                </button>
+                                <button
+                                    onClick={handleExportPDF}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg"
+                                >
+                                    Export as PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => setShowImport(true)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                        Import
+                    </button>
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                        + Add Transaction
+                    </button>
+                </div>
             </div>
 
             {/* Transaction Form Modal */}
@@ -91,6 +169,24 @@ export default function TransactionsPage() {
                 </div>
             )}
 
+            {/* Import Dialog */}
+            {showImport && (
+                <ImportDialog
+                    fundId={fundId}
+                    onSuccess={() => { setShowImport(false); refetch(); }}
+                    onCancel={() => setShowImport(false)}
+                />
+            )}
+
+            {/* Edit Dialog */}
+            {editingTransaction && (
+                <EditDialog
+                    transaction={editingTransaction}
+                    onSuccess={handleTransactionUpdated}
+                    onCancel={() => setEditingTransaction(null)}
+                />
+            )}
+
             {/* Transaction List */}
             <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {error ? (
@@ -105,32 +201,22 @@ export default function TransactionsPage() {
                     </div>
                 ) : (
                     <>
-                        <TransactionList transactions={transactions} loading={loading} />
+                        <TransactionList 
+                            transactions={transactions} 
+                            loading={loading}
+                            onEdit={setEditingTransaction}
+                            onDelete={handleDelete}
+                        />
 
                         {/* Pagination */}
-                        {pagination.totalPages > 1 && (
-                            <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-                                <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, pagination.total)} of {pagination.total} transactions
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Previous
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
-                                        disabled={currentPage === pagination.totalPages}
-                                        className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={pagination.totalPages}
+                            perPage={perPage}
+                            total={pagination.total}
+                            onPageChange={setCurrentPage}
+                            onPerPageChange={setPerPage}
+                        />
                     </>
                 )}
             </div>
