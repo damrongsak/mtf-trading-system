@@ -13,6 +13,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   refetchProfile: () => Promise<void>;
+  setUser: (user: UserResponse | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, authToken, loading, login, logout, isAuthenticated: !!user, refetchProfile }}>
+    <AuthContext.Provider value={{ user, authToken, loading, login, logout, isAuthenticated: !!user, refetchProfile, setUser }}>
       {children}
     </AuthContext.Provider>
   );
