@@ -250,6 +250,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /api/v1/transactions:
+    get:
+      summary: List transactions
+      parameters:
+        - name: fund_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_TransactionResponse'
+    post:
+      summary: Create a manual transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_TransactionResponse'
+  /api/v1/transactions/import:
+    post:
+      summary: Import transactions from Excel
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                fund_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_TransactionImportResponse'
+  /api/v1/transactions/balance:
+    get:
+      summary: Get fund balance
+      parameters:
+        - name: fund_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BalanceResponse'
 
 components:
   schemas:
@@ -528,6 +609,122 @@ components:
           $ref: '#/components/schemas/Meta'
         auth:
           $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_TransactionResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/TransactionResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_TransactionImportResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: object
+          properties:
+            imported_count:
+              type: integer
+            skipped_count:
+              type: integer
+            errors:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BalanceResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: object
+          properties:
+            balance:
+              type: number
+            currency:
+              type: string
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_TransactionResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
         rate_limit:
           $ref: '#/components/schemas/RateLimitInfo'
         timestamp:
@@ -863,3 +1060,51 @@ components:
           type: array
           items:
             type: object
+
+    TransactionCreate:
+      type: object
+      required:
+        - fund_id
+        - transaction_date
+        - type
+        - amount
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        transaction_date:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL]
+        amount:
+          type: number
+        currency:
+          type: string
+          default: USD
+        status:
+          type: string
+        reference:
+          type: string
+        description:
+          type: string
+        payment_method:
+          type: string
+        trading_account:
+          type: string
+
+    TransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/TransactionCreate'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time

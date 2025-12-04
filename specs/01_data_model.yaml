@@ -672,6 +672,66 @@ entities:
         nullable: true
         description: "What logic confirms the correction?"
 
+  Transaction:
+    description: "Financial transactions (Deposits/Withdrawals) for funds"
+    table_name: "transactions"
+    indexes:
+      - fields: ["fund_id", "transaction_date"]
+      - fields: ["type"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+      - name: transaction_date
+        type: datetime
+        required: true
+      - name: type
+        type: enum
+        enum_values: ["DEPOSIT", "WITHDRAWAL"]
+        required: true
+      - name: amount
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+      - name: currency
+        type: string
+        max_length: 10
+        default: "USD"
+        required: true
+      - name: status
+        type: string
+        max_length: 50
+        default: "COMPLETED"
+        description: "Transaction status (e.g., Approved, Declined)"
+      - name: reference
+        type: string
+        max_length: 100
+        nullable: true
+        description: "External reference ID"
+      - name: description
+        type: text
+        nullable: true
+      - name: payment_method
+        type: string
+        max_length: 50
+        nullable: true
+      - name: trading_account
+        type: string
+        max_length: 50
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
 relationships:
   - from: Trade
     to: StrategyRun
