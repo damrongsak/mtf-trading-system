@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse, UserResponse, LoginResult } from './types';
+import { APIResponse, UserResponse, LoginResult, UserUpdateDto, PasswordChangeDto } from './types';
 
 /**
  * Login with username and password
@@ -66,4 +66,31 @@ export async function register(username: string, email: string, password: string
         user: response.data.data,
         auth: response.data.auth,
     };
+}
+
+/**
+ * Update current user profile
+ * @param data - Profile update data (username, email)
+ * @returns Updated user data
+ */
+export async function updateProfile(data: UserUpdateDto): Promise<UserResponse> {
+    const response = await apiClient.put<APIResponse<UserResponse>>('/api/v1/auth/profile', data);
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from profile update endpoint');
+    }
+
+    return response.data.data;
+}
+
+/**
+ * Change user password
+ * @param oldPassword - Current password
+ * @param newPassword - New password
+ */
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await apiClient.put('/api/v1/auth/password', {
+        old_password: oldPassword,
+        new_password: newPassword,
+    });
 }

@@ -113,6 +113,16 @@ export interface LoginResult {
     auth: AuthTokens;
 }
 
+export interface UserUpdateDto {
+    username?: string;
+    email?: string;
+}
+
+export interface PasswordChangeDto {
+    old_password: string;
+    new_password: string;
+}
+
 // Journal Types
 export interface JournalEntry {
     id: string;
@@ -209,4 +219,64 @@ export interface RecentSignal {
     timeframe: string;
     timestamp: string;
     entry_price?: number;
+}
+
+// ========================================
+// Settings & Funds Types
+// ========================================
+
+export type StrategyType = 'MTF_SMC_BASIC' | 'LONG_SHORT_EQUITY' | 'MACRO_TACTICAL' | 'MULTI_ASSET';
+export type AssetClass = 'EQUITY' | 'FX' | 'COMMODITIES' | 'FIXED_INCOME';
+
+export interface Fund {
+    id: string;
+    name: string;
+    description: string | null;
+    role: string | null;
+}
+
+export interface UserPreferences {
+    id: string;
+    user_id: string;
+    default_fund_id: string | null;
+
+    // Strategy Configuration
+    strategy_type: StrategyType;
+    asset_classes: AssetClass[];
+
+    // Basic Risk Parameters
+    max_risk_per_trade: number;
+    default_lot_size: number;
+    max_drawdown_threshold: number | null;
+
+    // Advanced Risk Parameters
+    max_portfolio_beta: number | null;
+    gross_exposure_limit: number | null;
+    net_exposure_limit: number | null;
+    position_limit_single: number | null;
+    position_limit_sector: number | null;
+
+    // Trading Preferences
+    preferred_timeframes: string[];
+    default_symbol: string;
+    session_preferences: string[] | null;
+    supported_symbols: string[] | null;
+}
+
+export interface UpdatePreferencesDto {
+    default_fund_id?: string | null;
+    strategy_type?: StrategyType;
+    asset_classes?: AssetClass[];
+    max_risk_per_trade?: number;
+    default_lot_size?: number;
+    max_drawdown_threshold?: number | null;
+    max_portfolio_beta?: number | null;
+    gross_exposure_limit?: number | null;
+    net_exposure_limit?: number | null;
+    position_limit_single?: number | null;
+    position_limit_sector?: number | null;
+    preferred_timeframes?: string[];
+    default_symbol?: string;
+    session_preferences?: string[] | null;
+    supported_symbols?: string[] | null;
 }
