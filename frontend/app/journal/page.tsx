@@ -31,10 +31,11 @@ const JournalListPage: React.FC = () => {
     <div className="container mx-auto p-4 bg-gray-900 min-h-screen text-white">
       <h1 className="text-4xl font-bold mb-8 text-center text-emerald-400">Trading Journal</h1>
       <div className="flex justify-end mb-6">
-        <Link href="/journal/new">
-          <a className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out">
-            Create New Entry
-          </a>
+        <Link 
+          href="/journal/new"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out"
+        >
+          Create New Entry
         </Link>
       </div>
 

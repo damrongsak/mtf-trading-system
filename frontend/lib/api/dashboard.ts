@@ -1,3 +1,4 @@
+import { apiClient } from './client';
 import { DashboardStats, RecentSignal } from './types';
 
 /**
@@ -6,25 +7,31 @@ import { DashboardStats, RecentSignal } from './types';
  * @returns Dashboard statistics
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-    // TODO: Replace with real API call when /api/v1/dashboard endpoint is implemented
-    // const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats');
-    // return response.data;
+    const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats');
+    return response.data;
+}
 
-    // Mock data for now
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({
-                total_pnl: 1250.50,
-                total_trades: 47,
-                winning_trades: 32,
-                losing_trades: 15,
-                win_rate: 68.09,
-                open_positions: 2,
-                avg_win: 125.30,
-                avg_loss: -85.20,
-            });
-        }, 500); // Simulate network delay
-    });
+export interface EquityPoint {
+    date: string;
+    equity: number;
+    daily_pnl: number;
+}
+
+export async function getEquityCurve(days: number = 30): Promise<EquityPoint[]> {
+    const response = await apiClient.get<EquityPoint[]>(`/api/v1/dashboard/equity-curve?days=${days}`);
+    return response.data;
+}
+
+export interface StrategyPerformance {
+    strategy_name: string;
+    total_trades: number;
+    total_pnl: number;
+    win_rate: number;
+}
+
+export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
+    const response = await apiClient.get<StrategyPerformance[]>('/api/v1/dashboard/performance');
+    return response.data;
 }
 
 /**

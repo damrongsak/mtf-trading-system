@@ -10,11 +10,17 @@ class MentalStateBase(BaseModel):
     tilt_level: int = Field(0, ge=0, le=10)
     confidence_level: int = Field(0, ge=0, le=10)
     discipline_level: int = Field(0, ge=0, le=10)
+    
+    class Config:
+        from_attributes = True
 
 class TimelineEventBase(BaseModel):
     type: str # TRIGGER, THOUGHT, EMOTION, BEHAVIOR
     description: str
     order_index: int
+    
+    class Config:
+        from_attributes = True
 
 class RootCauseAnalysisBase(BaseModel):
     problem: Optional[str] = None
@@ -22,6 +28,9 @@ class RootCauseAnalysisBase(BaseModel):
     flaw: Optional[str] = None
     correction: Optional[str] = None
     logic: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class JournalEntryCreate(BaseModel):
     # Technical
