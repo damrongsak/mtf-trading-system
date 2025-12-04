@@ -34,6 +34,14 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UserUpdateDto(BaseModel):
+    username: str | None = None
+    email: str | None = None
+
+class PasswordChangeDto(BaseModel):
+    old_password: str
+    new_password: str
+
 @router.post("/token", response_model=APIResponse[UserResponse])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # Allow login with either username or email
@@ -97,3 +105,69 @@ async def get_current_user_profile(current_user = Depends(get_current_user)):
     Get the current authenticated user's profile
     """
     return success_response(data=UserResponse.model_validate(current_user))
+
+@router.put("/profile", response_model=APIResponse[UserResponse])
+async def update_user_profile(
+    data: UserUpdateDto,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update the current user's profile (username and/or email)
+    """
+    # Check if username is already taken
+    if data.username and data.username != current_user.username:
+        existing_user = db.query(User).filter(User.username == data.username).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+    
+    # Check if email is already taken
+    if data.email and data.email != current_user.email:
+        existing_user = db.query(User).filter(User.email == data.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already in use"
+            )
+    
+    # Update user
+    if data.username:
+        current_user.username = data.username
+    if data.email:
+        current_user.email = data.email
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return success_response(
+        data=UserResponse.model_validate(current_user),
+        message="Profile updated successfully"
+    )
+
+@router.put("/password")
+async def change_password(
+    data: PasswordChangeDto,
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Change the current user's password
+    """
+    # Verify old password
+    if not verify_password(data.old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+    
+    # Update password
+    current_user.password_hash = get_password_hash(data.new_password)
+    db.commit()
+    
+    return success_response(
+        data=None,
+        message="Password changed successfully"
+    )

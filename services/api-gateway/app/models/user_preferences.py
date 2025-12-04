@@ -1,0 +1,79 @@
+from sqlalchemy import Column, String, Enum, DateTime, ForeignKey, Numeric
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+import uuid
+import enum
+from app.database import Base
+
+
+class StrategyType(str, enum.Enum):
+    """Strategy type enum for portfolio management"""
+    MTF_SMC_BASIC = "MTF_SMC_BASIC"
+    LONG_SHORT_EQUITY = "LONG_SHORT_EQUITY"
+    MACRO_TACTICAL = "MACRO_TACTICAL"
+    MULTI_ASSET = "MULTI_ASSET"
+
+
+class UserPreferences(Base):
+    """User-specific preferences for trading and portfolio management"""
+    __tablename__ = "user_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
+    
+    # Fund Management
+    default_fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=True)
+    
+    # Strategy Configuration
+    strategy_type = Column(
+        Enum(StrategyType), 
+        default=StrategyType.MTF_SMC_BASIC, 
+        nullable=False,
+        comment="Strategy type: basic MTF/SMC to advanced multi-asset"
+    )
+    asset_classes = Column(
+        JSONB, 
+        default=["FX"], 
+        nullable=False,
+        comment="Supported asset classes: EQUITY, FX, COMMODITIES, FIXED_INCOME"
+    )
+    
+    # Basic Risk Parameters (All Strategies)
+    max_risk_per_trade = Column(Numeric(10, 2), default=10.0, nullable=False)
+    default_lot_size = Column(Numeric(10, 2), default=0.01, nullable=False)
+    max_drawdown_threshold = Column(Numeric(10, 2), nullable=True)
+    
+    # Advanced Risk Parameters (L/S & Multi-Asset)
+    max_portfolio_beta = Column(Numeric(5, 2), default=0.35, nullable=True)
+    gross_exposure_limit = Column(Numeric(5, 2), default=100.0, nullable=True, comment="In percentage")
+    net_exposure_limit = Column(Numeric(5, 2), default=15.0, nullable=True, comment="In percentage")
+    position_limit_single = Column(Numeric(5, 2), default=3.0, nullable=True, comment="Max % per single position")
+    position_limit_sector = Column(Numeric(5, 2), default=10.0, nullable=True, comment="Max % per sector")
+    
+    # Trading Preferences
+    preferred_timeframes = Column(
+        JSONB, 
+        default=["4H", "1H", "15m"], 
+        nullable=False,
+        comment="Preferred trading timeframes"
+    )
+    default_symbol = Column(String(20), default="XAU/USD", nullable=False)
+    session_preferences = Column(
+        JSONB, 
+        nullable=True,
+        comment="Trading session preferences: LONDON, NY, ASIA"
+    )
+    supported_symbols = Column(
+        JSONB, 
+        nullable=True,
+        comment="List of supported symbols for multi-asset strategies"
+    )
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="preferences")
+    fund = relationship("Fund", foreign_keys=[default_fund_id])
