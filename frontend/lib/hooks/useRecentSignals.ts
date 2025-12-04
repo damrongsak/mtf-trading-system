@@ -19,9 +19,11 @@ export function useRecentSignals(limit: number = 5): UseRecentSignalsReturn {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchSignals = useCallback(async () => {
+    const fetchSignals = useCallback(async (isBackground = false) => {
         try {
-            setLoading(true);
+            if (!isBackground) {
+                setLoading(true);
+            }
             setError(null);
             const data = await getRecentSignals(limit);
             setSignals(data);
@@ -29,12 +31,19 @@ export function useRecentSignals(limit: number = 5): UseRecentSignalsReturn {
             const apiError = err as ApiError;
             setError(apiError.message || 'Failed to fetch recent signals');
         } finally {
-            setLoading(false);
+            if (!isBackground) {
+                setLoading(false);
+            }
         }
     }, [limit]);
 
     useEffect(() => {
         fetchSignals();
+
+        // Auto-refresh every 5 seconds
+        const interval = setInterval(() => fetchSignals(true), 5000);
+
+        return () => clearInterval(interval);
     }, [fetchSignals]);
 
     return { signals, loading, error, refetch: fetchSignals };

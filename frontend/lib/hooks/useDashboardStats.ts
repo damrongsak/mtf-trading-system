@@ -19,9 +19,11 @@ export function useDashboardStats(): UseDashboardStatsReturn {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchStats = async () => {
+    const fetchStats = async (isBackground = false) => {
         try {
-            setLoading(true);
+            if (!isBackground) {
+                setLoading(true);
+            }
             setError(null);
             const data = await getDashboardStats();
             setStats(data);
@@ -29,15 +31,17 @@ export function useDashboardStats(): UseDashboardStatsReturn {
             const apiError = err as ApiError;
             setError(apiError.message || 'Failed to fetch dashboard statistics');
         } finally {
-            setLoading(false);
+            if (!isBackground) {
+                setLoading(false);
+            }
         }
     };
 
     useEffect(() => {
         fetchStats();
 
-        // Auto-refresh every 30 seconds
-        const interval = setInterval(fetchStats, 30000);
+        // Auto-refresh every 5 seconds
+        const interval = setInterval(() => fetchStats(true), 5000);
 
         return () => clearInterval(interval);
     }, []);
