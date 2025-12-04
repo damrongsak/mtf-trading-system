@@ -117,9 +117,12 @@ async def update_preferences(
         preferences = UserPreferences(user_id=current_user.id)
         db.add(preferences)
     
-    # Update fields
+    # Update preferences
     update_data = data.model_dump(exclude_unset=True)
+    
+    # Apply updates only for fields that are actually provided (not None or explicitly set)
     for field, value in update_data.items():
+        # Skip None values to avoid overwriting defaults
         if value is not None:
             setattr(preferences, field, value)
     
