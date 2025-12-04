@@ -53,17 +53,26 @@ def test_get_preferences_creates_default(client, mock_db_session, mock_current_u
     """Test GET /api/v1/settings/preferences creates default preferences if none exist"""
     from app.security import get_current_user
     
-    # First query returns None (no preferences exist)
-    mock_db_session.query.return_value.filter.return_value.first.return_value = None
-    
     # After creation, the refresh will populate the instance
     def mock_refresh(instance):
         instance.id = uuid.uuid4()
+        # Set defaults that would be set by DB
+        if getattr(instance, 'strategy_type', None) is None:
+            instance.strategy_type = StrategyType.MTF_SMC_BASIC
+        if getattr(instance, 'default_lot_size', None) is None:
+            instance.default_lot_size = 0.01
+        if getattr(instance, 'default_symbol', None) is None:
+            instance.default_symbol = "XAU/USD"
+        if getattr(instance, 'max_risk_per_trade', None) is None:
+            instance.max_risk_per_trade = 10.0
     
     mock_db_session.refresh.side_effect = mock_refresh
     
     app = client.app
     app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    
+    # First query returns None (no preferences exist)
+    mock_db_session.query.return_value.filter.return_value.first.return_value = None
     
     response = client.get("/api/v1/settings/preferences")
     
@@ -232,6 +241,15 @@ def test_update_preferences_creates_if_not_exists(client, mock_db_session, mock_
     # After creation, the refresh will populate the instance
     def mock_refresh(instance):
         instance.id = uuid.uuid4()
+        # Set defaults that would be set by DB
+        if getattr(instance, 'strategy_type', None) is None:
+            instance.strategy_type = StrategyType.MTF_SMC_BASIC
+        if getattr(instance, 'default_lot_size', None) is None:
+            instance.default_lot_size = 0.01
+        if getattr(instance, 'default_symbol', None) is None:
+            instance.default_symbol = "XAU/USD"
+        if getattr(instance, 'max_risk_per_trade', None) is None:
+            instance.max_risk_per_trade = 10.0
     
     mock_db_session.refresh.side_effect = mock_refresh
     

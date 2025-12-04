@@ -20,7 +20,7 @@ router = APIRouter(
 class UserPreferencesResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    default_fund_id: uuid.UUID | None
+    default_fund_id: uuid.UUID | None = None
     
     # Strategy Configuration
     strategy_type: StrategyType
@@ -29,20 +29,20 @@ class UserPreferencesResponse(BaseModel):
     # Basic Risk Parameters
     max_risk_per_trade: float
     default_lot_size: float
-    max_drawdown_threshold: float | None
+    max_drawdown_threshold: float | None = None
     
     # Advanced Risk Parameters
-    max_portfolio_beta: float | None
-    gross_exposure_limit: float | None
-    net_exposure_limit: float | None
-    position_limit_single: float | None
-    position_limit_sector: float | None
+    max_portfolio_beta: float | None = None
+    gross_exposure_limit: float | None = None
+    net_exposure_limit: float | None = None
+    position_limit_single: float | None = None
+    position_limit_sector: float | None = None
     
     # Trading Preferences
     preferred_timeframes: List[str]
     default_symbol: str
-    session_preferences: List[str] | None
-    supported_symbols: List[str] | None
+    session_preferences: List[str] | None = None
+    supported_symbols: List[str] | None = None
     
     class Config:
         from_attributes = True
