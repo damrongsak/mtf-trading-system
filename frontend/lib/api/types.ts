@@ -280,3 +280,46 @@ export interface UpdatePreferencesDto {
     session_preferences?: string[] | null;
     supported_symbols?: string[] | null;
 }
+
+// ========================================
+// Transaction Types
+// ========================================
+
+export enum TransactionType {
+    DEPOSIT = 'DEPOSIT',
+    WITHDRAWAL = 'WITHDRAWAL',
+}
+
+export interface Transaction {
+    id: string;
+    fund_id: string;
+    transaction_date: string;
+    type: TransactionType;
+    amount: number;
+    currency: string;
+    status: string;
+    reference?: string | null;
+    description?: string | null;
+    payment_method?: string | null;
+    trading_account?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateTransactionDto {
+    fund_id: string;
+    transaction_date: string;
+    type: TransactionType;
+    amount: number;
+    currency?: string;
+    status?: string;
+    reference?: string;
+    description?: string;
+    payment_method?: string;
+    trading_account?: string;
+}
+
+export interface BalanceResponse {
+    balance: number;
+    currency: string;
+}
