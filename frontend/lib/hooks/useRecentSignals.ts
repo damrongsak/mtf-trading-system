@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getRecentSignals } from '../api/dashboard';
-import { RecentSignal, ApiError } from '../api/types';
+import { RecentSignal } from '../api/types';
+import { ApiError } from '../api/errors';
 
 interface UseRecentSignalsReturn {
     signals: RecentSignal[];

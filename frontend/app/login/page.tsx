@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { login } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import Link from "next/link";
 import { ArrowRight, Lock, TrendingUp, User } from "lucide-react";
 

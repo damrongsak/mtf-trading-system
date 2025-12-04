@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getJournalEntries } from '../api/journal';
 import { JournalEntry } from '../api/types';
-import { ApiError } from '../api/client';
+import { ApiError } from '../api/errors';
 
 interface UseJournalEntriesReturn {
   entries: JournalEntry[];

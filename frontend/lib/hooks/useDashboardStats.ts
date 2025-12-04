@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDashboardStats } from '../api/dashboard';
-import { DashboardStats, ApiError } from '../api/types';
+import { DashboardStats } from '../api/types';
+import { ApiError } from '../api/errors';
 
 interface UseDashboardStatsReturn {
     stats: DashboardStats | null;

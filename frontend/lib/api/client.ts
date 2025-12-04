@@ -1,18 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-
-// Custom API Error class
-export class ApiError extends Error {
-    status?: number;
-    details?: unknown;
-
-    constructor(message: string, status?: number, details?: unknown) {
-        super(message);
-        this.name = 'ApiError';
-        this.status = status;
-        this.details = details;
-        Object.setPrototypeOf(this, ApiError.prototype);
-    }
-}
+import { ApiError } from './errors';
 
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
@@ -100,15 +87,14 @@ apiClient.interceptors.response.use(
 
         // Log errors in development
         if (process.env.NODE_ENV === 'development') {
-            console.error('[API Error]', {
-                message: apiError.message,
-                status: apiError.status,
-                details: apiError.details,
-            });
+            // specific status codes that are expected/handled
+            if (status !== 401 && status !== 404) {
+                 console.error(`[API Error] ${status || 'Unknown'}: ${message}`, details ? details : '');
+            }
         }
 
         throw apiError;
     }
 );
 
-export { apiClient, ApiError };
+export { apiClient };
