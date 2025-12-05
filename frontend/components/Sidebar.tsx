@@ -1,57 +1,189 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard,
+  Target,
+  Briefcase,
+  Settings as SettingsIcon,
+  TrendingUp,
+  BookOpen,
+  CreditCard,
+  FlaskConical,
+  Bot,
+  User,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 
-const navItems = [
-  { name: 'Dashboard', href: '/dashboard' },
-  { name: 'Signals', href: '/signals' },
-  { name: 'Journal', href: '/journal' },
-  { name: 'Transactions', href: '/transactions' },
-  { name: 'Backtest', href: '/backtest' },
-  { name: 'AI Analyst', href: '/ai-analyst' },
-  { name: 'Settings', href: '/settings' },
+type NavItem = {
+  name: string;
+  href: string;
+  icon: any;
+};
+
+type NavCategory = {
+  name: string;
+  icon: any;
+  items: NavItem[];
+};
+
+const navCategories: NavCategory[] = [
+  {
+    name: 'OVERVIEW',
+    icon: LayoutDashboard,
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'AI Analyst', href: '/ai-analyst', icon: Bot },
+    ],
+  },
+  {
+    name: 'TRADING',
+    icon: Target,
+    items: [
+      { name: 'Strategy', href: '/strategy', icon: Target },
+      { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
+      { name: 'Trading Settings', href: '/trading', icon: SettingsIcon },
+      { name: 'Signals', href: '/signals', icon: TrendingUp },
+    ],
+  },
+  {
+    name: 'ANALYSIS',
+    icon: BookOpen,
+    items: [
+      { name: 'Journal', href: '/journal', icon: BookOpen },
+      { name: 'Transactions', href: '/transactions', icon: CreditCard },
+      { name: 'Backtest', href: '/backtest', icon: FlaskConical },
+    ],
+  },
+  {
+    name: 'ACCOUNT',
+    icon: User,
+    items: [
+      { name: 'Profile', href: '/settings', icon: User },
+    ],
+  },
 ];
 
 export const Sidebar = () => {
   const pathname = usePathname();
+  
+  // Initialize state from localStorage or default to all expanded
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('expandedCategories');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
+        }
+      }
+    }
+    return ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
+  });
+
+  // Save to localStorage whenever expanded state changes
+  useEffect(() => {
+    if (expandedCategories.length > 0) {
+      localStorage.setItem('expandedCategories', JSON.stringify(expandedCategories));
+    }
+  }, [expandedCategories]);
+
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories((prev) => {
+      if (prev.includes(categoryName)) {
+        return prev.filter((c) => c !== categoryName);
+      } else {
+        return [...prev, categoryName];
+      }
+    });
+  };
+
+  const isCategoryExpanded = (categoryName: string) => {
+    return expandedCategories.includes(categoryName);
+  };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-950/80 backdrop-blur-md border-r border-gray-800 flex flex-col z-50">
-      <div className="p-6 border-b border-gray-800">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-blue to-accent-green bg-clip-text text-transparent">
-          MTF Trader
-        </h1>
-        <p className="text-xs text-gray-500 mt-1 font-mono">v0.1.0-alpha</p>
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-950/80 backdrop-blur-md border-r border-gray-800 flex flex-col z-50 overflow-y-auto">
+      {/* Logo/Brand */}
+      <div className="p-6 border-b border-gray-800 flex items-center gap-3">
+        <div className="w-9 h-9 bg-gradient-to-tr from-accent-blue to-accent-green rounded-lg flex items-center justify-center font-bold text-white text-xl shadow-lg">
+          M
+        </div>
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">
+            MTF Trader
+          </h1>
+          <p className="text-xs text-gray-500 font-mono">v0.1.0-alpha</p>
+        </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
+      {/* Navigation */}
+      <nav className="flex-1 py-4">
+        {navCategories.map((category) => {
+          const isExpanded = isCategoryExpanded(category.name);
+          const CategoryIcon = category.icon;
+          
           return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`
-                block px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
-                ${isActive 
-                  ? 'bg-accent-blue/10 text-accent-blue border border-accent-blue/20' 
-                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
-                }
-              `}
-            >
-              {item.name}
-            </Link>
+            <div key={category.name} className="mb-2">
+              {/* Category Header */}
+              <button
+                onClick={() => toggleCategory(category.name)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-400 transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <CategoryIcon size={14} className="text-gray-600 group-hover:text-gray-500" />
+                  <span className="tracking-wide">{category.name}</span>
+                </div>
+                {isExpanded ? (
+                  <ChevronDown size={14} className="text-gray-600" />
+                ) : (
+                  <ChevronRight size={14} className="text-gray-600" />
+                )}
+              </button>
+
+              {/* Category Items */}
+              {isExpanded && (
+                <div className="mt-1 space-y-0.5">
+                  {category.items.map((item) => {
+                    const isActive = pathname === item.href;
+                    const ItemIcon = item.icon;
+                    
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={`
+                          flex items-center gap-3 pl-12 pr-4 py-2.5 text-sm font-medium transition-all duration-200
+                          border-l-4 
+                          ${
+                            isActive
+                              ? 'border-accent-blue text-white bg-accent-blue/10'
+                              : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/50'
+                          }
+                        `}
+                      >
+                        <ItemIcon size={18} className={isActive ? 'text-accent-blue' : ''} />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
 
+      {/* Status Footer */}
       <div className="p-4 border-t border-gray-800">
         <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-800">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
-            <span className="text-xs text-gray-400 font-mono">System Online</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse shadow-lg shadow-green-500/50" />
+            <span className="text-xs text-gray-400 font-medium">System Online</span>
           </div>
           <div className="text-xs text-gray-600 font-mono">
             Latency: 24ms
