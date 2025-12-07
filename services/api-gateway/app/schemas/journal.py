@@ -66,3 +66,31 @@ class JournalEntryResponse(JournalEntryCreate):
     
     class Config:
         from_attributes = True
+
+# ==========================
+# Analytics Schemas
+# ==========================
+
+class JournalStatsResponse(BaseModel):
+    total_trades: int
+    win_rate: float
+    profit_factor: float
+    net_pnl: float
+    avg_win: float
+    avg_loss: float
+    max_drawdown: float
+
+class EquityCurvePoint(BaseModel):
+    timestamp: datetime
+    balance: float
+    pnl: float
+
+class PatternItem(BaseModel):
+    name: str # e.g. "Game Level A" or "Greed"
+    count: int
+    avg_pnl: float
+
+class PatternAnalysisResponse(BaseModel):
+    game_levels: List[PatternItem]
+    top_emotions: List[PatternItem]
+    top_mistakes: List[PatternItem] # From Root Cause Analysis

@@ -136,7 +136,17 @@
 - **Next Steps:**
     - Implement Backtest UI.
     - Connect to real API endpoints for Signals, Trades, and Backtest views.
-    - Add Journal list view (`/journal`).
+    - Connect to real API endpoints for Signals, Trades, and Backtest views.
+
+### **3. Journal Analytics Dashboard (`frontend`)**
+- **Status:** ✅ Completed (2025-12-08)
+- **Features:** 
+    - Enhanced List View with Tabs.
+    - Analytics Cards (Win Rate, P&L, R-Multiple).
+    - Equity Curve integration (Area Chart).
+    - Pattern Analysis (Game Level Pie Chart, Top Mental Patterns).
+    - Backend API Integration (`/journal/analytics/*`).
+
 
 ---
 
@@ -197,7 +207,7 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Add Journal list view and analytics dashboard.
-2.  **[Medium]** Implement AI Analyst API integration with Gemini.
+1.  **[High]** Implement AI Analyst API integration with Gemini.
+2.  **[High]** Automate Data Pipeline (Cron/Job for ingestion).
 3.  **[Medium]** Refine Vectorbt strategy logic (add more complexity beyond MVP).
 4.  **[Low]** Connect Frontend to Real API for live data.

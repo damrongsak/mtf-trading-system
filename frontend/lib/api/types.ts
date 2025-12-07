@@ -143,6 +143,34 @@ export interface JournalEntry {
     updated_at: string;
 }
 
+export interface JournalStatsResponse {
+    total_trades: number;
+    win_rate: number;
+    profit_factor: number;
+    net_pnl: number;
+    avg_win: number;
+    avg_loss: number;
+    max_drawdown: number;
+}
+
+export interface EquityCurvePoint {
+    timestamp: string;
+    balance: number;
+    pnl: number;
+}
+
+export interface PatternItem {
+    name: string;
+    count: number;
+    avg_pnl: number;
+}
+
+export interface PatternAnalysisResponse {
+    game_levels: PatternItem[];
+    top_emotions: PatternItem[];
+    top_mistakes: PatternItem[];
+}
+
 export interface CreateJournalEntryDto {
     symbol: string;
     direction: string;
