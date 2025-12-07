@@ -43,7 +43,7 @@ export function PortfolioSection() {
       setNetExposure(prefs.net_exposure_limit || 15.0);
       setPositionLimitSingle(prefs.position_limit_single || 3.0);
       setPositionLimitSector(prefs.position_limit_sector || 10.0);
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: 'Failed to load portfolio settings' });
     } finally {
       setIsLoading(false);

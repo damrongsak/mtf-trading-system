@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse, UserResponse, LoginResult, UserUpdateDto, PasswordChangeDto } from './types';
+import { APIResponse, UserResponse, LoginResult, UserUpdateDto } from './types';
 
 /**
  * Login with username and password

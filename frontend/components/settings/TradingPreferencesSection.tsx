@@ -30,7 +30,7 @@ export function TradingPreferencesSection() {
       setDefaultSymbol(prefs.default_symbol);
       setSupportedSymbols(prefs.supported_symbols || []);
       setSelectedSessions(prefs.session_preferences || []);
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: 'Failed to load trading preferences' });
     } finally {
       setIsLoading(false);
@@ -49,7 +49,7 @@ export function TradingPreferencesSection() {
         session_preferences: selectedSessions.length > 0 ? selectedSessions : null,
       });
       setMessage({ type: 'success', text: 'Trading preferences saved successfully!' });
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: (error as Error).message || 'Failed to save preferences' });
     } finally {
       setIsSaving(false);

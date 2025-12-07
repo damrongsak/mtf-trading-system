@@ -38,7 +38,7 @@ export function StrategySection() {
       const prefs = await getPreferences();
       setStrategyType(prefs.strategy_type);
       setAssetClasses(prefs.asset_classes as AssetClass[]);
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: 'Failed to load preferences' });
     } finally {
       setIsLoading(false);
@@ -55,7 +55,7 @@ export function StrategySection() {
         asset_classes: assetClasses,
       });
       setMessage({ type: 'success', text: 'Strategy configuration saved successfully!' });
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: (error as Error).message || 'Failed to save configuration' });
     } finally {
       setIsSaving(false);
