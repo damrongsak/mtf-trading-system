@@ -323,3 +323,42 @@ export interface BalanceResponse {
     balance: number;
     currency: string;
 }
+
+// ========================================
+// Simulation Lab Types
+// ========================================
+
+export interface MarketRegime {
+    trend: 'NO_TREND' | 'UPTREND' | 'DOWNTREND';
+    volatility: number; // 1-10
+    noise: 'GAUSSIAN' | 'FAT_TAIL';
+}
+
+export interface GridConfig {
+    step_size: number;
+    grid_levels: number;
+    initial_lot: number;
+    use_compound: boolean;
+    stop_loss_pct: number;
+}
+
+export interface SimulationConfig {
+    regime: MarketRegime;
+    grid: GridConfig;
+    iterations: number; // Monte Carlo runs
+}
+
+export interface SimulationResult {
+    id: string;
+    config: SimulationConfig;
+    metrics: {
+        total_pnl: number;
+        win_rate: number;
+        max_drawdown: number;
+        sharpe_ratio: number;
+        profit_factor: number;
+    };
+    equity_curve: { timestamp: string; value: number }[];
+    status: 'COMPLETED' | 'FAILED' | 'RUNNING';
+    created_at: string;
+}
