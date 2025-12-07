@@ -1,52 +1,45 @@
-import { SimulationConfig, SimulationResult, APIResponse, ResponseStatus } from './types';
-
-const MOCK_DELAY = 1500; // Simulate network latency
+import { SimulationConfig, SimulationResult } from './types';
+import { apiClient } from './client';
 
 /**
- * Mock function to run a GRID simulation
+ * Run a GRID simulation via the backend
  */
 export async function runSimulation(config: SimulationConfig): Promise<SimulationResult> {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const result: SimulationResult = {
-                id: crypto.randomUUID(),
-                config,
-                status: 'COMPLETED',
-                created_at: new Date().toISOString(),
-                metrics: {
-                    total_pnl: generateRandomPnL(config),
-                    win_rate: 65 + Math.random() * 10,
-                    max_drawdown: 12 + Math.random() * 8,
-                    sharpe_ratio: 1.2 + Math.random() * 0.8,
-                    profit_factor: 1.5 + Math.random() * 0.5,
-                },
-                equity_curve: generateMockEquityCurve(100),
-            };
-            resolve(result);
-        }, MOCK_DELAY);
-    });
-}
+    try {
+        const response = await apiClient.post<SimulationResult>('/api/v1/simulation/', config);
 
-function generateRandomPnL(config: SimulationConfig): number {
-    const basePnL = 5000;
-    const volatilityFactor = config.regime.volatility / 5;
-    const noiseImpact = config.regime.noise === 'FAT_TAIL' ? (Math.random() > 0.8 ? -2000 : 500) : 0;
-    return basePnL * volatilityFactor + noiseImpact;
-}
+        // apiClient returns the Axios response object. 
+        // Our API wraps data in APIResponse structure, but apiClient generic T implies the data payload.
+        // Actually, looking at client.ts, the interceptor might or might not unwrap.
+        // Standard Axios: response.data is the payload.
+        // Let's assume response.data is the APIResponse<SimulationResult>
 
-function generateMockEquityCurve(points: number): { timestamp: string; value: number }[] {
-    let equity = 10000;
-    const curve = [];
-    const now = new Date();
+        // Wait, looking at other files (e.g. journal.ts), it seems we expect apiClient.get<T> to return AxiosResponse<T>.
+        // BUT the backend returns APIResponse<T>.
+        // So T in apiClient.get<T> should be APIResponse<T> or the client unwraps it.
 
-    for (let i = 0; i < points; i++) {
-        const change = (Math.random() - 0.45) * 100; // Slight upward bias
-        equity += change;
-        const date = new Date(now.getTime() - (points - i) * 3600000); // Hourly points
-        curve.push({
-            timestamp: date.toISOString(),
-            value: equity
-        });
+        // Let's check how other clients use it.
+        // In journal.ts: const response = await apiClient.get<JournalEntry[]>('/api/v1/journal'); return response.data;
+        // This implies response.data IS the T (JournalEntry[]).
+        // If so, the interceptor must be unwrapping.
+
+        // HOWEVER, the lint error says: "Property 'message' does not exist on type 'AxiosResponse<SimulationResult, any, {}>'".
+        // This means `response` is an AxiosResponse.
+
+        // If `response` is AxiosResponse<SimulationResult>, then `response.data` is `SimulationResult`.
+        // The check `response.status === ResponseStatus.SUCCESS` is checking the HTTP status or the payload status?
+        // `response.status` is HTTP status (number), ResponseStatus.SUCCESS is "success" (string).
+        // This confirms the Type Mismatch lint error.
+
+        // FIX: Check HTTP status 200/201, and return response.data.
+
+        if (response.status === 200 || response.status === 201) {
+            return response.data;
+        }
+
+        throw new Error('Simulation failed with status: ' + response.status);
+    } catch (error) {
+        console.error('Simulation API Error:', error);
+        throw error;
     }
-    return curve;
 }

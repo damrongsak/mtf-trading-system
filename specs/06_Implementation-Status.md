@@ -167,6 +167,14 @@
 - **Next Steps:**
     - Implement AI Analyst scaffolding.
 
+### **3. GRID Simulation Lab (`services/strategy-core`)**
+- **Status:** ✅ Completed (2025-12-07)
+- **Features:** 
+    - **Frontend:** Regimes Selector, Strategy Controls, Results Visualization.
+    - **Backend:** GBM Synthetic Data, Vectorbt Engine Integration.
+    - **API:** `/api/v1/simulation` proxy endpoint.
+
+
 ### **3. AI Analyst (`services/ai-analyst`)**
 - **Status:** ✅ Scaffolded
 - **Completed:**
@@ -187,7 +195,9 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Implement GRID Trading Simulation Lab (per `specs/modules/02_professional-grade_simulation_lab.md`).
-2.  **[Medium]** Add Journal list view and analytics dashboard.
-3.  **[Medium]** Implement AI Analyst API integration with Gemini.
+## 📋 Immediate Next Actions (Prioritized)
+
+1.  **[High]** Add Journal list view and analytics dashboard.
+2.  **[Medium]** Implement AI Analyst API integration with Gemini.
+3.  **[Medium]** Refine Vectorbt strategy logic (add more complexity beyond MVP).
 4.  **[Low]** Connect Frontend to Real API for live data.

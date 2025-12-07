@@ -1,17 +1,26 @@
-FROM python:3.10-slim
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
 
-# Install system dependencies for vectorbt/pandas if needed
+# Install system dependencies if needed (e.g. for numpy/pandas compilation if no wheels)
+# Bookworm-slim is usually sufficient for wheels
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy configuration files
+COPY pyproject.toml .
+COPY uv.lock .
 
+# Install dependencies into the system environment
+RUN uv sync --frozen --no-install-project --no-dev
+
+# Copy application code
 COPY . .
 
+# Install the project itself (if it's a package) or just rely on the venv
+# Since we are running as a service, we can use 'uv run' which handles the venv
 ENV PYTHONPATH=/app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

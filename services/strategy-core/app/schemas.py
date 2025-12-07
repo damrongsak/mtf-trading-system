@@ -23,3 +23,42 @@ class SMCRequest(BaseModel):
 class SMCResponse(BaseModel):
     order_blocks: List[Dict[str, Any]]
     fvgs: List[Dict[str, Any]]
+
+# ==========================
+# Simulation Schemas
+# ==========================
+
+class MarketRegime(BaseModel):
+    trend: str # 'NO_TREND', 'UPTREND', 'DOWNTREND'
+    volatility: int # 1-10
+    noise: str # 'GAUSSIAN', 'FAT_TAIL'
+
+class GridConfig(BaseModel):
+    step_size: float
+    grid_levels: int
+    initial_lot: float
+    use_compound: bool
+    stop_loss_pct: float
+
+class SimulationRequest(BaseModel):
+    regime: MarketRegime
+    grid: GridConfig
+    iterations: int = 1
+
+class SimulationMetrics(BaseModel):
+    total_pnl: float
+    win_rate: float
+    max_drawdown: float
+    sharpe_ratio: float
+    profit_factor: float
+
+class EquityPoint(BaseModel):
+    timestamp: str
+    value: float
+
+class SimulationResponse(BaseModel):
+    id: str
+    metrics: SimulationMetrics
+    equity_curve: List[EquityPoint]
+    status: str
+

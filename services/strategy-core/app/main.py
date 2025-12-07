@@ -73,3 +73,13 @@ def get_smc(req: SMCRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+from app.schemas import SimulationRequest, SimulationResponse
+from app.simulation import run_grid_simulation_logic
+
+@app.post("/simulate", response_model=SimulationResponse)
+def run_simulation(req: SimulationRequest):
+    try:
+        return run_grid_simulation_logic(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
