@@ -17,7 +17,7 @@ const COLORS = {
 const GameLevelChart: React.FC<{ data: PatternItem[] }> = ({ data }) => {
     const chartData = data.map(item => ({
         ...item,
-        color: (COLORS as any)[item.name] || COLORS.DEFAULT
+        color: COLORS[item.name as keyof typeof COLORS] || COLORS.DEFAULT
     }));
 
     if (chartData.length === 0) return <div className="text-gray-500 text-center py-10">No Game Level data</div>;

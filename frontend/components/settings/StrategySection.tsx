@@ -38,7 +38,7 @@ export function StrategySection() {
       const prefs = await getPreferences();
       setStrategyType(prefs.strategy_type);
       setAssetClasses(prefs.asset_classes as AssetClass[]);
-    } catch (_error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to load preferences' });
     } finally {
       setIsLoading(false);

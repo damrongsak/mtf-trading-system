@@ -8,7 +8,7 @@ interface EquityChartProps {
 
 interface CustomTooltipProps {
     active?: boolean;
-    payload?: any[];
+    payload?: { value: number; payload: { pnl: number } }[];
     label?: string;
 }
 

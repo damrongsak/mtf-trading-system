@@ -30,7 +30,7 @@ export function TradingPreferencesSection() {
       setDefaultSymbol(prefs.default_symbol);
       setSupportedSymbols(prefs.supported_symbols || []);
       setSelectedSessions(prefs.session_preferences || []);
-    } catch (_error) {
+    } catch {
       setMessage({ type: 'error', text: 'Failed to load trading preferences' });
     } finally {
       setIsLoading(false);
