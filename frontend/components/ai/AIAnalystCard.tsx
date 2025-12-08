@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { getMarketAnalysis, MarketAnalysisRequest } from '@/lib/api/ai';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,7 +53,7 @@ export const AIAnalystCard: React.FC = () => {
             
             <div className="prose prose-invert prose-sm max-w-none text-gray-300">
                 {insight ? (
-                    <div className="whitespace-pre-wrap">{insight}</div>
+                    <ReactMarkdown>{insight}</ReactMarkdown>
                 ) : (
                     <div className="text-center py-8 text-gray-500">
                         <p>Click refresh to generate market outlook based on current technicals.</p>
