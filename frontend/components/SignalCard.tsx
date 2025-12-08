@@ -6,17 +6,21 @@ interface SignalCardProps {
   timeframe: string;
   confidence: number;
   timestamp: string;
+  reason?: string;
   reasoning?: string;
+  entry_price?: number;
+  sl_price?: number;
+  tp_price?: number;
 }
 
-export const SignalCard: React.FC<SignalCardProps> = ({
-  symbol,
-  direction,
-  timeframe,
-  confidence,
-  timestamp,
-  reasoning
-}) => {
+export const SignalCard: React.FC<SignalCardProps> = (props) => {
+  const {
+      symbol,
+      direction,
+      timestamp,
+      confidence,
+      timeframe
+  } = props;
   const isBullish = direction === 'BULLISH';
   const isBearish = direction === 'BEARISH';
   
@@ -77,8 +81,21 @@ export const SignalCard: React.FC<SignalCardProps> = ({
         </div>
 
         <div className="pt-3 border-t border-gray-800">
+            {/* Price Levels (New) */}
+            <div className="grid grid-cols-3 gap-2 mb-3 text-xs font-mono">
+                <div className="text-gray-500">
+                    Entry: <span className="text-gray-300">{props.entry_price || '-'}</span>
+                </div>
+                <div className="text-gray-500 text-center">
+                    TP: <span className="text-accent-green">{props.tp_price || '-'}</span>
+                </div>
+                <div className="text-gray-500 text-right">
+                    SL: <span className="text-accent-red">{props.sl_price || '-'}</span>
+                </div>
+            </div>
+
            <p className="text-sm text-gray-400 line-clamp-2">
-             {reasoning || "No reasoning provided."}
+             {props.reason || props.reasoning || "No reasoning provided."}
            </p>
            <p className="text-xs text-gray-600 mt-2 font-mono text-right">
              {new Date(timestamp).toLocaleTimeString()}

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { DashboardStats, RecentSignal } from './types';
+import { DashboardStats, RecentSignal, Signal, APIResponse } from './types';
 
 /**
  * Get dashboard statistics
@@ -40,61 +40,63 @@ export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
  * @returns Array of recent signals
  */
 export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[]> {
-    // TODO: Update to use real signal list endpoint when pagination is available
-    // const response = await apiClient.get<RecentSignal[]>(`/api/v1/signals?limit=${limit}`);
-    // return response.data;
+    const watchlist = ['XAU/USD', 'EUR/USD', 'GBP/USD', 'BTC/USD', 'USD/JPY'];
+    
+    try {
+        const promises = watchlist.map(async (symbol) => {
+            try {
+                // We use the signals API we just created
+                // Importing here to avoid circular dependency if signals imports dashboard
+                // But signals.ts is independent.
+                // However, we need to import `getLatestSignal` from `./signals`.
+                // If dashboard.ts is used by signals.ts, that's an issue. 
+                // signals.ts depends on client.ts and types.ts. dashboard.ts depends on client.ts and types.ts. Safe.
+                
+                // Since we can't easily add import top-level in this replace block given the file structure
+                // effectively, I will assume I can modify the imports in a separate step or I'll implement the call here directly via apiClient
+                // to avoid modifying imports at the top of the file which might be messy with line numbers.
+                // Actually, I should use `apiClient` directly here to match existing pattern.
+                
+                // Call /api/v1/signal/latest/{symbol}
+                const response = await apiClient.get<APIResponse<Signal>>(`/signal/latest/${encodeURIComponent(symbol)}`);
+                const signal = response.data.data;
+                
+                if (!signal) return null;
+                
+                const mapDirection = (dir: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' => {
+                    if (dir === 'LONG') return 'BULLISH';
+                    if (dir === 'SHORT') return 'BEARISH';
+                    if (dir === 'BULLISH') return 'BULLISH';
+                    if (dir === 'BEARISH') return 'BEARISH';
+                    return 'NEUTRAL';
+                };
 
-    // Mock data for now
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const mockSignals: RecentSignal[] = [
-                {
-                    id: '1',
-                    symbol: 'XAU/USD',
-                    direction: 'BULLISH' as const,
-                    confidence: 85,
-                    timeframe: '15m',
-                    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-                    entry_price: 2045.30,
-                },
-                {
-                    id: '2',
-                    symbol: 'XAU/USD',
-                    direction: 'BEARISH' as const,
-                    confidence: 72,
-                    timeframe: '1H',
-                    timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-                    entry_price: 2048.90,
-                },
-                {
-                    id: '3',
-                    symbol: 'XAU/USD',
-                    direction: 'BULLISH' as const,
-                    confidence: 91,
-                    timeframe: '4H',
-                    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-                    entry_price: 2042.15,
-                },
-                {
-                    id: '4',
-                    symbol: 'XAU/USD',
-                    direction: 'NEUTRAL' as const,
-                    confidence: 45,
-                    timeframe: '15m',
-                    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-                    entry_price: 2050.00,
-                },
-                {
-                    id: '5',
-                    symbol: 'XAU/USD',
-                    direction: 'BULLISH' as const,
-                    confidence: 78,
-                    timeframe: '1H',
-                    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-                    entry_price: 2039.75,
-                },
-            ];
-            resolve(mockSignals.slice(0, limit));
-        }, 300);
-    });
+                return {
+                    id: `${signal.symbol}-${signal.timestamp}`,
+                    symbol: signal.symbol,
+                    direction: mapDirection(signal.direction),
+                    confidence: signal.confidence || 0.75, // Default confidence if missing
+                    timeframe: signal.timeframe,
+                    timestamp: signal.timestamp,
+                    entry_price: signal.entry_price,
+                    reason: signal.reason, // Pass reason through
+                } as RecentSignal;
+            } catch (e) {
+                console.warn(`Failed to fetch signal for ${symbol}`, e);
+                return null;
+            }
+        });
+
+        const results = await Promise.all(promises);
+        const validSignals = results.filter((s): s is RecentSignal => s !== null);
+        
+        // Sort by timestamp if available or just return
+        // Ideally newest first.
+        validSignals.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        return validSignals.slice(0, limit);
+    } catch (error) {
+        console.error("Error fetching recent signals", error);
+        return [];
+    }
 }

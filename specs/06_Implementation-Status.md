@@ -158,29 +158,29 @@
 ## 🔴 Not Started / Pending
 
 ### **1. Data Pipeline (`services/data-pipeline`)**
-- **Status:** 🚧 Partial
+- **Status:** ✅ Automated (2025-12-08)
 - **Features:**
     - Service structure created.
-    - `Candle` model defined (`services/data-pipeline/app/models/candle.py`).
-    - OHLCV loader and resampling utils implemented.
-    - Dockerfile created and build verified.
-    - **Database Integration:** Alembic configured, initial migration applied, `candles` table verified.
-    - **API:** `POST /upload_csv` and `GET /candles` implemented and verified.
-- **Next Steps:**
-    - Implement automated data ingestion (e.g., cron job).
+    - `Candle` model defined.
+    - Dockerfile updated to `uv`.
+    - `OandaClient` adapter implemented.
+    - **Automation:** `APScheduler` configured to fetch M15, H1, H4 candles every 15m.
+    - `POST /ingest/manual` endpoint for on-demand fetch.
+    - **Database Integration:** Alembic configured, initial migration applied.
+    - **API:** `POST /upload_csv` and `GET /candles` implemented.
+- **Commits:**
+    - `8699073` (2025-12-08): Scheduler and Oanda integration.
 
 ### **2. Strategy Core (`services/strategy-core`)**
-- **Status:** 🚧 Scaffolded
+- **Status:** ✅ Enhanced (2025-12-08)
 - **Features:**
-    - Service structure created.
-    - `Dockerfile` and `requirements.txt` (with `vectorbt`) created.
-    - Basic FastAPI app with health check.
-    - Added to `docker-compose.yml` (with volume mount).
-    - **Indicators:** EMA and ATR implemented and tested.
-    - **API:** `/calculate/ema` and `/calculate/atr` endpoints implemented.
-    - **SMC:** Order Block and FVG detection implemented and tested.
-- **Next Steps:**
-    - Implement AI Analyst scaffolding.
+    - Service structure created with `vectorbt`.
+    - **Indicators:** EMA, ATR, RSI, MACD, Bollinger Bands endpoints.
+    - **SMC:** Order Block (Displacement/Volume), FVG, and Liquidity Sweep detection.
+    - **Simulation:** GRID regime simulation logic.
+    - Unit tests verified via Docker.
+- **Commits:**
+    - `8699073` (2025-12-08): Refined indicators and SMC logic.
 
 ### **3. GRID Simulation Lab (`services/strategy-core`)**
 - **Status:** ✅ Completed (2025-12-07)
@@ -191,14 +191,14 @@
 
 
 ### **3. AI Analyst (`services/ai-analyst`)**
-- **Status:** ✅ Scaffolded
+- **Status:** ✅ Core Integration (2025-12-08)
 - **Completed:**
-    - Service structure created.
-    - `Dockerfile` and `requirements.txt` created.
-    - Basic FastAPI app with health check.
-    - Added to `docker-compose.yml` (with volume mount).
-- **Next Steps:**
-    - Implement AI Analyst API.retrieval.
+    - **Service:** `GeminiClient` and `RAGService` implemented.
+    - **API:** `/analyze/market` and `/analyze/journal` endpoints.
+    - **Gateway:** Proxy router `ai.py` linked.
+    - **Frontend:** `AIAnalystCard` integrated into Dashboard.
+- **Commits:**
+    - `8699073` (2025-12-08): Full stack integration.
 
 ### **4. Documentation / Specs**
 - **Status:** ⚠️ Needs Update
@@ -212,7 +212,6 @@
 
 
 
-1.  **[High]** Implement AI Analyst API integration with Gemini.
-2.  **[High]** Automate Data Pipeline (Cron/Job for ingestion).
-3.  **[Medium]** Refine Vectorbt strategy logic (add more complexity beyond MVP).
-4.  **[Low]** Connect Frontend to Real API for live data.
+1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks).
+2.  **[Medium]** Enhance Backtest Engine UI/UX.
+3.  **[Low]** Implement User Profile picture upload.

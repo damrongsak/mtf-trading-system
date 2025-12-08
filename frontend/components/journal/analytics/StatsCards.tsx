@@ -16,7 +16,7 @@ const StatCard: React.FC<{
 }> = ({ title, value, subValue, icon, trend, color }) => (
     <div className="bg-gray-800/50 backdrop-blur-md border border-gray-700/50 rounded-xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
         <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
-            {React.isValidElement(icon) && React.cloneElement(icon, { size: 64 })}
+            {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<{size?: number}>, { size: 64 })}
         </div>
         
         <div className="relative z-10">

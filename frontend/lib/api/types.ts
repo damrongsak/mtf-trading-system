@@ -216,11 +216,15 @@ export interface RootCauseAnalysis {
 // Signal Types
 export interface Signal {
     symbol: string;
-    direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'LONG' | 'SHORT';
     timeframe: string;
-    confidence: number;
+    confidence?: number;
     timestamp: string;
-    reasoning?: string;
+    reason?: string;
+    reasoning?: string; // Legacy/Compability
+    entry_price?: number;
+    sl_price?: number;
+    tp_price?: number;
 }
 
 // ========================================

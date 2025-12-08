@@ -1,11 +1,10 @@
 import { apiClient } from './client';
-import { ApiError } from './types';
 
 export interface MarketAnalysisRequest {
     trend_4h: string;
     current_price: number;
     key_levels: number[];
-    recent_signals: any[];
+    recent_signals: unknown[];
 }
 
 export interface JournalAnalysisRequest {

@@ -6,9 +6,9 @@ interface DashboardCardProps {
   title: string;
   value: string | number;
   change?: number;
-  icon?: React.ReactNode;
   trend?: 'up' | 'down' | 'neutral';
   suffix?: string;
+  icon: React.ReactElement;
 }
 
 export const DashboardCard: React.FC<DashboardCardProps> = ({

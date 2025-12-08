@@ -3,56 +3,19 @@
 import React, { useEffect, useState } from 'react';
 import { SignalCard } from '@/components/SignalCard';
 
-interface Signal {
-  symbol: string;
-  direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
-  timeframe: string;
-  confidence: number;
-  timestamp: string;
-  reasoning?: string;
-}
+import { getRecentSignals } from '@/lib/api/dashboard';
+import { RecentSignal } from '@/lib/api/types';
 
 export default function SignalsPage() {
-  const [signals, setSignals] = useState<Signal[]>([]);
+  const [signals, setSignals] = useState<RecentSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSignals = async () => {
       try {
-        // In a real scenario, this would fetch from the API Gateway
-        // const res = await fetch('http://localhost:8000/signal/latest');
-        // const data = await res.json();
-        
-        // Mock data for now as the API might not have data yet
-        const mockData: Signal[] = [
-          {
-            symbol: 'XAU/USD',
-            direction: 'BULLISH',
-            timeframe: '1h',
-            confidence: 0.85,
-            timestamp: new Date().toISOString(),
-            reasoning: 'Price rejected from 4H Order Block with bullish engulfing on 1h. RSI divergence present.'
-          },
-          {
-            symbol: 'EUR/USD',
-            direction: 'BEARISH',
-            timeframe: '4h',
-            confidence: 0.72,
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            reasoning: 'Break of structure to the downside. Retest of bearish FVG.'
-          },
-          {
-            symbol: 'BTC/USD',
-            direction: 'NEUTRAL',
-            timeframe: '1d',
-            confidence: 0.50,
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-            reasoning: 'Consolidating within daily range. No clear bias.'
-          }
-        ];
-        
-        setSignals(mockData);
+        const data = await getRecentSignals(10); // Fetch up to 10
+        setSignals(data);
         setLoading(false);
       } catch {
         setError('Failed to fetch signals');
