@@ -15,7 +15,7 @@ export default function TransactionsPage() {
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
-    const [filters, setFilters] = useState<TransactionFilters>({ type: 'ALL', dateFrom: '', dateTo: '' });
+    const [_filters, setFilters] = useState<TransactionFilters>({ type: 'ALL', dateFrom: '', dateTo: '' });
     const [showExportMenu, setShowExportMenu] = useState(false);
 
     // Get user's funds

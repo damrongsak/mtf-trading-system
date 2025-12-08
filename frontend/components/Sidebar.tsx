@@ -21,12 +21,12 @@ import {
 type NavItem = {
   name: string;
   href: string;
-  icon: any;
+  icon: React.ElementType;
 };
 
 type NavCategory = {
   name: string;
-  icon: any;
+  icon: React.ElementType;
   items: NavItem[];
 };
 

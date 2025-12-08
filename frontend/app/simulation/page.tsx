@@ -121,7 +121,7 @@ export default function SimulationPage() {
                         <h3 className="text-gray-400 text-sm mb-4">Equity Curve</h3>
                         <div className="flex-1 flex items-end gap-1 px-4 pb-4 bg-gray-950/30 rounded border border-gray-800/50 relative">
                              {/* Simple CSS Bar Chart for MVP */}
-                             {result.equity_curve.map((point, i) => {
+                             {result.equity_curve.map((point, _) => {
                                  // Normalize for display
                                  const min = Math.min(...result.equity_curve.map(p => p.value));
                                  const max = Math.max(...result.equity_curve.map(p => p.value));
