@@ -17,7 +17,7 @@ router = APIRouter(
 DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 STRATEGY_SERVICE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
-@router.get("/latest/{symbol}", response_model=APIResponse[SignalResponse])
+@router.get("/latest/{symbol:path}", response_model=APIResponse[SignalResponse])
 async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     """
     Get the latest signal for a specific symbol by orchestrating:

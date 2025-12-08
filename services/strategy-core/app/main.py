@@ -1,10 +1,19 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import IndicatorRequest, IndicatorResponse, ATRRequest
 from app.indicators import calculate_ema, calculate_atr
 import pandas as pd
 import numpy as np
 
 app = FastAPI(title="Strategy Core Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health_check():

@@ -51,12 +51,10 @@ if os.path.exists(SPEC_PATH):
         app.openapi_schema = yaml.safe_load(f)
 
 # CORS Middleware
-# Get allowed origins from env, default to ["*"] if not set
-origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-
+# Explicitly allow all origins for development convenience
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

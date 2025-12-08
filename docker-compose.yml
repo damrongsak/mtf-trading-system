@@ -17,6 +17,8 @@ services:
     env_file: .env
     ports:
       - "8000:8000"
+    volumes:
+      - ./services/api-gateway:/app
     depends_on:
       # - postgres
       # - qdrant
@@ -24,16 +26,22 @@ services:
     environment:
       - EXECUTION_SERVICE_URL=http://execution:8000
       - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
+      - DATA_PIPELINE_URL=http://data-pipeline:8000
+      - STRATEGY_CORE_URL=http://strategy-core:8000
 
   execution:
     build: ./services/execution
     ports:
       - "8001:8000"
+    volumes:
+      - ./services/execution:/app
 
   data-pipeline:
     build: ./services/data-pipeline
     ports:
       - "8002:8000"
+    volumes:
+      - ./services/data-pipeline:/app
     depends_on:
       # - postgres
       - execution # Just to ensure order, though not strictly dependent

@@ -3,7 +3,7 @@ Candle SQLAlchemy model.
 Source of truth: specs/01_data_model.yaml -> Candle entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Index, func
+from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from app.database import Base
@@ -41,6 +41,7 @@ class Candle(Base):
                   comment="Closing price")
     volume = Column(Numeric(18, 8), nullable=False,
                    comment="Trading volume")
+    is_complete = Column(Boolean, default=True, comment="Whether the candle is closed/complete")
 
     # Multi-Timeframe Indicators (Non-Look-Ahead)
     ema_9_4h = Column(Numeric(18, 8), nullable=True,

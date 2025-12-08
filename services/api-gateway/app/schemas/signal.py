@@ -6,6 +6,7 @@ from enum import Enum
 class SignalDirection(str, Enum):
     LONG = "LONG"
     SHORT = "SHORT"
+    NEUTRAL = "NEUTRAL"
 
 class SignalResponse(BaseModel):
     symbol: str
