@@ -394,3 +394,101 @@ export interface SimulationResult {
     status: 'COMPLETED' | 'FAILED' | 'RUNNING';
     created_at: string;
 }
+
+// ========================================
+// Backtest Types
+// ========================================
+
+export interface ParameterRange {
+    start: number;
+    stop: number;
+    step: number;
+}
+
+export interface OptimizationConfig {
+    method: 'GRID' | 'RANDOM' | 'BAYESIAN';
+    target_metric: string;
+    max_iterations?: number;
+    early_stopping_rounds?: number;
+    param_grid: Record<string, ParameterRange | { values: unknown[] } | unknown[]>;
+}
+
+export interface BacktestRequest {
+    symbol: string;
+    timeframe: string;
+    strategy_params?: Record<string, unknown>;
+    start_date: string;
+    end_date: string;
+    initial_capital: number;
+    
+    // Profile References
+    strategy_id?: string;
+    fund_id?: string;
+    trading_config_id?: string;
+
+    // Optimization
+    optimization?: OptimizationConfig;
+}
+
+export interface BacktestTrade {
+    entry_time: string;
+    exit_time: string;
+    direction: 'LONG' | 'SHORT';
+    entry_price: number;
+    exit_price: number;
+    pnl: number;
+    pnl_percent: number;
+}
+
+export interface BacktestMetrics {
+    total_return: number;
+    total_return_percent: number;
+    max_drawdown: number;
+    max_drawdown_percent: number;
+    win_rate: number;
+    sharpe_ratio?: number;
+    total_trades: number;
+    winning_trades: number;
+    losing_trades: number;
+}
+
+export interface Meta {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+}
+
+export interface PaginatedResponse<T> {
+    status: string;
+    data: T[];
+    meta: Meta;
+    timestamp: string;
+}
+
+export interface BacktestConfig {
+    id: string;
+    name: string;
+    description?: string;
+    config: BacktestRequest;
+    created_at: string;
+}
+
+export interface BacktestHistorySummary {
+    id: string;
+    status: string;
+    created_at: string;
+    metrics?: BacktestMetrics;
+    best_params?: Record<string, unknown>;
+    execution_config: BacktestRequest;
+}
+
+export interface BacktestResponse {
+    id: string;
+    status: string;
+    metrics: BacktestMetrics;
+    trades: BacktestTrade[];
+    best_params?: Record<string, unknown>;
+    all_results?: unknown[];
+    created_at?: string;
+}

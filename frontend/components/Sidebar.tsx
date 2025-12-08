@@ -16,6 +16,7 @@ import {
   User,
   ChevronDown,
   ChevronRight,
+  Atom,
 } from 'lucide-react';
 
 type NavItem = {
@@ -56,7 +57,7 @@ const navCategories: NavCategory[] = [
       { name: 'Journal', href: '/journal', icon: BookOpen },
       { name: 'Transactions', href: '/transactions', icon: CreditCard },
       { name: 'Backtest', href: '/backtest', icon: FlaskConical },
-      { name: 'GRID Lab', href: '/simulation', icon: FlaskConical },
+      { name: 'GRID Lab', href: '/simulation', icon: Atom },
     ],
   },
   {

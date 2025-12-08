@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2025-12-04
+**Last Updated:** 2025-12-08
 **Current Phase:** Phase 6 - Portfolio Management & Transaction Tracking
 
 ---
@@ -15,6 +15,18 @@
     - Unit tests passing (`tests/test_execution.py`).
     - Docker container builds successfully.
     - Health check endpoint active.
+    - **CORS:** Enabled `CORSMiddleware` to allow all origins.
+
+### **2. Infrastructure (Local)**
+- **Status:** ✅ Functional
+- **Features:**
+    - `docker-compose.yml` orchestrates API, Execution, Frontend, and Nginx.
+    - Shared network `orignx-network` configured.
+    - Hot-reload enabled for development.
+    - **Nginx Reverse Proxy:** Configured to expose all services via port 80 (`infra/nginx/default.conf`), including a dedicated `/signal/` route to the API Gateway.
+    - **API Versioning:** All services exposed under `/api/v1/`.
+    - **Automated Testing:** `tests/test_endpoints.sh` verifies service health and signal endpoints.
+    - **Docker Compose Enhancements**: Added missing `DATA_PIPELINE_URL` and `STRATEGY_CORE_URL` environment variables to `api-gateway`. Added volume mounts for `api-gateway`, `data-pipeline`, and `execution` for better local development.
 
 ### **3. Multi-Tenancy & Authentication**
 - **Status:** ✅ Complete
@@ -110,55 +122,22 @@
     - **Commits:**
         - `166ea4b` (2025-12-08): Frontend implementation
 
-
-### **2. Infrastructure (Local)**
-- **Status:** ✅ Functional
-- **Features:**
-    - `docker-compose.yml` orchestrates API, Execution, Frontend, and Nginx.
-    - Shared network `orignx-network` configured.
-    - Hot-reload enabled for development.
-    - **Nginx Reverse Proxy:** Configured to expose all services via port 80 (`infra/nginx/default.conf`).
-    - **API Versioning:** All services exposed under `/api/v1/`.
-    - **Automated Testing:** `tests/test_endpoints.sh` verifies service health and signal endpoints.
-
----
-
-## 🟡 In Progress / Partial
-
-### **1. API Gateway (`services/api-gateway`)**
-- **Status:** ✅ Core Complete
+### **10. API Gateway (`services/api-gateway`)**
+- **Status:** ✅ Complete (2025-12-08)
 - **Features:**
     - `/api/v1/risk/check` route implemented and connected to Execution service.
-    - `/api/v1/signal` routes implemented (`GET /latest`, `POST /check`).
+    - `/api/v1/signal` routes implemented (`GET /latest/{symbol:path}`, `POST /check`). Handles symbols with slashes.
     - `/api/v1/backtest` routes implemented (`POST /run`, `GET /results`).
     - `/api/v1/auth` routes: Login, Register, User details.
     - `/api/v1/strategies` routes: List and Create strategies.
     - `/api/v1/journal` routes: Create, List, Get journal entries.
     - Auth middleware with JWT token validation.
+    - **CORS:** Configured `CORSMiddleware` to explicitly allow all origins.
+    - **Schema Sync:** `Candle` model updated to include `is_complete` column and Alembic migration applied.
+    - **Enum Update:** `NEUTRAL` direction added to `SignalDirection` enum.
 
-### **2. Frontend (`frontend`)**
-- **Status:** ✅ Implemented (Signals UI + Trading Journal)
-- **Completed:**
-    - Next.js 16 + React 19 setup.
-    - Tailwind CSS v4 configured with "Gridbot AI" theme.
-    - `SignalCard` component and `/signals` page implemented.
-    - **Layout:** Fixed Sidebar and Sticky Header implemented.
-    - **Authentication:** `AuthContext` and Login Page (`/login`).
-    - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
-- **Next Steps:**
-    - Implement Backtest UI.
-    - Connect to real API endpoints for Signals, Trades, and Backtest views.
-    - Connect to real API endpoints for Signals, Trades, and Backtest views.
-
-
-
-
----
-
-## 🔴 Not Started / Pending
-
-### **1. Data Pipeline (`services/data-pipeline`)**
-- **Status:** ✅ Automated (2025-12-08)
+### **11. Data Pipeline (`services/data-pipeline`)**
+- **Status:** ✅ Complete (2025-12-08)
 - **Features:**
     - Service structure created.
     - `Candle` model defined.
@@ -166,41 +145,62 @@
     - `OandaClient` adapter implemented.
     - **Automation:** `APScheduler` configured to fetch M15, H1, H4 candles every 15m.
     - `POST /ingest/manual` endpoint for on-demand fetch.
-    - **Database Integration:** Alembic configured, initial migration applied.
-    - **API:** `POST /upload_csv` and `GET /candles` implemented.
-- **Commits:**
-    - `8699073` (2025-12-08): Scheduler and Oanda integration.
+    - **Database Integration:** Alembic configured, initial migration applied. `is_complete` column now present.
+    - **API:** `POST /upload_csv` (now working with `python-multipart`) and `GET /candles` implemented.
+    - **Dependencies:** `python-multipart` added to `pyproject.toml`.
 
-### **2. Strategy Core (`services/strategy-core`)**
-- **Status:** ✅ Enhanced (2025-12-08)
+### **12. Strategy Core (`services/strategy-core`)**
+- **Status:** ✅ Complete (2025-12-08)
 - **Features:**
     - Service structure created with `vectorbt`.
     - **Indicators:** EMA, ATR, RSI, MACD, Bollinger Bands endpoints.
     - **SMC:** Order Block (Displacement/Volume), FVG, and Liquidity Sweep detection.
     - **Simulation:** GRID regime simulation logic.
     - Unit tests verified via Docker.
-- **Commits:**
-    - `8699073` (2025-12-08): Refined indicators and SMC logic.
+    - **CORS:** Enabled `CORSMiddleware` to allow all origins.
 
-### **3. GRID Simulation Lab (`services/strategy-core`)**
+### **13. AI Analyst (`services/ai-analyst`)**
+- **Status:** ✅ Complete (2025-12-08)
+- **Features:**
+    - **Service:** `GeminiClient` (migrated to `google-genai` SDK) and `RAGService` implemented.
+    - **API:** `/analyze/market` and `/analyze/journal` endpoints.
+    - **Gateway:** Proxy router `ai.py` linked.
+    - **Frontend:** `AIAnalystCard` integrated into Dashboard.
+    - **CORS:** Configured `CORSMiddleware` to explicitly allow all origins.
+    - **Model ID:** Updated Gemini model ID to `gemini-1.5-pro`.
+    - **Qdrant Config:** Added `QDRANT_GRPC_HTTPS` setting.
+    - **Unit Tests:** Implemented unit tests for `GeminiClient` with mocked dependencies.
+
+### **14. GRID Simulation Lab (`services/strategy-core`)**
 - **Status:** ✅ Completed (2025-12-07)
 - **Features:** 
     - **Frontend:** Regimes Selector, Strategy Controls, Results Visualization.
     - **Backend:** GBM Synthetic Data, Vectorbt Engine Integration.
     - **API:** `/api/v1/simulation` proxy endpoint.
 
+---
 
-### **3. AI Analyst (`services/ai-analyst`)**
-- **Status:** ✅ Core Integration (2025-12-08)
+## 🟡 In Progress / Partial
+
+### **1. Frontend (`frontend`)**
+- **Status:** ✅ Signals Connected, Core UI Implemented
 - **Completed:**
-    - **Service:** `GeminiClient` and `RAGService` implemented.
-    - **API:** `/analyze/market` and `/analyze/journal` endpoints.
-    - **Gateway:** Proxy router `ai.py` linked.
-    - **Frontend:** `AIAnalystCard` integrated into Dashboard.
-- **Commits:**
-    - `8699073` (2025-12-08): Full stack integration.
+    - Next.js 16 + React 19 setup.
+    - Tailwind CSS v4 configured with "Gridbot AI" theme.
+    - `SignalCard` component and `/signals` page implemented and connected to API.
+    - **Layout:** Fixed Sidebar and Sticky Header implemented.
+    - **Authentication:** `AuthContext` and Login Page (`/login`).
+    - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
+- **Next Steps:**
+    - Implement Backtest UI.
+    - Connect to real API endpoints for Trades and Backtest views.
 
-### **4. Documentation / Specs**
+
+---
+
+## 🔴 Not Started / Pending
+
+### **1. Documentation / Specs**
 - **Status:** ⚠️ Needs Update
 - **Notes:**
     - `specs/00_architecture.md` populated with microservices design.
@@ -211,7 +211,6 @@
 ## 📋 Immediate Next Actions (Prioritized)
 
 
-
-1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks).
+1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks). (Specifically for Trades and Backtest views)
 2.  **[Medium]** Enhance Backtest Engine UI/UX.
 3.  **[Low]** Implement User Profile picture upload.

@@ -15,6 +15,7 @@ from app.models.data_source import DataSource
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.user_preferences import UserPreferences
 from app.models.transaction import Transaction, TransactionType
+from app.models.backtest_profile import BacktestConfig, BacktestHistory
 
 __all__ = [
     "Candle",
@@ -38,4 +39,6 @@ __all__ = [
     "UserPreferences",
     "Transaction",
     "TransactionType",
+    "BacktestConfig",
+    "BacktestHistory",
 ]
