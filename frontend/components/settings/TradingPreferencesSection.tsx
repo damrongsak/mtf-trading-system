@@ -49,7 +49,7 @@ export function TradingPreferencesSection() {
         session_preferences: selectedSessions.length > 0 ? selectedSessions : null,
       });
       setMessage({ type: 'success', text: 'Trading preferences saved successfully!' });
-    } catch (_error) {
+    } catch (error) {
       setMessage({ type: 'error', text: (error as Error).message || 'Failed to save preferences' });
     } finally {
       setIsSaving(false);

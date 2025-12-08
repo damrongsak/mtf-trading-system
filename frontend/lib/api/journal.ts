@@ -83,7 +83,7 @@ export async function getJournalStats(): Promise<JournalStatsResponse> {
 /**
  * Get equity curve data points
  */
-export async function getEquityCurve(): Promise<EquityCurvePoint[]> {
+export async function getJournalEquityCurve(): Promise<EquityCurvePoint[]> {
     const response = await apiClient.get<APIResponse<EquityCurvePoint[]>>('/api/v1/journal/analytics/equity');
     if (!response.data.data) throw new Error('Invalid equity response');
     return response.data.data;

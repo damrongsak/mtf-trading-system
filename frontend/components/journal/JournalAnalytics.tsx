@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getJournalStats, getEquityCurve, getPatternAnalysis } from '@/lib/api/journal';
+import { getJournalStats, getJournalEquityCurve, getPatternAnalysis } from '@/lib/api/journal';
 import { JournalStatsResponse, EquityCurvePoint, PatternAnalysisResponse } from '@/lib/api/types';
 import StatsCards from './analytics/StatsCards';
 import EquityChart from './analytics/EquityChart';
@@ -19,8 +19,8 @@ const JournalAnalytics: React.FC = () => {
                 setLoading(true);
                 const [statsData, equityData, patternsData] = await Promise.all([
                     getJournalStats(),
-                    getEquityCurve(),
-                    patternsData = getPatternAnalysis()
+                    getJournalEquityCurve(),
+                    getPatternAnalysis()
                 ]);
 
                 setStats(statsData);

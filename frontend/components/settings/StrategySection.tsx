@@ -55,7 +55,7 @@ export function StrategySection() {
         asset_classes: assetClasses,
       });
       setMessage({ type: 'success', text: 'Strategy configuration saved successfully!' });
-    } catch (_error) {
+    } catch (error) {
       setMessage({ type: 'error', text: (error as Error).message || 'Failed to save configuration' });
     } finally {
       setIsSaving(false);
