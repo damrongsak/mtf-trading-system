@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Numeric, Integer, Index
+from sqlalchemy import Column, String, DateTime, Numeric, Integer, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 import uuid
@@ -16,6 +16,7 @@ class Candle(Base):
     low = Column(Numeric(18, 8), nullable=False)
     close = Column(Numeric(18, 8), nullable=False)
     volume = Column(Numeric(18, 8), nullable=False)
+    is_complete = Column(Boolean, default=True)
     
     # MTF Indicators
     ema_9_4h = Column(Numeric(18, 8), nullable=True)

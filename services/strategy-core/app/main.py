@@ -49,26 +49,79 @@ def get_atr(req: ATRRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from app.schemas import RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse
+from app.indicators import calculate_rsi, calculate_macd, calculate_bbands
+
+@app.post("/calculate/rsi", response_model=IndicatorResponse)
+def get_rsi(req: RSIRequest):
+    try:
+        close = pd.Series(req.close)
+        rsi = calculate_rsi(close, window=req.window)
+        # Handle NaN/Inf
+        values = rsi.replace([np.inf, -np.inf], np.nan).where(pd.notnull(rsi), None).tolist()
+        return IndicatorResponse(values=values)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/calculate/macd", response_model=MACDResponse)
+def get_macd(req: MACDRequest):
+    try:
+        close = pd.Series(req.close)
+        macd_res = calculate_macd(close, fast=req.fast, slow=req.slow, signal=req.signal)
+        
+        def clean_series(s):
+            return s.replace([np.inf, -np.inf], np.nan).where(pd.notnull(s), None).tolist()
+            
+        return MACDResponse(
+            macd=clean_series(macd_res.macd),
+            signal=clean_series(macd_res.signal),
+            hist=clean_series(macd_res.hist)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/calculate/bbands", response_model=BBandsResponse)
+def get_bbands(req: BBandsRequest):
+    try:
+        close = pd.Series(req.close)
+        bb = calculate_bbands(close, window=req.window, alpha=req.alpha)
+        
+        def clean_series(s):
+            return s.replace([np.inf, -np.inf], np.nan).where(pd.notnull(s), None).tolist()
+            
+        return BBandsResponse(
+            upper=clean_series(bb.upper),
+            middle=clean_series(bb.middle),
+            lower=clean_series(bb.lower)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 from app.schemas import SMCRequest, SMCResponse
-from app.smc import detect_order_blocks, detect_fvg
+from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps
 
 @app.post("/calculate/smc", response_model=SMCResponse)
 def get_smc(req: SMCRequest):
     try:
-        df = pd.DataFrame({
+        data = {
             "open": req.open,
             "high": req.high,
             "low": req.low,
             "close": req.close
-        })
+        }
+        if req.volume:
+            data["volume"] = req.volume
+            
+        df = pd.DataFrame(data)
         
         if len(df) < 3:
              raise HTTPException(status_code=400, detail="Not enough data points")
 
         obs = detect_order_blocks(df)
         fvgs = detect_fvg(df)
+        sweeps = detect_liquidity_sweeps(df)
         
-        return SMCResponse(order_blocks=obs, fvgs=fvgs)
+        return SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps)
     except HTTPException:
         raise
     except Exception as e:

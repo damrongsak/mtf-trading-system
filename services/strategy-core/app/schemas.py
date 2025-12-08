@@ -14,15 +14,42 @@ class ATRRequest(BaseModel):
 class IndicatorResponse(BaseModel):
     values: List[Optional[float]]
 
+class MACDResponse(BaseModel):
+    macd: List[Optional[float]]
+    signal: List[Optional[float]]
+    hist: List[Optional[float]]
+
+class BBandsResponse(BaseModel):
+    upper: List[Optional[float]]
+    middle: List[Optional[float]]
+    lower: List[Optional[float]]
+
+class RSIRequest(BaseModel):
+    close: List[float]
+    window: int = 14
+
+class MACDRequest(BaseModel):
+    close: List[float]
+    fast: int = 12
+    slow: int = 26
+    signal: int = 9
+
+class BBandsRequest(BaseModel):
+    close: List[float]
+    window: int = 20
+    alpha: float = 2.0
+
 class SMCRequest(BaseModel):
     open: List[float]
     high: List[float]
     low: List[float]
     close: List[float]
+    volume: Optional[List[float]] = None
 
 class SMCResponse(BaseModel):
     order_blocks: List[Dict[str, Any]]
     fvgs: List[Dict[str, Any]]
+    liquidity_sweeps: List[Dict[str, Any]] = []
 
 # ==========================
 # Simulation Schemas

@@ -5,8 +5,9 @@ from typing import List, Dict, Any
 def detect_order_blocks(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
     """
     Detect Order Blocks (OB).
-    Bullish OB: Last down candle before a strong up move.
-    Bearish OB: Last up candle before a strong down move.
+    Bullish OB: Last down candle before a strong up move (impulsive move).
+    Bearish OB: Last up candle before a strong down move (impulsive move).
+    Enhanced: Checks for volume spike and displacement.
     """
     obs = []
     
@@ -15,39 +16,67 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
     if not all(col in ohlc.columns for col in required_columns):
         return []
 
-    # Simple logic: Look for engulfing patterns or strong moves
-    # This is a simplified version for MVP
-    for i in range(2, len(ohlc)):
+    # Calculate average volume if available
+    has_volume = 'volume' in ohlc.columns
+    avg_volume = None
+    if has_volume:
+        avg_volume = ohlc['volume'].rolling(window=20).mean()
+
+    for i in range(2, len(ohlc) - 1): # Need i+1 for confirmation sometimes, keeping simple for now
         prev_open = ohlc['open'].iloc[i-1]
         prev_close = ohlc['close'].iloc[i-1]
         curr_open = ohlc['open'].iloc[i]
         curr_close = ohlc['close'].iloc[i]
         
+        # Calculate body sizes
+        prev_body = abs(prev_close - prev_open)
+        curr_body = abs(curr_close - curr_open)
+        
         # Bullish OB detection
         # Previous candle was red (down)
         if prev_close < prev_open:
-            # Current candle is green (up) and engulfs previous body
-            if curr_close > prev_open and curr_open <= prev_close:
-                obs.append({
-                    "type": "bullish",
-                    "index": int(i-1), # Index of the OB candle
-                    "top": float(prev_open),
-                    "bottom": float(prev_close),
-                    "mitigated": False
-                })
+            # Current candle is green (up) and strongly engulfs or displaces
+            if curr_close > prev_open and curr_body > prev_body * 1.5:
+                
+                # Volume check (if available) - move should have higher volume
+                valid_volume = True
+                if has_volume and i > 20:
+                     current_vol = ohlc['volume'].iloc[i]
+                     # Check if volume is above average
+                     if current_vol < avg_volume.iloc[i]:
+                         valid_volume = False # Weak move, maybe not a strong OB
+                
+                if valid_volume:
+                    obs.append({
+                        "type": "bullish",
+                        "index": int(i-1), 
+                        "top": float(prev_open),
+                        "bottom": float(prev_close),
+                        "mitigated": False,
+                        "strength": "strong" if valid_volume else "weak"
+                    })
         
         # Bearish OB detection
         # Previous candle was green (up)
         elif prev_close > prev_open:
-            # Current candle is red (down) and engulfs previous body
-            if curr_close <= prev_open and curr_open >= prev_close:
-                obs.append({
-                    "type": "bearish",
-                    "index": int(i-1),
-                    "top": float(prev_close),
-                    "bottom": float(prev_open),
-                    "mitigated": False
-                })
+            # Current candle is red (down) and strongly engulfs
+            if curr_close < prev_open and curr_body > prev_body * 1.5:
+                
+                valid_volume = True
+                if has_volume and i > 20:
+                     current_vol = ohlc['volume'].iloc[i]
+                     if current_vol < avg_volume.iloc[i]:
+                         valid_volume = False
+                
+                if valid_volume:
+                    obs.append({
+                        "type": "bearish",
+                        "index": int(i-1),
+                        "top": float(prev_close),
+                        "bottom": float(prev_open),
+                        "mitigated": False,
+                        "strength": "strong" if valid_volume else "weak"
+                    })
                 
     return obs
 
@@ -60,33 +89,23 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
     fvgs = []
     
     for i in range(2, len(ohlc)):
-        # Bullish FVG
-        # Candle i-2 high, Candle i low
-        # Wait, definition:
-        # Bullish FVG: The gap between the High of the first candle (i-2) and the Low of the third candle (i)
-        # Wait, standard definition:
-        # Bullish FVG: Created when price moves up strongly. Gap is between High of candle 1 and Low of candle 3.
-        # So Low[3] > High[1].
-        
         high_1 = ohlc['high'].iloc[i-2]
         low_3 = ohlc['low'].iloc[i]
         
+        # Bullish FVG
         if low_3 > high_1:
             fvgs.append({
                 "type": "bullish",
-                "index": int(i-1), # The FVG is essentially the middle candle's range
+                "index": int(i-1),
                 "top": float(low_3),
                 "bottom": float(high_1),
                 "mitigated": False
             })
             
-        # Bearish FVG
-        # Created when price moves down strongly. Gap is between Low of candle 1 and High of candle 3.
-        # So High[3] < Low[1].
-        
         low_1 = ohlc['low'].iloc[i-2]
         high_3 = ohlc['high'].iloc[i]
         
+        # Bearish FVG
         if high_3 < low_1:
             fvgs.append({
                 "type": "bearish",
@@ -97,3 +116,40 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
             })
             
     return fvgs
+
+def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
+    """
+    Detect Liquidity Sweeps (Turtle Soup).
+    Price sweeps a recent High/Low (taking liquidity) but closes back inside the range.
+    """
+    sweeps = []
+    window = 5 # Look back 5 bars for a swing point
+    
+    for i in range(window, len(ohlc)):
+        current_high = ohlc['high'].iloc[i]
+        current_low = ohlc['low'].iloc[i]
+        current_close = ohlc['close'].iloc[i]
+        
+        # Find recent swing high/low in the window before current candle
+        recent_high = ohlc['high'].iloc[i-window:i].max()
+        recent_low = ohlc['low'].iloc[i-window:i].min()
+        
+        # Bearish Sweep (Sweeps High)
+        if current_high > recent_high and current_close < recent_high:
+            sweeps.append({
+                "type": "bearish_sweep",
+                "index": int(i),
+                "level": float(recent_high),
+                "description": "Swept recent high and closed below"
+            })
+            
+        # Bullish Sweep (Sweeps Low)
+        if current_low < recent_low and current_close > recent_low:
+             sweeps.append({
+                "type": "bullish_sweep",
+                "index": int(i),
+                "level": float(recent_low),
+                "description": "Swept recent low and closed above"
+            })
+            
+    return sweeps

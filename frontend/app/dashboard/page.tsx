@@ -8,6 +8,7 @@ import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { RecentSignalsTable } from '@/components/dashboard/RecentSignalsTable';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
+import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { getEquityCurve, EquityPoint } from '@/lib/api/dashboard';
 import { useState, useEffect } from 'react';
 
@@ -154,21 +155,25 @@ export default function DashboardPage() {
             <EquityChart data={equityData} loading={equityLoading} />
         </div>
         
-        {/* Strategy Performance (Placeholder for now, can be expanded) */}
-        <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Strategy Performance</h3>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <span className="text-gray-400">MTF Momentum</span>
-                    <span className="text-green-400 font-mono">+12.5%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                    <span className="text-gray-400">SMC Reversal</span>
-                    <span className="text-green-400 font-mono">+8.2%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                    <span className="text-gray-400">News Sentiment</span>
-                    <span className="text-red-400 font-mono">-2.1%</span>
+        {/* AI Analyst & Strategy Performance */}
+        <div className="space-y-6">
+            <AIAnalystCard />
+            
+            <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6">
+                <h3 className="text-lg font-semibold text-gray-200 mb-4">Strategy Performance</h3>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">MTF Momentum</span>
+                        <span className="text-green-400 font-mono">+12.5%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">SMC Reversal</span>
+                        <span className="text-green-400 font-mono">+8.2%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-400">News Sentiment</span>
+                        <span className="text-red-400 font-mono">-2.1%</span>
+                    </div>
                 </div>
             </div>
         </div>

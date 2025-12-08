@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import shutil
@@ -7,8 +7,17 @@ from app.database import get_db
 from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
 from app.schemas import CandleResponse, PaginationResponse
+from app.scheduler.jobs import run_ingestion_job
 
 router = APIRouter()
+
+@router.post("/ingest/manual", status_code=202)
+async def trigger_ingestion(background_tasks: BackgroundTasks):
+    """
+    Manually trigger the data ingestion job in the background.
+    """
+    background_tasks.add_task(run_ingestion_job)
+    return {"message": "Ingestion job triggered in background"}
 
 @router.post("/upload_csv", status_code=201)
 async def upload_csv(

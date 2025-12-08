@@ -3,7 +3,7 @@ import yaml
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation
+from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
 
@@ -74,6 +74,7 @@ app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(transaction.router)
 app.include_router(simulation.router)
+app.include_router(ai.router)
 
 
 
