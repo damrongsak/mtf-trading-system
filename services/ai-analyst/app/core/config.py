@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     QDRANT_PORT: int = 6333
     QDRANT_API_KEY: Optional[str] = None
     QDRANT_URL: Optional[str] = None # Alternative if full URL provided
+    QDRANT_GRPC_HTTPS: bool = False # Whether to use HTTPS for Qdrant client connection
 
     @property
     def qdrant_location(self) -> str:

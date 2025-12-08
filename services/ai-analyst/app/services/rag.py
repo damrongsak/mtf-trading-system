@@ -8,6 +8,7 @@ class RAGService:
             host=settings.QDRANT_HOST if not settings.QDRANT_URL else None,
             port=settings.QDRANT_PORT if not settings.QDRANT_URL else None,
             api_key=settings.QDRANT_API_KEY,
+            https=settings.QDRANT_GRPC_HTTPS,
         )
         self.collection_name = "journal_entries"
 

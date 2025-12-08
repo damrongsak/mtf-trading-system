@@ -1,0 +1,85 @@
+# AI Analyst Service
+
+## 🧠 Overview
+The **AI Analyst Service** is a specialized microservice within the MTF Trading System. It leverages **Google Gemini 1.5 Pro** and **RAG (Retrieval-Augmented Generation)** to provide semantic market analysis and psychological insights for trading journals.
+
+## 🛠️ Tech Stack
+*   **Python 3.11+**
+*   **FastAPI**: High-performance web framework.
+*   **Google GenAI SDK**: Official Python client for Gemini API (`google-genai`).
+*   **Qdrant**: Vector database integration for RAG.
+*   **uv**: Fast Python package installer and resolver.
+
+## 🚀 Setup & Installation
+
+### 1. Prerequisites
+Ensure you have `uv` installed:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 2. Install Dependencies
+Navigate to the service directory and sync dependencies:
+```bash
+cd services/ai-analyst
+uv sync
+```
+
+### 3. Environment Variables
+Create a `.env` file in the service root or set the variables in your shell:
+
+```bash
+# Required
+GOOGLE_API_KEY=your_gemini_api_key_here
+
+# Optional (for RAG)
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+```
+
+## 🏃‍♂️ Running the Service
+
+Start the development server with hot-reload:
+
+```bash
+uv run uvicorn app.main:app --reload --port 8002
+```
+
+The API will be available at:
+*   **Docs:** [http://localhost:8002/docs](http://localhost:8002/docs)
+*   **Health Check:** [http://localhost:8002/health](http://localhost:8002/health)
+
+## 🧪 Testing
+
+This service uses `pytest` for unit testing, with `pytest-asyncio` for async support.
+
+To run the tests:
+
+```bash
+# Ensure PYTHONPATH is set to resolve 'app' module
+uv run env PYTHONPATH=. pytest tests/
+```
+
+## 📡 API Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Check service health and connection to AI/RAG providers. |
+| `POST` | `/analyze/market` | Generates a narrative market outlook based on technical indicators (Trend, Key Levels). |
+| `POST` | `/analyze/journal` | Analyzes a trading journal entry for emotions and mistakes, comparing it with historical entries. |
+
+## 📂 Project Structure
+
+```
+services/ai-analyst/
+├── app/
+│   ├── core/           # Configuration settings
+│   ├── schemas/        # Pydantic models for Request/Response
+│   ├── services/
+│   │   ├── gemini.py   # Google GenAI Client wrapper
+│   │   └── rag.py      # Vector store logic
+│   └── main.py         # FastAPI entry point
+├── tests/              # Unit tests
+├── pyproject.toml      # Dependency and project config
+└── README.md           # This file
+```

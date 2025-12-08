@@ -18,11 +18,11 @@ export interface AnalysisResponse {
 }
 
 export async function getMarketAnalysis(data: MarketAnalysisRequest): Promise<AnalysisResponse> {
-    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/market-analysis', data);
+    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/analyze/market', data);
     return response.data;
 }
 
 export async function getJournalAnalysis(data: JournalAnalysisRequest): Promise<AnalysisResponse> {
-    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/journal-analysis', data);
+    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/analyze/journal', data);
     return response.data;
 }

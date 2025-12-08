@@ -1,10 +1,20 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from app.schemas.analysis import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from datetime import datetime
 
 app = FastAPI(title="AI Analyst Service")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Initialize services (Lazy loading could be better, but simple for now)
 try:

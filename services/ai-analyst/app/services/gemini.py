@@ -1,12 +1,15 @@
-import google.generativeai as genai
+from google import genai
 from app.core.config import settings
 
 class GeminiClient:
     def __init__(self):
         if not settings.GOOGLE_API_KEY:
             raise ValueError("GOOGLE_API_KEY is not set")
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Initialize the client with the API key
+        self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        # Using gemini-1.5-flash
+        self.model_id = 'gemini-flash-latest'
 
     async def generate_market_outlook(self, context: dict) -> str:
         """
@@ -29,7 +32,10 @@ class GeminiClient:
         """
         
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model=self.model_id,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Error generating insight: {str(e)}"
@@ -54,7 +60,10 @@ class GeminiClient:
         """
         
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model=self.model_id,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             return f"Error analyzing journal: {str(e)}"
