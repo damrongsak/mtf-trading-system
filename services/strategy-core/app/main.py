@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import IndicatorRequest, IndicatorResponse, ATRRequest
+from app.schemas import IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse
 from app.indicators import calculate_ema, calculate_atr
+from app.backtest import run_historical_backtest
 import pandas as pd
 import numpy as np
 
@@ -143,5 +144,12 @@ from app.simulation import run_grid_simulation_logic
 def run_simulation(req: SimulationRequest):
     try:
         return run_grid_simulation_logic(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/backtest", response_model=BacktestResponse)
+def run_backtest_endpoint(req: BacktestRequest):
+    try:
+        return run_historical_backtest(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

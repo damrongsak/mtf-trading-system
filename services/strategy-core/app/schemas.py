@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from datetime import datetime
+from enum import Enum
 
 class IndicatorRequest(BaseModel):
     data: List[float]
@@ -89,3 +91,67 @@ class SimulationResponse(BaseModel):
     equity_curve: List[EquityPoint]
     status: str
 
+# ==========================
+# Backtest Schemas (Real)
+# ==========================
+
+class OptimizationMethod(str, Enum):
+    GRID = "GRID"
+    RANDOM = "RANDOM"
+    BAYESIAN = "BAYESIAN"
+
+class ParameterRange(BaseModel):
+    start: float
+    stop: float
+    step: float
+
+class ParameterChoice(BaseModel):
+    values: List[Any]
+
+class OptimizationConfig(BaseModel):
+    method: OptimizationMethod = OptimizationMethod.GRID
+    target_metric: str = "sharpe_ratio"
+    max_iterations: Optional[int] = 100
+    early_stopping_rounds: Optional[int] = None
+    param_grid: Dict[str, Any]
+
+class BacktestRequest(BaseModel):
+    symbol: str
+    timeframe: str
+    strategy_params: Dict[str, Any] = {}
+    start_date: datetime
+    end_date: datetime
+    initial_capital: float = 10000.0
+    strategy_id: Optional[str] = None
+    fund_id: Optional[str] = None
+    trading_config_id: Optional[str] = None
+    optimization: Optional[OptimizationConfig] = None
+
+class TradeResult(BaseModel):
+    entry_time: datetime
+    exit_time: datetime
+    direction: str
+    entry_price: float
+    exit_price: float
+    pnl: float
+    pnl_percent: float
+
+class BacktestMetrics(BaseModel):
+    total_return: float
+    total_return_percent: float
+    max_drawdown: float
+    max_drawdown_percent: float
+    win_rate: float
+    sharpe_ratio: Optional[float] = 0.0
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+
+class BacktestResponse(BaseModel):
+    id: str
+    status: str
+    metrics: Optional[BacktestMetrics] = None
+    trades: List[TradeResult] = []
+    equity_curve: List[EquityPoint] = []
+    best_params: Optional[Dict[str, Any]] = None
+    all_results: Optional[List[Dict[str, Any]]] = None

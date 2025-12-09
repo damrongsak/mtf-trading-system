@@ -62,11 +62,16 @@ class BacktestMetrics(BaseModel):
     winning_trades: int
     losing_trades: int
 
+class EquityPoint(BaseModel):
+    timestamp: str
+    value: float
+
 class BacktestResponse(BaseModel):
     id: str
     status: str
     metrics: Optional[BacktestMetrics] = None
     trades: List[TradeResult] = []
+    equity_curve: List[EquityPoint] = []
     
     # Optimization Results
     best_params: Optional[Dict[str, Any]] = None

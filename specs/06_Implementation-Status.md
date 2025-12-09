@@ -12,8 +12,13 @@
 - **Features:**
     - `can_execute` guardrail logic implemented.
     - Risk checks: Max risk ($10), Min lot (0.01), SL distance validation.
+    - **OANDA Integration:**
+        - `OandaAccountAdapter`: Fetches real-time NAV, margin, and position counts.
+        - `OandaOrderAdapter`: Places market orders with integrated Stop Loss and Take Profit.
+        - API endpoints: `GET /account/summary`, `POST /orders`.
+    - **Dependency Management:** Migrated to `uv` (replaced `pip`/`requirements.txt`).
     - Unit tests passing (`tests/test_execution.py`).
-    - Docker container builds successfully.
+    - Docker container builds successfully with `uv`.
     - Health check endpoint active.
     - **CORS:** Enabled `CORSMiddleware` to allow all origins.
 

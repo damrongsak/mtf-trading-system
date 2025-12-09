@@ -14,6 +14,7 @@ from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
+from app.services.internal_client import strategy_client
 
 router = APIRouter(
     prefix="/backtest",
@@ -160,58 +161,24 @@ async def run_backtest(req: BacktestRequest, db: Session = Depends(get_db)):
     db.refresh(history_entry)
 
     try:
-        # --- MOCK EXECUTION LOGIC (Replace with Strategy Core call) ---
-        metrics = BacktestMetrics(
-            total_return=500.0,
-            total_return_percent=5.0,
-            max_drawdown=200.0,
-            max_drawdown_percent=2.0,
-            win_rate=0.6,
-            sharpe_ratio=1.5,
-            total_trades=10,
-            winning_trades=6,
-            losing_trades=4
-        )
+        # Prepare payload
+        # Ensure dates are serialized
+        payload = jsonable_encoder(req)
         
-        trades=[
-            TradeResult(
-                entry_time=datetime.utcnow(),
-                exit_time=datetime.utcnow(),
-                direction="LONG",
-                entry_price=2000.0,
-                exit_price=2050.0,
-                pnl=50.0,
-                pnl_percent=2.5
-            )
-        ]
+        # Call Strategy Core
+        result = await strategy_client.run_backtest(payload)
         
-        best_params = None
-        all_results = None
-
-        if req.optimization:
-            best_params = {"ema_period": 20, "rsi_period": 14}
-            all_results = [
-                {"params": {"ema_period": 10}, "metric": 1.2},
-                {"params": {"ema_period": 20}, "metric": 1.5},
-            ]
-        # ---------------------------------------------------------------
-
         # 4. Update History Entry (COMPLETED)
         history_entry.status = "COMPLETED"
-        history_entry.metrics = metrics.dict()
-        history_entry.best_params = best_params
+        history_entry.metrics = result.get('metrics')
+        history_entry.best_params = result.get('best_params')
+        
+        # Store execution duration or other metadata if needed
+        # history_entry.completed_at = datetime.utcnow() # If model has it
+        
         db.commit()
 
-        response_data = BacktestResponse(
-            id=str(history_entry.id), # Use DB ID
-            status="COMPLETED",
-            metrics=metrics,
-            trades=trades,
-            best_params=best_params,
-            all_results=all_results
-        )
-        
-        return success_response(data=response_data)
+        return success_response(data=result)
 
     except Exception as e:
         # Handle Failure

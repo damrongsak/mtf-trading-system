@@ -10,6 +10,7 @@ import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { getEquityCurve, EquityPoint } from '@/lib/api/dashboard';
+import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
@@ -18,19 +19,27 @@ export default function DashboardPage() {
   const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5);
   const [equityData, setEquityData] = useState<EquityPoint[]>([]);
   const [equityLoading, setEquityLoading] = useState(true);
+  const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
 
   useEffect(() => {
-    const fetchEquity = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getEquityCurve();
-        setEquityData(data);
+        const [eqData, accData] = await Promise.all([
+            getEquityCurve(),
+            getAccountSummary().catch(e => {
+                console.warn("Failed to fetch account summary (Execution Service might be offline or unconfigured):", e);
+                return null;
+            })
+        ]);
+        setEquityData(eqData);
+        setAccountSummary(accData);
       } catch (error) {
-        console.error('Failed to fetch equity curve:', error);
+        console.error('Failed to fetch dashboard data:', error);
       } finally {
         setEquityLoading(false);
       }
     };
-    fetchEquity();
+    fetchData();
   }, []);
 
   const handleRefresh = async () => {
@@ -129,8 +138,8 @@ export default function DashboardPage() {
         />
         
         <DashboardCard
-          title="Open Positions"
-          value={stats?.open_positions || 0}
+          title="Open Positions (Live)"
+          value={accountSummary ? accountSummary.openPositionCount : (stats?.open_positions || 0)}
           icon={
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />

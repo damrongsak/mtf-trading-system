@@ -5,6 +5,9 @@ import { runBacktest, saveBacktestConfig, getBacktestConfigs, getBacktestHistory
 import { BacktestRequest, BacktestResponse, OptimizationConfig, ParameterRange, BacktestConfig, BacktestHistorySummary } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/errors';
 import { Pagination } from '@/components/common/Pagination';
+import { 
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
 
 export default function BacktestPage() {
   const [activeTab, setActiveTab] = useState<'run' | 'history'>('run');
@@ -488,11 +491,93 @@ export default function BacktestPage() {
                             </div>
                         )}
 
-                        {/* Standard Trade List / Equity Curve Placeholder */}
+                        {/* Equity Curve Chart */}
+                        {!result.best_params && result.equity_curve && result.equity_curve.length > 0 && (
+                            <div className="mb-6 h-64 w-full">
+                                <h3 className="text-gray-400 text-sm font-semibold mb-3">Equity Curve</h3>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={result.equity_curve}>
+                                        <defs>
+                                            <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                        <XAxis 
+                                            dataKey="timestamp" 
+                                            hide 
+                                        />
+                                        <YAxis 
+                                            stroke="#9CA3AF"
+                                            tickFormatter={(val) => `$${val}`}
+                                            domain={['auto', 'auto']}
+                                        />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#F3F4F6' }}
+                                            formatter={(val: number) => [`$${val.toFixed(2)}`, 'Equity']}
+                                            labelFormatter={(label) => new Date(label).toLocaleString()}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="value" 
+                                            stroke="#8884d8" 
+                                            fillOpacity={1} 
+                                            fill="url(#colorEquity)" 
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        {/* Trade List */}
                         {!result.best_params && (
-                            <div className="text-center py-20">
-                                <p className="text-gray-500">Equity curve visualization pending backend support.</p>
-                                <p className="text-sm text-gray-600 mt-2">Trades executed: {result.trades.length}</p>
+                            <div>
+                                <h3 className="text-gray-400 text-sm font-semibold mb-3">Trade Log ({result.trades.length})</h3>
+                                {result.trades.length > 0 ? (
+                                    <div className="bg-gray-950 rounded border border-gray-800 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-gray-800 text-gray-400 sticky top-0">
+                                                <tr>
+                                                    <th className="p-2">Time</th>
+                                                    <th className="p-2">Type</th>
+                                                    <th className="p-2 text-right">Entry</th>
+                                                    <th className="p-2 text-right">Exit</th>
+                                                    <th className="p-2 text-right">PnL</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800">
+                                                {result.trades.slice(0, 100).map((trade, i) => ( // Limit to 100 for perf if large
+                                                    <tr key={i} className="hover:bg-gray-900/50">
+                                                        <td className="p-2 text-gray-500 text-xs">
+                                                            {new Date(trade.entry_time).toLocaleString()}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span className={`text-xs font-bold px-1 rounded ${
+                                                                trade.direction === 'LONG' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                                                            }`}>
+                                                                {trade.direction}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-2 text-right font-mono text-xs text-gray-300">
+                                                            {trade.entry_price.toFixed(2)}
+                                                        </td>
+                                                        <td className="p-2 text-right font-mono text-xs text-gray-300">
+                                                            {trade.exit_price.toFixed(2)}
+                                                        </td>
+                                                        <td className={`p-2 text-right font-mono font-bold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-gray-500 bg-gray-900/50 rounded border border-dashed border-gray-800">
+                                        No trades executed during this period.
+                                    </div>
+                                )}
                             </div>
                         )}
                      </div>

@@ -98,6 +98,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/settings/preferences:
+    get:
+      summary: Get current user preferences
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserPreferencesResponse'
+    put:
+      summary: Update user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesDto'
+      responses:
+        '200':
+          description: Updated user preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserPreferencesResponse'
   /api/v1/funds:
     get:
       summary: List funds for current user
@@ -533,6 +558,32 @@ components:
           type: string
           format: date-time
 
+    APIResponse_UserPreferencesResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/UserPreferencesResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
     APIResponse_Fund:
       type: object
       required:
@@ -904,6 +955,122 @@ components:
           type: string
         is_active:
           type: boolean
+    UserPreferencesResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        default_fund_id:
+          type: string
+          format: uuid
+          nullable: true
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+        asset_classes:
+          type: array
+          items:
+            type: string
+        max_risk_per_trade:
+          type: number
+        default_lot_size:
+          type: number
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
+        preferred_timeframes:
+          type: array
+          items:
+            type: string
+        default_symbol:
+          type: string
+        session_preferences:
+          type: array
+          items:
+            type: string
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+    UpdatePreferencesDto:
+      type: object
+      properties:
+        default_fund_id:
+          type: string
+          format: uuid
+          nullable: true
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+          nullable: true
+        asset_classes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        max_risk_per_trade:
+          type: number
+          nullable: true
+        default_lot_size:
+          type: number
+          nullable: true
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
+        preferred_timeframes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        default_symbol:
+          type: string
+          nullable: true
+        session_preferences:
+          type: array
+          items:
+            type: string
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
     Fund:
       type: object
       properties:

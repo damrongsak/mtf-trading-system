@@ -420,7 +420,7 @@ export interface BacktestRequest {
     start_date: string;
     end_date: string;
     initial_capital: number;
-    
+
     // Profile References
     strategy_id?: string;
     fund_id?: string;
@@ -488,6 +488,7 @@ export interface BacktestResponse {
     status: string;
     metrics: BacktestMetrics;
     trades: BacktestTrade[];
+    equity_curve?: { timestamp: string; value: number }[];
     best_params?: Record<string, unknown>;
     all_results?: unknown[];
     created_at?: string;
