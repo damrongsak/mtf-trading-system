@@ -72,9 +72,32 @@ Implements:
 
 ### D. Execution Service
 
-* Risk engine guardrails ($10 cap, min lot 0.01)
-* Trade simulation or live connector (CCXT)
-* Logging → PostgreSQL
+
+
+*   **Purpose**: Manages interactions with the live OANDA trading platform, performs pre-trade risk checks, fetches account information, and executes orders.
+
+*   **API Endpoints**:
+
+    *   `POST /check`: Performs risk engine guardrails (
+0 cap, min lot 0.01) before trade execution.
+
+    *   `GET /account/summary`: Fetches real-time account details (NAV, margin available, open trades/positions) from OANDA.
+
+    *   `POST /orders`: Places market orders on OANDA, supporting integrated Stop Loss (SL) and Take Profit (TP) orders, and client trade ID tagging for reconciliation.
+
+*   **OANDA Integration**: Uses `oandapyV20` library to connect to OANDA API.
+
+*   **Internal Structure**:
+
+    *   `app/core/config.py`: Manages OANDA API credentials and environment settings.
+
+    *   `app/adapters/oanda_account.py`: Adapter for OANDA account-related API calls.
+
+    *   `app/adapters/oanda_order.py`: Adapter for OANDA order-related API calls.
+
+*   **Package Management**: Utilizes `uv` for dependency management, replacing `pip` and `requirements.txt`.
+
+*   **Logging**: Basic logging is implemented, which can be extended for PostgreSQL storage.
 
 ---
 
