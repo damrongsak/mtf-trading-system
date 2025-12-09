@@ -58,6 +58,8 @@ class Candle(Base):
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(),
                        comment="Record creation timestamp")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+                       comment="Record last update timestamp")
 
     # Indexes for performance
     __table_args__ = (
