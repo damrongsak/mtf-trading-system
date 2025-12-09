@@ -40,8 +40,8 @@ export function useDashboardStats(): UseDashboardStatsReturn {
     useEffect(() => {
         fetchStats();
 
-        // Auto-refresh every 5 seconds
-        const interval = setInterval(() => fetchStats(true), 5000);
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(() => fetchStats(true), 30000);
 
         return () => clearInterval(interval);
     }, []);

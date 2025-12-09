@@ -39,9 +39,10 @@ export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
  * @param limit - Number of recent signals to fetch (default: 5)
  * @returns Array of recent signals
  */
-export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[]> {
-    const watchlist = ['XAU/USD', 'EUR/USD', 'GBP/USD', 'BTC/USD', 'USD/JPY'];
-    
+export async function getRecentSignals(limit: number = 5, symbols?: string[]): Promise<RecentSignal[]> {
+    const defaultWatchlist = ['XAU/USD', 'EUR/USD', 'GBP/USD', 'BTC/USD', 'USD/JPY'];
+    const watchlist = symbols && symbols.length > 0 ? symbols : defaultWatchlist;
+
     try {
         const promises = watchlist.map(async (symbol) => {
             try {
@@ -51,18 +52,18 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
                 // However, we need to import `getLatestSignal` from `./signals`.
                 // If dashboard.ts is used by signals.ts, that's an issue. 
                 // signals.ts depends on client.ts and types.ts. dashboard.ts depends on client.ts and types.ts. Safe.
-                
+
                 // Since we can't easily add import top-level in this replace block given the file structure
                 // effectively, I will assume I can modify the imports in a separate step or I'll implement the call here directly via apiClient
                 // to avoid modifying imports at the top of the file which might be messy with line numbers.
                 // Actually, I should use `apiClient` directly here to match existing pattern.
-                
+
                 // Call /api/v1/signal/latest/{symbol}
                 const response = await apiClient.get<APIResponse<Signal>>(`/signal/latest/${encodeURIComponent(symbol)}`);
                 const signal = response.data.data;
-                
+
                 if (!signal) return null;
-                
+
                 const mapDirection = (dir: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' => {
                     if (dir === 'LONG') return 'BULLISH';
                     if (dir === 'SHORT') return 'BEARISH';
@@ -89,11 +90,11 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
 
         const results = await Promise.all(promises);
         const validSignals = results.filter((s): s is RecentSignal => s !== null);
-        
+
         // Sort by timestamp if available or just return
         // Ideally newest first.
         validSignals.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        
+
         return validSignals.slice(0, limit);
     } catch (error) {
         console.error("Error fetching recent signals", error);

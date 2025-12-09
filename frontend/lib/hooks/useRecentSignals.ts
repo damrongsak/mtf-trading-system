@@ -14,7 +14,7 @@ interface UseRecentSignalsReturn {
  * Hook for fetching recent trading signals
  * @param limit - Number of signals to fetch (default: 5)
  */
-export function useRecentSignals(limit: number = 5): UseRecentSignalsReturn {
+export function useRecentSignals(limit: number = 5, symbols?: string[]): UseRecentSignalsReturn {
     const [signals, setSignals] = useState<RecentSignal[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function useRecentSignals(limit: number = 5): UseRecentSignalsReturn {
                 setLoading(true);
             }
             setError(null);
-            const data = await getRecentSignals(limit);
+            const data = await getRecentSignals(limit, symbols);
             setSignals(data);
         } catch (err: unknown) {
             const apiError = err as ApiError;
@@ -35,13 +35,13 @@ export function useRecentSignals(limit: number = 5): UseRecentSignalsReturn {
                 setLoading(false);
             }
         }
-    }, [limit]);
+    }, [limit, symbols]); // Add symbols to dependency array
 
     useEffect(() => {
         fetchSignals();
 
-        // Auto-refresh every 5 seconds
-        const interval = setInterval(() => fetchSignals(true), 5000);
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(() => fetchSignals(true), 30000);
 
         return () => clearInterval(interval);
     }, [fetchSignals]);

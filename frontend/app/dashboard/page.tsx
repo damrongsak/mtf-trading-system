@@ -9,30 +9,51 @@ import { RecentSignalsTable } from '@/components/dashboard/RecentSignalsTable';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
-import { getEquityCurve, EquityPoint } from '@/lib/api/dashboard';
+import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
+import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDashboardStats();
-  const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5);
   const [equityData, setEquityData] = useState<EquityPoint[]>([]);
   const [equityLoading, setEquityLoading] = useState(true);
   const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
+  
+  const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5, watchlist);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [eqData, accData] = await Promise.all([
+        // First try to fetch preferences to set watchlist
+        try {
+            const prefs = await getPreferences();
+            if (prefs.supported_symbols && prefs.supported_symbols.length > 0) {
+                setWatchlist(prefs.supported_symbols);
+            } else if (prefs.default_symbol) {
+                setWatchlist([prefs.default_symbol]);
+            }
+        } catch (e) {
+            console.warn("Failed to load user preferences, using defaults", e);
+        }
+
+        const [eqData, accData, perfData] = await Promise.all([
             getEquityCurve(),
             getAccountSummary().catch(e => {
                 console.warn("Failed to fetch account summary (Execution Service might be offline or unconfigured):", e);
                 return null;
+            }),
+            getStrategyPerformance().catch(e => {
+                 console.warn("Failed to fetch strategy performance:", e);
+                 return [];
             })
         ]);
         setEquityData(eqData);
         setAccountSummary(accData);
+        setPerformance(perfData);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -171,18 +192,20 @@ export default function DashboardPage() {
             <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6">
                 <h3 className="text-lg font-semibold text-gray-200 mb-4">Strategy Performance</h3>
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">MTF Momentum</span>
-                        <span className="text-green-400 font-mono">+12.5%</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">SMC Reversal</span>
-                        <span className="text-green-400 font-mono">+8.2%</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-400">News Sentiment</span>
-                        <span className="text-red-400 font-mono">-2.1%</span>
-                    </div>
+                    {performance.length > 0 ? (
+                        performance.map((strat, idx) => (
+                            <div key={idx} className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm">{strat.strategy_name || 'Unknown'}</span>
+                                <span className={`font-mono text-sm ${strat.total_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {strat.total_pnl >= 0 ? '+' : ''}{formatCurrency(strat.total_pnl)}
+                                </span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-gray-500 text-sm text-center py-4">
+                            No performance data available.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
