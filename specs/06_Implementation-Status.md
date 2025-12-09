@@ -137,7 +137,7 @@
     - **Enum Update:** `NEUTRAL` direction added to `SignalDirection` enum.
 
 ### **11. Data Pipeline (`services/data-pipeline`)**
-- **Status:** ✅ Complete (2025-12-08)
+- **Status:** ✅ Complete (2025-12-09)
 - **Features:**
     - Service structure created.
     - `Candle` model defined.
@@ -146,8 +146,15 @@
     - **Automation:** `APScheduler` configured to fetch M15, H1, H4 candles every 15m.
     - `POST /ingest/manual` endpoint for on-demand fetch.
     - **Database Integration:** Alembic configured, initial migration applied. `is_complete` column now present.
-    - **API:** `POST /upload_csv` (now working with `python-multipart`) and `GET /candles` implemented.
-    - **Dependencies:** `python-multipart` added to `pyproject.toml`.
+    - **API:** `POST /upload` (supports large CSV uploads via Nginx proxy) and `GET /candles` implemented.
+    - **Dependencies:** `python-multipart`, `alembic` added to `pyproject.toml`.
+    - **Historical Data Upload:**
+        - Endpoint: `POST /api/v1/data/upload` (via Nginx proxy to Data Pipeline).
+        - Robust CSV validation (schema, types, range checks).
+        - Support for MetaTrader/Dukascopy CSV formats.
+        - Efficient bulk upsert logic (INSERT ON CONFLICT UPDATE) to handle duplicates.
+        - `updated_at` column added to `Candle` model via migration.
+        - Nginx configured for large file uploads (50MB limit, 300s timeout).
 
 ### **12. Strategy Core (`services/strategy-core`)**
 - **Status:** ✅ Complete (2025-12-08)

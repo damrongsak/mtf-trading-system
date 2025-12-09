@@ -26,8 +26,30 @@ class Candle(Base):
     body_to_wick_ratio = Column(Numeric(5, 4), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp', unique=True),
         Index('ix_candles_timestamp', 'timestamp'),
     )
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "timestamp": self.timestamp,
+            "open": self.open,
+            "high": self.high,
+            "low": self.low,
+            "close": self.close,
+            "volume": self.volume,
+            "is_complete": self.is_complete,
+            "ema_9_4h": self.ema_9_4h,
+            "ema_200_4h": self.ema_200_4h,
+            "ema_200_d": self.ema_200_d,
+            "atr_14_15m": self.atr_14_15m,
+            "body_to_wick_ratio": self.body_to_wick_ratio,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }

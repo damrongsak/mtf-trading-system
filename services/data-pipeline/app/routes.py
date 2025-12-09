@@ -8,6 +8,13 @@ from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
 from app.schemas import CandleResponse, PaginationResponse
 from app.scheduler.jobs import run_ingestion_job
+from sqlalchemy.dialects.postgresql import insert
+from datetime import datetime
+import logging
+import traceback
+import uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -19,8 +26,8 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     background_tasks.add_task(run_ingestion_job)
     return {"message": "Ingestion job triggered in background"}
 
-@router.post("/upload_csv", status_code=201)
-async def upload_csv(
+@router.post("/upload", status_code=201)
+async def upload_candles(
     file: UploadFile = File(...),
     symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),
     timeframe: str = Query(..., description="Timeframe (e.g., 15m)"),
@@ -28,20 +35,32 @@ async def upload_csv(
 ):
     """
     Upload a CSV file containing OHLCV data.
-    The file is saved temporarily, processed, and then deleted.
+    Validates schema, data types, and logical consistency.
     """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV.")
+
     temp_file = f"temp_{file.filename}"
     try:
         with open(temp_file, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Load candles using the existing service
-        df = load_candles_from_csv(temp_file, symbol, timeframe)
+        # Load candles with validation
+        try:
+            df = load_candles_from_csv(temp_file, symbol, timeframe)
+        except ValueError as ve:
+             raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+             logger.error(f"Processing error in load_candles_from_csv: {str(e)}")
+             logger.error(traceback.format_exc()) # Log full traceback
+             raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
         
-        # Save to database
-        candles = []
+        # Convert DataFrame rows to Candle objects
+        candle_objects = []
+        now = datetime.utcnow()
         for _, row in df.iterrows():
-            candle = Candle(
+            candle_objects.append(Candle(
+                id=uuid.uuid4(), # Generate UUID explicitly
                 symbol=row['symbol'],
                 timeframe=row['timeframe'],
                 timestamp=row['timestamp'],
@@ -49,16 +68,41 @@ async def upload_csv(
                 high=row['high'],
                 low=row['low'],
                 close=row['close'],
-                volume=row['volume']
+                volume=row['volume'],
+                created_at=now,
+                updated_at=now
+            ))
+
+        # Save to database using upsert logic
+        # Convert Candle objects to dictionaries for the insert statement
+        if candle_objects:
+            stmt = insert(Candle).values([c.to_dict() for c in candle_objects])
+            do_update_stmt = stmt.on_conflict_do_update(
+                index_elements=['symbol', 'timeframe', 'timestamp'],
+                set_={
+                    'open': stmt.excluded.open,
+                    'high': stmt.excluded.high,
+                    'low': stmt.excluded.low,
+                    'close': stmt.excluded.close,
+                    'volume': stmt.excluded.volume,
+                    'updated_at': datetime.utcnow() # Assuming an updated_at field for candles
+                }
             )
-            candles.append(candle)
+            try:
+                db.execute(do_update_stmt)
+                db.commit()
+            except Exception as db_err:
+                db.rollback()
+                logger.error(f"Database upsert error: {str(db_err)}")
+                logger.error(traceback.format_exc()) # Log full traceback
+                raise HTTPException(status_code=500, detail=f"Database upsert error: {str(db_err)}")
         
-        # Bulk save could be better, but simple add_all for now
-        db.add_all(candles)
-        db.commit()
-        
-        return {"message": f"Successfully loaded data for {symbol} {timeframe}"}
+        return {"message": f"Successfully processed {len(df)} rows for {symbol} {timeframe}"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        logger.error(traceback.format_exc()) # Log full traceback
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_file):
