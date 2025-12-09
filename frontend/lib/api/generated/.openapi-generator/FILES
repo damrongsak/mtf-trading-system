@@ -16,6 +16,7 @@ docs/APIResponseTransactionImportResponse.md
 docs/APIResponseTransactionImportResponseData.md
 docs/APIResponseTransactionResponse.md
 docs/APIResponseUserResponse.md
+docs/ApiV1DataIngestManualPost202Response.md
 docs/AuthTokens.md
 docs/BacktestRequest.md
 docs/BacktestResponse.md

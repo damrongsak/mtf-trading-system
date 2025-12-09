@@ -7,6 +7,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AuthProfileGet**](#apiv1authprofileget) | **GET** /api/v1/auth/profile | Get current user profile|
 |[**apiV1AuthRegisterPost**](#apiv1authregisterpost) | **POST** /api/v1/auth/register | Register a new user|
 |[**apiV1AuthTokenPost**](#apiv1authtokenpost) | **POST** /api/v1/auth/token | Login to get access token|
+|[**apiV1DataIngestManualPost**](#apiv1dataingestmanualpost) | **POST** /api/v1/data/ingest/manual | Manually trigger the OANDA data ingestion job.|
 |[**apiV1FundsGet**](#apiv1fundsget) | **GET** /api/v1/funds | List funds for current user|
 |[**apiV1FundsPost**](#apiv1fundspost) | **POST** /api/v1/funds | Create a new fund|
 |[**apiV1JournalEntryIdGet**](#apiv1journalentryidget) | **GET** /api/v1/journal/{entry_id} | Get journal entry details|
@@ -168,6 +169,50 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Successful login |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1DataIngestManualPost**
+> ApiV1DataIngestManualPost202Response apiV1DataIngestManualPost()
+
+This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+const { status, data } = await apiInstance.apiV1DataIngestManualPost();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**ApiV1DataIngestManualPost202Response**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**202** | Ingestion job triggered in background. |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

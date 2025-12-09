@@ -331,6 +331,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_BalanceResponse'
+  /api/v1/data/ingest/manual:
+    post:
+      summary: Manually trigger the OANDA data ingestion job.
+      description: This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+      responses:
+        '202':
+          description: Ingestion job triggered in background.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Ingestion job triggered in background
 
 components:
   schemas:

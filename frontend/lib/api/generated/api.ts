@@ -152,6 +152,9 @@ export interface APIResponseUserResponse {
 }
 
 
+export interface ApiV1DataIngestManualPost202Response {
+    'message'?: string;
+}
 export interface AuthTokens {
     'access_token': string;
     'refresh_token'?: string;
@@ -588,6 +591,36 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = localVarFormParams.toString();
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+         * @summary Manually trigger the OANDA data ingestion job.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataIngestManualPost: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/data/ingest/manual`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1242,6 +1275,18 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+         * @summary Manually trigger the OANDA data ingestion job.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1DataIngestManualPost(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1DataIngestManualPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataIngestManualPost(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1DataIngestManualPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary List funds for current user
          * @param {*} [options] Override http request option.
@@ -1491,6 +1536,15 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiV1AuthTokenPost(requestParameters: DefaultApiApiV1AuthTokenPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUserResponse> {
             return localVarFp.apiV1AuthTokenPost(requestParameters.username, requestParameters.password, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+         * @summary Manually trigger the OANDA data ingestion job.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataIngestManualPost(options?: RawAxiosRequestConfig): AxiosPromise<ApiV1DataIngestManualPost202Response> {
+            return localVarFp.apiV1DataIngestManualPost(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1821,6 +1875,16 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1AuthTokenPost(requestParameters: DefaultApiApiV1AuthTokenPostRequest = {}, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1AuthTokenPost(requestParameters.username, requestParameters.password, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+     * @summary Manually trigger the OANDA data ingestion job.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1DataIngestManualPost(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1DataIngestManualPost(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
