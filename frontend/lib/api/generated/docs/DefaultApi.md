@@ -4,6 +4,8 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
+|[**apiV1AuthProfileGet**](#apiv1authprofileget) | **GET** /api/v1/auth/profile | Get current user profile|
+|[**apiV1AuthRegisterPost**](#apiv1authregisterpost) | **POST** /api/v1/auth/register | Register a new user|
 |[**apiV1AuthTokenPost**](#apiv1authtokenpost) | **POST** /api/v1/auth/token | Login to get access token|
 |[**apiV1FundsGet**](#apiv1fundsget) | **GET** /api/v1/funds | List funds for current user|
 |[**apiV1FundsPost**](#apiv1fundspost) | **POST** /api/v1/funds | Create a new fund|
@@ -12,12 +14,112 @@ All URIs are relative to *http://localhost*
 |[**apiV1JournalPost**](#apiv1journalpost) | **POST** /api/v1/journal/ | Create a new journal entry|
 |[**apiV1RiskCheckPost**](#apiv1riskcheckpost) | **POST** /api/v1/risk/check | Check if a trade execution is allowed based on risk rules|
 |[**apiV1SignalCheckPost**](#apiv1signalcheckpost) | **POST** /api/v1/signal/check | Check if a signal is valid given current state|
+|[**apiV1SignalLatestSymbolGet**](#apiv1signallatestsymbolget) | **GET** /api/v1/signal/latest/{symbol} | Get the latest signal for a specific symbol|
 |[**apiV1StrategiesGet**](#apiv1strategiesget) | **GET** /api/v1/strategies | List strategies for a fund|
 |[**apiV1StrategiesPost**](#apiv1strategiespost) | **POST** /api/v1/strategies | Create a new strategy configuration|
-|[**apiV1UsersMeGet**](#apiv1usersmeget) | **GET** /api/v1/users/me | Get current user details|
+|[**apiV1TransactionsBalanceGet**](#apiv1transactionsbalanceget) | **GET** /api/v1/transactions/balance | Get fund balance|
+|[**apiV1TransactionsGet**](#apiv1transactionsget) | **GET** /api/v1/transactions | List transactions|
+|[**apiV1TransactionsImportPost**](#apiv1transactionsimportpost) | **POST** /api/v1/transactions/import | Import transactions from Excel|
+|[**apiV1TransactionsPost**](#apiv1transactionspost) | **POST** /api/v1/transactions | Create a manual transaction|
+|[**backtestResultsBacktestIdGet**](#backtestresultsbacktestidget) | **GET** /backtest/results/{backtest_id} | Get results of a specific backtest|
+|[**backtestRunPost**](#backtestrunpost) | **POST** /backtest/run | Trigger a backtest|
+
+# **apiV1AuthProfileGet**
+> APIResponseUserResponse apiV1AuthProfileGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+const { status, data } = await apiInstance.apiV1AuthProfileGet();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**APIResponseUserResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Current user profile |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AuthRegisterPost**
+> APIResponseUserResponse apiV1AuthRegisterPost(userCreate)
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    UserCreate
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let userCreate: UserCreate; //
+
+const { status, data } = await apiInstance.apiV1AuthRegisterPost(
+    userCreate
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **userCreate** | **UserCreate**|  | |
+
+
+### Return type
+
+**APIResponseUserResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | User registered successfully |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1AuthTokenPost**
-> Token apiV1AuthTokenPost()
+> APIResponseUserResponse apiV1AuthTokenPost()
 
 
 ### Example
@@ -50,7 +152,7 @@ const { status, data } = await apiInstance.apiV1AuthTokenPost(
 
 ### Return type
 
-**Token**
+**APIResponseUserResponse**
 
 ### Authorization
 
@@ -70,7 +172,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1FundsGet**
-> Array<Fund> apiV1FundsGet()
+> PaginatedResponseFund apiV1FundsGet()
 
 
 ### Example
@@ -93,7 +195,7 @@ This endpoint does not have any parameters.
 
 ### Return type
 
-**Array<Fund>**
+**PaginatedResponseFund**
 
 ### Authorization
 
@@ -113,7 +215,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1FundsPost**
-> Fund apiV1FundsPost(fundCreate)
+> APIResponseFund apiV1FundsPost(fundCreate)
 
 
 ### Example
@@ -144,7 +246,7 @@ const { status, data } = await apiInstance.apiV1FundsPost(
 
 ### Return type
 
-**Fund**
+**APIResponseFund**
 
 ### Authorization
 
@@ -164,7 +266,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1JournalEntryIdGet**
-> JournalEntryResponse apiV1JournalEntryIdGet()
+> APIResponseJournalEntryResponse apiV1JournalEntryIdGet()
 
 
 ### Example
@@ -194,7 +296,7 @@ const { status, data } = await apiInstance.apiV1JournalEntryIdGet(
 
 ### Return type
 
-**JournalEntryResponse**
+**APIResponseJournalEntryResponse**
 
 ### Authorization
 
@@ -214,7 +316,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1JournalGet**
-> Array<JournalEntryResponse> apiV1JournalGet()
+> PaginatedResponseJournalEntryResponse apiV1JournalGet()
 
 
 ### Example
@@ -228,16 +330,26 @@ import {
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-const { status, data } = await apiInstance.apiV1JournalGet();
+let page: number; // (optional) (default to 1)
+let perPage: number; // (optional) (default to 10)
+
+const { status, data } = await apiInstance.apiV1JournalGet(
+    page,
+    perPage
+);
 ```
 
 ### Parameters
-This endpoint does not have any parameters.
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **page** | [**number**] |  | (optional) defaults to 1|
+| **perPage** | [**number**] |  | (optional) defaults to 10|
 
 
 ### Return type
 
-**Array<JournalEntryResponse>**
+**PaginatedResponseJournalEntryResponse**
 
 ### Authorization
 
@@ -257,7 +369,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1JournalPost**
-> JournalEntryResponse apiV1JournalPost(journalEntryCreate)
+> APIResponseJournalEntryResponse apiV1JournalPost(journalEntryCreate)
 
 
 ### Example
@@ -288,7 +400,7 @@ const { status, data } = await apiInstance.apiV1JournalPost(
 
 ### Return type
 
-**JournalEntryResponse**
+**APIResponseJournalEntryResponse**
 
 ### Authorization
 
@@ -308,7 +420,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1RiskCheckPost**
-> RiskCheckResponse apiV1RiskCheckPost(riskCheckRequest)
+> APIResponseRiskCheckResponse apiV1RiskCheckPost(riskCheckRequest)
 
 
 ### Example
@@ -339,7 +451,7 @@ const { status, data } = await apiInstance.apiV1RiskCheckPost(
 
 ### Return type
 
-**RiskCheckResponse**
+**APIResponseRiskCheckResponse**
 
 ### Authorization
 
@@ -359,7 +471,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1SignalCheckPost**
-> SignalResponse apiV1SignalCheckPost(signalRequest)
+> APIResponseSignalResponse apiV1SignalCheckPost(signalRequest)
 
 
 ### Example
@@ -390,7 +502,7 @@ const { status, data } = await apiInstance.apiV1SignalCheckPost(
 
 ### Return type
 
-**SignalResponse**
+**APIResponseSignalResponse**
 
 ### Authorization
 
@@ -409,8 +521,58 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **apiV1SignalLatestSymbolGet**
+> APIResponseSignalResponse apiV1SignalLatestSymbolGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let symbol: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1SignalLatestSymbolGet(
+    symbol
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **symbol** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponseSignalResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Latest signal |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **apiV1StrategiesGet**
-> Array<Strategy> apiV1StrategiesGet()
+> PaginatedResponseStrategyResponse apiV1StrategiesGet()
 
 
 ### Example
@@ -425,9 +587,13 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let fundId: string; // (default to undefined)
+let page: number; // (optional) (default to 1)
+let perPage: number; // (optional) (default to 10)
 
 const { status, data } = await apiInstance.apiV1StrategiesGet(
-    fundId
+    fundId,
+    page,
+    perPage
 );
 ```
 
@@ -436,11 +602,13 @@ const { status, data } = await apiInstance.apiV1StrategiesGet(
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
 | **fundId** | [**string**] |  | defaults to undefined|
+| **page** | [**number**] |  | (optional) defaults to 1|
+| **perPage** | [**number**] |  | (optional) defaults to 10|
 
 
 ### Return type
 
-**Array<Strategy>**
+**PaginatedResponseStrategyResponse**
 
 ### Authorization
 
@@ -460,7 +628,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1StrategiesPost**
-> Strategy apiV1StrategiesPost(strategyCreate)
+> APIResponseStrategyResponse apiV1StrategiesPost(strategyCreate)
 
 
 ### Example
@@ -491,7 +659,7 @@ const { status, data } = await apiInstance.apiV1StrategiesPost(
 
 ### Return type
 
-**Strategy**
+**APIResponseStrategyResponse**
 
 ### Authorization
 
@@ -510,8 +678,8 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **apiV1UsersMeGet**
-> User apiV1UsersMeGet()
+# **apiV1TransactionsBalanceGet**
+> APIResponseBalanceResponse apiV1TransactionsBalanceGet()
 
 
 ### Example
@@ -525,16 +693,23 @@ import {
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-const { status, data } = await apiInstance.apiV1UsersMeGet();
+let fundId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1TransactionsBalanceGet(
+    fundId
+);
 ```
 
 ### Parameters
-This endpoint does not have any parameters.
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **fundId** | [**string**] |  | defaults to undefined|
 
 
 ### Return type
 
-**User**
+**APIResponseBalanceResponse**
 
 ### Authorization
 
@@ -549,7 +724,268 @@ No authorization required
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** | Current user |  -  |
+|**200** | Current balance |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1TransactionsGet**
+> PaginatedResponseTransactionResponse apiV1TransactionsGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let fundId: string; // (default to undefined)
+let page: number; // (optional) (default to 1)
+let perPage: number; // (optional) (default to 10)
+
+const { status, data } = await apiInstance.apiV1TransactionsGet(
+    fundId,
+    page,
+    perPage
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **fundId** | [**string**] |  | defaults to undefined|
+| **page** | [**number**] |  | (optional) defaults to 1|
+| **perPage** | [**number**] |  | (optional) defaults to 10|
+
+
+### Return type
+
+**PaginatedResponseTransactionResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | List of transactions |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1TransactionsImportPost**
+> APIResponseTransactionImportResponse apiV1TransactionsImportPost()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let file: File; // (optional) (default to undefined)
+let fundId: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.apiV1TransactionsImportPost(
+    file,
+    fundId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **file** | [**File**] |  | (optional) defaults to undefined|
+| **fundId** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**APIResponseTransactionImportResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Import result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1TransactionsPost**
+> APIResponseTransactionResponse apiV1TransactionsPost(transactionCreate)
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    TransactionCreate
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let transactionCreate: TransactionCreate; //
+
+const { status, data } = await apiInstance.apiV1TransactionsPost(
+    transactionCreate
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **transactionCreate** | **TransactionCreate**|  | |
+
+
+### Return type
+
+**APIResponseTransactionResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**201** | Transaction created |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **backtestResultsBacktestIdGet**
+> APIResponseBacktestResponse backtestResultsBacktestIdGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let backtestId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.backtestResultsBacktestIdGet(
+    backtestId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **backtestId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponseBacktestResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Backtest results |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **backtestRunPost**
+> APIResponseBacktestResponse backtestRunPost(backtestRequest)
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    BacktestRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let backtestRequest: BacktestRequest; //
+
+const { status, data } = await apiInstance.backtestRunPost(
+    backtestRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **backtestRequest** | **BacktestRequest**|  | |
+
+
+### Return type
+
+**APIResponseBacktestResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Backtest started/completed |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

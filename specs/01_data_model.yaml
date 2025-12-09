@@ -116,10 +116,19 @@ entities:
         required: true
         unique: true
         description: "Provider name (e.g., OANDA, BINANCE)"
+      - name: type
+        type: string
+        required: true
+        max_length: 50
+        description: "Type of data source (e.g., api, csv, db)"
       - name: config_json
         type: jsonb
         required: true
         description: "Connection details (API keys, URLs) - Encrypted in app"
+      - name: schema_json
+        type: jsonb
+        nullable: true
+        description: "Expected data schema (e.g., column names for CSV, API response structure)"
       - name: is_active
         type: boolean
         default: true

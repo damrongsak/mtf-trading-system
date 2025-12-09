@@ -5,7 +5,13 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**allowed** | **boolean** |  | [optional] [default to undefined]
+**symbol** | **string** |  | [optional] [default to undefined]
+**timeframe** | **string** |  | [optional] [default to undefined]
+**timestamp** | **string** |  | [optional] [default to undefined]
+**direction** | **string** |  | [optional] [default to undefined]
+**entry_price** | **number** |  | [optional] [default to undefined]
+**sl_price** | **number** |  | [optional] [default to undefined]
+**tp_price** | **number** |  | [optional] [default to undefined]
 **reason** | **string** |  | [optional] [default to undefined]
 
 ## Example
@@ -14,7 +20,13 @@ Name | Type | Description | Notes
 import { SignalResponse } from './api';
 
 const instance: SignalResponse = {
-    allowed,
+    symbol,
+    timeframe,
+    timestamp,
+    direction,
+    entry_price,
+    sl_price,
+    tp_price,
     reason,
 };
 ```

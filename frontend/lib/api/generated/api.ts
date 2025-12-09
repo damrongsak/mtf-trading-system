@@ -23,6 +23,195 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+export interface APIResponseBacktestResponse {
+    'status': ResponseStatus;
+    'data'?: BacktestResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseBalanceResponse {
+    'status': ResponseStatus;
+    'data'?: APIResponseBalanceResponseData;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseBalanceResponseData {
+    'balance'?: number;
+    'currency'?: string;
+}
+export interface APIResponseFund {
+    'status': ResponseStatus;
+    'data'?: Fund;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseJournalEntryResponse {
+    'status': ResponseStatus;
+    'data'?: JournalEntryResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseRiskCheckResponse {
+    'status': ResponseStatus;
+    'data'?: RiskCheckResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseSignalResponse {
+    'status': ResponseStatus;
+    'data'?: SignalResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseStrategyResponse {
+    'status': ResponseStatus;
+    'data'?: StrategyResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseTransactionImportResponse {
+    'status': ResponseStatus;
+    'data'?: APIResponseTransactionImportResponseData;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseTransactionImportResponseData {
+    'imported_count'?: number;
+    'skipped_count'?: number;
+    'errors'?: Array<string>;
+}
+export interface APIResponseTransactionResponse {
+    'status': ResponseStatus;
+    'data'?: TransactionResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseUserResponse {
+    'status': ResponseStatus;
+    'data'?: UserResponse;
+    'message'?: string;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface AuthTokens {
+    'access_token': string;
+    'refresh_token'?: string;
+    'token_type'?: string;
+    'expires_in': number;
+    'expires_at': string;
+}
+export interface BacktestRequest {
+    'strategy_id': string;
+    'symbol': string;
+    'timeframe': string;
+    'start_date': string;
+    'end_date': string;
+    'initial_capital': number;
+}
+export interface BacktestResponse {
+    'id'?: string;
+    'status'?: string;
+    'metrics'?: object;
+    'trades'?: Array<object>;
+}
+
+export const ErrorCode = {
+    Auth1001: 'AUTH_1001',
+    Auth1002: 'AUTH_1002',
+    Auth1003: 'AUTH_1003',
+    Auth1004: 'AUTH_1004',
+    Auth1005: 'AUTH_1005',
+    Val2001: 'VAL_2001',
+    Val2002: 'VAL_2002',
+    Val2003: 'VAL_2003',
+    Val2004: 'VAL_2004',
+    Val2005: 'VAL_2005',
+    Val2006: 'VAL_2006',
+    Val2007: 'VAL_2007',
+    Res3001: 'RES_3001',
+    Res3002: 'RES_3002',
+    Res3003: 'RES_3003',
+    Biz4001: 'BIZ_4001',
+    Biz4002: 'BIZ_4002',
+    Biz4003: 'BIZ_4003',
+    Biz4004: 'BIZ_4004',
+    Rate5001: 'RATE_5001',
+    Rate5002: 'RATE_5002',
+    Srv9001: 'SRV_9001',
+    Srv9002: 'SRV_9002',
+    Srv9003: 'SRV_9003',
+    Srv9004: 'SRV_9004'
+} as const;
+
+export type ErrorCode = typeof ErrorCode[keyof typeof ErrorCode];
+
+
+export interface ErrorDetail {
+    'field'?: string;
+    'message': string;
+    'code'?: ErrorCode;
+}
+
+
 export interface Fund {
     'id'?: string;
     'name'?: string;
@@ -119,6 +308,68 @@ export const JournalEntryResponseGameLevelEnum = {
 
 export type JournalEntryResponseGameLevelEnum = typeof JournalEntryResponseGameLevelEnum[keyof typeof JournalEntryResponseGameLevelEnum];
 
+export interface Meta {
+    'page'?: number;
+    'per_page'?: number;
+    'total'?: number;
+    'total_pages'?: number;
+}
+export interface PaginatedResponseFund {
+    'status': ResponseStatus;
+    'data': Array<Fund>;
+    'message'?: string;
+    'meta': Meta;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface PaginatedResponseJournalEntryResponse {
+    'status': ResponseStatus;
+    'data': Array<JournalEntryResponse>;
+    'message'?: string;
+    'meta': Meta;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface PaginatedResponseStrategyResponse {
+    'status': ResponseStatus;
+    'data': Array<StrategyResponse>;
+    'message'?: string;
+    'meta': Meta;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface PaginatedResponseTransactionResponse {
+    'status': ResponseStatus;
+    'data': Array<TransactionResponse>;
+    'message'?: string;
+    'meta': Meta;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface RateLimitInfo {
+    'limit': number;
+    'remaining': number;
+    'reset': string;
+    'reset_in_seconds': number;
+}
+
+export const ResponseStatus = {
+    Success: 'success',
+    Error: 'error',
+    Fail: 'fail'
+} as const;
+
+export type ResponseStatus = typeof ResponseStatus[keyof typeof ResponseStatus];
+
+
 export interface RiskCheckRequest {
     /**
      * Maximum risk in USD allowed for this trade
@@ -143,27 +394,85 @@ export interface SignalRequest {
     'timeframe'?: string;
 }
 export interface SignalResponse {
-    'allowed'?: boolean;
+    'symbol'?: string;
+    'timeframe'?: string;
+    'timestamp'?: string;
+    'direction'?: SignalResponseDirectionEnum;
+    'entry_price'?: number;
+    'sl_price'?: number;
+    'tp_price'?: number;
     'reason'?: string;
 }
-export interface Strategy {
-    'id'?: string;
-    'name'?: string;
-    'type'?: string;
-    'config_json'?: object;
-    'is_active'?: boolean;
-}
+
+export const SignalResponseDirectionEnum = {
+    Long: 'LONG',
+    Short: 'SHORT'
+} as const;
+
+export type SignalResponseDirectionEnum = typeof SignalResponseDirectionEnum[keyof typeof SignalResponseDirectionEnum];
+
 export interface StrategyCreate {
     'name': string;
     'fund_id': string;
     'type': string;
     'config_json': object;
 }
-export interface Token {
-    'access_token'?: string;
-    'token_type'?: string;
+export interface StrategyResponse {
+    'id'?: string;
+    'name'?: string;
+    'type'?: string;
+    'config_json'?: object;
+    'is_active'?: boolean;
 }
-export interface User {
+export interface TransactionCreate {
+    'fund_id': string;
+    'transaction_date': string;
+    'type': TransactionCreateTypeEnum;
+    'amount': number;
+    'currency'?: string;
+    'status'?: string;
+    'reference'?: string;
+    'description'?: string;
+    'payment_method'?: string;
+    'trading_account'?: string;
+}
+
+export const TransactionCreateTypeEnum = {
+    Deposit: 'DEPOSIT',
+    Withdrawal: 'WITHDRAWAL'
+} as const;
+
+export type TransactionCreateTypeEnum = typeof TransactionCreateTypeEnum[keyof typeof TransactionCreateTypeEnum];
+
+export interface TransactionResponse {
+    'fund_id': string;
+    'transaction_date': string;
+    'type': TransactionResponseTypeEnum;
+    'amount': number;
+    'currency'?: string;
+    'status'?: string;
+    'reference'?: string;
+    'description'?: string;
+    'payment_method'?: string;
+    'trading_account'?: string;
+    'id'?: string;
+    'created_at'?: string;
+    'updated_at'?: string;
+}
+
+export const TransactionResponseTypeEnum = {
+    Deposit: 'DEPOSIT',
+    Withdrawal: 'WITHDRAWAL'
+} as const;
+
+export type TransactionResponseTypeEnum = typeof TransactionResponseTypeEnum[keyof typeof TransactionResponseTypeEnum];
+
+export interface UserCreate {
+    'username': string;
+    'email': string;
+    'password': string;
+}
+export interface UserResponse {
     'id'?: string;
     'username'?: string;
     'email'?: string;
@@ -175,6 +484,72 @@ export interface User {
  */
 export const DefaultApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * 
+         * @summary Get current user profile
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AuthProfileGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/auth/profile`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Register a new user
+         * @param {UserCreate} userCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AuthRegisterPost: async (userCreate: UserCreate, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userCreate' is not null or undefined
+            assertParamExists('apiV1AuthRegisterPost', 'userCreate', userCreate)
+            const localVarPath = `/api/v1/auth/register`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(userCreate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @summary Login to get access token
@@ -322,10 +697,12 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         /**
          * 
          * @summary List journal entries for current user
+         * @param {number} [page] 
+         * @param {number} [perPage] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1JournalGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiV1JournalGet: async (page?: number, perPage?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/journal/`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -337,6 +714,14 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
+
+            if (page !== undefined) {
+                localVarQueryParameter['page'] = page;
+            }
+
+            if (perPage !== undefined) {
+                localVarQueryParameter['per_page'] = perPage;
+            }
 
 
     
@@ -459,12 +844,48 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
-         * @summary List strategies for a fund
-         * @param {string} fundId 
+         * @summary Get the latest signal for a specific symbol
+         * @param {string} symbol 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1StrategiesGet: async (fundId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiV1SignalLatestSymbolGet: async (symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1SignalLatestSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/signal/latest/{symbol}`
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List strategies for a fund
+         * @param {string} fundId 
+         * @param {number} [page] 
+         * @param {number} [perPage] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesGet: async (fundId: string, page?: number, perPage?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'fundId' is not null or undefined
             assertParamExists('apiV1StrategiesGet', 'fundId', fundId)
             const localVarPath = `/api/v1/strategies`;
@@ -481,6 +902,14 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
             if (fundId !== undefined) {
                 localVarQueryParameter['fund_id'] = fundId;
+            }
+
+            if (page !== undefined) {
+                localVarQueryParameter['page'] = page;
+            }
+
+            if (perPage !== undefined) {
+                localVarQueryParameter['per_page'] = perPage;
             }
 
 
@@ -532,12 +961,180 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
-         * @summary Get current user details
+         * @summary Get fund balance
+         * @param {string} fundId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1UsersMeGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/users/me`;
+        apiV1TransactionsBalanceGet: async (fundId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1TransactionsBalanceGet', 'fundId', fundId)
+            const localVarPath = `/api/v1/transactions/balance`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (fundId !== undefined) {
+                localVarQueryParameter['fund_id'] = fundId;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List transactions
+         * @param {string} fundId 
+         * @param {number} [page] 
+         * @param {number} [perPage] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsGet: async (fundId: string, page?: number, perPage?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1TransactionsGet', 'fundId', fundId)
+            const localVarPath = `/api/v1/transactions`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (fundId !== undefined) {
+                localVarQueryParameter['fund_id'] = fundId;
+            }
+
+            if (page !== undefined) {
+                localVarQueryParameter['page'] = page;
+            }
+
+            if (perPage !== undefined) {
+                localVarQueryParameter['per_page'] = perPage;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Import transactions from Excel
+         * @param {File} [file] 
+         * @param {string} [fundId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsImportPost: async (file?: File, fundId?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/transactions/import`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+
+
+            if (file !== undefined) { 
+                localVarFormParams.append('file', file as any);
+            }
+    
+            if (fundId !== undefined) { 
+                localVarFormParams.append('fund_id', fundId as any);
+            }
+    
+    
+            localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Create a manual transaction
+         * @param {TransactionCreate} transactionCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsPost: async (transactionCreate: TransactionCreate, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'transactionCreate' is not null or undefined
+            assertParamExists('apiV1TransactionsPost', 'transactionCreate', transactionCreate)
+            const localVarPath = `/api/v1/transactions`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(transactionCreate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get results of a specific backtest
+         * @param {string} backtestId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestResultsBacktestIdGet: async (backtestId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'backtestId' is not null or undefined
+            assertParamExists('backtestResultsBacktestIdGet', 'backtestId', backtestId)
+            const localVarPath = `/backtest/results/{backtest_id}`
+                .replace(`{${"backtest_id"}}`, encodeURIComponent(String(backtestId)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -560,6 +1157,42 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary Trigger a backtest
+         * @param {BacktestRequest} backtestRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestRunPost: async (backtestRequest: BacktestRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'backtestRequest' is not null or undefined
+            assertParamExists('backtestRunPost', 'backtestRequest', backtestRequest)
+            const localVarPath = `/backtest/run`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(backtestRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -571,13 +1204,38 @@ export const DefaultApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @summary Get current user profile
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AuthProfileGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseUserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AuthProfileGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AuthProfileGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Register a new user
+         * @param {UserCreate} userCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AuthRegisterPost(userCreate: UserCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseUserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AuthRegisterPost(userCreate, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AuthRegisterPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Login to get access token
          * @param {string} [username] 
          * @param {string} [password] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1AuthTokenPost(username?: string, password?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Token>> {
+        async apiV1AuthTokenPost(username?: string, password?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseUserResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AuthTokenPost(username, password, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AuthTokenPost']?.[localVarOperationServerIndex]?.url;
@@ -589,7 +1247,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1FundsGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<Fund>>> {
+        async apiV1FundsGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseFund>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1FundsGet(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1FundsGet']?.[localVarOperationServerIndex]?.url;
@@ -602,7 +1260,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1FundsPost(fundCreate: FundCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Fund>> {
+        async apiV1FundsPost(fundCreate: FundCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseFund>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1FundsPost(fundCreate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1FundsPost']?.[localVarOperationServerIndex]?.url;
@@ -615,7 +1273,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1JournalEntryIdGet(entryId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<JournalEntryResponse>> {
+        async apiV1JournalEntryIdGet(entryId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseJournalEntryResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalEntryIdGet(entryId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1JournalEntryIdGet']?.[localVarOperationServerIndex]?.url;
@@ -624,11 +1282,13 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         /**
          * 
          * @summary List journal entries for current user
+         * @param {number} [page] 
+         * @param {number} [perPage] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1JournalGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<JournalEntryResponse>>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalGet(options);
+        async apiV1JournalGet(page?: number, perPage?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseJournalEntryResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalGet(page, perPage, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1JournalGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -640,7 +1300,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1JournalPost(journalEntryCreate: JournalEntryCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<JournalEntryResponse>> {
+        async apiV1JournalPost(journalEntryCreate: JournalEntryCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseJournalEntryResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalPost(journalEntryCreate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1JournalPost']?.[localVarOperationServerIndex]?.url;
@@ -653,7 +1313,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1RiskCheckPost(riskCheckRequest: RiskCheckRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RiskCheckResponse>> {
+        async apiV1RiskCheckPost(riskCheckRequest: RiskCheckRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseRiskCheckResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskCheckPost(riskCheckRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1RiskCheckPost']?.[localVarOperationServerIndex]?.url;
@@ -666,7 +1326,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1SignalCheckPost(signalRequest: SignalRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SignalResponse>> {
+        async apiV1SignalCheckPost(signalRequest: SignalRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSignalResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SignalCheckPost(signalRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1SignalCheckPost']?.[localVarOperationServerIndex]?.url;
@@ -674,13 +1334,28 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary List strategies for a fund
-         * @param {string} fundId 
+         * @summary Get the latest signal for a specific symbol
+         * @param {string} symbol 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1StrategiesGet(fundId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<Strategy>>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesGet(fundId, options);
+        async apiV1SignalLatestSymbolGet(symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSignalResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SignalLatestSymbolGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1SignalLatestSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List strategies for a fund
+         * @param {string} fundId 
+         * @param {number} [page] 
+         * @param {number} [perPage] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesGet(fundId: string, page?: number, perPage?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseStrategyResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesGet(fundId, page, perPage, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1StrategiesGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -692,7 +1367,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1StrategiesPost(strategyCreate: StrategyCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Strategy>> {
+        async apiV1StrategiesPost(strategyCreate: StrategyCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseStrategyResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesPost(strategyCreate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1StrategiesPost']?.[localVarOperationServerIndex]?.url;
@@ -700,14 +1375,83 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Get current user details
+         * @summary Get fund balance
+         * @param {string} fundId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1UsersMeGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<User>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1UsersMeGet(options);
+        async apiV1TransactionsBalanceGet(fundId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseBalanceResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TransactionsBalanceGet(fundId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1UsersMeGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1TransactionsBalanceGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List transactions
+         * @param {string} fundId 
+         * @param {number} [page] 
+         * @param {number} [perPage] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TransactionsGet(fundId: string, page?: number, perPage?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseTransactionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TransactionsGet(fundId, page, perPage, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1TransactionsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Import transactions from Excel
+         * @param {File} [file] 
+         * @param {string} [fundId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TransactionsImportPost(file?: File, fundId?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseTransactionImportResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TransactionsImportPost(file, fundId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1TransactionsImportPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Create a manual transaction
+         * @param {TransactionCreate} transactionCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TransactionsPost(transactionCreate: TransactionCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseTransactionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TransactionsPost(transactionCreate, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1TransactionsPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get results of a specific backtest
+         * @param {string} backtestId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async backtestResultsBacktestIdGet(backtestId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseBacktestResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestResultsBacktestIdGet(backtestId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.backtestResultsBacktestIdGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Trigger a backtest
+         * @param {BacktestRequest} backtestRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async backtestRunPost(backtestRequest: BacktestRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseBacktestResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestRunPost(backtestRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.backtestRunPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -721,12 +1465,31 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
     return {
         /**
          * 
+         * @summary Get current user profile
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AuthProfileGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUserResponse> {
+            return localVarFp.apiV1AuthProfileGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Register a new user
+         * @param {DefaultApiApiV1AuthRegisterPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AuthRegisterPost(requestParameters: DefaultApiApiV1AuthRegisterPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUserResponse> {
+            return localVarFp.apiV1AuthRegisterPost(requestParameters.userCreate, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Login to get access token
          * @param {DefaultApiApiV1AuthTokenPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AuthTokenPost(requestParameters: DefaultApiApiV1AuthTokenPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<Token> {
+        apiV1AuthTokenPost(requestParameters: DefaultApiApiV1AuthTokenPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUserResponse> {
             return localVarFp.apiV1AuthTokenPost(requestParameters.username, requestParameters.password, options).then((request) => request(axios, basePath));
         },
         /**
@@ -735,7 +1498,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1FundsGet(options?: RawAxiosRequestConfig): AxiosPromise<Array<Fund>> {
+        apiV1FundsGet(options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseFund> {
             return localVarFp.apiV1FundsGet(options).then((request) => request(axios, basePath));
         },
         /**
@@ -745,7 +1508,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1FundsPost(requestParameters: DefaultApiApiV1FundsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<Fund> {
+        apiV1FundsPost(requestParameters: DefaultApiApiV1FundsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFund> {
             return localVarFp.apiV1FundsPost(requestParameters.fundCreate, options).then((request) => request(axios, basePath));
         },
         /**
@@ -755,17 +1518,18 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1JournalEntryIdGet(requestParameters: DefaultApiApiV1JournalEntryIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<JournalEntryResponse> {
+        apiV1JournalEntryIdGet(requestParameters: DefaultApiApiV1JournalEntryIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseJournalEntryResponse> {
             return localVarFp.apiV1JournalEntryIdGet(requestParameters.entryId, options).then((request) => request(axios, basePath));
         },
         /**
          * 
          * @summary List journal entries for current user
+         * @param {DefaultApiApiV1JournalGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1JournalGet(options?: RawAxiosRequestConfig): AxiosPromise<Array<JournalEntryResponse>> {
-            return localVarFp.apiV1JournalGet(options).then((request) => request(axios, basePath));
+        apiV1JournalGet(requestParameters: DefaultApiApiV1JournalGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseJournalEntryResponse> {
+            return localVarFp.apiV1JournalGet(requestParameters.page, requestParameters.perPage, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -774,7 +1538,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1JournalPost(requestParameters: DefaultApiApiV1JournalPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<JournalEntryResponse> {
+        apiV1JournalPost(requestParameters: DefaultApiApiV1JournalPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseJournalEntryResponse> {
             return localVarFp.apiV1JournalPost(requestParameters.journalEntryCreate, options).then((request) => request(axios, basePath));
         },
         /**
@@ -784,7 +1548,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1RiskCheckPost(requestParameters: DefaultApiApiV1RiskCheckPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<RiskCheckResponse> {
+        apiV1RiskCheckPost(requestParameters: DefaultApiApiV1RiskCheckPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseRiskCheckResponse> {
             return localVarFp.apiV1RiskCheckPost(requestParameters.riskCheckRequest, options).then((request) => request(axios, basePath));
         },
         /**
@@ -794,8 +1558,18 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1SignalCheckPost(requestParameters: DefaultApiApiV1SignalCheckPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<SignalResponse> {
+        apiV1SignalCheckPost(requestParameters: DefaultApiApiV1SignalCheckPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSignalResponse> {
             return localVarFp.apiV1SignalCheckPost(requestParameters.signalRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get the latest signal for a specific symbol
+         * @param {DefaultApiApiV1SignalLatestSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalLatestSymbolGet(requestParameters: DefaultApiApiV1SignalLatestSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSignalResponse> {
+            return localVarFp.apiV1SignalLatestSymbolGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -804,8 +1578,8 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1StrategiesGet(requestParameters: DefaultApiApiV1StrategiesGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<Strategy>> {
-            return localVarFp.apiV1StrategiesGet(requestParameters.fundId, options).then((request) => request(axios, basePath));
+        apiV1StrategiesGet(requestParameters: DefaultApiApiV1StrategiesGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseStrategyResponse> {
+            return localVarFp.apiV1StrategiesGet(requestParameters.fundId, requestParameters.page, requestParameters.perPage, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -814,20 +1588,78 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1StrategiesPost(requestParameters: DefaultApiApiV1StrategiesPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<Strategy> {
+        apiV1StrategiesPost(requestParameters: DefaultApiApiV1StrategiesPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseStrategyResponse> {
             return localVarFp.apiV1StrategiesPost(requestParameters.strategyCreate, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary Get current user details
+         * @summary Get fund balance
+         * @param {DefaultApiApiV1TransactionsBalanceGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1UsersMeGet(options?: RawAxiosRequestConfig): AxiosPromise<User> {
-            return localVarFp.apiV1UsersMeGet(options).then((request) => request(axios, basePath));
+        apiV1TransactionsBalanceGet(requestParameters: DefaultApiApiV1TransactionsBalanceGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseBalanceResponse> {
+            return localVarFp.apiV1TransactionsBalanceGet(requestParameters.fundId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List transactions
+         * @param {DefaultApiApiV1TransactionsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsGet(requestParameters: DefaultApiApiV1TransactionsGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseTransactionResponse> {
+            return localVarFp.apiV1TransactionsGet(requestParameters.fundId, requestParameters.page, requestParameters.perPage, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Import transactions from Excel
+         * @param {DefaultApiApiV1TransactionsImportPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsImportPost(requestParameters: DefaultApiApiV1TransactionsImportPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseTransactionImportResponse> {
+            return localVarFp.apiV1TransactionsImportPost(requestParameters.file, requestParameters.fundId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Create a manual transaction
+         * @param {DefaultApiApiV1TransactionsPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TransactionsPost(requestParameters: DefaultApiApiV1TransactionsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseTransactionResponse> {
+            return localVarFp.apiV1TransactionsPost(requestParameters.transactionCreate, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get results of a specific backtest
+         * @param {DefaultApiBacktestResultsBacktestIdGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestResultsBacktestIdGet(requestParameters: DefaultApiBacktestResultsBacktestIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseBacktestResponse> {
+            return localVarFp.backtestResultsBacktestIdGet(requestParameters.backtestId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Trigger a backtest
+         * @param {DefaultApiBacktestRunPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestRunPost(requestParameters: DefaultApiBacktestRunPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseBacktestResponse> {
+            return localVarFp.backtestRunPost(requestParameters.backtestRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
+
+/**
+ * Request parameters for apiV1AuthRegisterPost operation in DefaultApi.
+ */
+export interface DefaultApiApiV1AuthRegisterPostRequest {
+    readonly userCreate: UserCreate
+}
 
 /**
  * Request parameters for apiV1AuthTokenPost operation in DefaultApi.
@@ -853,6 +1685,15 @@ export interface DefaultApiApiV1JournalEntryIdGetRequest {
 }
 
 /**
+ * Request parameters for apiV1JournalGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1JournalGetRequest {
+    readonly page?: number
+
+    readonly perPage?: number
+}
+
+/**
  * Request parameters for apiV1JournalPost operation in DefaultApi.
  */
 export interface DefaultApiApiV1JournalPostRequest {
@@ -874,10 +1715,21 @@ export interface DefaultApiApiV1SignalCheckPostRequest {
 }
 
 /**
+ * Request parameters for apiV1SignalLatestSymbolGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1SignalLatestSymbolGetRequest {
+    readonly symbol: string
+}
+
+/**
  * Request parameters for apiV1StrategiesGet operation in DefaultApi.
  */
 export interface DefaultApiApiV1StrategiesGetRequest {
     readonly fundId: string
+
+    readonly page?: number
+
+    readonly perPage?: number
 }
 
 /**
@@ -888,9 +1740,78 @@ export interface DefaultApiApiV1StrategiesPostRequest {
 }
 
 /**
+ * Request parameters for apiV1TransactionsBalanceGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1TransactionsBalanceGetRequest {
+    readonly fundId: string
+}
+
+/**
+ * Request parameters for apiV1TransactionsGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1TransactionsGetRequest {
+    readonly fundId: string
+
+    readonly page?: number
+
+    readonly perPage?: number
+}
+
+/**
+ * Request parameters for apiV1TransactionsImportPost operation in DefaultApi.
+ */
+export interface DefaultApiApiV1TransactionsImportPostRequest {
+    readonly file?: File
+
+    readonly fundId?: string
+}
+
+/**
+ * Request parameters for apiV1TransactionsPost operation in DefaultApi.
+ */
+export interface DefaultApiApiV1TransactionsPostRequest {
+    readonly transactionCreate: TransactionCreate
+}
+
+/**
+ * Request parameters for backtestResultsBacktestIdGet operation in DefaultApi.
+ */
+export interface DefaultApiBacktestResultsBacktestIdGetRequest {
+    readonly backtestId: string
+}
+
+/**
+ * Request parameters for backtestRunPost operation in DefaultApi.
+ */
+export interface DefaultApiBacktestRunPostRequest {
+    readonly backtestRequest: BacktestRequest
+}
+
+/**
  * DefaultApi - object-oriented interface
  */
 export class DefaultApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get current user profile
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AuthProfileGet(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1AuthProfileGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Register a new user
+     * @param {DefaultApiApiV1AuthRegisterPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AuthRegisterPost(requestParameters: DefaultApiApiV1AuthRegisterPostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1AuthRegisterPost(requestParameters.userCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Login to get access token
@@ -937,11 +1858,12 @@ export class DefaultApi extends BaseAPI {
     /**
      * 
      * @summary List journal entries for current user
+     * @param {DefaultApiApiV1JournalGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public apiV1JournalGet(options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1JournalGet(options).then((request) => request(this.axios, this.basePath));
+    public apiV1JournalGet(requestParameters: DefaultApiApiV1JournalGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1JournalGet(requestParameters.page, requestParameters.perPage, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -979,13 +1901,24 @@ export class DefaultApi extends BaseAPI {
 
     /**
      * 
+     * @summary Get the latest signal for a specific symbol
+     * @param {DefaultApiApiV1SignalLatestSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SignalLatestSymbolGet(requestParameters: DefaultApiApiV1SignalLatestSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1SignalLatestSymbolGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
      * @summary List strategies for a fund
      * @param {DefaultApiApiV1StrategiesGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     public apiV1StrategiesGet(requestParameters: DefaultApiApiV1StrategiesGetRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1StrategiesGet(requestParameters.fundId, options).then((request) => request(this.axios, this.basePath));
+        return DefaultApiFp(this.configuration).apiV1StrategiesGet(requestParameters.fundId, requestParameters.page, requestParameters.perPage, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -1001,12 +1934,68 @@ export class DefaultApi extends BaseAPI {
 
     /**
      * 
-     * @summary Get current user details
+     * @summary Get fund balance
+     * @param {DefaultApiApiV1TransactionsBalanceGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public apiV1UsersMeGet(options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1UsersMeGet(options).then((request) => request(this.axios, this.basePath));
+    public apiV1TransactionsBalanceGet(requestParameters: DefaultApiApiV1TransactionsBalanceGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1TransactionsBalanceGet(requestParameters.fundId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List transactions
+     * @param {DefaultApiApiV1TransactionsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TransactionsGet(requestParameters: DefaultApiApiV1TransactionsGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1TransactionsGet(requestParameters.fundId, requestParameters.page, requestParameters.perPage, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Import transactions from Excel
+     * @param {DefaultApiApiV1TransactionsImportPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TransactionsImportPost(requestParameters: DefaultApiApiV1TransactionsImportPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1TransactionsImportPost(requestParameters.file, requestParameters.fundId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Create a manual transaction
+     * @param {DefaultApiApiV1TransactionsPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TransactionsPost(requestParameters: DefaultApiApiV1TransactionsPostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1TransactionsPost(requestParameters.transactionCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get results of a specific backtest
+     * @param {DefaultApiBacktestResultsBacktestIdGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public backtestResultsBacktestIdGet(requestParameters: DefaultApiBacktestResultsBacktestIdGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).backtestResultsBacktestIdGet(requestParameters.backtestId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Trigger a backtest
+     * @param {DefaultApiBacktestRunPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public backtestRunPost(requestParameters: DefaultApiBacktestRunPostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).backtestRunPost(requestParameters.backtestRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
