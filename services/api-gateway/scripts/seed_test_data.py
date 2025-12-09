@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from app.database import SessionLocal
 from app.models.user_fund import User, Fund, UserFund, UserRole
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
+from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.security import get_password_hash
 import uuid
 
@@ -238,7 +239,53 @@ def seed_journal_entries(db, users, count=10):
         print(f"  ✓ Created journal entry: {symbol} {direction} (PnL: ${pnl_amount:.2f})")
     
     db.commit()
+    db.commit()
     return created_entries
+
+
+def seed_trades(db, count=20):
+    """Create sample closed trades for strategy performance."""
+    print(f"\n🤖 Creating {count} test strategy trades...")
+    
+    strategies = ["MTF Momentum", "SMC Reversal", "News Sentiment"]
+    symbols = ["XAU/USD", "EUR/USD", "GBP/USD", "BTC/USD"]
+    
+    created_trades = []
+    
+    for i in range(count):
+        strategy = random.choice(strategies)
+        symbol = random.choice(symbols)
+        direction = random.choice(list(TradeDirection))
+        is_winner = random.random() > 0.45 
+        
+        entry_price = random.uniform(1800, 2100) if "XAU" in symbol else random.uniform(1.0, 1.2)
+        if "BTC" in symbol: entry_price = random.uniform(40000, 70000)
+            
+        pnl = random.uniform(50, 200) if is_winner else -random.uniform(10, 50)
+        
+        trade = Trade(
+            trade_id=uuid.uuid4(),
+            symbol=symbol,
+            strategy_name=strategy,
+            signal_timestamp=datetime.utcnow() - timedelta(days=random.randint(1, 30)),
+            status=TradeStatus.CLOSED,
+            direction=direction,
+            entry_price=entry_price,
+            exit_price=entry_price + (10 if is_winner else -5), # Dummy logic
+            sl_price=entry_price * 0.99,
+            tp_price=entry_price * 1.02,
+            lot_size=0.1,
+            risk_usd=10.0,
+            pnl_usd=pnl,
+            exit_timestamp=datetime.utcnow() - timedelta(hours=random.randint(1, 24))
+        )
+        
+        db.add(trade)
+        created_trades.append(trade)
+        
+    db.commit()
+    print(f"  ✓ Created {len(created_trades)} trades across {len(strategies)} strategies")
+    return created_trades
 
 
 
@@ -257,6 +304,9 @@ def main():
         
         # Seed journal entries
         entries = seed_journal_entries(db, users, count=15)
+
+        # Seed strategy trades
+        trades = seed_trades(db, count=50)
         
         # Summary
         print("\n" + "="*60)

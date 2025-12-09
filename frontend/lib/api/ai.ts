@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { APIResponse } from './types';
 
 export interface MarketAnalysisRequest {
     trend_4h: string;
@@ -18,11 +19,17 @@ export interface AnalysisResponse {
 }
 
 export async function getMarketAnalysis(data: MarketAnalysisRequest): Promise<AnalysisResponse> {
-    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/analyze/market', data);
-    return response.data;
+    const response = await apiClient.post<APIResponse<AnalysisResponse>>('/api/v1/ai/market-analysis', data);
+    if (!response.data.data) {
+        throw new Error('No analysis data received');
+    }
+    return response.data.data;
 }
 
 export async function getJournalAnalysis(data: JournalAnalysisRequest): Promise<AnalysisResponse> {
-    const response = await apiClient.post<AnalysisResponse>('/api/v1/ai/analyze/journal', data);
-    return response.data;
+    const response = await apiClient.post<APIResponse<AnalysisResponse>>('/api/v1/ai/journal-analysis', data);
+    if (!response.data.data) {
+        throw new Error('No analysis data received');
+    }
+    return response.data.data;
 }
