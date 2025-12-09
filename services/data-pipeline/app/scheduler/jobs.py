@@ -8,15 +8,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def run_ingestion_job():
+async def run_ingestion_job(symbols: list[str] = None):
     """
     Scheduled job to fetch and store candles for core timeframes.
+    Args:
+        symbols: Optional list of symbols to ingest. Defaults to ["XAU_USD"].
     """
     logger.info("Starting ingestion job...")
     client = OandaClient()
     db = SessionLocal()
     
-    symbols = ["XAU_USD"]
+    if symbols is None:
+        symbols = ["XAU_USD"]
+    
     timeframes = ["M15", "H1", "H4"] 
     
     try:

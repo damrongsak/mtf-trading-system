@@ -600,10 +600,11 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         /**
          * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
          * @summary Manually trigger the OANDA data ingestion job.
+         * @param {string} [symbol] Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1DataIngestManualPost: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiV1DataIngestManualPost: async (symbol?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/data/ingest/manual`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -615,6 +616,10 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
 
 
     
@@ -1277,11 +1282,12 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         /**
          * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
          * @summary Manually trigger the OANDA data ingestion job.
+         * @param {string} [symbol] Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1DataIngestManualPost(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1DataIngestManualPost202Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataIngestManualPost(options);
+        async apiV1DataIngestManualPost(symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1DataIngestManualPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataIngestManualPost(symbol, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1DataIngestManualPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -1540,11 +1546,12 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         /**
          * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
          * @summary Manually trigger the OANDA data ingestion job.
+         * @param {DefaultApiApiV1DataIngestManualPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1DataIngestManualPost(options?: RawAxiosRequestConfig): AxiosPromise<ApiV1DataIngestManualPost202Response> {
-            return localVarFp.apiV1DataIngestManualPost(options).then((request) => request(axios, basePath));
+        apiV1DataIngestManualPost(requestParameters: DefaultApiApiV1DataIngestManualPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1DataIngestManualPost202Response> {
+            return localVarFp.apiV1DataIngestManualPost(requestParameters.symbol, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1725,6 +1732,16 @@ export interface DefaultApiApiV1AuthTokenPostRequest {
 }
 
 /**
+ * Request parameters for apiV1DataIngestManualPost operation in DefaultApi.
+ */
+export interface DefaultApiApiV1DataIngestManualPostRequest {
+    /**
+     * Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols.
+     */
+    readonly symbol?: string
+}
+
+/**
  * Request parameters for apiV1FundsPost operation in DefaultApi.
  */
 export interface DefaultApiApiV1FundsPostRequest {
@@ -1880,11 +1897,12 @@ export class DefaultApi extends BaseAPI {
     /**
      * This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
      * @summary Manually trigger the OANDA data ingestion job.
+     * @param {DefaultApiApiV1DataIngestManualPostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public apiV1DataIngestManualPost(options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1DataIngestManualPost(options).then((request) => request(this.axios, this.basePath));
+    public apiV1DataIngestManualPost(requestParameters: DefaultApiApiV1DataIngestManualPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1DataIngestManualPost(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

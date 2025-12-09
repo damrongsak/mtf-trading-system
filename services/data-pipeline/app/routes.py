@@ -19,11 +19,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/ingest/manual", status_code=202)
-async def trigger_ingestion(background_tasks: BackgroundTasks):
+async def trigger_ingestion(
+    background_tasks: BackgroundTasks,
+    symbol: Optional[str] = Query(None, description="Optional symbol to ingest (e.g., EUR_USD)")
+):
     """
     Manually trigger the data ingestion job in the background.
     """
-    background_tasks.add_task(run_ingestion_job)
+    symbols = [symbol] if symbol else None
+    background_tasks.add_task(run_ingestion_job, symbols)
     return {"message": "Ingestion job triggered in background"}
 
 @router.post("/upload", status_code=201)

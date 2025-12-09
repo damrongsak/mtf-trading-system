@@ -188,11 +188,18 @@ import {
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-const { status, data } = await apiInstance.apiV1DataIngestManualPost();
+let symbol: string; //Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols. (optional) (default to undefined)
+
+const { status, data } = await apiInstance.apiV1DataIngestManualPost(
+    symbol
+);
 ```
 
 ### Parameters
-This endpoint does not have any parameters.
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **symbol** | [**string**] | Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols. | (optional) defaults to undefined|
 
 
 ### Return type

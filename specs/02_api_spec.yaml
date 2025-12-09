@@ -335,6 +335,13 @@ paths:
     post:
       summary: Manually trigger the OANDA data ingestion job.
       description: This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols.
       responses:
         '202':
           description: Ingestion job triggered in background.
