@@ -227,7 +227,7 @@ export default function DashboardPage() {
         </div>
       )}
       
-      <RecentSignalsTable signals={signals} loading={signalsLoading} prices={prices} />
+      <RecentSignalsTable signals={signals} loading={signalsLoading} />
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
