@@ -4,6 +4,7 @@ import json
 import logging
 from typing import List, AsyncGenerator
 from app.database import SessionLocal
+from sqlalchemy import func
 from app.models.data_source import DataSource
 
 # Configure logging
@@ -27,7 +28,8 @@ class PriceStreamer:
         db = SessionLocal()
         try:
             # For now, hardcode looking for 'oanda' or taking the first one
-            ds = db.query(DataSource).filter(DataSource.id == 'oanda').first()
+            # Query by name instead of ID (which is UUID)
+            ds = db.query(DataSource).filter(func.lower(DataSource.name) == 'oanda').first()
             if not ds:
                 # Fallback to env vars or raise error
                 logger.warning("No 'oanda' DataSource found in DB. Checking env vars or defaults.")

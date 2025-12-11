@@ -2,7 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { PriceUpdate } from '../api/types';
 
 // Use env var or default to current host
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/stream/prices';
+const DEFAULT_URL = 'ws://localhost:8000/api/v1/stream/prices';
+let WS_URL = process.env.NEXT_PUBLIC_WS_URL || DEFAULT_URL;
+
+// Correct common misconfiguration where only base URL is provided
+if (WS_URL && !WS_URL.includes('/api/v1/stream/prices')) {
+    WS_URL = WS_URL.replace(/\/$/, '') + '/api/v1/stream/prices';
+}
 
 export function useLivePrices(instruments: string[] = []) {
     const [prices, setPrices] = useState<Record<string, PriceUpdate>>({});
