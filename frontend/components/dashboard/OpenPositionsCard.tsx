@@ -24,10 +24,11 @@ import { PriceUpdate } from '@/lib/api/types';
 interface OpenPositionsCardProps {
   onRefresh?: () => void;
   prices?: Record<string, PriceUpdate>;
+  connected?: boolean;
 }
 // Removed useLivePrices import since it is passed as prop
 
-export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh, prices = {} }) => {
+export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh, prices = {}, connected = false }) => {
   const [positions, setPositions] = useState<OpenPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [closingId, setClosingId] = useState<string | null>(null);

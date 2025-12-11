@@ -190,7 +190,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
             <EquityChart data={equityData} loading={equityLoading} />
-            <OpenPositionsCard onRefresh={handleRefresh} prices={prices} />
+            <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} />
         </div>
         
         {/* Righht Column: AI & Performance */}
