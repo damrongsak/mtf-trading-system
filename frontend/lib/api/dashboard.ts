@@ -59,7 +59,7 @@ export async function getRecentSignals(limit: number = 5, symbols?: string[]): P
                 // Actually, I should use `apiClient` directly here to match existing pattern.
 
                 // Call /api/v1/signal/latest/{symbol}
-                const response = await apiClient.get<APIResponse<Signal>>(`/signal/latest/${encodeURIComponent(symbol)}`);
+                const response = await apiClient.get<APIResponse<Signal>>(`/api/v1/signal/latest/${encodeURIComponent(symbol)}`);
                 const signal = response.data.data;
 
                 if (!signal) return null;
