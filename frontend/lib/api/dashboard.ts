@@ -89,7 +89,7 @@ export async function getRecentSignals(limit: number = 5, symbols?: string[]): P
         });
 
         const results = await Promise.all(promises);
-        const validSignals = results.filter((s): s is RecentSignal => s !== null);
+        const validSignals = results.filter((s): s is RecentSignal => s !== null && s.direction !== 'NEUTRAL');
 
         // Sort by timestamp if available or just return
         // Ideally newest first.

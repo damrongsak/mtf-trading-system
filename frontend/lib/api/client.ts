@@ -22,7 +22,11 @@ apiClient.interceptors.request.use(
 
         // Log requests in development
         if (process.env.NODE_ENV === 'development') {
-            console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data);
+            if (config.data) {
+                console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data);
+            } else {
+                console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+            }
         }
 
         return config;
@@ -89,7 +93,7 @@ apiClient.interceptors.response.use(
         if (process.env.NODE_ENV === 'development') {
             // specific status codes that are expected/handled
             if (status !== 401 && status !== 404) {
-                 console.error(`[API Error] ${status || 'Unknown'}: ${message}`, details ? details : '');
+                console.error(`[API Error] ${status || 'Unknown'}: ${message}`, details ? details : '');
             }
         }
 
