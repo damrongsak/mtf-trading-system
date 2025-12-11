@@ -14,7 +14,8 @@ export function useLivePrices(instruments: string[] = []) {
         if (ws.current) return;
 
         const connect = () => {
-            const socket = new WebSocket(WS_URL);
+            const queryParams = instruments.length > 0 ? `?symbols=${instruments.join(',')}` : '';
+            const socket = new WebSocket(`${WS_URL}${queryParams}`);
 
             socket.onopen = () => {
                 console.log('Connected to Price Stream');
