@@ -9,10 +9,13 @@ import { RecentSignalsTable } from '@/components/dashboard/RecentSignalsTable';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
+import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
+import { MarketWatchCard } from '@/components/dashboard/MarketWatchCard';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect } from 'react';
+import { useLivePrices } from '@/lib/hooks/useLivePrices';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +27,10 @@ export default function DashboardPage() {
   const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
   
   const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5, watchlist);
+
+  // Live Prices Hook - subscribe to major pairs + watchlist
+  const allSymbols = Array.from(new Set([...watchlist, 'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY']));
+  const { prices, connected } = useLivePrices(allSymbols);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,17 +186,19 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Equity Curve */}
+      {/* Main Content Area: Equity + Detail Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
             <EquityChart data={equityData} loading={equityLoading} />
+            <OpenPositionsCard onRefresh={handleRefresh} prices={prices} />
         </div>
         
-        {/* AI Analyst & Strategy Performance */}
+        {/* Righht Column: AI & Performance */}
         <div className="space-y-6">
+            <MarketWatchCard symbols={allSymbols} prices={prices} connected={connected} />
             <AIAnalystCard />
             
-            <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6">
+            <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-200 mb-4">Strategy Performance</h3>
                 <div className="space-y-4">
                     {performance.length > 0 ? (
@@ -218,7 +227,7 @@ export default function DashboardPage() {
         </div>
       )}
       
-      <RecentSignalsTable signals={signals} loading={signalsLoading} />
+      <RecentSignalsTable signals={signals} loading={signalsLoading} prices={prices} />
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -238,7 +247,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </Link>
-
+        {/* ... View Signals Link ... */}
         <Link
           href="/signals"
           className="bg-gradient-to-r from-accent-green/10 to-accent-blue/10 border border-accent-green/20 rounded-xl p-6 hover:border-accent-green/40 transition-all duration-300 group"

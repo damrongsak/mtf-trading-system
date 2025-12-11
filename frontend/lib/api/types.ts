@@ -493,3 +493,12 @@ export interface BacktestResponse {
     all_results?: unknown[];
     created_at?: string;
 }
+
+export interface PriceUpdate {
+    type: string;
+    instrument: string;
+    time: string;
+    bid: number;
+    ask: number;
+    status: string;
+}

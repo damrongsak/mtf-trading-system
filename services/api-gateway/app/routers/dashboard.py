@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, case
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from app.database import get_db
@@ -114,7 +114,7 @@ async def get_strategy_performance(
         Trade.strategy_name,
         func.count(Trade.trade_id).label('total_trades'),
         func.sum(Trade.pnl_usd).label('total_pnl'),
-        func.sum(func.case((Trade.pnl_usd > 0, 1), else_=0)).label('wins')
+        func.sum(case((Trade.pnl_usd > 0, 1), else_=0)).label('wins')
     ).filter(
         Trade.status == TradeStatus.CLOSED
     ).group_by(Trade.strategy_name).all()

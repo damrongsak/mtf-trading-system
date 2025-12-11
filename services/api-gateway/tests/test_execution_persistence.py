@@ -116,5 +116,33 @@ def test_close_trade_router_call(client, test_user_token, mock_trade_service):
     mock_trade_service.close_trade.assert_called_once()
     args = mock_trade_service.close_trade.call_args
     # args[0] is db (positional), args[1] is trade_id, args[2] is exit_price
+    # args[0] is db (positional), args[1] is trade_id, args[2] is exit_price
     assert args[0][1] == "uuid-123"
     assert args[0][2] == 2010.0
+
+def test_get_open_trades(client, test_user_token, mock_db):
+    """
+    Test GET /execution/trades?status=OPEN
+    """
+    from app.models.trade import Trade, TradeStatus
+
+    # 1. Mock DB Query
+    mock_trade = MagicMock()
+    mock_trade.trade_id = "uuid-111"
+    mock_trade.status = TradeStatus.OPEN
+    mock_trade.symbol = "XAU/USD"
+    
+    mock_db.query.return_value.filter.return_value.all.return_value = [mock_trade]
+
+    # 2. Call Endpoint
+    response = client.get(
+        "/api/v1/execution/trades?status=OPEN",
+        headers=test_user_token
+    )
+
+    # 3. Verify Response
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert len(data["data"]) == 1
+    assert data["data"][0]["symbol"] == "XAU/USD"

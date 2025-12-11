@@ -1,3 +1,9 @@
+# MTF Trading System
+
+The MTF Trading System is an algo trading platform using MTF/SMC analysis & AI (Gemini) for real-time, risk-managed trades, with a trade journal. Built on Python/Next.js microservices (API, Strategy, AI), it uses PostgreSQL/Qdrant, follows SDD, is Dockerized, and features automated testing.
+
+License: [Apache 2.0](LICENSE)
+
 ## ⚙️ Core System Overview
 
 | Layer                                | Tech                                                                    | Purpose                                                                   |
@@ -58,7 +64,7 @@ Then you “fill the function” — Cloud Code helps you scaffold directly from
 
 Implements:
 
-* MTF/SMC logic (from your PDF system)
+* MTF/SMC logic
 * Parameter registry in PostgreSQL
 * Backtest via Vectorbt (run headless job in Celery worker)
 * Result storage + visualization via API

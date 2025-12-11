@@ -3,7 +3,8 @@ import yaml
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution
+from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream
+# ... (existing code)
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
 
@@ -12,6 +13,10 @@ app = FastAPI(
     description="API Gateway for Signal Generation, Risk Management, and AI Analysis",
     version="0.1.0"
 )
+
+app.include_router(data.router)
+app.include_router(execution.router, prefix="/api/v1")
+app.include_router(stream.router, prefix="/api/v1/stream")
 
 # Exception Handlers
 @app.exception_handler(HTTPException)

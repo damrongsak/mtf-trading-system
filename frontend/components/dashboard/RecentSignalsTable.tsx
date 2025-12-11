@@ -2,14 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { RecentSignal } from '@/lib/api/types';
+import { RecentSignal, PriceUpdate } from '@/lib/api/types';
 
 interface RecentSignalsTableProps {
   signals: RecentSignal[];
   loading?: boolean;
+  prices?: Record<string, PriceUpdate>;
 }
 
-export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals, loading }) => {
+export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals, loading, prices = {} }) => {
   if (loading) {
     return (
       <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6">
@@ -78,12 +79,19 @@ export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals,
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Symbol</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Direction</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Confidence</th>
+              <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Current</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Timeframe</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Time</th>
             </tr>
           </thead>
           <tbody>
-            {signals.map((signal) => (
+            {signals.map((signal) => {
+              const live = prices[signal.symbol];
+              // Use Bid for Long signal, Ask for Short signal for "Entry" logic, but generally Mid or Bid/Ask is fine.
+              // Let's just show Bid for now or Mid if we had it.
+              const currentPrice = live ? live.bid : null; // Simplified
+              
+              return (
               <tr key={signal.id} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
                 <td className="py-3 px-4">
                   <span className="font-mono text-gray-200 font-medium">{signal.symbol}</span>
@@ -105,13 +113,18 @@ export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals,
                   </div>
                 </td>
                 <td className="py-3 px-4">
+                    <span className={`font-mono text-sm ${currentPrice ? 'text-gray-200 animate-pulse' : 'text-gray-500'}`}>
+                        {currentPrice ? currentPrice.toFixed(5) : '---'}
+                    </span>
+                </td>
+                <td className="py-3 px-4">
                   <span className="text-sm text-gray-400 font-mono">{signal.timeframe}</span>
                 </td>
                 <td className="py-3 px-4">
                   <span className="text-sm text-gray-500">{formatTimestamp(signal.timestamp)}</span>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>

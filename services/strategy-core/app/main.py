@@ -153,3 +153,23 @@ def run_backtest_endpoint(req: BacktestRequest):
         return run_historical_backtest(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import WebSocket, WebSocketDisconnect, Query
+from app.streaming import price_streamer
+
+@app.websocket("/ws/prices")
+async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD,XAU_USD")):
+    await websocket.accept()
+    try:
+        # Parse comma-separated string to list
+        instruments = [s.strip() for s in symbols.split(",") if s.strip()]
+        async for data in price_streamer.stream(instruments):
+            await websocket.send_json(data)
+    except WebSocketDisconnect:
+        print("Client disconnected from price stream")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        try:
+            await websocket.close()
+        except:
+            pass

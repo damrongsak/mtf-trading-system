@@ -5,7 +5,9 @@ from app.services.trade_service import TradeService
 from app.database import get_db
 from app.security import get_current_user
 from app.models.user_fund import User
-from typing import Dict, Any
+from app.models.trade import Trade, TradeStatus
+from app.utils.response import success_response
+from typing import Dict, Any, List
 
 router = APIRouter(
     prefix="/execution",
@@ -75,5 +77,24 @@ async def close_trade(
         }
     except HTTPException as he:
         raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/trades")
+async def get_trades(
+    status: str = "OPEN",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get trades filtered by status.
+    """
+    try:
+        # Convert string status to Enum
+        trade_status = TradeStatus[status.upper()]
+        trades = db.query(Trade).filter(Trade.status == trade_status).all()
+        return success_response(data=trades)
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

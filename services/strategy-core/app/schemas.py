@@ -3,6 +3,11 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
 
+class ExecutionMode(str, Enum):
+    MANUAL = "MANUAL"
+    SEMIAUTO = "SEMIAUTO"
+    AUTO = "AUTO"
+
 class IndicatorRequest(BaseModel):
     data: List[float]
     params: Dict[str, Any] = {}

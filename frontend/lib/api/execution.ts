@@ -39,3 +39,18 @@ export async function placeOrder(data: OrderRequest): Promise<OrderResponse> {
     const response = await apiClient.post<OrderResponse>('/api/v1/execution/orders', data);
     return response.data;
 }
+
+export interface CloseTradeResponse {
+    status: string;
+    trade_id: string;
+    pnl: number;
+    exit_price: number;
+}
+
+/**
+ * Close a trade manually
+ */
+export async function closeTrade(tradeId: string, exitPrice: number): Promise<CloseTradeResponse> {
+    const response = await apiClient.post<CloseTradeResponse>(`/api/v1/execution/trades/${tradeId}/close`, { exit_price: exitPrice });
+    return response.data;
+}

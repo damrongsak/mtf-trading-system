@@ -66,8 +66,8 @@ export default function BacktestPage() {
       try {
           const response = await getBacktestHistory(page, perPage);
           setHistory(response.data);
-          setHistoryTotal(response.meta.total);
-          setHistoryTotalPages(response.meta.total_pages);
+          setHistoryTotal(response.meta.total || 0);
+          setHistoryTotalPages(response.meta.total_pages || 0);
       } catch (_err) { console.error(_err); }
   };
 
@@ -474,11 +474,11 @@ export default function BacktestPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-800">
-                                            {result.all_results.slice(0, 5).map((run, idx) => (
-                                                <tr key={idx} className="hover:bg-gray-900/50">
-                                                    <td className="p-3 text-gray-500">#{idx + 1}</td>
-                                                    <td className="p-3 font-mono text-xs text-gray-300">
-                                                        {JSON.stringify(run.params).replace(/["{}]/g, '').replace(/:/g, '=')}
+                                            {result.all_results.slice(0, 5).map((run: any, idx) => (
+                                                <tr key={idx} className="border-b border-gray-800/50 hover:bg-gray-800/20">
+                                                      <td className="p-3 text-gray-500">#{idx + 1}</td>
+                                                      <td className="p-3 font-mono text-xs text-gray-300">
+                                                         {run.params && JSON.stringify(run.params).replace(/["{}]/g, '').replace(/:/g, '=')}
                                                     </td>
                                                     <td className="p-3 text-right text-purple-400 font-bold">
                                                         {run.metric}
