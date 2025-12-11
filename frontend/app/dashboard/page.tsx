@@ -191,6 +191,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
             <EquityChart data={equityData} loading={equityLoading} />
             <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} />
+            <RecentSignalsTable signals={signals} loading={signalsLoading} />
         </div>
         
         {/* Righht Column: AI & Performance */}
@@ -227,7 +228,7 @@ export default function DashboardPage() {
         </div>
       )}
       
-      <RecentSignalsTable signals={signals} loading={signalsLoading} />
+
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
