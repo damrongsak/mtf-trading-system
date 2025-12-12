@@ -1,6 +1,7 @@
 // Barrel export for all// API exports
 export * from './auth';
 export * from './journal';
+export * from './market';
 export * from './dashboard';
 export * from './fund';
 export * from './settings';

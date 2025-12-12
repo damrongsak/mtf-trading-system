@@ -452,19 +452,7 @@ export interface BacktestMetrics {
     losing_trades: number;
 }
 
-export interface Meta {
-    page: number;
-    per_page: number;
-    total: number;
-    total_pages: number;
-}
 
-export interface PaginatedResponse<T> {
-    status: string;
-    data: T[];
-    meta: Meta;
-    timestamp: string;
-}
 
 export interface BacktestConfig {
     id: string;

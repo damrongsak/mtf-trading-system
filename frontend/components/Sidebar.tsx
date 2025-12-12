@@ -45,6 +45,7 @@ const navCategories: NavCategory[] = [
     icon: Target,
     items: [
       { name: 'Strategy', href: '/strategy', icon: Target },
+      { name: 'Market Analysis', href: '/market', icon: TrendingUp },
       { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
       { name: 'Trading Settings', href: '/trading', icon: SettingsIcon },
       { name: 'Signals', href: '/signals', icon: TrendingUp },
