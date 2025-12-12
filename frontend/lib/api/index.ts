@@ -12,3 +12,4 @@ export * from './client';
 export * from './errors';
 export * from './backtest';
 export * from './execution';
+export * from './analysis';

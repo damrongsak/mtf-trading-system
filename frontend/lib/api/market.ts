@@ -20,7 +20,7 @@ export interface FetchCandlesParams {
 }
 
 export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]> {
-  const response = await apiClient.get<{ data: Candle[] }>('/market/candles', {
+  const response = await apiClient.get<{ data: Candle[] }>('/api/v1/market/candles', {
     params: {
       symbol: params.symbol,
       timeframe: params.timeframe,

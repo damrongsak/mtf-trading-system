@@ -6,22 +6,23 @@ import { CandleChart } from '@/components/charts/CandleChart';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { calculateEMA, calculateRSI } from '@/lib/api/analysis';
+import { IndicatorData } from '@/components/charts/CandleChart';
 
 export default function MarketPage() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [symbol, setSymbol] = useState('EUR_USD');
   const [timeframe, setTimeframe] = useState('H1');
   const [loading, setLoading] = useState(false);
+  
+  // Indicator State
+  const [showEMA, setShowEMA] = useState(false);
+  const [showRSI, setShowRSI] = useState(false);
+  const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, [symbol, timeframe]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Calculate from/to if needed, or just ask for count
-      // For now, let's just ask for last 500 candles
       const data = await fetchCandles({
         symbol,
         timeframe,
@@ -33,6 +34,50 @@ export default function MarketPage() {
     } finally {
       setLoading(false);
     }
+  }, [symbol, timeframe]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Refetch indicators when candles change or toggles change
+  useEffect(() => {
+    if (candles.length > 0) {
+        updateIndicators();
+    }
+  }, [candles, showEMA, showRSI]);
+
+  const updateIndicators = async () => {
+      const newIndicators: IndicatorData[] = [];
+      const closePrices = candles.map(c => c.close);
+
+      if (showEMA) {
+          try {
+              const emaValues = await calculateEMA({ data: closePrices, span: 200 });
+              newIndicators.push({
+                  name: 'EMA 200',
+                  data: emaValues,
+                  color: '#2962FF'
+              });
+          } catch (e) {
+              console.error("Failed to calc EMA", e);
+          }
+      }
+
+      if (showRSI) {
+          try {
+              const rsiValues = await calculateRSI({ close: closePrices, window: 14 });
+              newIndicators.push({
+                  name: 'RSI 14',
+                  data: rsiValues,
+                  color: '#FF6D00'
+              });
+          } catch (e) {
+              console.error("Failed to calc RSI", e);
+          }
+      }
+
+      setChartIndicators(newIndicators);
   };
 
   return (
@@ -63,6 +108,30 @@ export default function MarketPage() {
                     <SelectItem value="D">Daily</SelectItem>
                 </SelectContent>
             </Select>
+          <div className="flex items-center space-x-2">
+            <input 
+                type="checkbox" 
+                id="ema" 
+                checked={showEMA} 
+                onChange={(e) => setShowEMA(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="ema" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              EMA 200
+            </label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input 
+                type="checkbox" 
+                id="rsi" 
+                checked={showRSI} 
+                onChange={(e) => setShowRSI(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <label htmlFor="rsi" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              RSI 14
+            </label>
+          </div>
           <Button onClick={loadData} disabled={loading}>
             {loading ? 'Loading...' : 'Refresh'}
           </Button>
@@ -76,7 +145,7 @@ export default function MarketPage() {
         <CardContent>
           {candles.length > 0 ? (
             <div className="rounded-lg overflow-hidden border border-border/50">
-                <CandleChart data={candles} />
+                <CandleChart data={candles} indicators={chartIndicators} />
             </div>
           ) : (
             <div className="h-[400px] flex items-center justify-center text-muted-foreground">
