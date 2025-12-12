@@ -5,6 +5,9 @@ from app.indicators import calculate_ema, calculate_atr
 from app.backtest import run_historical_backtest
 import pandas as pd
 import numpy as np
+from typing import Optional
+from datetime import datetime
+from app.adapters.oanda_history import OandaHistoryAdapter
 
 app = FastAPI(title="Strategy Core Service")
 
@@ -19,6 +22,37 @@ app.add_middleware(
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "strategy-core"}
+
+@app.get("/market/candles")
+def get_candles(
+    symbol: str, 
+    timeframe: str, 
+    from_time: Optional[datetime] = None, 
+    to_time: Optional[datetime] = None, 
+    count: int = 500
+):
+    try:
+        adapter = OandaHistoryAdapter()
+        df = adapter.fetch_candles_range(
+            symbol=symbol, 
+            timeframe=timeframe, 
+            from_time=from_time, 
+            to_time=to_time, 
+            count=count
+        )
+        
+        if df.empty:
+            return {"data": []}
+            
+        # Reset index to make timestamp a column, convert to ISO string
+        df = df.reset_index()
+        # Handle nan/inf
+        df = df.replace([np.inf, -np.inf], np.nan).where(pd.notnull(df), None)
+        
+        return {"data": df.to_dict(orient="records")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/calculate/ema", response_model=IndicatorResponse)
 def get_ema(req: IndicatorRequest):

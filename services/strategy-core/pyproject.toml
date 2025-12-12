@@ -2,7 +2,7 @@
 name = "strategy-core"
 version = "0.1.0"
 description = "Strategy Core Service for MTF Trading System"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
@@ -15,6 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "httpx>=0.26.0",
     "v20>=3.0.25",
+    "pandas_ta>=0.3.14",
 ]
 
 [dependency-groups]

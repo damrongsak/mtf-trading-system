@@ -1,5 +1,6 @@
 import pandas as pd
 import vectorbt as vbt
+import pandas_ta as ta
 
 def calculate_ema(close: pd.Series, span: int) -> pd.Series:
     """
@@ -31,3 +32,26 @@ def calculate_bbands(close: pd.Series, window: int = 20, alpha: int = 2):
     Calculate Bollinger Bands.
     """
     return vbt.BBANDS.run(close, window=window, alpha=alpha)
+
+def calculate_indicator(df: pd.DataFrame, strategy: str = "Common") -> pd.DataFrame:
+    """
+    Calculate indicators using pandas-ta.
+    supports executing a 'Strategy' (pandas_ta concept) or specific indicators.
+    """
+    if strategy == "All":
+        df.ta.strategy("All")
+    elif strategy == "Common":
+        # Example common strategy
+        CustomStrategy = ta.Strategy(
+            name="MtfCommon",
+            ta=[
+                {"kind": "sma", "length": 50},
+                {"kind": "sma", "length": 200},
+                {"kind": "rsi"},
+                {"kind": "atr", "length": 14}
+            ]
+        )
+        df.ta.strategy(CustomStrategy)
+    
+    return df
+
