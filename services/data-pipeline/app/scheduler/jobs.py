@@ -21,7 +21,7 @@ async def run_ingestion_job(symbols: list[str] = None):
     if symbols is None:
         symbols = ["XAU_USD"]
     
-    timeframes = ["M15", "H1", "H4"] 
+    timeframes = ["M15", "H1", "H4", "D"] 
     
     try:
         for symbol in symbols:

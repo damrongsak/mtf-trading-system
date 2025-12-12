@@ -64,3 +64,31 @@ async def upload_historical_data(
             raise he
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
+async def trigger_sync(
+    symbol: str = Query(..., description="Symbol to sync (e.g. XAU_USD)")
+):
+    """
+    Trigger manual data sync for a symbol.
+    Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/manual",
+                params={"symbol": symbol},
+                timeout=10.0
+            )
+            
+            if response.status_code not in [200, 202]:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+            return response.json()
+            
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
