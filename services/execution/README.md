@@ -89,11 +89,12 @@ services/execution/
     ```
 
 ## Configuration
-The service requires the following environment variables (typically provided via `.env` file or Docker Compose):
+The service requires the following environment variables (typically provided via the root `.env` file when using Docker Compose):
 
 *   `OANDA_API_KEY`: Your OANDA API access token.
 *   `OANDA_ACCOUNT_ID`: Your OANDA account ID.
-*   `OANDA_ENV`: Environment to connect to (`practice` or `live`).
+*   `OANDA_ENV`: Environment to connect to. Defaults to `practice`. **Set to `live` for live accounts.**
+    *   *Note: Ensure your `OANDA_ACCOUNT_ID` matches the selected environment.*
 
 ## Development
 This service uses `uv` for package management.
