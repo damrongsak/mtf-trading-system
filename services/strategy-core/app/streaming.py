@@ -15,36 +15,41 @@ class PriceStreamer:
         self._ctx = None
         self._account_id = None
         self._configured = False
-        self._stop_event = asyncio.Event()
 
     def _configure(self):
         """
         Load configuration from Database (DataSource table).
         Assumes there is an 'oanda' data source.
         """
+        logger.info("Entering _configure")
         if self._configured:
+            logger.info("PriceStreamer already configured")
             return
 
         db = SessionLocal()
         try:
             # For now, hardcode looking for 'oanda' or taking the first one
             # Query by name instead of ID (which is UUID)
+            logger.info("Querying DataSource for 'oanda'...")
             ds = db.query(DataSource).filter(func.lower(DataSource.name) == 'oanda').first()
             if not ds:
                 # Fallback to env vars or raise error
-                logger.warning("No 'oanda' DataSource found in DB. Checking env vars or defaults.")
+                logger.warning("No 'oanda' DataSource found in DB.")
                 # You might want to implement env var fallback here
                 return
 
             config = ds.config_json
             token = config.get("token")
-            hostname = config.get("hostname", "stream-fxpractice.oanda.com")
+            hostname = config.get("hostname", "stream-fxtrade.oanda.com")
+            logger.info(f"Loaded config. Hostname: {hostname}")
+            
             # Note: Streaming usually uses a different hostname (stream-fxpractice or stream-fxtrade)
             # The OandaAdapter might use api-fxpractice. We need to ensure we use the STREAMING url.
             # v20 Context might handle this if properly configured, or we pass hostname.
             
             # Allow override for streaming specifically
             streaming_hostname = config.get("streaming_hostname", hostname.replace("api", "stream"))
+            logger.info(f"Using Streaming Hostname: {streaming_hostname}")
 
             self._ctx = v20.Context(
                 hostname=streaming_hostname,
@@ -92,15 +97,17 @@ class PriceStreamer:
         queue = asyncio.Queue()
         loop = asyncio.get_event_loop()
 
+        stop_event = asyncio.Event()
+
         def run_stream():
             try:
                 response = self._ctx.pricing.stream(
                     self._account_id,
-                    instruments=",".join(instruments),
+                    instruments=",".join([i.replace('/', '_') for i in instruments]),
                     snapshot=True
                 )
                 for msg_type, msg in response.parts():
-                    if self._stop_event.is_set():
+                    if stop_event.is_set():
                         break
                         
                     if msg_type == "pricing.Heartbeat":
@@ -117,6 +124,7 @@ class PriceStreamer:
                             "status": msg.status
                         }
                         # Threadsafe put
+                        # logger.info(f"OANDA Stream: Received {data['instrument']}") 
                         asyncio.run_coroutine_threadsafe(queue.put(data), loop)
             except Exception as e:
                 logger.error(f"Stream error: {e}")
@@ -133,12 +141,13 @@ class PriceStreamer:
                 if data.get("type") == "ERROR":
                     logger.error(f"Stream received error: {data['msg']}")
                     break
+                logger.info(f"Yielding price: {data.get('instrument')}")
                 yield data
         except asyncio.CancelledError:
             logger.info("Stream cancelled")
-            self._stop_event.set()
+            stop_event.set()
         finally:
-            self._stop_event.set()
+            stop_event.set()
             # We can't easily kill the thread blocked on socket read without closing socket.
             # v20 context doesn't expose easy abort. Ideally, we just let it die or restart.
 

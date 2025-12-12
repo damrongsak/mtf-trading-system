@@ -7,6 +7,7 @@ from app.security import get_current_user
 from app.models.user_fund import User
 from app.models.trade import Trade, TradeStatus
 from app.utils.response import success_response
+from app.schemas.trade import TradeResponse
 from typing import Dict, Any, List
 import logging
 
@@ -109,7 +110,9 @@ async def get_trades(
                 # Continue to return local DB trades even if sync fails
 
         trades = db.query(Trade).filter(Trade.status == trade_status).all()
-        return success_response(data=trades)
+        # Convert SQLAlchemy models to Pydantic models
+        trades_response = [TradeResponse.model_validate(t) for t in trades]
+        return success_response(data=trades_response)
     except KeyError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     except Exception as e:

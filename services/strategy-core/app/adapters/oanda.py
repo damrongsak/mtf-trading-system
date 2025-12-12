@@ -17,7 +17,7 @@ class OandaAdapter:
         
         self.config = self.data_source.config_json
         self.ctx = v20.Context(
-            hostname=self.config.get("hostname", "api-fxpractice.oanda.com"),
+            hostname=self.config.get("hostname", "api-fxtrade.oanda.com"),
             port=443,
             token=self.config.get("token"),
             datetime_format="RFC3339"

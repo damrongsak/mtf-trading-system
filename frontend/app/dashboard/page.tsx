@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5, watchlist);
 
   // Live Prices Hook - subscribe to major pairs + watchlist
-  const allSymbols = Array.from(new Set([...watchlist, 'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY']));
+  const allSymbols = Array.from(new Set([...watchlist.map(s => s.replace('/', '_')), 'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY']));
   const { prices, connected } = useLivePrices(allSymbols);
 
   useEffect(() => {

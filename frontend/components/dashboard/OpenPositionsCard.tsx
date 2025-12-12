@@ -28,6 +28,18 @@ interface OpenPositionsCardProps {
 }
 // Removed useLivePrices import since it is passed as prop
 
+// DTO matching the raw API response (Decimals as strings)
+interface OpenPositionDto {
+  trade_id: string;
+  symbol: string;
+  entry_price: string;
+  direction: 'LONG' | 'SHORT';
+  current_price?: string;
+  pnl_usd?: string;
+  lot_size: string;
+  timestamp: string;
+}
+
 export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh, prices = {}, connected = false }) => {
   const [positions, setPositions] = useState<OpenPosition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,10 +55,24 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
   const fetchOpenPositions = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get<APIResponse<OpenPosition[]>>('/api/v1/execution/trades', {
+      // Use DTO for strict type checking on the raw response
+      const response = await apiClient.get<APIResponse<OpenPositionDto[]>>('/api/v1/execution/trades', {
           params: { status: 'OPEN' }
       });
-      setPositions(response.data.data || []);
+      
+      const rawData = response.data.data || [];
+      const parsedPositions: OpenPosition[] = rawData.map((p) => ({
+        trade_id: p.trade_id,
+        symbol: p.symbol,
+        direction: p.direction,
+        timestamp: p.timestamp, // Assuming timestamp string is fine or needs Date parsing? Interface says string.
+        entry_price: Number(p.entry_price),
+        lot_size: Number(p.lot_size),
+        pnl_usd: p.pnl_usd ? Number(p.pnl_usd) : undefined,
+        current_price: p.current_price ? Number(p.current_price) : undefined,
+      }));
+
+      setPositions(parsedPositions);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch open positions:', err);

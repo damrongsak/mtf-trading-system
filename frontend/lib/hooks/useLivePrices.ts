@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { PriceUpdate } from '../api/types';
 
 // Use env var or default to current host
@@ -14,14 +15,27 @@ export function useLivePrices(instruments: string[] = []) {
     const [prices, setPrices] = useState<Record<string, PriceUpdate>>({});
     const [connected, setConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
+    const { authToken } = useAuth();
+    const headers = new Headers();
+
+    // Create a stable key for instruments to avoid infinite re-renders
+    const instrumentsList = instruments.map(s => s.replace('/', '_')).join(',');
 
     useEffect(() => {
         // Prevent multiple connections
         if (ws.current) return;
 
+        // Wait for auth token
+        if (!authToken) return;
+
         const connect = () => {
-            const queryParams = instruments.length > 0 ? `?symbols=${instruments.join(',')}` : '';
-            const socket = new WebSocket(`${WS_URL}${queryParams}`);
+            const queryParams = new URLSearchParams();
+            if (instrumentsList) {
+                queryParams.append('symbols', instrumentsList);
+            }
+            queryParams.append('token', authToken);
+
+            const socket = new WebSocket(`${WS_URL}?${queryParams.toString()}`);
 
             socket.onopen = () => {
                 console.log('Connected to Price Stream');
@@ -42,12 +56,23 @@ export function useLivePrices(instruments: string[] = []) {
                 }
             };
 
-            socket.onclose = () => {
-                console.log('Price Stream disconnected');
+            socket.onclose = (event) => {
+                console.log('Price Stream disconnected', event.reason);
                 setConnected(false);
                 ws.current = null;
-                // Reconnect after delay
-                setTimeout(connect, 3000);
+                
+                // Only reconnect if not closed intentionally by unmount (which calls close())
+                // But here we can't easily distinguish. 
+                // However, since we return a cleanup function that closes it,
+                // we should be careful. 
+                // Simplest is to NOT auto-reconnect inside the effect if we rely on effect dependencies.
+                // If we want auto-reconnect for network issues, we keep it.
+                // But caution: if token is invalid, valid reconnect loop might spam.
+                // The backend sends WS_1008_POLICY_VIOLATION for bad token.
+                
+                if (event.code !== 1008) {
+                     setTimeout(connect, 3000);
+                }
             };
 
             ws.current = socket;
@@ -57,11 +82,13 @@ export function useLivePrices(instruments: string[] = []) {
 
         return () => {
             if (ws.current) {
+                // Remove onclose to prevent reconnect attempts during cleanup
+                ws.current.onclose = null; 
                 ws.current.close();
                 ws.current = null;
             }
         };
-    }, []);
+    }, [authToken, instrumentsList]);
 
     return { prices, connected };
 }
