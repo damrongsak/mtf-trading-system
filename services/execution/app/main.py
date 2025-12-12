@@ -99,6 +99,14 @@ async def place_order(req: OrderRequest, adapter: OandaOrderAdapter = Depends(ge
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/trades/open")
+async def get_open_trades(adapter: OandaOrderAdapter = Depends(get_order_adapter)):
+    try:
+        trades = adapter.get_open_trades()
+        return {"status": "success", "data": trades}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

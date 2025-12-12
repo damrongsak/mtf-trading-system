@@ -68,7 +68,7 @@ class Trade(Base):
                      comment="Take profit price")
 
     # Position Sizing & Risk (Critical for F2.1-F2.4)
-    lot_size = Column(Numeric(10, 2), nullable=False,
+    lot_size = Column(Numeric(12, 6), nullable=False,
                      comment="Calculated lot size (must be >= 0.01)")
     risk_usd = Column(Numeric(10, 2), nullable=False,
                      comment="Calculated risk in USD (must be <= $10)")
@@ -108,7 +108,7 @@ class Trade(Base):
     # Table constraints (from specs/01_data_model.yaml validation_rules)
     __table_args__ = (
         CheckConstraint('risk_usd <= 10.00', name='check_risk_cap'),
-        CheckConstraint('lot_size >= 0.01', name='check_min_lot_size'),
+        CheckConstraint('lot_size > 0', name='check_min_lot_size'),
         CheckConstraint('atr_pips <= 100.0 OR atr_pips IS NULL', name='check_max_atr_pips'),
         CheckConstraint('rr_ratio >= 2.0 OR rr_ratio IS NULL', name='check_min_rr_ratio'),
         {'comment': 'Individual trade records with risk and execution details'}

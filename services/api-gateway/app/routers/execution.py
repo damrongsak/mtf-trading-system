@@ -8,6 +8,10 @@ from app.models.user_fund import User
 from app.models.trade import Trade, TradeStatus
 from app.utils.response import success_response
 from typing import Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/execution",
@@ -30,6 +34,7 @@ async def place_order(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        logger.info(f"Received order request: {order_data}")
         # 1. Execute Order
         execution_result = await execution_client.place_order(order_data)
         
@@ -44,10 +49,11 @@ async def place_order(
                 )
             except Exception as persist_error:
                 # Log error but don't fail the request since order was placed
-                print(f"Failed to persist trade: {persist_error}")
+                logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
                 
         return execution_result
     except Exception as e:
+        logger.error(f"Error placing order: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/trades/{trade_id}/close")
@@ -92,9 +98,20 @@ async def get_trades(
     try:
         # Convert string status to Enum
         trade_status = TradeStatus[status.upper()]
+
+        # Sync with Oanda if requesting OPEN trades
+        if trade_status == TradeStatus.OPEN:
+            try:
+                oanda_trades = await execution_client.get_open_trades()
+                TradeService.sync_open_trades(db, oanda_trades, current_user)
+            except Exception as sync_err:
+                logger.error(f"Failed to sync Oanda trades: {sync_err}", exc_info=True)
+                # Continue to return local DB trades even if sync fails
+
         trades = db.query(Trade).filter(Trade.status == trade_status).all()
         return success_response(data=trades)
     except KeyError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     except Exception as e:
+        logger.error(f"Error fetching trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -14,10 +14,6 @@ app = FastAPI(
     version="0.1.0"
 )
 
-app.include_router(data.router)
-app.include_router(execution.router, prefix="/api/v1")
-app.include_router(stream.router, prefix="/api/v1/stream")
-
 # Exception Handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -48,15 +44,12 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 # Attempt to load OpenAPI spec from file (SDD)
-# This path works for local dev when running from services/api-gateway
-# In Docker, you would need to mount/copy the spec file.
 SPEC_PATH = "../../specs/02_api_spec.yaml"
 if os.path.exists(SPEC_PATH):
     with open(SPEC_PATH, "r") as f:
         app.openapi_schema = yaml.safe_load(f)
 
 # CORS Middleware
-# Explicitly allow all origins for development convenience
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -73,13 +66,16 @@ app.include_router(signal.router)
 app.include_router(risk.router)
 app.include_router(strategy.router)
 app.include_router(journal.router)
-app.include_router(dashboard.router, prefix="/api/v1")
-app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(transaction.router)
 app.include_router(simulation.router)
 app.include_router(ai.router)
-app.include_router(data.router)
+
+# Routers with prefixes (matching Nginx rewrites or specific paths)
+app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(backtest.router, prefix="/api/v1")
+app.include_router(data.router) # data router likely has /api/v1/data inside or is handled
 app.include_router(execution.router, prefix="/api/v1")
+app.include_router(stream.router, prefix="/api/v1/stream")
 
 
 

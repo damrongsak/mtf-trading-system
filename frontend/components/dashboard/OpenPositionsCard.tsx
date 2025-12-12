@@ -168,7 +168,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
                   <td className="py-3 px-4 text-right">
                     <Button 
                       size="sm" 
-                      variant="destructive"
+                      variant="default"
                       className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50"
                       disabled={closingId === pos.trade_id}
                       onClick={() => handleClose(pos.trade_id, price)} 

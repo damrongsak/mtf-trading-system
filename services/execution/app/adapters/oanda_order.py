@@ -1,5 +1,6 @@
 from oandapyV20 import API
 import oandapyV20.endpoints.orders as orders
+import oandapyV20.endpoints.trades as trades
 from app.core.config import settings
 import logging
 
@@ -53,3 +54,16 @@ class OandaOrderAdapter:
         except Exception as e:
             logger.error(f"Failed to place order for {symbol}: {e}")
             raise e
+
+    def get_open_trades(self):
+        """
+        Fetch all open trades from Oanda.
+        """
+        try:
+            r = trades.TradesList(accountID=self.account_id, params={"state": "OPEN"})
+            self.client.request(r)
+            return r.response.get("trades", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch open trades: {e}")
+            raise e
+
