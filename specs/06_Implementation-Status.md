@@ -190,6 +190,20 @@
     - **Backend:** GBM Synthetic Data, Vectorbt Engine Integration.
     - **API:** `/api/v1/simulation` proxy endpoint.
 
+### **15. Backtesting Engine (`services/strategy-core`)**
+- **Status:** ✅ Completed (2025-12-14)
+- **Features:** 
+    - **Frontend:** 
+        - Dedicated `/backtest` page.
+        - Configuration Form: Symbol, Timeframe, Dates, Capital, Fees, Slippage, JSON Params.
+        - Results Dashboard: Equity Curve (Recharts), KPI Cards, Trade Log.
+        - **Debug Console:** Real-time log panel (`DebugConsole.tsx`) for execution feedback.
+    - **Backend:**
+        - `run_historical_backtest` logic using `vectorbt`.
+        - **Fee/Slippage Simulation:** Integrated precise cost modeling.
+        - **Benchmark Comparison:** "Buy & Hold" return calculation.
+        - API Endpoints: `POST /api/v1/backtest/run`.
+
 ---
 
 ## 🟡 In Progress / Partial
@@ -204,8 +218,8 @@
     - **Authentication:** `AuthContext` and Login Page (`/login`).
     - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
 - **Next Steps:**
-    - Implement Backtest UI.
-    - Connect to real API endpoints for Trades and Backtest views.
+    - **Backtest UI:** Complete (`/backtest`) with vectorbt integration.
+    - Connect to real API endpoints for Trades views.
 
 
 ---
@@ -223,6 +237,6 @@
 ## 📋 Immediate Next Actions (Prioritized)
 
 
-1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks). (Specifically for Trades and Backtest views)
-2.  **[Medium]** Enhance Backtest Engine UI/UX.
-3.  **[Low]** Implement User Profile picture upload.
+1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks). (Specifically for Trades view)
+2.  **[Low]** Implement User Profile picture upload.
+3.  **[Low]** Clean up unused mock data files.
