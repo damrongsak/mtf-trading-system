@@ -86,17 +86,30 @@ The MVP is defined by the following core system behaviors, translated directly f
 
 ---
 
-## 5. Out-of-Scope (Future Features)
+## 5. Phase 3: Advanced & Autonomous Capabilities
 
-The following features are *not* included in the MVP and will be prioritized in subsequent releases.
+The following features are prioritized for the next major release (Phase 3), transforming the system into a professional, intelligent trading engine.
 
-| Future Feature | Rationale for Exclusion from MVP |
+### 5.1. Advanced Backtesting
+| Feature | Details |
 | :--- | :--- |
-| **Real/Live Broker Execution** | MVP must prove capital preservation and strategy viability in paper/backtesting first. |
-| **LLM Agent Layer (AI Analyst)** | Core trading logic must be isolated and verified before integrating discretionary AI analysis. |
-| **Complex Trailing Stops (CKS Logic)** | Focus MVP on static ATR stops; trailing is an optimization phase. |
-| **Advanced UX/Frontend Dashboard** | Basic CSV/Google Sheet output is sufficient for MVP validation; Next.js dashboard is post-MVP. |
-| **Wyckoff Readiness Checks (F. Extra Filters)** | Wyckoff checks are complex filters for robustness, not essential for core signal generation. |
+| **Monte Carlo Simulation** | Stress-test strategies using randomized trade sequences and curve fitting analysis to ensure robustness. |
+| **Automated Optimization** | "Grid Search" and genetic algorithms to automatically tune parameters (EMA, RSI, TP/SL) for maximum Sharpe/Return. |
+| **Walk-Forward Analysis** | Verify strategy stability by simulating "out-of-sample" performance over rolling time windows. |
+
+### 5.2. Realtime Autonomous Bot (24/7)
+| Feature | Details |
+| :--- | :--- |
+| **Autonomous Supervisor** | A 24/7 background process (`LiveRunner`) that manages the Oanda connection, triggers strategy loops, and handles error recovery without human intervention. |
+| **Order Execution Engine** | Low-latency order placement with precise slippage control and retry logic. |
+| **State Persistence** | Robust recovery from crashes or restarts, ensuring no signal or trade state is lost. |
+
+### 5.3. AI Integration (LLM & Algo)
+| Feature | Details |
+| :--- | :--- |
+| **LangChain Agents** | Use LangChain to orchestrate complex reasoning loops (e.g., "Analyze News" -> "Check Trend" -> "Formulate Opinion"). |
+| **Custom Models** | Integration of fine-tuned models or custom SLMs (Small Language Models) specifically trained on XAU/USD behavior. |
+| **Narrative Trading** | Filter technical signals using AI-generated narrative bias (e.g., "Reject Longs if Fed is Hawkish"). |
 
 ---
 

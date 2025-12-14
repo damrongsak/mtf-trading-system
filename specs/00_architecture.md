@@ -52,13 +52,19 @@ graph TD
 
 ### 3.4. Strategy Core (`services/strategy-core`)
 - **Tech Stack**: Python, Vectorbt, Pandas.
-- **Responsibility**: Signal generation and backtesting. Implements MTF indicators and SMC logic.
-- **Key Features**: Deterministic resampling, parameter sweeping, backtest execution.
+- **Responsibility**: Signal generation, backtesting, and validation.
+- **Key Features**: 
+    - Deterministic resampling & parameter sweeping.
+    - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
+    - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
 
 ### 3.5. AI Analyst (`services/ai-analyst`)
-- **Tech Stack**: Python, Google Gemini Pro.
-- **Responsibility**: Semantic market analysis and narrative generation.
-- **Key Features**: RAG (Retrieval Augmented Generation) using Qdrant, prompt management.
+- **Tech Stack**: Python, Google Gemini Pro, LangChain.
+- **Responsibility**: Semantic market analysis, narrative generation, and agentic reasoning.
+- **Key Features**: 
+    - **LangChain Orchestrator**: Manages multi-step reasoning chains (News -> Trend -> Bias).
+    - **RAG**: Retrieval Augmented Generation using Qdrant.
+    - **Custom Models**: Integration hooks for fine-tuned SLMs.
 
 ### 3.6. Data Pipeline (`services/data-pipeline`)
 - **Tech Stack**: Python, FastAPI, SQLAlchemy, Pandas.
