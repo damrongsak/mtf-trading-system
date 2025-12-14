@@ -18,7 +18,7 @@ export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) 
     const [capital, setCapital] = useState(10000);
     const [fees, setFees] = useState(0.0001);
     const [slippage, setSlippage] = useState(0.0001);
-    const [params, setParams] = useState('{\n  "fast_ema": 20,\n  "slow_ema": 50,\n  "rsi_period": 14\n}');
+    const [params, setParams] = useState('{\n  "name": "ma_crossover",\n  "ema_fast": 20,\n  "slow_ema": 50,\n  "rsi_period": 14\n}');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,8 +43,36 @@ export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) 
         });
     };
 
+    const [strategyType, setStrategyType] = useState('ma_crossover');
+
+    const handleStrategyChange = (value: string) => {
+        setStrategyType(value);
+        let newParams = {};
+        if (value === 'ma_crossover') {
+            newParams = {
+                name: "ma_crossover",
+                ema_fast: 20,
+                ema_slow: 50
+            };
+        } else if (value === 'rsi_strategy') {
+            newParams = {
+                name: "rsi_strategy",
+                rsi_period: 14,
+                rsi_lower: 30,
+                rsi_upper: 70
+            };
+        } else {
+            // Custom
+            newParams = {
+                name: "custom_strategy",
+                param1: 10
+            };
+        }
+        setParams(JSON.stringify(newParams, null, 2));
+    };
+
     return (
-        <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Settings2 className="w-5 h-5 text-primary" />
@@ -141,6 +169,20 @@ export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) 
                                 min="0"
                             />
                         </div>
+                    </div>
+
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium">Strategy</label>
+                        <Select value={strategyType} onValueChange={handleStrategyChange}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ma_crossover">MA Crossover</SelectItem>
+                                <SelectItem value="rsi_strategy">RSI Strategy</SelectItem>
+                                <SelectItem value="custom">Custom (JSON)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="space-y-2">

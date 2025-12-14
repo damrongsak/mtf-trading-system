@@ -27,35 +27,35 @@ export function BacktestResults({ results }: BacktestResultsProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard 
                     title="Total Return" 
-                    value={`${metrics?.total_return_percent.toFixed(2)}%`}
-                    subValue={`$${metrics?.total_return.toFixed(2)}`}
+                    value={`${(metrics?.total_return_percent ?? 0).toFixed(2)}%`}
+                    subValue={`$${(metrics?.total_return ?? 0).toFixed(2)}`}
                     icon={DollarSign}
                     trend={metrics?.total_return && metrics.total_return > 0 ? 'up' : 'down'}
                 />
                 <KPICard 
                     title="Benchmark (Buy & Hold)" 
-                    value={`${metrics?.benchmark_return?.toFixed(2)}%`}
+                    value={`${(metrics?.benchmark_return ?? 0).toFixed(2)}%`}
                     subValue="Market Return"
                     icon={TrendingUp}
                     trend={metrics?.benchmark_return && metrics.benchmark_return > 0 ? 'up' : 'down'}
                 />
                  <KPICard 
                     title="Win Rate" 
-                    value={`${(metrics?.win_rate || 0 * 100).toFixed(1)}%`}
-                    subValue={`${metrics?.winning_trades}/${metrics?.total_trades} Trades`}
+                    value={`${(metrics?.win_rate ?? 0).toFixed(1)}%`}
+                    subValue={`${metrics?.winning_trades ?? 0}/${metrics?.total_trades ?? 0} Trades`}
                     icon={Activity}
                 />
                 <KPICard 
                     title="Max Drawdown" 
-                    value={`${metrics?.max_drawdown_percent.toFixed(2)}%`}
-                    subValue={`$${metrics?.max_drawdown.toFixed(2)}`}
+                    value={`${(metrics?.max_drawdown_percent ?? 0).toFixed(2)}%`}
+                    subValue={`$${(metrics?.max_drawdown ?? 0).toFixed(2)}`}
                     icon={TrendingDown}
                     trend="down"
-                    inverse // Red is bad for drawdown, but typically drawdown is negative. Handled by generic 'down' usually.
+                    inverse 
                 />
                 <KPICard 
                     title="Sharpe Ratio" 
-                    value={metrics?.sharpe_ratio?.toFixed(2) || '0.00'}
+                    value={(metrics?.sharpe_ratio ?? 0).toFixed(2)}
                     subValue="Risk Adjusted Return"
                     icon={TrendingUp}
                 />

@@ -4,6 +4,7 @@ import numpy as np
 from sqlalchemy import text
 from app.database import engine
 from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, EquityPoint
+from app.strategy import get_strategy
 from uuid import uuid4
 
 def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
@@ -41,19 +42,21 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     
-    # 2. Strategy Logic (Example: MA Crossover)
-    # Default params if not provided
-    fast_period = int(req.strategy_params.get("ema_fast", 10))
-    slow_period = int(req.strategy_params.get("ema_slow", 20))
+    # 2. Strategy Logic
+    strategy_name = req.strategy_params.get("name", "ma_crossover")
+    strategy_func = get_strategy(strategy_name)
     
+    if not strategy_func:
+        print(f"ERROR: Strategy '{strategy_name}' not found. Defaulting to ma_crossover.")
+        strategy_func = get_strategy("ma_crossover")
+
     # Use Close price
     close_price = df['close'].astype(float)
     
-    fast_ma = vbt.MA.run(close_price, fast_period)
-    slow_ma = vbt.MA.run(close_price, slow_period)
-    
-    entries = fast_ma.ma_crossed_above(slow_ma)
-    exits = fast_ma.ma_crossed_below(slow_ma)
+    # Run Strategy
+    entries, exits = strategy_func(close_price, req.strategy_params)
+
+    print(f"INFO: Signals Generated - Entries: {entries.sum().sum()}, Exits: {exits.sum().sum()}")
     
     # 3. Running Portfolio
     # Estimate frequency from data
