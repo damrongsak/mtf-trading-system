@@ -1,30 +1,57 @@
 import { apiClient } from './client';
-import { APIResponse, PaginatedResponse, BacktestRequest, BacktestResponse, BacktestConfig, BacktestHistorySummary } from './types';
+import { ApiError } from './types';
 
-const BASE_PATH = '/api/v1/backtest';
-
-export async function runBacktest(data: BacktestRequest): Promise<BacktestResponse> {
-    const response = await apiClient.post<APIResponse<BacktestResponse>>(`${BASE_PATH}/run`, data);
-    if (!response.data.data) {
-        throw new Error('No data returned from backtest run');
-    }
-    return response.data.data;
+export interface BacktestRequest {
+  symbol: string;
+  timeframe: string;
+  strategy_params: Record<string, any>;
+  start_date: string; // ISO Date string
+  end_date: string;   // ISO Date string
+  initial_capital?: number;
+  fees?: number;
+  slippage?: number;
+  strategy_id?: string;
+  fund_id?: string;
 }
 
-export async function saveBacktestConfig(data: { name: string; description?: string; config: BacktestRequest }): Promise<BacktestConfig> {
-    const response = await apiClient.post<APIResponse<BacktestConfig>>(`${BASE_PATH}/configs`, data);
-    if (!response.data.data) throw new Error('Failed to save config');
-    return response.data.data;
+export interface TradeResult {
+  entry_time: string;
+  exit_time: string;
+  direction: string;
+  entry_price: number;
+  exit_price: number;
+  pnl: number;
+  pnl_percent: number;
 }
 
-export async function getBacktestConfigs(): Promise<BacktestConfig[]> {
-    const response = await apiClient.get<APIResponse<BacktestConfig[]>>(`${BASE_PATH}/configs`);
-    return response.data.data || [];
+export interface KeyMetrics {
+  total_return: number;
+  total_return_percent: number;
+  max_drawdown: number;
+  max_drawdown_percent: number;
+  win_rate: number;
+  benchmark_return?: number;
+  sharpe_ratio?: number;
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
 }
 
-export async function getBacktestHistory(page: number = 1, perPage: number = 20): Promise<PaginatedResponse<BacktestHistorySummary>> {
-    const response = await apiClient.get<PaginatedResponse<BacktestHistorySummary>>(`${BASE_PATH}/history`, {
-        params: { page, per_page: perPage }
-    });
-    return response.data;
+export interface EquityPoint {
+    timestamp: string;
+    value: number;
+}
+
+export interface BacktestResponse {
+  id: string;
+  status: string;
+  metrics?: KeyMetrics;
+  trades: TradeResult[];
+  equity_curve: EquityPoint[];
+  best_params?: Record<string, any>;
+}
+
+export async function runBacktest(payload: BacktestRequest): Promise<BacktestResponse> {
+  const response = await apiClient.post<BacktestResponse>('/api/v1/backtest/run', payload);
+  return response.data;
 }

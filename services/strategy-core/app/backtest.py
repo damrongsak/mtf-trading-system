@@ -67,7 +67,8 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
         entries,
         exits,
         init_cash=req.initial_capital,
-        fees=0.0001,
+        fees=req.fees,
+        slippage=req.slippage,
         freq=freq
     )
     
@@ -80,12 +81,17 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
             return default
         return float(val)
 
+    first_close = close_price.iloc[0] if len(close_price) > 0 else 1.0
+    last_close = close_price.iloc[-1] if len(close_price) > 0 else 1.0
+    benchmark_ret = (last_close - first_close) / first_close if first_close != 0 else 0.0
+
     metrics = BacktestMetrics(
-        total_return=get_val('Total Return [$]'), # checking vbt docs keys might vary, assuming standard
+        total_return=get_val('Total Return [$]'), 
         total_return_percent=get_val('Total Return [%]'),
         max_drawdown=get_val('Max Drawdown [$]'), 
         max_drawdown_percent=get_val('Max Drawdown [%]'),
         win_rate=get_val('Win Rate [%]'),
+        benchmark_return=float(benchmark_ret * 100), # Return as percentage
         sharpe_ratio=get_val('Sharpe Ratio'),
         total_trades=int(get_val('Total Trades')),
         winning_trades=int(get_val('Winning Trades')),

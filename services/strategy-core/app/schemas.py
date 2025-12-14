@@ -127,6 +127,8 @@ class BacktestRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     initial_capital: float = 10000.0
+    fees: float = 0.0001
+    slippage: float = 0.0001
     strategy_id: Optional[str] = None
     fund_id: Optional[str] = None
     trading_config_id: Optional[str] = None
@@ -147,6 +149,7 @@ class BacktestMetrics(BaseModel):
     max_drawdown: float
     max_drawdown_percent: float
     win_rate: float
+    benchmark_return: float = 0.0
     sharpe_ratio: Optional[float] = 0.0
     total_trades: int
     winning_trades: int
