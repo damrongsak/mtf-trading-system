@@ -118,8 +118,8 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
                     entry_time=row['Entry Timestamp'],
                     exit_time=row['Exit Timestamp'],
                     direction=row['Direction'],
-                    entry_price=float(row['Entry Price']),
-                    exit_price=float(row['Exit Price']),
+                    entry_price=float(row['Avg Entry Price']),
+                    exit_price=float(row['Avg Exit Price']),
                     pnl=float(row['PnL']),
                     pnl_percent=float(row['Return'] * 100)
                 ))

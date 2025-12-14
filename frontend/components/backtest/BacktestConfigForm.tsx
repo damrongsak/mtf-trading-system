@@ -11,7 +11,7 @@ interface BacktestConfigFormProps {
 }
 
 export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) {
-    const [symbol, setSymbol] = useState('XAU/USD');
+    const [symbol, setSymbol] = useState('XAU_USD');
     const [timeframe, setTimeframe] = useState('H1');
     const [startDate, setStartDate] = useState('2024-01-01');
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -60,10 +60,11 @@ export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) 
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="XAU/USD">XAU/USD</SelectItem>
-                                <SelectItem value="EUR/USD">EUR/USD</SelectItem>
-                                <SelectItem value="GBP/USD">GBP/USD</SelectItem>
-                                <SelectItem value="BTC/USD">BTC/USD</SelectItem>
+                                <SelectItem value="XAU_USD">XAU/USD (Gold)</SelectItem>
+                                <SelectItem value="EUR_USD">EUR/USD</SelectItem>
+                                <SelectItem value="GBP_USD">GBP/USD</SelectItem>
+                                <SelectItem value="USD_JPY">USD/JPY</SelectItem>
+                                <SelectItem value="BTC_USD">BTC/USD</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
