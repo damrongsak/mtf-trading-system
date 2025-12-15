@@ -217,6 +217,16 @@
         - Sidebar navigation link.
     - **Specs:** OpenAPI integration (`PaginatedResponse_TradeResponse`).
 
+### **17. Autonomous Strategy Bot (`services/strategy-core`)**
+- **Status:** ✅ Complete (2025-12-15)
+- **Features:** 
+    - **LiveRunner:** 24/7 background loop in `app/runner/live.py`.
+    - **Event-Driven Engine:** Reacts to real-time OANDA ticks via `PriceStreamer` broadcasting.
+    - **Core Logic (SMC):** Implemented Macro Bias (H4), Setup Zone (H1), and Trigger (M15) rules in `app/logic.py`.
+    - **MTF Resampling:** Dynamically resamples tick data to higher timeframes.
+    - **Control API:** `POST /strategies/{id}/start` and `/stop` endpoints.
+    - **Verification:** Unit tests for `LiveRunner` (mocked stream) and `Logic` (pure functions) passing.
+
 ---
 
 ## 🟡 In Progress / Partial

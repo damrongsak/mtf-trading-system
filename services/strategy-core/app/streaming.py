@@ -2,7 +2,8 @@ import v20
 import asyncio
 import json
 import logging
-from typing import List, AsyncGenerator
+import threading
+from typing import List, AsyncGenerator, Set
 from app.database import SessionLocal
 from sqlalchemy import func
 from app.models.data_source import DataSource
@@ -15,39 +16,32 @@ class PriceStreamer:
         self._ctx = None
         self._account_id = None
         self._configured = False
+        self._subscribers: Set[asyncio.Queue] = set()
+        self._is_streaming = False
+        self._stop_event = None
+        self._stream_thread = None
+        self._active_instruments: Set[str] = set()
 
     def _configure(self):
         """
         Load configuration from Database (DataSource table).
-        Assumes there is an 'oanda' data source.
         """
         logger.info("Entering _configure")
         if self._configured:
-            logger.info("PriceStreamer already configured")
             return
 
         db = SessionLocal()
         try:
-            # For now, hardcode looking for 'oanda' or taking the first one
-            # Query by name instead of ID (which is UUID)
             logger.info("Querying DataSource for 'oanda'...")
             ds = db.query(DataSource).filter(func.lower(DataSource.name) == 'oanda').first()
             if not ds:
-                # Fallback to env vars or raise error
                 logger.warning("No 'oanda' DataSource found in DB.")
-                # You might want to implement env var fallback here
                 return
 
             config = ds.config_json
             token = config.get("token")
             hostname = config.get("hostname", "stream-fxtrade.oanda.com")
-            logger.info(f"Loaded config. Hostname: {hostname}")
             
-            # Note: Streaming usually uses a different hostname (stream-fxpractice or stream-fxtrade)
-            # The OandaAdapter might use api-fxpractice. We need to ensure we use the STREAMING url.
-            # v20 Context might handle this if properly configured, or we pass hostname.
-            
-            # Allow override for streaming specifically
             streaming_hostname = config.get("streaming_hostname", hostname.replace("api", "stream"))
             logger.info(f"Using Streaming Hostname: {streaming_hostname}")
 
@@ -66,48 +60,71 @@ class PriceStreamer:
         finally:
             db.close()
 
-    async def stream(self, instruments: List[str]) -> AsyncGenerator[dict, None]:
+    async def subscribe(self) -> asyncio.Queue:
         """
-        Connect to OANDA stream and yield price updates.
+        Subscribe to price updates. Returns an asyncio.Queue.
+        """
+        queue = asyncio.Queue()
+        self._subscribers.add(queue)
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue):
+        if queue in self._subscribers:
+            self._subscribers.remove(queue)
+
+    async def _broadcast(self, data: dict):
+        for queue in list(self._subscribers):
+            try:
+                # Use put_nowait to avoid blocking if a consumer is slow
+                # If full, we might drop frames or block? 
+                # For prices, dropping old frames is better than blocking, 
+                # but asyncio.Queue is unbounded by default.
+                queue.put_nowait(data)
+            except Exception as e:
+                logger.error(f"Error broadcasting to subscriber: {e}")
+                self.unsubscribe(queue)
+
+    def start_streaming(self, instruments: List[str]):
+        """
+        Start the background stream thread if not already running.
+        Update active instruments if needed (requires restart of stream usually).
         """
         self._configure()
         if not self._ctx or not self._account_id:
-            logger.error("PriceStreamer not configured.")
-            # Yield a mock or heartbeat if configured fails, or just stop
+            logger.error("PriceStreamer not configured, cannot start.")
             return
 
-        logger.info(f"Starting stream for {instruments}")
-        
-        # OANDA v20 streaming is synchronous/blocking in some implementations or requires threading.
-        # However, we are in asyncio. 
-        # The v20 sample uses `response.parts()` which is a generator.
-        # We need to run the stream request in an executor/thread to not block the event loop,
-        # OR use a non-blocking request style. 
-        
-        # Since v20 library is synchronous, we'll wrap the iteration in a way that doesn't block entirely,
-        # but realistically, keeping a long-lived sync request open in an async handler is tricky.
-        # A better approach for fully async is using `aiohttp` directly to call the OANDA stream endpoint.
-        # But let's try to stick to v20 if possible or wrap it.
-        
-        # Actually, for robustness in this tech stack, implementing a direct async streamer 
-        # might be cleaner than wrestling with the synchronous v20 library inside FastAPI async.
-        # Let's write a simple async streamer using httpx/aiohttp principles but kept simple here.
-        # OR: Run the v20 stream in a separate thread and push to an asyncio.Queue.
-        
-        queue = asyncio.Queue()
-        loop = asyncio.get_event_loop()
+        new_instruments = set(instruments)
+        if self._is_streaming:
+            if new_instruments.issubset(self._active_instruments):
+                 # Already covering these instruments
+                 return
+            else:
+                # Need to restart with expanded list? 
+                # For simplicity in MVP, we might just restart or union.
+                # Let's union and restart.
+                self._active_instruments.update(new_instruments)
+                self.stop_streaming()
+                # Fallthrough to start
+        else:
+             self._active_instruments = new_instruments
 
-        stop_event = asyncio.Event()
+        logger.info(f"Starting OANDA stream for {self._active_instruments}")
+        self._stop_event = threading.Event()
+        self._is_streaming = True
+        
+        loop = asyncio.get_event_loop()
 
         def run_stream():
             try:
+                inst_list = ",".join([i.replace('/', '_') for i in self._active_instruments])
                 response = self._ctx.pricing.stream(
                     self._account_id,
-                    instruments=",".join([i.replace('/', '_') for i in instruments]),
+                    instruments=inst_list,
                     snapshot=True
                 )
                 for msg_type, msg in response.parts():
-                    if stop_event.is_set():
+                    if self._stop_event.is_set():
                         break
                         
                     if msg_type == "pricing.Heartbeat":
@@ -119,36 +136,44 @@ class PriceStreamer:
                             "type": "PRICE",
                             "instrument": msg.instrument,
                             "time": msg.time,
-                            "bid": float(msg.bids[0].price), # Top of book
-                            "ask": float(msg.asks[0].price), # Top of book
+                            "bid": float(msg.bids[0].price),
+                            "ask": float(msg.asks[0].price),
                             "status": msg.status
                         }
-                        # Threadsafe put
-                        # logger.info(f"OANDA Stream: Received {data['instrument']}") 
-                        asyncio.run_coroutine_threadsafe(queue.put(data), loop)
+                        # Threadsafe broadcast
+                        asyncio.run_coroutine_threadsafe(self._broadcast(data), loop)
             except Exception as e:
-                logger.error(f"Stream error: {e}")
-                asyncio.run_coroutine_threadsafe(queue.put({"type": "ERROR", "msg": str(e)}), loop)
+                logger.error(f"Stream thread error: {e}")
+                asyncio.run_coroutine_threadsafe(
+                    self._broadcast({"type": "ERROR", "msg": str(e)}), loop
+                )
+            finally:
+                logger.info("OANDA stream thread exited")
+                self._is_streaming = False
 
-        # Start stream in separate thread
-        import threading
-        stream_thread = threading.Thread(target=run_stream, daemon=True)
-        stream_thread.start()
+        self._stream_thread = threading.Thread(target=run_stream, daemon=True)
+        self._stream_thread.start()
 
+    def stop_streaming(self):
+        if self._is_streaming and self._stop_event:
+            self._stop_event.set()
+            # We can't join here if called from async loop, but daemon thread will die eventually
+            self._is_streaming = False
+            logger.info("Stop signal sent to stream thread")
+
+    async def stream(self, instruments: List[str]) -> AsyncGenerator[dict, None]:
+        """
+        Legacy/WebSocket compatible generator.
+        Manages its own subscription.
+        """
+        self.start_streaming(instruments)
+        queue = await self.subscribe()
         try:
             while True:
                 data = await queue.get()
-                if data.get("type") == "ERROR":
-                    logger.error(f"Stream received error: {data['msg']}")
-                    break
-                logger.info(f"Yielding price: {data.get('instrument')}")
                 yield data
-        except asyncio.CancelledError:
-            logger.info("Stream cancelled")
-            stop_event.set()
         finally:
-            stop_event.set()
-            # We can't easily kill the thread blocked on socket read without closing socket.
-            # v20 context doesn't expose easy abort. Ideally, we just let it die or restart.
+            self.unsubscribe(queue)
 
 price_streamer = PriceStreamer()
+

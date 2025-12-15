@@ -207,3 +207,26 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD
             await websocket.close()
         except:
             pass
+
+from app.engine import strategy_engine
+from app.runner.live import live_runner
+from app.schemas import ExecutionMode
+
+@app.post("/strategies/{strategy_id}/start")
+async def start_strategy_endpoint(strategy_id: str, config: dict):
+    # Ensure LiveRunner is active
+    await live_runner.start()
+    return await strategy_engine.start_strategy(strategy_id, config)
+
+@app.post("/strategies/{strategy_id}/stop")
+async def stop_strategy_endpoint(strategy_id: str):
+    return await strategy_engine.stop_strategy(strategy_id)
+
+@app.on_event("startup")
+async def startup_event():
+    # Optional: Auto-start runner if needed, or wait for first strategy
+    pass
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await live_runner.stop()
