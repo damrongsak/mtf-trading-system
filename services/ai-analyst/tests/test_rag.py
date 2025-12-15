@@ -1,0 +1,86 @@
+import pytest
+import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+from app.services.rag import RAGService
+from qdrant_client.http import models
+
+@pytest.fixture
+def mock_qdrant():
+    with patch("app.services.rag.QdrantClient") as mock_cls:
+        mock_instance = MagicMock()
+        mock_cls.return_value = mock_instance
+        yield mock_instance
+
+@pytest.fixture
+def mock_gemini():
+    mock = MagicMock()
+    # Mock the embedding call chain: client.aio.models.embed_content
+    mock_aio = MagicMock()
+    mock_models = MagicMock()
+    mock_embed = AsyncMock()
+    
+    mock.client.aio = mock_aio
+    mock_aio.models = mock_models
+    mock_models.embed_content = mock_embed
+    
+    # Default mock embedding return
+    mock_result = MagicMock()
+    mock_result.embedding = [0.1, 0.2, 0.3]
+    mock_embed.return_value = mock_result
+    
+    return mock
+
+@pytest.fixture
+def rag_service(mock_qdrant, mock_gemini):
+    with patch("app.services.rag.settings") as mock_settings:
+        mock_settings.QDRANT_HOST = "localhost"
+        mock_settings.QDRANT_PORT = 6333
+        return RAGService(gemini_client=mock_gemini)
+
+def test_init_ensures_collection(mock_qdrant):
+    # Setup: get_collection raises exception (simulating 404)
+    mock_qdrant.get_collection.side_effect = Exception("Not Found")
+    
+    with patch("app.services.rag.settings"):
+        RAGService()
+        
+    mock_qdrant.create_collection.assert_called_once()
+    args, kwargs = mock_qdrant.create_collection.call_args
+    assert kwargs['collection_name'] == "journal_entries"
+    assert kwargs['vectors_config'].size == 768
+
+@pytest.mark.asyncio
+async def test_ingest_journal_entry(rag_service, mock_gemini, mock_qdrant):
+    entry_id = "test-id-123"
+    content = "I felt FOMO."
+    
+    await rag_service.ingest_journal_entry(entry_id, content)
+    
+    # verify embedding call
+    mock_gemini.client.aio.models.embed_content.assert_called_once()
+    
+    # verify upsert
+    mock_qdrant.upsert.assert_called_once()
+    args, kwargs = mock_qdrant.upsert.call_args
+    assert kwargs['collection_name'] == "journal_entries"
+    points = kwargs['points']
+    assert len(points) == 1
+    assert points[0].payload['content'] == content
+    assert points[0].payload['original_id'] == entry_id
+
+@pytest.mark.asyncio
+async def test_search_similar_entries(rag_service, mock_gemini, mock_qdrant):
+    # Setup mock search result
+    mock_hit = MagicMock()
+    mock_hit.payload = {"content": "Old FOMO entry"}
+    mock_qdrant.search.return_value = [mock_hit]
+    
+    results = await rag_service.search_similar_entries("new query")
+    
+    assert len(results) == 1
+    assert results[0] == "Old FOMO entry"
+    
+    # Verify search params
+    mock_qdrant.search.assert_called_once()
+    args, kwargs = mock_qdrant.search.call_args
+    assert kwargs['limit'] == 3

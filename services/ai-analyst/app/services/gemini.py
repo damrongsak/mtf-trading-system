@@ -40,10 +40,21 @@ class GeminiClient:
         except Exception as e:
             return f"Error generating insight: {str(e)}"
 
-    async def analyze_journal_entry(self, entry_content: str, similar_entries: list) -> str:
+    async def analyze_journal_entry(self, entry_content: str, similar_entries: list = None) -> str:
         """
         Analyzes a journal entry and compares it with similar past entries to identify patterns.
+        If similar_entries is None, it attempts to fetch them via RAG.
         """
+        if similar_entries is None:
+            from app.services.rag import RAGService
+            rag = RAGService(self)
+            try:
+                similar_entries = await rag.search_similar_entries(entry_content)
+            except Exception as e:
+                # Fallback if RAG fails (e.g., connection issue)
+                similar_entries = []
+                print(f"RAG fetch failed: {e}")
+
         context_str = "\n".join([f"- {e}" for e in similar_entries])
         prompt = f"""
         Analyze this trading journal entry for psychological patterns and mistakes.
