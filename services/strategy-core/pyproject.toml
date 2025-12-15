@@ -7,7 +7,7 @@ dependencies = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
     "pandas>=2.1.4",
-    "vectorbt>=0.26.1",
+    "vectorbt[full]",
     "pydantic>=2.5.3",
     "numpy>=1.26.3",
     "sqlalchemy>=2.0.25",
