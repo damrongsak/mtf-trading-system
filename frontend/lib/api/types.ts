@@ -420,6 +420,8 @@ export interface BacktestRequest {
     start_date: string;
     end_date: string;
     initial_capital: number;
+    fees?: number;
+    slippage?: number;
 
     // Profile References
     strategy_id?: string;
@@ -447,6 +449,7 @@ export interface BacktestMetrics {
     max_drawdown_percent: number;
     win_rate: number;
     sharpe_ratio?: number;
+    benchmark_return?: number;
     total_trades: number;
     winning_trades: number;
     losing_trades: number;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BacktestResponse, TradeResult, KeyMetrics } from '@/lib/api/backtest';
+import { BacktestResponse } from '@/lib/api/backtest';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, DollarSign } from 'lucide-react';
 

@@ -49,6 +49,7 @@ export function OptimizationConfigForm({ onRun, loading }: OptimizationConfigFor
             strategy_params: {}, // Will be overridden by optimization grid
             optimization: {
                 method: "GRID",
+                target_metric: "sharpe_ratio",
                 param_grid: {
                     fast_window: fastWindows,
                     slow_window: slowWindows
