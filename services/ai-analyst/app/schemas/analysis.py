@@ -10,6 +10,7 @@ class MarketAnalysisRequest(BaseModel):
 class JournalAnalysisRequest(BaseModel):
     entry_content: str
     entry_id: Optional[str] = None
+    user_id: str # Required for RAG isolation
 
 class AnalysisResponse(BaseModel):
     insight: str

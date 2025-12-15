@@ -47,7 +47,7 @@ class RAGService:
             logger.error(f"Embedding failed: {e}")
             raise
 
-    async def ingest_journal_entry(self, entry_id: str, content: str, metadata: dict = None):
+    async def ingest_journal_entry(self, entry_id: str, content: str, user_id: str, metadata: dict = None):
         """Embed and upsert a journal entry."""
         embedding = await self._get_embedding(content)
         
@@ -57,6 +57,7 @@ class RAGService:
             payload={
                 "content": content,
                 "original_id": entry_id,
+                "user_id": user_id,
                 **(metadata or {})
             }
         )
@@ -65,15 +66,25 @@ class RAGService:
             collection_name=self.collection_name,
             points=[point]
         )
-        logger.info(f"Ingested journal entry {entry_id}")
+        logger.info(f"Ingested journal entry {entry_id} for user {user_id}")
 
-    async def search_similar_entries(self, query: str, limit: int = 3) -> list[str]:
-        """Search for semantically similar journal entries."""
+    async def search_similar_entries(self, query: str, user_id: str, limit: int = 3) -> list[str]:
+        """Search for semantically similar journal entries for a specific user."""
         embedding = await self._get_embedding(query)
         
+        search_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id)
+                )
+            ]
+        )
+
         search_result = self.qdrant.search(
             collection_name=self.collection_name,
             query_vector=embedding,
+            query_filter=search_filter,
             limit=limit
         )
         

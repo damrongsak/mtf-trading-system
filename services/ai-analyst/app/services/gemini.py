@@ -40,16 +40,19 @@ class GeminiClient:
         except Exception as e:
             return f"Error generating insight: {str(e)}"
 
-    async def analyze_journal_entry(self, entry_content: str, similar_entries: list = None) -> str:
+    async def analyze_journal_entry(self, entry_content: str, similar_entries: list = None, user_id: str = None) -> str:
         """
         Analyzes a journal entry and compares it with similar past entries to identify patterns.
-        If similar_entries is None, it attempts to fetch them via RAG.
+        If similar_entries is None, it attempts to fetch them via RAG (requires user_id).
         """
         if similar_entries is None:
+            if not user_id:
+                raise ValueError("user_id is required for RAG search")
+                
             from app.services.rag import RAGService
             rag = RAGService(self)
             try:
-                similar_entries = await rag.search_similar_entries(entry_content)
+                similar_entries = await rag.search_similar_entries(entry_content, user_id=user_id)
             except Exception as e:
                 # Fallback if RAG fails (e.g., connection issue)
                 similar_entries = []

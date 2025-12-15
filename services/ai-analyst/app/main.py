@@ -60,7 +60,7 @@ async def analyze_journal(request: JournalAnalysisRequest):
         except Exception:
             pass # Fail gracefully on RAG for now
 
-    insight = await gemini_client.analyze_journal_entry(request.entry_content, similar_entries)
+    insight = await gemini_client.analyze_journal_entry(request.entry_content, similar_entries, user_id=request.user_id)
     
     return AnalysisResponse(
         insight=insight,

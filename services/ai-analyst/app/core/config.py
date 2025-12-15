@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path="/home/dan/workspace/mtf-trading-system/services/ai-analyst/.env")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

@@ -50,11 +50,13 @@ def test_init_ensures_collection(mock_qdrant):
     assert kwargs['vectors_config'].size == 768
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_ingest_journal_entry(rag_service, mock_gemini, mock_qdrant):
     entry_id = "test-id-123"
     content = "I felt FOMO."
+    user_id = "user-1"
     
-    await rag_service.ingest_journal_entry(entry_id, content)
+    await rag_service.ingest_journal_entry(entry_id, content, user_id=user_id)
     
     # verify embedding call
     mock_gemini.client.aio.models.embed_content.assert_called_once()
@@ -67,6 +69,7 @@ async def test_ingest_journal_entry(rag_service, mock_gemini, mock_qdrant):
     assert len(points) == 1
     assert points[0].payload['content'] == content
     assert points[0].payload['original_id'] == entry_id
+    assert points[0].payload['user_id'] == user_id
 
 @pytest.mark.asyncio
 async def test_search_similar_entries(rag_service, mock_gemini, mock_qdrant):
@@ -75,7 +78,8 @@ async def test_search_similar_entries(rag_service, mock_gemini, mock_qdrant):
     mock_hit.payload = {"content": "Old FOMO entry"}
     mock_qdrant.search.return_value = [mock_hit]
     
-    results = await rag_service.search_similar_entries("new query")
+    user_id = "user-1"
+    results = await rag_service.search_similar_entries("new query", user_id=user_id)
     
     assert len(results) == 1
     assert results[0] == "Old FOMO entry"
@@ -84,3 +88,11 @@ async def test_search_similar_entries(rag_service, mock_gemini, mock_qdrant):
     mock_qdrant.search.assert_called_once()
     args, kwargs = mock_qdrant.search.call_args
     assert kwargs['limit'] == 3
+    
+    # Verify filter
+    query_filter = kwargs['query_filter']
+    assert query_filter is not None
+    # Depending on how the object is structured/mocked, we might not be able to deeply assert properties easily 
+    # without complex inspection, but we can verify it was passed.
+    # For now, simplistic check:
+    assert isinstance(query_filter, models.Filter)
