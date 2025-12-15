@@ -16,14 +16,39 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+from app.agents.market_observer import MarketObserverAgent
+from pydantic import BaseModel
+
+# ... imports ...
+
 # Initialize services (Lazy loading could be better, but simple for now)
 try:
     gemini_client = GeminiClient()
     rag_service = RAGService()
+    # Initialize Agent
+    market_observer = MarketObserverAgent()
 except Exception as e:
     print(f"Warning: Failed to initialize AI services: {e}")
     gemini_client = None
     rag_service = None
+    market_observer = None
+
+# ... existing endpoints ...
+
+class AgentRunRequest(BaseModel):
+    input_text: str = "Generate a market situation report for XAU/USD."
+
+@app.post("/agent/observer/run")
+async def run_observer_agent(request: AgentRunRequest):
+    if not market_observer:
+        raise HTTPException(status_code=503, detail="AI Agent unavailable")
+    
+    try:
+        report = await market_observer.run(request.input_text)
+        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health")
 def health_check():

@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Gemini
     GOOGLE_API_KEY: str
 
+    # Service URLs
+    STRATEGY_CORE_URL: str = "http://strategy-core:8000"
+    EXECUTION_SERVICE_URL: str = "http://execution:8000"
+
     # Qdrant
     QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333
