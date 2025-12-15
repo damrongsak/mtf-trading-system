@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2025-12-08
+**Last Updated:** 2025-12-15
 **Current Phase:** Phase 6 - Portfolio Management & Transaction Tracking
 
 ---
@@ -204,6 +204,19 @@
         - **Benchmark Comparison:** "Buy & Hold" return calculation.
         - API Endpoints: `POST /api/v1/backtest/run`.
 
+### **16. Trade History & Management**
+- **Status:** ✅ Complete (2025-12-15)
+- **Features:** 
+    - **Backend:** 
+        - `GET /api/v1/execution/trades` endpoint with pagination and filtering. 
+        - Oanda sync integration for open positions.
+    - **Frontend:** 
+        - Dedicated `/trades` page.
+        - `TradesTable` component with sorting/formatting.
+        - Advanced filtering: Date range, Status, Symbol search.
+        - Sidebar navigation link.
+    - **Specs:** OpenAPI integration (`PaginatedResponse_TradeResponse`).
+
 ---
 
 ## 🟡 In Progress / Partial
@@ -219,7 +232,7 @@
     - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
 - **Next Steps:**
     - **Backtest UI:** Complete (`/backtest`) with vectorbt integration.
-    - Connect to real API endpoints for Trades views.
+    - **Trade History:** Connected to real API (`/trades`).
 
 
 ---
@@ -237,6 +250,5 @@
 ## 📋 Immediate Next Actions (Prioritized)
 
 
-1.  **[Medium]** Connect Frontend to Real API for live data (replace mocks). (Specifically for Trades view)
-2.  **[Low]** Implement User Profile picture upload.
-3.  **[Low]** Clean up unused mock data files.
+1.  **[Low]** Implement User Profile picture upload.
+2.  **[Low]** Clean up unused mock data files.
