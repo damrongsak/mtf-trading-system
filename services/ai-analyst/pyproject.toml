@@ -3,7 +3,7 @@ name = "ai-analyst"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.124.0",
     "google-genai>=0.2.0",
@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "qdrant-client>=1.16.1",
     "uvicorn>=0.38.0",
+    "aiohttp>=3.9.0",
 ]
 
 [dependency-groups]

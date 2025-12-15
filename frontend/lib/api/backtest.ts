@@ -10,6 +10,10 @@ export interface BacktestRequest {
   initial_capital?: number;
   fees?: number;
   slippage?: number;
+  optimization?: {
+    method: string;
+    param_grid: Record<string, any>;
+  };
   strategy_id?: string;
   fund_id?: string;
 }

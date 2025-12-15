@@ -230,3 +230,60 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await live_runner.stop()
+
+# ==========================
+# Optimization Endpoints
+# ==========================
+
+from app.analysis.optimization import run_grid_search
+from app.analysis.monte_carlo import run_monte_carlo
+from app.schemas import OptimizationResponse, MonteCarloRequest, MonteCarloResponse
+
+@app.post("/backtest/optimize", response_model=OptimizationResponse)
+def run_optimization_endpoint(req: BacktestRequest):
+    try:
+        if not req.optimization or not req.optimization.param_grid:
+             raise HTTPException(status_code=400, detail="Optimization config required")
+             
+        # Fetch Data
+        adapter = OandaHistoryAdapter()
+        df = adapter.fetch_candles_range(
+             symbol=req.symbol,
+             timeframe=req.timeframe,
+             from_time=req.start_date,
+             to_time=req.end_date,
+             count=5000 # Increase limit for optimization
+        )
+        
+        if df.empty:
+            return OptimizationResponse(results=[])
+            
+        # Run Grid Search
+        results = run_grid_search(
+            data=df,
+            param_grid=req.optimization.param_grid,
+            capital=req.initial_capital,
+            fees=req.fees
+        )
+        
+        return OptimizationResponse(results=results)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/backtest/monte-carlo", response_model=MonteCarloResponse)
+def run_monte_carlo_endpoint(req: MonteCarloRequest):
+    try:
+        metrics = run_monte_carlo(req.trades, n_sims=req.iterations)
+        if not metrics:
+             raise HTTPException(status_code=400, detail="No valid trades for simulation")
+             
+        return MonteCarloResponse(
+            iterations=metrics["iterations"],
+            max_drawdown=metrics["max_drawdown"],
+            total_return=metrics["total_return"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

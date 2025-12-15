@@ -45,7 +45,7 @@ export default function TradesPage() {
                 symbol: debouncedSymbol || undefined
             });
             setTrades(response.data);
-            setTotalPages(response.meta.total_pages);
+            setTotalPages(response.meta?.total_pages || 1);
         } catch (error) {
             console.error("Failed to fetch trades:", error);
         } finally {
@@ -101,7 +101,7 @@ export default function TradesPage() {
                                 <SelectValue placeholder="Status" />
                             </div>
                         </SelectTrigger>
-                        <SelectContent className="bg-gray-900 border-gray-800 text-gray-200">
+                        <SelectContent>
                             <SelectItem value="ALL">All Status</SelectItem>
                             <SelectItem value="OPEN">Open</SelectItem>
                             <SelectItem value="CLOSED">Closed</SelectItem>

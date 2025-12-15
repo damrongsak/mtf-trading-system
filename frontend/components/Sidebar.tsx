@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Atom,
   ClipboardList,
+  Sliders,
 } from 'lucide-react';
 
 type NavItem = {
@@ -60,6 +61,7 @@ const navCategories: NavCategory[] = [
       { name: 'Transactions', href: '/transactions', icon: CreditCard },
       { name: 'History', href: '/trades', icon: ClipboardList },
       { name: 'Backtest', href: '/backtest', icon: FlaskConical },
+      { name: 'Optimization', href: '/optimization', icon: Sliders },
       { name: 'GRID Lab', href: '/simulation', icon: Atom },
     ],
   },

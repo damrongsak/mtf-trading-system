@@ -162,4 +162,25 @@ class BacktestResponse(BaseModel):
     trades: List[TradeResult] = []
     equity_curve: List[EquityPoint] = []
     best_params: Optional[Dict[str, Any]] = None
-    all_results: Optional[List[Dict[str, Any]]] = None
+class SensitivityMetrics(BaseModel):
+    p95: float
+    median: float
+    worst: Optional[float] = None
+    best: Optional[float] = None
+
+class MonteCarloResponse(BaseModel):
+    iterations: int
+    max_drawdown: SensitivityMetrics
+    total_return: SensitivityMetrics
+
+class MonteCarloRequest(BaseModel):
+    trades: List[Dict[str, Any]]
+    iterations: int = 1000
+
+class OptimizationResult(BaseModel):
+    params: Dict[str, Any]
+    metrics: Dict[str, float]
+
+class OptimizationResponse(BaseModel):
+    results: List[OptimizationResult]
+
