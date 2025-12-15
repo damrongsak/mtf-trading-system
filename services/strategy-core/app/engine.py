@@ -160,15 +160,22 @@ class StrategyEngine:
         
         if state.mode == ExecutionMode.AUTO:
             try:
+                # Safety Guardrail: Check if live trading is explicitly enabled via env var
+                live_trading_enabled = os.getenv("LIVE_TRADING_ENABLED", "false").lower() == "true"
+                
                 order_data = {
                     "symbol": state.symbol,
                     "units": 1000 if signal['direction'] == 'BULLISH' else -1000,
                     "type": "MARKET",
                     "generated_by": strategy_id
                 }
-                # await execution_client.place_order(order_data)
-                # logger.info(f"Executed AUTO order for {strategy_id}")
-                pass # Commented out safety for now, or ensure mock execution
+                
+                if live_trading_enabled:
+                    response = await execution_client.place_order(order_data)
+                    logger.info(f"Executed AUTO order for {strategy_id}: {response}")
+                else:
+                    logger.info(f"Skipping execution for {strategy_id}: LIVE_TRADING_ENABLED is False. Signal: {signal}")
+                    
             except Exception as e:
                 logger.error(f"Execution failed: {e}")
 

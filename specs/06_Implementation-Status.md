@@ -223,15 +223,22 @@
     - **LiveRunner:** 24/7 background loop in `app/runner/live.py`.
     - **Event-Driven Engine:** Reacts to real-time OANDA ticks via `PriceStreamer` broadcasting.
     - **Core Logic (SMC):** Implemented Macro Bias (H4), Setup Zone (H1), and Trigger (M15) rules in `app/logic.py`.
+    - **Execution Guardrail:** Enabled trade placement in `StrategyEngine` with strict `LIVE_TRADING_ENABLED` flag safety check.
     - **MTF Resampling:** Dynamically resamples tick data to higher timeframes.
     - **Control API:** `POST /strategies/{id}/start` and `/stop` endpoints.
-    - **Verification:** Unit tests for `LiveRunner` (mocked stream) and `Logic` (pure functions) passing.
 
 ---
 
 ## 🟡 In Progress / Partial
 
-### **1. Frontend (`frontend`)**
+### **1. AI Analyst (`services/ai-analyst`)**
+- **Status:** 🟡 Spec Defined, Client Pending
+- **Features:**
+    - **Spec:** `specs/03_ai_agent_spec.md` created, defining RAG + LangChain architecture.
+    - **Service:** Basic service structure exists.
+    - **Next:** Implement `GeminiClient` with `google-genai` and LangChain integration.
+
+### **2. Frontend (`frontend`)**
 - **Status:** ✅ Signals Connected, Core UI Implemented
 - **Completed:**
     - Next.js 16 + React 19 setup.
@@ -260,5 +267,7 @@
 ## 📋 Immediate Next Actions (Prioritized)
 
 
-1.  **[Low]** Implement User Profile picture upload.
-2.  **[Low]** Clean up unused mock data files.
+1.  **[High]** Fix regression tests in `services/strategy-core`.
+2.  **[High]** Implement AI Analyst Client (`services/ai-analyst`).
+3.  **[Low]** Implement User Profile picture upload.
+4.  **[Low]** Clean up unused mock data files.
