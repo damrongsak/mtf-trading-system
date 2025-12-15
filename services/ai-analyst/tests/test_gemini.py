@@ -62,7 +62,7 @@ async def test_generate_market_outlook_success(mock_settings, mock_genai_client)
     
     # Verify arguments
     _, kwargs = mock_genai_client.call_args
-    assert kwargs['model'] == 'gemini-1.5-pro-latest'
+    assert kwargs['model'] == 'gemini-1.5-pro'
     assert "Uptrend" in kwargs['contents']
     assert "2050.00" in kwargs['contents']
 
