@@ -172,16 +172,18 @@
     - **CORS:** Enabled `CORSMiddleware` to allow all origins.
 
 ### **13. AI Analyst (`services/ai-analyst`)**
-- **Status:** ✅ Complete (2025-12-08)
+- **Status:** ✅ Complete (2025-12-15)
 - **Features:**
     - **Service:** `GeminiClient` (migrated to `google-genai` SDK) and `RAGService` implemented.
     - **API:** `/analyze/market` and `/analyze/journal` endpoints.
+    - **Agent:** "Market Observer" Agent implemented using LangGraph and Tools.
+    - **RAG:** User-aware memory with Qdrant vector store.
     - **Gateway:** Proxy router `ai.py` linked.
-    - **Frontend:** `AIAnalystCard` integrated into Dashboard.
+    - **Frontend:** `AIAnalystCard` integrated into Dashboard with real-time markdown reports.
     - **CORS:** Configured `CORSMiddleware` to explicitly allow all origins.
     - **Model ID:** Updated Gemini model ID to `gemini-1.5-pro`.
-    - **Qdrant Config:** Added `QDRANT_GRPC_HTTPS` setting.
-    - **Unit Tests:** Implemented unit tests for `GeminiClient` with mocked dependencies.
+    - **Dependency:** Upgraded to Python 3.12 and LangChain 0.3+.
+    - **Unit Tests:** Verified Agent and RAG logic.
 
 ### **14. GRID Simulation Lab (`services/strategy-core`)**
 - **Status:** ✅ Completed (2025-12-07)
@@ -231,14 +233,7 @@
 
 ## 🟡 In Progress / Partial
 
-### **1. AI Analyst (`services/ai-analyst`)**
-- **Status:** 🟡 Spec Defined, Client Pending
-- **Features:**
-    - **Spec:** `specs/03_ai_agent_spec.md` created, defining RAG + LangChain architecture.
-    - **Service:** Basic service structure exists.
-    - **Next:** Implement `GeminiClient` with `google-genai` and LangChain integration.
-
-### **2. Frontend (`frontend`)**
+### **1. Frontend (`frontend`)**
 - **Status:** ✅ Signals Connected, Core UI Implemented
 - **Completed:**
     - Next.js 16 + React 19 setup.
@@ -247,10 +242,9 @@
     - **Layout:** Fixed Sidebar and Sticky Header implemented.
     - **Authentication:** `AuthContext` and Login Page (`/login`).
     - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
+    - **AI Analyst:** Real-time Market Observer integration (`AIAnalystCard`).
 - **Next Steps:**
-    - **Backtest UI:** Complete (`/backtest`) with vectorbt integration.
-    - **Trade History:** Connected to real API (`/trades`).
-
+    - **Mobile:** Responsive optimizations.
 
 ---
 
@@ -266,8 +260,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-
 1.  **[High]** Fix regression tests in `services/strategy-core`.
-2.  **[High]** Implement AI Analyst Client (`services/ai-analyst`).
-3.  **[Low]** Implement User Profile picture upload.
-4.  **[Low]** Clean up unused mock data files.
+2.  **[Low]** Implement User Profile picture upload.
+3.  **[Low]** Clean up unused mock data files.
