@@ -9,6 +9,7 @@ from app.models.trade import Trade, TradeStatus
 from app.utils.response import success_response
 from app.schemas.trade import TradeResponse
 from typing import Dict, Any, List
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -90,31 +91,72 @@ async def close_trade(
 @router.get("/trades")
 async def get_trades(
     status: str = "OPEN",
+    page: int = 1,
+    per_page: int = 20,
+    symbol: str = None,
+    from_date: str = None,
+    to_date: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get trades filtered by status.
+    Get trades filtered by status, symbol, and date range.
     """
     try:
-        # Convert string status to Enum
-        trade_status = TradeStatus[status.upper()]
+        query = db.query(Trade)
 
-        # Sync with Oanda if requesting OPEN trades
-        if trade_status == TradeStatus.OPEN:
+        # Status Filter
+        if status != "ALL":
             try:
-                oanda_trades = await execution_client.get_open_trades()
-                TradeService.sync_open_trades(db, oanda_trades, current_user)
-            except Exception as sync_err:
-                logger.error(f"Failed to sync Oanda trades: {sync_err}", exc_info=True)
-                # Continue to return local DB trades even if sync fails
+                trade_status = TradeStatus[status.upper()]
+                query = query.filter(Trade.status == trade_status)
+                
+                # Sync with Oanda if requesting OPEN trades
+                if trade_status == TradeStatus.OPEN:
+                    try:
+                        oanda_trades = await execution_client.get_open_trades()
+                        TradeService.sync_open_trades(db, oanda_trades, current_user)
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync Oanda trades: {sync_err}", exc_info=True)
+            except KeyError:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
-        trades = db.query(Trade).filter(Trade.status == trade_status).all()
-        # Convert SQLAlchemy models to Pydantic models
+        # Additional Filters
+        if symbol:
+            query = query.filter(Trade.symbol.ilike(f"%{symbol}%"))
+        
+        if from_date:
+            query = query.filter(Trade.signal_timestamp >= from_date)
+            
+        if to_date:
+            query = query.filter(Trade.signal_timestamp <= to_date)
+
+        # Pagination logic
+        total = query.count()
+        trades = query.order_by(Trade.signal_timestamp.desc())\
+                      .offset((page - 1) * per_page)\
+                      .limit(per_page)\
+                      .all()
+
         trades_response = [TradeResponse.model_validate(t) for t in trades]
-        return success_response(data=trades_response)
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+        
+        meta = {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": (total + per_page - 1) // per_page
+        }
+        
+        # Manually construct paginated response structure if helper not available or to match generic Response
+        return {
+            "status": "success",
+            "data": trades_response,
+            "meta": meta,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -378,6 +378,100 @@ paths:
                   message:
                     type: string
                     example: Ingestion job triggered in background
+  /api/v1/execution/trades:
+    get:
+      summary: List trades with filtering and pagination
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, CLOSED, REJECTED, ALL]
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_TradeResponse'
+  /api/v1/execution/trades/{trade_id}/close:
+    post:
+      summary: Manually close a trade
+      parameters:
+        - name: trade_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - exit_price
+              properties:
+                exit_price:
+                  type: number
+      responses:
+        '200':
+          description: Trade closed successfully
+          content:
+            application/json:
+              schema:
+                 type: object # Simplified response for MVP or define specific one
+    
+  /api/v1/execution/orders:
+    post:
+      summary: Place a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object # Simplify for now or look up OrderRequest
+      responses:
+        '200':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                 type: object
+
+  /api/v1/execution/account/summary:
+    get:
+      summary: Get account summary
+      responses:
+        '200':
+          description: Account summary
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
   schemas:
@@ -798,6 +892,101 @@ components:
           type: string
         meta:
           $ref: '#/components/schemas/Meta'
+        timestamp:
+          type: string
+          format: date-time
+
+    # --- Trade Schemas ---
+    TradeStatus:
+      type: string
+      enum: [OPEN, CLOSED, REJECTED]
+
+    TradeDirection:
+      type: string
+      enum: [LONG, SHORT]
+
+    TradeResponse:
+      type: object
+      required:
+        - trade_id
+        - symbol
+        - strategy_name
+        - signal_timestamp
+        - direction
+        - entry_price
+        - sl_price
+        - tp_price
+        - lot_size
+        - risk_usd
+        - status
+        - created_at
+        - updated_at
+      properties:
+        trade_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        strategy_name:
+          type: string
+        signal_timestamp:
+          type: string
+          format: date-time
+        direction:
+          $ref: '#/components/schemas/TradeDirection'
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        lot_size:
+          type: number
+        risk_usd:
+          type: number
+        status:
+          $ref: '#/components/schemas/TradeStatus'
+        pnl_usd:
+          type: number
+          nullable: true
+        exit_price:
+          type: number
+          nullable: true
+        exit_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        rejection_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PaginatedResponse_TradeResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        timestamp:
+          type: string
+          format: date-time
         rate_limit:
           $ref: '#/components/schemas/RateLimitInfo'
         timestamp:
