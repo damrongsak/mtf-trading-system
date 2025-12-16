@@ -6,12 +6,16 @@ import numpy as np
 from datetime import datetime
 from app.adapters.oanda_history import OandaHistoryAdapter
 from app.indicators import calculate_indicator
+import app.indicators
+print(f"DEBUG: app.indicators dir: {dir(app.indicators)}")
 
 @pytest.fixture
 def mock_oanda_adapter():
-    with patch('app.adapters.oanda_history.SessionLocal') as mock_db:
+    with patch('app.adapters.oanda_history.SessionLocal') as mock_db, \
+         patch('app.adapters.oanda.SessionLocal') as mock_db_parent:
         mock_session = MagicMock()
         mock_db.return_value = mock_session
+        mock_db_parent.return_value = mock_session
         
         # Mock DataSource query
         mock_ds = MagicMock()

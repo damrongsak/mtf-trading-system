@@ -101,8 +101,13 @@ def get_rsi(req: RSIRequest):
     try:
         close = pd.Series(req.close)
         rsi = calculate_rsi(close, window=req.window)
-        # Handle NaN/Inf
-        values = rsi.replace([np.inf, -np.inf], np.nan).where(pd.notnull(rsi), None).tolist()
+        # Handle NaN/Inf manually
+        values = []
+        for val in rsi:
+            if pd.isna(val) or np.isinf(val):
+                values.append(None)
+            else:
+                values.append(float(val))
         return IndicatorResponse(values=values)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -114,7 +119,13 @@ def get_macd(req: MACDRequest):
         macd_res = calculate_macd(close, fast=req.fast, slow=req.slow, signal=req.signal)
         
         def clean_series(s):
-            return s.replace([np.inf, -np.inf], np.nan).where(pd.notnull(s), None).tolist()
+            values = []
+            for val in s:
+                if pd.isna(val) or np.isinf(val):
+                    values.append(None)
+                else:
+                    values.append(float(val))
+            return values
             
         return MACDResponse(
             macd=clean_series(macd_res.macd),
@@ -131,7 +142,13 @@ def get_bbands(req: BBandsRequest):
         bb = calculate_bbands(close, window=req.window, alpha=req.alpha)
         
         def clean_series(s):
-            return s.replace([np.inf, -np.inf], np.nan).where(pd.notnull(s), None).tolist()
+            values = []
+            for val in s:
+                if pd.isna(val) or np.isinf(val):
+                    values.append(None)
+                else:
+                    values.append(float(val))
+            return values
             
         return BBandsResponse(
             upper=clean_series(bb.upper),

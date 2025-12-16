@@ -22,7 +22,7 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
     if has_volume:
         avg_volume = ohlc['volume'].rolling(window=20).mean()
 
-    for i in range(2, len(ohlc) - 1): # Need i+1 for confirmation sometimes, keeping simple for now
+    for i in range(2, len(ohlc)): # Process all candles including the last one
         prev_open = ohlc['open'].iloc[i-1]
         prev_close = ohlc['close'].iloc[i-1]
         curr_open = ohlc['open'].iloc[i]

@@ -32,11 +32,16 @@ def test_detect_bearish_ob():
     # Candle 1: Green (Up)
     # Candle 2: Red (Down) and Engulfing
     data = {
-        'open': [10, 10, 9, 11],
+        'open': [10, 10, 9.5, 12],
         'high': [11, 11, 11, 12],
         'low': [9, 9, 9, 8],
-        'close': [11, 11, 11, 9]
+        'close': [11, 11, 10.5, 8]
     }
+    # i=3
+    # prev (i=2): O=9.5, C=10.5. Body=1. Up.
+    # curr (i=3): O=12, C=8. Body=4. Down.
+    # curr_close (8) < prev_open (9.5) -> Engulfs
+    # curr_body (4) > prev_body (1) * 1.5 -> 4 > 1.5 -> True
     df = pd.DataFrame(data)
     
     # Logic:
@@ -49,8 +54,8 @@ def test_detect_bearish_ob():
     assert len(obs) == 1
     assert obs[0]['type'] == 'bearish'
     assert obs[0]['index'] == 2
-    assert obs[0]['top'] == 11
-    assert obs[0]['bottom'] == 9
+    assert obs[0]['top'] == 10.5
+    assert obs[0]['bottom'] == 9.5
 
 def test_detect_bullish_fvg():
     # Bullish FVG: Low[i] > High[i-2]

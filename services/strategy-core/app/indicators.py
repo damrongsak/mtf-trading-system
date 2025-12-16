@@ -41,17 +41,11 @@ def calculate_indicator(df: pd.DataFrame, strategy: str = "Common") -> pd.DataFr
     if strategy == "All":
         df.ta.strategy("All")
     elif strategy == "Common":
-        # Example common strategy
-        CustomStrategy = ta.Strategy(
-            name="MtfCommon",
-            ta=[
-                {"kind": "sma", "length": 50},
-                {"kind": "sma", "length": 200},
-                {"kind": "rsi"},
-                {"kind": "atr", "length": 14}
-            ]
-        )
-        df.ta.strategy(CustomStrategy)
+        # Example common strategy using direct calls
+        df.ta.sma(length=50, append=True)
+        df.ta.sma(length=200, append=True)
+        df.ta.rsi(append=True)
+        df.ta.atr(length=14, append=True)
     
     return df
 
