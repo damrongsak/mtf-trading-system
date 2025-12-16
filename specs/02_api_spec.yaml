@@ -259,6 +259,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /backtest/optimize:
+    post:
+      summary: Run an optimization job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequest'
+      responses:
+        '200':
+          description: Optimization results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse' # Reusing BacktestResponse for now as it contains best_params
+  /backtest/monte-carlo:
+    post:
+      summary: Run a Monte Carlo simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonteCarloRequest'
+      responses:
+        '200':
+          description: Monte Carlo results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonteCarloResponse'
   /backtest/results/{backtest_id}:
     get:
       summary: Get results of a specific backtest
@@ -781,6 +813,39 @@ components:
         timestamp:
           type: string
           format: date-time
+          
+    MonteCarloRequest:
+      type: object
+      properties:
+        trades:
+          type: array
+          items:
+            type: object
+        iterations:
+          type: integer
+          default: 1000
+
+    MonteCarloResponse:
+      type: object
+      properties:
+        iterations:
+          type: integer
+        max_drawdown:
+          $ref: '#/components/schemas/SensitivityMetrics'
+        total_return:
+          $ref: '#/components/schemas/SensitivityMetrics'
+
+    SensitivityMetrics:
+      type: object
+      properties:
+        p95:
+          type: number
+        median:
+          type: number
+        worst:
+          type: number
+        best:
+          type: number
 
     APIResponse_TransactionResponse:
       type: object

@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** 2025-12-15
+**Last Updated:** 2025-12-16
 **Current Phase:** Phase 6 - Portfolio Management & Transaction Tracking
 
 ---
@@ -193,18 +193,20 @@
     - **API:** `/api/v1/simulation` proxy endpoint.
 
 ### **15. Backtesting Engine (`services/strategy-core`)**
-- **Status:** ✅ Completed (2025-12-14)
+- **Status:** ✅ Completed (2025-12-16)
 - **Features:** 
     - **Frontend:** 
         - Dedicated `/backtest` page.
         - Configuration Form: Symbol, Timeframe, Dates, Capital, Fees, Slippage, JSON Params.
         - Results Dashboard: Equity Curve (Recharts), KPI Cards, Trade Log.
         - **Debug Console:** Real-time log panel (`DebugConsole.tsx`) for execution feedback.
+        - **Optimization:** Grid Search UI for parameter tuning.
     - **Backend:**
         - `run_historical_backtest` logic using `vectorbt`.
         - **Fee/Slippage Simulation:** Integrated precise cost modeling.
         - **Benchmark Comparison:** "Buy & Hold" return calculation.
-        - API Endpoints: `POST /api/v1/backtest/run`.
+        - **Optimization:** Grid Search (`optimization.py`) and Monte Carlo (`monte_carlo.py`) modules verified.
+        - API Endpoints: `POST /backtest/run`, `/optimize`, `/monte-carlo` (proxied via API Gateway).
 
 ### **16. Trade History & Management**
 - **Status:** ✅ Complete (2025-12-15)
@@ -260,6 +262,6 @@
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Fix regression tests in `services/strategy-core`.
+1.  **[High]** Verify end-to-end integration of Optimization features (once full stack is running).
 2.  **[Low]** Implement User Profile picture upload.
 3.  **[Low]** Clean up unused mock data files.
