@@ -21,6 +21,29 @@ class StrategyClient:
                 logger.error(f"Backtest request failed: {e}", exc_info=True)
                 raise
 
+    async def run_optimization(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Sending optimization request to {STRATEGY_CORE_URL}/backtest/optimize")
+                # Long timeout for optimization
+                resp = await client.post(f"{STRATEGY_CORE_URL}/backtest/optimize", json=req, timeout=300.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Optimization request failed: {e}", exc_info=True)
+                raise
+
+    async def run_monte_carlo(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Sending Monte Carlo request to {STRATEGY_CORE_URL}/backtest/monte-carlo")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/backtest/monte-carlo", json=req, timeout=60.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Monte Carlo request failed: {e}", exc_info=True)
+                raise
+
 class ExecutionClient:
     async def get_account_summary(self) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:

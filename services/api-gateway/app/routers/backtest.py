@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List, Optional
 from datetime import datetime
 import uuid
@@ -184,4 +184,28 @@ async def run_backtest(req: BacktestRequest, db: Session = Depends(get_db)):
         # Handle Failure
         history_entry.status = "FAILED"
         db.commit()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/optimize")
+async def run_optimization(req: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    Proxy optimization request to Strategy Core.
+    """
+    try:
+        # We accept a dict/Body to be flexible, or we could use the strict Optimization schemas
+        # Forward to Strategy Core
+        result = await strategy_client.run_optimization(req)
+        return success_response(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/monte-carlo")
+async def run_monte_carlo(req: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    Proxy Monte Carlo request to Strategy Core.
+    """
+    try:
+        result = await strategy_client.run_monte_carlo(req)
+        return success_response(data=result)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
