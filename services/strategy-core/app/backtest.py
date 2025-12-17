@@ -34,10 +34,11 @@ def fetch_data_from_db(symbol: str, timeframe: str, start_date: datetime, end_da
 
     if df.empty:
         return pd.DataFrame()
-        
+    
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
     return df
+
 
 def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # 1. Fetch Data
