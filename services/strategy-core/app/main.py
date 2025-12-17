@@ -1,13 +1,28 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse
-from app.indicators import calculate_ema, calculate_atr
+from app.schemas import (
+    IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
+    RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse,
+    SMCRequest, SMCResponse, SimulationRequest, SimulationResponse,
+    OptimizationResponse, MonteCarloRequest, MonteCarloResponse
+)
+from app.indicators import (
+    calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
+)
 from app.backtest import run_historical_backtest
+from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps
+from app.simulation import run_grid_simulation_logic
+from app.analysis.optimization import run_grid_search
+from app.analysis.monte_carlo import run_monte_carlo
+from app.streaming import price_streamer
+from app.engine import strategy_engine
+from app.runner.live import live_runner
+from app.adapters.oanda_history import OandaHistoryAdapter
 import pandas as pd
 import numpy as np
 from typing import Optional
 from datetime import datetime
-from app.adapters.oanda_history import OandaHistoryAdapter
+import traceback
 
 app = FastAPI(title="Strategy Core Service")
 
@@ -19,11 +34,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Router definition ---
+router = APIRouter(prefix="/api/v1")
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "strategy-core"}
 
-@app.get("/market/candles")
+@router.get("/health")
+def health_check_v1():
+    return {"status": "ok", "service": "strategy-core"}
+
+@router.get("/market/candles")
 def get_candles(
     symbol: str, 
     timeframe: str, 
@@ -53,8 +75,7 @@ def get_candles(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/calculate/ema", response_model=IndicatorResponse)
+@router.post("/calculate/ema", response_model=IndicatorResponse)
 def get_ema(req: IndicatorRequest):
     try:
         data = pd.Series(req.data)
@@ -66,7 +87,7 @@ def get_ema(req: IndicatorRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/calculate/atr", response_model=IndicatorResponse)
+@router.post("/calculate/atr", response_model=IndicatorResponse)
 def get_atr(req: ATRRequest):
     try:
         high = pd.Series(req.high)
@@ -93,15 +114,11 @@ def get_atr(req: ATRRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from app.schemas import RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse
-from app.indicators import calculate_rsi, calculate_macd, calculate_bbands
-
-@app.post("/calculate/rsi", response_model=IndicatorResponse)
+@router.post("/calculate/rsi", response_model=IndicatorResponse)
 def get_rsi(req: RSIRequest):
     try:
         close = pd.Series(req.close)
         rsi = calculate_rsi(close, window=req.window)
-        # Handle NaN/Inf manually
         values = []
         for val in rsi:
             if pd.isna(val) or np.isinf(val):
@@ -112,7 +129,7 @@ def get_rsi(req: RSIRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/calculate/macd", response_model=MACDResponse)
+@router.post("/calculate/macd", response_model=MACDResponse)
 def get_macd(req: MACDRequest):
     try:
         close = pd.Series(req.close)
@@ -135,7 +152,7 @@ def get_macd(req: MACDRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/calculate/bbands", response_model=BBandsResponse)
+@router.post("/calculate/bbands", response_model=BBandsResponse)
 def get_bbands(req: BBandsRequest):
     try:
         close = pd.Series(req.close)
@@ -158,10 +175,7 @@ def get_bbands(req: BBandsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from app.schemas import SMCRequest, SMCResponse
-from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps
-
-@app.post("/calculate/smc", response_model=SMCResponse)
+@router.post("/calculate/smc", response_model=SMCResponse)
 def get_smc(req: SMCRequest):
     try:
         data = {
@@ -188,27 +202,21 @@ def get_smc(req: SMCRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from app.schemas import SimulationRequest, SimulationResponse
-from app.simulation import run_grid_simulation_logic
-
-@app.post("/simulate", response_model=SimulationResponse)
+@router.post("/simulate", response_model=SimulationResponse)
 def run_simulation(req: SimulationRequest):
     try:
         return run_grid_simulation_logic(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/backtest", response_model=BacktestResponse)
+@router.post("/backtest", response_model=BacktestResponse)
 def run_backtest_endpoint(req: BacktestRequest):
     try:
         return run_historical_backtest(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from fastapi import WebSocket, WebSocketDisconnect, Query
-from app.streaming import price_streamer
-
-@app.websocket("/ws/prices")
+@router.websocket("/ws/prices")
 async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD,XAU_USD")):
     await websocket.accept()
     try:
@@ -225,51 +233,29 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD
         except:
             pass
 
-from app.engine import strategy_engine
-from app.runner.live import live_runner
-from app.schemas import ExecutionMode
-
-@app.post("/strategies/{strategy_id}/start")
+@router.post("/strategies/{strategy_id}/start")
 async def start_strategy_endpoint(strategy_id: str, config: dict):
     # Ensure LiveRunner is active
     await live_runner.start()
     return await strategy_engine.start_strategy(strategy_id, config)
 
-@app.post("/strategies/{strategy_id}/stop")
+@router.post("/strategies/{strategy_id}/stop")
 async def stop_strategy_endpoint(strategy_id: str):
     return await strategy_engine.stop_strategy(strategy_id)
 
-@app.on_event("startup")
-async def startup_event():
-    # Optional: Auto-start runner if needed, or wait for first strategy
-    pass
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await live_runner.stop()
-
-# ==========================
-# Optimization Endpoints
-# ==========================
-
-from app.analysis.optimization import run_grid_search
-from app.analysis.monte_carlo import run_monte_carlo
-from app.schemas import OptimizationResponse, MonteCarloRequest, MonteCarloResponse
-
-@app.post("/backtest/optimize", response_model=OptimizationResponse)
+@router.post("/backtest/optimize", response_model=OptimizationResponse)
 def run_optimization_endpoint(req: BacktestRequest):
     try:
         if not req.optimization or not req.optimization.param_grid:
              raise HTTPException(status_code=400, detail="Optimization config required")
              
-        # Fetch Data
-        adapter = OandaHistoryAdapter()
-        df = adapter.fetch_candles_range(
+        # Fetch Data from DB
+        from app.backtest import fetch_data_from_db
+        df = fetch_data_from_db(
              symbol=req.symbol,
              timeframe=req.timeframe,
-             from_time=req.start_date,
-             to_time=req.end_date,
-             count=5000 # Increase limit for optimization
+             start_date=req.start_date,
+             end_date=req.end_date
         )
         
         if df.empty:
@@ -286,9 +272,11 @@ def run_optimization_endpoint(req: BacktestRequest):
         return OptimizationResponse(results=results)
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/backtest/monte-carlo", response_model=MonteCarloResponse)
+@router.post("/backtest/monte-carlo", response_model=MonteCarloResponse)
 def run_monte_carlo_endpoint(req: MonteCarloRequest):
     try:
         metrics = run_monte_carlo(req.trades, n_sims=req.iterations)
@@ -304,3 +292,14 @@ def run_monte_carlo_endpoint(req: MonteCarloRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+app.include_router(router)
+
+@app.on_event("startup")
+async def startup_event():
+    # Optional: Auto-start runner if needed, or wait for first strategy
+    pass
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await live_runner.stop()

@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime
 import vectorbt as vbt
 import numpy as np
 from sqlalchemy import text
@@ -7,11 +8,8 @@ from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, Trad
 from app.strategy import get_strategy
 from uuid import uuid4
 
-def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
-    # 1. Fetch Data
-    # Note: We cast symbols to match DB format if needed. 
-    # For now assume req.symbol matches DB.
-    
+
+def fetch_data_from_db(symbol: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     query = text("""
         SELECT timestamp, open, high, low, close, volume 
         FROM candles 
@@ -25,22 +23,25 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     try:
         with engine.connect() as conn:
             df = pd.read_sql(query, conn, params={
-                "symbol": req.symbol,
-                "timeframe": req.timeframe,
-                "start_date": req.start_date,
-                "end_date": req.end_date
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "start_date": start_date,
+                "end_date": end_date
             })
     except Exception as e:
-        # Fallback for connection errors or schema issues
         print(f"DB Error: {e}")
-        return _empty_response(status="FAILED")
+        return pd.DataFrame()
 
     if df.empty:
-        return _empty_response()
+        return pd.DataFrame()
         
-    # Set index
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
+    return df
+
+def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
+    # 1. Fetch Data
+    df = fetch_data_from_db(req.symbol, req.timeframe, req.start_date, req.end_date)
     
     # 2. Strategy Logic
     strategy_name = req.strategy_params.get("name", "ma_crossover")

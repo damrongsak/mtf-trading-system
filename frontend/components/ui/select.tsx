@@ -39,7 +39,7 @@ export const Select: React.FC<SelectProps> = ({ value, onValueChange, children }
 
   return (
     <SelectContext.Provider value={{ value, onValueChange, open, setOpen, label, setLabel }}>
-      <div className="relative inline-block text-left" ref={ref}>
+      <div className="relative w-full text-left" ref={ref}>
         {children}
       </div>
     </SelectContext.Provider>
@@ -70,14 +70,15 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({ className, childre
 
 interface SelectValueProps {
   placeholder?: string;
+  children?: React.ReactNode;
 }
 
-export const SelectValue: React.FC<SelectValueProps> = ({ placeholder }) => {
+export const SelectValue: React.FC<SelectValueProps> = ({ placeholder, children }) => {
   const context = useContext(SelectContext);
   if (!context) throw new Error("SelectValue must be used within a Select");
   const { label } = context;
   
-  return <span className="block truncate">{label || placeholder}</span>;
+  return <span className="block truncate">{label || children || placeholder}</span>;
 };
 
 export const SelectContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {

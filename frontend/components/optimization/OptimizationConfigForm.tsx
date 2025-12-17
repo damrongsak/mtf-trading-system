@@ -28,6 +28,21 @@ export function OptimizationConfigForm({ onRun, loading }: OptimizationConfigFor
     const [slowEnd, setSlowEnd] = useState(200);
     const [slowStep, setSlowStep] = useState(50);
 
+    const SYMBOLS = [
+        { value: "XAU_USD", label: "XAU/USD (Gold)" },
+        { value: "EUR_USD", label: "EUR/USD" },
+        { value: "GBP_USD", label: "GBP/USD" },
+    ];
+
+    const TIMEFRAMES = [
+        { value: "M1", label: "M1 (1 Minute)" },
+        { value: "M5", label: "M5 (5 Minutes)" },
+        { value: "M15", label: "M15 (15 Minutes)" },
+        { value: "H1", label: "H1 (1 Hour)" },
+        { value: "H4", label: "H4 (4 Hours)" },
+        { value: "D1", label: "D1 (1 Day)" },
+    ];
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -72,13 +87,27 @@ export function OptimizationConfigForm({ onRun, loading }: OptimizationConfigFor
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Symbol</label>
                         <Select value={symbol} onValueChange={setSymbol}>
-                            <SelectTrigger>
-                                <SelectValue />
+                            <SelectTrigger className="w-full">
+                                <SelectValue>{SYMBOLS.find(s => s.value === symbol)?.label}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="XAU_USD">XAU/USD (Gold)</SelectItem>
-                                <SelectItem value="EUR_USD">EUR/USD</SelectItem>
-                                <SelectItem value="GBP_USD">GBP/USD</SelectItem>
+                                {SYMBOLS.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Timeframe</label>
+                        <Select value={timeframe} onValueChange={setTimeframe}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue>{TIMEFRAMES.find(t => t.value === timeframe)?.label}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {TIMEFRAMES.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

@@ -33,10 +33,78 @@ class OandaHistoryAdapter(OandaAdapter):
         Fetch candles from Oanda for a specific range or count.
         Returns a DataFrame compatible with strategy/indicator logic.
         """
+        if from_time and to_time:
+            all_candles = []
+            current_start = from_time
+            
+            while True:
+                kwargs = {
+                    "instrument": symbol,
+                    "granularity": timeframe,
+                    "price": "M",
+                    "fromTime": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "count": 2500, # Reduced from 5000 to be safe
+                    "includeFirst": current_start == from_time 
+                }
+                print(f"DEBUG: Fetching candles with kwargs: {kwargs}")
+                
+                response = self.ctx.instrument.candles(**kwargs)
+                if response.status != 200:
+                    raise Exception(f"Oanda API Error: {response.body}")
+                
+                candles = response.get("candles", 200)
+                if not candles:
+                    break
+                    
+                batch_data = []
+                for c in candles:
+                    if c.complete:
+                        ts = pd.to_datetime(c.time)
+                        # Stop if we exceeded to_time
+                        if ts > to_time:
+                            break
+                        
+                        batch_data.append({
+                            "timestamp": ts,
+                            "open": float(c.mid.o),
+                            "high": float(c.mid.h),
+                            "low": float(c.mid.l),
+                            "close": float(c.mid.c),
+                            "volume": float(c.volume)
+                        })
+                
+                if not batch_data:
+                    break
+                    
+                all_candles.extend(batch_data)
+                
+                last_candle_time = batch_data[-1]["timestamp"]
+                
+                # Check termination conditions
+                if last_candle_time >= to_time:
+                    break
+                    
+                if len(candles) < 5000:
+                    # No more data available from Oanda
+                    break
+                    
+                # Setup next iteration
+                current_start = last_candle_time
+
+            if not all_candles:
+                return pd.DataFrame()
+                
+            df = pd.DataFrame(all_candles)
+            df.set_index("timestamp", inplace=True)
+            # Deduplicate just in case
+            df = df[~df.index.duplicated(keep='first')]
+            return df
+
+        # Fallback for non-range requests (e.g. just count, or just from)
         kwargs = {
             "instrument": symbol,
             "granularity": timeframe,
-            "price": "M"  # Midpoint candles
+            "price": "M"
         }
         
         if from_time:

@@ -13,8 +13,8 @@ class StrategyClient:
         async with httpx.AsyncClient() as client:
             # Pass timeout for long running backtests
             try:
-                logger.info(f"Sending backtest request to {STRATEGY_CORE_URL}/backtest")
-                resp = await client.post(f"{STRATEGY_CORE_URL}/backtest", json=req, timeout=120.0)
+                logger.info(f"Sending backtest request to {STRATEGY_CORE_URL}/api/v1/backtest")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest", json=req, timeout=120.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -24,9 +24,9 @@ class StrategyClient:
     async def run_optimization(self, req: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                logger.info(f"Sending optimization request to {STRATEGY_CORE_URL}/backtest/optimize")
+                logger.info(f"Sending optimization request to {STRATEGY_CORE_URL}/api/v1/backtest/optimize")
                 # Long timeout for optimization
-                resp = await client.post(f"{STRATEGY_CORE_URL}/backtest/optimize", json=req, timeout=300.0)
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/optimize", json=req, timeout=300.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -36,8 +36,8 @@ class StrategyClient:
     async def run_monte_carlo(self, req: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                logger.info(f"Sending Monte Carlo request to {STRATEGY_CORE_URL}/backtest/monte-carlo")
-                resp = await client.post(f"{STRATEGY_CORE_URL}/backtest/monte-carlo", json=req, timeout=60.0)
+                logger.info(f"Sending Monte Carlo request to {STRATEGY_CORE_URL}/api/v1/backtest/monte-carlo")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/monte-carlo", json=req, timeout=60.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:

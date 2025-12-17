@@ -21,13 +21,15 @@ router = APIRouter()
 @router.post("/ingest/manual", status_code=202)
 async def trigger_ingestion(
     background_tasks: BackgroundTasks,
-    symbol: Optional[str] = Query(None, description="Optional symbol to ingest (e.g., EUR_USD)")
+    symbol: Optional[str] = Query(None, description="Optional symbol to ingest (e.g., EUR_USD)"),
+    from_date: Optional[datetime] = Query(None, description="Start date for backfill (ISO format)"),
+    to_date: Optional[datetime] = Query(None, description="End date for backfill (ISO format)")
 ):
     """
     Manually trigger the data ingestion job in the background.
     """
     symbols = [symbol] if symbol else None
-    background_tasks.add_task(run_ingestion_job, symbols)
+    background_tasks.add_task(run_ingestion_job, symbols, from_date, to_date)
     return {"message": "Ingestion job triggered in background"}
 
 @router.post("/upload", status_code=201)
