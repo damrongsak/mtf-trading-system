@@ -99,6 +99,7 @@ export interface UserResponse {
     username: string;
     email: string;
     is_active: boolean;
+    avatar_url?: string;
 }
 
 export interface User {

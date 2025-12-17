@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { updateProfile, changePassword } from '@/lib/api';
+import { updateProfile, changePassword, uploadAvatar } from '@/lib/api';
+import { Camera } from 'lucide-react';
 
 export function ProfileSection() {
   const { user, setUser } = useAuth();
@@ -20,6 +21,30 @@ export function ProfileSection() {
   const [confirmPassword, setConfirmPassword] = useState('');
   
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (e.g. 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'File size must be less than 2MB' });
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const updatedUser = await uploadAvatar(file);
+      setUser(updatedUser);
+      setMessage({ type: 'success', text: 'Avatar uploaded successfully!' });
+    } catch (error) {
+       setMessage({ type: 'error', text: (error as Error).message || 'Failed to upload avatar' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +115,43 @@ export function ProfileSection() {
               Edit Profile
             </button>
           )}
+        </div>
+
+        {/* Avatar Section */}
+        <div className="flex items-center gap-6 mb-8 pb-8 border-b border-gray-800">
+           <div className="relative group">
+              <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-gray-700">
+                 {user?.avatar_url ? (
+                   <img 
+                      src={user.avatar_url} 
+                      alt={user.username} 
+                      className="w-full h-full object-cover"
+                   />
+                 ) : (
+                   <span className="text-3xl font-bold text-gray-500">
+                      {user?.username?.charAt(0).toUpperCase()}
+                   </span>
+                 )}
+              </div>
+              
+              <label className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700 transition-colors shadow-lg">
+                 <Camera size={16} className="text-white" />
+                 <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={isSaving}
+                 />
+              </label>
+           </div>
+           <div>
+              <h3 className="text-lg font-medium text-white mb-1">Profile Picture</h3>
+              <p className="text-sm text-gray-400">
+                 Click the camera icon to upload. <br/>
+                 Max size 2MB. formats: JPG, PNG.
+              </p>
+           </div>
         </div>
 
         {!isEditing ? (

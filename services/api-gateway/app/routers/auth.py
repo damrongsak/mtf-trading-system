@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import shutil
+from pathlib import Path
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_fund import User
@@ -30,6 +32,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_active: bool
+    avatar_url: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -145,6 +148,58 @@ async def update_user_profile(
     return success_response(
         data=UserResponse.model_validate(current_user),
         message="Profile updated successfully"
+    )
+
+@router.post("/profile/avatar", response_model=APIResponse[UserResponse])
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a profile picture for the current user
+    """
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image"
+        )
+    
+    # Create upload directory if not exists
+    upload_dir = Path("/app/static/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate filename (user_id + uuid + ext)
+    file_extension = Path(file.filename).suffix
+    filename = f"{current_user.id}_{uuid.uuid4()}{file_extension}"
+    file_path = upload_dir / filename
+    
+    # Save file
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+         raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not save file: {str(e)}"
+        )
+    finally:
+        file.file.close()
+        
+    # Update user profile
+    # URL path to be served
+    avatar_url = f"/static/uploads/{filename}"
+    
+    # Remove old avatar if exists? (Optional enhancement)
+    
+    current_user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(current_user)
+    
+    return success_response(
+        data=UserResponse.model_validate(current_user),
+        message="Avatar uploaded successfully"
     )
 
 @router.put("/password")

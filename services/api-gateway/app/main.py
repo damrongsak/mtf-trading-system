@@ -3,6 +3,7 @@ import yaml
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis
 # ... (existing code)
 from app.schemas.response import ErrorCode
@@ -57,6 +58,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="/app/static"), name="static")
 
 # Include Routers
 app.include_router(auth.router)

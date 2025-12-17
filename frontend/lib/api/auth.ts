@@ -94,3 +94,25 @@ export async function changePassword(oldPassword: string, newPassword: string): 
         new_password: newPassword,
     });
 }
+
+/**
+ * Upload user avatar
+ * @param file - Image file to upload
+ * @returns Updated user profile
+ */
+export async function uploadAvatar(file: File): Promise<UserResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiClient.post<APIResponse<UserResponse>>('/api/v1/auth/profile/avatar', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from avatar upload endpoint');
+    }
+
+    return response.data.data;
+}

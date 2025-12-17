@@ -43,10 +43,14 @@ export const ProfileDropdown = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950"
+        className={`flex items-center justify-center w-8 h-8 rounded-full ${!user.avatar_url ? 'bg-blue-600' : ''} text-white font-bold text-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-950 overflow-hidden`}
         aria-label="User menu"
       >
-        {initial}
+        {user.avatar_url ? (
+           <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
+        ) : (
+           initial
+        )}
       </button>
 
       {isOpen && (

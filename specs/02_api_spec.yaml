@@ -98,6 +98,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/profile/avatar:
+    post:
+      summary: Upload user avatar
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
   /api/v1/settings/preferences:
     get:
       summary: Get current user preferences
