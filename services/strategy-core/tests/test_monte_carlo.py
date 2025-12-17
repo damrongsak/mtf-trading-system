@@ -1,43 +1,46 @@
 import pytest
-import numpy as np
 from app.analysis.monte_carlo import run_monte_carlo
 
-def test_run_monte_carlo_empty():
-    res = run_monte_carlo([], 100)
-    assert res == {}
+def test_monte_carlo_empty_trades():
+    results = run_monte_carlo([])
+    assert results == {}
 
-def test_run_monte_carlo_basic():
-    # Mock trades with returns
+def test_monte_carlo_basic_flow():
+    # Mock trades: 10 wins of 1%, 10 losses of -0.5%
+    trades = []
+    for _ in range(10):
+        trades.append({"return_pct": 0.01})
+        trades.append({"return_pct": -0.005})
+    
+    # Run simulation
+    metrics = run_monte_carlo(trades, n_sims=100)
+    
+    assert "iterations" in metrics
+    assert metrics["iterations"] == 100
+    assert "max_drawdown" in metrics
+    assert "total_return" in metrics
+    
+    # Verify structure
+    assert "p95" in metrics["max_drawdown"]
+    assert "median" in metrics["max_drawdown"]
+    assert "worst" in metrics["max_drawdown"]
+    
+    # Logic checks
+    # Total return expected: (1.01^10 * 0.995^10) - 1 approx 0.05
+    # P95/Median should not be none/inf
+    assert metrics["total_return"]["median"] is not None
+
+def test_monte_carlo_pnl_fallback():
+    # Test fallback calculation if return_pct missing
     trades = [
-        {'return_pct': 0.05},
-        {'return_pct': -0.02},
-        {'return_pct': 0.03},
-        {'return_pct': -0.01},
-        {'return_pct': 0.10}
+        {"pnl": 100, "entry_price": 1000, "lot": 0.1}, # 100 / (1000 * 0.1 * 100000) ? No, lot size usually 100k units
+        # Wait, implementation uses: (pnl) / (entry_price * lot * 100000)
+        # 100 / (1000 * 0.1 * 100000) = 100 / 10,000,000 = 0.00001 (very small)
+        # Let's adjust to be realistic: 1 Lot = 100k
+        # PnL $1000 on 1 Lot EURUSD (price 1.0) -> 100 pips -> 1% move?
+        # 1000 / (1.0 * 1.0 * 100000) = 0.01 = 1%
+        {"pnl": 1000, "entry_price": 1.0, "lot": 1.0}
     ]
     
-    res = run_monte_carlo(trades, n_sims=50)
-    
-    assert res["iterations"] == 50
-    assert "max_drawdown" in res
-    assert "total_return" in res
-    
-    # Check logic: Median return should be vaguely consistent with sum/product of returns
-    # But shuffling preserves the set, so Final Return should be Identical for all simulations?
-    # Wait, Monte Carlo Resampling (Bootstrap) uses Replacement.
-    # My implementation used Permutation (No Replacement).
-    # If using Permutation (shuffling order), Final Return is ALWAYS the same (product of factors is commutative).
-    # Only Drawdown changes.
-    # If I want to test Return distribution, I MUST use Bootstrap (Random Choice with Replacement).
-    
-    # Let's verify what I implemented in monte_carlo.py.
-    # I used `rng.permutation(returns_array)`. This is without replacement.
-    # So `final_return` will be identical for all runs (floating point errors aside).
-    # The `total_return` confidence interval will be flat.
-    # This is fine for Sequence Risk analysis (Drawdown), but useless for Return analysis.
-    # I should switch to Bootstrap in the implementation if I want Return variance.
-    # Update: The PRD asked for "Stress-test strategies using randomized trade sequences". Permutation does this.
-    # "curve fitting analysis" usually implies Bootstrap.
-    # Let's stick to Permutation for now as it tests "what if the order was different".
-    
-    assert "p95" in res["max_drawdown"]
+    metrics = run_monte_carlo(trades, n_sims=50)
+    assert metrics["iterations"] == 50
