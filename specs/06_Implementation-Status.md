@@ -271,7 +271,9 @@
 
 ---
 
+
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** Verify end-to-end integration of Optimization features (once full stack is running).
-2.  **[Low]** Clean up unused mock data files.
+1.  **[High]** Validate `specs/01_data_model.yaml` against current implementation.
+2.  **[Medium]** Mobile responsiveness for Frontend.
+
