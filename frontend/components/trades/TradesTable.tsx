@@ -56,9 +56,9 @@ export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => 
           <TableRow className="hover:bg-transparent border-gray-800">
             <TableHead className="w-[180px]">Time</TableHead>
             <TableHead>Symbol</TableHead>
-            <TableHead>Strategy</TableHead>
+            <TableHead className="hidden md:table-cell">Strategy</TableHead>
             <TableHead>Side</TableHead>
-            <TableHead className="text-right">Size</TableHead>
+            <TableHead className="hidden md:table-cell text-right">Size</TableHead>
             <TableHead className="text-right">Entry</TableHead>
             <TableHead className="text-right">Exit</TableHead>
             <TableHead className="text-right">PnL</TableHead>
@@ -74,7 +74,7 @@ export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => 
               <TableCell className="font-semibold text-gray-200">
                 {trade.symbol}
               </TableCell>
-              <TableCell className="text-gray-400 text-sm">
+              <TableCell className="hidden md:table-cell text-gray-400 text-sm">
                 {trade.strategy_name}
               </TableCell>
               <TableCell>
@@ -86,7 +86,7 @@ export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => 
                     {trade.direction}
                 </span>
               </TableCell>
-              <TableCell className="text-right font-mono text-gray-300">
+              <TableCell className="hidden md:table-cell text-right font-mono text-gray-300">
                 {trade.lot_size}
               </TableCell>
               <TableCell className="text-right font-mono text-gray-300">

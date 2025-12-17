@@ -6,6 +6,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { AuthProvider } from "@/context/AuthContext";
+import { SidebarProvider } from "@/context/SidebarContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -56,15 +57,18 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
         <AuthProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden ml-64">
-              <Header />
-              <main className="flex-1 overflow-y-auto p-6">
-                {children}
-              </main>
+          <SidebarProvider>
+            <div className="flex h-screen overflow-hidden">
+              <Sidebar />
+              {/* Main Content Wrapper - Use md:ml-64 to offset sidebar only on desktop */}
+              <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-64">
+                <Header />
+                <main className="flex-1 overflow-y-auto p-6">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+          </SidebarProvider>
         </AuthProvider>
       </body>
     </html>

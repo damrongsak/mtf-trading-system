@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSidebar } from '@/context/SidebarContext';
 import {
   LayoutDashboard,
   Target,
@@ -113,90 +114,123 @@ export const Sidebar = () => {
     return expandedCategories.includes(categoryName);
   };
 
+  const { isMobileOpen, closeMobile } = useSidebar();
+
+  const handleLinkClick = () => {
+    // Close sidebar on mobile when a link is clicked
+    if (window.innerWidth < 768) {
+      closeMobile();
+    }
+  };
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gray-950/80 backdrop-blur-md border-r border-gray-800 flex flex-col z-50 overflow-y-auto">
-      {/* Logo/Brand */}
-      <div className="p-6 border-b border-gray-800 flex items-center gap-3">
-        <div className="w-9 h-9 bg-gradient-to-tr from-accent-blue to-accent-green rounded-lg flex items-center justify-center font-bold text-white text-xl shadow-lg">
-          M
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">
-            MTF Trader
-          </h1>
-          <p className="text-xs text-gray-500 font-mono">v0.1.0-alpha</p>
-        </div>
-      </div>
+    <>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={closeMobile}
+        />
+      )}
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4">
-        {navCategories.map((category) => {
-          const isExpanded = isCategoryExpanded(category.name);
-          const CategoryIcon = category.icon;
-          
-          return (
-            <div key={category.name} className="mb-2">
-              {/* Category Header */}
-              <button
-                onClick={() => toggleCategory(category.name)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-400 transition-colors group"
-              >
-                <div className="flex items-center gap-2">
-                  <CategoryIcon size={14} className="text-gray-600 group-hover:text-gray-500" />
-                  <span className="tracking-wide">{category.name}</span>
-                </div>
-                {isExpanded ? (
-                  <ChevronDown size={14} className="text-gray-600" />
-                ) : (
-                  <ChevronRight size={14} className="text-gray-600" />
-                )}
-              </button>
-
-              {/* Category Items */}
-              {isExpanded && (
-                <div className="mt-1 space-y-0.5">
-                  {category.items.map((item) => {
-                    const isActive = pathname === item.href;
-                    const ItemIcon = item.icon;
-                    
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className={`
-                          flex items-center gap-3 pl-12 pr-4 py-2.5 text-sm font-medium transition-all duration-200
-                          border-l-4 
-                          ${
-                            isActive
-                              ? 'border-accent-blue text-white bg-accent-blue/10'
-                              : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/50'
-                          }
-                        `}
-                      >
-                        <ItemIcon size={18} className={isActive ? 'text-accent-blue' : ''} />
-                        <span>{item.name}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
+      <aside 
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-gray-950/95 backdrop-blur-md border-r border-gray-800 
+          flex flex-col transition-transform duration-300 ease-in-out
+          ${isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} 
+          md:translate-x-0 md:shadow-none
+        `}
+      >
+        {/* Logo/Brand */}
+        <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-tr from-accent-blue to-accent-green rounded-lg flex items-center justify-center font-bold text-white text-xl shadow-lg">
+              M
             </div>
-          );
-        })}
-      </nav>
-
-      {/* Status Footer */}
-      <div className="p-4 border-t border-gray-800">
-        <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-800">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse shadow-lg shadow-green-500/50" />
-            <span className="text-xs text-gray-400 font-medium">System Online</span>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                MTF Trader
+              </h1>
+              <p className="text-xs text-gray-500 font-mono">v0.1.0-alpha</p>
+            </div>
           </div>
-          <div className="text-xs text-gray-600 font-mono">
-            Latency: 24ms
+          {/* Close button for mobile inside drawer */}
+          <button onClick={closeMobile} className="md:hidden text-gray-400 hover:text-white">
+            <ChevronRight className="rotate-180" size={24} />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 py-4 overflow-y-auto">
+          {navCategories.map((category) => {
+            const isExpanded = isCategoryExpanded(category.name);
+            const CategoryIcon = category.icon;
+            
+            return (
+              <div key={category.name} className="mb-2">
+                {/* Category Header */}
+                <button
+                  onClick={() => toggleCategory(category.name)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-400 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <CategoryIcon size={14} className="text-gray-600 group-hover:text-gray-500" />
+                    <span className="tracking-wide">{category.name}</span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown size={14} className="text-gray-600" />
+                  ) : (
+                    <ChevronRight size={14} className="text-gray-600" />
+                  )}
+                </button>
+
+                {/* Category Items */}
+                {isExpanded && (
+                  <div className="mt-1 space-y-0.5">
+                    {category.items.map((item) => {
+                      const isActive = pathname === item.href;
+                      const ItemIcon = item.icon;
+                      
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          onClick={handleLinkClick}
+                          className={`
+                            flex items-center gap-3 pl-12 pr-4 py-2.5 text-sm font-medium transition-all duration-200
+                            border-l-4 
+                            ${
+                              isActive
+                                ? 'border-accent-blue text-white bg-accent-blue/10'
+                                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/50'
+                            }
+                          `}
+                        >
+                          <ItemIcon size={18} className={isActive ? 'text-accent-blue' : ''} />
+                          <span>{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Status Footer */}
+        <div className="p-4 border-t border-gray-800 mt-auto">
+          <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-800">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse shadow-lg shadow-green-500/50" />
+              <span className="text-xs text-gray-400 font-medium">System Online</span>
+            </div>
+            <div className="text-xs text-gray-600 font-mono">
+              Latency: 24ms
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };

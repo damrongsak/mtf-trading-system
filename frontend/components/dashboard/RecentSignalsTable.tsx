@@ -79,8 +79,8 @@ export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals,
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Direction</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Confidence</th>
               {/* Current column removed */}
-              <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Timeframe</th>
-              <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Time</th>
+              <th className="hidden md:table-cell text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Timeframe</th>
+              <th className="hidden md:table-cell text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase">Time</th>
             </tr>
           </thead>
           <tbody>
@@ -107,10 +107,10 @@ export const RecentSignalsTable: React.FC<RecentSignalsTableProps> = ({ signals,
                   </div>
                 </td>
                 {/* Current cell removed */}
-                <td className="py-3 px-4">
+                <td className="hidden md:table-cell py-3 px-4">
                   <span className="text-sm text-gray-400 font-mono">{signal.timeframe}</span>
                 </td>
-                <td className="py-3 px-4">
+                <td className="hidden md:table-cell py-3 px-4">
                   <span className="text-sm text-gray-500">{formatTimestamp(signal.timestamp)}</span>
                 </td>
               </tr>

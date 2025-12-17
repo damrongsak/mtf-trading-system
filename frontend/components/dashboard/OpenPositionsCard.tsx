@@ -160,8 +160,8 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
               <tr className="border-b border-gray-800 text-xs text-gray-400 uppercase">
                 <th className="text-left py-3 px-4">Symbol</th>
                 <th className="text-left py-3 px-4">Side</th>
-                <th className="text-right py-3 px-4">Size</th>
-                <th className="text-right py-3 px-4">Entry</th>
+                <th className="hidden md:table-cell text-right py-3 px-4">Size</th>
+                <th className="hidden md:table-cell text-right py-3 px-4">Entry</th>
                 <th className="text-right py-3 px-4">Current</th>
                 <th className="text-right py-3 px-4">PnL</th>
                 <th className="text-right py-3 px-4">Action</th>
@@ -183,8 +183,8 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
                       {pos.direction}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right font-mono text-gray-400">{pos.lot_size}</td>
-                  <td className="py-3 px-4 text-right font-mono text-gray-300">{pos.entry_price.toFixed(5)}</td>
+                  <td className="hidden md:table-cell py-3 px-4 text-right font-mono text-gray-400">{pos.lot_size}</td>
+                  <td className="hidden md:table-cell py-3 px-4 text-right font-mono text-gray-300">{pos.entry_price.toFixed(5)}</td>
                   <td className="py-3 px-4 text-right font-mono text-gray-300 animate-pulse">{price.toFixed(5)}</td>
                   <td className={`py-3 px-4 text-right font-mono font-medium ${
                     pnl >= 0 ? 'text-green-400' : 'text-red-400'

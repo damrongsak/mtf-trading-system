@@ -251,13 +251,15 @@
     - Tailwind CSS v4 configured with "Gridbot AI" theme.
     - `SignalCard` component and `/signals` page implemented and connected to API.
     - **Layout:** Fixed Sidebar and Sticky Header implemented.
+    - **Mobile:** Mobile optimized layout (Collapsible Sidebar, Responsive Tables).
     - **Authentication:** `AuthContext` and Login Page (`/login`).
     - **Trading Journal Wizard:** Full 4-step wizard at `/journal/new`.
+
 
     - **AI Analyst:** Real-time Market Observer integration (`AIAnalystCard`).
     - **Performance:** Optimized Turbopack config (`./` root) and activated middleware.
 - **Next Steps:**
-    - **Mobile:** Responsive optimizations.
+    - **Testing:** End-to-End frontend testing.
 
 ---
 
@@ -275,5 +277,5 @@
 ## 📋 Immediate Next Actions (Prioritized)
 
 1.  **[High]** Validate `specs/01_data_model.yaml` against current implementation.
-2.  **[Medium]** Mobile responsiveness for Frontend.
+2.  **[High]** End-to-End Testing strategy (Cypress/Playwright).
 

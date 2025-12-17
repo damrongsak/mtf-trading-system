@@ -3,10 +3,21 @@
 import React from 'react';
 import { ProfileDropdown } from './ProfileDropdown';
 
+import { Menu } from 'lucide-react';
+import { useSidebar } from '@/context/SidebarContext';
+
 export const Header = () => {
+  const { toggleMobile } = useSidebar();
+
   return (
     <header className="sticky top-0 z-40 w-full h-16 bg-gray-950/50 backdrop-blur-sm border-b border-gray-800 flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
+        <button 
+          onClick={toggleMobile}
+          className="md:hidden p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+        >
+          <Menu size={24} />
+        </button>
         {/* Breadcrumbs or Page Title could go here */}
       </div>
 
