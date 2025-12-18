@@ -265,18 +265,21 @@
 
 ## 🔴 Not Started / Pending
 
-### **1. Documentation / Specs**
-- **Status:** 🟡 In Progress
-- **Notes:**
-    - `specs/00_architecture.md` populated with microservices design.
-    - `specs/01_data_model.yaml` validated against implementation (2025-12-18). ✅ Matches Codebase.
-    - `specs/05_testing_plan.md` created (v1.0) with Playwright E2E strategy.
+### **2. End-to-End Testing Strategy**
+- **Status:** ✅ Initialized (2025-12-19)
+- **Features:**
+    - Playwright framework configured (`frontend/e2e`).
+    - Critical flows verified:
+        - **Auth:** Login/Register (`auth.spec.ts`).
+        - **Dashboard:** Element visibility and Market Watch (`dashboard.spec.ts`).
+        - **Journal:** Wizard completion (`journal.spec.ts`).
+    - **Note:** Trading flow skipped due to environment mocking complexity.
 
 ---
 
 
 ## 📋 Immediate Next Actions (Prioritized)
 
-1.  **[High]** End-to-End Testing execution (Install Playwright & write first test).
+1.  **[High]** CI/CD Integration for E2E tests.
 2.  **[Medium]** Backfill missing API specs (if any).
 

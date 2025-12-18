@@ -123,14 +123,6 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
     return { pnl, price: exitPrice };
   };
 
-  if (loading && positions.length === 0) {
-    return (
-        <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6 h-64 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        </div>
-    );
-  }
-
   return (
     <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
@@ -149,7 +141,11 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
         </div>
       )}
 
-      {positions.length === 0 ? (
+      {loading && positions.length === 0 ? (
+        <div className="h-64 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        </div>
+      ) : positions.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           No open positions active.
         </div>
