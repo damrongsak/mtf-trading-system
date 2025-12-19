@@ -49,7 +49,7 @@ export default function JournalFilterBar({ currentFilters, onFilterChange }: Jou
                             id="search"
                             type="text"
                             placeholder="e.g. XAU/USD"
-                            value={filters.search}
+                            value={filters.search || ''}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                             onKeyDown={handleKeyDown}
                             className="w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400"
