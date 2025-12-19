@@ -119,10 +119,12 @@ const JournalList: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="py-4 px-6 text-right">
-                                    {/* Placeholder for future actions like Edit/Delete */}
-                                    <button className="text-gray-500 hover:text-emerald-400 transition-colors text-sm">
+                                    <Link 
+                                        href={`/journal/${entry.id}/edit`}
+                                        className="text-gray-500 hover:text-emerald-400 transition-colors text-sm"
+                                    >
                                         Edit
-                                    </button>
+                                    </Link>
                                 </td>
                             </tr>
                         ))}

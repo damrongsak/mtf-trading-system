@@ -68,7 +68,7 @@ export default function Step4RootCause({ rootCause, onChange, onSubmit, onBack }
               {label}
             </label>
             <textarea
-              value={rootCause[key]}
+              value={rootCause[key] || ''}
               onChange={(e) => updateField(key, e.target.value)}
               placeholder={placeholder}
               rows={3}

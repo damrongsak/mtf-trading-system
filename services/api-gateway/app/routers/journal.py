@@ -88,6 +88,109 @@ def list_journal_entries(
 
     return success_response(data=JournalEntryResponse.model_validate(entry))
 
+@router.get("/{journal_id}", response_model=APIResponse[JournalEntryResponse])
+def get_journal_entry(
+    journal_id: UUID, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == journal_id, 
+        JournalEntry.user_id == current_user.id
+    ).first()
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found"
+        )
+        
+    return success_response(data=JournalEntryResponse.model_validate(entry))
+
+@router.put("/{journal_id}", response_model=APIResponse[JournalEntryResponse])
+def update_journal_entry(
+    journal_id: UUID,
+    update_data: JournalEntryCreate, # Using Create schema as Update for now
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == journal_id,
+        JournalEntry.user_id == current_user.id
+    ).first()
+
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found"
+        )
+    
+    # 1. Update Main Fields
+    # Iterate over fields in the schema, exclude nested models
+    main_fields = update_data.model_dump(exclude={'mental_state', 'timeline_events', 'root_cause'}, exclude_unset=True)
+    for key, value in main_fields.items():
+        setattr(entry, key, value)
+
+    # 2. Update Nested: MentalState (One-to-One)
+    if update_data.mental_state:
+        if entry.mental_state:
+            # Update existing
+            for key, value in update_data.mental_state.model_dump(exclude_unset=True).items():
+                setattr(entry.mental_state, key, value)
+        else:
+            # Create new
+            new_mental = MentalState(journal_entry_id=entry.id, **update_data.mental_state.model_dump())
+            db.add(new_mental)
+
+    # 3. Update Nested: RootCause (One-to-One)
+    if update_data.root_cause:
+        if entry.root_cause:
+            # Update existing
+            for key, value in update_data.root_cause.model_dump(exclude_unset=True).items():
+                setattr(entry.root_cause, key, value)
+        else:
+            # Create new
+            new_root = RootCauseAnalysis(journal_entry_id=entry.id, **update_data.root_cause.model_dump())
+            db.add(new_root)
+
+    # 4. Update Nested: TimelineEvents (One-to-Many)
+    # Strategy: Delete all and recreate? Or smart update? 
+    # For simplicity and given the low volume, Delete All + Recreate is safest to ensure order/integrity.
+    if update_data.timeline_events is not None:
+        # Check if list is empty or has items. If explicit list provided, replace.
+        # Remove old events
+        db.query(TimelineEvent).filter(TimelineEvent.journal_entry_id == entry.id).delete()
+        
+        # Add new events
+        for event in update_data.timeline_events:
+            new_event = TimelineEvent(journal_entry_id=entry.id, **event.model_dump())
+            db.add(new_event)
+
+    db.commit()
+    db.refresh(entry)
+    return success_response(data=JournalEntryResponse.model_validate(entry))
+
+@router.delete("/{journal_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_journal_entry(
+    journal_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    entry = db.query(JournalEntry).filter(
+        JournalEntry.id == journal_id,
+        JournalEntry.user_id == current_user.id
+    ).first()
+
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Journal entry not found"
+        )
+    
+    db.delete(entry)
+    db.commit()
+    return None
+
 # ==========================
 # Analytics Endpoints
 # ==========================

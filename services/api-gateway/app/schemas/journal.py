@@ -67,6 +67,10 @@ class JournalEntryResponse(JournalEntryCreate):
     class Config:
         from_attributes = True
 
+class JournalEntryUpdate(JournalEntryCreate):
+    pass
+
+
 # ==========================
 # Analytics Schemas
 # ==========================

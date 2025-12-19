@@ -1,135 +1,54 @@
-"use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createJournalEntry } from "@/lib/api/journal";
-import type { TimelineEvent } from "@/lib/api/types";
-import WizardLayout from "@/components/journal/WizardLayout";
-import Step1Technical from "@/components/journal/Step1Technical";
-import Step2GameLevel from "@/components/journal/Step2GameLevel";
-import Step3MentalPattern from "@/components/journal/Step3MentalPattern";
-import Step4RootCause from "@/components/journal/Step4RootCause";
+import { CreateJournalEntryDto } from "@/lib/api/types";
+import JournalWizard from "@/components/journal/JournalWizard";
+import { useAsync } from "@/lib/hooks";
+import { Modal } from "@/components/common";
 
 export default function NewJournalPage() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
+  const { execute: createEntry, loading } = useAsync(createJournalEntry);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Step 1 Data
-  const [step1Data, setStep1Data] = useState({
-    symbol: "XAU/USD",
-    direction: "LONG",
-    session: "",
-    entryPrice: "",
-    stopLoss: "",
-    takeProfit: "",
-    riskAmount: "",
-    exitPrice: "",
-    pnl: "",
-    contextScore: 5,
-  });
-
-  // Step 2 Data
-  const [gameLevel, setGameLevel] = useState("");
-
-  // Step 3 Data
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
-  const [mentalState, setMentalState] = useState({
-    greed_level: 0,
-    fear_level: 0,
-    tilt_level: 0,
-    confidence_level: 5,
-    discipline_level: 5,
-  });
-
-  // Step 4 Data
-  const [rootCause, setRootCause] = useState({
-    problem: "",
-    why_exist: "",
-    flaw: "",
-    correction: "",
-    logic: "",
-  });
-
-  const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
+  const handleSubmit = async (data: CreateJournalEntryDto) => {
+    const result = await createEntry(data);
+    if (result) {
+      setShowSuccessModal(true);
     }
   };
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    const payload = {
-      symbol: step1Data.symbol,
-      direction: step1Data.direction,
-      session: step1Data.session || null,
-      entry_price: parseFloat(step1Data.entryPrice) || null,
-      exit_price: parseFloat(step1Data.exitPrice) || null,
-      pnl_amount: parseFloat(step1Data.pnl) || null,
-      stop_loss_price: parseFloat(step1Data.stopLoss) || null,
-      take_profit_price: parseFloat(step1Data.takeProfit) || null,
-      risk_amount: parseFloat(step1Data.riskAmount) || null,
-      context_score: step1Data.contextScore,
-      game_level: gameLevel || null,
-      mental_state: mentalState,
-      timeline_events: timelineEvents as TimelineEvent[],
-      root_cause: {
-        problem: rootCause.problem || null,
-        why_exist: rootCause.why_exist || null,
-        flaw: rootCause.flaw || null,
-        correction: rootCause.correction || null,
-        logic: rootCause.logic || null,
-      },
-    };
-
-    try {
-      await createJournalEntry(payload);
-      alert("Journal entry created successfully!");
+  const handleCloseModal = () => {
+      setShowSuccessModal(false);
       router.push("/journal");
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create journal entry';
-      alert(`Failed to create journal entry: ${errorMessage}`);
-    }
   };
 
   return (
-    <WizardLayout currentStep={currentStep} totalSteps={4}>
-      {currentStep === 1 && (
-        <Step1Technical data={step1Data} onChange={setStep1Data} onNext={handleNext} />
-      )}
-
-      {currentStep === 2 && (
-        <Step2GameLevel
-          gameLevel={gameLevel}
-          onChange={setGameLevel}
-          onNext={handleNext}
-          onBack={handleBack}
-        />
-      )}
-
-      {currentStep === 3 && (
-        <Step3MentalPattern
-          timelineEvents={timelineEvents as TimelineEvent[]}
-          mentalState={mentalState}
-          onTimelineChange={setTimelineEvents}
-          onMentalStateChange={setMentalState}
-          onNext={handleNext}
-          onBack={handleBack}
-        />
-      )}
-
-      {currentStep === 4 && (
-        <Step4RootCause
-          rootCause={rootCause}
-          onChange={setRootCause}
-          onSubmit={handleSubmit}
-          onBack={handleBack}
-        />
-      )}
-    </WizardLayout>
+    <div className="min-h-screen bg-gray-950">
+        <JournalWizard onSubmit={handleSubmit} isSubmitting={loading} />
+        
+        <Modal
+            isOpen={showSuccessModal}
+            onClose={handleCloseModal}
+            title="Success"
+            footer={
+                <button 
+                    onClick={handleCloseModal}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                >
+                    Return to Journal
+                </button>
+            }
+        >
+            <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <p className="text-lg">Journal entry created successfully!</p>
+            </div>
+        </Modal>
+    </div>
   );
 }
