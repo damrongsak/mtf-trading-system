@@ -1,15 +1,38 @@
 import { apiClient } from './client';
 import { JournalEntry, CreateJournalEntryDto, PaginatedResponse, APIResponse, JournalStatsResponse, EquityCurvePoint, PatternAnalysisResponse } from './types';
 
+export interface JournalFilters {
+    symbol?: string;
+    direction?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+}
+
 /**
  * Get all journal entries for the current user (paginated)
  * @param page - Page number (default: 1)
  * @param perPage - Items per page (default: 10)
+ * @param filters - Optional filters
  * @returns Paginated journal entries
  */
-export async function getJournalEntries(page: number = 1, perPage: number = 10): Promise<PaginatedResponse<JournalEntry>> {
+export async function getJournalEntries(
+    page: number = 1, 
+    perPage: number = 10,
+    filters?: JournalFilters
+): Promise<PaginatedResponse<JournalEntry>> {
+    const params: any = { page, per_page: perPage };
+    
+    if (filters) {
+        if (filters.symbol) params.symbol = filters.symbol;
+        if (filters.direction && filters.direction !== 'ALL') params.direction = filters.direction;
+        if (filters.dateFrom) params.date_from = filters.dateFrom;
+        if (filters.dateTo) params.date_to = filters.dateTo;
+        if (filters.search) params.search = filters.search;
+    }
+
     const response = await apiClient.get<PaginatedResponse<JournalEntry>>('/api/v1/journal', {
-        params: { page, per_page: perPage }
+        params
     });
     return response.data;
 }

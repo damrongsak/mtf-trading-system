@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 from app.database import get_db
@@ -69,10 +69,35 @@ def create_journal_entry(entry: JournalEntryCreate, db: Session = Depends(get_db
 def list_journal_entries(
     page: int = 1,
     per_page: int = 10,
+    symbol: Optional[str] = None,
+    direction: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(JournalEntry).filter(JournalEntry.user_id == current_user.id)
+
+    # Apply Filters
+    if symbol:
+        query = query.filter(JournalEntry.symbol.ilike(f"%{symbol}%"))
+    
+    if direction and direction != "ALL":
+        query = query.filter(JournalEntry.direction == direction)
+        
+    if date_from:
+        query = query.filter(JournalEntry.created_at >= date_from)
+        
+    if date_to:
+        # Include the whole end day
+        query = query.filter(JournalEntry.created_at <= date_to)
+
+    if search:
+        # Generic search: currently matching symbol. 
+        # Could extend to match notes in nested tables if needed.
+        query = query.filter(JournalEntry.symbol.ilike(f"%{search}%"))
+
     total = query.count()
     entries = query.order_by(JournalEntry.created_at.desc())\
                    .offset((page - 1) * per_page)\

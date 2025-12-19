@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getJournalEntries } from '../api/journal';
+import { getJournalEntries, JournalFilters } from '../api/journal';
 import { JournalEntry } from '../api/types';
 import { ApiError } from '../api/errors';
 
@@ -14,6 +14,8 @@ interface UseJournalEntriesReturn {
   perPage: number;
   setPerPage: (perPage: number) => void;
   totalPages: number;
+  filters: JournalFilters;
+  setFilters: (filters: JournalFilters) => void;
 }
 
 /**
@@ -27,12 +29,13 @@ export function useJournalEntries(initialPage: number = 1, initialPerPage: numbe
   const [page, setPage] = useState(initialPage);
   const [perPage, setPerPage] = useState(initialPerPage);
   const [totalPages, setTotalPages] = useState(0);
+  const [filters, setFilters] = useState<JournalFilters>({});
 
   const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getJournalEntries(page, perPage);
+      const response = await getJournalEntries(page, perPage, filters);
 
       // Extract data from PaginatedResponse
       setEntries(response.data);
@@ -49,11 +52,16 @@ export function useJournalEntries(initialPage: number = 1, initialPerPage: numbe
     } finally {
       setLoading(false);
     }
-  }, [page, perPage]);
+  }, [page, perPage, filters]);
 
   useEffect(() => {
     fetchEntries();
   }, [fetchEntries]);
+
+  const handleSetFilters = (newFilters: JournalFilters) => {
+    setFilters(newFilters);
+    setPage(1); // Reset to first page when filtering
+  };
 
   return {
     entries,
@@ -66,5 +74,7 @@ export function useJournalEntries(initialPage: number = 1, initialPerPage: numbe
     perPage,
     setPerPage,
     totalPages,
+    filters,
+    setFilters: handleSetFilters
   };
 }

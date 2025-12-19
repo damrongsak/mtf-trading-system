@@ -4,6 +4,7 @@ import { useJournalEntries } from '@/lib/hooks';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Pagination } from '@/components/common';
+import JournalFilterBar from '@/components/journal/JournalFilterBar';
 
 const JournalList: React.FC = () => {
   const { authToken } = useAuth();
@@ -16,7 +17,9 @@ const JournalList: React.FC = () => {
     perPage,
     setPerPage,
     total,
-    totalPages
+    totalPages,
+    filters,
+    setFilters
   } = useJournalEntries();
 
   if (!authToken) {
@@ -41,7 +44,8 @@ const JournalList: React.FC = () => {
 
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-white">Trading Journal</h1>
         <Link 
           href="/journal/new"
           className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out flex items-center gap-2"
@@ -50,14 +54,17 @@ const JournalList: React.FC = () => {
         </Link>
       </div>
 
+      <JournalFilterBar currentFilters={filters} onFilterChange={setFilters} />
+
       {journalEntries.length === 0 ? (
         <div className="text-center text-gray-500 text-2xl mt-20">
             No journal entries found. Start by creating a new one!
         </div>
       ) : (
         <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
+             <div className="overflow-x-auto">
                 <table className="w-full">
+
                     <thead>
                         <tr className="border-b border-gray-700 bg-gray-800/50">
                             <th className="text-left py-4 px-6 font-medium text-gray-300">Date</th>
