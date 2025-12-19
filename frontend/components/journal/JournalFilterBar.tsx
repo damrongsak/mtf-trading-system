@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { JournalFilters } from '@/lib/api/journal';
+import { useState, useEffect } from 'react';
+import { JournalFilters, getPreferences } from '@/lib/api';
 
 interface JournalFilterBarProps {
     currentFilters: JournalFilters;
@@ -10,6 +10,21 @@ interface JournalFilterBarProps {
 
 export default function JournalFilterBar({ currentFilters, onFilterChange }: JournalFilterBarProps) {
     const [filters, setFilters] = useState<JournalFilters>(currentFilters);
+    const [supportedSymbols, setSupportedSymbols] = useState<string[]>([]);
+
+    useEffect(() => {
+        const fetchSymbols = async () => {
+            try {
+                const prefs = await getPreferences();
+                if (prefs.supported_symbols) {
+                    setSupportedSymbols(prefs.supported_symbols);
+                }
+            } catch (error) {
+                console.error('Failed to load supported symbols', error);
+            }
+        };
+        fetchSymbols();
+    }, []);
 
     const handleApply = () => {
         onFilterChange(filters);
@@ -48,12 +63,18 @@ export default function JournalFilterBar({ currentFilters, onFilterChange }: Jou
                         <input
                             id="search"
                             type="text"
+                            list="supported-symbols-filter"
                             placeholder="e.g. XAU/USD"
                             value={filters.search || ''}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                             onKeyDown={handleKeyDown}
                             className="w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400"
                         />
+                        <datalist id="supported-symbols-filter">
+                            {supportedSymbols.map(s => (
+                                <option key={s} value={s} />
+                            ))}
+                        </datalist>
                     </div>
                 </div>
 

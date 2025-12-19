@@ -16,6 +16,7 @@ class JournalEntry(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    trade_id = Column(UUID(as_uuid=True), nullable=True, unique=True, index=True) # Link to source trade
     
     # Technical Context
     symbol = Column(String, nullable=False) # e.g., XAU/USD

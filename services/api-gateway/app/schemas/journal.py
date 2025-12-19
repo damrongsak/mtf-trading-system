@@ -98,3 +98,11 @@ class PatternAnalysisResponse(BaseModel):
     game_levels: List[PatternItem]
     top_emotions: List[PatternItem]
     top_mistakes: List[PatternItem] # From Root Cause Analysis
+
+class JournalImportRequest(BaseModel):
+    trade_ids: List[UUID]
+
+class JournalImportResponse(BaseModel):
+    imported_count: int
+    skipped_count: int
+    message: str

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { JournalEntry, CreateJournalEntryDto, TimelineEvent } from "@/lib/api/types";
+import { getPreferences } from "@/lib/api";
 import WizardLayout from "@/components/journal/WizardLayout";
 import Step1Technical from "@/components/journal/Step1Technical";
 import Step2GameLevel from "@/components/journal/Step2GameLevel";
@@ -20,6 +21,21 @@ interface JournalWizardProps {
 
 export default function JournalWizard({ initialData, onSubmit, isSubmitting = false }: JournalWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [supportedSymbols, setSupportedSymbols] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchSymbols = async () => {
+        try {
+            const prefs = await getPreferences();
+            if (prefs.supported_symbols) {
+                setSupportedSymbols(prefs.supported_symbols);
+            }
+        } catch (error) {
+            console.error('Failed to load supported symbols', error);
+        }
+    };
+    fetchSymbols();
+  }, []);
 
   // Step 1 Data
   const [step1Data, setStep1Data] = useState({
@@ -133,7 +149,12 @@ export default function JournalWizard({ initialData, onSubmit, isSubmitting = fa
   return (
     <WizardLayout currentStep={currentStep} totalSteps={4}>
       {currentStep === 1 && (
-        <Step1Technical data={step1Data} onChange={setStep1Data} onNext={handleNext} />
+        <Step1Technical 
+            data={step1Data} 
+            onChange={setStep1Data} 
+            onNext={handleNext} 
+            supportedSymbols={supportedSymbols}
+        />
       )}
 
       {currentStep === 2 && (

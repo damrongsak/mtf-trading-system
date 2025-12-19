@@ -152,9 +152,8 @@ export function TradingPreferencesSection() {
         )}
       </div>
 
-      {/* Supported Symbols (Multi-Asset only) */}
-      {!isBasicStrategy && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+      {/* Supported Symbols */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Supported Symbols</h2>
           <p className="text-sm text-gray-400 mb-4">
             Add symbols you want to trade across multiple asset classes
@@ -195,7 +194,6 @@ export function TradingPreferencesSection() {
             )}
           </div>
         </div>
-      )}
 
       {/* Session Preferences */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">

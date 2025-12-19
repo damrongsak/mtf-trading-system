@@ -17,9 +17,18 @@ import { format } from 'date-fns';
 interface TradesTableProps {
   trades: Trade[];
   loading: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelection?: (id: string) => void;
+  onToggleAll?: (ids: string[]) => void;
 }
 
-export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => {
+export const TradesTable: React.FC<TradesTableProps> = ({ 
+    trades, 
+    loading,
+    selectedIds,
+    onToggleSelection,
+    onToggleAll
+}) => {
   if (loading && trades.length === 0) {
      return (
         <div className="flex justify-center items-center py-12">
@@ -49,11 +58,24 @@ export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => 
     }
   };
 
+  const allSelected = selectedIds && trades.length > 0 && trades.every(t => selectedIds.has(t.trade_id));
+  const showSelection = !!onToggleSelection;
+
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-950/50 overflow-hidden">
       <Table>
         <TableHeader className="bg-gray-900/50">
           <TableRow className="hover:bg-transparent border-gray-800">
+            {showSelection && (
+                <TableHead className="w-[50px] text-center">
+                    <input 
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={() => onToggleAll?.(trades.map(t => t.trade_id))}
+                        className="rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-800 w-4 h-4 cursor-pointer align-middle"
+                    />
+                </TableHead>
+            )}
             <TableHead className="w-[180px]">Time</TableHead>
             <TableHead>Symbol</TableHead>
             <TableHead className="hidden md:table-cell">Strategy</TableHead>
@@ -67,7 +89,21 @@ export const TradesTable: React.FC<TradesTableProps> = ({ trades, loading }) => 
         </TableHeader>
         <TableBody>
           {trades.map((trade) => (
-            <TableRow key={trade.trade_id} className="border-gray-800 hover:bg-gray-800/30 transition-colors">
+            <TableRow 
+                key={trade.trade_id} 
+                className={`border-gray-800 transition-colors ${selectedIds?.has(trade.trade_id) ? 'bg-indigo-500/10 hover:bg-indigo-500/20' : 'hover:bg-gray-800/30'}`}
+            >
+              {showSelection && (
+                  <TableCell className="text-center">
+                    <input 
+                        type="checkbox"
+                        checked={selectedIds?.has(trade.trade_id)}
+                        onChange={() => onToggleSelection?.(trade.trade_id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded border-gray-600 text-indigo-500 focus:ring-indigo-500 bg-gray-800 w-4 h-4 cursor-pointer align-middle"
+                    />
+                  </TableCell>
+              )}
               <TableCell className="font-mono text-xs text-gray-400">
                 {formatDate(trade.signal_timestamp)}
               </TableCell>

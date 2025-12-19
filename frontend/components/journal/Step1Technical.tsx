@@ -17,9 +17,10 @@ interface Step1Props {
   data: Step1Data;
   onChange: (data: Step1Data) => void;
   onNext: () => void;
+  supportedSymbols?: string[];
 }
 
-export default function Step1Technical({ data, onChange, onNext }: Step1Props) {
+export default function Step1Technical({ data, onChange, onNext, supportedSymbols = [] }: Step1Props) {
   const updateField = (field: keyof Step1Data, value: string | number) => {
     onChange({ ...data, [field]: value });
   };
@@ -32,14 +33,23 @@ export default function Step1Technical({ data, onChange, onNext }: Step1Props) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Pair</label>
-            <select 
+            <select
               value={data.symbol}
               onChange={(e) => updateField("symbol", e.target.value)}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             >
-              <option value="XAU/USD">XAU/USD</option>
-              <option value="EUR/USD">EUR/USD</option>
-              <option value="GBP/JPY">GBP/JPY</option>
+              <option value="" disabled>Select Pair...</option>
+              {supportedSymbols.length > 0 ? (
+                supportedSymbols.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))
+              ) : (
+                <>
+                   <option value="XAU/USD">XAU/USD</option>
+                   <option value="EUR/USD">EUR/USD</option>
+                   <option value="GBP/JPY">GBP/JPY</option>
+                </>
+              )}
             </select>
           </div>
 

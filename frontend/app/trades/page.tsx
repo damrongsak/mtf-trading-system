@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { Modal } from '@/components/common';
+import { importTrades } from '@/lib/api/journal';
 
 export default function TradesPage() {
     const { user } = useAuth();
@@ -20,6 +22,51 @@ export default function TradesPage() {
     const [statusFilter, setStatusFilter] = useState<TradeStatus | 'ALL'>('ALL');
     const [symbolFilter, setSymbolFilter] = useState('');
     const [debouncedSymbol, setDebouncedSymbol] = useState('');
+
+    // Import State
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [importResult, setImportResult] = useState<{imported: number, skipped: number, message: string} | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
+
+    const handleToggleSelection = (id: string) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const handleToggleAll = (ids: string[]) => {
+        const newSelected = new Set(selectedIds);
+        const allInPageSelected = ids.every(id => selectedIds.has(id));
+        
+        if (allInPageSelected) {
+            ids.forEach(id => newSelected.delete(id));
+        } else {
+            ids.forEach(id => newSelected.add(id));
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const handleImportToJournal = async () => {
+        if (selectedIds.size === 0) return;
+        try {
+            setIsImporting(true);
+            const result = await importTrades(Array.from(selectedIds));
+            setImportResult({
+                imported: result.imported_count,
+                skipped: result.skipped_count,
+                message: result.message
+            });
+            setSelectedIds(new Set()); // Clear selection
+        } catch (err) {
+            alert('Failed to import: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
     // Debounce Search
     useEffect(() => {
@@ -69,6 +116,17 @@ export default function TradesPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {selectedIds.size > 0 && (
+                        <Button 
+                            variant="default"
+                            size="sm"
+                            onClick={handleImportToJournal}
+                            disabled={isImporting}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white border-none transition-all shadow-sm"
+                        >
+                            {isImporting ? 'Importing...' : `Import ${selectedIds.size} to Journal`}
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={fetchTrades}>
                          <ArrowUpDown className="w-4 h-4 mr-2" />
                          Refresh
@@ -112,7 +170,13 @@ export default function TradesPage() {
             </div>
 
             {/* Table */}
-            <TradesTable trades={trades} loading={loading} />
+            <TradesTable 
+                trades={trades} 
+                loading={loading}
+                selectedIds={selectedIds}
+                onToggleSelection={handleToggleSelection}
+                onToggleAll={handleToggleAll}
+            />
 
             {/* Pagination */}
             <div className="flex items-center justify-between border-t border-gray-800 pt-4">
@@ -125,6 +189,7 @@ export default function TradesPage() {
                         size="sm" 
                         disabled={page <= 1 || loading}
                         onClick={() => setPage(p => p - 1)}
+                        className="border-gray-700 bg-gray-900/50 text-gray-300 hover:bg-gray-800"
                     >
                         <ChevronLeft className="w-4 h-4" />
                         Previous
@@ -134,12 +199,37 @@ export default function TradesPage() {
                         size="sm" 
                         disabled={page >= totalPages || loading}
                         onClick={() => setPage(p => p + 1)}
+                        className="border-gray-700 bg-gray-900/50 text-gray-300 hover:bg-gray-800"
                     >
                         Next
                         <ChevronRight className="w-4 h-4" />
                     </Button>
                 </div>
             </div>
+
+            {/* Import Result Modal */}
+            <Modal
+                isOpen={!!importResult}
+                onClose={() => setImportResult(null)}
+                title="Import Results"
+                footer={
+                    <Button onClick={() => setImportResult(null)}>Close</Button>
+                }
+            >
+                <div className="space-y-4">
+                    <p className="text-gray-300">{importResult?.message}</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-900 p-4 rounded-lg text-center border border-gray-800">
+                            <div className="text-sm text-gray-500 mb-1">Imported</div>
+                            <div className="text-2xl font-bold text-green-400">{importResult?.imported}</div>
+                        </div>
+                        <div className="bg-gray-900 p-4 rounded-lg text-center border border-gray-800">
+                            <div className="text-sm text-gray-500 mb-1">Skipped</div>
+                            <div className="text-2xl font-bold text-yellow-500">{importResult?.skipped}</div>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

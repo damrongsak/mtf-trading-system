@@ -17,12 +17,12 @@ export interface JournalFilters {
  * @returns Paginated journal entries
  */
 export async function getJournalEntries(
-    page: number = 1, 
+    page: number = 1,
     perPage: number = 10,
     filters?: JournalFilters
 ): Promise<PaginatedResponse<JournalEntry>> {
     const params: any = { page, per_page: perPage };
-    
+
     if (filters) {
         if (filters.symbol) params.symbol = filters.symbol;
         if (filters.direction && filters.direction !== 'ALL') params.direction = filters.direction;
@@ -118,5 +118,22 @@ export async function getJournalEquityCurve(): Promise<EquityCurvePoint[]> {
 export async function getPatternAnalysis(): Promise<PatternAnalysisResponse> {
     const response = await apiClient.get<APIResponse<PatternAnalysisResponse>>('/api/v1/journal/analytics/patterns');
     if (!response.data.data) throw new Error('Invalid pattern response');
+    return response.data.data;
+}
+
+export interface JournalImportResponse {
+    imported_count: number;
+    skipped_count: number;
+    message: string;
+}
+
+/**
+ * Import trades into journal
+ */
+export async function importTrades(tradeIds: string[]): Promise<JournalImportResponse> {
+    const response = await apiClient.post<APIResponse<JournalImportResponse>>('/api/v1/journal/import', {
+        trade_ids: tradeIds
+    });
+    if (!response.data.data) throw new Error('Invalid import response');
     return response.data.data;
 }

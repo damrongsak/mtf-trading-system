@@ -6,8 +6,9 @@ from uuid import UUID
 from datetime import datetime
 from app.database import get_db
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
+from app.models.trade import Trade
 from app.models.user_fund import User
-from app.schemas.journal import JournalEntryCreate, JournalEntryResponse, JournalStatsResponse, PatternAnalysisResponse, EquityCurvePoint, PatternItem
+from app.schemas.journal import JournalEntryCreate, JournalEntryResponse, JournalStatsResponse, PatternAnalysisResponse, EquityCurvePoint, PatternItem, JournalImportRequest, JournalImportResponse
 from app.schemas.response import APIResponse, PaginatedResponse
 from app.utils.response import success_response, paginated_response
 from app.security import get_current_user
@@ -214,7 +215,74 @@ def delete_journal_entry(
     
     db.delete(entry)
     db.commit()
+    db.delete(entry)
+    db.commit()
     return None
+
+@router.post("/import", response_model=APIResponse[JournalImportResponse])
+def import_trades(
+    request: JournalImportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Import trades into the journal. Skips duplicates.
+    """
+    # 1. Identify duplicates
+    existing_entries = db.query(JournalEntry.trade_id).filter(
+        JournalEntry.user_id == current_user.id,
+        JournalEntry.trade_id.in_(request.trade_ids)
+    ).all()
+    
+    existing_trade_ids = {e[0] for e in existing_entries}
+    
+    # 2. Filter new IDs
+    new_trade_ids = [tid for tid in request.trade_ids if tid not in existing_trade_ids]
+    
+    skipped_count = len(request.trade_ids) - len(new_trade_ids)
+    
+    if not new_trade_ids:
+        return success_response(data=JournalImportResponse(
+            imported_count=0,
+            skipped_count=skipped_count,
+            message="No new trades to import."
+        ))
+
+    # 3. Fetch Trade details
+    trades = db.query(Trade).filter(Trade.trade_id.in_(new_trade_ids)).all()
+    
+    imported_count = 0
+    for trade in trades:
+        # Calculate Realized R if possible
+        calculated_r = 0.0
+        if trade.pnl_usd and trade.risk_usd and trade.risk_usd != 0:
+            calculated_r = float(trade.pnl_usd) / float(trade.risk_usd)
+            
+        new_entry = JournalEntry(
+            user_id=current_user.id,
+            trade_id=trade.trade_id,
+            symbol=trade.symbol,
+            direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
+            entry_price=float(trade.entry_price) if trade.entry_price else None,
+            exit_price=float(trade.exit_price) if trade.exit_price else None,
+            pnl_amount=float(trade.pnl_usd) if trade.pnl_usd else None,
+            pnl_r=calculated_r,
+            risk_amount=float(trade.risk_usd) if trade.risk_usd else None,
+            stop_loss_price=float(trade.sl_price) if trade.sl_price else None,
+            take_profit_price=float(trade.tp_price) if trade.tp_price else None,
+            session="Imported",
+            created_at=trade.created_at if trade.created_at else datetime.utcnow()
+        )
+        db.add(new_entry)
+        imported_count += 1
+        
+    db.commit()
+    
+    return success_response(data=JournalImportResponse(
+        imported_count=imported_count,
+        skipped_count=skipped_count,
+        message=f"Successfully imported {imported_count} trades. Skipped {skipped_count} duplicates."
+    ))
 
 # ==========================
 # Analytics Endpoints
