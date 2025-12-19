@@ -10,25 +10,29 @@ interface UseJournalEntriesReturn {
   refetch: () => Promise<void>;
   total: number;
   page: number;
+  setPage: (page: number) => void;
+  perPage: number;
+  setPerPage: (perPage: number) => void;
   totalPages: number;
 }
 
 /**
  * Custom hook to fetch journal entries
  */
-export function useJournalEntries(): UseJournalEntriesReturn {
+export function useJournalEntries(initialPage: number = 1, initialPerPage: number = 10): UseJournalEntriesReturn {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
+  const [perPage, setPerPage] = useState(initialPerPage);
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getJournalEntries(page, 10);
+      const response = await getJournalEntries(page, perPage);
 
       // Extract data from PaginatedResponse
       setEntries(response.data);
@@ -45,7 +49,7 @@ export function useJournalEntries(): UseJournalEntriesReturn {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, perPage]);
 
   useEffect(() => {
     fetchEntries();
@@ -58,6 +62,9 @@ export function useJournalEntries(): UseJournalEntriesReturn {
     refetch: fetchEntries,
     total,
     page,
+    setPage,
+    perPage,
+    setPerPage,
     totalPages,
   };
 }
