@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useJournalEntries } from '@/lib/hooks';
+import { deleteJournalEntry } from '@/lib/api/journal';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { Pagination } from '@/components/common';
+import { Pagination, Modal } from '@/components/common';
 import JournalFilterBar from '@/components/journal/JournalFilterBar';
 
 const JournalList: React.FC = () => {
@@ -19,8 +20,31 @@ const JournalList: React.FC = () => {
     total,
     totalPages,
     filters,
-    setFilters
+    setFilters,
+    refetch
   } = useJournalEntries();
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    
+    try {
+      setIsDeleting(true);
+      await deleteJournalEntry(deleteId);
+      await refetch();
+      setDeleteId(null);
+    } catch (err) {
+      alert('Failed to delete entry: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!authToken) {
     return (
@@ -64,7 +88,6 @@ const JournalList: React.FC = () => {
         <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden shadow-xl">
              <div className="overflow-x-auto">
                 <table className="w-full">
-
                     <thead>
                         <tr className="border-b border-gray-700 bg-gray-800/50">
                             <th className="text-left py-4 px-6 font-medium text-gray-300">Date</th>
@@ -126,12 +149,20 @@ const JournalList: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="py-4 px-6 text-right">
-                                    <Link 
-                                        href={`/journal/${entry.id}/edit`}
-                                        className="text-gray-500 hover:text-emerald-400 transition-colors text-sm"
-                                    >
-                                        Edit
-                                    </Link>
+                                    <div className="flex justify-end gap-3">
+                                        <Link 
+                                            href={`/journal/${entry.id}/edit`}
+                                            className="text-gray-400 hover:text-emerald-400 transition-colors text-sm font-medium"
+                                        >
+                                            Edit
+                                        </Link>
+                                        <button
+                                            onClick={() => handleDeleteClick(entry.id)}
+                                            className="text-gray-400 hover:text-red-400 transition-colors text-sm font-medium"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -149,6 +180,36 @@ const JournalList: React.FC = () => {
             />
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+          isOpen={!!deleteId}
+          onClose={() => setDeleteId(null)}
+          title="Confirm Delete"
+          footer={
+              <>
+                  <button
+                      onClick={() => setDeleteId(null)}
+                      className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-600"
+                      disabled={isDeleting}
+                  >
+                      Cancel
+                  </button>
+                  <button
+                      onClick={confirmDelete}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2"
+                      disabled={isDeleting}
+                  >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                  </button>
+              </>
+          }
+      >
+          <div className="text-gray-300">
+              <p>Are you sure you want to delete this journal entry?</p>
+              <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+          </div>
+      </Modal>
     </div>
   );
 };
