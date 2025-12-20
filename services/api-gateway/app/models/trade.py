@@ -1,6 +1,6 @@
 """
 Trade SQLAlchemy model.
-Source of truth: specs/01_data_model.yaml -> Trade entity
+Source of truth: specs/03_data_model.yaml -> Trade entity
 """
 
 from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text
@@ -105,7 +105,7 @@ class Trade(Base):
     # Relationship to StrategyRun
     strategy_run = relationship("StrategyRun", back_populates="trades")
 
-    # Table constraints (from specs/01_data_model.yaml validation_rules)
+    # Table constraints (from specs/03_data_model.yaml validation_rules)
     __table_args__ = (
         CheckConstraint('risk_usd <= 10.00', name='check_risk_cap'),
         CheckConstraint('lot_size > 0', name='check_min_lot_size'),

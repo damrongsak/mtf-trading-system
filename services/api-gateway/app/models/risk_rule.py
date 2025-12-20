@@ -1,6 +1,6 @@
 """
 RiskRule SQLAlchemy model.
-Source of truth: specs/01_data_model.yaml -> RiskRule entity
+Source of truth: specs/03_data_model.yaml -> RiskRule entity
 """
 
 from sqlalchemy import Column, String, DateTime, Numeric, Boolean, Enum as SQLEnum, Text, func

@@ -22,7 +22,7 @@ The project distinguishes itself through:
 | **Cloud Target** | GCP (Cloud Run, SQL) | Production environment (Project: `line-bot-2b383`). |
 
 ### 📂 Directory Structure
-*   `specs/`: **Source of Truth**. Contains Architecture (`00`), Data Models (`01`), API Contracts (`02`), and Logic Rules (`04`).
+*   `specs/`: **Source of Truth**. Contains Architecture (`01`), Data Models (`03`), API Contracts (`04`), and Logic Rules (`08`).
 *   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `execution`).
 *   `frontend/`: Next.js web application.
 *   `infra/`: Infrastructure configurations (Nginx, etc.).
@@ -33,7 +33,7 @@ The project distinguishes itself through:
 ### 1. The SDD Process (Crucial)
 **Do not write code without checking specs first.**
 1.  **Read Specs:** Check `specs/` for defining behavior.
-2.  **Update Specs:** If a new feature is needed, modify `01_data_model.yaml` or `02_api_spec.yaml` first.
+2.  **Update Specs:** If a new feature is needed, modify `03_data_model.yaml` or `04_api_spec.yaml` first.
 3.  **Generate Code:**
     *   **Backend Models:** `services/api-gateway/scripts/gen_backend.sh`
     *   **Frontend Client:** `cd frontend && pnpm run gen:api`

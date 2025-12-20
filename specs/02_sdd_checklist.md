@@ -16,12 +16,12 @@ This document translates the complete multi-dimensional trading system blueprint
 ## 1. Core Specification Files (/specs)
 | File | Description | Purpose (SDD Phase 1) |
 | :--- | :--- | :--- |
-| `00_architecture.md` | System overview: Data pipeline, strategy, execution, AI agent, API Gateway. | Defines **service boundaries** and data flow. |
-| `01_data_model.yaml` | Entity definitions: `Candle`, `Trade`, `StrategyRun`, `RiskRule`, `AgentInsight`. | Defines the **PostgreSQL schema** and Pydantic models. |
-| `02_api_spec.yaml` | OpenAPI contract for all routes: `/signal`, `/backtest`, `/risk/check`, `/exec/simulate`. | Defines the **API contracts** for the `api-gateway`. |
-| `03_ai_agent_spec.md` | Prompt schema, Qdrant retrieval pipeline, output JSON format for Gemini reasoning. | Defines the **LLM agent's contract**. |
-| `04_execution_rules.md` | **Critical Rules**: $10 Max Risk Cap, Min Lot 0.01 Rejection, ATR/CKS Stop logic, 4H/D EMA Filter. | Defines the **core guardrails** for the `execution` service. |
-| `05_testing_plan.md` | Unit, Contract, Integration, Regression (fixed seed backtest), and E2E strategy. | Ensures **mandatory testing** for each implementation step. |
+| `01_architecture.md` | System overview: Data pipeline, strategy, execution, AI agent, API Gateway. | Defines **service boundaries** and data flow. |
+| `03_data_model.yaml` | Entity definitions: `Candle`, `Trade`, `StrategyRun`, `RiskRule`, `AgentInsight`. | Defines the **PostgreSQL schema** and Pydantic models. |
+| `04_api_spec.yaml` | OpenAPI contract for all routes: `/signal`, `/backtest`, `/risk/check`, `/exec/simulate`. | Defines the **API contracts** for the `api-gateway`. |
+| `06_ai_agent.md` | Prompt schema, Qdrant retrieval pipeline, output JSON format for Gemini reasoning. | Defines the **LLM agent's contract**. |
+| `08_execution_rules.md` | **Critical Rules**: $10 Max Risk Cap, Min Lot 0.01 Rejection, ATR/CKS Stop logic, 4H/D EMA Filter. | Defines the **core guardrails** for the `execution` service. |
+| `09_testing_plan.md` | Unit, Contract, Integration, Regression (fixed seed backtest), and E2E strategy. | Ensures **mandatory testing** for each implementation step. |
 
 ---
 
@@ -71,7 +71,7 @@ This document translates the complete multi-dimensional trading system blueprint
 ### **E. API Gateway (Service: `api-gateway`)**
 | Task | Acceptance Criteria | Test |
 |------|----------------------|------|
-| Implement routers per `02_api_spec.yaml` | OpenAPI validates routes | Contract test |
+| Implement routers per `04_api_spec.yaml` | OpenAPI validates routes | Contract test |
 | Implement shared Pydantic models | Round-trip serialization works | Serialization test |
 
 ### **F. Frontend (Next.js 15)**
@@ -99,7 +99,7 @@ This document translates the complete multi-dimensional trading system blueprint
 | Level | Description |
 |--------|-------------|
 | Unit | Risk calc, indicators, and vector logic |
-| Contract | API responses conform to `02_api_spec.yaml` |
+| Contract | API responses conform to `04_api_spec.yaml` |
 | Integration | Ingestion → backtest → persistence |
 | Regression | Fixed seed backtest comparison |
 | E2E | Full simulation from frontend to execution |
@@ -121,7 +121,7 @@ Then 1H candle close matches last 15m close; timestamp = hour close.
 ## 7. Deliverables
 - Execution module (Python) with FastAPI routes + unit tests.
 - Vectorbt backtest notebook wired to `strategy-core`.
-- API router implementations from `02_api_spec.yaml`.
+- API router implementations from `04_api_spec.yaml`.
 - Next.js 15 dashboard scaffold.
 
 ---

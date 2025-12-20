@@ -1,7 +1,7 @@
 """
 MTF Trading System - Database Models
 
-All SQLAlchemy ORM models derived from specs/01_data_model.yaml
+All SQLAlchemy ORM models derived from specs/03_data_model.yaml
 These models are imported by Alembic for auto-generation of migrations.
 """
 

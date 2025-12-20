@@ -2,7 +2,7 @@
 MTF Trading System - Pydantic Schemas
 
 All Pydantic schemas for API request/response validation.
-Derived from specs/01_data_model.yaml
+Derived from specs/03_data_model.yaml
 """
 
 from app.schemas.candle import (

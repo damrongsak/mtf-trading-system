@@ -1,6 +1,6 @@
 """
 StrategyRun SQLAlchemy model.
-Source of truth: specs/01_data_model.yaml -> StrategyRun entity
+Source of truth: specs/03_data_model.yaml -> StrategyRun entity
 """
 
 from sqlalchemy import Column, String, Date, DateTime, Numeric, Integer, Enum as SQLEnum, CheckConstraint, Text, Index, func

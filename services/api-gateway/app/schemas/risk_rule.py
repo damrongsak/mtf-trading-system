@@ -1,6 +1,6 @@
 """
 RiskRule Pydantic schemas for API request/response validation.
-Source of truth: specs/01_data_model.yaml -> RiskRule entity
+Source of truth: specs/03_data_model.yaml -> RiskRule entity
 """
 
 from pydantic import BaseModel, Field, ConfigDict

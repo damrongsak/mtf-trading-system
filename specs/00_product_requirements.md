@@ -131,7 +131,7 @@ As the **AI Engineer**, I want to...
 
 The MVP is ready to proceed to the next development phase (Planning/Technical Design) when all of the following are met:
 
-1.  **[SDD]** All core specification files (`00_architecture.md`, `01_data_model.yaml`, `02_api_spec.yaml`, `04_execution_rules.md`) are complete and validated by the primary stakeholders.
+1.  **[SDD]** All core specification files (`01_architecture.md`, `03_data_model.yaml`, `04_api_spec.yaml`, `08_execution_rules.md`) are complete and validated by the primary stakeholders.
 2.  **[Risk]** The core risk guardrail logic (F2.1 - F2.4) is coded, unit-tested, and verified to be non-violable in simulation.
 3.  **[Backtest]** The Vectorbt backtesting harness is operational and can successfully run a parameter sweep without look-ahead bias.
 4.  **[Metric]** Success Goal G2 (Sharpe > 0.8) has been achieved on at least one parameter set from the initial sweep.

@@ -1,6 +1,6 @@
 """
 Candle SQLAlchemy model.
-Source of truth: specs/01_data_model.yaml -> Candle entity
+Source of truth: specs/03_data_model.yaml -> Candle entity
 """
 
 from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean

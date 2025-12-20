@@ -31,12 +31,18 @@ Keep your specs inside `/specs/`:
 
 ```
 /specs/
- ├─ 00_architecture.md
- ├─ 01_data_model.yaml
- ├─ 02_api_spec.yaml
- ├─ 03_ai_agent_spec.md
- ├─ 04_execution_rules.md
- └─ 05_testing_plan.md
+ ├─ 00_product_requirements.md
+ ├─ 01_architecture.md
+ ├─ 02_sdd_checklist.md
+ ├─ 03_data_model.yaml
+ ├─ 04_api_spec.yaml
+ ├─ 05_api_standards.md
+ ├─ 06_ai_agent.md
+ ├─ 07_frontend_design.md
+ ├─ 08_execution_rules.md
+ ├─ 09_testing_plan.md
+ ├─ 10_implementation_status.md
+ ├─ 11_guest_components.md
 ```
 
 Each spec drives its counterpart in `/services/`:
@@ -47,7 +53,7 @@ Each spec drives its counterpart in `/services/`:
 * `/frontend/` (Next.js)
 
 Example:
-If you define `GET /api/v1/signal` in `02_api_spec.yaml`, FastAPI autogenerates that route stub with `@router.get("/signal")`.
+If you define `GET /api/v1/signal` in `04_api_spec.yaml`, FastAPI autogenerates that route stub with `@router.get("/signal")`.
 Then you “fill the function” — Cloud Code helps you scaffold directly from spec.
 
 ---
@@ -215,10 +221,10 @@ volumes:
 
 You can start with this Spec-Driven sequence:
 
-1. `00_architecture.md` — describe above stack in your own context.
-2. `01_data_model.yaml` — define all data entities (Trade, Candle, StrategyRun, RiskRule).
-3. `02_api_spec.yaml` — design API routes for `/signal`, `/backtest`, `/risk/check`, `/agent/analyze`.
-4. `03_ai_agent_spec.md` — define Gemini agent behaviors, prompt schema, retrieval method.
+1. `01_architecture.md` — describe above stack in your own context.
+2. `03_data_model.yaml` — define all data entities (Trade, Candle, StrategyRun, RiskRule).
+3. `04_api_spec.yaml` — design API routes for `/signal`, `/backtest`, `/risk/check`, `/agent/analyze`.
+4. `06_ai_agent.md` — define Gemini agent behaviors, prompt schema, retrieval method.
 5. Scaffold `/services/api-gateway` using Cloud Code from these specs.
 
 ---

@@ -122,4 +122,4 @@ Once running, interactive documentation is available at:
 - **Vector Search:** Qdrant
 - **Package Manager:** `uv`
 
-For detailed data models, see `specs/01_data_model.yaml`.
+For detailed data models, see `specs/03_data_model.yaml`.

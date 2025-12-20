@@ -100,8 +100,8 @@ mtf-trading-system/
 This project follows SDD methodology:
 
 1. **Specs First**: All features start with specifications in `/specs/`
-   - `01_data_model.yaml`: Define data entities (Candle, Trade, etc.)
-   - `02_api_spec.yaml`: OpenAPI contracts for all endpoints
+   - `03_data_model.yaml`: Define data entities (Candle, Trade, etc.)
+   - `04_api_spec.yaml`: OpenAPI contracts for all endpoints
    - Other markdown specs for architecture, AI agent behavior, execution rules
 
 2. **Code from Specs**: Backend routes and models are scaffolded from YAML specs
@@ -157,7 +157,7 @@ For UI/UX inspiration, check the example project at:
 
 ### Database Migrations
 
-Use Alembic for PostgreSQL schema versioning to sync with `specs/01_data_model.yaml`
+Use Alembic for PostgreSQL schema versioning to sync with `specs/03_data_model.yaml`
 
 ### Vector Embeddings
 
@@ -183,7 +183,7 @@ Store in both pgvector (PostgreSQL) and Qdrant for different use cases
 
 - **Always check `/specs/` before implementing new features**
 - Update YAML specs before writing code
-- API contracts in `02_api_spec.yaml` drive Pydantic model generation
+- API contracts in `04_api_spec.yaml` drive Pydantic model generation
 - Keep specs and implementation in sync
 
 ### Service Isolation

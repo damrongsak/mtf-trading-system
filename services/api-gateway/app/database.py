@@ -1,6 +1,6 @@
 """
 Database configuration and connection management.
-Follows the data model specification in specs/01_data_model.yaml
+Follows the data model specification in specs/03_data_model.yaml
 """
 
 from sqlalchemy import create_engine

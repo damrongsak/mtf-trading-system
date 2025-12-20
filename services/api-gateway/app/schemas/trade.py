@@ -1,6 +1,6 @@
 """
 Trade Pydantic schemas for API request/response validation.
-Source of truth: specs/01_data_model.yaml -> Trade entity
+Source of truth: specs/03_data_model.yaml -> Trade entity
 """
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict

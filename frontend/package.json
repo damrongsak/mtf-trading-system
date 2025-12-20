@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "gen:api": "openapi-generator-cli generate -i ../specs/02_api_spec.yaml -g typescript-axios -o lib/api/generated --additional-properties=useSingleRequestParameter=true"
+    "gen:api": "openapi-generator-cli generate -i ../specs/04_api_spec.yaml -g typescript-axios -o lib/api/generated --additional-properties=useSingleRequestParameter=true"
   },
   "dependencies": {
     "axios": "^1.13.2",

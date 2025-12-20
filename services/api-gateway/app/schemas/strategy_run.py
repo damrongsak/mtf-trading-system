@@ -1,6 +1,6 @@
 """
 StrategyRun Pydantic schemas for API request/response validation.
-Source of truth: specs/01_data_model.yaml -> StrategyRun entity
+Source of truth: specs/03_data_model.yaml -> StrategyRun entity
 """
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict

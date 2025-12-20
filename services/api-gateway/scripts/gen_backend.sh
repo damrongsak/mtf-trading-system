@@ -17,7 +17,7 @@ mkdir -p app/schemas
 
 # Generate models
 $CMD \
-  --input ../../specs/02_api_spec.yaml \
+  --input ../../specs/04_api_spec.yaml \
   --output app/schemas/generated.py \
   --input-file-type openapi \
   --output-model-type pydantic_v2.BaseModel \
