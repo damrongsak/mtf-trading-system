@@ -4,7 +4,7 @@ import { useLivePrices } from "@/lib/hooks/useLivePrices";
 import { ArrowUpIcon, ArrowDownIcon, Loader2 } from "lucide-react";
 import { getMarketCategories, MarketCategory } from "@/lib/api/market_data";
 import { useAsync } from "@/lib/hooks";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export function MarketWatchCard() {
     const { data: categories, loading: categoriesLoading, execute: fetchCategories } = useAsync<MarketCategory[]>(getMarketCategories);
@@ -25,6 +25,15 @@ export function MarketWatchCard() {
     // Helper to get price data for a symbol
     const getPriceData = (symbol: string) => {
         return prices[symbol] || { bid: 0, ask: 0, time: new Date().toISOString() };
+    };
+
+    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+    const toggleCategory = (categoryId: string) => {
+        setExpandedCategories(prev => ({
+            ...prev,
+            [categoryId]: !prev[categoryId]
+        }));
     };
 
     if (categoriesLoading) {
@@ -50,14 +59,21 @@ export function MarketWatchCard() {
             </CardHeader>
             <CardContent>
                 <div className="space-y-4">
-                    {categories?.map((category) => (
+                    {categories?.map((category) => {
+                        const isExpanded = expandedCategories[category.id] || false;
+                        const displayedItems = isExpanded 
+                            ? category.items 
+                            : category.items.slice(0, 5);
+                        const hasMore = category.items.length > 5;
+                        
+                        return (
                         <div key={category.id}>
                             <h3 className="text-sm font-medium text-muted-foreground mb-2">{category.name}</h3>
                             <div className="space-y-2">
                                 {category.items.length === 0 ? (
                                     <p className="text-xs text-muted-foreground pl-2">No symbols</p>
                                 ) : (
-                                    category.items.map((item) => {
+                                    displayedItems.map((item) => {
                                         const price = getPriceData(item.symbol);
                                         // Mock change for now
                                         const change = 0; 
@@ -87,8 +103,21 @@ export function MarketWatchCard() {
                                     })
                                 )}
                             </div>
+                            {hasMore && (
+                                <button 
+                                    onClick={() => toggleCategory(category.id)}
+                                    className="w-full text-center text-xs text-muted-foreground hover:text-primary mt-2 flex items-center justify-center pt-1 border-t border-border/40"
+                                >
+                                    {isExpanded ? (
+                                        <>Show Less <ArrowUpIcon className="ml-1 h-3 w-3" /></>
+                                    ) : (
+                                        <>Show All ({category.items.length}) <ArrowDownIcon className="ml-1 h-3 w-3" /></>
+                                    )}
+                                </button>
+                            )}
                         </div>
-                    ))}
+                    );
+                })}
                     {!categories?.length && (
                          <div className="text-center text-muted-foreground p-4">
                             No market categories defined.
