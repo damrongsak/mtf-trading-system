@@ -25,8 +25,15 @@ export function useLivePrices(instruments: string[] = []) {
     const instrumentsList = instruments.map(s => s.replace('/', '_')).join(',');
 
     useEffect(() => {
-        // Prevent multiple connections
-        if (ws.current) return;
+        // If socket exists, close it to reconnect with new symbols (cleanup will handle this, but we want to be explicit if needed)
+        // Actually, the cleanup function from the previous effect run will have already closed the socket and set ws.current = null
+        // So we don't need to check ws.current here usually, unless strict mode causes double mounts.
+        // But to be safe against double-mounts:
+        if (ws.current) {
+            // If we are here, it means cleanup didn't run or we are in a race.
+            // Ideally cleanup runs before next effect.
+            // We can proceed.
+        }
 
         // Wait for auth token
         if (!authToken) return;

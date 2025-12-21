@@ -13,20 +13,6 @@ export function MarketWatchCard() {
         fetchCategories();
     }, []);
 
-    // Extract all symbols to subscribe to
-    const allSymbols = useMemo(() => {
-        if (!categories) return [];
-        return categories.flatMap(cat => cat.items.map(item => item.symbol));
-    }, [categories]);
-
-    // Connect to WebSocket with dynamic symbols
-    const { prices, isConnected } = useLivePrices(allSymbols);
-    
-    // Helper to get price data for a symbol
-    const getPriceData = (symbol: string) => {
-        return prices[symbol] || { bid: 0, ask: 0, time: new Date().toISOString() };
-    };
-
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -41,6 +27,21 @@ export function MarketWatchCard() {
     const handleTabChange = (categoryId: string) => {
         setActiveTab(categoryId);
         setIsExpanded(false); // Reset expansion when switching tabs
+    };
+
+    // Extract active symbols to subscribe to (Optimize: Only fetch what we see)
+    const activeSymbols = useMemo(() => {
+        if (!categories || !activeTab) return [];
+        const cat = categories.find(c => c.id === activeTab);
+        return cat ? cat.items.map(item => item.symbol) : [];
+    }, [categories, activeTab]);
+
+    // Connect to WebSocket with dynamic symbols
+    const { prices, isConnected } = useLivePrices(activeSymbols);
+    
+    // Helper to get price data for a symbol
+    const getPriceData = (symbol: string) => {
+        return prices[symbol] || { bid: 0, ask: 0, time: new Date().toISOString() };
     };
 
     if (categoriesLoading) {
