@@ -17,6 +17,8 @@ dependencies = [
     "uvicorn>=0.38.0",
     "alembic>=1.13.1",
     "redis>=5.0.1",
+    "v20>=3.0.25",
+    "PyYAML>=6.0",
 ]
 
 [dependency-groups]
