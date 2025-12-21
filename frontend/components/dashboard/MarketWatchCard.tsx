@@ -67,7 +67,7 @@ export function MarketWatchCard() {
         <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
             <CardHeader className="pb-0 space-y-4">
                 <div className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    <CardTitle className="text-xl font-bold text-foreground">
                         Market Watch
                     </CardTitle>
                     <Badge 
