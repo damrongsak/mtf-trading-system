@@ -29,6 +29,7 @@ class RiskRule(Base):
     - MIN_RR_RATIO: 1:2 risk-to-reward minimum
     """
     __tablename__ = "risk_rules"
+    __table_args__ = {"extend_existing": True}
 
     # Primary Key
     rule_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -61,7 +62,10 @@ class RiskRule(Base):
                        comment="Rule last update timestamp")
 
     __table_args__ = (
-        {'comment': 'Configurable risk guardrail thresholds (F2.2, F2.3, F2.4)'}
+        {
+            'comment': 'Configurable risk guardrail thresholds (F2.2, F2.3, F2.4)',
+            'extend_existing': True
+        }
     )
 
     def __repr__(self):

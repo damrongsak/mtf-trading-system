@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis
+from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data
 # ... (existing code)
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
@@ -60,7 +60,10 @@ app.add_middleware(
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
+if not os.path.exists(static_path):
+    os.makedirs(static_path, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Include Routers
 app.include_router(auth.router)
@@ -82,6 +85,7 @@ app.include_router(execution.router, prefix="/api/v1")
 app.include_router(stream.router, prefix="/api/v1/stream")
 app.include_router(market.router, prefix="/api/v1/market")
 app.include_router(analysis.router)
+app.include_router(market_data.router, prefix="/api/v1")
 
 
 

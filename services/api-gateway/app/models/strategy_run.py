@@ -19,15 +19,9 @@ class RunStatus(enum.Enum):
 
 
 class StrategyRun(Base):
-    """
-    Backtest run results and performance metrics.
-
-    Stores results from Vectorbt parameter sweeps and tracks
-    success criteria (G2: Sharpe > 0.8, MDD < 15%).
-    """
     __tablename__ = "strategy_runs"
+    __table_args__ = {"extend_existing": True}
 
-    # Primary Key
     run_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Run Identification
@@ -93,7 +87,10 @@ class StrategyRun(Base):
         CheckConstraint('end_date >= start_date', name='check_valid_date_range'),
         Index('ix_strategy_runs_dates', 'start_date', 'end_date'),
         Index('ix_strategy_runs_created_at', 'created_at'),
-        {'comment': 'Backtest run results and performance metrics'}
+        {
+            'comment': 'Backtest run results and performance metrics',
+            'extend_existing': True
+        }
     )
 
     def __repr__(self):

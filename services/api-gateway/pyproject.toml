@@ -10,8 +10,8 @@ dependencies = [
     "bcrypt>=5.0.0",
     "beautifulsoup4>=4.14.3",
     "fastapi==0.115.5",
-    "google-auth==2.26.2",
-    "google-cloud-aiplatform==1.38.1",
+    "google-auth>=2.26.2",
+    "google-cloud-aiplatform>=1.70.0",
     "lxml>=6.0.2",
     "numpy>=2.1.0",
     "openpyxl>=3.1.5",
@@ -23,18 +23,19 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "python-multipart==0.0.6",
     "pyyaml==6.0.1",
-    "qdrant-client==1.7.0",
-    "sqlalchemy==2.0.25",
+    "qdrant-client>=1.12.0",
+    "sqlalchemy>=2.0.36",
     "uvicorn[standard]==0.32.1",
     "vectorbt>=0.28.2",
     "yfinance==0.2.35",
     "httpx>=0.27.0",
     "websockets>=12.0",
+    "redis>=5.0.0",
 ]
 
 [dependency-groups]
 dev = [
     "datamodel-code-generator==0.25.2",
-    "pytest==7.4.4",
-    "pytest-asyncio==0.23.3",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.25.0",
 ]

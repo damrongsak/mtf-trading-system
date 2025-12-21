@@ -56,4 +56,5 @@ def mock_current_user():
     user.username = "testuser"
     user.email = "test@example.com"
     user.is_active = True
+    user.avatar_url = None
     return user

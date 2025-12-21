@@ -7,6 +7,7 @@ from app.database import Base
 
 class BacktestConfig(Base):
     __tablename__ = "backtest_configs"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=True) # Future multi-tenancy
@@ -24,6 +25,7 @@ class BacktestConfig(Base):
 
 class BacktestHistory(Base):
     __tablename__ = "backtest_history"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     config_id = Column(UUID(as_uuid=True), ForeignKey("backtest_configs.id"), nullable=True)

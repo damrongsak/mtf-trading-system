@@ -25,17 +25,9 @@ class TradeDirection(enum.Enum):
 
 
 class Trade(Base):
-    """
-    Individual trade records with risk and execution details.
-
-    Critical for tracking:
-    - Risk compliance (F2.2: $10 risk cap)
-    - Rejected trades for risk violations
-    - MAE/MFE for performance analysis
-    """
     __tablename__ = "trades"
+    __table_args__ = {"extend_existing": True}
 
-    # Primary Key
     trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Relationships
@@ -111,7 +103,10 @@ class Trade(Base):
         CheckConstraint('lot_size > 0', name='check_min_lot_size'),
         CheckConstraint('atr_pips <= 100.0 OR atr_pips IS NULL', name='check_max_atr_pips'),
         CheckConstraint('rr_ratio >= 2.0 OR rr_ratio IS NULL', name='check_min_rr_ratio'),
-        {'comment': 'Individual trade records with risk and execution details'}
+        {
+            'comment': 'Individual trade records with risk and execution details',
+            'extend_existing': True
+        }
     )
 
     def __repr__(self):

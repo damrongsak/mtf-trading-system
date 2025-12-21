@@ -11,6 +11,7 @@ def test_login_success(client, mock_db_session):
     mock_user.username = "testuser"
     mock_user.email = "test@example.com"
     mock_user.password_hash = "hashed_password"
+    mock_user.avatar_url = None
     
     # Mock DB query
     mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
@@ -130,6 +131,7 @@ def test_update_profile_duplicate_username(client, mock_db_session, mock_current
     existing_user = MagicMock(spec=User)
     existing_user.username = "existinguser"
     existing_user.id = uuid.uuid4()  # Different ID
+    existing_user.avatar_url = None
     
     # Mock DB query returning existing user
     mock_db_session.query.return_value.filter.return_value.first.return_value = existing_user
@@ -156,6 +158,7 @@ def test_update_profile_duplicate_email(client, mock_db_session, mock_current_us
     existing_user = MagicMock(spec=User)
     existing_user.email = "existing@example.com"
     existing_user.id = uuid.uuid4()
+    existing_user.avatar_url = None
     
     # Setup query mocks - first call for username returns None, second for email returns existing user
     username_query = MagicMock()

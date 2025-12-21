@@ -209,3 +209,23 @@ async def run_monte_carlo(req: dict = Body(...), db: Session = Depends(get_db)):
         return success_response(data=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/results/{backtest_id}", response_model=APIResponse[BacktestResponse])
+async def get_backtest_results(backtest_id: uuid.UUID, db: Session = Depends(get_db)):
+    """
+    Get results of a specific backtest from history.
+    """
+    history = db.query(BacktestHistory).filter(BacktestHistory.id == backtest_id).first()
+    if not history:
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
+    
+    # Reconstruct BacktestResponse structure
+    result = {
+        "id": str(history.id),
+        "status": history.status,
+        "metrics": history.metrics,
+        "trades": [], # Trades might be stored separately or in metrics, for now empty or from DB
+        "best_params": history.best_params
+    }
+    
+    return success_response(data=result)

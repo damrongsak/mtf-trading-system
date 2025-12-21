@@ -13,6 +13,7 @@ class GameLevel(str, enum.Enum):
 
 class JournalEntry(Base):
     __tablename__ = "journal_entries"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -49,6 +50,7 @@ class JournalEntry(Base):
 
 class MentalState(Base):
     __tablename__ = "mental_states"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)
@@ -64,6 +66,7 @@ class MentalState(Base):
 
 class TimelineEvent(Base):
     __tablename__ = "timeline_events"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)
@@ -77,6 +80,7 @@ class TimelineEvent(Base):
 
 class RootCauseAnalysis(Base):
     __tablename__ = "root_cause_analyses"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)

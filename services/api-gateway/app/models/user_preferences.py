@@ -16,8 +16,8 @@ class StrategyType(str, enum.Enum):
 
 
 class UserPreferences(Base):
-    """User-specific preferences for trading and portfolio management"""
     __tablename__ = "user_preferences"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)

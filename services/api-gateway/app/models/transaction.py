@@ -12,6 +12,7 @@ class TransactionType(str, enum.Enum):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)

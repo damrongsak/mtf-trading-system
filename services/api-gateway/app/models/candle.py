@@ -10,16 +10,9 @@ from app.database import Base
 
 
 class Candle(Base):
-    """
-    OHLCV candlestick data with multi-timeframe indicators.
-
-    This model stores market data at various timeframes (15m, 1h, 4h, D)
-    along with computed technical indicators that are aligned to prevent
-    look-ahead bias.
-    """
     __tablename__ = "candles"
+    __table_args__ = {"extend_existing": True}
 
-    # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Core Identification
@@ -64,7 +57,10 @@ class Candle(Base):
     # Indexes for performance
     __table_args__ = (
         Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp', unique=True),
-        {'comment': 'OHLCV candlestick data with multi-timeframe indicators'}
+        {
+            'comment': 'OHLCV candlestick data with multi-timeframe indicators',
+            'extend_existing': True
+        }
     )
 
     def __repr__(self):
