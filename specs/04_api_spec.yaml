@@ -429,6 +429,31 @@ paths:
                   message:
                     type: string
                     example: Ingestion job triggered in background
+  /api/v1/data/upload:
+    post:
+      summary: Upload historical data CSV
+      description: Bulk upload of historical candle data via CSV. Handles large files via Nginx proxy. Supports standard OHLCV formats including MetaTrader and Dukascopy.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  rows_processed:
+                    type: integer
   /api/v1/execution/trades:
     get:
       summary: List trades with filtering and pagination
