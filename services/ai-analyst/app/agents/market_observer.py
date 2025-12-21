@@ -11,7 +11,7 @@ class MarketObserverAgent:
             raise ValueError("GOOGLE_API_KEY is not set")
 
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro",
+            model=settings.GEMINI_MODEL_ID,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.1
         )
@@ -32,4 +32,7 @@ class MarketObserverAgent:
         inputs = {"messages": [("user", input_text)]}
         result = await self.graph.ainvoke(inputs)
         # Extract last message content
-        return result["messages"][-1].content
+        content = result["messages"][-1].content
+        if isinstance(content, list):
+            return "\n".join([str(c) for c in content])
+        return str(content)

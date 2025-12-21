@@ -2,14 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { PriceUpdate } from '../api/types';
 
-// Use env var or default to current host
-const DEFAULT_URL = 'ws://localhost:8000/api/v1/stream/prices';
-let WS_URL = process.env.NEXT_PUBLIC_WS_URL || DEFAULT_URL;
+// Determine WS_URL dynamically
+const getWsUrl = () => {
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host; // includes port if present
+        return `${protocol}//${host}/api/v1/stream/prices`;
+    }
+    return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/stream/prices';
+};
 
-// Correct common misconfiguration where only base URL is provided
-if (WS_URL && !WS_URL.includes('/api/v1/stream/prices')) {
-    WS_URL = WS_URL.replace(/\/$/, '') + '/api/v1/stream/prices';
-}
+const WS_URL = getWsUrl();
 
 export function useLivePrices(instruments: string[] = []) {
     const [prices, setPrices] = useState<Record<string, PriceUpdate>>({});
@@ -60,7 +63,7 @@ export function useLivePrices(instruments: string[] = []) {
                 console.log('Price Stream disconnected', event.reason);
                 setConnected(false);
                 ws.current = null;
-                
+
                 // Only reconnect if not closed intentionally by unmount (which calls close())
                 // But here we can't easily distinguish. 
                 // However, since we return a cleanup function that closes it,
@@ -69,9 +72,9 @@ export function useLivePrices(instruments: string[] = []) {
                 // If we want auto-reconnect for network issues, we keep it.
                 // But caution: if token is invalid, valid reconnect loop might spam.
                 // The backend sends WS_1008_POLICY_VIOLATION for bad token.
-                
+
                 if (event.code !== 1008) {
-                     setTimeout(connect, 3000);
+                    setTimeout(connect, 3000);
                 }
             };
 
@@ -83,7 +86,7 @@ export function useLivePrices(instruments: string[] = []) {
         return () => {
             if (ws.current) {
                 // Remove onclose to prevent reconnect attempts during cleanup
-                ws.current.onclose = null; 
+                ws.current.onclose = null;
                 ws.current.close();
                 ws.current = null;
             }

@@ -49,3 +49,26 @@ async def analyze_journal(req: JournalAnalysisRequest):
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+
+from pydantic import BaseModel
+class AgentRunRequest(BaseModel):
+    input_text: str
+
+@router.post("/agent/observer/run")
+async def run_market_observer(req: AgentRunRequest):
+    """
+    Proxy agent run request to AI Analyst service.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{AI_SERVICE_URL}/agent/observer/run", 
+                json=req.model_dump(),
+                timeout=60.0 # Agents can be slow
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")

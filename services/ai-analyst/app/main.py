@@ -22,21 +22,32 @@ from pydantic import BaseModel
 # ... imports ...
 
 # Initialize services (Lazy loading could be better, but simple for now)
+# Initialize Services
+gemini_client = None
+rag_service = None
+market_observer = None
+
 try:
     gemini_client = GeminiClient()
+except Exception as e:
+    print(f"Warning: Failed to initialize GeminiClient: {e}")
+
+try:
     rag_service = RAGService()
-    # Initialize Agent
+except Exception as e:
+    print(f"Warning: Failed to initialize RAGService: {e}")
+
+try:
     market_observer = MarketObserverAgent()
 except Exception as e:
-    print(f"Warning: Failed to initialize AI services: {e}")
-    gemini_client = None
-    rag_service = None
-    market_observer = None
+    print(f"Warning: Failed to initialize MarketObserverAgent: {e}")
 
 # ... existing endpoints ...
 
 class AgentRunRequest(BaseModel):
     input_text: str = "Generate a market situation report for XAU/USD."
+
+import traceback
 
 @app.post("/agent/observer/run")
 async def run_observer_agent(request: AgentRunRequest):
@@ -47,6 +58,8 @@ async def run_observer_agent(request: AgentRunRequest):
         report = await market_observer.run(request.input_text)
         return {"report": report, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
+        print(f"Error executing agent: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

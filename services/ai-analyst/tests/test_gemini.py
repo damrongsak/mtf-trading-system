@@ -7,6 +7,7 @@ from app.services.gemini import GeminiClient
 def mock_settings():
     with patch("app.services.gemini.settings") as mock_settings:
         mock_settings.GOOGLE_API_KEY = "fake_test_key"
+        mock_settings.GEMINI_MODEL_ID = "gemini-1.5-flash-test"
         yield mock_settings
 
 # Fixture to mock the genai.Client and its async methods
@@ -62,7 +63,10 @@ async def test_generate_market_outlook_success(mock_settings, mock_genai_client)
     
     # Verify arguments
     _, kwargs = mock_genai_client.call_args
-    assert kwargs['model'] == 'gemini-1.5-pro'
+    # Check if initialized with correct model
+    assert client.model_id == 'gemini-1.5-flash-test'
+    
+    # Mock the aio.models.generate_content method
     assert "Uptrend" in kwargs['contents']
     assert "2050.00" in kwargs['contents']
 

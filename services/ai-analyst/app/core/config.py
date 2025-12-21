@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # Gemini
     GOOGLE_API_KEY: str
+    GEMINI_MODEL_ID: str = "gemini-2.5-flash"
 
     # Service URLs
     STRATEGY_CORE_URL: str = "http://strategy-core:8000"

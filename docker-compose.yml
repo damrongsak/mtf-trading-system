@@ -31,6 +31,7 @@ services:
       - DATA_PIPELINE_URL=http://data-pipeline:8000
       - STRATEGY_CORE_URL=http://strategy-core:8000
       - REDIS_URL=redis://redis:6379/0
+      - AI_ANALYST_URL=http://ai-analyst:8000
 
   execution:
     build: ./services/execution

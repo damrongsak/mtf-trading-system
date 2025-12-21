@@ -8,8 +8,8 @@ class GeminiClient:
         
         # Initialize the client with the API key
         self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-        # Using gemini-1.5-pro
-        self.model_id = 'gemini-1.5-pro'
+        # Using configured model
+        self.model_id = settings.GEMINI_MODEL_ID
 
     async def generate_market_outlook(self, context: dict) -> str:
         """
