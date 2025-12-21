@@ -21,10 +21,16 @@ async def start_scheduler():
     # Schedule ingestion every 15 minutes
     scheduler.add_job(run_ingestion_job, 'interval', minutes=15, id='ingestion_job')
     scheduler.start()
+    
+    # Start Stream Manager
+    from app.streaming.manager import stream_manager
+    await stream_manager.start()
 
 @app.on_event("shutdown")
 async def shutdown_scheduler():
     scheduler.shutdown()
+    from app.streaming.manager import stream_manager
+    await stream_manager.stop()
 
 @app.get("/health")
 def health_check():

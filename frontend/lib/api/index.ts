@@ -4,6 +4,7 @@ export * from './journal';
 export * from './backtest';
 
 export * from './market';
+export * from './market_data';
 export * from './dashboard';
 export * from './fund';
 export * from './settings';

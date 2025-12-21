@@ -76,7 +76,15 @@ The MVP is defined by the following core system behaviors, translated directly f
 | **F2.3** | The system must **reject a trade** if the calculated lot size is less than the minimum tradable lot (0.01). | Rejection Logic, Rule D / Sec 4 |
 | **F2.4** | The system must **reject a trade** if the ATR-based Stop Loss distance exceeds 100 pips (Volatility Guardrail). | Volatility-aware stops, Sec 4 |
 
-### 4.3. Backtesting & Reporting
+### 4.3. Data & Realtime Architecture
+
+| Requirement | Description (Behavior) | Blueprint Reference |
+| :--- | :--- | :--- |
+| **F3.1** | The system must use a **Pub/Sub Architecture (Redis)** for low-latency market data distribution, decoupling ingestion from consumption. | Architecture, Sec 2 |
+| **F3.2** | The system must support **Dynamic Market Categories** (e.g., Forex, Crypto) configurable via API, allowing flexible grouping of symbols in the UI. | Frontend Design, Sec 7 |
+| **F3.3** | The system must implement **Decision Traceability** by logging every major action (Signal, Risk Check, Trade) to a centralized Audit Log. | Compliance, Sec 6 |
+
+### 4.4. Backtesting & Reporting
 
 | Requirement | Description (Behavior) | Blueprint Reference |
 | :--- | :--- | :--- |

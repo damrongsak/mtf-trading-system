@@ -3,11 +3,17 @@
 ## 1. Overview
 This document defines the strategy for End-to-End (E2E) testing of the MTF Trading System. The goal is to ensure critical user flows function correctly across the full stack (Next.js Frontend + FastAPI Backend + Database).
 
+- **CI Integration:** GitHub Actions (future)
+
 ## 2. Technology Stack
+### 2.1 Frontend (E2E)
 - **Framework:** [Playwright](https://playwright.dev/)
 - **Language:** TypeScript
-- **Runner:** `npm run test:e2e` (to be configured)
-- **CI Integration:** GitHub Actions (future)
+
+### 2.2 Backend (Unit & Integration)
+- **Framework:** [Pytest](https://docs.pytest.org/) (>=8.0.0)
+- **Async Support:** `pytest-asyncio` (>=0.25.0)
+- **Coverage:** `pytest-cov`
 
 ## 3. Scope & Critical Flows
 

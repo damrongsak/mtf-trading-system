@@ -30,6 +30,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
       - DATA_PIPELINE_URL=http://data-pipeline:8000
       - STRATEGY_CORE_URL=http://strategy-core:8000
+      - REDIS_URL=redis://redis:6379/0
 
   execution:
     build: ./services/execution
@@ -52,6 +53,7 @@ services:
       - execution # Just to ensure order, though not strictly dependent
     environment:
       - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
+      - REDIS_URL=redis://redis:6379/0
     networks:
       - default
       - external
@@ -67,6 +69,7 @@ services:
       - data-pipeline
     environment:
       - DATABASE_URL=postgresql://trader:trader@host.docker.internal:5432/mtf_db
+      - REDIS_URL=redis://redis:6379/0
     networks:
       - default
       - external
@@ -115,6 +118,16 @@ services:
   #   container_name: frontend
   #   ports:
   #     - "3000:3000"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - default
+      - external
 
 networks:
   external:

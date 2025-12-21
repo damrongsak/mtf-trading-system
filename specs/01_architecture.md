@@ -25,6 +25,9 @@ graph TD
         Data --> DB
         AI --> Qdrant[(Qdrant Vector Store)]
         Data --> Qdrant
+        Data --> Redis[(Redis Pub/Sub)]
+        Strategy --> Redis
+        Gateway --> Redis
     end
 
     subgraph "External"
@@ -69,7 +72,9 @@ graph TD
 ### 3.6. Data Pipeline (`services/data-pipeline`)
 - **Tech Stack**: Python, FastAPI, SQLAlchemy, Pandas.
 - **Responsibility**: Data ingestion, storage, and processing.
-- **Key Features**: OHLCV loading, resampling (15m -> 1H -> 4H -> D), database migration.
+- **Key Features**: 
+    - OHLCV loading, resampling (15m -> 1H -> 4H -> D), database migration.
+    - **Streaming Engine**: `OandaStreamer` fetches live ticks and publishes to Redis.
 
 ## 4. Data Flow
 
@@ -87,8 +92,14 @@ graph TD
 4.  `Strategy Core` runs Vectorbt simulation.
 5.  Results are stored in `PostgreSQL` and returned to `Frontend`.
 
+### 4.3. Real-time Data Streaming
+1.  `Data Pipeline` connects to OANDA v20 Stream API.
+2.  `Data Pipeline` publishes ticks/candles to Redis channels (e.g., `market_data:EUR_USD`).
+3.  **Strategy Consumption**: `Strategy Core` subscribes to Redis channels for event-driven analysis.
+4.  **Frontend Consumption**: `API Gateway` subscribes to Redis and forwards data to `Frontend` via WebSocket.
+
 ## 5. Infrastructure
 
 - **Local**: Docker Compose orchestrates all services and databases.
-- **Production**: GCP Cloud Run (Serverless Containers) + Cloud SQL (PostgreSQL) + Qdrant Cloud (or container).
+- **Production**: GCP Cloud Run (Serverless Containers) + Cloud SQL (PostgreSQL) + Qdrant Cloud + Redis Cloud.
 - **CI/CD**: GitHub Actions for testing and building images. Cloud Build for deployment.

@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 
 router = APIRouter(tags=["stream"])
 
-STRATEGY_CORE_WS_URL = os.getenv("STRATEGY_CORE_WS_URL", "ws://strategy-core:8000/ws/prices")
+from app.utils.redis_subscriber import RedisSubscriber
 
 @router.websocket("/prices")
 async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_USD", token: str = Query(...)):
@@ -19,32 +19,42 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_U
         if username is None:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
-    except JWTError:
+    except (JWTError, Exception):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     await websocket.accept()
     
-    # Construct upstream URL with query params
-    upstream_url = f"{STRATEGY_CORE_WS_URL}?symbols={symbols}"
+    # Parse symbols and map to Redis channels
+    # Channel format: market_data:EUR_USD
+    requested_symbols = [s.strip() for s in symbols.split(",") if s.strip()]
+    channels = [f"market_data:{s.replace('/', '_')}" for s in requested_symbols]
     
-    # Connect to Strategy Core
+    if not channels:
+        # If no symbols, just keep connection open? Or maybe subscribe to all? 
+        # For now, close if empty request
+        await websocket.close(code=1000)
+        return
+
+    subscriber = RedisSubscriber()
+    
     try:
-        async with websockets.connect(upstream_url) as service_ws:
-            # Proxy loop
-            try:
-                while True:
-                    # Receieve from upstream
-                    msg = await service_ws.recv()
-                    # Send to client
-                    await websocket.send_text(msg)
-            except WebSocketDisconnect:
-                pass # Client disconnect is normal
-            except Exception as e:
-                print(f"Proxy loop error: {e}")
+        await subscriber.connect()
+        await subscriber.subscribe(channels)
+        
+        async for msg in subscriber.listen():
+            if msg["type"] == "message":
+                # Forward the raw JSON data from Redis to the WebSocket
+                # Redis message data is string
+                await websocket.send_text(msg["data"])
+                
+    except WebSocketDisconnect:
+        pass # Client disconnected
     except Exception as e:
-        print(f"Failed to connect to Strategy Core: {e}")
+        print(f"Stream error: {e}")
         try:
             await websocket.close(code=1011)
         except:
             pass
+    finally:
+        await subscriber.close()

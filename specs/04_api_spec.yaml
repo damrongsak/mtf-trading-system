@@ -407,6 +407,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_BalanceResponse'
+  /api/v1/market/categories:
+    get:
+      summary: List market categories
+      responses:
+        '200':
+          description: List of market categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketCategory'
+    post:
+      summary: Create a new market category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketCategoryCreate'
+      responses:
+        '201':
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketCategory'
+
+  /api/v1/market/categories/{category_id}/symbols:
+    post:
+      summary: Add a symbol to a category
+      parameters:
+        - name: category_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketSymbolCreate'
+      responses:
+        '201':
+          description: Added symbol
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketSymbol'
+
   /api/v1/data/ingest/manual:
     post:
       summary: Manually trigger the OANDA data ingestion job.
@@ -1595,3 +1647,67 @@ components:
             updated_at:
               type: string
               format: date-time
+
+    # --- Market Schemas ---
+    MarketCategory:
+      type: object
+      required:
+        - id
+        - name
+        - order_index
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        order_index:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketSymbol'
+
+    MarketCategoryCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        order_index:
+          type: integer
+
+    MarketSymbol:
+      type: object
+      required:
+        - id
+        - symbol
+        - category_id
+        - order_index
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        display_name:
+          type: string
+        category_id:
+          type: string
+          format: uuid
+        order_index:
+          type: integer
+
+    MarketSymbolCreate:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+        display_name:
+          type: string
+        order_index:
+          type: integer

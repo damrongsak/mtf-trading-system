@@ -14,7 +14,7 @@ from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps
 from app.simulation import run_grid_simulation_logic
 from app.analysis.optimization import run_grid_search
 from app.analysis.monte_carlo import run_monte_carlo
-from app.streaming import price_streamer
+from app.analysis.monte_carlo import run_monte_carlo
 from app.engine import strategy_engine
 from app.runner.live import live_runner
 from app.adapters.oanda_history import OandaHistoryAdapter
@@ -216,22 +216,9 @@ def run_backtest_endpoint(req: BacktestRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.websocket("/ws/prices")
-async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD,XAU_USD")):
-    await websocket.accept()
-    try:
-        # Parse comma-separated string to list
-        instruments = [s.strip() for s in symbols.split(",") if s.strip()]
-        async for data in price_streamer.stream(instruments):
-            await websocket.send_json(data)
-    except WebSocketDisconnect:
-        print("Client disconnected from price stream")
-    except Exception as e:
-        print(f"WebSocket error: {e}")
-        try:
-            await websocket.close()
-        except:
-            pass
+# @router.websocket("/ws/prices")
+# async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD,XAU_USD")):
+#     await websocket.close(code=1000, reason="Use API Gateway /api/v1/stream/prices")
 
 @router.post("/strategies/{strategy_id}/start")
 async def start_strategy_endpoint(strategy_id: str, config: dict):

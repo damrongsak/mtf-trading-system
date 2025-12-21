@@ -1,14 +1,15 @@
 import asyncio
 import logging
-from app.streaming import price_streamer
+import json
 from app.engine import StrategyEngine
+from app.utils.redis_subscriber import RedisSubscriber
 
 logger = logging.getLogger(__name__)
 
 class LiveRunner:
-    def __init__(self, engine: StrategyEngine, streamer: 'PriceStreamer'):
+    def __init__(self, engine: StrategyEngine):
         self.engine = engine
-        self.streamer = streamer
+        self.subscriber = RedisSubscriber()
         self._running = False
         self._task = None
 
@@ -28,34 +29,40 @@ class LiveRunner:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        await self.subscriber.close()
         logger.info("LiveRunner stopped")
 
     async def _run_loop(self):
         # Determine unique symbols from active strategies
-        # For now, we assume strategies might be added dynamically, 
-        # but let's start with a default set or query engine.
-        # In this MVP, we might hardcode or query engine for active strategies.
+        # For now, we assume strategies might be added dynamically.
         
-        # We need to start the stream for ALL symbols used by active strategies
-        active_symbols = ["EUR_USD", "XAU_USD"] # Default for now
-        
-        self.streamer.start_streaming(active_symbols)
-        queue = await self.streamer.subscribe()
+        # In Redis arch, data is pushed to channels like market_data:EUR_USD
+        # We should subscribe to *all* market data or specific ones. 
+        # For broad coverage in this MVP, let's look for pattern market_data:*
         
         try:
-            while self._running:
-                data = await queue.get()
-                if data.get("type") == "PRICE":
-                    # Forward to engine
-                    await self.engine.on_tick(data)
-                elif data.get("type") == "ERROR":
-                    logger.error(f"LiveRunner stream error: {data.get('msg')}")
-                    
+            await self.subscriber.connect()
+            # Redis psubscribe for pattern matching
+            await self.subscriber.pubsub.psubscribe("market_data:*")
+            
+            async for msg in self.subscriber.listen():
+                if msg["type"] == "pmessage": # Pattern message
+                    data_str = msg["data"]
+                    try:
+                         # Redis sends string, parse to JSON
+                         data = json.loads(data_str)
+                         # Forward to engine
+                         await self.engine.on_tick(data)
+                    except json.JSONDecodeError:
+                        logger.error("Failed to decode market data JSON")
+                
         except asyncio.CancelledError:
             logger.info("LiveRunner loop cancelled")
-        finally:
-            self.streamer.unsubscribe(queue)
+        except Exception as e:
+            logger.error(f"LiveRunner error: {e}")
+            # Optional: retry logic using simple sleep for MVP
+            await asyncio.sleep(5)
 
 # Global instance
 from app.engine import strategy_engine # We need to ensure singleton pattern
-live_runner = LiveRunner(strategy_engine, price_streamer)
+live_runner = LiveRunner(strategy_engine)

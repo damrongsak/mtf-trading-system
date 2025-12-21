@@ -136,18 +136,23 @@
     - `/api/v1/auth` routes: Login, Register, User details.
     - `/api/v1/strategies` routes: List and Create strategies.
     - `/api/v1/journal` routes: Create, List, Get journal entries.
+    - **Streaming:** WebSocket endpoint `/api/v1/stream/prices` refactored to consume from Redis.
+    - **Market Data:** Dynamic Category and Symbol management endpoints (`/api/v1/market/categories`).
     - Auth middleware with JWT token validation.
     - **CORS:** Configured `CORSMiddleware` to explicitly allow all origins.
     - **Schema Sync:** `Candle` model updated to include `is_complete` column and Alembic migration applied.
     - **Enum Update:** `NEUTRAL` direction added to `SignalDirection` enum.
 
 ### **11. Data Pipeline (`services/data-pipeline`)**
-- **Status:** ✅ Complete (2025-12-09)
+- **Status:** ✅ Complete (Refactored 2025-12-21)
 - **Features:**
     - Service structure created.
     - `Candle` model defined.
     - Dockerfile updated to `uv`.
-    - `OandaClient` adapter implemented.
+    - **Streaming Engine:** `StreamManager`, `RedisPublisher`, and `OandaStreamer` implemented for real-time data.
+    - **Configuration:** DB-driven `DataSource` model.
+    - **Audit Log:** `DecisionLog` and `AuditLogger` implemented.
+    - **Oanda Integration:** `OandaClient` adapter implemented.
     - **Automation:** `APScheduler` configured to fetch M15, H1, H4 candles every 15m.
     - `POST /ingest/manual` endpoint for on-demand fetch.
     - **Database Integration:** Alembic configured, initial migration applied. `is_complete` column now present.
