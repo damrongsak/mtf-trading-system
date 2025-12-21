@@ -66,7 +66,14 @@ export function MarketWatchCard() {
                                             <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold">{item.display_name || item.symbol}</span>
-                                                    <span className="text-xs text-muted-foreground">{item.symbol}</span>
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className="text-xs text-muted-foreground">{item.symbol}</span>
+                                                        {item.broker && (
+                                                            <Badge variant="outline" className="text-[10px] h-4 px-1 py-0">
+                                                                {item.broker}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex flex-col items-end">
                                                     <span className="font-mono font-medium">{price.bid ? price.bid.toFixed(5) : "---"}</span>

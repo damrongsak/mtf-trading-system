@@ -23,11 +23,14 @@ class MarketSymbol(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category_id = Column(UUID(as_uuid=True), ForeignKey("market_categories.id"), nullable=False)
+    data_source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=True)
     symbol = Column(String, nullable=False) # e.g. "EUR_USD"
     display_name = Column(String, nullable=True) # e.g. "Euro / US Dollar"
     order_index = Column(Integer, default=0)
     
-    # Ideally link to DataSource if we want specific source per symbol
-    # for now, relying on StreamManager's channel convention `market_data:{symbol}`
-
+    data_source = relationship("DataSource")
     category = relationship("MarketCategory", back_populates="items")
+
+    @property
+    def broker(self):
+        return self.data_source.name if self.data_source else None

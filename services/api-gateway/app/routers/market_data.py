@@ -15,7 +15,8 @@ class SymbolSchema(BaseModel):
     symbol: str
     display_name: Optional[str] = None
     order_index: int = 0
-    
+    broker: Optional[str] = None # Name of the data source
+
     class Config:
         from_attributes = True
 
@@ -39,7 +40,10 @@ class AddSymbolSchema(BaseModel):
 
 @router.get("/market/categories", response_model=List[CategorySchema])
 def get_categories(db: Session = Depends(get_db)):
-    cats = db.query(MarketCategory).filter(MarketCategory.is_active == True).order_by(MarketCategory.order_index).all()
+    from sqlalchemy.orm import joinedload
+    cats = db.query(MarketCategory).filter(MarketCategory.is_active == True).options(
+        joinedload(MarketCategory.items).joinedload(MarketSymbol.data_source)
+    ).order_by(MarketCategory.order_index).all()
     return cats
 
 @router.post("/market/categories", response_model=CategorySchema)

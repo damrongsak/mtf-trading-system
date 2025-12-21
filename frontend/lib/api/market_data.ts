@@ -4,7 +4,8 @@ import { ApiError } from './types';
 export interface MarketSymbol {
     id: string;
     symbol: string;
-    display_name?: string;
+    display_name: string;
+    broker?: string;
     category_id: string;
     order_index: number;
 }
