@@ -6,7 +6,7 @@ import { getMarketCategories, MarketCategory } from "@/lib/api/market_data";
 import { useAsync } from "@/lib/hooks";
 import { useEffect, useMemo, useState } from "react";
 
-export function MarketWatchCard() {
+export function MarketWatchCard({ symbols }: { symbols?: string[] }) {
     const { data: categories, loading: categoriesLoading, execute: fetchCategories } = useAsync<MarketCategory[]>(getMarketCategories);
 
     useEffect(() => {
@@ -33,11 +33,18 @@ export function MarketWatchCard() {
     const activeSymbols = useMemo(() => {
         if (!categories || !activeTab) return [];
         const cat = categories.find(c => c.id === activeTab);
-        return cat ? cat.items.map(item => item.symbol) : [];
-    }, [categories, activeTab]);
+        if (!cat) return [];
+        
+        let items = cat.items;
+        if (symbols && symbols.length > 0) {
+            items = items.filter(item => symbols.includes(item.symbol));
+        }
+        
+        return items.map(item => item.symbol);
+    }, [categories, activeTab, symbols]);
 
     // Connect to WebSocket with dynamic symbols
-    const { prices, isConnected } = useLivePrices(activeSymbols);
+    const { prices, connected } = useLivePrices(activeSymbols);
     
     // Helper to get price data for a symbol
     const getPriceData = (symbol: string) => {
@@ -58,10 +65,18 @@ export function MarketWatchCard() {
     }
 
     const activeCategory = categories?.find(c => c.id === activeTab);
-    const displayedItems = activeCategory 
-        ? (isExpanded ? activeCategory.items : activeCategory.items.slice(0, 5))
+    
+    // Filter items if 'symbols' prop is provided
+    const filteredItems = activeCategory 
+        ? (symbols && symbols.length > 0 
+            ? activeCategory.items.filter(item => symbols.includes(item.symbol))
+            : activeCategory.items)
         : [];
-    const hasMore = activeCategory ? activeCategory.items.length > 5 : false;
+
+    const displayedItems = filteredItems 
+        ? (isExpanded ? filteredItems : filteredItems.slice(0, 5))
+        : [];
+    const hasMore = filteredItems ? filteredItems.length > 5 : false;
 
     return (
         <Card className="shadow-lg border-0 bg-card/50 backdrop-blur-sm">
@@ -72,9 +87,9 @@ export function MarketWatchCard() {
                     </CardTitle>
                     <Badge 
                         variant="outline" 
-                        className={`transition-colors duration-300 ${isConnected ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-destructive/10 text-destructive border-destructive/20"}`}
+                        className={`transition-colors duration-300 ${connected ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-destructive/10 text-destructive border-destructive/20"}`}
                     >
-                        {isConnected ? "Live" : "Connecting..."}
+                        {connected ? "Live" : "Connecting..."}
                     </Badge>
                 </div>
                 

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.data_source import DataSource
+from app.models.market import MarketSymbol
 from app.streaming.adapters.oanda import OandaStreamer
 from app.streaming.publisher import RedisPublisher
 import logging
@@ -23,8 +24,19 @@ class StreamManager:
             logger.info(f"Found {len(data_sources)} active data sources")
             
             for ds in data_sources:
+                # Fetch symbols configured for this data source
+                symbols = db.query(MarketSymbol).filter(
+                    MarketSymbol.data_source_id == ds.id
+                ).all()
+                
+                symbol_list = [s.symbol for s in symbols]
+                
+                if not symbol_list:
+                    logger.warning(f"No symbols found for data source {ds.name}")
+                    continue
+
                 if ds.name.lower() == 'oanda':
-                    self._start_oanda(ds.config_json)
+                    self._start_oanda(ds.config_json, symbol_list)
                 # Add other adapters here (e.g. Binance)
                 
         except Exception as e:
@@ -32,17 +44,12 @@ class StreamManager:
         finally:
             db.close()
 
-    def _start_oanda(self, config: dict):
+    def _start_oanda(self, config: dict, instruments: list):
         adapter = OandaStreamer(config, self._publish_callback)
-        # Default instruments for now, later could be configurable via DB or API
-        instruments = ["EUR_USD", "XAU_USD", "GBP_USD", "USD_JPY", "BTC_USD"]
         
         # OANDA v20 expects underscores
         self.adapters['oanda'] = adapter
-        # We need to await start, but start is async.
-        # Since this is called from async start(), we can await it.
-        # But for list iteration, better to gather. 
-        # For simplicity in MVP, we iterate.
+        
         import asyncio
         asyncio.create_task(adapter.start(instruments))
 

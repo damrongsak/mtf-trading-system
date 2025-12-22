@@ -196,7 +196,7 @@ export default function DashboardPage() {
         
         {/* Righht Column: AI & Performance */}
         <div className="space-y-6">
-            <MarketWatchCard symbols={allSymbols} prices={prices} connected={connected} />
+            <MarketWatchCard symbols={allSymbols} />
             <AIAnalystCard />
             
             <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6">
