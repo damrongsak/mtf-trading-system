@@ -1,10 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
-from app.adapters.oanda_account import OandaAccountAdapter
-from app.adapters.oanda_order import OandaOrderAdapter
+from app.adapters.factory import BrokerFactory
 
 app = FastAPI(title="Execution Service")
 
@@ -16,27 +15,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Dependency Injection ---
-def get_account_adapter():
-    return OandaAccountAdapter()
+# --- Request Models ---
 
-def get_order_adapter():
-    return OandaOrderAdapter()
+class BrokerConfig(BaseModel):
+    broker_name: str = Field(..., example="OANDA")
+    credentials: Dict[str, Any] = Field(..., description="API Key, Account ID, etc.")
 
-# --- Models ---
+class AccountSummaryRequest(BaseModel):
+    broker: BrokerConfig
+
+class OrderRequest(BaseModel):
+    broker: BrokerConfig
+    symbol: str = Field(..., description="Instrument e.g., XAU_USD")
+    units: float = Field(..., description="Units to trade (positive=long, negative=short)")
+    sl_price: Optional[float] = None
+    tp_price: Optional[float] = None
+    trade_id: Optional[str] = None
+
+class GetTradesRequest(BaseModel):
+    broker: BrokerConfig
+
+class CloseTradeRequest(BaseModel):
+    broker: BrokerConfig
+    broker_trade_id: str
+    units: Optional[float] = None
+
+# --- Response Models ---
+
 class AccountSummaryResponse(BaseModel):
     balance: str
     NAV: str
     marginAvailable: str
     openTradeCount: int
     openPositionCount: int
-
-class OrderRequest(BaseModel):
-    symbol: str = Field(..., description="Instrument e.g., XAU_USD")
-    units: float = Field(..., description="Units to trade (positive=long, negative=short)")
-    sl_price: Optional[float] = None
-    tp_price: Optional[float] = None
-    trade_id: Optional[str] = None
 
 class OrderResponse(BaseModel):
     id: str
@@ -55,23 +66,19 @@ async def check_risk(req: ExecutionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/account/summary")
-async def get_account_summary(adapter: OandaAccountAdapter = Depends(get_account_adapter)):
+@app.post("/account/summary", response_model=AccountSummaryResponse)
+async def get_account_summary(req: AccountSummaryRequest):
     try:
-        data = adapter.get_summary()
-        return AccountSummaryResponse(
-            balance=data.get("balance", "0"),
-            NAV=data.get("NAV", "0"),
-            marginAvailable=data.get("marginAvailable", "0"),
-            openTradeCount=data.get("openTradeCount", 0),
-            openPositionCount=data.get("openPositionCount", 0)
-        )
+        adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
+        data = adapter.get_account_summary()
+        return AccountSummaryResponse(**data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/orders", status_code=201)
-async def place_order(req: OrderRequest, adapter: OandaOrderAdapter = Depends(get_order_adapter)):
+@app.post("/orders", response_model=OrderResponse, status_code=201)
+async def place_order(req: OrderRequest):
     try:
+        adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
         response = adapter.place_market_order(
             symbol=req.symbol,
             units=req.units,
@@ -80,11 +87,9 @@ async def place_order(req: OrderRequest, adapter: OandaOrderAdapter = Depends(ge
             trade_id=req.trade_id
         )
         
-        # Parse relevant fields from OANDA response
-        # Note: Response structure depends on fill type (orderFillTransaction)
+        # Parse relevant fields from OANDA response (keeping logic compatible for now)
         fill = response.get("orderFillTransaction")
         if not fill:
-             # It might be a pending order or failed immediate fill
              raise HTTPException(status_code=400, detail="Order not immediately filled or structure mismatch")
 
         return OrderResponse(
@@ -99,11 +104,21 @@ async def place_order(req: OrderRequest, adapter: OandaOrderAdapter = Depends(ge
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/trades/open")
-async def get_open_trades(adapter: OandaOrderAdapter = Depends(get_order_adapter)):
+@app.post("/trades/open")
+async def get_open_trades(req: GetTradesRequest):
     try:
+        adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
         trades = adapter.get_open_trades()
         return {"status": "success", "data": trades}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/trades/close")
+async def close_trade(req: CloseTradeRequest):
+    try:
+        adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
+        result = adapter.close_trade(req.broker_trade_id, req.units)
+        return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
