@@ -61,7 +61,7 @@ class OandaStreamer(StreamAdapter):
                 if self._stop_event.is_set():
                     break
                     
-                if msg_type == "pricing.Price":
+                if msg_type in ["pricing.Price", "pricing.ClientPrice"]:
                     data = {
                         "type": "PRICE",
                         "source": "oanda",
