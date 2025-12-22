@@ -98,6 +98,13 @@ border border-accent-green/20
 - **Online Indicator**: `w-2 h-2 rounded-full bg-accent-green animate-pulse`
 - **Loading Spinner**: `animate-spin rounded-full h-12 w-12 border-b-2 border-accent-blue`
 
+### Data Visualization Components
+- **Stacked Chart Layout**:
+    - **Container**: `ChartContainer` manages synchronization context (time/crosshair).
+    - **Price Panel**: `CandleChart` (Top) renders price candles + overlays (EMA, BBands).
+    - **Indicator Panels**: `IndicatorChart` (Bottom) renders independent oscillators (RSI, MACD, etc.).
+    - **Sync Logic**: All charts share X-axis range and crosshair position via React Context.
+
 ### Sidebar Navigation
 - **Active State**: `bg-accent-blue/10 text-accent-blue border border-accent-blue/20`
 - **Inactive State**: `text-gray-400 hover:bg-gray-800/50 hover:text-gray-200`

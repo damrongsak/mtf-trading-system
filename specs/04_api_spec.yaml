@@ -656,6 +656,97 @@ paths:
               schema:
                  type: object
 
+  /api/v1/data/candles:
+    get:
+      summary: Fetch historical candle data
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: List of candles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Candle'
+
+  /api/v1/analysis/indicators:
+    get:
+      summary: Get multiple technical indicators
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: indicators
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Calculated indicators
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+
+  /api/v1/analysis/levels/indicators/{indicator_type}:
+    get:
+      summary: Get specific indicator data
+      parameters:
+        - name: indicator_type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Indicator data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
   /api/v1/execution/account/summary:
     get:
       summary: Get account summary
@@ -793,6 +884,32 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    Candle:
+      type: object
+      required:
+        - time
+        - open
+        - high
+        - low
+        - close
+        - volume
+      properties:
+        time:
+          type: string
+          format: date-time
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: integer
+        is_complete:
+          type: boolean
 
     APIResponse_RiskCheckResponse:
       type: object

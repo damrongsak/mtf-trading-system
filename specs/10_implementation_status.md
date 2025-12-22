@@ -260,6 +260,15 @@
         - **UI Components:** New `ConfirmationModal` and `Label` components.
     - **Testing:** `test_multi_broker.sh` integration test and `test_crypto.py` unit test passed.
 
+### 20. Market Analysis & Dynamic Charts
+- **Status:** ✅ Complete (2025-12-22)
+- **Features:**
+    - **Stacked Chart Layout:** Syncs Price, RSI, MACD, etc. in separate panels.
+    - **Dynamic Timeframes:** Support for custom frames (4h, 1d) via URL params.
+    - **Indicators:** EMA, ATR, RSI, MACD, ADX fully integrated.
+    - **Architecture:** `ChartContainer` + React Context for cross-chart sync.
+    - **Data Pipeline:** Event-driven updates via Redis for real-time candles.
+
 ---
 
 ## 🟡 In Progress / Partial

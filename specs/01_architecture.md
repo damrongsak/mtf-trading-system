@@ -64,6 +64,7 @@ graph TD
     - Deterministic resampling & parameter sweeping.
     - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
     - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
+    - **Market Analysis API**: Real-time calculation of technical indicators (RSI, MACD, etc.) for frontend visualization.
 
 ### 3.5. AI Analyst (`services/ai-analyst`)
 - **Tech Stack**: Python, Google Gemini Pro, LangChain.
