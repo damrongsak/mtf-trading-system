@@ -106,7 +106,9 @@ export default function MarketPage() {
           try {
               const res = await calculateEMA({ data: closes, span: 200 });
               newInds.push({ name: 'EMA 200', data: res, color: '#2563eb' }); // blue-600
-          } catch(e) {}
+          } catch(e) {
+              console.error("EMA Calculation failed:", e);
+          }
       }
       if (showRSI) {
           try {
