@@ -239,6 +239,53 @@ entities:
         on_update: "now()"
         description: "Record last update timestamp"
 
+  BrokerAccount:
+    description: "User-specific broker account credentials and configuration"
+    table_name: "broker_accounts"
+    indexes:
+      - fields: ["user_id"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: broker_name
+        type: string
+        required: true
+        max_length: 50
+        description: "Broker identifier (e.g., OANDA, BINANCE)"
+      - name: account_name
+        type: string
+        required: true
+        max_length: 100
+        description: "User-defined alias"
+      - name: account_number
+        type: string
+        max_length: 100
+        nullable: true
+        description: "Broker-assigned account ID"
+      - name: credentials_encrypted
+        type: jsonb
+        required: true
+        description: "Encrypted API keys and secrets"
+      - name: is_active
+        type: boolean
+        default: true
+      - name: is_live
+        type: boolean
+        default: false
+        description: "True for Live environment, False for Demo/Practice"
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
   Trade:
     description: "Individual trade records with risk and execution details"
     table_name: "trades"
@@ -246,6 +293,7 @@ entities:
       - fields: ["signal_timestamp"]
       - fields: ["status"]
       - fields: ["strategy_run_id"]
+      - fields: ["broker_account_id"]
     fields:
       - name: trade_id
         type: uuid
@@ -256,6 +304,11 @@ entities:
         nullable: true
         foreign_key: "strategy_runs.run_id"
         description: "Link to the strategy run that generated this trade"
+      - name: broker_account_id
+        type: uuid
+        nullable: true
+        foreign_key: "broker_accounts.id"
+        description: "Link to the broker account where this trade was executed"
       - name: symbol
         type: string
         required: true

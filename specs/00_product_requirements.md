@@ -27,7 +27,7 @@ Automated trading systems often fail due to undisciplined risk management, look-
 To build a robust, reproducible, and capital-preserving XAU/USD algorithmic trading system that integrates proven Smart Money Concepts (SMC) and Multi-Timeframe (MTF) analysis, enforced by a non-negotiable risk engine, allowing the trader to focus on system optimization and strategic enhancement rather than manual execution or emotional risk.
 
 ### 1.3. Expansion Scope Focus
-The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, and Oanda Integration**. The system will support multiple users/funds, concurrent execution of diverse strategies, and live data ingestion from Oanda.
+The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, Multi-Broker Support, and Oanda Integration**. The system will support multiple users/funds, concurrent execution of diverse strategies, management of multiple broker accounts, and live data ingestion from Oanda.
 
 ---
 
@@ -91,6 +91,14 @@ The MVP is defined by the following core system behaviors, translated directly f
 | **F3.1** | The system must enable vectorized backtesting (Vectorbt) with a parameter grid sweep for core parameters (EMA, ATR Mult, Rv Threshold). | Optimization Plan, Sec 5 |
 | **F3.2** | The backtesting environment must ensure **no look-ahead bias** via deterministic MTF resampling and indicator alignment. | Look-ahead protection, Sec 5 |
 | **F3.3** | The system must generate a basic Trade Log and Scorecard (MAE/MFE, WinRate, MDD, Sharpe) after each backtest run. | Monitoring & Scorekeeping, Sec 2 |
+
+### 4.5. Multi-Broker & Account Management
+
+| Requirement | Description (Behavior) | Blueprint Reference |
+| :--- | :--- | :--- |
+| **F5.1** | The system must allow users to securely manage multiple broker accounts (OANDA, Binance) with encrypted credential storage (AES-256). | Security, Sec 6 |
+| **F5.2** | The system must support **Dynamic Instrument Management**, fetching active symbols directly from the database rather than hardcoded lists. | Data Architecture, Sec 2 |
+| **F5.3** | The system must enable **Account-Specific Execution**, allowing traders to select which account to route an order to or sync trades from. | Execution Engine, Sec 4 |
 
 ---
 

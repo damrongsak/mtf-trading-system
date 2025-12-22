@@ -245,6 +245,21 @@
     - **Commits:**
         - `feat: implement user profile picture upload and display` (2025-12-17)
 
+### 19. Multi-Broker Architecture
+- **Status:** ✅ Complete (2025-12-22)
+- **Features:**
+    - **Backend:**
+        - `BrokerAccount` model with AES-256 encrypted credentials (`app/utils/crypto.py`).
+        - `BrokerFactory` pattern in Execution Service for dynamic adapter instantiation.
+        - Stateless Execution Service API (`POST /orders` accepts config).
+        - Multi-Account Sync logic in `TradeService`.
+        - CRUD API: `/api/v1/accounts` endpoints.
+    - **Frontend:**
+        - **Broker Settings:** "Broker Accounts" management UI (List, Add, Delete) with confirmation modal.
+        - **Market Watch:** Dynamic filtering based on user preferences.
+        - **UI Components:** New `ConfirmationModal` and `Label` components.
+    - **Testing:** `test_multi_broker.sh` integration test and `test_crypto.py` unit test passed.
+
 ---
 
 ## 🟡 In Progress / Partial

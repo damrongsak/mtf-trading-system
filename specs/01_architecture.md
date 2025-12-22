@@ -28,6 +28,7 @@ graph TD
         Data --> Redis[(Redis Pub/Sub)]
         Strategy --> Redis
         Gateway --> Redis
+        Gateway --> Vault[(Encrypted Credentials)]
     end
 
     subgraph "External"
@@ -51,7 +52,10 @@ graph TD
 ### 3.3. Execution Service (`services/execution`)
 - **Tech Stack**: Python, FastAPI.
 - **Responsibility**: Risk management and trade execution. Enforces strict risk rules (e.g., $10 max risk, 0.01 min lot).
-- **Key Features**: `can_execute` guardrail, risk calculation, trade logging.
+- **Key Features**: 
+    - **Stateless Architecture**: Accepts broker configuration per request.
+    - **Dynamic Adapters**: Uses `BrokerFactory` to instantiate OANDA/Binance adapters on the fly.
+    - `can_execute` guardrail, risk calculation, trade logging.
 
 ### 3.4. Strategy Core (`services/strategy-core`)
 - **Tech Stack**: Python, Vectorbt, Pandas.
@@ -74,7 +78,7 @@ graph TD
 - **Responsibility**: Data ingestion, storage, and processing.
 - **Key Features**: 
     - OHLCV loading, resampling (15m -> 1H -> 4H -> D), database migration.
-    - **Streaming Engine**: `OandaStreamer` fetches live ticks and publishes to Redis.
+    - **Streaming Engine**: Fetches dynamic symbol list from DB and publishes ticks to Redis.
 
 ## 4. Data Flow
 

@@ -142,6 +142,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_UserPreferencesResponse'
+  /api/v1/accounts/:
+    get:
+      summary: List broker accounts
+      responses:
+        '200':
+          description: List of broker accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccountList'
+    post:
+      summary: Add a new broker account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrokerAccountCreate'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccount'
+
+  /api/v1/accounts/{account_id}:
+    put:
+      summary: Update a broker account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrokerAccountUpdate'
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccount'
+    delete:
+      summary: Delete a broker account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
   /api/v1/funds:
     get:
       summary: List funds for current user
@@ -806,6 +872,61 @@ components:
           type: string
           format: date-time
 
+    APIResponse_BrokerAccount:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/BrokerAccountResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BrokerAccountList:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrokerAccountResponse'
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_Success:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
     APIResponse_Fund:
       type: object
       required:
@@ -1305,6 +1426,62 @@ components:
           type: string
         is_active:
           type: boolean
+    
+    BrokerAccountCreate:
+      type: object
+      required:
+        - broker_name
+        - account_name
+        - credentials
+      properties:
+        broker_name:
+          type: string
+          enum: [OANDA, BINANCE]
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_live:
+          type: boolean
+          default: false
+        credentials:
+          type: object
+          description: "Key-value pairs of API keys, secrets, etc."
+
+    BrokerAccountUpdate:
+      type: object
+      properties:
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_live:
+          type: boolean
+        is_active:
+          type: boolean
+        credentials:
+          type: object
+
+    BrokerAccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_active:
+          type: boolean
+        is_live:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
     UserPreferencesResponse:
       type: object
       properties:
