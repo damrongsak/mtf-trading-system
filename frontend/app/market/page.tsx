@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import dynamic from 'next/dynamic';
 const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
+const ChartContainer = dynamic(() => import('@/components/charts/ChartContainer').then(mod => mod.ChartContainer), { ssr: false });
+const IndicatorChart = dynamic(() => import('@/components/charts/IndicatorChart').then(mod => mod.IndicatorChart), { ssr: false });
 import { IndicatorData } from '@/components/charts/CandleChart';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { fetchSystemConfig } from '@/lib/api/system';
@@ -239,139 +241,144 @@ export default function MarketPage() {
            </Card>
       </div>
 
-      {/* Main Analysis Area */}
+      {/* Chart Content */}
       <Card className="border-white/5 bg-white/[0.02] backdrop-blur-2xl shadow-2xl overflow-hidden min-h-[600px] flex flex-col">
-        {/* Toolbar */}
-        <div className="border-b border-white/10 p-4 flex flex-wrap gap-4 justify-between items-center bg-white/5">
-            <div className="flex items-center gap-4">
-                {/* Symbol Select */}
-                <Select value={symbol} onValueChange={setSymbol}>
-                    <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-0 focus:border-white/20 h-10">
-                        <SelectValue>{symbol.replace('_', '/')}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-900 border-white/10 text-gray-200">
-                        {supportedSymbols.map(s => (
-                            <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+          {/* Toolbar */}
+          <div className="border-b border-white/10 p-4 flex flex-wrap gap-4 justify-between items-center bg-white/5">
+              <div className="flex items-center gap-4">
+                  <Select value={symbol} onValueChange={setSymbol}>
+                      <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-0 focus:border-white/20 h-10">
+                          <SelectValue>{symbol.replace('_', '/')}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-900 border-white/10 text-gray-200">
+                          {supportedSymbols.map(s => (
+                              <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
 
-                <div className="h-6 w-px bg-white/10 mx-2" />
+                  <div className="h-6 w-px bg-white/10 mx-2" />
 
-                {/* Timeframes Pill Group */}
-                <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
-                    {availableTimeframes.map(tf => (
-                        <button
-                            key={tf}
-                            onClick={() => setTimeframe(tf)}
-                            className={cn(
-                                "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
-                                timeframe === tf 
-                                    ? "bg-white/10 text-white shadow-sm" 
-                                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            {tf}
-                        </button>
-                    ))}
-                </div>
-            </div>
+                  <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+                      {availableTimeframes.map(tf => (
+                          <button
+                              key={tf}
+                              onClick={() => setTimeframe(tf)}
+                              className={cn(
+                                  "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
+                                  timeframe === tf 
+                                      ? "bg-white/10 text-white shadow-sm" 
+                                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                              )}
+                          >
+                              {tf}
+                          </button>
+                      ))}
+                  </div>
+              </div>
 
-            <div className="flex items-center gap-3">
-                 {/* Indicators Toggle Group */}
-                 <div className="flex items-center gap-2 mr-4 flex-wrap">
-                     <button 
-                        onClick={() => setShowEMA(!showEMA)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showEMA ? "bg-blue-500/20 border-blue-500/50 text-blue-400" : "border-white/10 text-gray-400 hover:border-white/20"
+              <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-2 mr-4 flex-wrap">
+                       <button onClick={() => setShowEMA(!showEMA)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showEMA ? "bg-blue-500/20 border-blue-500/50 text-blue-400" : "border-white/10 text-gray-400 hover:border-white/20")}>EMA 200</button>
+                       <button onClick={() => setShowEMA50(!showEMA50)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showEMA50 ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "border-white/10 text-gray-400 hover:border-white/20")}>EMA 50</button>
+                       <button onClick={() => setShowRSI(!showRSI)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showRSI ? "bg-purple-500/20 border-purple-500/50 text-purple-400" : "border-white/10 text-gray-400 hover:border-white/20")}>RSI</button>
+                       <button onClick={() => setShowATR(!showATR)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showATR ? "bg-pink-500/20 border-pink-500/50 text-pink-400" : "border-white/10 text-gray-400 hover:border-white/20")}>ATR</button>
+                       <button onClick={() => setShowMACD(!showMACD)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showMACD ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "border-white/10 text-gray-400 hover:border-white/20")}>MACD</button>
+                       <button onClick={() => setShowADX(!showADX)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showADX ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500" : "border-white/10 text-gray-400 hover:border-white/20")}>ADX</button>
+                   </div>
+                   
+                   <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="border-white/10 bg-white/5 hover:bg-white/10 text-white hover:text-white w-10 h-10">
+                      <RefreshCcw size={18} className={cn(loading && "animate-spin")} />
+                   </Button>
+              </div>
+          </div>
+          
+          <div className="flex-1 relative min-h-[500px] w-full bg-gradient-to-b from-transparent to-black/20 p-4">
+               {candles.length > 0 ? (
+                   <ChartContainer>
+                       {/* Main Chart (Price + Overlays) */}
+                       <CandleChart 
+                          data={candles} 
+                          indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} // Pass only overlays
+                          colors={{
+                              backgroundColor: 'transparent',
+                              textColor: '#737373', // neutral-500
+                          }} 
+                       />
+                       
+                       {/* Stacked Oscillators */}
+                       {/* RSI */}
+                       {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
+                           <IndicatorChart 
+                              key={ind.name}
+                              type="RSI"
+                              data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))} // Mapping needs safety
+                              height={150}
+                              colors={{ lineColor: ind.color, textColor: '#737373' }}
+                           />
+                       ))}
+
+                       {/* ATR */}
+                       {chartIndicators.filter(i => i.name.startsWith('ATR')).map(ind => (
+                           <IndicatorChart 
+                               key={ind.name}
+                               type="ATR"
+                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))}
+                               height={150}
+                               colors={{ lineColor: ind.color, textColor: '#737373' }}
+                           />
+                       ))}
+
+                        {/* MACD */}
+                        {showMACD && (
+                            <IndicatorChart 
+                                key="MACD"
+                                type="MACD"
+                                data={(() => {
+                                    const macd = chartIndicators.find(i => i.name === 'MACD')?.data || [];
+                                    const signal = chartIndicators.find(i => i.name === 'Signal')?.data || [];
+                                    // Hist is usually MACD - Signal but API returns it? 
+                                    // Our API calculateMACD response includes hist. But updateIndicators only pushes MACD and Signal as separate lines?
+                                    // Ah, updatedIndicators pushed MACD and Signal separately. 
+                                    // We should fix updateIndicators to maintain grouping or reconstructing here.
+                                    // For now reconstructing:
+                                    return macd.map((v, i) => ({
+                                        time: new Date(candles[i]?.timestamp).getTime() / 1000 as any,
+                                        value: v || 0,
+                                        signal: signal[i] || 0,
+                                        hist: (v || 0) - (signal[i] || 0) // Naive hist calc if not stored
+                                    }));
+                                })()}
+                                height={200}
+                                colors={{ lineColor: '#22d3ee', signalColor: '#f472b6', histColor: '#26a69a', textColor: '#737373' }}
+                            />
                         )}
-                     >
-                        <Layers size={14} /> EMA 200
-                     </button>
-                     <button 
-                        onClick={() => setShowEMA50(!showEMA50)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showEMA50 ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "border-white/10 text-gray-400 hover:border-white/20"
-                        )}
-                     >
-                        EMA 50
-                     </button>
-                     <button 
-                        onClick={() => setShowRSI(!showRSI)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showRSI ? "bg-purple-500/20 border-purple-500/50 text-purple-400" : "border-white/10 text-gray-400 hover:border-white/20"
-                        )}
-                     >
-                        RSI
-                     </button>
-                     <button 
-                        onClick={() => setShowATR(!showATR)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showATR ? "bg-pink-500/20 border-pink-500/50 text-pink-400" : "border-white/10 text-gray-400 hover:border-white/20"
-                        )}
-                     >
-                        ATR
-                     </button>
-                     <button 
-                        onClick={() => setShowMACD(!showMACD)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showMACD ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "border-white/10 text-gray-400 hover:border-white/20"
-                        )}
-                     >
-                        MACD
-                     </button>
-                     <button 
-                        onClick={() => setShowADX(!showADX)}
-                        className={cn(
-                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
-                           showADX ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500" : "border-white/10 text-gray-400 hover:border-white/20"
-                        )}
-                     >
-                        ADX
-                     </button>
-                 </div>
-                 
-                 <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={loadData} 
-                    disabled={loading}
-                    className="border-white/10 bg-white/5 hover:bg-white/10 text-white hover:text-white w-10 h-10"
-                 >
-                    <RefreshCcw size={18} className={cn(loading && "animate-spin")} />
-                 </Button>
-            </div>
-        </div>
-        
-        {/* Chart Content */}
-        <div className="flex-1 relative min-h-[500px] w-full bg-gradient-to-b from-transparent to-black/20">
-             {candles.length > 0 ? (
-                 <CandleChart 
-                    data={candles} 
-                    indicators={chartIndicators} 
-                    colors={{
-                        backgroundColor: 'transparent',
-                        textColor: '#525252', // neutral-600
-                    }} 
-                 />
-             ) : (
-                 <div className="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2">
-                     {loading ? (
-                         <>
-                            <RefreshCcw className="animate-spin mb-2" />
-                            <span>Loading Market Data...</span>
-                         </>
-                     ) : (
-                         <span>Select a symbol to begin analysis</span>
-                     )}
-                 </div>
-             )}
-        </div>
+
+                        {/* ADX */}
+                        {chartIndicators.filter(i => i.name.startsWith('ADX')).map(ind => (
+                           <IndicatorChart 
+                               key={ind.name}
+                               type="ADX"
+                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))}
+                               height={150}
+                               colors={{ lineColor: ind.color, textColor: '#737373' }}
+                           />
+                       ))}
+
+                   </ChartContainer>
+               ) : (
+                   <div className="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2">
+                       {loading ? (
+                           <>
+                              <RefreshCcw className="animate-spin mb-2" />
+                              <span>Loading Market Data...</span>
+                           </>
+                       ) : (
+                           <span>Select a symbol to begin analysis</span>
+                       )}
+                   </div>
+               )}
+          </div>
       </Card>
     </div>
   );

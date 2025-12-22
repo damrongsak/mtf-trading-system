@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData } from 'lightweight-charts';
+import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
 
 export interface IndicatorData {
@@ -28,6 +29,9 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const indicatorSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+  
+  // Use Sync Context
+  const registerChart = useChartSync();
 
   // 1. Initialize Chart (Once)
   useEffect(() => {
@@ -49,9 +53,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
         secondsVisible: false,
         borderColor: 'rgba(255, 255, 255, 0.1)',
       },
-      leftPriceScale: {
-        visible: true,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+      rightPriceScale: {
+         borderColor: 'rgba(255, 255, 255, 0.1)',
       },
       crosshair: {
         mode: 1, // Magnet
@@ -64,8 +67,6 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       }
     });
 
-    chartRef.current = chart;
-
     // Create Main Series
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#10b981', // emerald-500
@@ -75,6 +76,11 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       wickDownColor: '#ef4444',
     });
     seriesRef.current = candlestickSeries;
+
+    chartRef.current = chart;
+    
+    // Register for sync
+    if (registerChart) registerChart(chart, candlestickSeries);
 
     const handleResize = () => {
       chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
@@ -94,13 +100,13 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     if (!chartRef.current || !seriesRef.current) return;
 
     // Format Data
-    console.warn('[CandleChart] Raw Data Input Size:', data.length);
+    // console.warn('[CandleChart] Raw Data Input Size:', data.length); // Reduced log noise
 
     const formattedData = data
       .map((item) => {
         const time = new Date(item.timestamp).getTime() / 1000;
         if (isNaN(time)) {
-             console.error('[CandleChart] Invalid timestamp:', item);
+             // console.error('[CandleChart] Invalid timestamp:', item);
              return null;
         }
         return {
@@ -114,22 +120,23 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       .filter((item): item is CandlestickData<Time> => item !== null)
       .sort((a, b) => (a.time as number) - (b.time as number));
 
-    console.warn('[CandleChart] Formatted Data Sample:', formattedData.length > 0 ? formattedData[0] : 'empty');
-
     // Dedup
     const uniqueData = Array.from(new Map(formattedData.map(item => [item.time, item])).values());
     
     seriesRef.current.setData(uniqueData);
     
     // Fit content if initial load 
-    if (uniqueData.length > 0) {
-        chartRef.current.timeScale().fitContent(); 
-    }
+    // AND if no indicators are forcing a specific range? 
+    // Actually we only fit content if it's the first load usually. 
+    // But for now, let's fit.
+    // if (uniqueData.length > 0) {
+    //    chartRef.current.timeScale().fitContent(); 
+    // }
   }, [data]);
 
-  // 3. Update Indicators
+  // 3. Update Indicators (Overlays ONLY: EMA, BBands)
   useEffect(() => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !seriesRef.current) return;
     
     // Clean up old indicators
     indicatorSeriesRefs.current.forEach(series => chartRef.current?.removeSeries(series));
@@ -137,17 +144,25 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
     const candleTimes = data.map(d => new Date(d.timestamp).getTime() / 1000).sort((a,b) => a-b);
 
-    indicators.forEach(ind => {
+    // Filter for Overlay indicators only (those without explicit left scale or specifically marked)
+    // For now we assume anything passed here is an Overlay if we moved Oscillators out. 
+    // BUT MarketPage might still pass them until refactored.
+    // So we filter out ones with priceScaleId 'left'.
+    const overlayIndicators = indicators.filter(i => i.priceScaleId !== 'left');
+
+    overlayIndicators.forEach(ind => {
         const lineSeries = chartRef.current!.addSeries(LineSeries, {
             color: ind.color,
             lineWidth: 2,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false,
-            priceScaleId: ind.priceScaleId || 'right', // Support custom scale (left/right)
         });
 
         const lineData = ind.data.map((val, i) => {
+             // Alignment is naive here (by index), assumed data is same length/timestamps as candles
+             // Ideally we pass {time, value} from parent
+             // But for now we map by index if timestamps match
              if (val === null || i >= candleTimes.length) return null;
              return {
                  time: candleTimes[i] as Time,

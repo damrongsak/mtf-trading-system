@@ -50,7 +50,7 @@ export default function RootLayout({
 
   // Authenticated pages render with Sidebar/Header
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>MTF Trading System</title>
         <meta name="description" content="Algorithmic Trading Dashboard" />
