@@ -33,6 +33,16 @@ def calculate_bbands(close: pd.Series, window: int = 20, alpha: int = 2):
     """
     return vbt.BBANDS.run(close, window=window, alpha=alpha)
 
+def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14):
+    """
+    Calculate ADX using pandas-ta.
+    Returns DataFrame with ADX, DMP, DMN columns.
+    """
+    df = pd.DataFrame({'high': high, 'low': low, 'close': close})
+    # pandas-ta returns a DataFrame with columns ADX_14, DMP_14, DMN_14 by default
+    adx_df = df.ta.adx(length=length)
+    return adx_df
+
 def calculate_indicator(df: pd.DataFrame, strategy: str = "Common") -> pd.DataFrame:
     """
     Calculate indicators using pandas-ta.

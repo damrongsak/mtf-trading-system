@@ -55,7 +55,7 @@ export default function RootLayout({
         <title>MTF Trading System</title>
         <meta name="description" content="Algorithmic Trading Dashboard" />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
         <AuthProvider>
           <SidebarProvider>
             <div className="flex h-screen overflow-hidden">

@@ -8,7 +8,7 @@ export interface Candle {
   close: number;
   volume: number;
   // Indicators might be added here dynamically or handled separately
-  [key: string]: string | number; 
+  [key: string]: string | number;
 }
 
 export interface FetchCandlesParams {
@@ -29,5 +29,6 @@ export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]
       count: params.count
     }
   });
+  console.log('FetchCandles Response:', response.data);
   return response.data.data;
 }

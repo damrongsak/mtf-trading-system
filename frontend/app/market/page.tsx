@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CandleChart, IndicatorData } from '@/components/charts/CandleChart';
+import dynamic from 'next/dynamic';
+const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
+import { IndicatorData } from '@/components/charts/CandleChart';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { fetchSystemConfig } from '@/lib/api/system';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { calculateEMA, calculateRSI } from '@/lib/api/analysis';
+import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -34,7 +36,11 @@ export default function MarketPage() {
   
   // Indicators
   const [showEMA, setShowEMA] = useState(false);
+  const [showEMA50, setShowEMA50] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
+  const [showATR, setShowATR] = useState(false);
+  const [showMACD, setShowMACD] = useState(false);
+  const [showADX, setShowADX] = useState(false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
 
   // Live Hook
@@ -96,11 +102,13 @@ export default function MarketPage() {
   useEffect(() => {
     if (candles.length === 0) return;
     updateIndicators();
-  }, [candles.length, showEMA, showRSI, symbol, timeframe]); // Recalc mainly on new candles or toggle. live tick update ignored for perf.
+  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]); // Recalc mainly on new candles or toggle. live tick update ignored for perf.
 
   const updateIndicators = async () => {
       const newInds: IndicatorData[] = [];
       const closes = candles.map(c => c.close);
+      
+      if (closes.length === 0) return;
 
       if (showEMA) {
           try {
@@ -110,21 +118,64 @@ export default function MarketPage() {
               console.error("EMA Calculation failed:", e);
           }
       }
+      
+      if (showEMA50) {
+          try {
+              const res = await calculateEMA({ data: closes, span: 50 });
+              newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }); // amber-500
+          } catch(e) {
+              console.error("EMA 50 Calculation failed:", e);
+          }
+      }
+
       if (showRSI) {
           try {
               const res = await calculateRSI({ close: closes, window: 14 });
-              // RSI is separate pane usually, but here we overlay for MVP or need logic
-              // Chart lib supports overlay or separate panes. 
-              // For overlay standard line, RSI values (0-100) will be tiny compared to price (e.g. 2000 for Gold).
-              // FIXME: RSI should be separate. For now, we disabling RSI overlay or mapping it crudely?
-              // Or we assume the Chart component handles panes? The basic one doesn't.
-              // Let's Skip RSI visualization on Main Chart for now to avoid confusion, 
-              // OR render it but it will be flattened at bottom.
-              // Better: Don't push RSI to chartIndicators if it's main pane only.
-              // For this "Enhance" task, let's keep EMA as it scales with price.
-              // console.warn("RSI requires separate pane, skipping overlay");
-          } catch(e) {}
+              newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }); // purple-500
+          } catch(e) {
+               console.error("RSI Calculation failed:", e);
+          }
       }
+      
+      if (showATR) {
+          try {
+              const res = await calculateATR({ 
+                  high: candles.map(c => c.high), 
+                  low: candles.map(c => c.low), 
+                  close: closes, 
+                  window: 14 
+              });
+              newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }); // pink-500
+          } catch(e) {
+              console.error("ATR Failed:", e);
+          }
+      }
+      
+      if (showMACD) {
+          try {
+              const res = await calculateMACD({ close: closes });
+              newInds.push({ name: 'MACD', data: res.macd, color: '#22d3ee', priceScaleId: 'left' }); // cyan-400
+              newInds.push({ name: 'Signal', data: res.signal, color: '#f472b6', priceScaleId: 'left' }); // pink-400
+          } catch(e) {
+              console.error("MACD Failed:", e);
+          }
+      }
+      
+      if (showADX) {
+          try {
+              const res = await calculateADX({ 
+                  high: candles.map(c => c.high), 
+                  low: candles.map(c => c.low), 
+                  close: closes, 
+                  length: 14 
+              });
+              newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }); // yellow-500
+          } catch(e) {
+              console.error("ADX Failed:", e);
+          }
+      }
+      
+      console.log(`[MarketPage] Updated indicators: ${newInds.map(i => i.name).join(', ')}`);
       setChartIndicators(newInds);
   };
 
@@ -134,6 +185,13 @@ export default function MarketPage() {
   const change = currentPrice - prevClose;
   const changePercent = prevClose ? (change / prevClose) * 100 : 0;
   const isUp = change >= 0;
+
+  console.log('[MarketPage] Render:', { 
+      candles: candles.length, 
+      loading, 
+      symbol, 
+      indicators: chartIndicators.length 
+  });
 
   return (
     <div className="min-h-screen bg-black/95 text-gray-100 p-6 space-y-8 font-sans">
@@ -193,7 +251,7 @@ export default function MarketPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-gray-900 border-white/10 text-gray-200">
                         {supportedSymbols.map(s => (
-                            <SelectItem key={s} value={s} className="focus:bg-white/10">{s.replace('_', '/')}</SelectItem>
+                            <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -221,7 +279,7 @@ export default function MarketPage() {
 
             <div className="flex items-center gap-3">
                  {/* Indicators Toggle Group */}
-                 <div className="flex items-center gap-2 mr-4">
+                 <div className="flex items-center gap-2 mr-4 flex-wrap">
                      <button 
                         onClick={() => setShowEMA(!showEMA)}
                         className={cn(
@@ -231,12 +289,56 @@ export default function MarketPage() {
                      >
                         <Layers size={14} /> EMA 200
                      </button>
-                     {/* RSI removed from toggles for visual cleanliness as it doesn't overlay well yet */}
+                     <button 
+                        onClick={() => setShowEMA50(!showEMA50)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
+                           showEMA50 ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                     >
+                        EMA 50
+                     </button>
+                     <button 
+                        onClick={() => setShowRSI(!showRSI)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
+                           showRSI ? "bg-purple-500/20 border-purple-500/50 text-purple-400" : "border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                     >
+                        RSI
+                     </button>
+                     <button 
+                        onClick={() => setShowATR(!showATR)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
+                           showATR ? "bg-pink-500/20 border-pink-500/50 text-pink-400" : "border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                     >
+                        ATR
+                     </button>
+                     <button 
+                        onClick={() => setShowMACD(!showMACD)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
+                           showMACD ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                     >
+                        MACD
+                     </button>
+                     <button 
+                        onClick={() => setShowADX(!showADX)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all",
+                           showADX ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500" : "border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                     >
+                        ADX
+                     </button>
                  </div>
                  
                  <Button 
                     variant="outline" 
-                    size="icon" 
+                    size="sm" 
                     onClick={loadData} 
                     disabled={loading}
                     className="border-white/10 bg-white/5 hover:bg-white/10 text-white hover:text-white w-10 h-10"

@@ -20,7 +20,8 @@ from app.runner.live import live_runner
 # from app.adapters.oanda_history import OandaHistoryAdapter
 import pandas as pd
 import numpy as np
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 from datetime import datetime
 import traceback
 import logging
@@ -123,7 +124,13 @@ def get_ema(req: IndicatorRequest):
         span = req.params.get("span", 14)
         ema = calculate_ema(data, span=span)
         # Replace NaN and Inf with None for JSON serialization
-        values = ema.replace([np.inf, -np.inf], np.nan).where(pd.notnull(ema), None).tolist()
+        # Custom safe cleaning
+        values = []
+        for val in ema:
+            if pd.isna(val) or np.isinf(val):
+                values.append(None)
+            else:
+                values.append(float(val))
         return IndicatorResponse(values=values)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -212,6 +219,55 @@ def get_bbands(req: BBandsRequest):
             upper=clean_series(bb.upper),
             middle=clean_series(bb.middle),
             lower=clean_series(bb.lower)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ADXRequest(BaseModel):
+    high: List[float]
+    low: List[float]
+    close: List[float]
+    length: int = 14
+
+class ADXResponse(BaseModel):
+    adx: List[Optional[float]]
+    dmp: List[Optional[float]]
+    dmn: List[Optional[float]]
+
+@router.post("/calculate/adx", response_model=ADXResponse)
+def get_adx(req: ADXRequest):
+    try:
+        from app.indicators import calculate_adx
+        high = pd.Series(req.high)
+        low = pd.Series(req.low)
+        close = pd.Series(req.close)
+        
+        adx_df = calculate_adx(high, low, close, length=req.length)
+        
+        if adx_df is None or adx_df.empty:
+             return ADXResponse(adx=[], dmp=[], dmn=[])
+             
+        # Columns are dynamic like ADX_14, DMP_14. We grab by index or flexible naming.
+        # pandas-ta output order: ADX, DMP, DMN usually.
+        # But safest is to find cols starting with ADX, DMP, DMN
+        cols = adx_df.columns
+        adx_col = next((c for c in cols if c.startswith('ADX')), None)
+        dmp_col = next((c for c in cols if c.startswith('DMP')), None)
+        dmn_col = next((c for c in cols if c.startswith('DMN')), None)
+        
+        def clean(s):
+            values = []
+            for val in s:
+                 if pd.isna(val) or np.isinf(val):
+                     values.append(None)
+                 else:
+                     values.append(float(val))
+            return values
+
+        return ADXResponse(
+            adx=clean(adx_df[adx_col]) if adx_col else [],
+            dmp=clean(adx_df[dmp_col]) if dmp_col else [],
+            dmn=clean(adx_df[dmn_col]) if dmn_col else []
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

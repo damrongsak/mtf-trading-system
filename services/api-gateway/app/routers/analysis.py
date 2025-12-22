@@ -29,6 +29,24 @@ class EMAProxyRequest(BaseModel):
     data: List[float]
     span: int = 14
 
+class ATRRequest(BaseModel):
+    high: List[float]
+    low: List[float]
+    close: List[float]
+    window: int = 14
+
+class MACDRequest(BaseModel):
+    close: List[float]
+    fast: int = 12
+    slow: int = 26
+    signal: int = 9
+
+class ADXRequest(BaseModel):
+    high: List[float]
+    low: List[float]
+    close: List[float]
+    length: int = 14
+
 @router.post("/calculate/ema", status_code=200)
 async def calculate_ema(req: EMAProxyRequest):
     """
@@ -88,4 +106,62 @@ async def calculate_rsi(req: RSIRequest):
             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
         except Exception as e:
             logger.error(f"RSI Proxy failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/calculate/atr", status_code=200)
+async def calculate_atr(req: ATRRequest):
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/atr",
+                json=req.model_dump(),
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except httpx.RequestError as e:
+             logger.error(f"Strategy Core unavailable: {str(e)}")
+             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+        except Exception as e:
+            logger.error(f"ATR Proxy failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/calculate/macd", status_code=200)
+async def calculate_macd(req: MACDRequest):
+    async with httpx.AsyncClient() as client:
+        try:
+            # MACD in strategy-core app/main.py expects fast, slow, signal
+            response = await client.post(
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/macd",
+                json=req.model_dump(),
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except httpx.RequestError as e:
+             logger.error(f"Strategy Core unavailable: {str(e)}")
+             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+        except Exception as e:
+            logger.error(f"MACD Proxy failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/calculate/adx", status_code=200)
+async def calculate_adx(req: ADXRequest):
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/adx",
+                json=req.model_dump(),
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except httpx.RequestError as e:
+             logger.error(f"Strategy Core unavailable: {str(e)}")
+             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+        except Exception as e:
+            logger.error(f"ADX Proxy failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
