@@ -7,13 +7,18 @@ import asyncio
 
 @pytest.mark.asyncio
 async def test_start_and_stop_strategy():
-    with patch("app.engine.OandaHistoryAdapter") as MockAdapter:
-        # Configure mock to return a dummy dataframe
-        mock_instance = MockAdapter.return_value
-        # Mock fetch_candles_range to return a valid DataFrame
-        mock_instance.fetch_candles_range.return_value = pd.DataFrame({
-            "open": [1.0]*500, "high": [1.2]*500, "low": [0.9]*500, "close": [1.1]*500
-        })
+    # with patch("app.engine.OandaHistoryAdapter") as MockAdapter:
+    #     # Configure mock to return a dummy dataframe
+    #     mock_instance = MockAdapter.return_value
+    #     # Mock fetch_candles_range to return a valid DataFrame
+    #     mock_instance.fetch_candles_range.return_value = pd.DataFrame({
+    #         "open": [1.0]*500, "high": [1.2]*500, "low": [0.9]*500, "close": [1.1]*500
+    #     })
+    
+    with patch("app.engine.fetch_data_from_db") as mock_fetch:
+         mock_fetch.return_value = pd.DataFrame({
+             "open": [1.0]*500, "high": [1.2]*500, "low": [0.9]*500, "close": [1.1]*500
+         })
         
         engine = StrategyEngine()
         config = {"symbol": "EUR_USD", "execution_mode": ExecutionMode.MANUAL}

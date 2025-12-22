@@ -42,7 +42,19 @@ def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: dateti
 
 def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # 1. Fetch Data
-    df = fetch_data_from_db(req.symbol, req.timeframe, req.start_date, req.end_date)
+    from app.database import SessionLocal
+    from app.utils.helpers import resolve_market_symbol_id
+    
+    db = SessionLocal()
+    try:
+        ms_id = resolve_market_symbol_id(db, req.symbol)
+        if not ms_id:
+            print(f"ERROR: MarketSymbol not found for {req.symbol}")
+            return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
+    finally:
+        db.close()
+
+    df = fetch_data_from_db(ms_id, req.timeframe, req.start_date, req.end_date)
     
     # 2. Strategy Logic
     strategy_name = req.strategy_params.get("name", "ma_crossover")
