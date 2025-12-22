@@ -84,7 +84,7 @@ export default function MarketPage() {
   useEffect(() => {
     if (candles.length === 0) return;
     updateIndicators();
-  }, [candles.length, showEMA, showRSI]); // Recalc mainly on new candles or toggle. live tick update ignored for perf.
+  }, [candles.length, showEMA, showRSI, symbol, timeframe]); // Recalc mainly on new candles or toggle. live tick update ignored for perf.
 
   const updateIndicators = async () => {
       const newInds: IndicatorData[] = [];
