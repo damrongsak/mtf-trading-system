@@ -6,6 +6,8 @@ from app.database import get_db
 from app.security import get_current_user
 from app.models.user_fund import User
 from app.models.trade import Trade, TradeStatus
+from app.models.broker_account import BrokerAccount
+from app.utils.crypto import decrypt_data
 from app.utils.response import success_response
 from app.schemas.trade import TradeResponse
 from typing import Dict, Any, List
@@ -20,10 +22,35 @@ router = APIRouter(
     tags=["execution"]
 )
 
+def _get_broker_config(account: BrokerAccount) -> Dict[str, Any]:
+    """Helper to decrypt credentials and format config for execution service."""
+    creds = decrypt_data(account.credentials_encrypted)
+    return {
+        "broker_name": account.broker_name,
+        "credentials": creds
+    }
+
 @router.get("/account/summary")
-async def get_account_summary():
+async def get_account_summary(
+    account_id: str = None, # Optional: if not provided, might fail or pick default
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        data = await execution_client.get_account_summary()
+        # Default to first active account if not specified (for MVP)
+        query = db.query(BrokerAccount).filter(
+            BrokerAccount.user_id == current_user.id,
+            BrokerAccount.is_active == True
+        )
+        if account_id:
+            query = query.filter(BrokerAccount.id == account_id)
+            
+        account = query.first()
+        if not account:
+             raise HTTPException(status_code=404, detail="No active broker account found")
+
+        config = _get_broker_config(account)
+        data = await execution_client.get_account_summary(config)
         return data
     except Exception as e:
         # Improve error handling (e.g. 503 if services down)
@@ -37,18 +64,37 @@ async def place_order(
 ):
     try:
         logger.info(f"Received order request: {order_data}")
+        
+        # Resolve Broker Account
+        account_id = order_data.get("account_id")
+        query = db.query(BrokerAccount).filter(
+            BrokerAccount.user_id == current_user.id,
+            BrokerAccount.is_active == True
+        )
+        if account_id:
+            query = query.filter(BrokerAccount.id == account_id)
+        
+        account = query.first()
+        if not account:
+             raise HTTPException(status_code=404, detail="Broker account not found")
+             
+        config = _get_broker_config(account)
+        
         # 1. Execute Order
-        execution_result = await execution_client.place_order(order_data)
+        execution_result = await execution_client.place_order(order_data, config)
         
         # 2. Persist Trade & Create Journal Entry
         if execution_result and "id" in execution_result:
             try:
-                TradeService.create_trade_from_execution(
+                trade = TradeService.create_trade_from_execution(
                     db=db,
                     user=current_user,
                     execution_data=execution_result,
                     request_data=order_data
                 )
+                # Link trade to account
+                trade.broker_account_id = account.id
+                db.commit()
             except Exception as persist_error:
                 # Log error but don't fail the request since order was placed
                 logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
@@ -67,21 +113,44 @@ async def close_trade(
 ):
     """
     Manually close a trade (MVP) to calculate PnL.
+    Now integrates with Execution Service to close on Broker.
     """
     try:
         exit_price = payload.get("exit_price")
-        if exit_price is None:
-            raise HTTPException(status_code=400, detail="exit_price is required")
+        # if exit_price is None: ... (optional if we want to support market close without price hint)
             
-        trade = TradeService.close_trade(db, trade_id, exit_price)
+        trade = db.query(Trade).filter(Trade.trade_id == trade_id).first()
         if not trade:
             raise HTTPException(status_code=404, detail="Trade not found")
+            
+        # 1. Close on Broker
+        if trade.broker_account_id:
+            account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
+            if account:
+                config = _get_broker_config(account)
+                oanda_id = trade.metadata_json.get("oanda_id") if trade.metadata_json else None
+                
+                if oanda_id:
+                    try:
+                        await execution_client.close_trade(
+                            trade_id=oanda_id, 
+                            broker_config=config
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to close trade on broker: {e}")
+                        # Could choose to fail here or proceed to close locally
+                        # For now, let's proceed but warn.
+        
+        # 2. Close Locally
+        # Use provided exit price or maybe fetch result from broker? 
+        # For simplicity, stick to payload or fallback
+        trade = TradeService.close_trade(db, trade_id, exit_price or 0.0)
             
         return {
             "status": "success",
             "trade_id": str(trade.trade_id),
-            "pnl": float(trade.pnl_usd),
-            "exit_price": float(trade.exit_price)
+            "pnl": float(trade.pnl_usd or 0),
+            "exit_price": float(trade.exit_price or 0)
         }
     except HTTPException as he:
         raise he
@@ -103,7 +172,7 @@ async def get_trades(
     Get trades filtered by status, symbol, and date range.
     """
     try:
-        query = db.query(Trade)
+        query = db.query(Trade) # Ideally filter by user trades if Trade has user_id/account link
 
         # Status Filter
         if status != "ALL":
@@ -113,11 +182,20 @@ async def get_trades(
                 
                 # Sync with Oanda if requesting OPEN trades
                 if trade_status == TradeStatus.OPEN:
-                    try:
-                        oanda_trades = await execution_client.get_open_trades()
-                        TradeService.sync_open_trades(db, oanda_trades, current_user)
-                    except Exception as sync_err:
-                        logger.error(f"Failed to sync Oanda trades: {sync_err}", exc_info=True)
+                    # Iterate all active accounts for this user
+                    accounts = db.query(BrokerAccount).filter(
+                        BrokerAccount.user_id == current_user.id, 
+                        BrokerAccount.is_active == True
+                    ).all()
+                    
+                    for acc in accounts:
+                        try:
+                            config = _get_broker_config(acc)
+                            oanda_trades = await execution_client.get_open_trades(config)
+                            TradeService.sync_open_trades(db, oanda_trades, current_user, broker_account_id=acc.id)
+                        except Exception as sync_err:
+                            logger.error(f"Failed to sync trades for account {acc.account_name}: {sync_err}", exc_info=True)
+                            
             except KeyError:
                 raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 

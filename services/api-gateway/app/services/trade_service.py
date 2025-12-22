@@ -120,7 +120,7 @@ class TradeService:
         return trade
 
     @staticmethod
-    def sync_open_trades(db: Session, oanda_trades: list, user: User) -> list[Trade]:
+    def sync_open_trades(db: Session, oanda_trades: list, user: User, broker_account_id: uuid.UUID = None) -> list[Trade]:
         """
         Syncs open trades from Oanda execution service to local database.
         Uses upsert logic based on 'oanda_id'.
@@ -149,7 +149,10 @@ class TradeService:
             
             if existing_trade:
                 # Update existing (if needed, e.g. current price/pnl if we tracked that live)
-                # For now just confirming it exists
+                # Ensure broker link if missing
+                if broker_account_id and not existing_trade.broker_account_id:
+                    existing_trade.broker_account_id = broker_account_id
+                
                 synced_trades.append(existing_trade)
                 continue
             
@@ -161,6 +164,7 @@ class TradeService:
                 
                 new_trade = Trade(
                     trade_id=uuid.uuid4(),
+                    broker_account_id=broker_account_id,
                     symbol=ot.get("instrument").replace("_", "/"), # Normalize Oanda format
                     strategy_name="Oanda Sync",
                     signal_timestamp=datetime.utcnow(), # Approximate

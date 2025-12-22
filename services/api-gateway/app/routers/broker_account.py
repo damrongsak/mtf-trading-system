@@ -1,0 +1,145 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.broker_account import BrokerAccount
+from app.security import get_current_user
+from app.utils.crypto import encrypt_data, decrypt_data
+from pydantic import BaseModel, Field
+from app.schemas.response import APIResponse
+from app.utils.response import success_response
+from typing import List, Optional, Dict, Any
+import uuid
+
+router = APIRouter(
+    prefix="/api/v1/accounts",
+    tags=["accounts"]
+)
+
+# --- Schemas ---
+
+class BrokerAccountCreate(BaseModel):
+    broker_name: str = Field(..., description="OANDA, BINANCE, etc.")
+    account_name: str = Field(..., description="User friendly alias")
+    account_number: Optional[str] = None
+    credentials: Dict[str, Any] = Field(..., description="API keys and secrets")
+    is_live: bool = False
+
+class BrokerAccountUpdate(BaseModel):
+    account_name: Optional[str] = None
+    account_number: Optional[str] = None
+    credentials: Optional[Dict[str, Any]] = None
+    is_active: Optional[bool] = None
+    is_live: Optional[bool] = None
+
+class BrokerAccountResponse(BaseModel):
+    id: uuid.UUID
+    broker_name: str
+    account_name: str
+    account_number: Optional[str] = None
+    is_active: bool
+    is_live: bool
+    created_at: Any
+    
+    class Config:
+        from_attributes = True
+
+# --- Endpoints ---
+
+@router.post("/", response_model=APIResponse[BrokerAccountResponse])
+async def create_account(
+    account: BrokerAccountCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Add a new broker account."""
+    
+    # Encrypt credentials
+    encrypted_creds = encrypt_data(account.credentials)
+    
+    new_account = BrokerAccount(
+        user_id=current_user.id,
+        broker_name=account.broker_name.upper(),
+        account_name=account.account_name,
+        account_number=account.account_number,
+        credentials_encrypted=encrypted_creds,
+        is_live=account.is_live,
+        is_active=True
+    )
+    
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    
+    return success_response(
+        data=BrokerAccountResponse.model_validate(new_account),
+        message="Broker account added successfully"
+    )
+
+@router.get("/", response_model=APIResponse[List[BrokerAccountResponse]])
+async def list_accounts(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """List all broker accounts for the current user."""
+    accounts = db.query(BrokerAccount).filter(
+        BrokerAccount.user_id == current_user.id
+    ).all()
+    
+    return success_response(
+        data=[BrokerAccountResponse.model_validate(a) for a in accounts]
+    )
+
+@router.put("/{account_id}", response_model=APIResponse[BrokerAccountResponse])
+async def update_account(
+    account_id: uuid.UUID,
+    updates: BrokerAccountUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update a broker account."""
+    account = db.query(BrokerAccount).filter(
+        BrokerAccount.id == account_id,
+        BrokerAccount.user_id == current_user.id
+    ).first()
+    
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+        
+    if updates.account_name is not None:
+        account.account_name = updates.account_name
+    if updates.account_number is not None:
+        account.account_number = updates.account_number
+    if updates.is_active is not None:
+        account.is_active = updates.is_active
+    if updates.is_live is not None:
+        account.is_live = updates.is_live
+    if updates.credentials is not None:
+        account.credentials_encrypted = encrypt_data(updates.credentials)
+        
+    db.commit()
+    db.refresh(account)
+    
+    return success_response(
+        data=BrokerAccountResponse.model_validate(account),
+        message="Broker account updated successfully"
+    )
+
+@router.delete("/{account_id}")
+async def delete_account(
+    account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Delete a broker account."""
+    account = db.query(BrokerAccount).filter(
+        BrokerAccount.id == account_id,
+        BrokerAccount.user_id == current_user.id
+    ).first()
+    
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+        
+    db.delete(account)
+    db.commit()
+    
+    return success_response(data=None, message="Broker account deleted")
