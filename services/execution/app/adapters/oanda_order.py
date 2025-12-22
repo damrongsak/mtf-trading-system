@@ -1,17 +1,39 @@
 from oandapyV20 import API
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.trades as trades
-from app.core.config import settings
+import oandapyV20.endpoints.accounts as accounts
+from app.adapters.base import BrokerAdapter
 import logging
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class OandaOrderAdapter:
-    def __init__(self):
-        self.client = API(access_token=settings.OANDA_API_KEY, environment=settings.OANDA_ENV)
-        self.account_id = settings.OANDA_ACCOUNT_ID
+class OandaOrderAdapter(BrokerAdapter):
+    def __init__(self, api_key: str, account_id: str, environment: str = "practice"):
+        self.client = API(access_token=api_key, environment=environment)
+        self.account_id = account_id
 
-    def place_market_order(self, symbol: str, units: float, sl_price: float = None, tp_price: float = None, trade_id: str = None):
+    def get_account_summary(self) -> Dict[str, Any]:
+        """Fetch account balance, margin, and summary metrics from OANDA."""
+        try:
+            r = accounts.AccountSummary(accountID=self.account_id)
+            self.client.request(r)
+            acc = r.response.get("account", {})
+            return {
+                "balance": acc.get("balance", "0"),
+                "NAV": acc.get("NAV", "0"),
+                "marginAvailable": acc.get("marginAvailable", "0"),
+                "openTradeCount": acc.get("openTradeCount", 0),
+                "openPositionCount": acc.get("openPositionCount", 0)
+            }
+        except Exception as e:
+            logger.error(f"OANDA Account Summary Error: {e}")
+            raise e
+
+    def place_market_order(self, symbol: str, units: float, 
+                           sl_price: Optional[float] = None, 
+                           tp_price: Optional[float] = None, 
+                           trade_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Place a Market Order with optional SL/TP and Client Tags.
         """
@@ -52,10 +74,10 @@ class OandaOrderAdapter:
             self.client.request(r)
             return r.response
         except Exception as e:
-            logger.error(f"Failed to place order for {symbol}: {e}")
+            logger.error(f"Failed to place OANDA order for {symbol}: {e}")
             raise e
 
-    def get_open_trades(self):
+    def get_open_trades(self) -> List[Dict[str, Any]]:
         """
         Fetch all open trades from Oanda.
         """
@@ -64,6 +86,26 @@ class OandaOrderAdapter:
             self.client.request(r)
             return r.response.get("trades", [])
         except Exception as e:
-            logger.error(f"Failed to fetch open trades: {e}")
+            logger.error(f"Failed to fetch open OANDA trades: {e}")
             raise e
+
+    def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Close an existing trade on OANDA.
+        """
+        try:
+            # If units is None, OANDA closes the entire position by default if using TradeClose
+            data = {}
+            if units:
+                data["units"] = str(abs(units))
+            else:
+                data["units"] = "ALL"
+
+            r = trades.TradeClose(accountID=self.account_id, tradeID=broker_trade_id, data=data)
+            self.client.request(r)
+            return r.response
+        except Exception as e:
+            logger.error(f"Failed to close OANDA trade {broker_trade_id}: {e}")
+            raise e
+
 
