@@ -9,11 +9,11 @@ from app.strategy import get_strategy
 from uuid import uuid4
 
 
-def fetch_data_from_db(symbol: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     query = text("""
         SELECT timestamp, open, high, low, close, volume 
         FROM candles 
-        WHERE symbol = :symbol 
+        WHERE market_symbol_id = :market_symbol_id
         AND timeframe = :timeframe 
         AND timestamp >= :start_date 
         AND timestamp <= :end_date
@@ -23,7 +23,7 @@ def fetch_data_from_db(symbol: str, timeframe: str, start_date: datetime, end_da
     try:
         with engine.connect() as conn:
             df = pd.read_sql(query, conn, params={
-                "symbol": symbol,
+                "market_symbol_id": market_symbol_id,
                 "timeframe": timeframe,
                 "start_date": start_date,
                 "end_date": end_date

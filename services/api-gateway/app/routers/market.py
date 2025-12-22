@@ -30,10 +30,27 @@ async def get_candles(
     count: int = Query(500, description="Number of candles to return"),
     from_time: Optional[datetime] = Query(None, description="Start time"),
     to_time: Optional[datetime] = Query(None, description="End time"),
+    data_source: str = Query("OANDA", description="Data Source Preference"),
     db: Session = Depends(get_db)
 ):
+    # 1. Resolve MarketSymbol ID
+    # Use flexible matching (replace slash with underscore or vice versa if needed)
+    # Default to OANDA for now if not specified in deeper logic, but we exposed param.
+    from app.models.market import MarketSymbol
+    from app.models.data_source import DataSource
+    
+    ms = db.query(MarketSymbol).join(DataSource).filter(
+        (MarketSymbol.symbol == symbol) | (MarketSymbol.symbol == symbol.replace("/", "_")),
+        DataSource.name == data_source
+    ).first()
+    
+    if not ms:
+        # If no config found, return empty or error. Empty is safer for UI.
+        return APIResponse(status=ResponseStatus.SUCCESS, data=[])
+
+    # 2. Query Candles by MarketSymbol ID
     query = db.query(Candle).filter(
-        Candle.symbol == symbol,
+        Candle.market_symbol_id == ms.id,
         Candle.timeframe == timeframe
     )
 

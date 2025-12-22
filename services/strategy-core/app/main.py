@@ -17,7 +17,7 @@ from app.analysis.monte_carlo import run_monte_carlo
 from app.analysis.monte_carlo import run_monte_carlo
 from app.engine import strategy_engine
 from app.runner.live import live_runner
-from app.adapters.oanda_history import OandaHistoryAdapter
+# from app.adapters.oanda_history import OandaHistoryAdapter
 import pandas as pd
 import numpy as np
 from typing import Optional
@@ -51,22 +51,56 @@ def get_candles(
     timeframe: str, 
     from_time: Optional[datetime] = None, 
     to_time: Optional[datetime] = None, 
-    count: int = 500
+    count: int = 500,
+    data_source: str = "OANDA"
 ):
     try:
-        # OANDA v20 expects underscores instead of slashes
-        symbol = symbol.replace("/", "_")
-        adapter = OandaHistoryAdapter()
-        df = adapter.fetch_candles_range(
-            symbol=symbol, 
-            timeframe=timeframe, 
-            from_time=from_time, 
-            to_time=to_time, 
-            count=count
-        )
+        from app.backtest import fetch_data_from_db
+        from app.models.market import MarketSymbol
+        from app.models.data_source import DataSource
+        from app.database import SessionLocal
         
+        db = SessionLocal()
+        
+        # OANDA v20 expects underscores instead of slashes, but DB stores as is or specific convention.
+        # Assuming DB stores "XAU_USD" or "EUR_USD".
+        # We need to map the requested symbol string to a MarketSymbol ID.
+        # We also need to filter by Data Source if provided (or default).
+        
+        # Flexible symbol matching (try as-is, then replace)
+        target_symbol = symbol
+        
+        query = db.query(MarketSymbol).join(DataSource).filter(
+            (MarketSymbol.symbol == target_symbol) | (MarketSymbol.symbol == target_symbol.replace("/", "_")),
+            DataSource.name == data_source
+        )
+        ms = query.first()
+        
+        if not ms:
+            db.close()
+            # Fallback or error? For now empty.
+            return {"data": []}
+            
+        market_symbol_id = ms.id
+        db.close()
+        
+        # Determine time range for DB fetch
+        end_dt = to_time if to_time else datetime.utcnow()
+        # Default to wider range if start not provided, will slice later
+        start_dt = from_time if from_time else (end_dt - pd.Timedelta(days=60)) 
+        
+        df = fetch_data_from_db(
+            market_symbol_id=market_symbol_id, 
+            timeframe=timeframe, 
+            start_date=start_dt, 
+            end_date=end_dt
+        )
         if df.empty:
             return {"data": []}
+            
+        # Slice to last 'count' rows if needed
+        if count and len(df) > count:
+            df = df.iloc[-count:]
             
         # Reset index to make timestamp a column, convert to ISO string
         df = df.reset_index()
@@ -239,9 +273,22 @@ def run_optimization_endpoint(req: BacktestRequest):
              raise HTTPException(status_code=400, detail="Optimization config required")
              
         # Fetch Data from DB
+        # Fetch Data from DB
         from app.backtest import fetch_data_from_db
+        from app.utils.helpers import resolve_market_symbol_id
+        from app.database import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            ms_id = resolve_market_symbol_id(db, req.symbol)
+            if not ms_id:
+                # Fallback to OANDA default or error
+                raise ValueError(f"MarketSymbol not found for {req.symbol}")
+        finally:
+            db.close()
+
         df = fetch_data_from_db(
-             symbol=req.symbol,
+             market_symbol_id=ms_id,
              timeframe=req.timeframe,
              start_date=req.start_date,
              end_date=req.end_date

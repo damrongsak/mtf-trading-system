@@ -8,7 +8,7 @@ from datetime import datetime
 from app.adapters.oanda import OandaAdapter
 from app.adapters.execution import execution_client
 from app.schemas import ExecutionMode
-from app.adapters.oanda_history import OandaHistoryAdapter
+# from app.adapters.oanda_history import OandaHistoryAdapter
 from app.indicators import calculate_ema, calculate_atr, calculate_rsi
 from app.smc import detect_order_blocks
 
@@ -28,13 +28,9 @@ class StrategyEngine:
         self.active_strategies: Dict[str, StrategyState] = {}
         self._history_adapter = None
 
-    @property
-    def history_adapter(self):
-        if not self._history_adapter:
-            # Import here to avoid circular dependencies if any, and lazy load
-            # Note: OandaHistoryAdapter init connects to DB.
-            self._history_adapter = OandaHistoryAdapter()
-        return self._history_adapter
+    # @property
+    # def history_adapter(self):
+    #    pass
 
     async def start_strategy(self, strategy_id: str, config: dict):
         if strategy_id in self.active_strategies:
@@ -44,16 +40,39 @@ class StrategyEngine:
         state = StrategyState(config)
         
         # Initial data fetch (Warmup)
-        # We need M15 for execution, and H1/H4 for specific strategies if implemented
-        # For simplicity MVP, we just fetch M15
         try:
+            # Resolving ID and fetching data requires sync DB operations
+            from app.database import SessionLocal
+            from app.utils.helpers import resolve_market_symbol_id
+            from app.backtest import fetch_data_from_db
+            
+            def load_initial_data():
+                db = SessionLocal()
+                try:
+                    ms_id = resolve_market_symbol_id(db, state.symbol)
+                    if not ms_id:
+                        raise ValueError(f"MarketSymbol not found for {state.symbol}")
+                    
+                    # Determine range: last 500 candles usually sufficient for warmup
+                    # We need to approximate start date based on count and timeframe.
+                    # Or fetch_data_from_db logic needs adaptation for 'count'.
+                    # For now, let's fetch last 30 days which covers M15 500 candles easily.
+                    end_date = datetime.utcnow()
+                    start_date = end_date - pd.Timedelta(days=30)
+                    
+                    df = fetch_data_from_db(ms_id, state.timeframe, start_date, end_date)
+                    
+                    # Limit to last 500
+                    if not df.empty and len(df) > 500:
+                       df = df.iloc[-500:]
+                    return df
+                finally:
+                    db.close()
+
             # Run in executor to avoid blocking async loop
             loop = asyncio.get_event_loop()
-            df = await loop.run_in_executor(None, lambda: self.history_adapter.fetch_candles_range(
-                symbol=state.symbol,
-                timeframe=state.timeframe,
-                count=500
-            ))
+            df = await loop.run_in_executor(None, load_initial_data)
+            
             state.data[state.timeframe] = df
             self.active_strategies[strategy_id] = state
             logger.info(f"Strategy {strategy_id} started. Loaded {len(df)} candles.")

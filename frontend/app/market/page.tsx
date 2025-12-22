@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { CandleChart } from '@/components/charts/CandleChart';
 import { fetchCandles, Candle } from '@/lib/api/market';
@@ -8,17 +8,38 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { calculateEMA, calculateRSI } from '@/lib/api/analysis';
 import { IndicatorData } from '@/components/charts/CandleChart';
+import { useLivePrices } from '@/lib/hooks/useLivePrices';
+import { apiClient } from '@/lib/api/client';
+
+interface UserPreferences {
+    supported_symbols?: string[];
+    default_symbol?: string;
+    preferred_timeframes?: string[];
+}
 
 export default function MarketPage() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [symbol, setSymbol] = useState('EUR_USD');
   const [timeframe, setTimeframe] = useState('H1');
   const [loading, setLoading] = useState(false);
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   
   // Indicator State
   const [showEMA, setShowEMA] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
+
+  // Live Data Hook
+  // We only subscribe to the current symbol
+  const { prices, connected } = useLivePrices([symbol]);
+
+  // Fetch Preferences
+  useEffect(() => {
+    apiClient.get('/api/v1/settings/preferences').then(res => {
+        setPreferences(res.data);
+        if (res.data.default_symbol) setSymbol(res.data.default_symbol);
+    }).catch(err => console.error("Failed to load preferences", err));
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -36,16 +57,62 @@ export default function MarketPage() {
     }
   }, [symbol, timeframe]);
 
+  // Initial Load
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+
+  // Handle Live Updates
+  useEffect(() => {
+      if (!prices[symbol]) return;
+      
+      const latestPrice = prices[symbol];
+      if (latestPrice.type !== 'PRICE') return;
+
+      const price = latestPrice.bid; // Using Bid for chart usually, or Mid
+      const time = new Date(latestPrice.time);
+
+      setCandles(prev => {
+          if (prev.length === 0) return prev;
+          
+          const lastCandle = { ...prev[prev.length - 1] };
+          const lastCandleTime = new Date(lastCandle.timestamp);
+          
+          // Check if we need a new candle
+          // Simple logic: if new time is significantly past last candle based on timeframe
+          // This logic depends on strict timeframe parsing which is complex.
+          // For MVP, we update the LAST candle if it's "recent" (e.g. within timeframe duration), 
+          // otherwise we append (or reload).
+          // Ideally, the backend gives us the candle open time. 
+          // Since we don't have that easily here without parsing `timeframe`, 
+          // we will just update the Close/High/Low of the last candle for visual "aliveness".
+          // And RELOAD periodically or on specific event for strict accuracy.
+          
+          // Updating current candle
+          lastCandle.close = price;
+          lastCandle.high = Math.max(lastCandle.high, price);
+          lastCandle.low = Math.min(lastCandle.low, price);
+          
+          // Create new array to trigger re-render
+          const newCandles = [...prev];
+          newCandles[newCandles.length - 1] = lastCandle;
+          return newCandles;
+      });
+  }, [prices, symbol]);
+
+
   // Refetch indicators when candles change or toggles change
+  // Debounced or limited to avoid heavy recalc on every tick?
+  // For now, we only recalc indicators if candles change length or user toggles.
+  // We won't recalc indicators on every live tick to save performance for this MVP.
   useEffect(() => {
     if (candles.length > 0) {
+        // Only update if not result of live tick (optimization: check length change?)
+        // Or just let it update.
         updateIndicators();
     }
-  }, [candles, showEMA, showRSI]);
+  }, [candles.length, showEMA, showRSI, symbol, timeframe]); // removed 'candles' dependency to avoid recalc on tick
 
   const updateIndicators = async () => {
       const newIndicators: IndicatorData[] = [];
@@ -80,21 +147,25 @@ export default function MarketPage() {
       setChartIndicators(newIndicators);
   };
 
+  const supportedSymbols = preferences?.supported_symbols || ['EUR_USD', 'XAU_USD', 'GBP_USD', 'BTC_USD'];
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
           Market Analysis
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+            {connected && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Live Connection" />}
+            
             <Select value={symbol} onValueChange={setSymbol}>
                 <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Symbol" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="EUR_USD">EUR/USD</SelectItem>
-                    <SelectItem value="XAU_USD">XAU/USD</SelectItem>
-                    <SelectItem value="GBP_USD">GBP/USD</SelectItem>
+                    {supportedSymbols.map(s => (
+                        <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
             <Select value={timeframe} onValueChange={setTimeframe}>
@@ -140,7 +211,7 @@ export default function MarketPage() {
 
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle>{symbol} - {timeframe}</CardTitle>
+          <CardTitle>{symbol.replace('_', '/')} - {timeframe}</CardTitle>
         </CardHeader>
         <CardContent>
           {candles.length > 0 ? (

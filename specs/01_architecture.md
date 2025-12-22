@@ -99,8 +99,9 @@ graph TD
 ### 4.3. Real-time Data Streaming
 1.  `Data Pipeline` connects to OANDA v20 Stream API.
 2.  `Data Pipeline` publishes ticks/candles to Redis channels (e.g., `market_data:EUR_USD`).
-3.  **Strategy Consumption**: `Strategy Core` subscribes to Redis channels for event-driven analysis.
-4.  **Frontend Consumption**: `API Gateway` subscribes to Redis and forwards data to `Frontend` via WebSocket.
+3.  **Strategy Consumption**: `Strategy Core` subscribes to Redis channels. `LiveRunner` normalizes tickers and routes them to active strategies.
+4.  **Frontend Consumption**: `API Gateway` subscribes to Redis and forwards data to `Frontend` via WebSocket (`/api/v1/stream/prices`).
+5.  **Multi-Broker Support**: All historical and real-time data flow is normalized via `MarketSymbol` IDs, ensuring the Strategy Core is agnostic to the underlying provider (OANDA, Binance, etc.).
 
 ## 5. Infrastructure
 
