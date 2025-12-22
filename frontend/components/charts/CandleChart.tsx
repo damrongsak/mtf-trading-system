@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, CandlestickSeriesPartialOptions } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData } from 'lightweight-charts';
 import { Candle } from '@/lib/api/market';
 
 export interface IndicatorData {
@@ -25,112 +25,134 @@ interface CandleChartProps {
 export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], colors = {} }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const indicatorSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
 
+  // 1. Initialize Chart (Once)
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    const handleResize = () => {
-      chartRef.current?.applyOptions({ width: chartContainerRef.current!.clientWidth });
-    };
-
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: colors.backgroundColor || '#1e1e1e' },
-        textColor: colors.textColor || 'white',
+        background: { type: ColorType.Solid, color: colors.backgroundColor || 'transparent' }, // Transparent for glassmorphism
+        textColor: colors.textColor || '#d1d5db', // gray-300
       },
       width: chartContainerRef.current.clientWidth,
-      height: 400,
+      height: 500,
       grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.1)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.1)' },
+        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
       },
+      rightPriceScale: {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      },
+      crosshair: {
+        mode: 1, // Magnet
+        vertLine: {
+             labelBackgroundColor: '#2962FF',
+        },
+        horzLine: {
+             labelBackgroundColor: '#2962FF',
+        }
+      }
     });
 
     chartRef.current = chart;
 
+    // Create Main Series
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#26a69a',
-      downColor: '#ef5350',
+      upColor: '#10b981', // emerald-500
+      downColor: '#ef4444', // red-500
       borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
+      wickUpColor: '#10b981',
+      wickDownColor: '#ef4444',
     });
+    seriesRef.current = candlestickSeries;
 
-    // Map API data to chart data format
-    // Lightweight charts expects time as string (YYYY-MM-DD) or unix timestamp (seconds).
-    // Our API returns ISO string. We can use unix timestamp.
-    const chartData = data
-      .map((item) => {
-        const time = new Date(item.timestamp).getTime() / 1000;
-        // Check for invalid dates
-        if (isNaN(time)) return null;
-        
-        return {
-        time: time as any, // Cast to any because lightweight-charts types can be strict about UTCTimestamp
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-      }})
-      .filter((item): item is NonNullable<typeof item> => item !== null)
-      // Note: we assume data is roughly sorted or we might break indicator alignment if we sort here
-      // but indices don't match exactly. 
-      // Ideally, we shouldn't sort if we rely on index matching with external arrays.
-      // But lightweight charts needs sorted data.
-      // We will assume backend returns sorted data or consistent order.
-      // If we sort chartData, we lose the mapping to `indicators` arrays unless they are also sorted/mapped.
-      // For now, let's assume input `data` is correct order or we accept mis-alignment risk if out of order.
-      // A better way is to zip them first then sort. but `indicators` are separate arrays.
-      .sort((a, b) => (a.time as number) - (b.time as number));
-
-    // Deduplicate by time if necessary (though API should handle this)
-    const uniqueData = Array.from(new Map(chartData.map(item => [item.time, item])).values());
-
-    candlestickSeries.setData(uniqueData);
-
-    // Add indicators
-    indicators.forEach(ind => {
-        const lineSeries = chart.addSeries(LineSeries, {
-            color: ind.color,
-            lineWidth: 2,
-            crosshairMarkerVisible: false,
-        });
-
-        // Map indicator values to times. 
-        // We assume indicators.data corresponds 1-to-1 with input `data`.
-        // If we filtered `chartData` (e.g. invalid dates), we might have mismatch.
-        // But invalid dates are rare.
-        const lineData = ind.data.map((val, index) => {
-            // We need the time from the corresponding candle.
-            if (index >= chartData.length) return null;
-            // Since chartData might be sorted differently than 'data' if 'data' was unsorted...
-            // Use chartData[index]? No, chartData is sorted. 
-            // If `data` came in unsorted, specific values would move.
-            // Correct approach: The backend returns sorted candles usually.
-            // We will assume data is 0..N sorted ascending.
-            const item = chartData[index];
-            if (!item || val === null) return null;
-            
-            return {
-                time: item.time,
-                value: val
-            };
-        }).filter((item): item is NonNullable<typeof item> => item !== null);
-        
-        lineSeries.setData(lineData);
-    });
+    const handleResize = () => {
+      chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
+    };
 
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
     };
-  }, [data, colors, indicators]);
+  }, []); // Run once on mount
 
-  return <div ref={chartContainerRef} className="w-full h-[400px]" />;
+  // 2. Update Data (When data changes)
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+
+    // Format Data
+    const formattedData = data
+      .map((item) => {
+        const time = new Date(item.timestamp).getTime() / 1000;
+        if (isNaN(time)) return null;
+        return {
+          time: time as Time,
+          open: item.open,
+          high: item.high,
+          low: item.low,
+          close: item.close,
+        };
+      })
+      .filter((item): item is CandlestickData<Time> => item !== null)
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    // Dedup
+    const uniqueData = Array.from(new Map(formattedData.map(item => [item.time, item])).values());
+    
+    seriesRef.current.setData(uniqueData);
+    
+    // Fit content if initial load (optional, maybe check if data size changed significantly?)
+     // chartRef.current.timeScale().fitContent(); 
+  }, [data]);
+
+  // 3. Update Indicators
+  useEffect(() => {
+    if (!chartRef.current) return;
+    
+    // Clean up old indicators that are not in the new list (?) 
+    // Or just clear all and re-add. For simplicity: Clear and Re-add.
+    // Ideally we diff, but 'indicators' prop is usually a new array.
+    
+    indicatorSeriesRefs.current.forEach(series => chartRef.current?.removeSeries(series));
+    indicatorSeriesRefs.current.clear();
+
+    const candleTimes = data.map(d => new Date(d.timestamp).getTime() / 1000).sort((a,b) => a-b);
+
+    indicators.forEach(ind => {
+        const lineSeries = chartRef.current!.addSeries(LineSeries, {
+            color: ind.color,
+            lineWidth: 2,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+        });
+
+        const lineData = ind.data.map((val, i) => {
+             // Map based on index with candle data
+             // Assumes 1-to-1 mapping with input 'data' prop
+             if (val === null || i >= candleTimes.length) return null;
+             return {
+                 time: candleTimes[i] as Time,
+                 value: val
+             };
+        }).filter((item): item is {time: Time, value: number} => item !== null);
+
+        lineSeries.setData(lineData);
+        indicatorSeriesRefs.current.set(ind.name, lineSeries);
+    });
+
+  }, [indicators, data]); // DEPENDS ON DATA because needed for time mapping
+
+  return <div ref={chartContainerRef} className="w-full h-[500px]" />;
 };
