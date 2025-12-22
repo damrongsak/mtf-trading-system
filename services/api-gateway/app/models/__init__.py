@@ -6,6 +6,7 @@ from .strategy_run import StrategyRun
 from .backtest_profile import BacktestConfig, BacktestHistory
 from .candle import Candle
 from .user_preferences import UserPreferences
+from .broker_account import BrokerAccount
 from .risk_rule import RiskRule
 from .trade import Trade
 from .data_source import DataSource

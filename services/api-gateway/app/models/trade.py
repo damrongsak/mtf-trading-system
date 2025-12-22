@@ -29,15 +29,10 @@ class Trade(Base):
     __table_args__ = {"extend_existing": True}
 
     trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    # Relationships
-    strategy_run_id = Column(UUID(as_uuid=True), ForeignKey('strategy_runs.run_id', ondelete='SET NULL'),
-                            nullable=True, index=True,
-                            comment="Link to the strategy run that generated this trade")
-
-    # Core Identification
-    symbol = Column(String(20), nullable=False, index=True,
-                   comment="Trading pair symbol (e.g., XAU/USD)")
+    strategy_run_id = Column(UUID(as_uuid=True), ForeignKey("strategy_runs.run_id"), nullable=True)
+    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True)
+    
+    symbol = Column(String(20), nullable=False, index=True)
     strategy_name = Column(String(100), nullable=False,
                           comment="Name of the strategy that generated the signal")
     signal_timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
