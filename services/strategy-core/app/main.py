@@ -54,6 +54,8 @@ def get_candles(
     count: int = 500
 ):
     try:
+        # OANDA v20 expects underscores instead of slashes
+        symbol = symbol.replace("/", "_")
         adapter = OandaHistoryAdapter()
         df = adapter.fetch_candles_range(
             symbol=symbol, 

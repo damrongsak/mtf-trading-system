@@ -10,8 +10,9 @@ services:
     depends_on:
       - api-gateway
       # - frontend # manually run `npm run build` and `npm run start` in frontend directory
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - external
 
   api-gateway:
     build: ./services/api-gateway
@@ -32,6 +33,9 @@ services:
       - STRATEGY_CORE_URL=http://strategy-core:8000
       - REDIS_URL=redis://redis:6379/0
       - AI_ANALYST_URL=http://ai-analyst:8000
+    networks:
+      - default
+      - external
 
   execution:
     build: ./services/execution
@@ -41,6 +45,9 @@ services:
       - "8001:8000"
     volumes:
       - ./services/execution:/app
+    networks:
+      - default
+      - external
 
   data-pipeline:
     build: ./services/data-pipeline
