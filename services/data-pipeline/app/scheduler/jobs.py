@@ -5,8 +5,16 @@ from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
 import pandas as pd
 import logging
+import json
+from app.streaming.publisher import RedisPublisher
 
 logger = logging.getLogger(__name__)
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, pd.Timestamp)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = None, to_date: datetime = None):
     """
@@ -23,10 +31,25 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
     # Imports inside function to avoid circular deps if any
     from app.models.market import MarketSymbol
     from app.models.data_source import DataSource
+    from app.models.system_config import SystemConfig
     
-    timeframes = ["M15", "H1", "H4", "D"] 
+    # 0. Load Supported Timeframes
+    default_timeframes = ["M5", "M15", "H1", "H4", "D", "W", "M"]
+    try:
+        config_record = db.query(SystemConfig).filter(SystemConfig.key == "supported_timeframes").first()
+        if config_record and isinstance(config_record.value, list):
+            timeframes = config_record.value
+        else:
+             timeframes = default_timeframes
+    except Exception as e:
+        logger.warning(f"Failed to load system config, using defaults: {e}")
+        timeframes = default_timeframes 
     
     try:
+        # Initialize Publisher
+        publisher = RedisPublisher()
+        await publisher.connect()
+
         # 1. Fetch Market Symbols configured for OANDA
         query = db.query(MarketSymbol).join(DataSource).filter(DataSource.name == "OANDA")
         if symbols:
@@ -36,6 +59,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         
         if not market_symbols:
             logger.warning("No OANDA symbols found in database to ingest.")
+            await publisher.close()
             return
 
         for ms in market_symbols:
@@ -161,9 +185,39 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         db.execute(do_update_stmt)
                         db.commit()
                         logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
+
+                        # Publish Events for Completed Candles
+                        for c_data in batch_data:
+                            if c_data['is_complete']:
+                                # Convert to JSON-friendly dict (handle UUIDs if needed, but ms.id is UUID object? 
+                                # c_data['market_symbol_id'] is UUID. json dump check)
+                                event_payload = c_data.copy()
+                                event_payload['market_symbol_id'] = str(event_payload['market_symbol_id'])
+                                
+                                channel = f"market_data:candle:{symbol_name}:{tf}"
+                                try:
+                                    # Use explicit serializer for datetimes
+                                    json_str = json.dumps(event_payload, default=json_serial)
+                                    # RedisPublisher.publish expects dict, but internally json.dumps. 
+                                    # Wait, RedisPublisher.publish does `json.dumps(message)`.
+                                    # So we should pass the dict, but we need to ensure it's serializable.
+                                    # Let's modify RedisPublisher or just clean the dict here.
+                                    # The `RedisPublisher.publish` does: `json.dumps(message)`
+                                    # It might fail on datetime.
+                                    # Workaround: serialize manually and send as string, or fix publisher?
+                                    # Let's fix publisher later. For now, serialize to string and send as pre-serialized dict? No it dumps again.
+                                    # Better: convert datetime to string in event_payload before sending.
+                                    if isinstance(event_payload['timestamp'], (datetime, pd.Timestamp)):
+                                        event_payload['timestamp'] = event_payload['timestamp'].isoformat()
+                                    
+                                    await publisher.publish(channel, event_payload)
+                                except Exception as pub_err:
+                                    logger.error(f"Failed to publish event {channel}: {pub_err}")
                 
     except Exception as e:
         logger.error(f"Ingestion job failed: {e}")
         db.rollback()
     finally:
+        if 'publisher' in locals():
+            await publisher.close()
         db.close()

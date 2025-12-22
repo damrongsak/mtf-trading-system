@@ -43,7 +43,7 @@ async def calculate_ema(req: EMAProxyRequest):
             }
             start_time = time.time()
             response = await client.post(
-                f"{STRATEGY_CORE_URL}/calculate/ema",
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/ema",
                 json=payload,
                 timeout=10.0
             )
@@ -72,7 +72,7 @@ async def calculate_rsi(req: RSIRequest):
         try:
             start_time = time.time()
             response = await client.post(
-                f"{STRATEGY_CORE_URL}/calculate/rsi",
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/rsi",
                 json=req.model_dump(),
                 timeout=10.0
             )

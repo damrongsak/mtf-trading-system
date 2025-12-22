@@ -23,6 +23,11 @@ import numpy as np
 from typing import Optional
 from datetime import datetime
 import traceback
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Strategy Core Service")
 
@@ -333,8 +338,8 @@ app.include_router(router)
 
 @app.on_event("startup")
 async def startup_event():
-    # Optional: Auto-start runner if needed, or wait for first strategy
-    pass
+    logger.info("Starting Strategy Engine (Primary Event Consumer)...")
+    await strategy_engine.start()
 
 @app.on_event("shutdown")
 async def shutdown_event():

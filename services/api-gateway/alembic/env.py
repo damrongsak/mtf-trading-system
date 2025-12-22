@@ -28,7 +28,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 # Import all models here to ensure they're registered with Base.metadata
-from app.models import candle, trade, strategy_run, risk_rule
+from app.models import candle, trade, strategy_run, risk_rule, system_config
 
 target_metadata = Base.metadata
 

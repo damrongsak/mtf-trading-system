@@ -4,7 +4,7 @@ Source of truth: specs/03_data_model.yaml -> Candle entity
 """
 
 from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 from app.database import Base
 
@@ -48,6 +48,9 @@ class Candle(Base):
                        comment="ATR(14) on 15m timeframe (for stop loss calculation)")
     body_to_wick_ratio = Column(Numeric(5, 4), nullable=True,
                                comment="Body-to-Wick Ratio (Rv) for vector candle confirmation")
+    
+    # Dynamic Indicators (JSONB)
+    indicators = Column(JSONB, nullable=True, comment="Flexible storage for calculated indicators (RSI, EMA, etc.)")
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(),

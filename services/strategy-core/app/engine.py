@@ -8,7 +8,7 @@ from datetime import datetime
 from app.adapters.oanda import OandaAdapter
 from app.adapters.execution import execution_client
 from app.schemas import ExecutionMode
-# from app.adapters.oanda_history import OandaHistoryAdapter
+# # from app.adapters.oanda_history import OandaHistoryAdapter
 from app.indicators import calculate_ema, calculate_atr, calculate_rsi
 from app.smc import detect_order_blocks
 
@@ -27,10 +27,14 @@ class StrategyEngine:
     def __init__(self):
         self.active_strategies: Dict[str, StrategyState] = {}
         self._history_adapter = None
+        
+        # Redis Subscriber
+        from app.streaming.subscriber import RedisSubscriber
+        self.subscriber = RedisSubscriber(self.on_candle_event)
 
-    # @property
-    # def history_adapter(self):
-    #    pass
+    async def start(self):
+        """Start the engine components (subscriber)"""
+        await self.subscriber.connect()
 
     async def start_strategy(self, strategy_id: str, config: dict):
         if strategy_id in self.active_strategies:
@@ -38,6 +42,14 @@ class StrategyEngine:
         
         logger.info(f"Starting strategy {strategy_id} with config: {config}")
         state = StrategyState(config)
+        
+        # Subscribe to required channels (Base + Trend + Macro)
+        symbol = state.symbol
+        timeframes = ["M5", "M15", "H1", "H4", "D"] # Subscribe to all relevant for now
+        
+        channels = [f"market_data:candle:{symbol}:{tf}" for tf in timeframes]
+        if self.subscriber:
+             await self.subscriber.subscribe(channels)
         
         # Initial data fetch (Warmup)
         try:
@@ -88,6 +100,51 @@ class StrategyEngine:
             return {"status": "stopped"}
         return {"status": "not_running"}
 
+    async def on_candle_event(self, channel: str, data: dict):
+        """
+        Handle incoming candle completion events from Redis.
+        Format: market_data:candle:{symbol}:{tf}
+        """
+        try:
+            parts = channel.split(":") 
+            # expected: market_data, candle, symbol, timeframe
+            if len(parts) < 4: 
+                return
+            
+            symbol = parts[2]
+            tf = parts[3]
+            
+            # Update state for all relevant strategies
+            for s_id, state in self.active_strategies.items():
+                if state.symbol == symbol: # match symbol
+                    # Update local buffer
+                    if tf not in state.data:
+                        state.data[tf] = pd.DataFrame() # Initialize if missing
+                    
+                    # Append new candle
+                    # data is the candle dict. format to DF row.
+                    new_row = pd.DataFrame([data])
+                    new_row['timestamp'] = pd.to_datetime(new_row['timestamp'])
+                    if 'timestamp' in state.data[tf].columns:
+                         # Append
+                         state.data[tf] = pd.concat([state.data[tf], new_row], ignore_index=True)
+                    else:
+                         state.data[tf] = new_row
+                         
+                    # Keep buffer size manageable (e.g. 500)
+                    if len(state.data[tf]) > 1000:
+                        state.data[tf] = state.data[tf].iloc[-1000:]
+                        
+                    # Trigger Logic if this is the "Base" timeframe (e.g. M15 or M5)
+                    if tf == state.timeframe:
+                         # Logic Check
+                         signal = await self._calculate_signal(s_id, state)
+                         if signal:
+                             await self._execute_signal(s_id, state, signal)
+                             
+        except Exception as e:
+            logger.error(f"Error handling candle event {channel}: {e}")
+
     async def on_tick(self, tick_data: dict):
         """
         Ingest a tick, update state, and trigger signal check.
@@ -128,24 +185,33 @@ class StrategyEngine:
         """
         from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection
         
-        df_m15 = state.data[state.timeframe]
-        
-        if len(df_m15) < 200:
+        # Require Base Timeframe data
+        if state.timeframe not in state.data:
             return None
             
-        # 0. MTF Resampling
-        # Resample M15 to H1 and H4
+        df_base = state.data[state.timeframe]
+        if len(df_base) < 100: # Need enough history
+            return None
+
+        # 0. MTF Handling (Reactive)
+        # Try to get H1/H4 from state directly (Event-Driven)
+        df_h1 = state.data.get("H1")
+        df_h4 = state.data.get("H4")
+        
+        # Fallback: if H1/H4 missing (not subscribed or startup), try resampling
         try:
-            # Assumes index is DatetimeIndex
-            df_h1 = df_m15.resample('1h').agg({
-                'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-            }).dropna()
+            if df_h1 is None or len(df_h1) < 50:
+                 df_h1 = df_base.set_index('timestamp').resample('1h').agg({
+                    'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
+                }).dropna().reset_index()
             
-            df_h4 = df_m15.resample('4h').agg({
-                'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-            }).dropna()
+            if df_h4 is None or len(df_h4) < 50:
+                df_h4 = df_base.set_index('timestamp').resample('4h').agg({
+                    'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
+                }).dropna().reset_index()
+                
         except Exception as e:
-            logger.warning(f"Resampling failed: {e}")
+            logger.warning(f"Resampling fallback failed: {e}")
             return None
 
         # 1. Macro Bias (Rule A)

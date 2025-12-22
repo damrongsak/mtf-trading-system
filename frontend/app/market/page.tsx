@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CandleChart, IndicatorData } from '@/components/charts/CandleChart';
 import { fetchCandles, Candle } from '@/lib/api/market';
+import { fetchSystemConfig } from '@/lib/api/system';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { calculateEMA, calculateRSI } from '@/lib/api/analysis';
@@ -20,12 +21,14 @@ interface UserPreferences {
     default_symbol?: string;
 }
 
-const TIMEFRAMES = ['M15', 'H1', 'H4', 'D'];
+// Default fallback until config loads
+const DEFAULT_TIMEFRAMES = ['M15', 'H1', 'H4', 'D'];
 
 export default function MarketPage() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [symbol, setSymbol] = useState('EUR_USD');
   const [timeframe, setTimeframe] = useState('H1');
+  const [availableTimeframes, setAvailableTimeframes] = useState<string[]>(DEFAULT_TIMEFRAMES);
   const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   
@@ -38,6 +41,14 @@ export default function MarketPage() {
   const { prices, connected } = useLivePrices([symbol]);
 
   useEffect(() => {
+    // Load System Config
+    fetchSystemConfig().then(config => {
+        if (config.supported_timeframes && config.supported_timeframes.length > 0) {
+            setAvailableTimeframes(config.supported_timeframes);
+        }
+    }).catch(err => console.error("Failed to load system config", err));
+
+    // Load User Preferences
     apiClient.get('/api/v1/settings/preferences').then(res => {
         setPreferences(res.data);
         if (res.data.default_symbol) setSymbol(res.data.default_symbol);
@@ -46,6 +57,7 @@ export default function MarketPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setCandles([]); // Clear old data to show loading state for new symbol
     try {
       const data = await fetchCandles({ symbol, timeframe, count: 500 });
       setCandles(data);
@@ -175,7 +187,7 @@ export default function MarketPage() {
                 {/* Symbol Select */}
                 <Select value={symbol} onValueChange={setSymbol}>
                     <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-0 focus:border-white/20 h-10">
-                        <SelectValue placeholder="Symbol" />
+                        <SelectValue>{symbol.replace('_', '/')}</SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-gray-900 border-white/10 text-gray-200">
                         {supportedSymbols.map(s => (
@@ -187,8 +199,8 @@ export default function MarketPage() {
                 <div className="h-6 w-px bg-white/10 mx-2" />
 
                 {/* Timeframes Pill Group */}
-                <div className="flex bg-black/20 rounded-lg p-1 border border-white/5">
-                    {TIMEFRAMES.map(tf => (
+                <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+                    {availableTimeframes.map(tf => (
                         <button
                             key={tf}
                             onClick={() => setTimeframe(tf)}
