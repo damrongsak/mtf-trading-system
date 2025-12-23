@@ -8,7 +8,8 @@ from app.models.user_fund import User
 from app.models.trade import Trade, TradeStatus
 from app.models.broker_account import BrokerAccount
 from app.utils.crypto import decrypt_data
-from app.utils.response import success_response
+from app.utils.crypto import decrypt_data
+from app.utils.response import success_response, paginated_response
 from app.schemas.trade import TradeResponse
 from typing import Dict, Any, List
 from datetime import datetime
@@ -52,7 +53,7 @@ async def get_account_summary(
 
         config = _get_broker_config(account)
         data = await execution_client.get_account_summary(config)
-        return data
+        return success_response(data=data)
     except Exception as e:
         # Improve error handling (e.g. 503 if services down)
         raise HTTPException(status_code=500, detail=str(e))
@@ -100,7 +101,7 @@ async def place_order(
                 # Log error but don't fail the request since order was placed
                 logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
                 
-        return execution_result
+        return success_response(data=execution_result, message="Order placed successfully")
     except Exception as e:
         logger.error(f"Error placing order: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -147,12 +148,11 @@ async def close_trade(
         # For simplicity, stick to payload or fallback
         trade = TradeService.close_trade(db, trade_id, exit_price or 0.0)
             
-        return {
-            "status": "success",
+        return success_response(data={
             "trade_id": str(trade.trade_id),
             "pnl": float(trade.pnl_usd or 0),
             "exit_price": float(trade.exit_price or 0)
-        }
+        }, message="Trade closed successfully")
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -234,12 +234,14 @@ async def get_trades(
         }
         
         # Manually construct paginated response structure if helper not available or to match generic Response
-        return {
-            "status": "success",
-            "data": trades_response,
-            "meta": meta,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        # Manually construct paginated response structure if helper not available or to match generic Response
+        return paginated_response(
+            data=trades_response,
+            page=page,
+            per_page=per_page,
+            total=total,
+            message="Trades retrieved successfully"
+        )
 
     except HTTPException:
         raise
@@ -261,14 +263,14 @@ async def get_accounts(
             BrokerAccount.is_active == True
         ).all()
         
-        return [
+        return success_response(data=[
             {
                 "id": str(account.id),
                 "broker_name": account.broker_name,
                 "account_id": account.account_number
             }
             for account in accounts
-        ]
+        ])
     except Exception as e:
         logger.error(f"Failed to get accounts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -335,7 +337,7 @@ async def place_smart_order(
              except Exception as pe:
                  logger.error(f"Failed to persist smart trade: {pe}")
                  
-        return result
+        return success_response(data=result, message="Smart order placed successfully")
         
     except HTTPException as he:
         raise he

@@ -29,8 +29,8 @@ class Trade(Base):
     __table_args__ = {"extend_existing": True}
 
     trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    strategy_run_id = Column(UUID(as_uuid=True), ForeignKey("strategy_runs.run_id"), nullable=True)
-    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True)
+    strategy_run_id = Column(UUID(as_uuid=True), ForeignKey("strategy_runs.run_id"), nullable=True, index=True)
+    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True, index=True)
     
     symbol = Column(String(20), nullable=False, index=True)
     strategy_name = Column(String(100), nullable=False,

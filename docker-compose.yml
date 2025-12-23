@@ -33,6 +33,11 @@ services:
       - STRATEGY_CORE_URL=http://strategy-core:8000
       - REDIS_URL=redis://redis:6379/0
       - AI_ANALYST_URL=http://ai-analyst:8000
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     networks:
       - default
       - external
@@ -43,6 +48,11 @@ services:
     env_file: .env
     volumes:
       - ./services/execution:/app
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     networks:
       - default
       - external
@@ -72,6 +82,11 @@ services:
     environment:
       - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
     networks:
       - default
       - external
@@ -84,6 +99,11 @@ services:
       - ./services/ai-analyst:/app
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     networks:
       - default
       - external

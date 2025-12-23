@@ -662,7 +662,7 @@ paths:
           content:
             application/json:
               schema:
-                 type: object # Simplified response for MVP or define specific one
+                $ref: '#/components/schemas/APIResponse_Success'
     
   /api/v1/execution/orders:
     post:
@@ -679,7 +679,7 @@ paths:
           content:
             application/json:
               schema:
-                 type: object
+                $ref: '#/components/schemas/APIResponse_Success'
 
   /api/v1/data/candles:
     get:
@@ -781,7 +781,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/APIResponse_Success'
 
 components:
   schemas:
