@@ -6,6 +6,8 @@ import os
 from app.database import get_db
 from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
+from app.models.market import MarketSymbol
+from app.models.data_source import DataSource
 from app.schemas import CandleResponse, PaginationResponse
 from app.scheduler.jobs import run_ingestion_job
 from sqlalchemy.dialects.postgresql import insert
@@ -46,6 +48,11 @@ async def upload_candles(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV.")
 
+    # Validate Symbol Exists
+    market_symbol = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
+    if not market_symbol:
+        raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' not registered in MarketSymbols.")
+
     temp_file = f"temp_{file.filename}"
     try:
         with open(temp_file, "wb") as buffer:
@@ -62,36 +69,35 @@ async def upload_candles(
              raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
         
         # Convert DataFrame rows to Candle objects
-        candle_objects = []
+        candle_dicts = []
         now = datetime.utcnow()
         for _, row in df.iterrows():
-            candle_objects.append(Candle(
-                id=uuid.uuid4(), # Generate UUID explicitly
-                symbol=row['symbol'],
-                timeframe=row['timeframe'],
-                timestamp=row['timestamp'],
-                open=row['open'],
-                high=row['high'],
-                low=row['low'],
-                close=row['close'],
-                volume=row['volume'],
-                created_at=now,
-                updated_at=now
-            ))
+            candle_dicts.append({
+                "id": uuid.uuid4(),
+                "market_symbol_id": market_symbol.id,
+                "timeframe": row['timeframe'],
+                "timestamp": row['timestamp'],
+                "open": row['open'],
+                "high": row['high'],
+                "low": row['low'],
+                "close": row['close'],
+                "volume": row['volume'],
+                "created_at": now,
+                "updated_at": now
+            })
 
         # Save to database using upsert logic
-        # Convert Candle objects to dictionaries for the insert statement
-        if candle_objects:
-            stmt = insert(Candle).values([c.to_dict() for c in candle_objects])
+        if candle_dicts:
+            stmt = insert(Candle).values(candle_dicts)
             do_update_stmt = stmt.on_conflict_do_update(
-                index_elements=['symbol', 'timeframe', 'timestamp'],
+                index_elements=['market_symbol_id', 'timeframe', 'timestamp'],
                 set_={
                     'open': stmt.excluded.open,
                     'high': stmt.excluded.high,
                     'low': stmt.excluded.low,
                     'close': stmt.excluded.close,
                     'volume': stmt.excluded.volume,
-                    'updated_at': datetime.utcnow() # Assuming an updated_at field for candles
+                    'updated_at': datetime.utcnow()
                 }
             )
             try:
@@ -100,7 +106,7 @@ async def upload_candles(
             except Exception as db_err:
                 db.rollback()
                 logger.error(f"Database upsert error: {str(db_err)}")
-                logger.error(traceback.format_exc()) # Log full traceback
+                logger.error(traceback.format_exc()) 
                 raise HTTPException(status_code=500, detail=f"Database upsert error: {str(db_err)}")
         
         return {"message": f"Successfully processed {len(df)} rows for {symbol} {timeframe}"}
@@ -108,7 +114,7 @@ async def upload_candles(
         raise he
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
-        logger.error(traceback.format_exc()) # Log full traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_file):
@@ -118,15 +124,42 @@ async def upload_candles(
 def get_candles(
     symbol: str = Query(..., description="Symbol to filter by"),
     timeframe: str = Query(..., description="Timeframe to filter by"),
+    broker: str = Query("OANDA", description="Data Provider (e.g. OANDA, BINANCE)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve candles with pagination.
+    Retrieve candles with pagination. Filters by Symbol AND Broker.
+    Defaults to 'OANDA' if broker not specified.
     """
+    # 1. Resolve the specific MarketSymbol for this Broker + Symbol combo
+    market_symbol = db.query(MarketSymbol).join(DataSource).filter(
+        MarketSymbol.symbol == symbol,
+        DataSource.name == broker
+    ).first()
+
+    # Retry with underscore if slash provided (e.g. XAU/USD -> XAU_USD)
+    if not market_symbol and "/" in symbol:
+        normalized_symbol = symbol.replace("/", "_")
+        market_symbol = db.query(MarketSymbol).join(DataSource).filter(
+            MarketSymbol.symbol == normalized_symbol,
+            DataSource.name == broker
+        ).first()
+
+    if not market_symbol:
+        # If specific broker not found, check if symbol exists at all to give better error
+        any_symbol = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
+        if any_symbol:
+             # Symbol exists but not for this broker
+             return PaginationResponse(total=0, page=page, page_size=page_size, data=[])
+        else:
+             # Symbol doesn't exist at all
+             return PaginationResponse(total=0, page=page, page_size=page_size, data=[])
+
+    # 2. Query Candles for this specific MarketSymbol
     query = db.query(Candle).filter(
-        Candle.symbol == symbol,
+        Candle.market_symbol_id == market_symbol.id,
         Candle.timeframe == timeframe
     )
     
@@ -136,9 +169,31 @@ def get_candles(
                    .limit(page_size)\
                    .all()
     
+    # Inject 'symbol' and 'broker' into response
+    data = []
+    for c in candles:
+        c_dict = {
+            "id": c.id,
+            "symbol": symbol,
+            "broker": broker, # We know this matches the query
+            "timeframe": c.timeframe,
+            "timestamp": c.timestamp,
+            "open": c.open,
+            "high": c.high,
+            "low": c.low,
+            "close": c.close,
+            "volume": c.volume,
+            "ema_9_4h": c.ema_9_4h,
+            "ema_200_4h": c.ema_200_4h,
+            "ema_200_d": c.ema_200_d,
+            "atr_14_15m": c.atr_14_15m,
+            "body_to_wick_ratio": c.body_to_wick_ratio
+        }
+        data.append(c_dict)
+
     return PaginationResponse(
         total=total,
         page=page,
         page_size=page_size,
-        data=candles
+        data=data
     )

@@ -25,6 +25,7 @@ class CandleResponse(CandleBase):
     ema_200_d: Optional[Decimal] = None
     atr_14_15m: Optional[Decimal] = None
     body_to_wick_ratio: Optional[Decimal] = None
+    broker: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -78,7 +78,7 @@ app.include_router(simulation.router)
 app.include_router(ai.router)
 
 # Routers with prefixes (matching Nginx rewrites or specific paths)
-app.include_router(dashboard.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1/dashboard")
 app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(data.router) # data router likely has /api/v1/data inside or is handled
 app.include_router(execution.router, prefix="/api/v1")

@@ -86,9 +86,43 @@ async def trigger_sync(
             
             return response.json()
             
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+@router.get("/candles")
+async def get_candles(
+    symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),
+    timeframe: str = Query(..., description="Timeframe (e.g., 15m)"),
+    broker: str = Query("OANDA", description="Data Provider (e.g. OANDA, BINANCE)"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=1000)
+):
+    """
+    Get candles from Data Pipeline. Proxy endpoint.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            params = {
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "broker": broker,
+                "page": page,
+                "page_size": page_size
+            }
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/candles",
+                params=params,
+                timeout=10.0
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+                
+            return response.json()
+            
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
