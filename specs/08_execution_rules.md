@@ -78,19 +78,24 @@ These rules are enforced by the `Execution Service` and cannot be overridden by 
 ### Rule E: Position Sizing & Capital Preservation
 **Function:** `can_execute` in `executor.py`
 
-1.  **Max Risk Cap:** **$10.00** per trade (Hard Limit).
+1.  **Risk Configuration:**
+    *   Risk is defined in the **Strategy Configuration** (e.g., Fixed USD Amount or % of Equity).
+    *   The `Strategy Core` passes the `target_risk_usd` to the Execution Service.
 2.  **Lot Calculation Formula:**
     ```python
-    raw_lot = max_risk_usd / sl_distance_usd
-    final_lot = floor(raw_lot, 2 decimals) # e.g., 0.128 -> 0.12
+    risk_per_share = abs(entry_price - sl_price)
+    raw_lot = target_risk_usd / (risk_per_share * contract_size)
+    final_lot = floor(raw_lot, 2 decimals)
     ```
 3.  **Minimum Viable Trade:**
     *   If `final_lot` < **0.01**, the trade is **REJECTED**.
-    *   *Reasoning:* Ensures we never over-risk just to fit a trade. If the stop is too wide for $10 risk, we skip.
+    *   *Reasoning:* Prevents forcing trades with negligible size.
+4.  **Global Safety Cap (Optional):**
+    *   A hard server-side limit (e.g., $100) may still be enforced as a "Sanity Check" to prevent massive errors.
 
 ### Rule F: Volatility Guardrail (Implied)
 1.  **Constraint:** If `SL_Distance` is negative or zero, trade is rejected.
-2.  **Constraint:** If calculated Lot Size is valid but risk exceeds cap (due to rounding errors), strict inequality checks prevent execution.
+2.  **Constraint:** If `target_risk_usd` exceeds the Account's available margin or global safety caps, trade is rejected.
 
 ---
 

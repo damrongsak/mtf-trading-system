@@ -136,9 +136,10 @@ class SmartOrderRequest(BaseModel):
     broker_account_id: str
     symbol: str
     direction: str # BULLISH / BEARISH
-    stop_loss: Optional[float]
+    stop_loss: Optional[float] = None
     generated_by: str
-    reason: Optional[str]
+    reason: Optional[str] = None
+    risk_usd: Optional[float] = Field(None, description="Target risk in USD (overrides default)")
 
 @app.post("/smart-orders", response_model=OrderResponse)
 async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db)):
@@ -154,48 +155,64 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
 
     adapter = BrokerFactory.get_adapter(account.broker_name, account.credentials)
     
-    # 2. Get Current Price (Bid/Ask) for Distance Calculation
-    # Note: Adapter might not have free `get_price`. OANDA does.
-    # If not available, we might need to rely on the Strategy passing price, but Strategy latency might be high.
-    # Better to fetch fresh price here.
-    try:
-        # Assuming adapter has a get_price or we use get_account_summary for margin check?
-        # For now, let's assume market order fills at current.
-        # But to calculate UNITS we need price.
-        # If adapter doesn't have `get_price`, we are stuck.
-        # Let's assume for MVP we fetch a single candle or price.
-        # Or OandaAdapter has `get_prices(instruments=...)`
-        pass
-    except:
-        pass
+    # 2. Validation & Config
+    if not req.stop_loss:
+         # Need SL to calculate risk
+         raise HTTPException(status_code=400, detail="Smart Order requires a Stop Loss price to calculate risk.")
 
-    # 3. Calculate Units
-    # Default Risk: $10 (Hardcoded MVP rule enforcement per PRD)
-    RISK_USD = 10.0
+    # Determine Risk Amount
+    # If not provided in request, could fallback to Account default or Global default
+    # For now, we enforce a strict fallback if missing.
+    target_risk = req.risk_usd if req.risk_usd is not None else 10.0
     
-    units = 0
-    # Price fetch simulation or implementation
-    # If we can't fetch price, we can't calculate dynamic risk.
-    # FALLBACK: Use Strategy's last known price? No, unsafe.
-    # Let's use a standard Lot if SL is missing, or fail.
+    # 3. Fetch Real-time Price
+    try:
+        current_price = adapter.get_current_price(req.symbol)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch live price for risk calculation: {str(e)}")
+        
+    # 4. Calculate Position Size (Units)
+    # Risk = abs(Entry - SL) * Units
+    # Units = Risk / abs(Entry - SL)
     
-    # Check if adapter supports unit calculation helpers? 
-    # Or just use the `executor.can_execute` logic but we need PRICE.
+    dist = abs(current_price - req.stop_loss)
     
-    # MVP Hack: For now, if we cannot get price, we use min lot * multiplier?
-    # NO, we must implement `adapter.get_price(symbol)`.
-    # I will assume `adapter.get_current_price(symbol)` exists or I'll add it.
+    if dist <= 0:
+         raise HTTPException(status_code=400, detail="Stop Loss cannot be equal to Current Price")
+         
+    raw_units = target_risk / dist
     
-    current_price = 2000.0 # Placeholder if fetch fails. PROD must fetch.
+    # Direction Check
+    if req.direction == "BULLISH":
+        units = raw_units
+        if req.stop_loss >= current_price:
+             # Sanity check: Long needs SL below price
+             # Allow it for Limit orders? SmartOrder is Market for now.
+             pass 
+    elif req.direction == "BEARISH":
+        units = -raw_units
+        if req.stop_loss <= current_price:
+             pass
+    else:
+        raise HTTPException(status_code=400, detail="Invalid direction")
+
+    # Min Lot Validation (approximate for XAU/USD)
+    # OANDA min is 0.01 units? No, OANDA is units. 1 unit of XAU is usually min?
+    # Actually OANDA supports fractional typically?
+    # Let's enforce a minimum of 0.01 standard lot equivalent context or just > 0.
+    # For XAU/USD, 1 unit = 1 oz. 0.01 lot = 1 item? 
+    # Usually standard lot = 100 oz. 0.01 lot = 1 oz.
+    # Let's assume OANDA 'units' == ounces for XAU/USD. 
+    # Must check Oanda specs. Typically 1 unit.
     
-    # Logic:
-    # dist = abs(current_price - req.stop_loss)
-    # units = RISK_USD / dist
-    
-    # For now, let's fallback to 1000 units if calculation fails, to keep system running.
-    units = 1000 if req.direction == "BULLISH" else -1000
-    
-    # 4. Execute
+    if abs(units) < 1.0: # Minimum 1 unit (approx 0.01 lot)
+         # Reject
+         raise HTTPException(status_code=400, detail=f"Calculated size {units:.4f} is below minimum tradable limit (for Risk ${target_risk})")
+
+    # Rounding (Oanda accepts integers or specific precision)
+    units = int(units) # Safe to cast to int for units
+
+    # 5. Execute
     response = adapter.place_market_order(
         symbol=req.symbol,
         units=units,

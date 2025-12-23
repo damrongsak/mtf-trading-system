@@ -29,3 +29,11 @@ class BrokerAdapter(ABC):
     def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         """Close an existing trade."""
         pass
+
+    @abstractmethod
+    def get_current_price(self, symbol: str) -> float:
+        """
+        Fetch the current market price for a symbol.
+        Used for risk calculation (distance to SL).
+        """
+        pass
