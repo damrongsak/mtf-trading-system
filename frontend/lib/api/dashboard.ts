@@ -3,11 +3,13 @@ import { DashboardStats, RecentSignal, Signal, APIResponse } from './types';
 
 /**
  * Get dashboard statistics
- * Note: Currently returns mock data. Replace with real API endpoint when available.
  * @returns Dashboard statistics
  */
-export async function getDashboardStats(): Promise<DashboardStats> {
-    const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats');
+export async function getDashboardStats(strategyId?: string): Promise<DashboardStats> {
+    const params: any = {};
+    if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
+
+    const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats', { params });
     return response.data;
 }
 
@@ -17,8 +19,11 @@ export interface EquityPoint {
     daily_pnl: number;
 }
 
-export async function getEquityCurve(days: number = 30): Promise<EquityPoint[]> {
-    const response = await apiClient.get<EquityPoint[]>(`/api/v1/dashboard/equity-curve?days=${days}`);
+export async function getEquityCurve(days: number = 30, strategyId?: string): Promise<EquityPoint[]> {
+    const params: any = { days };
+    if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
+
+    const response = await apiClient.get<EquityPoint[]>('/api/v1/dashboard/equity-curve', { params });
     return response.data;
 }
 

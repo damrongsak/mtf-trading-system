@@ -17,25 +17,57 @@ import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 
+import { strategiesApi } from '@/lib/api/strategies'; // Add import
+import { StrategyResponse } from '@/lib/api/types';
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDashboardStats();
+  
+  // Strategy State
+  const [strategies, setStrategies] = useState<StrategyResponse[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>('all');
+  
+  // Pass selectedStrategyId to stats hook
+  const { stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDashboardStats(selectedStrategyId);
   const [equityData, setEquityData] = useState<EquityPoint[]>([]);
   const [equityLoading, setEquityLoading] = useState(true);
   const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
   
+  // Note: signals hook might need updating too, but let's keep it global for now or update later
   const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5, watchlist);
 
-  // Live Prices Hook - subscribe to major pairs + watchlist
+  // Live Prices Hook
   const allSymbols = Array.from(new Set([...watchlist.map(s => s.replace('/', '_')), 'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY']));
   const { prices, connected } = useLivePrices(allSymbols);
+  
+  // Load Strategies
+  useEffect(() => {
+      async function loadStrategies() {
+          try {
+              // Assuming generic query or fetch all
+              // We use listHelper with fund_id=... but we don't have fund_id in context easily yet.
+              // We'll use getStrategyPerformance to see names, but better to use strategiesApi.
+              // Ideally we have a 'list all my strategies' endpoint.
+              // Let's assume listHelper accepts optional fundId or we fetch from user preferences default fund.
+              // For MVP, we will try to fetch default page.
+              const res = await strategiesApi.listHelper("00000000-0000-0000-0000-000000000000"); // FIXME: UUID
+              if (res.status === 'success') {
+                  setStrategies(res.data);
+              }
+          } catch (e) {
+              console.warn("Failed to load strategies list", e);
+          }
+      }
+      loadStrategies();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
+      setEquityLoading(true); // Set loading when strategy changes
       try {
-        // First try to fetch preferences to set watchlist
+        // ... (existing preferences logic) ...
         try {
             const prefs = await getPreferences();
             if (prefs.supported_symbols && prefs.supported_symbols.length > 0) {
@@ -48,9 +80,9 @@ export default function DashboardPage() {
         }
 
         const [eqData, accData, perfData] = await Promise.all([
-            getEquityCurve(),
+            getEquityCurve(30, selectedStrategyId), // Pass ID
             getAccountSummary().catch(e => {
-                console.warn("Failed to fetch account summary (Execution Service might be offline or unconfigured):", e);
+                console.warn("Failed to fetch account summary:", e);
                 return null;
             }),
             getStrategyPerformance().catch(e => {
@@ -68,27 +100,22 @@ export default function DashboardPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedStrategyId]); // Re-run when strategy changes
 
   const handleRefresh = async () => {
     await Promise.all([refetchStats(), refetchSignals()]);
   };
 
   // Show loading state
-  if (authLoading || statsLoading) {
+  if (authLoading || (statsLoading && !stats)) { // Allow stale data while loading new strategy stats? Or show loading.
     return (
       <div className="space-y-6">
-        {/* Header Skeleton */}
         <div className="h-10 bg-gray-800/30 rounded-lg w-64 animate-pulse" />
-        
-        {/* Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 bg-gray-800/30 rounded-xl animate-pulse" />
           ))}
         </div>
-        
-        {/* Table Skeleton */}
         <div className="h-64 bg-gray-800/30 rounded-xl animate-pulse" />
       </div>
     );
@@ -110,15 +137,36 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-accent-blue to-accent-green bg-clip-text text-transparent">
             Welcome back, {user?.username || 'Trader'}
           </h1>
           <p className="text-gray-400 mt-1">Here&apos;s your trading overview</p>
+
+          <Link href="/strategies/new" className="text-sm text-accent-blue hover:underline mt-2 inline-block">
+             + New Strategy
+          </Link>
         </div>
+        
         <div className="flex items-center gap-4">
+           {/* Strategy Selector */}
+           <div className="relative">
+              <select
+                  value={selectedStrategyId}
+                  onChange={(e) => setSelectedStrategyId(e.target.value)}
+                  className="bg-gray-800 text-gray-200 border border-gray-700 rounded-lg py-2 px-4 pr-8 focus:outline-none focus:border-accent-blue appearance-none cursor-pointer text-sm"
+              >
+                  <option value="all">All Strategies</option>
+                  {strategies.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.is_active ? 'Active' : 'Paused'})</option>
+                  ))}
+              </select>
+               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </div>
+           </div>
+
           <button
             onClick={handleRefresh}
             className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"

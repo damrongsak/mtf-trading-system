@@ -13,9 +13,10 @@ interface Step4Props {
   onChange: (data: RootCause) => void;
   onSubmit: () => void;
   onBack: () => void;
+  isSubmitting?: boolean;
 }
 
-export default function Step4RootCause({ rootCause, onChange, onSubmit, onBack }: Step4Props) {
+export default function Step4RootCause({ rootCause, onChange, onSubmit, onBack, isSubmitting = false }: Step4Props) {
   const updateField = (field: keyof RootCause, value: string) => {
     onChange({ ...rootCause, [field]: value });
   };
@@ -93,9 +94,14 @@ export default function Step4RootCause({ rootCause, onChange, onSubmit, onBack }
         </button>
         <button
           onClick={onSubmit}
-          className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold rounded-lg transition-colors"
+          disabled={isSubmitting}
+          className={`flex-1 py-3 font-bold rounded-lg transition-colors ${
+            isSubmitting 
+              ? "bg-emerald-700 text-gray-400 cursor-not-allowed" 
+              : "bg-emerald-500 hover:bg-emerald-400 text-gray-900"
+          }`}
         >
-          Submit Journal Entry ✓
+          {isSubmitting ? "Submitting..." : "Submit Journal Entry ✓"}
         </button>
       </div>
     </div>

@@ -14,7 +14,7 @@ export default function EditJournalPage() {
   const id = params?.id as string;
 
   const { execute: fetchEntry, loading: loadingEntry, error: fetchError } = useAsync(getJournalEntry);
-  const { execute: updateEntry, loading: updating } = useAsync((data) => updateJournalEntry(id, data));
+  const { execute: updateEntry, loading: updating } = useAsync((data: Partial<CreateJournalEntryDto>) => updateJournalEntry(id, data));
   
   const [initialData, setInitialData] = useState<Partial<JournalEntry> | undefined>(undefined);
   const [showSuccessModal, setShowSuccessModal] = useState(false);

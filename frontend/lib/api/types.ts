@@ -494,3 +494,35 @@ export interface PriceUpdate {
     ask: number;
     status: string;
 }
+
+// ========================================
+// Strategy Types
+// ========================================
+
+export interface StrategyResponse {
+    id: string;
+    name: string;
+    // type: string; // Deprecated
+    template_id: string;
+    broker_account_id?: string;
+    config_json: Record<string, any>; // Parameter overrides
+    risk_settings: Record<string, any>;
+    is_active: boolean;
+}
+
+export interface StrategyCreate {
+    name: string;
+    fund_id: string;
+    template_id: string;
+    broker_account_id: string;
+    config_json: Record<string, any>;
+    risk_settings: Record<string, any>;
+}
+
+export interface LogicTemplate {
+    id: string;
+    name: string;
+    description: string;
+    default_config: Record<string, any>;
+    default_risk_settings: Record<string, any>;
+}

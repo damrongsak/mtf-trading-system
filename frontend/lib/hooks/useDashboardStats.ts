@@ -14,7 +14,7 @@ interface UseDashboardStatsReturn {
  * Hook for fetching dashboard statistics
  * Auto-fetches on mount and provides manual refetch capability
  */
-export function useDashboardStats(): UseDashboardStatsReturn {
+export function useDashboardStats(strategyId?: string): UseDashboardStatsReturn {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -25,10 +25,11 @@ export function useDashboardStats(): UseDashboardStatsReturn {
                 setLoading(true);
             }
             setError(null);
-            const data = await getDashboardStats();
+            const data = await getDashboardStats(strategyId);
             setStats(data);
         } catch (err: unknown) {
             const apiError = err as ApiError;
+            // Ignore abort errors if we add cancellation later
             setError(apiError.message || 'Failed to fetch dashboard statistics');
         } finally {
             if (!isBackground) {
@@ -44,7 +45,10 @@ export function useDashboardStats(): UseDashboardStatsReturn {
         const interval = setInterval(() => fetchStats(true), 30000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [strategyId]); // Re-fetch when strategyId changes
 
-    return { stats, loading, error, refetch: fetchStats };
+    // Wrap refetch to match interface (argumentless)
+    const refetch = async () => await fetchStats(false);
+
+    return { stats, loading, error, refetch };
 }

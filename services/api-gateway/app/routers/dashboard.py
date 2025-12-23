@@ -1,35 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, case
-from typing import List, Dict, Any
-from datetime import datetime, timedelta
-from app.database import get_db
-from app.models.trade import Trade, TradeStatus
-from app.security import get_current_user
-from app.models.user_fund import User
-
-router = APIRouter(
-    prefix="/dashboard",
-    tags=["dashboard"],
-    responses={404: {"description": "Not found"}},
-)
+from app.models.strategy_run import StrategyRun
+from app.models.strategy import Strategy
 
 @router.get("/stats")
 async def get_dashboard_stats(
+    strategy_id: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get aggregated dashboard statistics.
+    Get aggregated dashboard statistics, optionally filtered by strategy_id.
     """
     # Base query for closed trades
     base_query = db.query(Trade).filter(Trade.status == TradeStatus.CLOSED)
     
+    if strategy_id:
+        # Join with StrategyRun to filter by strategy_id
+        base_query = base_query.join(StrategyRun, Trade.strategy_run_id == StrategyRun.run_id)\
+                               .filter(StrategyRun.strategy_id == strategy_id)
+    
     # Calculate totals
     total_trades = base_query.count()
     
-    # Calculate PnL
-    total_pnl = db.query(func.sum(Trade.pnl_usd)).filter(Trade.status == TradeStatus.CLOSED).scalar() or 0.0
+    if total_trades == 0:
+         return {
+            "total_pnl": 0.0,
+            "total_trades": 0,
+            "winning_trades": 0,
+            "losing_trades": 0,
+            "win_rate": 0.0,
+            "open_positions": 0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0
+        }
+
+    # Calculate PnL (Using subquery or same filter)
+    total_pnl = base_query.with_entities(func.sum(Trade.pnl_usd)).scalar() or 0.0
     
     # Win Rate
     winning_trades = base_query.filter(Trade.pnl_usd > 0).count()
@@ -37,11 +42,15 @@ async def get_dashboard_stats(
     win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
     
     # Open Positions
-    open_positions = db.query(Trade).filter(Trade.status == TradeStatus.OPEN).count()
+    open_query = db.query(Trade).filter(Trade.status == TradeStatus.OPEN)
+    if strategy_id:
+        open_query = open_query.join(StrategyRun, Trade.strategy_run_id == StrategyRun.run_id)\
+                               .filter(StrategyRun.strategy_id == strategy_id)
+    open_positions = open_query.count()
     
     # Averages
-    avg_win = db.query(func.avg(Trade.pnl_usd)).filter(Trade.status == TradeStatus.CLOSED, Trade.pnl_usd > 0).scalar() or 0.0
-    avg_loss = db.query(func.avg(Trade.pnl_usd)).filter(Trade.status == TradeStatus.CLOSED, Trade.pnl_usd <= 0).scalar() or 0.0
+    avg_win = base_query.filter(Trade.pnl_usd > 0).with_entities(func.avg(Trade.pnl_usd)).scalar() or 0.0
+    avg_loss = base_query.filter(Trade.pnl_usd <= 0).with_entities(func.avg(Trade.pnl_usd)).scalar() or 0.0
 
     return {
         "total_pnl": float(total_pnl),
@@ -57,19 +66,26 @@ async def get_dashboard_stats(
 @router.get("/equity-curve")
 async def get_equity_curve(
     days: int = 30,
+    strategy_id: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get daily equity curve data for the last N days.
+    Get daily equity curve data for the last N days, optionally filtered by strategy_id.
     """
     start_date = datetime.utcnow() - timedelta(days=days)
     
     # Get all closed trades in the period, ordered by exit time
-    trades = db.query(Trade).filter(
+    query = db.query(Trade).filter(
         Trade.status == TradeStatus.CLOSED,
         Trade.exit_timestamp >= start_date
-    ).order_by(Trade.exit_timestamp).all()
+    )
+    
+    if strategy_id:
+        query = query.join(StrategyRun, Trade.strategy_run_id == StrategyRun.run_id)\
+                     .filter(StrategyRun.strategy_id == strategy_id)
+                     
+    trades = query.order_by(Trade.exit_timestamp).all()
     
     # Aggregate by day
     daily_pnl = {}
@@ -79,13 +95,21 @@ async def get_equity_curve(
     for i in range(days + 1):
         day_str = (start_date + timedelta(days=i)).strftime('%Y-%m-%d')
         daily_pnl[day_str] = 0.0
-
-    # Sum up PnL per day
+        
+    # See existing logic for summing...
+    # Re-implementing specific parts to avoid large duplication if not needed, but replace tool needs context.
+    # I will replace the whole function content.
+    
     for trade in trades:
         if trade.exit_timestamp:
             day_str = trade.exit_timestamp.strftime('%Y-%m-%d')
+            # Handle slight timezone edge cases or just simple strftime
+            # Ensure day_str is in daily_pnl (if trade fell slightly out of range due to time, ignore or add)
             if day_str in daily_pnl:
-                daily_pnl[day_str] += float(trade.pnl_usd or 0)
+                 daily_pnl[day_str] += float(trade.pnl_usd or 0)
+            else:
+                 # Should rare if filter is correct
+                 pass
 
     # Create cumulative curve
     curve_data = []
@@ -107,9 +131,9 @@ async def get_strategy_performance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get performance metrics grouped by strategy.
-    """
+    # Performance is already grouped by strategy name, so no filtering needed usually.
+    # But filtering by 'fund' might be useful later.
+    # For now leave as is.
     results = db.query(
         Trade.strategy_name,
         func.count(Trade.trade_id).label('total_trades'),

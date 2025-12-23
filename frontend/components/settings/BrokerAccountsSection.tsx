@@ -148,7 +148,7 @@ export function BrokerAccountsSection() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="OANDA">OANDA</SelectItem>
-                                            <SelectItem value="BINANCE" disabled>Binance (Coming Soon)</SelectItem>
+                                            <SelectItem value="BINANCE">Binance (Coming Soon)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

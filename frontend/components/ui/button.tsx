@@ -5,7 +5,7 @@ interface ButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   variant?: 'default' | 'ghost' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
   className?: string;
   type?: 'button' | 'submit' | 'reset';
 }
@@ -31,6 +31,7 @@ export const Button: React.FC<ButtonProps> = ({
     sm: 'h-8 px-3 text-sm',
     md: 'h-10 px-4 text-base',
     lg: 'h-12 px-6 text-lg',
+    icon: 'h-10 w-10',
   };
 
   return (

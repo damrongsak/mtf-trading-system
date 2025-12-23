@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { IChartApi, MouseEventParams, Time } from 'lightweight-charts';
+import { IChartApi, MouseEventParams, Time, ISeriesApi } from 'lightweight-charts';
 
 interface ChartContainerProps {
   children: React.ReactNode;

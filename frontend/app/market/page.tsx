@@ -250,7 +250,7 @@ export default function MarketPage() {
                       <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-0 focus:border-white/20 h-10">
                           <SelectValue>{symbol.replace('_', '/')}</SelectValue>
                       </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-gray-200">
+                      <SelectContent>
                           {supportedSymbols.map(s => (
                               <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
                           ))}
