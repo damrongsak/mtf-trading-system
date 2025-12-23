@@ -102,5 +102,16 @@ class ExecutionClient:
                 logger.error(f"Failed to close trade: {e}", exc_info=True)
                 raise
 
+    async def place_smart_order(self, smart_order_data: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Placing smart order at {EXECUTION_SERVICE_URL}/smart-orders")
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/smart-orders", json=smart_order_data, timeout=10.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Failed to place smart order: {e}", exc_info=True)
+                raise
+
 strategy_client = StrategyClient()
 execution_client = ExecutionClient()

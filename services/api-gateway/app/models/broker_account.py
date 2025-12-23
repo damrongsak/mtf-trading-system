@@ -15,7 +15,7 @@ class BrokerAccount(Base):
     account_name = Column(String(100), nullable=False) # User-defined alias
     account_number = Column(String(100), nullable=True) # Official account ID/Number from broker
     
-    credentials_encrypted = Column(JSONB, nullable=False) # Encrypted API keys/tokens
+    credentials_encrypted = Column(String, nullable=False) # Encrypted API keys/tokens (Base64 string)
     is_active = Column(Boolean, default=True)
     is_live = Column(Boolean, default=False) # Demo vs Live
     

@@ -4,6 +4,11 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
+import logging
+
+# Setup Logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Execution Service")
 
@@ -73,6 +78,7 @@ async def get_account_summary(req: AccountSummaryRequest):
         data = adapter.get_account_summary()
         return AccountSummaryResponse(**data)
     except Exception as e:
+        logger.error(f"Account Summary Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/orders", response_model=OrderResponse, status_code=201)
@@ -102,6 +108,7 @@ async def place_order(req: OrderRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
+        logger.error(f"Place Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/trades/open")
@@ -111,6 +118,7 @@ async def get_open_trades(req: GetTradesRequest):
         trades = adapter.get_open_trades()
         return {"status": "success", "data": trades}
     except Exception as e:
+        logger.error(f"Get Open Trades Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/trades/close")
@@ -140,6 +148,19 @@ class SmartOrderRequest(BaseModel):
     generated_by: str
     reason: Optional[str] = None
     risk_usd: Optional[float] = Field(None, description="Target risk in USD (overrides default)")
+
+@app.get("/accounts")
+async def get_accounts(db: Session = Depends(get_db)):
+    accounts = db.query(BrokerAccount).all()
+    # Return simplified list
+    return [
+        {
+            "id": str(account.id),
+            "broker_name": account.broker_name,
+            "account_id": account.account_id
+        }
+        for account in accounts
+    ]
 
 @app.post("/smart-orders", response_model=OrderResponse)
 async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db)):

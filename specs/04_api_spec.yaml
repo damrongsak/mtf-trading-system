@@ -1604,6 +1604,56 @@ components:
         credentials:
           type: object
 
+    BrokerAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_id:
+          type: string
+
+    SmartOrderRequest:
+      type: object
+      required:
+        - broker_account_id
+        - symbol
+        - direction
+        - generated_by
+      properties:
+        broker_account_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum: [BULLISH, BEARISH]
+        stop_loss:
+          type: number
+        generated_by:
+          type: string
+        reason:
+          type: string
+        risk_usd:
+          type: number
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        instrument:
+          type: string
+        units:
+          type: string
+        price:
+          type: string
+        time:
+          type: string
+
     BrokerAccountResponse:
       type: object
       properties:

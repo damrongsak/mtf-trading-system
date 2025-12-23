@@ -2,6 +2,7 @@ from oandapyV20 import API
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.accounts as accounts
+import oandapyV20.endpoints.pricing as pricing
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
@@ -106,6 +107,29 @@ class OandaOrderAdapter(BrokerAdapter):
             return r.response
         except Exception as e:
             logger.error(f"Failed to close OANDA trade {broker_trade_id}: {e}")
+            raise e
+
+    def get_current_price(self, symbol: str) -> float:
+        """
+        Fetch the current market price (midpoint) for a symbol.
+        """
+        try:
+            params = {"instruments": symbol}
+            r = pricing.PricingInfo(accountID=self.account_id, params=params)
+            self.client.request(r)
+            
+            prices = r.response.get("prices", [])
+            if not prices:
+                raise ValueError(f"No pricing data returned for {symbol}")
+                
+            price_data = prices[0]
+            # Calculate mid price
+            bid = float(price_data["bids"][0]["price"])
+            ask = float(price_data["asks"][0]["price"])
+            return (bid + ask) / 2.0
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch price for {symbol}: {e}")
             raise e
 
 

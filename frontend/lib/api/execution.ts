@@ -95,3 +95,29 @@ export async function getTrades(params: GetTradesParams = {}): Promise<Paginated
     const response = await apiClient.get<PaginatedResponse<Trade>>('/api/v1/execution/trades', { params });
     return response.data;
 }
+
+export interface BrokerAccount {
+    id: string;
+    broker_name: string;
+    account_id: string; // The external broker ID (e.g., "101-001-...")
+}
+
+export interface SmartOrderRequest {
+    broker_account_id: string;
+    symbol: string;
+    direction: 'BULLISH' | 'BEARISH';
+    stop_loss?: number;
+    generated_by: string;
+    reason?: string;
+    risk_usd?: number;
+}
+
+export async function getBrokerAccounts(): Promise<BrokerAccount[]> {
+    const response = await apiClient.get<BrokerAccount[]>('/api/v1/execution/accounts');
+    return response.data;
+}
+
+export async function placeSmartOrder(data: SmartOrderRequest): Promise<OrderResponse> {
+    const response = await apiClient.post<OrderResponse>('/api/v1/execution/smart-orders', data);
+    return response.data;
+}
