@@ -1,5 +1,17 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import func, case
+from datetime import datetime, timedelta
+from typing import List, Optional
+
+from app.database import get_db
+from app.security import get_current_user
+from app.models.user_fund import User
+from app.models.trade import Trade, TradeStatus
 from app.models.strategy_run import StrategyRun
 from app.models.strategy import Strategy
+
+router = APIRouter()
 
 @router.get("/stats")
 async def get_dashboard_stats(
@@ -89,27 +101,17 @@ async def get_equity_curve(
     
     # Aggregate by day
     daily_pnl = {}
-    cumulative_pnl = 0.0
     
     # Initialize with 0 for all days in range to ensure continuity
     for i in range(days + 1):
         day_str = (start_date + timedelta(days=i)).strftime('%Y-%m-%d')
         daily_pnl[day_str] = 0.0
         
-    # See existing logic for summing...
-    # Re-implementing specific parts to avoid large duplication if not needed, but replace tool needs context.
-    # I will replace the whole function content.
-    
     for trade in trades:
         if trade.exit_timestamp:
             day_str = trade.exit_timestamp.strftime('%Y-%m-%d')
-            # Handle slight timezone edge cases or just simple strftime
-            # Ensure day_str is in daily_pnl (if trade fell slightly out of range due to time, ignore or add)
             if day_str in daily_pnl:
                  daily_pnl[day_str] += float(trade.pnl_usd or 0)
-            else:
-                 # Should rare if filter is correct
-                 pass
 
     # Create cumulative curve
     curve_data = []
@@ -131,9 +133,6 @@ async def get_strategy_performance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Performance is already grouped by strategy name, so no filtering needed usually.
-    # But filtering by 'fund' might be useful later.
-    # For now leave as is.
     results = db.query(
         Trade.strategy_name,
         func.count(Trade.trade_id).label('total_trades'),
