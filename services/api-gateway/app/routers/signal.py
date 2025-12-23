@@ -68,7 +68,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
                 "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes
             }
             smc_resp = await client.post(
-                f"{STRATEGY_SERVICE_URL}/calculate/smc",
+                f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc",
                 json=smc_payload,
                 timeout=10.0
             )
