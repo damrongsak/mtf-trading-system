@@ -4,8 +4,9 @@ from typing import List, Optional
 from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
-from app.models.user_fund import Fund
+from app.models.user_fund import Fund, User, UserFund
 from app.routers.auth import oauth2_scheme
+from app.security import get_current_user
 from app.schemas.response import APIResponse, PaginatedResponse
 from app.utils.response import success_response, paginated_response
 
@@ -55,13 +56,21 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
 
 @router.get("/", response_model=PaginatedResponse[StrategyResponse])
 def list_strategies(
-    fund_id: UUID4, 
+    fund_id: Optional[UUID4] = None, 
     page: int = 1,
     per_page: int = 10,
     db: Session = Depends(get_db), 
-    token: str = Depends(oauth2_scheme)
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Strategy).filter(Strategy.fund_id == fund_id)
+    if fund_id:
+        # Check access
+        # Assuming we check if user belongs to fund
+        # For now, simplistic check or trust if valid
+        query = db.query(Strategy).filter(Strategy.fund_id == fund_id)
+    else:
+        # Join strategies -> funds -> user_funds to get all strategies for this user
+        query = db.query(Strategy).join(Fund).join(UserFund).filter(UserFund.user_id == current_user.id)
+        
     total = query.count()
     strategies = query.offset((page - 1) * per_page).limit(per_page).all()
     

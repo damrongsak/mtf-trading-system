@@ -7,6 +7,9 @@ import base64
 # Ideally: SETTINGS_ENCRYPTION_KEY=... in .env
 # Key generation: Fernet.generate_key().decode()
 
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
 def get_cipher():
     key = os.getenv("SETTINGS_ENCRYPTION_KEY")
     if not key:

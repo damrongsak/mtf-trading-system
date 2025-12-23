@@ -4,6 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from app.tools.market import GetMarketContextTool
 from app.tools.account import GetAccountStatusTool
+from app.tools.signal import GetTechnicalSignalsTool
 
 class MarketObserverAgent:
     def __init__(self):
@@ -18,6 +19,7 @@ class MarketObserverAgent:
         
         self.tools = [
             GetMarketContextTool(),
+            GetTechnicalSignalsTool(),
             GetAccountStatusTool()
         ]
         
@@ -34,5 +36,31 @@ class MarketObserverAgent:
         # Extract last message content
         content = result["messages"][-1].content
         if isinstance(content, list):
-            return "\n".join([str(c) for c in content])
+            # Handle list of content blocks (e.g. text + tool_use)
+            text_parts = []
+            for c in content:
+                if isinstance(c, dict) and "text" in c:
+                    text_parts.append(c["text"])
+                elif hasattr(c, "text"): # Object with text attr
+                    text_parts.append(c.text)
+                else:
+                    text_parts.append(str(c))
+            return "\n".join(text_parts)
+
+        if isinstance(content, dict):
+            # Handle direct dictionary content
+            if "text" in content:
+                 return content["text"]
+        
+        # Check if content is a stringified dict (common with some LLM outputs or tool results)
+        import ast
+        try:
+            if isinstance(content, str) and content.strip().startswith("{") and "text" in content:
+                 # Attempt safely parse
+                 parsed = ast.literal_eval(content)
+                 if isinstance(parsed, dict) and "text" in parsed:
+                     return parsed["text"]
+        except:
+            pass
+            
         return str(content)

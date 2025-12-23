@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Service URLs
     STRATEGY_CORE_URL: str = "http://strategy-core:8000"
     EXECUTION_SERVICE_URL: str = "http://execution:8000"
+    API_GATEWAY_URL: str = "http://api-gateway:8000"
 
     # Qdrant
     QDRANT_HOST: str = "qdrant"

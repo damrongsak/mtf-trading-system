@@ -41,8 +41,6 @@ services:
     build: ./services/execution
     container_name: execution
     env_file: .env
-    ports:
-      - "8001:8000"
     volumes:
       - ./services/execution:/app
     networks:
@@ -52,8 +50,6 @@ services:
   data-pipeline:
     build: ./services/data-pipeline
     container_name: data-pipeline
-    ports:
-      - "8002:8000"
     volumes:
       - ./services/data-pipeline:/app
     depends_on:
@@ -69,8 +65,6 @@ services:
   strategy-core:
     build: ./services/strategy-core
     container_name: strategy-core
-    ports:
-      - "8003:8000"
     volumes:
       - ./services/strategy-core:/app
     depends_on:
@@ -86,8 +80,6 @@ services:
     build: ./services/ai-analyst
     container_name: ai-analyst
     env_file: .env
-    ports:
-      - "8004:8000"
     volumes:
       - ./services/ai-analyst:/app
     environment:

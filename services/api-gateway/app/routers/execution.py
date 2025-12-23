@@ -13,6 +13,7 @@ from app.schemas.trade import TradeResponse
 from typing import Dict, Any, List
 from datetime import datetime
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -188,13 +189,20 @@ async def get_trades(
                         BrokerAccount.is_active == True
                     ).all()
                     
-                    for acc in accounts:
+                    async def sync_account(acc):
                         try:
                             config = _get_broker_config(acc)
                             oanda_trades = await execution_client.get_open_trades(config)
+                            # Sync operations in TradeService are synchronous DB writes, which is fine within thread pool usually,
+                            # but here we are in async path. 
+                            # Ideally TradeService.sync_open_trades should be async or run in threadpool if heavy?
+                            # For now, keep as is.
                             TradeService.sync_open_trades(db, oanda_trades, current_user, broker_account_id=acc.id)
                         except Exception as sync_err:
                             logger.error(f"Failed to sync trades for account {acc.account_name}: {sync_err}", exc_info=True)
+
+                    if accounts:
+                        await asyncio.gather(*[sync_account(acc) for acc in accounts])
                             
             except KeyError:
                 raise HTTPException(status_code=400, detail=f"Invalid status: {status}")

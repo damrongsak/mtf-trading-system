@@ -59,7 +59,8 @@ export default function DashboardPage() {
               // Ideally we have a 'list all my strategies' endpoint.
               // Let's assume listHelper accepts optional fundId or we fetch from user preferences default fund.
               // For MVP, we will try to fetch default page.
-              const res = await strategiesApi.listHelper("00000000-0000-0000-0000-000000000000"); // FIXME: UUID
+              // Fetch all strategies available to the user
+              const res = await strategiesApi.listHelper();
               if (res.status === 'success') {
                   setStrategies(res.data);
               }

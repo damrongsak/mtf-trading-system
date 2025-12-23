@@ -1,23 +1,43 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Brain, RefreshCw, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Brain, Send, Eraser, AlertCircle } from "lucide-react";
 import { useAIAnalyst } from "@/lib/hooks/useAIAnalyst";
 import ReactMarkdown from "react-markdown";
+import { cn } from "@/lib/utils";
 
 export function AIAnalystCard() {
-  const { report, timestamp, loading, error, generateReport } = useAIAnalyst();
+  const { messages, loading, error, sendMessage, clearHistory } = useAIAnalyst();
+  const [inputValue, setInputValue] = useState("");
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fetch on mount
+  // Auto-scroll to bottom of chat
   useEffect(() => {
-    generateReport();
-  }, []);
+    if (scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  const handleSend = () => {
+    if (inputValue.trim()) {
+        sendMessage(inputValue);
+        setInputValue("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
-    <Card className="col-span-1 md:col-span-2 lg:col-span-3">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <Card className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col h-[500px]">
+      <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b border-gray-800">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Brain className="h-4 w-4 text-purple-500" />
           AI Market Observer
@@ -25,39 +45,91 @@ export function AIAnalystCard() {
         <Button 
             variant="ghost" 
             size="sm" 
-            className="h-8 w-8 p-0" 
-            onClick={() => generateReport()}
-            disabled={loading}
+            className="h-8 w-8 p-0 hover:text-red-400" 
+            onClick={clearHistory}
+            title="Clear Chat"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Eraser className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent>
-        {error ? (
-            <div className="flex items-center gap-2 text-red-500 text-sm p-4 bg-red-50/10 rounded-md">
-                <AlertTriangle className="h-4 w-4" />
-                <span>{error}</span>
-            </div>
-        ) : (
-            <div className="space-y-4">
-                <div className="text-xs text-muted-foreground flex justify-between">
-                    <span>Latest Situation Report</span>
-                    <span>{timestamp || "Waiting for analysis..."}</span>
-                </div>
-                
-                <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800 min-h-[150px] text-sm leading-relaxed prose prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1">
-                    {loading && !report ? (
-                        <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                            <RefreshCw className="h-6 w-6 animate-spin" />
-                            <span>Analyzing market conditions...</span>
-                        </div>
-                    ) : (
-                        <ReactMarkdown>{report || "Click refresh to generate a market report."}</ReactMarkdown>
+      
+      <CardContent className="flex-1 overflow-hidden p-0 relative flex flex-col">
+        {/* Chat Area */}
+        <div 
+            ref={scrollAreaRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent"
+        >
+            {messages.map((msg, idx) => (
+                <div 
+                    key={idx} 
+                    className={cn(
+                        "flex w-full",
+                        msg.role === 'user' ? "justify-end" : "justify-start"
                     )}
+                >
+                    <div className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+                        msg.role === 'user' 
+                            ? "bg-blue-600 text-white rounded-br-none" 
+                            : "bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700"
+                    )}>
+                        {msg.role === 'assistant' ? (
+                            <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                        ) : (
+                            <p>{msg.content}</p>
+                        )}
+                        <span className="text-[10px] opacity-50 block mt-1 text-right">
+                            {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                    </div>
                 </div>
-            </div>
-        )}
+            ))}
+            
+            {loading && (
+                <div className="flex justify-start w-full">
+                    <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-bl-none px-4 py-3 max-w-[85%]">
+                        <div className="flex space-x-2 items-center h-5">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+             {error && (
+                <div className="flex justify-center w-full my-2">
+                    <div className="bg-red-900/40 text-red-300 text-xs px-3 py-1 rounded-full flex items-center gap-1 border border-red-500/30">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>{error}</span>
+                    </div>
+                </div>
+            )}
+        </div>
       </CardContent>
+
+      <CardFooter className="p-3 border-t border-gray-800 bg-gray-900/50">
+        <div className="flex w-full items-center gap-2">
+            <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about XAU/USD, signals, or market sentiment..."
+                className="bg-gray-950 border-gray-700 focus:border-purple-500 h-10"
+                disabled={loading}
+            />
+            <Button 
+                onClick={handleSend} 
+                disabled={loading || !inputValue.trim()}
+                size="icon"
+                className="h-10 w-10 shrink-0 bg-purple-600 hover:bg-purple-700"
+            >
+                <Send className="h-4 w-4" />
+            </Button>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

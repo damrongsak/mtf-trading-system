@@ -9,14 +9,17 @@ export const strategiesApi = {
         return response.data;
     },
 
-    // List strategies for a specific fund
+    // List strategies for a specific fund (or all if fundId undefined)
     listHelper: async (
-        fundId: string,
+        fundId?: string,
         page: number = 1,
         perPage: number = 10
     ): Promise<PaginatedResponse<StrategyResponse>> => {
+        const params: any = { page, per_page: perPage };
+        if (fundId) params.fund_id = fundId;
+
         const response = await apiClient.get<PaginatedResponse<StrategyResponse>>('/api/v1/strategies/', {
-            params: { fund_id: fundId, page, per_page: perPage },
+            params,
         });
         return response.data;
     },
