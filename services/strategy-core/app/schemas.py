@@ -58,6 +58,15 @@ class SMCResponse(BaseModel):
     fvgs: List[Dict[str, Any]]
     liquidity_sweeps: List[Dict[str, Any]] = []
 
+class SMCBatchRequest(BaseModel):
+    # Dictionary mapping symbol -> SMCRequest
+    requests: Dict[str, SMCRequest]
+
+class SMCBatchResponse(BaseModel):
+    # Map symbol -> SMCResponse
+    results: Dict[str, SMCResponse]
+
+
 # ==========================
 # Simulation Schemas
 # ==========================

@@ -126,3 +126,149 @@ async def check_signal(symbol: str):
     Delegates to get_latest_signal logic.
     """
     return await get_latest_signal(symbol)
+
+from app.schemas.signal import SignalBatchRequest
+
+@router.post("/batch", response_model=APIResponse[List[SignalResponse]])
+async def get_batch_signals(req: SignalBatchRequest):
+    """
+    Batch fetch and analyze signals for all active symbols of a broker.
+    Optimization:
+    1. Fetch symbol list from Data Pipeline
+    2. Fetch candles for all symbols (Parallel)
+    3. Batch Analyze in Strategy Core
+    """
+    async with httpx.AsyncClient() as client:
+        # 1. Fetch active symbols
+        try:
+            symbols_resp = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/symbols",
+                params={"broker": req.broker},
+                timeout=5.0
+            )
+            symbols_resp.raise_for_status()
+            symbols = symbols_resp.json()
+        except Exception as e:
+            return success_response(data=[])
+            
+        if not symbols:
+            return success_response(data=[])
+            
+        # 2. Fetch candles in parallel
+        # We limit specific timeframe to 'H1' for now as per system default
+        timeframe = "H1"
+        
+        async def fetch_candle(sym):
+            try:
+                # Use default fallback behavior? No, we filter by broker so we should find it.
+                # Just call get_candles proxy we made in data.py? No, call direct data-pipeline
+                resp = await client.get(
+                    f"{DATA_SERVICE_URL}/api/v1/candles",
+                    params={"symbol": sym, "timeframe": timeframe, "page_size": 100, "broker": req.broker},
+                    timeout=5.0
+                )
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    if data:
+                        # Reverse needed? Data Pipeline usually returns DESC.
+                        # Implementation check: yes it does order_by(desc)
+                        data.reverse()
+                        return sym, data
+            except:
+                pass
+            return sym, []
+
+        # Batch fetches
+        tasks = [fetch_candle(sym) for sym in symbols]
+        results = await asyncio.gather(*tasks)
+        
+        # Prepare payload for Strategy Core
+        # SMCBatchRequest: { requests: { symbol: { open, high... } } }
+        smc_requests = {}
+        candle_map = {} # Store last candle info for response
+        
+        for sym, candles in results:
+            if not candles or len(candles) < 10:
+                continue
+                
+            opens = [float(c["open"]) for c in candles]
+            highs = [float(c["high"]) for c in candles]
+            lows = [float(c["low"]) for c in candles]
+            closes = [float(c["close"]) for c in candles]
+            volumes = [float(c["volume"]) for c in candles]
+            
+            smc_requests[sym] = {
+                "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes
+            }
+            candle_map[sym] = candles[-1] # Last candle for price info
+            
+        if not smc_requests:
+             return success_response(data=[])
+
+        # 3. Batch Analyze
+        try:
+            smc_resp = await client.post(
+                f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc/batch",
+                json={"requests": smc_requests},
+                timeout=20.0 # Longer timeout for batch
+            )
+            smc_resp.raise_for_status()
+            analysis_results = smc_resp.json().get("results", {})
+        except Exception as e:
+             raise HTTPException(status_code=503, detail=f"Strategy Core Batch Error: {str(e)}")
+             
+        # 4. Process Results
+        final_response = []
+        
+        for sym, analysis in analysis_results.items():
+            last_candle = candle_map.get(sym)
+            if not last_candle: 
+                continue
+                
+            last_close = float(last_candle["close"])
+            last_time = last_candle["timestamp"]
+            
+            # Logic duplication from get_latest_signal (Refactor candidate later)
+            direction = SignalDirection.NEUTRAL
+            reason = "No clear signal"
+            
+            order_blocks = analysis.get("order_blocks", [])
+            
+            for ob in reversed(order_blocks):
+                if ob["mitigated"]: continue
+                
+                if ob["type"] == "bullish":
+                    if ob["bottom"] <= last_close <= ob["top"] * 1.001:
+                        direction = SignalDirection.LONG
+                        reason = f"Reacting to Bullish OB at {ob['top']}"
+                        break
+                elif ob["type"] == "bearish":
+                    if ob["bottom"] * 0.999 <= last_close <= ob["top"]:
+                        direction = SignalDirection.SHORT
+                        reason = f"Reacting to Bearish OB at {ob['bottom']}"
+                        break
+            
+            # Calculate SL/TP only if signal
+            sl = 0
+            tp = 0
+            
+            if direction == SignalDirection.LONG:
+                 sl = last_close * 0.99 # 1% SL
+                 tp = last_close * 1.02 # 2% TP
+            elif direction == SignalDirection.SHORT:
+                 sl = last_close * 1.01
+                 tp = last_close * 0.98
+            
+            final_response.append(SignalResponse(
+                symbol=sym,
+                timeframe=timeframe,
+                timestamp=last_time,
+                direction=direction,
+                entry_price=last_close,
+                sl_price=sl,
+                tp_price=tp,
+                reason=reason
+            ))
+            
+        return success_response(data=final_response)
+

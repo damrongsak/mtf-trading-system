@@ -252,6 +252,9 @@ export interface RecentSignal {
     timeframe: string;
     timestamp: string;
     entry_price?: number;
+    sl_price?: number;
+    tp_price?: number;
+    reason?: string;
 }
 
 // ========================================

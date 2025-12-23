@@ -3,9 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useDashboardStats, useRecentSignals } from '@/lib/hooks';
+import { useDashboardStats } from '@/lib/hooks';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
-import { RecentSignalsTable } from '@/components/dashboard/RecentSignalsTable';
+import { RecentSignalsCard } from '@/components/dashboard/RecentSignalsCard';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
@@ -14,7 +14,7 @@ import { MarketWatchCard } from '@/components/dashboard/MarketWatchCard';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { getPreferences } from '@/lib/api/settings';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 
 import { strategiesApi } from '@/lib/api/strategies'; // Add import
@@ -35,11 +35,18 @@ export default function DashboardPage() {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
   
-  // Note: signals hook might need updating too, but let's keep it global for now or update later
-  const { signals, loading: signalsLoading, error: signalsError, refetch: refetchSignals } = useRecentSignals(5, watchlist);
+  // Note: signals hook removed as Card is autonomous
 
   // Live Prices Hook
-  const allSymbols = Array.from(new Set([...watchlist.map(s => s.replace('/', '_')), 'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY']));
+  const allSymbols = useMemo(() => {
+      // Create comprehensive symbol list for live pricing
+      const symbols = new Set([
+          ...watchlist.map(s => s.replace('/', '_')), 
+          'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY'
+      ]);
+      return Array.from(symbols);
+  }, [watchlist]);
+  
   const { prices, connected } = useLivePrices(allSymbols);
   
   // Load Strategies
@@ -103,7 +110,7 @@ export default function DashboardPage() {
   }, [selectedStrategyId]); // Re-run when strategy changes
 
   const handleRefresh = async () => {
-    await Promise.all([refetchStats(), refetchSignals()]);
+    await Promise.all([refetchStats()]);
   };
 
   // Show loading state
@@ -239,7 +246,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
             <EquityChart data={equityData} loading={equityLoading} />
             <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} />
-            <RecentSignalsTable signals={signals} loading={signalsLoading} />
+            <RecentSignalsCard />
         </div>
         
         {/* Righht Column: AI & Performance */}
@@ -269,12 +276,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Signals */}
-      {signalsError && (
-        <div className="bg-red-400/10 border border-red-400/20 rounded-lg p-4 text-red-400 text-sm">
-          Failed to load recent signals: {signalsError}
-        </div>
-      )}
       
 
 

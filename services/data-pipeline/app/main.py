@@ -18,8 +18,8 @@ scheduler = AsyncIOScheduler()
 @app.on_event("startup")
 async def start_scheduler():
     logger.info("Starting scheduler...")
-    # Schedule ingestion every 1 minute (Pseudo-Realtime for M5/H1)
-    scheduler.add_job(run_ingestion_job, 'interval', minutes=1, id='ingestion_job')
+    # Schedule ingestion every 5 minutes (Optimized for RAM/CPU)
+    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job')
     scheduler.start()
     
     # Start Stream Manager

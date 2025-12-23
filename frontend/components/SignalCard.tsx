@@ -84,13 +84,13 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
             {/* Price Levels (New) */}
             <div className="grid grid-cols-3 gap-2 mb-3 text-xs font-mono">
                 <div className="text-gray-500">
-                    Entry: <span className="text-gray-300">{props.entry_price || '-'}</span>
+                    Entry: <span className="text-gray-300">{props.entry_price ? Number(props.entry_price).toFixed(5) : '-'}</span>
                 </div>
                 <div className="text-gray-500 text-center">
-                    TP: <span className="text-accent-green">{props.tp_price || '-'}</span>
+                    TP: <span className="text-accent-green">{props.tp_price ? Number(props.tp_price).toFixed(5) : '-'}</span>
                 </div>
                 <div className="text-gray-500 text-right">
-                    SL: <span className="text-accent-red">{props.sl_price || '-'}</span>
+                    SL: <span className="text-accent-red">{props.sl_price ? Number(props.sl_price).toFixed(5) : '-'}</span>
                 </div>
             </div>
 

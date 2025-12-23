@@ -197,3 +197,19 @@ def get_candles(
         page_size=page_size,
         data=data
     )
+
+@router.get("/symbols", response_model=List[str])
+def get_active_symbols(
+    broker: str = Query("OANDA", description="Filter by broker name"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of active symbols for a specific broker.
+    Used for batch analysis auto-discovery.
+    """
+    symbols = db.query(MarketSymbol.symbol).join(DataSource).filter(
+        DataSource.name == broker
+    ).all()
+    
+    # Flatten list of tuples
+    return [s[0] for s in symbols]

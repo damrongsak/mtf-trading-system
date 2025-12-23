@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import (
     IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
     RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse,
-    SMCRequest, SMCResponse, SimulationRequest, SimulationResponse,
+    SMCRequest, SMCResponse, SMCBatchRequest, SMCBatchResponse, SimulationRequest, SimulationResponse,
     OptimizationResponse, MonteCarloRequest, MonteCarloResponse
 )
 from app.indicators import (
@@ -296,6 +296,42 @@ def get_smc(req: SMCRequest):
         return SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps)
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/calculate/smc/batch", response_model=SMCBatchResponse)
+def get_smc_batch(req: SMCBatchRequest):
+    try:
+        results = {}
+        for symbol, smc_req in req.requests.items():
+            try:
+                data = {
+                    "open": smc_req.open,
+                    "high": smc_req.high,
+                    "low": smc_req.low,
+                    "close": smc_req.close
+                }
+                if smc_req.volume:
+                    data["volume"] = smc_req.volume
+                    
+                df = pd.DataFrame(data)
+                
+                if len(df) < 3:
+                     # Skip or return empty
+                     results[symbol] = SMCResponse(order_blocks=[], fvgs=[], liquidity_sweeps=[])
+                     continue
+    
+                obs = detect_order_blocks(df)
+                fvgs = detect_fvg(df)
+                sweeps = detect_liquidity_sweeps(df)
+                
+                results[symbol] = SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps)
+            except Exception as e:
+                logger.error(f"Error processing {symbol}: {e}")
+                # Return empty/safe response on individual failure so entire batch doesn't fail
+                results[symbol] = SMCResponse(order_blocks=[], fvgs=[], liquidity_sweeps=[])
+        
+        return SMCBatchResponse(results=results)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

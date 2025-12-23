@@ -120,6 +120,31 @@ async def get_candles(
                 
             return response.json()
             
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/symbols")
+async def get_active_symbols(
+    broker: str = Query("OANDA", description="Filter by broker name")
+):
+    """
+    Get list of active symbols for a specific broker.
+    Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/symbols",
+                params={"broker": broker},
+                timeout=5.0
+            )
+            
+            if response.status_code != 200:
+                # If pipeline returns 404/500, propagate
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+            return response.json()
+            
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:

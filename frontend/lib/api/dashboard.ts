@@ -44,31 +44,21 @@ export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
  * @param limit - Number of recent signals to fetch (default: 5)
  * @returns Array of recent signals
  */
+import { getBatchSignals } from './signals';
+
+/**
+ * Get recent trading signals
+ * @param limit - Number of recent signals to fetch (default: 5)
+ * @returns Array of recent signals
+ */
 export async function getRecentSignals(limit: number = 5, symbols?: string[]): Promise<RecentSignal[]> {
-    const defaultWatchlist = ['XAU/USD', 'EUR/USD', 'GBP/USD', 'BTC/USD', 'USD/JPY'];
-    const watchlist = symbols && symbols.length > 0 ? symbols : defaultWatchlist;
-
     try {
-        const promises = watchlist.map(async (symbol) => {
-            try {
-                // We use the signals API we just created
-                // Importing here to avoid circular dependency if signals imports dashboard
-                // But signals.ts is independent.
-                // However, we need to import `getLatestSignal` from `./signals`.
-                // If dashboard.ts is used by signals.ts, that's an issue. 
-                // signals.ts depends on client.ts and types.ts. dashboard.ts depends on client.ts and types.ts. Safe.
+        // Use batch fetching for efficiency
+        const signals = await getBatchSignals("OANDA"); // Default to OANDA for now
 
-                // Since we can't easily add import top-level in this replace block given the file structure
-                // effectively, I will assume I can modify the imports in a separate step or I'll implement the call here directly via apiClient
-                // to avoid modifying imports at the top of the file which might be messy with line numbers.
-                // Actually, I should use `apiClient` directly here to match existing pattern.
-
-                // Call /api/v1/signal/latest/{symbol}
-                const response = await apiClient.get<APIResponse<Signal>>(`/api/v1/signal/latest/${encodeURIComponent(symbol)}`);
-                const signal = response.data.data;
-
-                if (!signal) return null;
-
+        const validSignals = signals
+            .filter(s => s.direction !== 'NEUTRAL')
+            .map(s => {
                 const mapDirection = (dir: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' => {
                     if (dir === 'LONG') return 'BULLISH';
                     if (dir === 'SHORT') return 'BEARISH';
@@ -78,26 +68,20 @@ export async function getRecentSignals(limit: number = 5, symbols?: string[]): P
                 };
 
                 return {
-                    id: `${signal.symbol}-${signal.timestamp}`,
-                    symbol: signal.symbol,
-                    direction: mapDirection(signal.direction),
-                    confidence: signal.confidence || 0.75, // Default confidence if missing
-                    timeframe: signal.timeframe,
-                    timestamp: signal.timestamp,
-                    entry_price: signal.entry_price,
-                    reason: signal.reason, // Pass reason through
+                    id: `${s.symbol}-${s.timestamp}`,
+                    symbol: s.symbol,
+                    direction: mapDirection(s.direction),
+                    confidence: s.confidence || 0.75,
+                    timeframe: s.timeframe,
+                    timestamp: s.timestamp,
+                    entry_price: s.entry_price,
+                    sl_price: s.sl_price,
+                    tp_price: s.tp_price,
+                    reason: s.reason,
                 } as RecentSignal;
-            } catch (e) {
-                console.warn(`Failed to fetch signal for ${symbol}`, e);
-                return null;
-            }
-        });
+            });
 
-        const results = await Promise.all(promises);
-        const validSignals = results.filter((s): s is RecentSignal => s !== null && s.direction !== 'NEUTRAL');
-
-        // Sort by timestamp if available or just return
-        // Ideally newest first.
+        // Sort by timestamp descending
         validSignals.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         return validSignals.slice(0, limit);

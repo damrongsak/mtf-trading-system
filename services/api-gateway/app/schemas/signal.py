@@ -24,3 +24,8 @@ class SignalResponse(BaseModel):
 class SignalRequest(BaseModel):
     symbol: str
     timeframe: str = "15m"
+
+class SignalBatchRequest(BaseModel):
+    broker: str = "OANDA"
+    strategy_id: str = "system_default"
+
