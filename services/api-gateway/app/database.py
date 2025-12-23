@@ -6,7 +6,7 @@ Follows the data model specification in specs/03_data_model.yaml
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import QueuePool
 import os
 
 # Database URL from environment variables
@@ -16,10 +16,15 @@ DATABASE_URL = os.getenv(
 )
 
 # Create SQLAlchemy engine
-# NullPool is used for better compatibility with async operations
+# QueuePool is used for connection pooling (default in SQLAlchemy)
+# Configured for standard API load
 engine = create_engine(
     DATABASE_URL,
-    poolclass=NullPool,
+    poolclass=QueuePool,
+    pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+    max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
+    pool_timeout=30,
+    pool_recycle=1800, # Recycle connections every 30 mins
     echo=True if os.getenv("DEBUG") == "true" else False
 )
 

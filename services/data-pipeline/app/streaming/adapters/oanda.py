@@ -56,7 +56,6 @@ class OandaStreamer(StreamAdapter):
                 instruments=instruments,
                 snapshot=True
             )
-            
             for msg_type, msg in response.parts():
                 if self._stop_event.is_set():
                     break
