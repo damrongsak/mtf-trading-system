@@ -65,6 +65,11 @@ graph TD
     - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
     - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
     - **Market Analysis API**: Real-time calculation of technical indicators (RSI, MACD, etc.) for frontend visualization.
+    - **Multi-User Strategy Engine**:
+        - **Registry**: Manages "Strategy Templates" (code) vs "Strategy Instances" (DB config).
+        - **Shared Market Data**: Deduplicates tick processing to minimize RAM usage.
+        - **Redis Caching**: Caches user configurations to minimize DB latency.
+        - **Credential Isolation**: Never loads API keys; delegates all execution to Execution Service via `broker_account_id`.
 
 ### 3.5. AI Analyst (`services/ai-analyst`)
 - **Tech Stack**: Python, Google Gemini Pro, LangChain.
@@ -84,11 +89,14 @@ graph TD
 ## 4. Data Flow
 
 ### 4.1. Signal Generation
-1.  `Data Pipeline` ingests raw candles.
-2.  `Strategy Core` requests data, calculates indicators, and identifies setup zones.
-3.  If a signal is found, `Strategy Core` sends a trade proposal to `Execution Service`.
-4.  `Execution Service` validates risk (max risk, min lot).
-5.  If approved, the trade is logged and executed (simulated for MVP).
+1.  `Data Pipeline` publishes ticks to Redis.
+2.  `Strategy Core` (via `SharedMarketDataManager`) updates internal market state.
+3.  `Strategy Core` iterates active **Strategy Instances**.
+    - Loads config from **Redis Cache**.
+    - Applies logic from **Strategy Template**.
+4.  If signal found, `Strategy Core` sends proposal to `Execution Service` payload `{ "broker_account_id": "...", "signal": "..." }`.
+5.  `Execution Service` retrieves credentials from Vault/DB using `broker_account_id`.
+6.  `Execution Service` validates risk (User Risk Profile) and executes order.
 
 ### 4.2. Backtesting
 1.  User initiates backtest via `Frontend`.

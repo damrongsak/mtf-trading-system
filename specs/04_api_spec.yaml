@@ -233,44 +233,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_Fund'
-  /api/v1/strategies:
+                $ref: '#/components/schemas/APIResponse_StrategyResponse'
+  /api/v1/strategies/templates:
     get:
-      summary: List strategies for a fund
+      summary: List available strategy templates
+      responses:
+        '200':
+          description: List of strategy templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyTemplateList'
+  /api/v1/strategies/{id}/config:
+    post:
+      summary: Update configuration for a strategy instance
       parameters:
-        - name: fund_id
-          in: query
+        - name: id
+          in: path
           required: true
           schema:
             type: string
             format: uuid
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: per_page
-          in: query
-          schema:
-            type: integer
-            default: 10
-      responses:
-        '200':
-          description: List of strategies
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedResponse_StrategyResponse'
-    post:
-      summary: Create a new strategy configuration
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StrategyCreate'
+              $ref: '#/components/schemas/StrategyConfigUpdate'
       responses:
-        '201':
-          description: Strategy created
+        '200':
+          description: Configuration updated
           content:
             application/json:
               schema:
@@ -1742,9 +1734,14 @@ components:
           format: uuid
         name:
           type: string
-        type:
+        template_id:
           type: string
+        broker_account_id:
+          type: string
+          format: uuid
         config_json:
+          type: object
+        risk_settings:
           type: object
         is_active:
           type: boolean
@@ -1753,7 +1750,8 @@ components:
       required:
         - name
         - fund_id
-        - type
+        - template_id
+        - broker_account_id
         - config_json
       properties:
         name:
@@ -1761,9 +1759,36 @@ components:
         fund_id:
           type: string
           format: uuid
-        type:
+        template_id:
           type: string
+        broker_account_id:
+          type: string
+          format: uuid
         config_json:
+          type: object
+        risk_settings:
+          type: object
+    StrategyConfigUpdate:
+      type: object
+      properties:
+        config_json:
+          type: object
+        risk_settings:
+          type: object
+        is_active:
+          type: boolean
+    StrategyTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        default_config:
+          type: object
+        default_risk_settings:
           type: object
     JournalEntryCreate:
       type: object

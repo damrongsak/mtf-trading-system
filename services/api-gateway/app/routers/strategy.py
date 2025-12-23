@@ -17,14 +17,18 @@ router = APIRouter(
 class StrategyCreate(BaseModel):
     name: str
     fund_id: UUID4
-    type: str
+    template_id: str
+    broker_account_id: UUID4
     config_json: dict
+    risk_settings: dict = {}
 
 class StrategyResponse(BaseModel):
     id: UUID4
     name: str
-    type: str
+    template_id: str
+    broker_account_id: Optional[UUID4]
     config_json: dict
+    risk_settings: dict
     is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -39,8 +43,10 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
     new_strategy = Strategy(
         name=strategy.name,
         fund_id=strategy.fund_id,
-        type=strategy.type,
-        config_json=strategy.config_json
+        template_id=strategy.template_id,
+        broker_account_id=strategy.broker_account_id,
+        config_json=strategy.config_json,
+        risk_settings=strategy.risk_settings
     )
     db.add(new_strategy)
     db.commit()
@@ -65,3 +71,69 @@ def list_strategies(
         per_page=per_page,
         total=total
     )
+
+class StrategyConfigUpdate(BaseModel):
+    config_json: Optional[dict] = None
+    risk_settings: Optional[dict] = None
+    is_active: Optional[bool] = None
+
+@router.post("/{id}/config", response_model=APIResponse[StrategyResponse])
+def update_strategy_config(id: UUID4, config: StrategyConfigUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    strategy = db.query(Strategy).filter(Strategy.id == id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    
+    if config.config_json is not None:
+        strategy.config_json = config.config_json
+    if config.risk_settings is not None:
+        strategy.risk_settings = config.risk_settings
+    if config.is_active is not None:
+        strategy.is_active = config.is_active
+        
+    db.commit()
+    db.refresh(strategy)
+    
+    # TODO: Publish to Redis here
+    
+    return success_response(data=StrategyResponse.model_validate(strategy))
+
+class LogicTemplateResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    default_config: dict
+    default_risk_settings: dict
+
+@router.get("/templates", response_model=APIResponse[List[LogicTemplateResponse]])
+def list_templates():
+    # Mock data for now - typically fetching from Strategy Core Registry
+    templates = [
+        LogicTemplateResponse(
+            id="SMC_V1",
+            name="Smart Money Concepts V1",
+            description="Order Block + FVG strategy with MTF analysis",
+            default_config={
+                "timeframes": ["15m", "1h", "4h"],
+                "risk_per_trade": 1.0,
+                "rr_ratio": 2.0
+            },
+            default_risk_settings={
+                "max_drawdown": 5.0,
+                "daily_loss_limit": 2.0
+            }
+        ),
+        LogicTemplateResponse(
+            id="MACD_CROSS_V1",
+            name="MACD Crossover",
+            description="Classic MACD crossover strategy",
+            default_config={
+                "fast": 12,
+                "slow": 26,
+                "signal": 9
+            },
+            default_risk_settings={
+                 "max_drawdown": 10.0
+            }
+        )
+    ]
+    return success_response(data=templates)

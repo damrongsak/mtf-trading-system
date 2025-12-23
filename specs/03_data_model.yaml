@@ -94,14 +94,24 @@ entities:
         type: string
         required: true
         max_length: 100
-      - name: type
+      - name: template_id
         type: string
         required: true
-        description: "Strategy class/type identifier"
+        description: "Identifier for the strategy logic template (e.g., 'SMC_V1')"
+      - name: broker_account_id
+        type: uuid
+        foreign_key: "broker_accounts.id"
+        required: true
+        description: "The portfolio/account where trades will be executed"
       - name: config_json
         type: jsonb
         required: true
-        description: "Strategy-specific configuration parameters"
+        description: "Strategy-specific configuration parameters (overrides template defaults)"
+      - name: risk_settings
+        type: jsonb
+        required: true
+        default: "{}"
+        description: "Instance-specific risk configuration (e.g., max_risk_usd)"
       - name: is_active
         type: boolean
         default: false

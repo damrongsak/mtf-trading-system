@@ -47,6 +47,10 @@ The project distinguishes itself through:
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
+*   **Environment Setup Notes (WSL/Local):**
+    *   **uv:** If `uv` is not in PATH, add `export PATH="$HOME/.local/bin:$PATH"` or run via `~/.local/bin/uv`.
+    *   **Node/pnpm:** Managed via `nvm`. If commands are missing, run: `source ~/.nvm/nvm.sh`.
+
 *   **Full Stack (Recommended):**
     ```bash
     docker compose up --build
@@ -54,6 +58,13 @@ The project distinguishes itself through:
     *   Frontend: `http://localhost:3000`
     *   API Docs: `http://localhost:8000/docs`
     *   Qdrant Dashboard: `http://localhost:6333/dashboard`
+
+*   **Command Execution Strategy (Important):**
+    *   **Prefer Docker:** For consistency, use `docker compose exec <service> <command>` for backend/database tasks.
+        *   Example: `docker compose exec api-gateway uv run pytest`
+    *   **Local Shell:** The environment uses `zsh` with `nvm` (Node v22) and `conda`.
+        *   Frontend: Ensure Node v22 is active (`nvm use 22`).
+        *   Tools: `uv` is in `~/.local/bin`.
 
 *   **Frontend Only:**
     ```bash
