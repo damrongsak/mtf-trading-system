@@ -35,6 +35,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_SignalResponse'
+  /api/v1/signal/batch:
+    post:
+      summary: Fetch batch signals for multiple symbols
+      description: Orchestrates symbol discovery, candle fetching, and batch SMC analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalBatchRequest'
+      responses:
+        '200':
+          description: Batch of signals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalList'
+  /api/v1/data/symbols:
+    get:
+      summary: Get active symbols for a broker
+      parameters:
+        - name: broker
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of active symbols
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SymbolList'
   /api/v1/risk/check:
     post:
       summary: Check if a trade execution is allowed based on risk rules
@@ -2030,3 +2063,37 @@ components:
           type: string
         order_index:
           type: integer
+
+    # --- Batch Signal Schemas ---
+    SignalBatchRequest:
+      type: object
+      properties:
+        broker:
+          type: string
+          description: Broker name (e.g. OANDA)
+        symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Optional list of symbols to override broker defaults
+    
+    APIResponse_SignalList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalResponse'
+
+    APIResponse_SymbolList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            type: string

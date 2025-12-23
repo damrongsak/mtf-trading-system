@@ -279,6 +279,15 @@
     - **Optimized Backend:** `SharedMarketDataManager` to reduce API calls and `RedisConfigCache` for low-latency lookups.
     - **Execution:** Secure credential lookup in `ExecutionService` for multi-user trade routing.
 
+### 22. Dashboard Signal Optimization
+- **Status:** ✅ Complete (2025-12-23)
+- **Features:**
+    - **Recent Signals Card:** Redesigned UI with "Click to Trade", localized formatting, and 5-minute auto-refresh.
+    - **Batch Processing:** Implemented `/api/v1/signal/batch` to fetch analysis for all watchlist symbols in a single request.
+    - **Trade Modal:** Integrated order confirmation flow directly from the dashboard card.
+    - **Optimization:** Filtered low-quality (NEUTRAL) signals to reduce noise.
+    - **Performance:** Reduced card height and optimized polling to 5 minutes for resource efficiency.
+
 
 ---
 

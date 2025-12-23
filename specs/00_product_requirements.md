@@ -83,6 +83,7 @@ The MVP is defined by the following core system behaviors, translated directly f
 | **F3.1** | The system must use a **Pub/Sub Architecture (Redis)** for low-latency market data distribution, decoupling ingestion from consumption. | Architecture, Sec 2 |
 | **F3.2** | The system must support **Dynamic Market Categories** (e.g., Forex, Crypto) configurable via API, allowing flexible grouping of symbols in the UI. | Frontend Design, Sec 7 |
 | **F3.3** | The system must implement **Decision Traceability** by logging every major action (Signal, Risk Check, Trade) to a centralized Audit Log. | Compliance, Sec 6 |
+| **F3.4** | The system must optimize resource usage by **batching signal requests** and utilizing a **5-minute ingestion/polling interval** for standard monitoring. | Optimization, Sec 8 |
 
 ### 4.4. Backtesting & Reporting
 
