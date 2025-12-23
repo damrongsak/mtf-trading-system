@@ -22,7 +22,23 @@ interface EquityChartProps {
   loading?: boolean;
 }
 
-export function EquityChart({ data, loading }: EquityChartProps) {
+const TOOLTIP_CONTENT_STYLE = { 
+  backgroundColor: '#1f2937', 
+  borderColor: '#374151',
+  color: '#f3f4f6'
+};
+
+const TOOLTIP_ITEM_STYLE = { color: '#60a5fa' };
+
+const formatCurrency = (value: number) => `$${value.toFixed(0)}`;
+const formatTooltipValue = (value: number) => [`$${value.toFixed(2)}`, 'Equity'];
+const formatTooltipLabel = (label: string) => new Date(label).toLocaleDateString();
+const formatXAxisDate = (value: string) => {
+    const date = new Date(value);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+};
+
+export const EquityChart = React.memo(function EquityChart({ data, loading }: EquityChartProps) {
   if (loading) {
     return (
       <div className="h-[300px] w-full bg-gray-800/30 rounded-xl animate-pulse flex items-center justify-center">
@@ -66,26 +82,19 @@ export function EquityChart({ data, loading }: EquityChartProps) {
             dataKey="date" 
             stroke="#9ca3af" 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => {
-              const date = new Date(value);
-              return `${date.getMonth() + 1}/${date.getDate()}`;
-            }}
+            tickFormatter={formatXAxisDate}
           />
           <YAxis 
             stroke="#9ca3af" 
             tick={{ fontSize: 12 }}
             domain={[minEquity - padding, maxEquity + padding]}
-            tickFormatter={(value) => `$${value.toFixed(0)}`}
+            tickFormatter={formatCurrency}
           />
           <Tooltip
-            contentStyle={{ 
-              backgroundColor: '#1f2937', 
-              borderColor: '#374151',
-              color: '#f3f4f6'
-            }}
-            itemStyle={{ color: '#60a5fa' }}
-            formatter={(value: number) => [`$${value.toFixed(2)}`, 'Equity']}
-            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+            contentStyle={TOOLTIP_CONTENT_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            formatter={formatTooltipValue}
+            labelFormatter={formatTooltipLabel}
           />
           <Area 
             type="monotone" 
@@ -99,4 +108,9 @@ export function EquityChart({ data, loading }: EquityChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+    // Custom comparison to ensure we don't re-render unless necessary
+    return prevProps.loading === nextProps.loading && 
+           prevProps.data === nextProps.data; 
+           // Note: assumes data reference changes on update, which it does from DashboardPage state setter
+});
