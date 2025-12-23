@@ -1,236 +1,107 @@
-# MTF Trading System
+# MTF Trading System (Phoenix Alpha Engine)
 
-The MTF Trading System is an algo trading platform using MTF/SMC analysis & AI (Gemini) for real-time, risk-managed trades, with a trade journal. Built on Python/Next.js microservices (API, Strategy, AI), it uses PostgreSQL/Qdrant, follows SDD, is Dockerized, and features automated testing.
+**Status:** Phase 2 Complete (Ready for Live Testing)
+**License:** [Apache 2.0](LICENSE)
 
-License: [Apache 2.0](LICENSE)
+The **MTF Trading System** is a sophisticated algorithmic trading platform designed for XAU/USD (Gold). It utilizes a **Multi-Timeframe (MTF)** analysis approach combined with **Smart Money Concepts (SMC)**, enforced by a strict risk management engine.
 
-## ⚙️ Core System Overview
+Built for the **AI Era**, it bridges the gap between discretionary trading and automated execution, featuring a "Psychological MRI" journal, an AI Market Analyst agent (Gemini Pro), and a robust microservices architecture.
 
-| Layer                                | Tech                                                                    | Purpose                                                                   |
-| ------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **Frontend (UI)**                    | Next.js 15 (React 19)                                                   | Trading dashboard, signals view, trade logs, and scenario simulator       |
-| **API Gateway / Reverse Proxy**      | Nginx (Dockerized)                                                      | Routing to Python microservices & static assets                           |
-| **Backend (Core)**                   | Python 3.13 + FastAPI (+ Celery for async jobs)                         | Strategy logic, data processing, orchestration, API endpoints             |
-| **Database**                         | PostgreSQL 15 + pgvector                                                | Structured trade data, historical prices, embeddings                      |
-| **Vector Store**                     | Qdrant                                                                  | Fast similarity search (for LLM retrieval & pattern matching)             |
-| **LLM Agent Layer**                  | Gemini (via Google Cloud Vertex AI API)                                 | Natural-language reasoning, market narrative analysis, strategy synthesis |
-| **Containerization / Orchestration** | Docker Compose → later GCP Cloud Run / GKE                              | Isolation, CI/CD, scaling                                                 |
-| **Infrastructure**                   | Google Cloud (Cloud SQL, Artifact Registry, Secret Manager, Monitoring) | Deployment, monitoring, secrets, CI/CD                                    |
-| **Dev Workflow**                     | VS Code + Cloud Code extension                                          | Spec writing, service scaffolding, debugging, deployment                  |
-| **Documentation**                    | Markdown SDD Specs + OpenAPI (auto-generated)                           | One source of truth for API & architecture                                |
+## 🚀 Key Features
 
----
+### 🛡️ Risk & Execution
+-   **Strict Risk Management:** Pre-trade validation ensuring no trade exceeds the defined risk limit.
+-   **Configurable Risk Profiles:** User-defined max risk per trade (e.g., $10, 0.5%) and Max Drawdown limits per strategy.
+-   **Volatility Guards:** Dynamic Stop Loss based on ATR; trades rejected if volatility is too high (>100 pips).
+-   **Multi-Broker Support:** Securely manage multiple OANDA/Binance accounts with AES-256 credential encryption.
 
-## 🧩 Spec-Driven Development Flow (SDD)
+### 🧠 Intelligence & Analysis
+-   **AI Analyst:** "Market Observer" agent (Gemini 1.5 Pro) that provides narrative analysis of chart patterns and news.
+-   **SMC Engine:** Automated detection of Order Blocks, Fair Value Gaps (FVG), and Liquidity Sweeps across M15, H1, H4 timeframes.
+-   **Trading Journal:** Structured "Mental Hand History" wizard to track psychological state (Tilt, Fear, Greed) alongside technical performance.
 
-SDD means: **you define behavior and data contracts first**, then implement code to satisfy them.
+### ⚡ Architecture & Performance
+-   **Multi-Tenancy:** Support for multiple users and funds with Role-Based Access Control (RBAC).
+-   **Strategy Registry:** JSON-configurable strategy templates (e.g., SMC_Basic, MACD_Cross) allowing multiple concurrent instances.
+-   **Real-time Dashboard:** Live equity curves, P&L stats, and signal monitoring pushed via WebSockets (Redis Pub/Sub).
+-   **Event-Driven Data Pipeline:** Centralized ingestion of market data (OANDA v20) distributed to all services.
 
-### 1. Specification Structure
+## 🏗️ System Architecture
 
-Keep your specs inside `/specs/`:
+| Service | Tech Stack | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 16 (React 19) | Modern, responsive dashboard for signals, charts, and configuration. |
+| **API Gateway** | Python (FastAPI) | Central entry point, Auth (JWT), and request routing. |
+| **Strategy Core** | Python (Pandas/Vectorbt) | Signal generation, Backtesting engine, and Indicator calculation. |
+| **Execution** | Python (FastAPI) | Order routing, Risk constraints, and Broker connectivity. |
+| **Data Pipeline** | Python (Redis/Celery) | Real-time market data streaming and historical candle storage. |
+| **AI Analyst** | Python (LangGraph) | LLM-based market reasoning and RAG (Qdrant). |
+| **Database** | PostgreSQL 15 | Relational data (Users, Trades, Journals) + `pgvector` for RAG. |
 
-```
-/specs/
- ├─ 00_product_requirements.md
- ├─ 01_architecture.md
- ├─ 02_sdd_checklist.md
- ├─ 03_data_model.yaml
- ├─ 04_api_spec.yaml
- ├─ 05_api_standards.md
- ├─ 06_ai_agent.md
- ├─ 07_frontend_design.md
- ├─ 08_execution_rules.md
- ├─ 09_testing_plan.md
- ├─ 10_implementation_status.md
- ├─ 11_guest_components.md
-```
+## 📂 Project Structure
 
-Each spec drives its counterpart in `/services/`:
-
-* `/services/trading/`
-* `/services/ai-agent/`
-* `/services/data-pipeline/`
-* `/frontend/` (Next.js)
-
-Example:
-If you define `GET /api/v1/signal` in `04_api_spec.yaml`, FastAPI autogenerates that route stub with `@router.get("/signal")`.
-Then you “fill the function” — Cloud Code helps you scaffold directly from spec.
-
----
-
-## 🧠 Suggested Modules
-
-### A. Trading Data Pipeline
-
-* Source: Yahoo Finance / Alpaca / Oanda API
-* Ingest → PostgreSQL (OHLCV)
-* Vectorize features (ATR, EMA, candle embeddings) and sync to Qdrant for clustering or similarity lookup.
-
-### B. Strategy Engine (Service: `strategy-core`)
-
-Implements:
-
-* MTF/SMC logic
-* Parameter registry in PostgreSQL
-* Backtest via Vectorbt (run headless job in Celery worker)
-* Result storage + visualization via API
-
-### C. LLM Agent (Service: `ai-analyst`)
-
-* Input: news, charts, strategy logs
-* Prompt Gemini: “analyze last 24h volatility shift given our signals”
-* Retrieve knowledge base from Qdrant
-* Output structured insight JSON (can be consumed by frontend)
-
-### D. Execution Service
-
-
-
-*   **Purpose**: Manages interactions with the live OANDA trading platform, performs pre-trade risk checks, fetches account information, and executes orders.
-
-*   **API Endpoints**:
-
-    *   `POST /check`: Performs risk engine guardrails (
-0 cap, min lot 0.01) before trade execution.
-
-    *   `GET /account/summary`: Fetches real-time account details (NAV, margin available, open trades/positions) from OANDA.
-
-    *   `POST /orders`: Places market orders on OANDA, supporting integrated Stop Loss (SL) and Take Profit (TP) orders, and client trade ID tagging for reconciliation.
-
-*   **OANDA Integration**: Uses `oandapyV20` library to connect to OANDA API.
-
-*   **Internal Structure**:
-
-    *   `app/core/config.py`: Manages OANDA API credentials and environment settings.
-
-    *   `app/adapters/oanda_account.py`: Adapter for OANDA account-related API calls.
-
-    *   `app/adapters/oanda_order.py`: Adapter for OANDA order-related API calls.
-
-*   **Package Management**: Utilizes `uv` for dependency management, replacing `pip` and `requirements.txt`.
-
-*   **Logging**: Basic logging is implemented, which can be extended for PostgreSQL storage.
-
----
-
-## 🪶 Folder & Container Layout
-
-```
+```bash
 mtf-trading-system/
-│
-├─ docker/
-│   ├─ nginx/
-│   │   └─ default.conf
-│   ├─ postgres/
-│   └─ qdrant/
-│
-├─ services/
-│   ├─ api-gateway/        # FastAPI root service
-│   ├─ strategy-core/
-│   ├─ ai-analyst/
-│   └─ execution/
-│
-├─ frontend/               # Next.js 15 app
-│
-├─ specs/
-│
-├─ docker-compose.yml
-└─ .cloudcode/             # Cloud Code configs
+├── services/               # Backend Microservices
+│   ├── api-gateway/        # Auth & API Routing
+│   ├── strategy-core/      # Algo Logic & Backtesting
+│   ├── execution/          # Broker Adapters & Risk Engine
+│   ├── data-pipeline/      # Market Data Ingestion
+│   └── ai-analyst/         # LLM Agent
+├── frontend/               # Next.js Web App
+├── infra/                  # Nginx, Docker configs
+├── specs/                  # SDD Specifications (Source of Truth)
+└── docker-compose.yml      # Local Orchestration
 ```
 
----
+## 🛠️ Getting Started
 
-## 🧰 Dev Environment Setup
+### Prerequisites
+-   Docker & Docker Compose
+-   Node.js v22+ (for local frontend dev)
+-   `uv` (Python package manager)
 
-**docker-compose.yml** example skeleton:
+### Quick Start (Full Stack)
+1.  **Clone the repo:**
+    ```bash
+    git clone https://github.com/your-org/mtf-trading-system.git
+    cd mtf-trading-system
+    ```
 
-```yaml
-version: '3.9'
-services:
-  nginx:
-    image: nginx:latest
-    volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
-    ports:
-      - "80:80"
-    depends_on:
-      - api
-      - frontend
+2.  **Environment Setup:**
+    Duplicate `.env.example` to `.env` and fill in your keys (Gemini API, OANDA Token, Postgres Config).
 
-  api:
-    build: ./services/api-gateway
-    env_file: .env
-    depends_on:
-      - postgres
-      - qdrant
+3.  **Run with Docker Compose:**
+    ```bash
+    docker compose up --build
+    ```
+    -   Frontend: `http://localhost:3000`
+    -   API Docs: `http://localhost:8000/docs`
 
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: trader
-      POSTGRES_PASSWORD: trader
-      POSTGRES_DB: mtf_db
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+4.  **Create Admin User:**
+    Use the `/api/v1/auth/register` endpoint or the frontend Register page to create your first user.
 
-  qdrant:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
+5.  **Configure Strategy:**
+    -   Go to **Settings -> Broker Accounts** to add OANDA credentials.
+    -   Go to **Strategies -> New Strategy** to configure and launch an SMC instance.
 
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
+## 🧩 Spec-Driven Development (SDD)
 
-volumes:
-  pgdata:
-  qdrant_storage:
-```
+This project strictly follows SDD. **Do not write code without updating specs first.**
 
----
+-   `specs/00_product_requirements.md`: The WHAT and WHY.
+-   `specs/01_architecture.md`: The High-Level Design.
+-   `specs/03_data_model.yaml`: Database Schema definitions.
+-   `specs/04_api_spec.yaml`: API Contracts (OpenAPI).
+-   `specs/10_implementation_status.md`: Progress Tracker.
 
-## 🧩 Google Cloud Integration Plan
+## 🤝 Contribution
 
-| Component         | GCP Service            | Notes                            |
-| ----------------- | ---------------------- | -------------------------------- |
-| Postgres DB       | Cloud SQL              | link via private VPC             |
-| Docker images     | Artifact Registry      | `gcloud builds submit`           |
-| Backend deploy    | Cloud Run              | auto-scale FastAPI microservices |
-| Secrets           | Secret Manager         | store Gemini API keys            |
-| Logging & Metrics | Cloud Monitoring       | integrate with OpenTelemetry     |
-| AI Model          | Vertex AI (Gemini 1.5) | retrieval + reasoning agent      |
+1.  Pick a task from `specs/10_implementation_status.md` (or create a new RFC).
+2.  Update the relevant Spec file in a PR.
+3.  Once the Spec is approved, implement the code.
+4.  Submit PR with tests.
 
----
+## ⚠️ Disclaimer
 
-## 🔍 Recommendations & Enhancements
-
-1. **Schema versioning** — use `alembic` for PostgreSQL migrations to sync your SDD data models.
-2. **Inter-service contracts** — enforce using Pydantic models exported from specs.
-3. **Embedding flow** — when saving trades, generate embeddings (sentence-transformer / Gemini Embeddings) → store to pgvector and Qdrant.
-4. **Observability** — add Prometheus + Grafana stack early; visualize latency, drawdown, Sharpe over time.
-5. **Testing** — Pytest + Playwright (for frontend) + contract tests from SDD YAML.
-6. **Workflow automation** — use n8n or Airflow to schedule retraining, data refresh, or prompt evaluation.
-7. **CI/CD** — GitHub Actions with `gcloud` CLI to deploy on merge; run unit + vectorized backtest tests.
-
----
-
-## 🧭 Next Step
-
-You can start with this Spec-Driven sequence:
-
-1. `01_architecture.md` — describe above stack in your own context.
-2. `03_data_model.yaml` — define all data entities (Trade, Candle, StrategyRun, RiskRule).
-3. `04_api_spec.yaml` — design API routes for `/signal`, `/backtest`, `/risk/check`, `/agent/analyze`.
-4. `06_ai_agent.md` — define Gemini agent behaviors, prompt schema, retrieval method.
-5. Scaffold `/services/api-gateway` using Cloud Code from these specs.
-
----
-With this foundation, you’re set to build a robust multi-agent trading intelligence system that leverages the best of modern tech and AI capabilities. Happy coding! 🚀
-
-## Disclaimer
-
-This software is for educational purposes only. Do not risk money which you are afraid to lose. 
-USE THE SOFTWARE AT YOUR OWN RISK. THE AUTHORS AND ALL AFFILIATES ASSUME NO RESPONSIBILITY FOR YOUR TRADING RESULTS.
+**USE AT YOUR OWN RISK.** This software is for educational purposes only. Automated trading carries significant financial risk. The authors assume no responsibility for trading losses.

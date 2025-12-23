@@ -269,6 +269,17 @@
     - **Architecture:** `ChartContainer` + React Context for cross-chart sync.
     - **Data Pipeline:** Event-driven updates via Redis for real-time candles.
 
+### 21. Multi-User Strategy Configuration
+- **Status:** ✅ Complete (2025-12-23)
+- **Features:** 
+    - **Strategy Templates:** `StrategyRegistry` implementation allowing reusable logic (e.g., SMC, MACD).
+    - **Configuration UI:** JSON-based Wizard (`/strategies/configure`) for setting parameters per-instance.
+    - **Risk Profiles:** User-defined risk settings (Risk per trade, Max Drawdown) per strategy.
+    - **Dashboard Integration:** Global strategy selector for filtering P&L and Equity Curves.
+    - **Optimized Backend:** `SharedMarketDataManager` to reduce API calls and `RedisConfigCache` for low-latency lookups.
+    - **Execution:** Secure credential lookup in `ExecutionService` for multi-user trade routing.
+
+
 ---
 
 ## 🟡 In Progress / Partial
