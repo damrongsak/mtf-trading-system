@@ -165,6 +165,20 @@ def list_templates():
             default_risk_settings={
                  "max_drawdown": 10.0
             }
+        ),
+        LogicTemplateResponse(
+            id="EMA_RSI_V1",
+            name="Bias Buy/Sell (EMA + RSI)",
+            description="Trend Following (EMA200) with Counter-Trend Entry (RSI)",
+            default_config={
+                "ema_period": 200,
+                "rsi_period": 14,
+                "rsi_overbought": 70,
+                "rsi_oversold": 30
+            },
+            default_risk_settings={
+                 "max_drawdown": 10.0
+            }
         )
     ]
     return success_response(data=templates)
