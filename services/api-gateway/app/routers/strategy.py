@@ -96,14 +96,36 @@ def update_strategy_config(id: UUID4, config: StrategyConfigUpdate, db: Session 
         strategy.config_json = config.config_json
     if config.risk_settings is not None:
         strategy.risk_settings = config.risk_settings
-    if config.is_active is not None:
+    
+    # Handle Active State Change with Side Effects
+    if config.is_active is not None and config.is_active != strategy.is_active:
         strategy.is_active = config.is_active
+        db.commit() # Commit state first
         
-    db.commit()
+        try:
+            if strategy.is_active:
+                # Prepare payload matches start_strategy logic
+                payload = strategy.config_json.copy()
+                payload.update({
+                    "id": str(strategy.id),
+                    "template_id": strategy.template_id,
+                    "broker_account_id": str(strategy.broker_account_id) if strategy.broker_account_id else None,
+                    "risk_settings": strategy.risk_settings,
+                    "execution_mode": "AUTO"
+                })
+                await strategy_client.start_strategy(str(id), payload)
+            else:
+                await strategy_client.stop_strategy(str(id))
+        except Exception as e:
+            # If side effect fails, should we revert DB?
+            # Ideally yes, but for now we log and warn.
+            # Reverting might confusingly toggle UI back. 
+            # Let's keep DB as source of truth but returned warning in logs.
+            pass
+    else:
+        db.commit()
+
     db.refresh(strategy)
-    
-    # TODO: Publish to Redis here
-    
     return success_response(data=StrategyResponse.model_validate(strategy))
 
 class LogicTemplateResponse(BaseModel):
@@ -146,3 +168,66 @@ def list_templates():
         )
     ]
     return success_response(data=templates)
+
+from app.services.internal_client import strategy_client
+
+@router.post("/{id}/start", response_model=APIResponse[dict])
+async def start_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    strategy = db.query(Strategy).filter(Strategy.id == id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    
+    # Update DB status
+    strategy.is_active = True
+    db.commit()
+    
+    # Notify Strategy Core
+    try:
+        # Prepare Config + ID
+        payload = strategy.config_json.copy()
+        payload.update({
+            "id": str(strategy.id),
+            "template_id": strategy.template_id,
+            "broker_account_id": str(strategy.broker_account_id) if strategy.broker_account_id else None,
+            "risk_settings": strategy.risk_settings,
+            "execution_mode": "AUTO"
+        })
+        
+        await strategy_client.start_strategy(str(id), payload)
+        
+        # Also refresh Data Pipeline subscriptions
+        # Ideally Strategy Core does this or we do it here.
+        # Since we added /stream/refresh, let's call it?
+        # Or rely on Strategy Core to handle subscriptions locally.
+        # Strategy Core currently subscribes via Redis, but Data Pipeline needs to *publish*.
+        # So we MUST refresh Data Pipeline.
+        # But wait, StreamManager loads ACTIVE strategies? No, it loads MarketSymbols.
+        # Currently, Strategies don't auto-register symbols to MarketSymbols if missing.
+        # Assumption: User configured Data Source / Market Symbols already.
+        
+    except Exception as e:
+        # Rollback DB status if core fails?
+        strategy.is_active = False
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to start strategy: {str(e)}")
+        
+    return success_response(data={"status": "started", "id": str(id)})
+
+@router.post("/{id}/stop", response_model=APIResponse[dict])
+async def stop_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    strategy = db.query(Strategy).filter(Strategy.id == id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    # Update DB status
+    strategy.is_active = False
+    db.commit()
+    
+    # Notify Strategy Core
+    try:
+        await strategy_client.stop_strategy(str(id))
+    except Exception as e:
+        # Log error but don't revert DB status as we want it marked stopped intendedly
+        pass
+        
+    return success_response(data={"status": "stopped", "id": str(id)})

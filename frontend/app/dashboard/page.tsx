@@ -17,7 +17,7 @@ import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 
-import { strategiesApi } from '@/lib/api/strategies'; // Add import
+import { getStrategies } from '@/lib/api/strategies';
 import { StrategyResponse } from '@/lib/api/types';
 
 export default function DashboardPage() {
@@ -60,9 +60,12 @@ export default function DashboardPage() {
               // Let's assume listHelper accepts optional fundId or we fetch from user preferences default fund.
               // For MVP, we will try to fetch default page.
               // Fetch all strategies available to the user
-              const res = await strategiesApi.listHelper();
-              if (res.status === 'success') {
-                  setStrategies(res.data);
+              const res: any = await getStrategies();
+              // Handle PaginatedResponse or Array
+              if (res.data && Array.isArray(res.data)) {
+                 setStrategies(res.data);
+              } else if (Array.isArray(res)) {
+                 setStrategies(res);
               }
           } catch (e) {
               console.warn("Failed to load strategies list", e);

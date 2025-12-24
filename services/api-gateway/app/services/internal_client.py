@@ -44,6 +44,32 @@ class StrategyClient:
                 logger.error(f"Monte Carlo request failed: {e}", exc_info=True)
                 raise
 
+    async def start_strategy(self, strategy_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                # Need to use query params for ID or path param?
+                # strategy-core defines: @router.post("/strategies/{strategy_id}/start")
+                # and takes 'config' as Body (config: dict) since it doesn't specify Query or Body explicitly, default is Body for pydantic/dict.
+                # However, FastAPI rule: if dict without Body(), it expects Body.
+                logger.info(f"Starting strategy {strategy_id} via {STRATEGY_CORE_URL}")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/strategies/{strategy_id}/start", json=config, timeout=10.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Start strategy failed: {e}", exc_info=True)
+                raise
+
+    async def stop_strategy(self, strategy_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Stopping strategy {strategy_id} via {STRATEGY_CORE_URL}")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/strategies/{strategy_id}/stop", timeout=10.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Stop strategy failed: {e}", exc_info=True)
+                raise
+
 class ExecutionClient:
     async def get_account_summary(self, broker_config: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:

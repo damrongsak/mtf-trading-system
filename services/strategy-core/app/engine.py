@@ -125,6 +125,49 @@ class StrategyEngine:
         except Exception as e:
             logger.error(f"Error handling candle event {channel}: {e}")
 
+    async def on_tick(self, data: dict):
+        """
+        Handle incoming tick data from Redis (market_data:{symbol}).
+        Triggers strategies that rely on this symbol.
+        """
+        try:
+            # Data format from Oanda Streamer: 
+            # {'type': 'PRICE', 'time': '...', 'bids': [...], 'asks': [...], 'instrument': 'EUR_USD'}
+            
+            if data.get("type") != "PRICE":
+                return
+            
+            symbol = data.get("instrument")
+            if not symbol:
+                return
+                
+            # Extract Price (using mid price)
+            price = (float(data["bid"]) + float(data["ask"])) / 2
+            timestamp = pd.to_datetime(data["time"])
+            
+            # 1. Update Manager
+            market_data_manager.update_tick(symbol, price, timestamp) 
+            
+            # 2. Iterate Strategies (Concurrent Dispatch)
+            tasks = []
+            for s_id, state in self.active_strategies.items():
+                if state.symbol == symbol:
+                    # Filter by timeframe? 
+                    # If this is a TICK, and strategy wants M15...
+                    # We should only trigger if M15 candle closed?
+                    # OR we trigger every tick and let Strategy decide "Not enough data" or "Waiting for close".
+                    # For HFT/Scalping, every tick matters.
+                    # For SMC (Order Blocks), we need closed candles.
+                    
+                    # Implementation: Trigger Logic. Logic function checks "is_candle_closed"?
+                    tasks.append(asyncio.create_task(self._process_strategy_logic(s_id, state)))
+            
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        except Exception as e:
+            logger.error(f"Error handling tick {data.get('instrument')}: {e}")
+
     async def _process_strategy_logic(self, strategy_id: str, state: StrategyState):
         """
         Execute the strategy logic template.
