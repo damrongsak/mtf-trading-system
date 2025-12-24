@@ -41,6 +41,7 @@ class Fund(Base):
 
     # Relationships
     users = relationship("UserFund", back_populates="fund")
+    broker_accounts = relationship("BrokerAccount", back_populates="fund")
     strategies = relationship("Strategy", back_populates="fund")
     transactions = relationship("Transaction", back_populates="fund")
 

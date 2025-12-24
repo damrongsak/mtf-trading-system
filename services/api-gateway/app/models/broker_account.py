@@ -9,7 +9,7 @@ class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    fund_id = Column(UUID(as_uuid=True), nullable=False)
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
     
     broker_name = Column(String(50), nullable=False) # e.g., "OANDA", "BINANCE"
     account_name = Column(String(100), nullable=False) # User-defined alias
@@ -22,4 +22,4 @@ class BrokerAccount(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", backref="broker_accounts")
+    fund = relationship("Fund", back_populates="broker_accounts")

@@ -51,3 +51,13 @@ export const stopStrategy = async (id: string): Promise<APIResponse<{ status: st
 export const deleteStrategy = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v1/strategies/${id}`);
 };
+
+export const validateStrategy = async (data: any): Promise<any> => {
+  // Mock for now, replace with actual endpoint
+  const response = await apiClient.post<any>('/api/v1/strategies/backtest-custom', data);
+  return response.data;
+};
+
+export const saveCustomStrategy = async (data: StrategyCreate): Promise<StrategyResponse> => {
+  return createStrategy(data);
+};

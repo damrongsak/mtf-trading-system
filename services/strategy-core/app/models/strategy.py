@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Boolean, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.database import Base
 
-class StrategyModel(Base):
+class Strategy(Base):
     __tablename__ = "strategies"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))

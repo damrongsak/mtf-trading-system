@@ -143,6 +143,14 @@ class BacktestRequest(BaseModel):
     trading_config_id: Optional[str] = None
     optimization: Optional[OptimizationConfig] = None
 
+class StrategyBacktestRequest(BaseModel):
+    code: str
+    symbol: str
+    timeframe: str
+    start_date: datetime
+    end_date: datetime
+    initial_capital: float = 10000.0
+
 class TradeResult(BaseModel):
     entry_time: datetime
     exit_time: datetime

@@ -10,6 +10,7 @@
     "gen:api": "openapi-generator-cli generate -i ../specs/04_api_spec.yaml -g typescript-axios -o lib/api/generated --additional-properties=useSingleRequestParameter=true"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "date-fns": "^4.1.0",

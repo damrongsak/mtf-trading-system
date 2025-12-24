@@ -4,7 +4,8 @@ from app.services.internal_client import execution_client
 from app.services.trade_service import TradeService
 from app.database import get_db
 from app.security import get_current_user
-from app.models.user_fund import User
+from app.security import get_current_user
+from app.models.user_fund import User, Fund, UserFund
 from app.models.trade import Trade, TradeStatus
 from app.models.broker_account import BrokerAccount
 from app.utils.crypto import decrypt_data
@@ -40,8 +41,8 @@ async def get_account_summary(
 ):
     try:
         # Default to first active account if not specified (for MVP)
-        query = db.query(BrokerAccount).filter(
-            BrokerAccount.user_id == current_user.id,
+        query = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            UserFund.user_id == current_user.id,
             BrokerAccount.is_active == True
         )
         if account_id:
@@ -69,8 +70,8 @@ async def place_order(
         
         # Resolve Broker Account
         account_id = order_data.get("account_id")
-        query = db.query(BrokerAccount).filter(
-            BrokerAccount.user_id == current_user.id,
+        query = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            UserFund.user_id == current_user.id,
             BrokerAccount.is_active == True
         )
         if account_id:
@@ -129,19 +130,26 @@ async def close_trade(
         if trade.broker_account_id:
             account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
             if account:
-                config = _get_broker_config(account)
-                oanda_id = trade.metadata_json.get("oanda_id") if trade.metadata_json else None
+                # Verify permission for this account
+                has_access = db.query(UserFund).join(Fund).filter(
+                    UserFund.user_id == current_user.id,
+                    Fund.id == account.fund_id
+                ).first()
                 
-                if oanda_id:
-                    try:
-                        await execution_client.close_trade(
-                            trade_id=oanda_id, 
-                            broker_config=config
-                        )
-                    except Exception as e:
-                        logger.error(f"Failed to close trade on broker: {e}")
-                        # Could choose to fail here or proceed to close locally
-                        # For now, let's proceed but warn.
+                if has_access:
+                    config = _get_broker_config(account)
+                    oanda_id = trade.metadata_json.get("oanda_id") if trade.metadata_json else None
+                    
+                    if oanda_id:
+                        try:
+                            await execution_client.close_trade(
+                                trade_id=oanda_id, 
+                                broker_config=config
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to close trade on broker: {e}")
+                            # Could choose to fail here or proceed to close locally
+                            # For now, let's proceed but warn.
         
         # 2. Close Locally
         # Use provided exit price or maybe fetch result from broker? 
@@ -174,6 +182,8 @@ async def get_trades(
     """
     try:
         query = db.query(Trade) # Ideally filter by user trades if Trade has user_id/account link
+        # Trade has user_id, so that's fine.
+        query = query.filter(Trade.user_id == current_user.id)
 
         # Status Filter
         if status != "ALL":
@@ -184,8 +194,8 @@ async def get_trades(
                 # Sync with Oanda if requesting OPEN trades
                 if trade_status == TradeStatus.OPEN:
                     # Iterate all active accounts for this user
-                    accounts = db.query(BrokerAccount).filter(
-                        BrokerAccount.user_id == current_user.id, 
+                    accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+                        UserFund.user_id == current_user.id, 
                         BrokerAccount.is_active == True
                     ).all()
                     
@@ -258,8 +268,8 @@ async def get_accounts(
     List all broker accounts for the current user.
     """
     try:
-        accounts = db.query(BrokerAccount).filter(
-            BrokerAccount.user_id == current_user.id,
+        accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            UserFund.user_id == current_user.id,
             BrokerAccount.is_active == True
         ).all()
         
@@ -285,14 +295,13 @@ async def place_smart_order(
         # We could valid user ownership of broker_account_id here, but Execution Service also checks.
         # However, checking here is better for security (Tenant isolation).
         
-        account_id = payload.get("broker_account_id")
         if not account_id:
              raise HTTPException(status_code=400, detail="broker_account_id is required")
              
-        # Verify ownership
-        account = db.query(BrokerAccount).filter(
+        # Verify ownership (via Fund)
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
             BrokerAccount.id == account_id,
-            BrokerAccount.user_id == current_user.id
+            UserFund.user_id == current_user.id
         ).first()
         
         if not account:

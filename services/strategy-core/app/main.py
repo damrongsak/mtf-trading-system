@@ -4,7 +4,7 @@ from app.schemas import (
     IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
     RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse,
     SMCRequest, SMCResponse, SMCBatchRequest, SMCBatchResponse, SimulationRequest, SimulationResponse,
-    OptimizationResponse, MonteCarloRequest, MonteCarloResponse
+    OptimizationResponse, MonteCarloRequest, MonteCarloResponse, StrategyBacktestRequest
 )
 from app.indicators import (
     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
@@ -348,6 +348,35 @@ def run_backtest_endpoint(req: BacktestRequest):
         return run_historical_backtest(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/backtest/custom", response_model=BacktestResponse)
+def run_custom_backtest(req: StrategyBacktestRequest):
+    try:
+        from app.registry import StrategyRegistry
+        from uuid import uuid4
+        
+        # 1. Register Temporary Strategy
+        temp_id = f"TEMP_{uuid4().hex[:8]}"
+        StrategyRegistry.register_custom(temp_id, req.code, name="Custom Strategy")
+        
+        # 2. Convert to Standard Backtest Request
+        backtest_req = BacktestRequest(
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+            start_date=req.start_date,
+            end_date=req.end_date,
+            initial_capital=req.initial_capital,
+            strategy_params={"name": temp_id}
+        )
+        
+        # 3. Run
+        return run_historical_backtest(backtest_req)
+        
+    except Exception as e:
+        logger.error(f"Custom backtest failed: {e}")
+        # Return error as logs in response? Or 500?
+        # For Sandbox, user needs to see the error.
+        raise HTTPException(status_code=400, detail=str(e))
 
 # @router.websocket("/ws/prices")
 # async def websocket_endpoint(websocket: WebSocket, symbols: str = Query("EUR_USD,XAU_USD")):

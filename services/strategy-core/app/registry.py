@@ -1,4 +1,5 @@
 
+import asyncio
 import logging
 from typing import Optional, Dict
 import pandas as pd
@@ -235,4 +236,53 @@ class StrategyRegistry:
     @classmethod
     def list_templates(cls):
         return [{"id": k, **v} for k, v in cls._metadata.items()]
+
+    @classmethod
+    def register_custom(cls, template_id: str, code: str, name: str = "Custom Strategy"):
+        """
+        Dynamically compiles and registers a user-defined strategy.
+        WARNING: exec() is used. Ensure code is sandboxed or trusted in production.
+        """
+        try:
+            # 1. Prepare Globals
+            # We allow basic imports and app modules
+            allowed_globals = {
+                "pd": pd,
+                "check_macro_bias": check_macro_bias,
+                "check_setup_zone": check_setup_zone,
+                "check_trigger": check_trigger,
+                "calculate_stop_loss": calculate_stop_loss,
+                "calculate_ema": calculate_ema,
+                "calculate_rsi": calculate_rsi,
+                "calculate_macd": calculate_macd,
+                "SignalDirection": SignalDirection,
+                "logger": logger
+            }
+            
+            # 2. Compile
+            local_scope = {}
+            exec(code, allowed_globals, local_scope)
+            
+            # 3. Extract Function
+            if "strategy" not in local_scope:
+                raise ValueError("Code must define an async function named 'strategy(state, data_manager)'")
+            
+            func = local_scope["strategy"]
+            if not asyncio.iscoroutinefunction(func):
+                 raise ValueError("'strategy' function must be async")
+
+            # 4. Register
+            cls._strategies[template_id] = func
+            cls._metadata[template_id] = {
+                "name": name,
+                "description": "User defined custom strategy",
+                "defaults": {}
+            }
+            logger.info(f"Registered custom strategy {template_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to compile custom strategy {template_id}: {e}")
+            raise e
+
 

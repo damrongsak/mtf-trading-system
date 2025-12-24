@@ -21,6 +21,17 @@ class StrategyClient:
                 logger.error(f"Backtest request failed: {e}", exc_info=True)
                 raise
 
+    async def run_custom_backtest(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Sending custom backtest request to {STRATEGY_CORE_URL}/api/v1/backtest/custom")
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/custom", json=req, timeout=60.0)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.error(f"Custom backtest failed: {e}", exc_info=True)
+                raise
+
     async def run_optimization(self, req: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:

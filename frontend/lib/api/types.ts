@@ -541,6 +541,7 @@ export interface StrategyResponse {
     config_json: Record<string, any>; // Parameter overrides
     risk_settings: Record<string, any>;
     is_active: boolean;
+    custom_code?: string;
 }
 
 export interface StrategyCreate {
@@ -550,6 +551,22 @@ export interface StrategyCreate {
     broker_account_id: string;
     config_json: Record<string, any>;
     risk_settings: Record<string, any>;
+    custom_code?: string;
+}
+
+export interface StrategyBacktestRequest {
+    code: string;
+    symbol: string;
+    timeframe: string;
+    start_date?: string;
+    end_date?: string;
+    initial_capital?: number;
+}
+
+export interface StrategyBacktestResponse {
+    logs: string[];
+    metrics?: BacktestMetrics;
+    trades?: BacktestTrade[];
 }
 
 export interface LogicTemplate {

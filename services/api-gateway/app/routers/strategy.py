@@ -22,6 +22,7 @@ class StrategyCreate(BaseModel):
     broker_account_id: UUID4
     config_json: dict
     risk_settings: dict = {}
+    custom_code: Optional[str] = None
 
 class StrategyResponse(BaseModel):
     id: UUID4
@@ -47,7 +48,8 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
         template_id=strategy.template_id,
         broker_account_id=strategy.broker_account_id,
         config_json=strategy.config_json,
-        risk_settings=strategy.risk_settings
+        risk_settings=strategy.risk_settings,
+        custom_code=strategy.custom_code
     )
     db.add(new_strategy)
     db.commit()
@@ -263,3 +265,30 @@ async def delete_strategy(id: UUID4, db: Session = Depends(get_db), token: str =
     db.commit()
     
     return success_response(data={"status": "deleted", "id": str(id)})
+
+# Custom Strategy Backtest
+from datetime import datetime
+class StrategyBacktestRequest(BaseModel):
+    code: str
+    symbol: str
+    timeframe: str
+    start_date: datetime
+    end_date: datetime
+    initial_capital: float = 10000.0
+
+@router.post("/backtest-custom", response_model=APIResponse[dict])
+async def run_strategies_backtest_custom(
+    req: StrategyBacktestRequest,
+    db: Session = Depends(get_db), 
+    token: str = Depends(oauth2_scheme)
+):
+    try:
+        # Pydantic v2: req.model_dump(), v1: req.dict(). Assuming v2 or compatible.
+        # Check conversion of datetime to string via jsonable_encoder if needed, 
+        # but httpx handles generic dicts well if json param used.
+        # We need to ensure dates are serialized to ISO format.
+        payload = req.model_dump(mode='json')
+        result = await strategy_client.run_custom_backtest(payload)
+        return success_response(data=result)
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))
