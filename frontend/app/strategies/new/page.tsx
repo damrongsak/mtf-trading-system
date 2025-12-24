@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStrategyTemplates, createStrategy, type LogicTemplate } from '@/lib/api/strategies';
+import { getStrategyTemplates, createStrategy, getAccounts, getFunds, type LogicTemplate, type BrokerAccount, type Fund } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,15 +12,11 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-interface BrokerAccountMock {
-    id: string;
-    name: string;
-}
-
 export default function NewStrategyPage() {
     const router = useRouter();
     const [templates, setTemplates] = useState<LogicTemplate[]>([]);
-    const [accounts, setAccounts] = useState<BrokerAccountMock[]>([]);
+    const [accounts, setAccounts] = useState<BrokerAccount[]>([]);
+    const [funds, setFunds] = useState<Fund[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -29,6 +25,7 @@ export default function NewStrategyPage() {
     const [name, setName] = useState('My Strategy');
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedAccount, setSelectedAccount] = useState<string>('');
+    const [selectedFund, setSelectedFund] = useState<string>('');
     const [symbol, setSymbol] = useState('EUR_USD');
     const [timeframe, setTimeframe] = useState('M15');
     const [riskUsd, setRiskUsd] = useState('10');
@@ -37,21 +34,23 @@ export default function NewStrategyPage() {
         const init = async () => {
             try {
                 setLoading(true);
-                const tmpls = await getStrategyTemplates();
+                const [tmpls, accts, fundsList] = await Promise.all([
+                    getStrategyTemplates(),
+                    getAccounts(),
+                    getFunds()
+                ]);
+                
                 setTemplates(tmpls);
-                if (tmpls.length > 0) setSelectedTemplate(tmpls[0].id);
+                setAccounts(accts);
+                setFunds(fundsList);
 
-                // Mock fetching accounts - normally fetch from /api/v1/accounts
-                // Since this part is not fully implemented in API client yet, we mock or fetch if available
-                // Assuming we have at least one account in DB or user can input ID manually if needed.
-                // Ideally, use a proper useAccounts hook.
-                // For MVP, let's just hardcode a placeholder or assume user knows ID if we can't fetch.
-                // Wait, I can implement fetchAccounts in API client quickly?
-                // Let's assume for now 1 dummy account if fetch fails.
-                setAccounts([{id: '00000000-0000-0000-0000-000000000000', name: 'Demo Account'}]);
+                if (tmpls.length > 0) setSelectedTemplate(tmpls[0].id);
+                if (accts.length > 0) setSelectedAccount(accts[0].id);
+                if (fundsList.length > 0) setSelectedFund(fundsList[0].id);
                 
             } catch (err) {
-                setError("Failed to load templates");
+                console.error(err);
+                setError("Failed to load configuration data");
             } finally {
                 setLoading(false);
             }
@@ -64,12 +63,18 @@ export default function NewStrategyPage() {
         setSubmitting(true);
         setError(null);
 
+        if (!selectedFund) {
+            setError("No fund selected. Please create a fund first.");
+            setSubmitting(false);
+            return;
+        }
+
         try {
             await createStrategy({
                 name,
-                fund_id: '00000000-0000-0000-0000-000000000000', // Default Fund
+                fund_id: selectedFund,
                 template_id: selectedTemplate,
-                broker_account_id: selectedAccount || '00000000-0000-0000-0000-000000000000',
+                broker_account_id: selectedAccount,
                 config_json: {
                     symbol,
                     timeframe
@@ -148,12 +153,14 @@ export default function NewStrategyPage() {
                             <div className="space-y-2">
                                 <Label htmlFor="account">Broker Account</Label>
                                 <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Account" />
+                                    <SelectTrigger disabled={accounts.length === 0}>
+                                        <SelectValue placeholder={accounts.length === 0 ? "No Accounts Found" : "Select Account"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {accounts.map(a => (
-                                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                            <SelectItem key={a.id} value={a.id}>
+                                                {a.broker_name} - {a.account_name}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

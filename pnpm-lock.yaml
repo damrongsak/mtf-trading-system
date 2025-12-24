@@ -13,6 +13,9 @@ importers:
       axios:
         specifier: ^1.13.2
         version: 1.13.2
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -1079,6 +1082,9 @@ packages:
 
   chardet@2.1.1:
     resolution: {integrity: sha512-PsezH1rqdV9VvyNhxxOW32/d75r01NY7TQCmOqomRo15ZSOKbpTFVsfjghxo6JloQUCGnH4k1LGu0R4yCLlWQQ==}
+
+  class-variance-authority@0.7.1:
+    resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
 
   cli-cursor@3.1.0:
     resolution: {integrity: sha512-I/zHAwsKf9FqGoXM4WWRACob9+SNukZTd94DWF57E4toouRulbCxcUh6RKUEOQlYTHJnzkPMySvPNaaSLNfLZw==}
@@ -3970,6 +3976,10 @@ snapshots:
   character-reference-invalid@2.0.1: {}
 
   chardet@2.1.1: {}
+
+  class-variance-authority@0.7.1:
+    dependencies:
+      clsx: 2.1.1
 
   cli-cursor@3.1.0:
     dependencies:

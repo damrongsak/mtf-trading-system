@@ -1,5 +1,6 @@
 export * from './useAsync';
 export * from './useIsClient';
+export * from './useStrategies';
 export * from './useJournalEntries';
 export * from './useDashboardStats';
 export * from './useRecentSignals';

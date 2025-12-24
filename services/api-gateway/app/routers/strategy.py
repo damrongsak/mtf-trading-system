@@ -87,7 +87,7 @@ class StrategyConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 @router.post("/{id}/config", response_model=APIResponse[StrategyResponse])
-def update_strategy_config(id: UUID4, config: StrategyConfigUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def update_strategy_config(id: UUID4, config: StrategyConfigUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -231,3 +231,21 @@ async def stop_strategy(id: UUID4, db: Session = Depends(get_db), token: str = D
         pass
         
     return success_response(data={"status": "stopped", "id": str(id)})
+
+@router.delete("/{id}", response_model=APIResponse[dict])
+async def delete_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    strategy = db.query(Strategy).filter(Strategy.id == id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    # Ensure stopped
+    if strategy.is_active:
+         try:
+            await strategy_client.stop_strategy(str(id))
+         except Exception:
+            pass # Proceed to delete anyway
+            
+    db.delete(strategy)
+    db.commit()
+    
+    return success_response(data={"status": "deleted", "id": str(id)})

@@ -18,8 +18,12 @@ export const getStrategies = async (): Promise<StrategyResponse[]> => {
 };
 
 export const getStrategyTemplates = async (): Promise<LogicTemplate[]> => {
-  const response = await apiClient.get<LogicTemplate[]>('/api/v1/strategies/templates');
-  return response.data;
+  const response = await apiClient.get<APIResponse<LogicTemplate[]> | LogicTemplate[]>('/api/v1/strategies/templates');
+
+  if ('data' in response.data && Array.isArray(response.data.data)) {
+    return response.data.data;
+  }
+  return response.data as LogicTemplate[];
 };
 
 export const createStrategy = async (data: StrategyCreate): Promise<StrategyResponse> => {
@@ -41,6 +45,9 @@ export const stopStrategy = async (id: string): Promise<APIResponse<{ status: st
   return {
     status: response.status as any,
     timestamp: new Date().toISOString(),
-    data: response.data
   };
-}
+};
+
+export const deleteStrategy = async (id: string): Promise<void> => {
+  await apiClient.delete(`/api/v1/strategies/${id}`);
+};

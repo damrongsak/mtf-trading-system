@@ -499,6 +499,36 @@ export interface PriceUpdate {
 }
 
 // ========================================
+// Broker Account Types
+// ========================================
+
+export interface BrokerAccount {
+    id: string;
+    broker_name: string;
+    account_name: string;
+    account_number?: string;
+    is_active: boolean;
+    is_live: boolean;
+    created_at: string;
+}
+
+export interface BrokerAccountCreate {
+    broker_name: string;
+    account_name: string;
+    account_number?: string;
+    credentials: Record<string, any>;
+    is_live: boolean;
+}
+
+export interface BrokerAccountUpdate {
+    account_name?: string;
+    account_number?: string;
+    credentials?: Record<string, any>;
+    is_active?: boolean;
+    is_live?: boolean;
+}
+
+// ========================================
 // Strategy Types
 // ========================================
 
