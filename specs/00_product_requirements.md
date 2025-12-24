@@ -12,7 +12,7 @@ This PRD defines the **What** and **Why** of the product; the **How** (architect
 | **Document Version** | 2.0 (Expansion Phase) |
 | **Target Audience** | Quant Funds, Prop Firms, Individual Traders |
 | **Release Target** | Phase 2 Completion (Multi-Tenancy, Multi-Strategy, Oanda) |
-| **Status** | **Phase 2 Complete** (Ready for Live Testing) |
+| **Status** | **Phase 2 Complete** (Fund-Centric Refactor & Dynamic Sandbox Stable) |
 
 ---
 
@@ -41,6 +41,7 @@ The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, Multi-Broker Supp
 | **G4** | **Multi-Strategy** | Concurrent execution of at least 3 distinct strategies with independent state management. |
 | **G5** | **Data Integration** | Successful ingestion and processing of live market data from Oanda v20 API. |
 | **G6** | **Trading Journal** | Structured psychological journal capturing mental patterns, game levels, and root cause analysis for AI-driven performance improvement. |
+| **G7** | **Dynamic Sandbox** | Ability to write, compile, and backtest custom python strategy code securely from the browser. |
 
 ---
 
@@ -51,6 +52,7 @@ The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, Multi-Broker Supp
 | **Primary User (The Engineer)** | A full-stack AI engineer (analytical, design-focused) managing their own capital. | **Reliable Core Platform:** Provides a risk-guaranteed Python/FastAPI foundation for building advanced AI/ML features (e.g., LLM agent). |
 | **Fund Manager** | Manager of a quantitative trading fund. | **Multi-Tenancy:** Manage multiple strategies and users within a fund structure. |
 | **Trader** | Individual trader executing strategies. | **Execution & Monitoring:** Monitor signals and trade execution in real-time. |
+| **Quant Developer** | Strategy author. | **Sandbox:** Rapidly prototype and test new Python algorithms without deployment cycles. |
 
 ---
 
@@ -101,6 +103,13 @@ The MVP is defined by the following core system behaviors, translated directly f
 | **F5.2** | The system must support **Dynamic Instrument Management**, fetching active symbols directly from the database rather than hardcoded lists. | Data Architecture, Sec 2 |
 | **F5.3** | The system must enable **Account-Specific Execution**, allowing traders to select which account to route an order to or sync trades from. | Execution Engine, Sec 4 |
 
+### 4.6. Dynamic Capabilities
+
+| Requirement | Description (Behavior) | Blueprint Reference |
+| :--- | :--- | :--- |
+| **F6.1** | The system must provide an **In-Browser Code Editor** (Monaco) for authoring custom strategy logic in Python. | Sandbox |
+| **F6.2** | The system must execute custom strategies continuously alongside template strategies in the Fleet Manager. | Fleet Manager |
+
 ---
 
 ## 5. Phase 3: Advanced & Autonomous Capabilities
@@ -141,6 +150,8 @@ As the **AI Engineer**, I want to...
 | **US3** | ...input a risk check to the system, so that the $10 cap is never violated and my lot size is calculated correctly. | The `/risk/check` API endpoint returns `can_execute=false` for any trade proposal violating the $10 cap or the 0.01 min lot rule. |
 | **US4** | ...ensure the backtest uses only historical data, so that the performance metrics are a true reflection of the strategy's edge. | All indicators are proven non-look-ahead via the deterministic MTF resampling check. |
 | **US5** | ...see key metrics like Sharpe Ratio and Max Drawdown, so I can judge the viability of the optimized parameter sets. | Final backtest run successfully persists Sharpe, MDD, WinRate to the `StrategyRun` entity. |
+| **US6** | ...manage broker accounts independently of my user profile, assigning them to different Funds. | Creating a Broker Account automatically links it to my active Fund, not just my User ID. |
+| **US7** | ...write custom Python strategy logic in the browser and backtest it immediately. | Code Editor allows typing code, "Run Backtest" returns logs and metrics from the custom logic. |
 
 ---
 

@@ -401,6 +401,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MonteCarloResponse'
+  /backtest/custom:
+    post:
+      summary: Run a custom strategy backtest
+      description: Compiles and runs user-provided Python code against historical data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyBacktestRequest'
+      responses:
+        '200':
+          description: Custom backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
   /backtest/results/{backtest_id}:
     get:
       summary: Get results of a specific backtest
@@ -798,6 +815,33 @@ components:
         - AUTH_1003
         - AUTH_1004
         - AUTH_1005
+
+    StrategyBacktestRequest:
+      type: object
+      required:
+        - code
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        code:
+          type: string
+          description: "Python code defining the strategy (async def strategy...)"
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        initial_capital:
+          type: number
+          default: 10000.0
         - VAL_2001
         - VAL_2002
         - VAL_2003

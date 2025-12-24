@@ -54,6 +54,7 @@ graph TD
 - **Responsibility**: Risk management and trade execution. Enforces strict risk rules (e.g., $10 max risk, 0.01 min lot).
 - **Key Features**: 
     - **Stateless Router**: Accepts broker configuration/IDs per request, agnostic to User/Fund.
+    - **Fund-Centric Access**: Strictly enforces `User` -> `UserFund` -> `Fund` -> `BrokerAccount` resource ownership chain.
     - **Dynamic Adapters**: Uses `BrokerFactory` to instantiate OANDA/Binance adapters on the fly.
     - `can_execute` guardrail, risk calculation, trade logging.
 
@@ -62,11 +63,12 @@ graph TD
 - **Responsibility**: Signal generation, backtesting, and validation.
 - **Key Features**: 
     - Deterministic resampling & parameter sweeping.
+    - **Dynamic Sandbox**: Compiles and executes custom Python strategy code (uploaded via Frontend) in a restricted scope.
     - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
     - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
     - **Market Analysis API**: Real-time calculation of technical indicators (RSI, MACD, etc.) for frontend visualization.
     - **Multi-Tenant Fleet Manager**:
-        - **Registry**: Manages "Strategy Templates" (code) vs "Strategy Instances" (DB config).
+        - **Registry**: Manages "Strategy Templates" (code) vs "Strategy Instances" (DB config) vs "Custom Strategies".
         - **Fleet Looper**: Iterates through thousands of active strategies per market tick.
         - **Shared Market Data**: Deduplicates tick processing to minimize RAM usage.
         - **Redis Caching**: Caches user configurations to minimize DB latency.
