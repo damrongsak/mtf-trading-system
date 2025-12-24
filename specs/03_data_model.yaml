@@ -80,7 +80,7 @@ entities:
         required: true
 
   Strategy:
-    description: "Trading Strategy Configuration"
+    description: "Active Strategy Instance (Fleet Member)"
     table_name: "strategies"
     fields:
       - name: id

@@ -99,24 +99,28 @@ class StrategyEngine:
             # market_data_manager.update_candle(symbol, tf, new_row) <- hypothetical
             
             # 2. Iterate Strategies
+            # 1. Update Shared Market Data (ONCE per tick)
+            current_df = market_data_manager.get_data(symbol)
+            if current_df.empty:
+                market_data_manager.set_data(symbol, new_row)
+            else:
+                updated_df = pd.concat([current_df, new_row], ignore_index=True)
+                if len(updated_df) > 1000:
+                    updated_df = updated_df.iloc[-1000:]
+                market_data_manager.set_data(symbol, updated_df)
+            
+            # 2. Iterate Strategies (Concurrent Dispatch)
+            tasks = []
             for s_id, state in self.active_strategies.items():
                 if state.symbol == symbol and state.timeframe == tf:
-                    # Update local buffer (Legacy support or if Manager is not fully ready)
-                    # For now, let's assume we rely on Shared Manager for *Calculation* 
-                    # but we trigger on *Event*.
-                    
-                    # Update shared manager manually here for MVP if Manager is simple dict
-                    current_df = market_data_manager.get_data(symbol)
-                    if current_df.empty:
-                        market_data_manager.set_data(symbol, new_row)
-                    else:
-                        updated_df = pd.concat([current_df, new_row], ignore_index=True)
-                        if len(updated_df) > 1000:
-                            updated_df = updated_df.iloc[-1000:]
-                        market_data_manager.set_data(symbol, updated_df)
-
-                    # Trigger Logic
-                    await self._process_strategy_logic(s_id, state)
+                    # Spawn task for independent strategy execution
+                    tasks.append(asyncio.create_task(self._process_strategy_logic(s_id, state)))
+            
+            if tasks:
+                # Optionally wait for all to complete or let them run in background
+                # For high-frequency, background is better, but for safety we might want to await.
+                # Let's await to prevent runaway tasks if system is overloaded.
+                await asyncio.gather(*tasks, return_exceptions=True)
 
         except Exception as e:
             logger.error(f"Error handling candle event {channel}: {e}")

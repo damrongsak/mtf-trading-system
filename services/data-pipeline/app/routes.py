@@ -213,3 +213,12 @@ def get_active_symbols(
     
     # Flatten list of tuples
     return [s[0] for s in symbols]
+
+@router.post("/stream/refresh", status_code=200)
+async def refresh_streams():
+    """
+    Trigger a refresh of the streaming subscriptions.
+    """
+    from app.streaming.manager import stream_manager
+    await stream_manager.refresh_subscriptions()
+    return {"message": "Streaming subscriptions refreshed"}

@@ -432,6 +432,11 @@ app.include_router(router)
 async def startup_event():
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
+    
+    # Initialize and load Fleet
+    from app.fleet import FleetLoader
+    fleet_loader = FleetLoader(strategy_engine)
+    await fleet_loader.load_fleet()
 
 @app.on_event("shutdown")
 async def shutdown_event():

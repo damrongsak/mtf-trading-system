@@ -53,7 +53,7 @@ graph TD
 - **Tech Stack**: Python, FastAPI.
 - **Responsibility**: Risk management and trade execution. Enforces strict risk rules (e.g., $10 max risk, 0.01 min lot).
 - **Key Features**: 
-    - **Stateless Architecture**: Accepts broker configuration per request.
+    - **Stateless Router**: Accepts broker configuration/IDs per request, agnostic to User/Fund.
     - **Dynamic Adapters**: Uses `BrokerFactory` to instantiate OANDA/Binance adapters on the fly.
     - `can_execute` guardrail, risk calculation, trade logging.
 
@@ -65,8 +65,9 @@ graph TD
     - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
     - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
     - **Market Analysis API**: Real-time calculation of technical indicators (RSI, MACD, etc.) for frontend visualization.
-    - **Multi-User Strategy Engine**:
+    - **Multi-Tenant Fleet Manager**:
         - **Registry**: Manages "Strategy Templates" (code) vs "Strategy Instances" (DB config).
+        - **Fleet Looper**: Iterates through thousands of active strategies per market tick.
         - **Shared Market Data**: Deduplicates tick processing to minimize RAM usage.
         - **Redis Caching**: Caches user configurations to minimize DB latency.
         - **Credential Isolation**: Never loads API keys; delegates all execution to Execution Service via `broker_account_id`.
