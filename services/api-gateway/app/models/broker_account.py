@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -8,8 +8,8 @@ from app.database import Base
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    fund_id = Column(UUID(as_uuid=True), nullable=False)
     
     broker_name = Column(String(50), nullable=False) # e.g., "OANDA", "BINANCE"
     account_name = Column(String(100), nullable=False) # User-defined alias

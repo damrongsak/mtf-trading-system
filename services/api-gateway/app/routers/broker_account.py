@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.broker_account import BrokerAccount
+from app.models.user_fund import Fund, UserFund
 from app.security import get_current_user
 from app.utils.crypto import encrypt_data, decrypt_data
 from pydantic import BaseModel, Field
@@ -18,6 +19,7 @@ router = APIRouter(
 # --- Schemas ---
 
 class BrokerAccountCreate(BaseModel):
+    fund_id: uuid.UUID
     broker_name: str = Field(..., description="OANDA, BINANCE, etc.")
     account_name: str = Field(..., description="User friendly alias")
     account_number: Optional[str] = None
@@ -33,6 +35,7 @@ class BrokerAccountUpdate(BaseModel):
 
 class BrokerAccountResponse(BaseModel):
     id: uuid.UUID
+    fund_id: uuid.UUID
     broker_name: str
     account_name: str
     account_number: Optional[str] = None
@@ -51,13 +54,25 @@ async def create_account(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Add a new broker account."""
+    """Add a new broker account to a fund."""
+    
+    # Verify User has access to this Fund
+    user_fund = db.query(UserFund).filter(
+        UserFund.user_id == current_user.id,
+        UserFund.fund_id == account.fund_id
+    ).first()
+    
+    if not user_fund:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Not authorized to manage this fund"
+        )
     
     # Encrypt credentials
     encrypted_creds = encrypt_data(account.credentials)
     
     new_account = BrokerAccount(
-        user_id=current_user.id,
+        fund_id=account.fund_id,
         broker_name=account.broker_name.upper(),
         account_name=account.account_name,
         account_number=account.account_number,
@@ -80,9 +95,9 @@ async def list_accounts(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """List all broker accounts for the current user."""
-    accounts = db.query(BrokerAccount).filter(
-        BrokerAccount.user_id == current_user.id
+    """List all broker accounts for funds user has access to."""
+    accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+        UserFund.user_id == current_user.id
     ).all()
     
     return success_response(
@@ -97,13 +112,19 @@ async def update_account(
     current_user = Depends(get_current_user)
 ):
     """Update a broker account."""
-    account = db.query(BrokerAccount).filter(
-        BrokerAccount.id == account_id,
-        BrokerAccount.user_id == current_user.id
-    ).first()
+    account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+
+    # Check permission logic
+    user_fund = db.query(UserFund).filter(
+        UserFund.user_id == current_user.id,
+        UserFund.fund_id == account.fund_id
+    ).first()
+    
+    if not user_fund:
+         raise HTTPException(status_code=403, detail="Not authorized")
         
     if updates.account_name is not None:
         account.account_name = updates.account_name
@@ -131,14 +152,20 @@ async def delete_account(
     current_user = Depends(get_current_user)
 ):
     """Delete a broker account."""
-    account = db.query(BrokerAccount).filter(
-        BrokerAccount.id == account_id,
-        BrokerAccount.user_id == current_user.id
-    ).first()
+    account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
         
+    # Check permission logic
+    user_fund = db.query(UserFund).filter(
+        UserFund.user_id == current_user.id,
+        UserFund.fund_id == account.fund_id
+    ).first()
+    
+    if not user_fund:
+         raise HTTPException(status_code=403, detail="Not authorized")
+         
     db.delete(account)
     db.commit()
     

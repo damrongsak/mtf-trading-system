@@ -1,66 +1,117 @@
-import logging
 import asyncio
-from typing import List
+import logging
+from typing import Dict, List
 from sqlalchemy.orm import Session
-from app.database import get_db_context
-from app.models.strategy import StrategyModel
-from app.engine import StrategyEngine
-from app.schemas import ExecutionMode
+from sqlalchemy import select
+from app.database import SessionLocal
+from app.models.strategy import Strategy
+from app.registry import StrategyRegistry
 
 logger = logging.getLogger(__name__)
 
-class FleetLoader:
-    def __init__(self, engine: StrategyEngine):
-        self.engine = engine
+class FleetManager:
+    """
+    Manages the lifecycle and execution of all active strategies (The Fleet).
+    In-Memory Fleet Architecture (Option B).
+    """
+    _instance = None
+
+    def __init__(self):
+        self.active_strategies: Dict[str, dict] = {} # strategy_id -> context
+        self.is_running = False
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = FleetManager()
+        return cls._instance
 
     async def load_fleet(self):
         """
-        Load all active strategies from the database and start them in the engine.
-        This allows the Fleet to survive restarts and scale.
+        Loads all active strategies from the database into memory.
         """
-        logger.info("FleetLoader: Syncing active strategies from DB...")
+        logger.info("Loading Strategy Fleet...")
+        db: Session = SessionLocal()
         try:
-            with get_db_context() as db:
-                active_strategies = db.query(StrategyModel).filter(StrategyModel.is_active == True).all()
-                
-                if not active_strategies:
-                    logger.info("FleetLoader: No active strategies found in DB.")
-                    return
+            # Fetch active strategies
+            strategies = db.execute(
+                select(Strategy).where(Strategy.is_active == True)
+            ).scalars().all()
 
-                count = 0
-                for strategy_record in active_strategies:
-                    try:
-                        # Extract config and merge with record fields
-                        # We prioritize DB columns over JSON content for ID/Template
-                        config = strategy_record.config_json or {}
-                        
-                        # Normalize ID to string
-                        s_id = str(strategy_record.id)
-                        
-                        # Merge critical fields
-                        config.update({
-                            "id": s_id,
-                            "template_id": strategy_record.template_id,
-                            "broker_account_id": str(strategy_record.broker_account_id),
-                            "risk_settings": strategy_record.risk_settings or {},
-                            "execution_mode": ExecutionMode.AUTO if strategy_record.is_active else ExecutionMode.MANUAL
-                        })
-                        
-                        # Strategy Engine requires 'symbol' and 'timeframe' in config
-                        if "symbol" not in config:
-                            logger.warning(f"Strategy {s_id} ({strategy_record.name}) missing 'symbol' in config. Skipping.")
-                            continue
+            loaded_count = 0
+            for strategy in strategies:
+                try:
+                    # Get the logic function from Registry
+                    # If custom_code exists, we should use DynamicLoader (Future Step)
+                    logic_func = StrategyRegistry.get_strategy(strategy.template_id)
+                    
+                    if not logic_func:
+                        logger.warning(f"Template {strategy.template_id} not found for strategy {strategy.id}")
+                        continue
 
-                        # Start the strategy (idempotent check inside engine)
-                        result = await self.engine.start_strategy(s_id, config)
-                        if result.get("status") == "started":
-                            count += 1
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to load strategy {strategy_record.id}: {e}")
-                
-                logger.info(f"FleetLoader: Successfully loaded {count} strategies.")
-
+                    # Context object (The "State" of the strategy)
+                    context = {
+                        "id": str(strategy.id),
+                        "name": strategy.name,
+                        "fund_id": str(strategy.fund_id),
+                        "broker_account_id": str(strategy.broker_account_id),
+                        "config": strategy.config_json,
+                        "risk_settings": strategy.risk_settings,
+                        "logic": logic_func,
+                        "symbol": strategy.config_json.get("symbol", "XAU/USD"), # Default or from config
+                        "state": {} # For persistent state across ticks if needed
+                    }
+                    
+                    self.active_strategies[str(strategy.id)] = context
+                    loaded_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Failed to load strategy {strategy.id}: {e}")
+            
+            logger.info(f"Fleet Loaded: {loaded_count} active strategies.")
+            
         except Exception as e:
-            logger.error(f"FleetLoader critical error: {e}")
+            logger.error(f"Error loading fleet: {e}")
+        finally:
+            db.close()
+
+    def get_active_symbols(self) -> List[str]:
+        """Returns unique list of symbols tracked by active strategies."""
+        return list(set(ctx["symbol"] for ctx in self.active_strategies.values()))
+
+    async def tick(self, data_manager, symbol_filter: str = None):
+        """
+        Main Loop: Iterates over strategies and executes logic.
+        """
+        if not self.active_strategies:
+            return
+
+        # logger.debug(f"Ticking Fleet for {symbol_filter}...")
+        
+        for strat_id, context in self.active_strategies.items():
+            # Optimization: Only tick strategies for this symbol
+            if symbol_filter and context["symbol"] != symbol_filter:
+                continue
+
+            try:
+                # 1. Prepare State wrapper
+                class StrategyState:
+                    def __init__(self, ctx):
+                        self.config_json = ctx["config"]
+                        self.symbol = ctx["symbol"]
+                        self.id = ctx["id"]
+                        self.broker_account_id = ctx["broker_account_id"]
+                
+                state_obj = StrategyState(context)
+                
+                # 2. Execute Logic
+                result = await context["logic"](state_obj, data_manager)
+                
+                # 3. Handle Result (Signal)
+                if result:
+                    logger.info(f"SIGNAL Generated by {context['name']}: {result}")
+                    # Dispatch to Execution Service logic (or call back to Engine)
+                    # For now we just log, but we should define a callback or dispatch method.
+            except Exception as e:
+                logger.error(f"Error ticking strategy {context['name']}: {e}")
 

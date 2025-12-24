@@ -12,6 +12,7 @@ class StrategyModel(Base):
     broker_account_id = Column(UUID(as_uuid=True), nullable=False)
     config_json = Column(JSONB, nullable=False)
     risk_settings = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    custom_code = Column(String, nullable=True)
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=text("now()"))
     updated_at = Column(DateTime, server_default=text("now()"), onupdate=text("now()"))

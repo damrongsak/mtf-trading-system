@@ -434,9 +434,10 @@ async def startup_event():
     await strategy_engine.start()
     
     # Initialize and load Fleet
-    from app.fleet import FleetLoader
-    fleet_loader = FleetLoader(strategy_engine)
-    await fleet_loader.load_fleet()
+    # Initialize and load Fleet
+    from app.fleet import FleetManager
+    fleet = FleetManager.get_instance()
+    await fleet.load_fleet()
 
 @app.on_event("shutdown")
 async def shutdown_event():

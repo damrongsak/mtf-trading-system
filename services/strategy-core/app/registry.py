@@ -221,6 +221,10 @@ class StrategyRegistry:
     }
 
     @classmethod
+    def get_strategy(cls, template_id: str):
+        return cls._strategies.get(template_id)
+
+    @classmethod
     def get_strategy_logic(cls, template_id: str):
         return cls._strategies.get(template_id)
 

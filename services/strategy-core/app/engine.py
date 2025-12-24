@@ -109,18 +109,9 @@ class StrategyEngine:
                     updated_df = updated_df.iloc[-1000:]
                 market_data_manager.set_data(symbol, updated_df)
             
-            # 2. Iterate Strategies (Concurrent Dispatch)
-            tasks = []
-            for s_id, state in self.active_strategies.items():
-                if state.symbol == symbol and state.timeframe == tf:
-                    # Spawn task for independent strategy execution
-                    tasks.append(asyncio.create_task(self._process_strategy_logic(s_id, state)))
-            
-            if tasks:
-                # Optionally wait for all to complete or let them run in background
-                # For high-frequency, background is better, but for safety we might want to await.
-                # Let's await to prevent runaway tasks if system is overloaded.
-                await asyncio.gather(*tasks, return_exceptions=True)
+            # 2. Iterate Strategies via FleetManager
+            from app.fleet import FleetManager
+            await FleetManager.get_instance().tick(market_data_manager, symbol_filter=symbol)
 
         except Exception as e:
             logger.error(f"Error handling candle event {channel}: {e}")
@@ -148,22 +139,9 @@ class StrategyEngine:
             # 1. Update Manager
             market_data_manager.update_tick(symbol, price, timestamp) 
             
-            # 2. Iterate Strategies (Concurrent Dispatch)
-            tasks = []
-            for s_id, state in self.active_strategies.items():
-                if state.symbol == symbol:
-                    # Filter by timeframe? 
-                    # If this is a TICK, and strategy wants M15...
-                    # We should only trigger if M15 candle closed?
-                    # OR we trigger every tick and let Strategy decide "Not enough data" or "Waiting for close".
-                    # For HFT/Scalping, every tick matters.
-                    # For SMC (Order Blocks), we need closed candles.
-                    
-                    # Implementation: Trigger Logic. Logic function checks "is_candle_closed"?
-                    tasks.append(asyncio.create_task(self._process_strategy_logic(s_id, state)))
-            
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+            # 2. Tick Fleet
+            from app.fleet import FleetManager
+            await FleetManager.get_instance().tick(market_data_manager, symbol_filter=symbol)
 
         except Exception as e:
             logger.error(f"Error handling tick {data.get('instrument')}: {e}")

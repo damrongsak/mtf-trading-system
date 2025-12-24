@@ -112,6 +112,10 @@ entities:
         required: true
         default: "{}"
         description: "Instance-specific risk configuration (e.g., max_risk_usd)"
+      - name: custom_code
+        type: text
+        nullable: true
+        description: "User-defined Python code for dynamic strategies"
       - name: is_active
         type: boolean
         default: false
@@ -253,15 +257,16 @@ entities:
     description: "User-specific broker account credentials and configuration"
     table_name: "broker_accounts"
     indexes:
-      - fields: ["user_id"]
+      - fields: ["fund_id"]
     fields:
       - name: id
         type: uuid
         primary_key: true
-      - name: user_id
+      - name: fund_id
         type: uuid
-        foreign_key: "users.id"
+        foreign_key: "funds.id"
         required: true
+        description: "The Fund that owns this account"
       - name: broker_name
         type: string
         required: true
