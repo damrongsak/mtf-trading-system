@@ -50,7 +50,8 @@ async def get_account_summary(
             
         account = query.first()
         if not account:
-             raise HTTPException(status_code=404, detail="No active broker account found")
+            raise HTTPException(status_code=404, detail="No active broker account found")
+
 
         config = _get_broker_config(account)
         data = await execution_client.get_account_summary(config)
@@ -79,7 +80,8 @@ async def place_order(
         
         account = query.first()
         if not account:
-             raise HTTPException(status_code=404, detail="Broker account not found")
+            raise HTTPException(status_code=404, detail="Broker account not found")
+
              
         config = _get_broker_config(account)
         
@@ -180,42 +182,42 @@ async def get_trades(
     """
     Get trades filtered by status, symbol, and date range.
     """
-    try:
-        query = db.query(Trade) # Ideally filter by user trades if Trade has user_id/account link
-        # Trade has user_id, so that's fine.
-        query = query.filter(Trade.user_id == current_user.id)
+    # Filter trades by user's funds (via BrokerAccount)
+    query = db.query(Trade).join(BrokerAccount).join(Fund).join(UserFund).filter(
+        UserFund.user_id == current_user.id
+    )
 
-        # Status Filter
-        if status != "ALL":
-            try:
-                trade_status = TradeStatus[status.upper()]
-                query = query.filter(Trade.status == trade_status)
-                
-                # Sync with Oanda if requesting OPEN trades
-                if trade_status == TradeStatus.OPEN:
-                    # Iterate all active accounts for this user
-                    accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
-                        UserFund.user_id == current_user.id, 
-                        BrokerAccount.is_active == True
-                    ).all()
+    # Status Filter
+    if status != "ALL":
+        try:
+            trade_status = TradeStatus[status.upper()]
+            query = query.filter(Trade.status == trade_status)
+            
+            # Sync with Oanda if requesting OPEN trades
+            if trade_status == TradeStatus.OPEN:
+                # Iterate all active accounts for this user
+                accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+                    UserFund.user_id == current_user.id, 
+                    BrokerAccount.is_active == True
+                ).all()
                     
-                    async def sync_account(acc):
-                        try:
-                            config = _get_broker_config(acc)
-                            oanda_trades = await execution_client.get_open_trades(config)
-                            # Sync operations in TradeService are synchronous DB writes, which is fine within thread pool usually,
-                            # but here we are in async path. 
-                            # Ideally TradeService.sync_open_trades should be async or run in threadpool if heavy?
-                            # For now, keep as is.
-                            TradeService.sync_open_trades(db, oanda_trades, current_user, broker_account_id=acc.id)
-                        except Exception as sync_err:
-                            logger.error(f"Failed to sync trades for account {acc.account_name}: {sync_err}", exc_info=True)
+                async def sync_account(acc):
+                    try:
+                        config = _get_broker_config(acc)
+                        oanda_trades = await execution_client.get_open_trades(config)
+                        # Sync operations in TradeService are synchronous DB writes, which is fine within thread pool usually,
+                        # but here we are in async path. 
+                        # Ideally TradeService.sync_open_trades should be async or run in threadpool if heavy?
+                        # For now, keep as is.
+                        TradeService.sync_open_trades(db, oanda_trades, current_user, broker_account_id=acc.id)
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync trades for account {acc.account_name}: {sync_err}", exc_info=True)
 
-                    if accounts:
-                        await asyncio.gather(*[sync_account(acc) for acc in accounts])
+                if accounts:
+                    await asyncio.gather(*[sync_account(acc) for acc in accounts])
                             
-            except KeyError:
-                raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+        except KeyError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
         # Additional Filters
         if symbol:
@@ -253,11 +255,7 @@ async def get_trades(
             message="Trades retrieved successfully"
         )
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching trades: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/accounts")
 async def get_accounts(
@@ -295,8 +293,9 @@ async def place_smart_order(
         # We could valid user ownership of broker_account_id here, but Execution Service also checks.
         # However, checking here is better for security (Tenant isolation).
         
+        account_id = payload.get("broker_account_id")
         if not account_id:
-             raise HTTPException(status_code=400, detail="broker_account_id is required")
+            raise HTTPException(status_code=400, detail="broker_account_id is required")
              
         # Verify ownership (via Fund)
         account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
@@ -318,7 +317,7 @@ async def place_smart_order(
         # We need mapping.
         
         if result and "id" in result:
-             # Construct data for TradeService
+            # Construct data for TradeService
              # We need to reconstruct 'execution_result' format that TradeService expects?
              # TradeService.create_trade_from_execution expects:
              # execution_data = { "id":..., "instrument":..., "price":..., "units":... } matches OrderResponse.
