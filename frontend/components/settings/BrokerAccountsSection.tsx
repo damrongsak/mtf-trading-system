@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle } from "lucide-react";
-import { getBrokerAccounts, createBrokerAccount, deleteBrokerAccount, BrokerAccount } from '@/lib/api/accounts';
+import { getAccounts, createAccount, deleteAccount } from '@/lib/api/accounts';
+import { BrokerAccount } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 
 export function BrokerAccountsSection() {
@@ -37,7 +38,7 @@ export function BrokerAccountsSection() {
     const fetchAccounts = async () => {
         try {
             setLoading(true);
-            const data = await getBrokerAccounts();
+            const data = await getAccounts();
             setAccounts(data);
         } catch (err) {
             console.error(err);
@@ -54,7 +55,7 @@ export function BrokerAccountsSection() {
         setSuccess(null);
 
         try {
-            await createBrokerAccount({
+            await createAccount({
                 broker_name: brokerName,
                 account_name: accountName,
                 account_number: accountNumber,
@@ -87,7 +88,7 @@ export function BrokerAccountsSection() {
         setSuccess(null);
         
         try {
-            await deleteBrokerAccount(deleteId);
+            await deleteAccount(deleteId);
             setAccounts(prev => prev.filter(a => a.id !== deleteId));
             setSuccess("Account deleted successfully");
         } catch (err) {

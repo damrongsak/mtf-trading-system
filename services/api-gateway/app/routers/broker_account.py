@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.broker_account import BrokerAccount
 from app.models.user_fund import Fund, UserFund
+from app.models.user_preferences import UserPreferences
 from app.security import get_current_user
 from app.utils.crypto import encrypt_data, decrypt_data
 from pydantic import BaseModel, Field
@@ -19,7 +20,7 @@ router = APIRouter(
 # --- Schemas ---
 
 class BrokerAccountCreate(BaseModel):
-    fund_id: uuid.UUID
+    fund_id: Optional[uuid.UUID] = None
     broker_name: str = Field(..., description="OANDA, BINANCE, etc.")
     account_name: str = Field(..., description="User friendly alias")
     account_number: Optional[str] = None
@@ -56,10 +57,28 @@ async def create_account(
 ):
     """Add a new broker account to a fund."""
     
+    target_fund_id = account.fund_id
+    
+    if not target_fund_id:
+        # Try identifying default fund
+        prefs = db.query(UserPreferences).filter(UserPreferences.user_id == current_user.id).first()
+        if prefs and prefs.default_fund_id:
+            target_fund_id = prefs.default_fund_id
+        else:
+            # Fallback to first available fund
+            first_access = db.query(UserFund).filter(UserFund.user_id == current_user.id).first()
+            if first_access:
+                target_fund_id = first_access.fund_id
+            else:
+                 raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="No fund found. Please create a fund first."
+                )
+
     # Verify User has access to this Fund
     user_fund = db.query(UserFund).filter(
         UserFund.user_id == current_user.id,
-        UserFund.fund_id == account.fund_id
+        UserFund.fund_id == target_fund_id
     ).first()
     
     if not user_fund:
@@ -72,10 +91,10 @@ async def create_account(
     encrypted_creds = encrypt_data(account.credentials)
     
     new_account = BrokerAccount(
-        fund_id=account.fund_id,
+        fund_id=target_fund_id,
         broker_name=account.broker_name.upper(),
         account_name=account.account_name,
-        account_number=account.account_number,
+        account_number=account.account_number if account.account_number else None,
         credentials_encrypted=encrypted_creds,
         is_live=account.is_live,
         is_active=True

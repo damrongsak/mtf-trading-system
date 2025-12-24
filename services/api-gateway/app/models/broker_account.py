@@ -8,7 +8,7 @@ from app.database import Base
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
     
     broker_name = Column(String(50), nullable=False) # e.g., "OANDA", "BINANCE"
