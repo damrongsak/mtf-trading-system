@@ -823,6 +823,44 @@ entities:
         default: "now()"
         on_update: "now()"
 
+  SavedStrategy:
+    description: "User-defined strategy library for storage and sharing"
+    table_name: "saved_strategies"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["is_public"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+      - name: description
+        type: text
+        nullable: true
+      - name: code
+        type: text
+        required: true
+      - name: parameters
+        type: jsonb
+        default: "{}"
+      - name: is_public
+        type: boolean
+        default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
 relationships:
   - from: Trade
     to: StrategyRun

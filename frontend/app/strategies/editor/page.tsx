@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check } from 'lucide-react';
+import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
-import { UserPreferences } from '@/lib/api/types';
+import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSavedStrategy } from '@/lib/api/saved_strategies';
+import { UserPreferences, SavedStrategy } from '@/lib/api/types';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
-// Map frontend/legacy timeframes to backend standard (DB uses uppercase)
+// ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
 const TIMEFRAME_MAP: Record<string, string> = {
     '1m': 'M1', 'm1': 'M1',
     '5m': 'M5', 'm5': 'M5',
@@ -55,6 +57,63 @@ def strategy(data):
     return entries, exits
 `;
 
+interface SaveModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (name: string, description: string, isPublic: boolean) => void;
+    initialName?: string;
+    initialDescription?: string;
+    initialIsPublic?: boolean;
+    isLoading?: boolean;
+}
+
+function SaveModal({ isOpen, onClose, onConfirm, initialName = '', initialDescription = '', initialIsPublic = false, isLoading = false }: SaveModalProps) {
+    const [name, setName] = useState(initialName);
+    const [description, setDescription] = useState(initialDescription);
+    const [isPublic, setIsPublic] = useState(initialIsPublic);
+
+    useEffect(() => {
+        if (isOpen) {
+            setName(initialName);
+            setDescription(initialDescription);
+            setIsPublic(initialIsPublic);
+        }
+    }, [isOpen, initialName, initialDescription, initialIsPublic]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-slate-800">
+                    <h3 className="text-lg font-bold text-slate-100">Save Strategy</h3>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="My Super Strategy" className="bg-slate-900 border-slate-700" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="desc">Description</Label>
+                        <Input id="desc" value={description} onChange={e => setDescription(e.target.value)} placeholder="Short description..." className="bg-slate-900 border-slate-700" />
+                    </div>
+                </div>
+                <div className="px-6 py-4 bg-slate-900/50 flex justify-end gap-3 border-t border-slate-800">
+                    <Button variant="ghost" onClick={onClose} disabled={isLoading}>Cancel</Button>
+                    <Button 
+                        onClick={() => onConfirm(name, description, isPublic)} 
+                        disabled={isLoading || !name.trim()} 
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function StrategyEditor() {
     interface LogEntry {
         id: string;
@@ -67,7 +126,15 @@ export default function StrategyEditor() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [title, setTitle] = useState("My Custom Strategy");
-    const [isConfigOpen, setIsConfigOpen] = useState(true);
+    const [description, setDescription] = useState("");
+    
+    // Change Detection State
+    const [lastSavedCode, setLastSavedCode] = useState(DEFAULT_CODE);
+    const [lastSavedTitle, setLastSavedTitle] = useState("My Custom Strategy");
+    
+    // UI State
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [sidebarTab, setSidebarTab] = useState<'config' | 'library'>('config');
     const [isCopied, setIsCopied] = useState(false);
     
     // Visualization State
@@ -84,16 +151,25 @@ export default function StrategyEditor() {
     const [fees, setFees] = useState(0.0001);
     const [slippage, setSlippage] = useState(0.0001);
 
+    // Strategy Library State
+    const [savedStrategies, setSavedStrategies] = useState<SavedStrategy[]>([]);
+    const [currentStrategyId, setCurrentStrategyId] = useState<string | null>(null);
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Confirmation Modal States
+    const [showLoadConfirm, setShowLoadConfirm] = useState(false);
+    const [pendingLoadStrategy, setPendingLoadStrategy] = useState<SavedStrategy | null>(null);
+
     useEffect(() => {
         const fetchPreferences = async () => {
             try {
                 const prefs = await getPreferences();
                 setPreferences(prefs);
                 if (prefs.default_symbol) {
-                     // Normalize symbol XAU/USD -> XAU_USD
                      setSymbol(prefs.default_symbol.replace('/', '_'));
                 }
-                if (prefs.preferred_timeframes && prefs.preferred_timeframes.length > 0) {
+                if (prefs.preferred_timeframes?.length > 0) {
                     setTimeframe(NORMALIZE_TF(prefs.preferred_timeframes[0]));
                 }
             } catch (error) {
@@ -101,7 +177,18 @@ export default function StrategyEditor() {
             }
         };
         fetchPreferences();
+        fetchStrategies();
     }, []);
+
+    const fetchStrategies = async () => {
+        try {
+            const strats = await getSavedStrategies();
+            setSavedStrategies(strats);
+        } catch (error) {
+            console.error("Failed to fetch strategies:", error);
+            addLog('ERROR', "Failed to load strategy library.");
+        }
+    };
 
     const addLog = (level: LogEntry['level'], message: string) => {
         setLogs(prev => [{
@@ -116,19 +203,14 @@ export default function StrategyEditor() {
         setIsRunning(true);
         addLog('INFO', "Starting backtest simulation...");
         addLog('DEBUG', `Parameters: ${symbol} | ${timeframe} | ${startDate} to ${endDate}`);
-        addLog('DEBUG', `Capital: $${initialCapital} | Fees: ${fees} | Slippage: ${slippage}`);
         
         try {
-            // Validate dates
-            if (!startDate || !endDate) {
-                throw new Error("Please select both start and end dates.");
-            }
+            if (!startDate || !endDate) throw new Error("Please select both start and end dates.");
 
             const payload = {
                 code: code,
                 symbol: symbol,
                 timeframe: timeframe,
-                // Append time to ensure valid ISO 8601 for backend
                 start_date: new Date(startDate).toISOString(), 
                 end_date: new Date(endDate).toISOString(),
                 initial_capital: initialCapital,
@@ -137,49 +219,137 @@ export default function StrategyEditor() {
             };
 
             addLog('INFO', "Sending code to server...");
-            addLog('DEBUG', `Request Payload: ${JSON.stringify(payload)}`);
-
             const res = await runCustomBacktest(payload);
             
             addLog('SUCCESS', "Backtest Complete!");
             addLog('INFO', `----------------------------------------`);
             addLog('INFO', `Total Return: $${res.metrics.total_return.toFixed(2)} (${res.metrics.total_return_percent.toFixed(2)}%)`);
             addLog('INFO', `Win Rate:     ${res.metrics.win_rate.toFixed(1)}%`);
-            addLog('INFO', `Sharpe Ratio: ${res.metrics.sharpe_ratio?.toFixed(2)}`);
             addLog('INFO', `Max Drawdown: $${res.metrics.max_drawdown.toFixed(2)} (${res.metrics.max_drawdown_percent.toFixed(2)}%)`);
-            addLog('INFO', `Total Trades: ${res.metrics.total_trades} (W: ${res.metrics.winning_trades} / L: ${res.metrics.losing_trades})`);
-            addLog('INFO', `Data Points:  ${res.metrics.candle_count || 0}`);
+            addLog('INFO', `Total Trades: ${res.metrics.total_trades}`);
             addLog('INFO', `----------------------------------------`);
-            addLog('DEBUG', `Server Response ID: ${res.id} | Status: ${res.status}`);
             
-            if (res.trades && res.trades.length > 0) {
-                 const lastTrade = res.trades[res.trades.length - 1];
-                 addLog('INFO', `Last Trade: ${lastTrade.direction} @ ${lastTrade.entry_price.toFixed(4)} (${lastTrade.exit_time})`);
-            }
-
             if (res.plot_json) {
                 setPlotJson(res.plot_json);
                 setActiveTab('chart');
-                addLog('SUCCESS', "Interactive Chart Generated. Switching view...");
-            } else {
-                addLog('INFO', "No chart data returned (or chart generation failed).");
+                addLog('SUCCESS', "Interactive Chart Generated.");
             }
             
         } catch (error) {
-
             addLog('ERROR', `Execution failed: ${(error as any).message || error}`);
         } finally {
             setIsRunning(false);
         }
     };
 
-    const handleSave = async () => {
-        alert("Save functionality coming in next backend update!");
+    const handleSaveClick = () => {
+        setIsSaveModalOpen(true);
     };
 
-    const handleClearLogs = () => {
-        setLogs([]);
+    const handleConfirmSave = async (name: string, desc: string, isPublic: boolean) => {
+        setIsSaving(true);
+        try {
+            const payload = {
+                name,
+                description: desc,
+                code,
+                parameters: {
+                    symbol, timeframe, initialCapital, fees, slippage
+                },
+                is_public: isPublic
+            };
+
+            if (currentStrategyId) {
+                const updated = await updateSavedStrategy(currentStrategyId, payload);
+                addLog('SUCCESS', `Strategy "${updated.name}" updated successfully.`);
+                // update local list
+                setSavedStrategies(prev => prev.map(s => s.id === updated.id ? updated : s));
+                setTitle(updated.name);
+                setDescription(updated.description || "");
+            } else {
+                const created = await createSavedStrategy(payload);
+                addLog('SUCCESS', `Strategy "${created.name}" created successfully.`);
+                setSavedStrategies(prev => [created, ...prev]);
+                setCurrentStrategyId(created.id);
+                setTitle(created.name);
+                setDescription(created.description || "");
+            }
+            // Update last saved state
+            setLastSavedCode(code);
+            setLastSavedTitle(name);
+            setIsSaveModalOpen(false);
+        } catch (err) {
+            addLog('ERROR', `Failed to save strategy: ${(err as any).message}`);
+        } finally {
+            setIsSaving(false);
+        }
     };
+
+    const performLoadStrategy = (strategy: SavedStrategy) => {
+        setCode(strategy.code);
+        setTitle(strategy.name);
+        setDescription(strategy.description || "");
+        setCurrentStrategyId(strategy.id);
+        
+        // Load params if available
+        if (strategy.parameters) {
+             if (strategy.parameters.symbol) setSymbol(strategy.parameters.symbol);
+             if (strategy.parameters.timeframe) setTimeframe(strategy.parameters.timeframe);
+             if (strategy.parameters.initialCapital) setInitialCapital(strategy.parameters.initialCapital);
+        }
+        addLog('INFO', `Loaded strategy: ${strategy.name}`);
+        
+        // Update last saved state
+        setLastSavedCode(strategy.code);
+        setLastSavedTitle(strategy.name);
+        
+        setShowLoadConfirm(false);
+        setPendingLoadStrategy(null);
+    };
+
+    const handleLoadStrategy = (strategy: SavedStrategy) => {
+        // Check if current editor content is different from what was last saved/loaded
+        const isDirty = code !== lastSavedCode || title !== lastSavedTitle;
+        
+        // Only ignore if it is exactly the same strategy ID (reloading same strat) - purely optional optimization
+        // actually, if I modified it, I want to be warned even if reloading same ID.
+        
+        if (isDirty) {
+             setPendingLoadStrategy(strategy);
+             setShowLoadConfirm(true);
+             return;
+        }
+        performLoadStrategy(strategy);
+    };
+
+    const handleDeleteStrategy = async (id: string, name: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+        
+        try {
+            await deleteSavedStrategy(id);
+            setSavedStrategies(prev => prev.filter(s => s.id !== id));
+            if (currentStrategyId === id) {
+                setCurrentStrategyId(null);
+                setTitle("My Custom Strategy");
+            }
+            addLog('SUCCESS', `Strategy "${name}" deleted.`);
+        } catch (err) {
+            addLog('ERROR', `Failed to delete: ${(err as any).message}`);
+        }
+    };
+
+    const handleNewStrategy = () => {
+        if (code !== DEFAULT_CODE && !confirm("Start new strategy? Unsaved changes will be lost.")) return;
+        setCode(DEFAULT_CODE);
+        setTitle("New Strategy");
+        setDescription("");
+        setCurrentStrategyId(null);
+        setPlotJson(null);
+        addLog('INFO', "Created new strategy draft.");
+    };
+
+    const handleClearLogs = () => setLogs([]);
 
     const handleCopyLogs = () => {
         const text = logs.map(l => `[${l.timestamp.toISOString()}] [${l.level}] ${l.message}`).join('\n');
@@ -190,33 +360,76 @@ export default function StrategyEditor() {
 
     return (
         <div className="container mx-auto p-4 space-y-4 text-slate-100 min-h-[calc(100vh-4rem)] flex flex-col">
+            {/* Save Strategy Modal */}
+            <SaveModal 
+                isOpen={isSaveModalOpen} 
+                onClose={() => setIsSaveModalOpen(false)} 
+                onConfirm={handleConfirmSave} 
+                initialName={title}
+                initialDescription={description}
+                initialIsPublic={false}
+                isLoading={isSaving}
+            />
+            
+            {/* Load Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showLoadConfirm}
+                onClose={() => setShowLoadConfirm(false)}
+                onConfirm={() => pendingLoadStrategy && performLoadStrategy(pendingLoadStrategy)}
+                title="Unsaved Changes"
+                message="You have unsaved changes in your current strategy. Loading a new strategy will overwrite them. Are you sure you want to continue?"
+                confirmText="Load Strategy"
+                variant="danger"
+            />
+
             {/* Header */}
             <div className="flex justify-between items-center bg-slate-950/50 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
-                <div>
-                     <input 
-                        type="text" 
-                        value={title} 
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="bg-transparent text-2xl font-bold text-emerald-400 focus:outline-none w-full placeholder-emerald-400/50"
-                        placeholder="Strategy Name"
-                    />
-                    <p className="text-slate-400 text-sm">Write, test, and deploy custom Python algorithms.</p>
+                <div className="flex-1">
+                     <div className="flex items-center gap-2">
+                        <input 
+                            type="text" 
+                            value={title} 
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="bg-transparent text-2xl font-bold text-emerald-400 focus:outline-none placeholder-emerald-400/50 min-w-[200px]"
+                            placeholder="Strategy Name"
+                        />
+                        {currentStrategyId && <span className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Saved</span>}
+                     </div>
+                    <p className="text-slate-400 text-sm truncate max-w-xl">{description || "Write, test, and deploy custom Python algorithms."}</p>
                 </div>
                 <div className="flex gap-3">
-                     <Button 
-                        onClick={() => setIsConfigOpen(!isConfigOpen)} 
-                        variant="ghost" 
-                        size="icon"
-                        className={isConfigOpen ? "text-emerald-400 bg-emerald-400/10" : "text-slate-400"}
-                    >
-                        <Settings2 className="h-5 w-5" />
-                    </Button>
+                     <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 mr-2">
+                        <Button 
+                            onClick={() => { setIsSidebarOpen(true); setSidebarTab('config'); }} 
+                            variant="ghost" 
+                            size="sm"
+                            className={`h-8 gap-2 ${isSidebarOpen && sidebarTab === 'config' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400'}`}
+                        >
+                            <Settings2 className="h-4 w-4" />
+                            Config
+                        </Button>
+                        <Button 
+                            onClick={() => { setIsSidebarOpen(true); setSidebarTab('library'); }} 
+                            variant="ghost" 
+                            size="sm"
+                            className={`h-8 gap-2 ${isSidebarOpen && sidebarTab === 'library' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400'}`}
+                        >
+                            <BookOpen className="h-4 w-4" />
+                            Library
+                        </Button>
+                     </div>
+
                     <div className="h-8 w-[1px] bg-slate-700 mx-1" />
+                    
+                    <Button onClick={handleNewStrategy} variant="ghost" title="New Strategy">
+                        <Plus className="h-5 w-5" />
+                    </Button>
+
                     <Button onClick={handleRun} disabled={isRunning} variant="outline" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400">
                         {isRunning ? <Loader2 className="animate-spin h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        Run Backtest
+                        Run
                     </Button>
-                    <Button onClick={handleSave} className="gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-900/20">
+                    <Button onClick={handleSaveClick} className="gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-900/20">
                         <Save className="h-4 w-4" />
                         Save
                     </Button>
@@ -280,57 +493,27 @@ export default function StrategyEditor() {
                                 Console Output
                             </CardTitle>
                             <div className="flex gap-1">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10"
-                                    onClick={handleCopyLogs}
-                                    title="Copy Logs"
-                                >
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10" onClick={handleCopyLogs} title="Copy Logs">
                                     {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                                 </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6 text-slate-500 hover:text-red-400 hover:bg-red-400/10"
-                                    onClick={handleClearLogs}
-                                    title="Clear Logs"
-                                >
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-500 hover:text-red-400 hover:bg-red-400/10" onClick={handleClearLogs} title="Clear Logs">
                                     <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                             </div>
                         </CardHeader>
 
                         <CardContent className="p-4 flex-1 font-mono text-xs overflow-auto space-y-2">
-                            {isRunning && (
-                                <div className="text-emerald-500/50 animate-pulse mb-2">
-                                    Running...
-                                </div>
-                            )}
-                            {logs.length === 0 && !isRunning && (
-                                <span className="text-slate-600 italic">Ready to execute...</span>
-                            )}
+                            {isRunning && <div className="text-emerald-500/50 animate-pulse mb-2">Running...</div>}
+                            {logs.length === 0 && !isRunning && <span className="text-slate-600 italic">Ready to execute...</span>}
                             {logs.map((log) => (
-                                <div 
-                                    key={log.id} 
-                                    className="flex gap-2 items-start animate-in fade-in slide-in-from-top-1 duration-300"
-                                >
+                                <div key={log.id} className="flex gap-2 items-start animate-in fade-in slide-in-from-top-1 duration-300">
                                     <span className="text-slate-600 shrink-0 select-none">
                                         {log.timestamp.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                     </span>
-                                    <span className={`
-                                        shrink-0 font-bold px-1 rounded select-none
-                                        ${log.level === 'INFO' ? 'text-blue-400 bg-blue-400/10' : ''}
-                                        ${log.level === 'DEBUG' ? 'text-slate-400 bg-slate-400/10' : ''}
-                                        ${log.level === 'SUCCESS' ? 'text-emerald-400 bg-emerald-400/10' : ''}
-                                        ${log.level === 'ERROR' ? 'text-red-400 bg-red-400/10' : ''}
-                                    `}>
+                                    <span className={`shrink-0 font-bold px-1 rounded select-none ${log.level === 'INFO' ? 'text-blue-400 bg-blue-400/10' : log.level === 'DEBUG' ? 'text-slate-400 bg-slate-400/10' : log.level === 'SUCCESS' ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'}`}>
                                         {log.level}
                                     </span>
-                                    <span className={`
-                                        break-all whitespace-pre-wrap
-                                        ${log.level === 'ERROR' ? 'text-red-300' : 'text-slate-300'}
-                                    `}>
+                                    <span className={`break-all whitespace-pre-wrap ${log.level === 'ERROR' ? 'text-red-300' : 'text-slate-300'}`}>
                                         {log.message}
                                     </span>
                                 </div>
@@ -339,106 +522,121 @@ export default function StrategyEditor() {
                     </Card>
                 </div>
 
-                {/* Configuration Sidebar */}
+                {/* Right Sidebar (Config & Library) */}
                 <div 
                     className={`
                         bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl transition-all duration-300 ease-in-out overflow-hidden flex flex-col
-                        ${isConfigOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 p-0 border-0'}
+                        ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 p-0 border-0'}
                     `}
                 >
-                    <div className="p-4 border-b border-slate-800">
-                        <h3 className="font-semibold text-slate-200">Configuration</h3>
+                    <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                        <h3 className="font-semibold text-slate-200">
+                            {sidebarTab === 'config' ? 'Configuration' : 'Strategy Library'}
+                        </h3>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-500" onClick={() => setIsSidebarOpen(false)}>
+                            <div className="h-1 w-4 bg-slate-600 rounded"></div>
+                        </Button>
                     </div>
                     
-                    <div className="p-4 space-y-6 overflow-y-auto flex-1">
-                        {/* Symbol & Timeframe */}
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs text-slate-400">Symbol</Label>
-                                <Select value={symbol} onValueChange={setSymbol}>
-                                    <SelectTrigger className="bg-slate-900 border-slate-700">
-                                        <SelectValue placeholder="Select symbol" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(preferences?.supported_symbols || ["XAU_USD", "EUR_USD", "BTC_USD"]).map((s) => (
-                                            <SelectItem key={s} value={s.replace('/', '_')}>{s.replace('_', '/')}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs text-slate-400">Timeframe</Label>
-                                <Select value={timeframe} onValueChange={setTimeframe}>
-                                    <SelectTrigger className="bg-slate-900 border-slate-700">
-                                        <SelectValue placeholder="Select timeframe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {(preferences?.preferred_timeframes || ["M1", "M5", "M15", "H1", "H4", "D"]).map((tf) => {
-                                            const normalized = NORMALIZE_TF(tf);
-                                            return <SelectItem key={tf} value={normalized}>{normalized}</SelectItem>;
-                                        })}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* Date Range */}
-                        <div className="space-y-4 pt-4 border-t border-slate-800">
-                             <div className="space-y-2">
-                                <Label className="text-xs text-slate-400">Start Date</Label>
-                                <Input 
-                                    type="date" 
-                                    value={startDate} 
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="bg-slate-900 border-slate-700"
-                                />
-                            </div>
-                             <div className="space-y-2">
-                                <Label className="text-xs text-slate-400">End Date</Label>
-                                <Input 
-                                    type="date" 
-                                    value={endDate} 
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="bg-slate-900 border-slate-700"
-                                />
-                            </div>
-                        </div>
-
-                         {/* Capital & Fees */}
-                         <div className="space-y-4 pt-4 border-t border-slate-800">
-                             <div className="space-y-2">
-                                <Label className="text-xs text-slate-400">Initial Capital ($)</Label>
-                                <Input 
-                                    type="number" 
-                                    value={initialCapital} 
-                                    onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                    className="bg-slate-900 border-slate-700"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-slate-400">Fees (%)</Label>
-                                    <Input 
-                                        type="number" 
-                                        step="0.0001"
-                                        value={fees} 
-                                        onChange={(e) => setFees(Number(e.target.value))}
-                                        className="bg-slate-900 border-slate-700"
-                                    />
+                    <div className="flex-1 overflow-y-auto">
+                        {sidebarTab === 'config' ? (
+                            <div className="p-4 space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-slate-400">Symbol</Label>
+                                        <Select value={symbol} onValueChange={setSymbol}>
+                                            <SelectTrigger className="bg-slate-900 border-slate-700"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {(preferences?.supported_symbols || ["XAU_USD", "EUR_USD", "BTC_USD"]).map((s) => (
+                                                    <SelectItem key={s} value={s.replace('/', '_')}>{s.replace('_', '/')}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-slate-400">Timeframe</Label>
+                                        <Select value={timeframe} onValueChange={setTimeframe}>
+                                            <SelectTrigger className="bg-slate-900 border-slate-700"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {(preferences?.preferred_timeframes || ["M1", "M5", "M15", "H1", "H4", "D"]).map((tf) => {
+                                                    const normalized = NORMALIZE_TF(tf);
+                                                    return <SelectItem key={tf} value={normalized}>{normalized}</SelectItem>;
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-slate-400">Slippage (%)</Label>
-                                    <Input 
-                                        type="number" 
-                                        step="0.0001"
-                                        value={slippage} 
-                                        onChange={(e) => setSlippage(Number(e.target.value))}
-                                        className="bg-slate-900 border-slate-700"
-                                    />
+
+                                <div className="space-y-4 pt-4 border-t border-slate-800">
+                                     <div className="space-y-2">
+                                        <Label className="text-xs text-slate-400">Start Date</Label>
+                                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-slate-900 border-slate-700" />
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label className="text-xs text-slate-400">End Date</Label>
+                                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-slate-900 border-slate-700" />
+                                    </div>
+                                </div>
+
+                                 <div className="space-y-4 pt-4 border-t border-slate-800">
+                                     <div className="space-y-2">
+                                        <Label className="text-xs text-slate-400">Initial Capital ($)</Label>
+                                        <Input type="number" value={initialCapital} onChange={(e) => setInitialCapital(Number(e.target.value))} className="bg-slate-900 border-slate-700" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-slate-400">Fees (%)</Label>
+                                            <Input type="number" step="0.0001" value={fees} onChange={(e) => setFees(Number(e.target.value))} className="bg-slate-900 border-slate-700" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-slate-400">Slippage (%)</Label>
+                                            <Input type="number" step="0.0001" value={slippage} onChange={(e) => setSlippage(Number(e.target.value))} className="bg-slate-900 border-slate-700" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        ) : (
+                            // Library Tab
+                            <div className="p-4 space-y-4">
+                                {savedStrategies.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-500">
+                                        <p>No saved strategies found.</p>
+                                        <Button variant="link" onClick={() => setSidebarTab('config')} className="text-emerald-400">Create one?</Button>
+                                    </div>
+                                ) : (
+                                    savedStrategies.map(strat => (
+                                        <div 
+                                            key={strat.id} 
+                                            onClick={() => handleLoadStrategy(strat)}
+                                            className={`
+                                                group p-3 rounded-lg border cursor-pointer hover:border-emerald-500/50 hover:bg-slate-900 transition-all
+                                                ${currentStrategyId === strat.id ? 'border-emerald-500 bg-slate-900' : 'border-slate-800 bg-slate-950'}
+                                            `}
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className={`font-medium text-sm ${currentStrategyId === strat.id ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                                    {strat.name}
+                                                </h4>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                     <button 
+                                                        className="text-slate-500 hover:text-red-400 p-0.5"
+                                                        onClick={(e) => handleDeleteStrategy(strat.id, strat.name, e)}
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                     </button>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-slate-500 line-clamp-2">{strat.description || "No description"}</p>
+                                            <div className="mt-2 flex gap-2 text-[10px] text-slate-600 font-mono">
+                                                <span>{strat.parameters?.symbol || "ANY"}</span>
+                                                <span>•</span>
+                                                <span>{new Date(strat.updated_at).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

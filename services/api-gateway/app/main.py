@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import signal, risk, backtest, strategy, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system
+from app.routers import signal, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system
 # ... (existing code)
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
@@ -88,6 +88,7 @@ app.include_router(analysis.router)
 app.include_router(market_data.router, prefix="/api/v1")
 app.include_router(broker_account.router)
 app.include_router(system.router, prefix="/api/v1/system", tags=["System"])
+app.include_router(saved_strategies.router, prefix="/api/v1")
 
 
 

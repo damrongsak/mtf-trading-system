@@ -580,3 +580,34 @@ export interface LogicTemplate {
     default_config: Record<string, any>;
     default_risk_settings: Record<string, any>;
 }
+// ========================================
+// Saved Strategy (Library) Types
+// ========================================
+
+export interface SavedStrategy {
+    id: string;
+    user_id: string;
+    name: string;
+    description?: string;
+    code: string;
+    parameters: Record<string, any>;
+    is_public: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SavedStrategyCreate {
+    name: string;
+    description?: string;
+    code: string;
+    parameters?: Record<string, any>;
+    is_public?: boolean;
+}
+
+export interface SavedStrategyUpdate {
+    name?: string;
+    description?: string;
+    code?: string;
+    parameters?: Record<string, any>;
+    is_public?: boolean;
+}

@@ -193,7 +193,7 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
                 'cash', 
                 'assets', 
                 'value'
-            ], make_subplots_kwargs={'row_heights': [0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]})
+            ], make_subplots_kwargs={'row_heights': [0.4, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1]})
             # Configure layout for full width responsive behavior
             fig.update_layout(
                 autosize=True, 

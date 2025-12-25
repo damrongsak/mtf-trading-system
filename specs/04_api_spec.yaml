@@ -418,6 +418,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /saved-strategies:
+    get:
+      summary: List saved strategies
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavedStrategyResponse'
+    post:
+      summary: Create a saved strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedStrategyCreate'
+      responses:
+        '201':
+          description: Strategy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+
+  /saved-strategies/{id}:
+    get:
+      summary: Get saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Strategy details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+    put:
+      summary: Update saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedStrategyUpdate'
+      responses:
+        '200':
+          description: Strategy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+    delete:
+      summary: Delete saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Strategy deleted
+
   /backtest/results/{backtest_id}:
     get:
       summary: Get results of a specific backtest
@@ -2219,9 +2299,66 @@ components:
         end_date:
           type: string
           format: date-time
-        initial_capital:
           type: number
         fees:
           type: number
         slippage:
           type: number
+
+    SavedStrategyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        code:
+          type: string
+        parameters:
+          type: object
+        is_public:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SavedStrategyCreate:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        parameters:
+          type: object
+        is_public:
+          type: boolean
+
+    SavedStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        parameters:
+          type: object
+        is_public:
+          type: boolean

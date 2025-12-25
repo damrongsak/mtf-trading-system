@@ -2,6 +2,7 @@
 export * from './auth';
 export * from './journal';
 export * from './strategies';
+export * from './saved_strategies';
 export * from './backtest';
 
 export * from './market';
