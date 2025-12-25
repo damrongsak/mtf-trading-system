@@ -91,3 +91,4 @@ class BacktestResponse(BaseModel):
     # Optimization Results
     best_params: Optional[Dict[str, Any]] = None
     all_results: Optional[List[Dict[str, Any]]] = None # Summary of all runs
+    plot_json: Optional[str] = None

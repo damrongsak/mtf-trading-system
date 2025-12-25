@@ -13,7 +13,7 @@ COPY pyproject.toml .
 COPY uv.lock .
 
 # Install dependencies into the system environment
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --no-install-project --no-dev
 
 # Copy application code
 COPY . .

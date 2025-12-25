@@ -182,6 +182,7 @@ class BacktestResponse(BaseModel):
     trades: List[TradeResult] = []
     equity_curve: List[EquityPoint] = []
     best_params: Optional[Dict[str, Any]] = None
+    plot_json: Optional[str] = None
 class SensitivityMetrics(BaseModel):
     p95: float
     median: float

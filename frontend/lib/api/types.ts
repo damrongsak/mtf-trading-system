@@ -487,6 +487,7 @@ export interface BacktestResponse {
     equity_curve?: { timestamp: string; value: number }[];
     best_params?: Record<string, unknown>;
     all_results?: unknown[];
+    plot_json?: string;
     created_at?: string;
 }
 

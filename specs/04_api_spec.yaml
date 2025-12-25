@@ -2045,6 +2045,9 @@ components:
           type: array
           items:
             type: object
+        plot_json:
+          type: string
+          description: "Serialized Plotly JSON string"
 
     TransactionCreate:
       type: object

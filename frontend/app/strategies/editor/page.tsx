@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check } from 'lucide-react';
+import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
 import { UserPreferences } from '@/lib/api/types';
@@ -47,6 +48,9 @@ def strategy(data):
     # 2. Generate Signals
     entries = fast_ma.ma_crossed_above(slow_ma)
     exits = fast_ma.ma_crossed_below(slow_ma)
+   
+    # 3. Optional: Plotting
+    # You can return entries, exits and the system will generate a portfolio plot.
     
     return entries, exits
 `;
@@ -65,6 +69,10 @@ export default function StrategyEditor() {
     const [title, setTitle] = useState("My Custom Strategy");
     const [isConfigOpen, setIsConfigOpen] = useState(true);
     const [isCopied, setIsCopied] = useState(false);
+    
+    // Visualization State
+    const [activeTab, setActiveTab] = useState<'editor' | 'chart'>('editor');
+    const [plotJson, setPlotJson] = useState<string | null>(null);
 
     // Configuration State
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -148,6 +156,14 @@ export default function StrategyEditor() {
                  const lastTrade = res.trades[res.trades.length - 1];
                  addLog('INFO', `Last Trade: ${lastTrade.direction} @ ${lastTrade.entry_price.toFixed(4)} (${lastTrade.exit_time})`);
             }
+
+            if (res.plot_json) {
+                setPlotJson(res.plot_json);
+                setActiveTab('chart');
+                addLog('SUCCESS', "Interactive Chart Generated. Switching view...");
+            } else {
+                addLog('INFO', "No chart data returned (or chart generation failed).");
+            }
             
         } catch (error) {
 
@@ -173,7 +189,7 @@ export default function StrategyEditor() {
     };
 
     return (
-        <div className="container mx-auto p-4 space-y-4 text-slate-100 h-[calc(100vh-4rem)] flex flex-col">
+        <div className="container mx-auto p-4 space-y-4 text-slate-100 min-h-[calc(100vh-4rem)] flex flex-col">
             {/* Header */}
             <div className="flex justify-between items-center bg-slate-950/50 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
                 <div>
@@ -211,29 +227,53 @@ export default function StrategyEditor() {
             <div className="flex-1 flex gap-4 min-h-0">
                 {/* Editor & Output Column */}
                 <div className="flex-1 flex flex-col gap-4 min-w-0">
-                    <Card className="flex-1 bg-slate-900/50 border-slate-800 flex flex-col overflow-hidden backdrop-blur-sm">
-                        <CardHeader className="py-2 px-4 border-b border-slate-800 bg-slate-950/30 flex flex-row items-center justify-between">
-                            <span className="text-xs font-mono text-slate-500">main.py</span>
+                    <Card className="flex-1 bg-slate-900/50 border-slate-800 flex flex-col backdrop-blur-sm min-h-[600px]">
+                        <CardHeader className="py-2 px-4 border-b border-slate-800 bg-slate-950/30 flex flex-row items-center gap-4">
+                            <button 
+                                onClick={() => setActiveTab('editor')}
+                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'editor' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                main.py
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('chart')}
+                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'chart' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Interactive Chart {plotJson && '•'}
+                            </button>
                         </CardHeader>
-                        <CardContent className="p-0 flex-1 relative">
-                            <Editor
-                                height="100%"
-                                defaultLanguage="python"
-                                theme="vs-dark"
-                                value={code}
-                                onChange={(value) => setCode(value || "")}
-                                options={{
-                                    minimap: { enabled: false },
-                                    fontSize: 14,
-                                    scrollBeyondLastLine: false,
-                                    padding: { top: 16 },
-                                    fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
-                                }}
-                            />
+                        <CardContent className="p-0 flex-1 relative min-h-0 overflow-hidden">
+                            {activeTab === 'editor' ? (
+                                <Editor
+                                    height="950px"
+                                    defaultLanguage="python"
+                                    theme="vs-dark"
+                                    value={code}
+                                    onChange={(value) => setCode(value || "")}
+                                    options={{
+                                        minimap: { enabled: false },
+                                        fontSize: 14,
+                                        scrollBeyondLastLine: false,
+                                        padding: { top: 16 },
+                                        fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
+                                    }}
+                                />
+                            ) : (
+                                <div className="h-full w-full bg-slate-950 p-0">
+                                    {plotJson ? (
+                                        <InteractiveBacktestChart plotJson={plotJson} />
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2">
+                                            <span className="text-4xl">📊</span>
+                                            <p>Run a backtest to generate an interactive chart.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
-                    <Card className="h-48 bg-slate-950 border-slate-800 flex flex-col shrink-0">
+                    <Card className="h-80 bg-slate-950 border-slate-800 flex flex-col shrink-0">
                         <CardHeader className="py-2 px-4 border-b border-slate-800 bg-slate-900/50 flex flex-row items-center justify-between">
                             <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400 font-medium">
                                 <Terminal className="h-3.5 w-3.5" />

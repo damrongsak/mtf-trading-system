@@ -180,11 +180,22 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
                 value=float(val)
             ))
 
+        # 7. Interactive Plot (Plotly JSON)
+        # pf.plot() returns a Plotly FigureWidget/Figure
+        # We serialize it to JSON for the frontend
+        try:
+            fig = pf.plot()
+            plot_json = fig.to_json()
+        except Exception as plot_err:
+            print(f"Error generating plot: {plot_err}")
+            plot_json = None
+
         result_queue.put({
             'status': 'SUCCESS',
             'metrics': metrics,
             'trades': trades_list,
-            'equity_curve': equity_curve
+            'equity_curve': equity_curve,
+            'plot_json': plot_json
         })
         
     except Exception as e:
@@ -267,7 +278,8 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
         status="COMPLETED",
         metrics=result['metrics'],
         trades=result['trades'],
-        equity_curve=result['equity_curve']
+        equity_curve=result['equity_curve'],
+        plot_json=result.get('plot_json')
     )
 
 
