@@ -184,7 +184,23 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
         # pf.plot() returns a Plotly FigureWidget/Figure
         # We serialize it to JSON for the frontend
         try:
-            fig = pf.plot()
+            # User requested: Drawdown, Daily Return (period return), Cash, Assets, Value
+            fig = pf.plot(subplots=[
+                'orders', 
+                'trade_pnl', 
+                'cum_returns', 
+                'drawdowns', 
+                'cash', 
+                'assets', 
+                'value'
+            ], make_subplots_kwargs={'row_heights': [0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]})
+            # Configure layout for full width responsive behavior
+            fig.update_layout(
+                autosize=True, 
+                width=None, 
+                height=None,
+                margin=dict(l=40, r=20, t=30, b=30)
+            )
             plot_json = fig.to_json()
         except Exception as plot_err:
             print(f"Error generating plot: {plot_err}")
