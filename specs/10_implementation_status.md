@@ -288,6 +288,26 @@
     - **Optimization:** Filtered low-quality (NEUTRAL) signals to reduce noise.
     - **Performance:** Reduced card height and optimized polling to 5 minutes for resource efficiency.
 
+### 23. Dynamic Strategy Sandbox
+- **Status:** ✅ Complete (2025-12-25)
+- **Features:**
+    - **Live Editor:** In-browser Python code editor (Monaco) at `/strategies/editor`.
+    - **Execution Engine:** Secure, isolated backtesting environment using `multiprocessing`.
+    - **Security:**
+        - Non-root Docker user (`trader`).
+        - AST-based code sanitization (blocks `os`, `sys`, `subprocess`).
+        - Cascading Timeouts (Frontend 310s, Gateway 305s, Core 300s).
+    - **UI/UX:**
+        - Collapsible configuration sidebar.
+        - Standardized Symbol/Timeframe selectors.
+        - Enhanced Console Log with Request/Debug info.
+        - Date Picker with auto-ISO conversion.
+    - **Data:**
+        - Normalized timeframe handling ('15m' -> 'M15').
+        - On-demand data/logs visibility.
+        - `$0.00` metrics display fixed (Direct Accessors).
+    - **API:**
+        - `POST /backtest/custom` endpoint implemented and spec-compliant.
 
 ---
 

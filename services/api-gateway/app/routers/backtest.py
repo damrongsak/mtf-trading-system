@@ -12,6 +12,7 @@ from app.models.backtest_profile import BacktestConfig, BacktestHistory
 from app.schemas.backtest import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
+from app.schemas.backtest import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, StrategyBacktestRequest
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 from app.services.internal_client import strategy_client
@@ -195,6 +196,19 @@ async def run_optimization(req: dict = Body(...), db: Session = Depends(get_db))
         # We accept a dict/Body to be flexible, or we could use the strict Optimization schemas
         # Forward to Strategy Core
         result = await strategy_client.run_optimization(req)
+        return success_response(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/custom", response_model=APIResponse[BacktestResponse])
+async def run_custom_backtest(req: StrategyBacktestRequest, db: Session = Depends(get_db)):
+    """
+    Run a custom user-defined strategy.
+    """
+    try:
+        # Pass payload to Strategy Core
+        payload = jsonable_encoder(req)
+        result = await strategy_client.run_custom_backtest(payload)
         return success_response(data=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

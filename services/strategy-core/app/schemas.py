@@ -150,6 +150,8 @@ class StrategyBacktestRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     initial_capital: float = 10000.0
+    fees: float = 0.0001
+    slippage: float = 0.0001
 
 class TradeResult(BaseModel):
     entry_time: datetime
@@ -171,6 +173,7 @@ class BacktestMetrics(BaseModel):
     total_trades: int
     winning_trades: int
     losing_trades: int
+    candle_count: Optional[int] = 0
 
 class BacktestResponse(BaseModel):
     id: str

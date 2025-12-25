@@ -20,6 +20,7 @@ import {
   Atom,
   ClipboardList,
   Sliders,
+  Terminal,
 } from 'lucide-react';
 
 type NavItem = {
@@ -48,6 +49,7 @@ const navCategories: NavCategory[] = [
     icon: Target,
     items: [
       { name: 'Strategy', href: '/strategies', icon: Target },
+      { name: 'Editor (Sandbox)', href: '/strategies/editor', icon: Terminal },
       { name: 'Market Analysis', href: '/market', icon: TrendingUp },
       { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
       { name: 'Trading Settings', href: '/trading', icon: SettingsIcon },
@@ -84,7 +86,8 @@ export const Sidebar = () => {
       const saved = localStorage.getItem('expandedCategories');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          return Array.isArray(parsed) ? parsed : ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
         } catch {
           return ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
         }

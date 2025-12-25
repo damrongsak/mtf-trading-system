@@ -14,7 +14,7 @@ class StrategyClient:
             # Pass timeout for long running backtests
             try:
                 logger.info(f"Sending backtest request to {STRATEGY_CORE_URL}/api/v1/backtest")
-                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest", json=req, timeout=120.0)
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest", json=req, timeout=60.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -25,7 +25,7 @@ class StrategyClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Sending custom backtest request to {STRATEGY_CORE_URL}/api/v1/backtest/custom")
-                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/custom", json=req, timeout=60.0)
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/custom", json=req, timeout=305.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:

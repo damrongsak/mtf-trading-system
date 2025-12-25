@@ -12,7 +12,7 @@ This PRD defines the **What** and **Why** of the product; the **How** (architect
 | **Document Version** | 2.0 (Expansion Phase) |
 | **Target Audience** | Quant Funds, Prop Firms, Individual Traders |
 | **Release Target** | Phase 2 Completion (Multi-Tenancy, Multi-Strategy, Oanda) |
-| **Status** | **Phase 2 Complete** (Fund-Centric Refactor & Dynamic Sandbox Stable) |
+| **Status** | **Phase 2 Complete** (Sandbox & Security Hardening Verified) |
 
 ---
 

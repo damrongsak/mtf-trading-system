@@ -2191,3 +2191,34 @@ components:
           type: array
           items:
             type: string
+
+    # --- Backtest Schemas ---
+    StrategyBacktestRequest:
+      type: object
+      required:
+        - code
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        code:
+          type: string
+          description: "Python code implementing strategy(data) -> entries, exits"
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        initial_capital:
+          type: number
+        fees:
+          type: number
+        slippage:
+          type: number

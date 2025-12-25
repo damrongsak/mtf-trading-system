@@ -4,7 +4,7 @@ import { ApiError } from './errors';
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || '',
-    timeout: 30000,
+    timeout: 310000,
     headers: {
         'Content-Type': 'application/json',
     },

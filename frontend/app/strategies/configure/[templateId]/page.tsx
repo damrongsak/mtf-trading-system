@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { strategiesApi } from '@/lib/api/strategies';
+import { getStrategyTemplates, createStrategy } from '@/lib/api/strategies';
 import { LogicTemplate, StrategyCreate } from '@/lib/api/types';
 import Link from 'next/link';
 
@@ -76,9 +76,15 @@ export default function ConfigureStrategyPage() {
         async function load() {
             try {
                 // We re-fetch all templates to find the one matching ID (inefficient but safe for MVP)
-                const res = await strategiesApi.getTemplates();
-                if (res.status === 'success' && res.data) {
-                    const found = res.data.find((t: LogicTemplate) => t.id === templateId);
+                const res = await getStrategyTemplates();
+                // Check if res is array or APIResponse
+                // The API function handles unwrapping, but let's be safe.
+                // The implementation in strategies.ts returns LogicTemplate[] directly if successful (mostly)
+                // But type is LogicTemplate[]
+                const templates = Array.isArray(res) ? res : (res as any).data;
+                
+                if (templates) {
+                    const found = templates.find((t: LogicTemplate) => t.id === templateId);
                     if (found) {
                         setTemplate(found);
                         setConfigJson(found.default_config);
@@ -120,7 +126,7 @@ export default function ConfigureStrategyPage() {
                 risk_settings: riskSettings
             };
             
-            await strategiesApi.create(payload);
+            await createStrategy(payload);
             router.push('/dashboard'); // Or back to strategies list
         } catch (err: any) {
             setError(err.message || "Failed to create strategy");

@@ -457,6 +457,7 @@ export interface BacktestMetrics {
     total_trades: number;
     winning_trades: number;
     losing_trades: number;
+    candle_count?: number;
 }
 
 
@@ -561,6 +562,8 @@ export interface StrategyBacktestRequest {
     start_date?: string;
     end_date?: string;
     initial_capital?: number;
+    fees?: number;
+    slippage?: number;
 }
 
 export interface StrategyBacktestResponse {

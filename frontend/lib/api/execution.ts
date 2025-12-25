@@ -96,7 +96,7 @@ export async function getTrades(params: GetTradesParams = {}): Promise<Paginated
     return response.data;
 }
 
-export interface BrokerAccount {
+export interface ExecutionBrokerAccount {
     id: string;
     broker_name: string;
     account_id: string; // The external broker ID (e.g., "101-001-...")
@@ -112,8 +112,8 @@ export interface SmartOrderRequest {
     risk_usd?: number;
 }
 
-export async function getBrokerAccounts(): Promise<BrokerAccount[]> {
-    const response = await apiClient.get<BrokerAccount[]>('/api/v1/execution/accounts');
+export async function getBrokerAccounts(): Promise<ExecutionBrokerAccount[]> {
+    const response = await apiClient.get<ExecutionBrokerAccount[]>('/api/v1/execution/accounts');
     return response.data;
 }
 

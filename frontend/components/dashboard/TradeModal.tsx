@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Signal } from '@/lib/api/types';
-import { placeOrder, placeSmartOrder, getBrokerAccounts, BrokerAccount } from '@/lib/api/execution';
+import { placeOrder, placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 
 interface TradeModalProps {
   signal: Signal | null;
@@ -21,7 +21,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
   
   // Smart State
   const [riskUsd, setRiskUsd] = useState<number>(10.0);
-  const [accounts, setAccounts] = useState<BrokerAccount[]>([]);
+  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   // Common State

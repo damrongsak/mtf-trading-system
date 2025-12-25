@@ -120,3 +120,10 @@ graph TD
 - **Local**: Docker Compose orchestrates all services and databases.
 - **Production**: GCP Cloud Run (Serverless Containers) + Cloud SQL (PostgreSQL) + Qdrant Cloud + Redis Cloud.
 - **CI/CD**: GitHub Actions for testing and building images. Cloud Build for deployment.
+
+## 6. Security & Isolation (New)
+
+### 6.1. Strategy Core Isolation
+- **Container**: `strategy-core` runs as non-root user `trader`.
+- **Worker**: Custom strategies (RCE target) run in a separate `multiprocessing` worker with a hard timeout.
+- **Sanitization**: All input code is scanned via AST to reject unsafe imports (`os`, `sys`) before execution.

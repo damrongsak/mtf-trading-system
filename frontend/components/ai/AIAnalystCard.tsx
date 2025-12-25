@@ -47,7 +47,6 @@ export function AIAnalystCard() {
             size="sm" 
             className="h-8 w-8 p-0 hover:text-red-400" 
             onClick={clearHistory}
-            title="Clear Chat"
         >
           <Eraser className="h-4 w-4" />
         </Button>

@@ -44,6 +44,16 @@ class BacktestRequest(BaseModel):
     # Optimization
     optimization: Optional[OptimizationConfig] = None
 
+class StrategyBacktestRequest(BaseModel):
+    code: str
+    symbol: str
+    timeframe: str
+    start_date: datetime
+    end_date: datetime
+    initial_capital: float = 10000.0
+    fees: float = 0.0001
+    slippage: float = 0.0001
+
 class TradeResult(BaseModel):
     entry_time: datetime
     exit_time: datetime
@@ -63,7 +73,9 @@ class BacktestMetrics(BaseModel):
     sharpe_ratio: Optional[float] = 0.0
     total_trades: int
     winning_trades: int
+    winning_trades: int
     losing_trades: int
+    candle_count: Optional[int] = 0
 
 class EquityPoint(BaseModel):
     timestamp: str
