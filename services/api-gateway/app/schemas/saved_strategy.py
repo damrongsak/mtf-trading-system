@@ -8,6 +8,7 @@ class SavedStrategyBase(BaseModel):
     description: Optional[str] = None
     code: str
     parameters: Optional[Dict[str, Any]] = {}
+    last_results: Optional[Dict[str, Any]] = None
     is_public: bool = False
 
 class SavedStrategyCreate(SavedStrategyBase):
@@ -18,6 +19,7 @@ class SavedStrategyUpdate(BaseModel):
     description: Optional[str] = None
     code: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None
+    last_results: Optional[Dict[str, Any]] = None
     is_public: Optional[bool] = None
 
 class SavedStrategyResponse(SavedStrategyBase):

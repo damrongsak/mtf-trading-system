@@ -25,7 +25,7 @@ class StrategyClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Sending custom backtest request to {STRATEGY_CORE_URL}/api/v1/backtest/custom")
-                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/custom", json=req, timeout=305.0)
+                resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/custom", json=req, timeout=600.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:

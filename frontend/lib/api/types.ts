@@ -591,6 +591,10 @@ export interface SavedStrategy {
     description?: string;
     code: string;
     parameters: Record<string, any>;
+    last_results?: {
+        metrics: any;
+        plot_json: string;
+    };
     is_public: boolean;
     created_at: string;
     updated_at: string;
@@ -601,6 +605,7 @@ export interface SavedStrategyCreate {
     description?: string;
     code: string;
     parameters?: Record<string, any>;
+    last_results?: any;
     is_public?: boolean;
 }
 
@@ -609,5 +614,6 @@ export interface SavedStrategyUpdate {
     description?: string;
     code?: string;
     parameters?: Record<string, any>;
+    last_results?: any;
     is_public?: boolean;
 }

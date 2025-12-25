@@ -2323,6 +2323,9 @@ components:
           type: string
         parameters:
           type: object
+        last_results:
+          type: object
+          nullable: true
         is_public:
           type: boolean
         created_at:
@@ -2346,6 +2349,9 @@ components:
           type: string
         parameters:
           type: object
+        last_results:
+          type: object
+          nullable: true
         is_public:
           type: boolean
 
@@ -2360,5 +2366,8 @@ components:
           type: string
         parameters:
           type: object
+        last_results:
+          type: object
+          nullable: true
         is_public:
           type: boolean

@@ -256,6 +256,10 @@ export default function StrategyEditor() {
                 parameters: {
                     symbol, timeframe, initialCapital, fees, slippage
                 },
+                last_results: plotJson ? {
+                    metrics: null, // Optimization: only saving plot for now as it contains metrics
+                    plot_json: plotJson
+                } : null,
                 is_public: isPublic
             };
 
@@ -299,6 +303,16 @@ export default function StrategyEditor() {
         }
         addLog('INFO', `Loaded strategy: ${strategy.name}`);
         
+        // Restore last results if available
+        if (strategy.last_results && strategy.last_results.plot_json) {
+            setPlotJson(strategy.last_results.plot_json);
+            setActiveTab('chart');
+            addLog('SUCCESS', 'Restored previous backtest results.');
+        } else {
+            setPlotJson(null);
+            setActiveTab('editor');
+        }
+
         // Update last saved state
         setLastSavedCode(strategy.code);
         setLastSavedTitle(strategy.name);
