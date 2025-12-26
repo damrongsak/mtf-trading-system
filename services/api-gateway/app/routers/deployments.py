@@ -1,23 +1,24 @@
 
 import httpx
 from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
-from app.api import deps
+from app.database import get_db
+from app.security import get_current_user
 from app.models.deployment import Deployment
-from app.models.user import User
+from app.models.user_fund import User
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
-from app.core.config import settings
+import os
 
 router = APIRouter()
 
 # Service URLs
-STRATEGY_CORE_URL = settings.STRATEGY_CORE_URL
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
 @router.get("/", response_model=List[DeploymentResponse])
 def list_deployments(
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
 ):
@@ -31,8 +32,8 @@ def list_deployments(
 async def create_deployment(
     deployment_in: DeploymentCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Deploy a new strategy instance.
@@ -69,8 +70,8 @@ async def create_deployment(
 async def stop_deployment(
     id: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Stop a running deployment.
