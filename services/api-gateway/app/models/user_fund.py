@@ -29,6 +29,7 @@ class User(Base):
     funds = relationship("UserFund", back_populates="user")
     journal_entries = relationship("JournalEntry", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
+    deployments = relationship("Deployment", back_populates="user")
 
 class Fund(Base):
     __tablename__ = "funds"

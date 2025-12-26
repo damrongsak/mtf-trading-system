@@ -22,3 +22,4 @@ class SavedStrategy(Base):
 
     # Relationships
     user = relationship("User", backref="saved_strategies")
+    deployments = relationship("Deployment", back_populates="strategy")

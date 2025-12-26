@@ -617,3 +617,46 @@ export interface SavedStrategyUpdate {
     last_results?: any;
     is_public?: boolean;
 }
+
+// ========================================
+// Monte Carlo Types
+// ========================================
+
+export interface SensitivityMetrics {
+    p95: number;
+    median: number;
+    worst: number;
+    best?: number;
+}
+
+export interface MonteCarloResponse {
+    iterations: number;
+    max_drawdown: SensitivityMetrics;
+    total_return: SensitivityMetrics;
+}
+
+export interface MonteCarloRequest {
+    trades: any[]; // Or define a simpler trade object if needed
+    iterations?: number;
+}
+
+export interface Deployment {
+    id: string;
+    strategy_id: string;
+    stock_symbol: string;
+    timeframe: string;
+    status: 'ACTIVE' | 'STOPPED' | 'ERROR' | 'STARTING' | 'STOPPING';
+    is_live: boolean;
+    started_at: string;
+    stopped_at?: string;
+    last_error?: string;
+    config_snapshot: Record<string, any>;
+}
+
+export interface DeploymentCreate {
+    strategy_id: string;
+    stock_symbol: string;
+    timeframe: string;
+    config_snapshot: Record<string, any>;
+    is_live: boolean;
+}

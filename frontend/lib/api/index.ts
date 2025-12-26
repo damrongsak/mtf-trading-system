@@ -19,3 +19,4 @@ export * from './execution';
 export * from './analysis';
 export * from './system';
 export * from './accounts';
+export * from './deployments';

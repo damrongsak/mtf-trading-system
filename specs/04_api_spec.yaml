@@ -3,6 +3,50 @@ info:
   title: MTF Trading API
   version: 0.1.0
 paths:
+  /api/v1/deployments/:
+    get:
+      summary: List all deployments
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DeploymentList'
+    post:
+      summary: Create a new deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentCreate'
+      responses:
+        '200':
+          description: Created deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Deployment'
+
+  /api/v1/deployments/{id}/stop:
+    post:
+      summary: Stop a deployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deployment stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Deployment'
+
   /api/v1/signal/latest/{symbol}:
     get:
       summary: Get the latest signal for a specific symbol
@@ -2371,3 +2415,71 @@ components:
           nullable: true
         is_public:
           type: boolean
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        strategy_id:
+          type: string
+          format: uuid
+        stock_symbol:
+          type: string
+        timeframe:
+          type: string
+        status:
+          type: string
+          enum: [STARTING, ACTIVE, STOPPED, ERROR, STOPPING]
+        is_live:
+          type: boolean
+        config_snapshot:
+          type: object
+        last_error:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    DeploymentCreate:
+      type: object
+      required:
+        - strategy_id
+        - stock_symbol
+        - timeframe
+        - config_snapshot
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+        stock_symbol:
+          type: string
+        timeframe:
+          type: string
+        is_live:
+          type: boolean
+        config_snapshot:
+          type: object
+
+    APIResponse_DeploymentList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deployment'
+
+    APIResponse_Deployment:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/Deployment'

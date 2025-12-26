@@ -18,3 +18,32 @@ export async function runCustomBacktest(payload: StrategyBacktestRequest): Promi
   }
   return response.data.data;
 }
+
+export interface OptimizationResult {
+  params: Record<string, number>;
+  metrics: {
+    total_return: number;
+    sharpe_ratio: number;
+    max_drawdown: number;
+    total_trades: number;
+  };
+}
+
+export interface OptimizationResponse {
+  results: OptimizationResult[];
+}
+
+
+export async function runOptimization(payload: StrategyBacktestRequest): Promise<OptimizationResult[]> {
+  // @ts-ignore - backend returns direct list
+  const response = await apiClient.post<OptimizationResponse>('/api/v1/backtest/optimize', payload);
+  // @ts-ignore
+  return response.data.results;
+}
+
+import { MonteCarloRequest, MonteCarloResponse } from './types';
+
+export async function runMonteCarlo(payload: MonteCarloRequest): Promise<MonteCarloResponse> {
+  const response = await apiClient.post<MonteCarloResponse>('/api/v1/backtest/monte-carlo', payload);
+  return response.data;
+}

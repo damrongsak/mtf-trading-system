@@ -1046,3 +1046,92 @@ validation_rules:
       - name: created_at
         type: datetime
         default: "now()"
+
+  SavedStrategy:
+    description: "User-defined custom strategy code repository"
+    table_name: "saved_strategies"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["name"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+      - name: description
+        type: text
+        nullable: true
+      - name: code
+        type: text
+        required: true
+        description: "Python source code of the strategy"
+      - name: is_public
+        type: boolean
+        default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
+  Deployment:
+    description: "Live or Paper trading instances of strategies"
+    table_name: "deployments"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["strategy_id"]
+      - fields: ["status"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: strategy_id
+        type: uuid
+        foreign_key: "saved_strategies.id"
+        required: true
+      - name: stock_symbol
+        type: string
+        required: true
+        max_length: 20
+      - name: timeframe
+        type: string
+        required: true
+        max_length: 10
+      - name: status
+        type: enum
+        enum_values: ["STARTING", "ACTIVE", "STOPPED", "ERROR", "STOPPING"]
+        default: "STARTING"
+        required: true
+      - name: is_live
+        type: boolean
+        default: false
+        description: "True for Live Trading, False for Paper Trading"
+      - name: config_snapshot
+        type: jsonb
+        required: true
+        description: "Snapshot of strategy parameters at deployment time"
+      - name: last_error
+        type: text
+        nullable: true
+      - name: started_at
+        type: datetime
+        default: "now()"
+      - name: stopped_at
+        type: datetime
+        nullable: true
+      - name: last_signal_at
+        type: datetime
+        nullable: true

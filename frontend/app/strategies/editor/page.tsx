@@ -7,12 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search } from 'lucide-react';
+
+import { DeploymentModal } from './DeploymentModal';
+import { DeploymentModal } from './DeploymentModal';
+import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
 import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSavedStrategy } from '@/lib/api/saved_strategies';
-import { UserPreferences, SavedStrategy } from '@/lib/api/types';
+import { OptimizationPanel } from './OptimizationPanel';
+import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
+import { MonteCarloPanel } from './MonteCarloPanel';
+import { BacktestTrade, UserPreferences, SavedStrategy } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 // ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
@@ -134,7 +140,10 @@ export default function StrategyEditor() {
     
     // UI State
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [sidebarTab, setSidebarTab] = useState<'config' | 'library'>('config');
+    // UI State
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [sidebarTab, setSidebarTab] = useState<'config' | 'library' | 'optimize' | 'simulation'>('config');
+    const [isCopied, setIsCopied] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     
     // Visualization State
@@ -156,6 +165,11 @@ export default function StrategyEditor() {
     const [currentStrategyId, setCurrentStrategyId] = useState<string | null>(null);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Optimization State
+    const [isOptimizing, setIsOptimizing] = useState(false);
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
 
     // Confirmation Modal States
     const [showLoadConfirm, setShowLoadConfirm] = useState(false);
@@ -353,6 +367,50 @@ export default function StrategyEditor() {
         }
     };
 
+    const handleRunOptimization = async (paramGrid: Record<string, any>) => {
+        setIsOptimizing(true);
+        addLog('INFO', "Starting optimization...");
+        
+        try {
+             if (!startDate || !endDate) throw new Error("Start/End dates required");
+
+             const payload = {
+                code: code,
+                symbol: symbol,
+                timeframe: timeframe,
+                start_date: new Date(startDate).toISOString(), 
+                end_date: new Date(endDate).toISOString(),
+                initial_capital: initialCapital,
+                fees: fees,
+                slippage: slippage,
+                optimization: {
+                    method: 'GRID' as const,
+                    target_metric: 'sharpe_ratio', // default
+                    param_grid: paramGrid
+                }
+            };
+            
+            // @ts-ignore Types might be partial in FE
+            const results = await runOptimization(payload);
+            addLog('SUCCESS', `Optimization complete. Found ${results.length} results.`);
+            return results;
+        } catch (error) {
+            addLog('ERROR', `Optimization failed: ${(error as any).message}`);
+            throw error;
+        } finally {
+            setIsOptimizing(false);
+        }
+    };
+
+    const handleRunSimulation = async (trades: BacktestTrade[], iterations: number) => {
+        setIsSimulating(true);
+        try {
+             return await runMonteCarlo({ trades, iterations });
+        } finally {
+             setIsSimulating(false);
+        }
+    };
+
     const handleNewStrategy = () => {
         if (code !== DEFAULT_CODE && !confirm("Start new strategy? Unsaved changes will be lost.")) return;
         setCode(DEFAULT_CODE);
@@ -374,6 +432,19 @@ export default function StrategyEditor() {
 
     return (
         <div className="container mx-auto p-4 space-y-4 text-slate-100 min-h-[calc(100vh-4rem)] flex flex-col">
+            {/* Deployment Modal */}
+            <DeploymentModal
+                open={isDeployModalOpen}
+                onOpenChange={setIsDeployModalOpen}
+                strategyId={currentStrategyId}
+                initialConfig={{
+                    symbol: symbol,
+                    timeframe: timeframe,
+                    capital: initialCapital,
+                    strategy_params: {} 
+                }}
+            />
+
             {/* Save Strategy Modal */}
             <SaveModal 
                 isOpen={isSaveModalOpen} 
@@ -442,6 +513,17 @@ export default function StrategyEditor() {
                     <Button onClick={handleRun} disabled={isRunning} variant="outline" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400">
                         {isRunning ? <Loader2 className="animate-spin h-4 w-4" /> : <Play className="h-4 w-4" />}
                         Run
+                    </Button>
+                    
+                    <Button 
+                        onClick={() => setIsDeployModalOpen(true)} 
+                        disabled={!currentStrategyId}
+                        variant="ghost"
+                        className="gap-2 text-purple-400 hover:text-purple-300 hover:bg-purple-400/10"
+                        title={!currentStrategyId ? "Save strategy first to deploy" : "Deploy Live"}
+                    >
+                        <Rocket className="h-4 w-4" />
+                        Deploy
                     </Button>
                     <Button onClick={handleSaveClick} className="gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-900/20">
                         <Save className="h-4 w-4" />
@@ -543,17 +625,35 @@ export default function StrategyEditor() {
                         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 p-0 border-0'}
                     `}
                 >
-                    <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-                        <h3 className="font-semibold text-slate-200">
-                            {sidebarTab === 'config' ? 'Configuration' : 'Strategy Library'}
-                        </h3>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-500" onClick={() => setIsSidebarOpen(false)}>
-                            <div className="h-1 w-4 bg-slate-600 rounded"></div>
-                        </Button>
+                    <div className="p-0 border-b border-slate-800 flex">
+                        <button 
+                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'config' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                            onClick={() => setSidebarTab('config')}
+                        >
+                            Config
+                        </button>
+                        <button 
+                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'library' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                            onClick={() => setSidebarTab('library')}
+                        >
+                            Library
+                        </button>
+                        <button 
+                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'optimize' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                            onClick={() => setSidebarTab('optimize')}
+                        >
+                            Optimize
+                        </button>
+                        <button 
+                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'simulation' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                            onClick={() => setSidebarTab('simulation')}
+                        >
+                            Simulate
+                        </button>
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto">
-                        {sidebarTab === 'config' ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                        {sidebarTab === 'config' && (
                             <div className="p-4 space-y-6">
                                 <div className="space-y-4">
                                     <div className="space-y-2">
@@ -609,7 +709,8 @@ export default function StrategyEditor() {
                                     </div>
                                 </div>
                             </div>
-                        ) : (
+                        )}
+                        {sidebarTab === 'library' && (
                             // Library Tab
                             <div className="p-4 space-y-4">
                                 {savedStrategies.length === 0 ? (
@@ -650,6 +751,20 @@ export default function StrategyEditor() {
                                     ))
                                 )}
                             </div>
+                        )}
+                        {sidebarTab === 'optimize' && (
+                             <div className="h-full p-4 flex flex-col overflow-hidden">
+                                <OptimizationPanel onRunOptimization={handleRunOptimization} isLoading={isOptimizing} />
+                             </div>
+                        )}
+                        {sidebarTab === 'simulation' && (
+                             <div className="h-full p-4 flex flex-col overflow-hidden">
+                                <MonteCarloPanel 
+                                    trades={lastBacktestResult?.trades || []} 
+                                    onRunSimulation={handleRunSimulation} 
+                                    isLoading={isSimulating} 
+                                />
+                             </div>
                         )}
                     </div>
                 </div>

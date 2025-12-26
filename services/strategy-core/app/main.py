@@ -373,12 +373,15 @@ async def stop_strategy_endpoint(strategy_id: str):
     return await strategy_engine.stop_strategy(strategy_id)
 
 @router.post("/backtest/optimize", response_model=OptimizationResponse)
-def run_optimization_endpoint(req: BacktestRequest):
+@router.post("/backtest/optimize", response_model=OptimizationResponse)
+def run_optimization_endpoint(req: StrategyBacktestRequest):
     try:
+        # Check optimization config (it's a dict in StrategyBacktestRequest per backend spec?)
+        # Actually strategy-core schemas need to be checked.
+        # But assuming we pass 'optimization' in the body
         if not req.optimization or not req.optimization.param_grid:
              raise HTTPException(status_code=400, detail="Optimization config required")
              
-        # Fetch Data from DB
         # Fetch Data from DB
         from app.backtest import fetch_data_from_db
         from app.utils.helpers import resolve_market_symbol_id
@@ -408,7 +411,8 @@ def run_optimization_endpoint(req: BacktestRequest):
             data=df,
             param_grid=req.optimization.param_grid,
             capital=req.initial_capital,
-            fees=req.fees
+            fees=req.fees,
+            code=req.code # Pass custom code
         )
         
         return OptimizationResponse(results=results)
@@ -434,6 +438,32 @@ def run_monte_carlo_endpoint(req: MonteCarloRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Live Deployment Endpoints ---
+
+@router.post("/live/deploy")
+async def deploy_strategy_instance(payload: dict):
+    from app.fleet import FleetManager
+    # payload contains deployment_id
+    deployment_id = payload.get("deployment_id")
+    if not deployment_id:
+        raise HTTPException(status_code=400, detail="Missing deployment_id")
+    
+    # Reload fleet to pick up new deployment
+    FleetManager.get_instance().add_deployment(deployment_id)
+    
+    # Ensure LiveRunner is running
+    if not live_runner._running:
+        await live_runner.start()
+        
+    return {"status": "deployed", "id": deployment_id}
+
+@router.post("/live/stop/{deployment_id}")
+async def stop_strategy_instance(deployment_id: str):
+    from app.fleet import FleetManager
+    FleetManager.get_instance().remove_deployment(deployment_id)
+    return {"status": "stopped", "id": deployment_id}
 
 app.include_router(router)
 

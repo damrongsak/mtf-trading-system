@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 from typing import Dict, List
@@ -5,7 +6,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.database import SessionLocal
 from app.models.strategy import Strategy
+from app.models.deployment import Deployment
+from app.models.saved_strategy import SavedStrategy
 from app.registry import StrategyRegistry
+from app.runner.dynamic_bot import DynamicBotExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +21,8 @@ class FleetManager:
     _instance = None
 
     def __init__(self):
-        self.active_strategies: Dict[str, dict] = {} # strategy_id -> context
+        self.active_strategies: Dict[str, dict] = {} # Template-based: strategy_id -> context
+        self.active_deployments: Dict[str, dict] = {} # Dynamic: deployment_id -> context
         self.is_running = False
 
     @classmethod
@@ -28,47 +33,73 @@ class FleetManager:
 
     async def load_fleet(self):
         """
-        Loads all active strategies from the database into memory.
+        Loads all active strategies and deployments from the database into memory.
         """
         logger.info("Loading Strategy Fleet...")
+        self.active_strategies = {}
+        self.active_deployments = {}
+        
         db: Session = SessionLocal()
         try:
-            # Fetch active strategies
+            # 1. Load Template Strategies (Legacy/Standard)
             strategies = db.execute(
                 select(Strategy).where(Strategy.is_active == True)
             ).scalars().all()
 
-            loaded_count = 0
             for strategy in strategies:
                 try:
-                    # Get the logic function from Registry
-                    # If custom_code exists, we should use DynamicLoader (Future Step)
                     logic_func = StrategyRegistry.get_strategy(strategy.template_id)
-                    
                     if not logic_func:
                         logger.warning(f"Template {strategy.template_id} not found for strategy {strategy.id}")
                         continue
 
-                    # Context object (The "State" of the strategy)
                     context = {
                         "id": str(strategy.id),
+                        "type": "TEMPLATE",
                         "name": strategy.name,
                         "fund_id": str(strategy.fund_id),
                         "broker_account_id": str(strategy.broker_account_id),
                         "config": strategy.config_json,
                         "risk_settings": strategy.risk_settings,
                         "logic": logic_func,
-                        "symbol": strategy.config_json.get("symbol", "XAU/USD"), # Default or from config
-                        "state": {} # For persistent state across ticks if needed
+                        "symbol": strategy.config_json.get("symbol", "XAU/USD"),
+                        "state": {} 
                     }
-                    
                     self.active_strategies[str(strategy.id)] = context
-                    loaded_count += 1
-                    
                 except Exception as e:
                     logger.error(f"Failed to load strategy {strategy.id}: {e}")
             
-            logger.info(f"Fleet Loaded: {loaded_count} active strategies.")
+            # 2. Load Dynamic Deployments
+            deployments = db.execute(
+                select(Deployment).where(Deployment.status == "ACTIVE")
+            ).scalars().all()
+            
+            for dep in deployments:
+                try:
+                    # Fetch code from SavedStrategy
+                    saved_strat = db.get(SavedStrategy, dep.strategy_id)
+                    if not saved_strat:
+                        logger.error(f"SavedStrategy {dep.strategy_id} not found for deployment {dep.id}")
+                        continue
+                        
+                    executor = DynamicBotExecutor(saved_strat.code, str(dep.id))
+                    
+                    context = {
+                        "id": str(dep.id),
+                        "type": "DYNAMIC",
+                        "name": f"Deployment-{dep.id}",
+                        "config": dep.config_snapshot,
+                        "symbol": dep.stock_symbol,
+                        "executor": executor,
+                        "is_live": dep.is_live,
+                        "state": {}
+                    }
+                    self.active_deployments[str(dep.id)] = context
+                    
+                except Exception as e:
+                    logger.error(f"Failed to load deployment {dep.id}: {e}")
+
+            logger.info(f"Fleet Loaded: {len(self.active_strategies)} templates, {len(self.active_deployments)} dynamic bots.")
             
         except Exception as e:
             logger.error(f"Error loading fleet: {e}")
@@ -77,24 +108,34 @@ class FleetManager:
 
     def get_active_symbols(self) -> List[str]:
         """Returns unique list of symbols tracked by active strategies."""
-        return list(set(ctx["symbol"] for ctx in self.active_strategies.values()))
+        symbols = set(ctx["symbol"] for ctx in self.active_strategies.values())
+        symbols.update(ctx["symbol"] for ctx in self.active_deployments.values())
+        return list(symbols)
+        
+    def add_deployment(self, deployment_id: str):
+        """Reloads specific deployment from DB (Called by API)"""
+        # For simplicity, just reload everything or fetch specific row.
+        # MVP: full reload is safe enough if fleet is small. 
+        # Better: Single fetch.
+        asyncio.create_task(self.load_fleet()) # Async reload
+
+    def remove_deployment(self, deployment_id: str):
+        if deployment_id in self.active_deployments:
+            del self.active_deployments[deployment_id]
 
     async def tick(self, data_manager, symbol_filter: str = None):
         """
-        Main Loop: Iterates over strategies and executes logic.
+        Main Loop: Iterates over strategies and deployments.
         """
-        if not self.active_strategies:
+        if not self.active_strategies and not self.active_deployments:
             return
-
-        # logger.debug(f"Ticking Fleet for {symbol_filter}...")
         
+        # 1. Tick Template Strategies
         for strat_id, context in self.active_strategies.items():
-            # Optimization: Only tick strategies for this symbol
             if symbol_filter and context["symbol"] != symbol_filter:
                 continue
-
             try:
-                # 1. Prepare State wrapper
+                # Wrapper for Template Logic
                 class StrategyState:
                     def __init__(self, ctx):
                         self.config_json = ctx["config"]
@@ -103,15 +144,31 @@ class FleetManager:
                         self.broker_account_id = ctx["broker_account_id"]
                 
                 state_obj = StrategyState(context)
-                
-                # 2. Execute Logic
                 result = await context["logic"](state_obj, data_manager)
-                
-                # 3. Handle Result (Signal)
                 if result:
-                    logger.info(f"SIGNAL Generated by {context['name']}: {result}")
-                    # Dispatch to Execution Service logic (or call back to Engine)
-                    # For now we just log, but we should define a callback or dispatch method.
+                    logger.info(f"TEMPLATE SIGNAL {context['name']}: {result}")
             except Exception as e:
-                logger.error(f"Error ticking strategy {context['name']}: {e}")
+                logger.error(f"Error ticking template {context['name']}: {e}")
+
+        # 2. Tick Dynamic Deployments
+        for dep_id, context in self.active_deployments.items():
+            if symbol_filter and context["symbol"] != symbol_filter:
+                continue
+            try:
+                 # Wrapper for Dynamic Logic
+                class DeploymentState:
+                    def __init__(self, ctx):
+                        self.config_json = ctx["config"] # Contains {strategy_params: {...}}
+                        self.symbol = ctx["symbol"]
+                        self.id = ctx["id"]
+                
+                state_obj = DeploymentState(context)
+                result = await context["executor"].execute(state_obj, data_manager)
+                
+                if result:
+                    logger.info(f"DYNAMIC SIGNAL {context['name']} (Live={context['is_live']}): {result}")
+                    # Dispatch to Execution Service...
+                    # await execution_client.place_order(...)
+            except Exception as e:
+                logger.error(f"Error ticking deployment {context['name']}: {e}")
 

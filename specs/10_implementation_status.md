@@ -309,6 +309,17 @@
     - **API:**
         - `POST /backtest/custom` endpoint implemented and spec-compliant.
 
+### 24. Deployment Manager (Live Execution)
+- **Status:** ✅ Complete (2025-12-26)
+- **Features:**
+    - **Backend:** `deployments` table, `SavedStrategy` table, and API endpoints (`GET/POST /deployments`).
+    - **Strategy Core:** `DynamicBotExecutor` for safe execution of custom strategies.
+    - **Fleet Manager:** Refactored to handle mixed fleet (Static + Dynamic).
+    - **Frontend:**
+        - **Deploy Button**: Integrated into Strategy Editor.
+        - **Deployment Dashboard**: List active/stopped bots, monitoring status.
+        - **Config Modal**: Configure live/paper mode, symbol, timeframe.
+
 ---
 
 ## 🟡 In Progress / Partial

@@ -12,6 +12,7 @@ import multiprocessing
 import traceback
 from typing import Tuple, Dict, Any
 import logging
+import inspect
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -98,7 +99,13 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
             return
 
         strategy_func = local_scope['strategy']
-        entries, exits = strategy_func(df)
+        
+        # Check signature to see if it accepts 'params'
+        sig = inspect.signature(strategy_func)
+        if 'params' in sig.parameters:
+             entries, exits = strategy_func(df, params=req_dict.get('params', {}))
+        else:
+             entries, exits = strategy_func(df)
         
         # 3. Running Portfolio
         freq = None
@@ -328,7 +335,20 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     close_price = df['close'].astype(float)
     
     # Run Strategy
-    entries, exits = strategy_func(close_price, req.strategy_params)
+    # Check signature for params support
+    import inspect
+    sig = inspect.signature(strategy_func)
+    if 'params' in sig.parameters:
+         entries, exits = strategy_func(close_price, params=req.strategy_params)
+    else:
+         # Backward compatibility for functions defined as strategy(data, **kwargs) or just strategy(data) where kwargs ignored
+         # But generic get_strategy might return simple funcs. 
+         # Assuming they might accept **kwargs if standard
+         try:
+             entries, exits = strategy_func(close_price, **req.strategy_params)
+         except TypeError:
+             entries, exits = strategy_func(close_price)
+    
 
     print(f"INFO: Signals Generated - Entries: {entries.sum().sum()}, Exits: {exits.sum().sum()}")
     
