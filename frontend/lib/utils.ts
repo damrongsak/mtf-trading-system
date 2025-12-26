@@ -1,3 +1,6 @@
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
 /**
  * Format a date string to a localized date/time format
  */
@@ -161,6 +164,6 @@ export const storage = {
 /**
  * Class name utility for conditional classes
  */
-export function cn(...classes: (string | undefined | null | false)[]): string {
-    return classes.filter(Boolean).join(' ');
+export function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs))
 }

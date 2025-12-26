@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SelectContextType {
   value: string;
@@ -58,7 +59,10 @@ export const SelectTrigger: React.FC<SelectTriggerProps> = ({ className, childre
   return (
     <button
       type="button"
-      className={`flex h-10 w-full items-center justify-between rounded-md border border-gray-700 bg-gray-900/50 px-3 py-2 text-sm text-gray-100 ring-offset-background placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={cn(
+        "flex h-10 w-full items-center justify-between rounded-md border border-gray-700 bg-gray-900/50 px-3 py-2 text-sm text-gray-100 ring-offset-background placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
       onClick={() => setOpen(!open)}
       {...props}
     >
@@ -81,7 +85,11 @@ export const SelectValue: React.FC<SelectValueProps> = ({ placeholder, children 
   return <span className="block truncate">{label || children || placeholder}</span>;
 };
 
-export const SelectContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+export const SelectContent: React.FC<SelectContentProps> = ({ children, className, ...props }) => {
   const context = useContext(SelectContext);
   if (!context) throw new Error("SelectContent must be used within a Select");
   const { open } = context;
@@ -89,7 +97,13 @@ export const SelectContent: React.FC<{ children: React.ReactNode }> = ({ childre
   if (!open) return null;
 
   return (
-    <div className="absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-700 bg-gray-900 text-gray-100 shadow-md animate-in fade-in-80 mt-1 w-full">
+    <div 
+        className={cn(
+            "absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-700 bg-gray-900 text-gray-100 shadow-md animate-in fade-in-80 mt-1 w-full",
+            className
+        )}
+        {...props}
+    >
       <div className="p-1">
         {children}
       </div>
@@ -117,7 +131,11 @@ export const SelectItem: React.FC<SelectItemProps> = ({ value, children, classNa
 
   return (
     <div
-      className={`relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-gray-800 focus:bg-gray-800 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${isSelected ? 'bg-gray-800 font-medium' : ''} ${className}`}
+      className={cn(
+        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-gray-800 focus:bg-gray-800 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        isSelected ? 'bg-gray-800 font-medium' : '',
+        className
+      )}
       onClick={() => {
         onValueChange(value);
         setOpen(false);

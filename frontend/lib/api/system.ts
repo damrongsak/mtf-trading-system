@@ -2,7 +2,7 @@ import { apiClient } from './client';
 
 export interface SystemConfig {
     supported_timeframes: string[];
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export async function fetchSystemConfig(): Promise<SystemConfig> {

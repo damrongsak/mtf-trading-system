@@ -518,14 +518,14 @@ export interface BrokerAccountCreate {
     broker_name: string;
     account_name: string;
     account_number?: string;
-    credentials: Record<string, any>;
+    credentials: Record<string, unknown>;
     is_live: boolean;
 }
 
 export interface BrokerAccountUpdate {
     account_name?: string;
     account_number?: string;
-    credentials?: Record<string, any>;
+    credentials?: Record<string, unknown>;
     is_active?: boolean;
     is_live?: boolean;
 }
@@ -534,14 +534,19 @@ export interface BrokerAccountUpdate {
 // Strategy Types
 // ========================================
 
+export interface BaseStrategyConfig extends Record<string, unknown> {
+    symbol?: string;
+    timeframe?: string;
+}
+
 export interface StrategyResponse {
     id: string;
     name: string;
     // type: string; // Deprecated
     template_id: string;
     broker_account_id?: string;
-    config_json: Record<string, any>; // Parameter overrides
-    risk_settings: Record<string, any>;
+    config_json: BaseStrategyConfig; // Parameter overrides
+    risk_settings: Record<string, unknown> & { max_risk_usd?: number };
     is_active: boolean;
     custom_code?: string;
 }
@@ -551,8 +556,8 @@ export interface StrategyCreate {
     fund_id: string;
     template_id: string;
     broker_account_id: string;
-    config_json: Record<string, any>;
-    risk_settings: Record<string, any>;
+    config_json: Record<string, unknown>;
+    risk_settings: Record<string, unknown>;
     custom_code?: string;
 }
 
@@ -577,8 +582,8 @@ export interface LogicTemplate {
     id: string;
     name: string;
     description: string;
-    default_config: Record<string, any>;
-    default_risk_settings: Record<string, any>;
+    default_config: Record<string, unknown>;
+    default_risk_settings: Record<string, unknown>;
 }
 // ========================================
 // Saved Strategy (Library) Types
@@ -590,9 +595,9 @@ export interface SavedStrategy {
     name: string;
     description?: string;
     code: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
     last_results?: {
-        metrics: any;
+        metrics: unknown;
         plot_json: string;
     };
     is_public: boolean;
@@ -604,8 +609,8 @@ export interface SavedStrategyCreate {
     name: string;
     description?: string;
     code: string;
-    parameters?: Record<string, any>;
-    last_results?: any;
+    parameters?: Record<string, unknown>;
+    last_results?: unknown;
     is_public?: boolean;
 }
 
@@ -613,8 +618,8 @@ export interface SavedStrategyUpdate {
     name?: string;
     description?: string;
     code?: string;
-    parameters?: Record<string, any>;
-    last_results?: any;
+    parameters?: Record<string, unknown>;
+    last_results?: unknown;
     is_public?: boolean;
 }
 
@@ -636,7 +641,7 @@ export interface MonteCarloResponse {
 }
 
 export interface MonteCarloRequest {
-    trades: any[]; // Or define a simpler trade object if needed
+    trades: BacktestTrade[];
     iterations?: number;
 }
 
@@ -650,13 +655,13 @@ export interface Deployment {
     started_at: string;
     stopped_at?: string;
     last_error?: string;
-    config_snapshot: Record<string, any>;
+    config_snapshot: Record<string, unknown>;
 }
 
 export interface DeploymentCreate {
     strategy_id: string;
     stock_symbol: string;
     timeframe: string;
-    config_snapshot: Record<string, any>;
+    config_snapshot: Record<string, unknown>;
     is_live: boolean;
 }

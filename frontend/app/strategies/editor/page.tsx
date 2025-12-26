@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { DeploymentModal } from './DeploymentModal';
-import { DeploymentModal } from './DeploymentModal';
 import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
@@ -18,7 +17,7 @@ import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSav
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
-import { BacktestTrade, UserPreferences, SavedStrategy } from '@/lib/api/types';
+import { BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 // ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
@@ -140,10 +139,8 @@ export default function StrategyEditor() {
     
     // UI State
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    // UI State
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
     const [sidebarTab, setSidebarTab] = useState<'config' | 'library' | 'optimize' | 'simulation'>('config');
-    const [isCopied, setIsCopied] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     
     // Visualization State
@@ -170,6 +167,7 @@ export default function StrategyEditor() {
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [isSimulating, setIsSimulating] = useState(false);
     const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+    const [lastBacktestResult, setLastBacktestResult] = useState<BacktestResponse | null>(null);
 
     // Confirmation Modal States
     const [showLoadConfirm, setShowLoadConfirm] = useState(false);
@@ -245,12 +243,13 @@ export default function StrategyEditor() {
             
             if (res.plot_json) {
                 setPlotJson(res.plot_json);
+                setLastBacktestResult(res);
                 setActiveTab('chart');
                 addLog('SUCCESS', "Interactive Chart Generated.");
             }
             
         } catch (error) {
-            addLog('ERROR', `Execution failed: ${(error as any).message || error}`);
+            addLog('ERROR', `Execution failed: ${(error as Error).message || String(error)}`);
         } finally {
             setIsRunning(false);
         }
@@ -297,7 +296,7 @@ export default function StrategyEditor() {
             setLastSavedTitle(name);
             setIsSaveModalOpen(false);
         } catch (err) {
-            addLog('ERROR', `Failed to save strategy: ${(err as any).message}`);
+            addLog('ERROR', `Failed to save strategy: ${(err as Error).message}`);
         } finally {
             setIsSaving(false);
         }
@@ -311,9 +310,9 @@ export default function StrategyEditor() {
         
         // Load params if available
         if (strategy.parameters) {
-             if (strategy.parameters.symbol) setSymbol(strategy.parameters.symbol);
-             if (strategy.parameters.timeframe) setTimeframe(strategy.parameters.timeframe);
-             if (strategy.parameters.initialCapital) setInitialCapital(strategy.parameters.initialCapital);
+             if (strategy.parameters.symbol) setSymbol(String(strategy.parameters.symbol));
+             if (strategy.parameters.timeframe) setTimeframe(String(strategy.parameters.timeframe));
+             if (strategy.parameters.initialCapital) setInitialCapital(Number(strategy.parameters.initialCapital));
         }
         addLog('INFO', `Loaded strategy: ${strategy.name}`);
         
@@ -363,11 +362,11 @@ export default function StrategyEditor() {
             }
             addLog('SUCCESS', `Strategy "${name}" deleted.`);
         } catch (err) {
-            addLog('ERROR', `Failed to delete: ${(err as any).message}`);
+            addLog('ERROR', `Failed to delete: ${(err as Error).message}`);
         }
     };
 
-    const handleRunOptimization = async (paramGrid: Record<string, any>) => {
+    const handleRunOptimization = async (paramGrid: Record<string, unknown>) => {
         setIsOptimizing(true);
         addLog('INFO', "Starting optimization...");
         
@@ -395,7 +394,7 @@ export default function StrategyEditor() {
             addLog('SUCCESS', `Optimization complete. Found ${results.length} results.`);
             return results;
         } catch (error) {
-            addLog('ERROR', `Optimization failed: ${(error as any).message}`);
+            addLog('ERROR', `Optimization failed: ${(error as Error).message}`);
             throw error;
         } finally {
             setIsOptimizing(false);
@@ -743,7 +742,7 @@ export default function StrategyEditor() {
                                             </div>
                                             <p className="text-xs text-slate-500 line-clamp-2">{strat.description || "No description"}</p>
                                             <div className="mt-2 flex gap-2 text-[10px] text-slate-600 font-mono">
-                                                <span>{strat.parameters?.symbol || "ANY"}</span>
+                                                <span>{String(strat.parameters?.symbol || "ANY")}</span>
                                                 <span>•</span>
                                                 <span>{new Date(strat.updated_at).toLocaleDateString()}</span>
                                             </div>

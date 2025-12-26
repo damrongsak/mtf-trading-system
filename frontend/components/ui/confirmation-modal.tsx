@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   isLoading?: boolean;
+  variant?: 'default' | 'danger';
 }
 
 export function ConfirmationModal({
@@ -23,6 +25,7 @@ export function ConfirmationModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   isLoading = false,
+  variant = 'default',
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
 
@@ -44,7 +47,10 @@ export function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(
+              "px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed",
+              variant === 'danger' ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+            )}
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             {confirmText}
