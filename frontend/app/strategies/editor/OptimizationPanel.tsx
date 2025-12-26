@@ -13,15 +13,7 @@ interface ParamRange {
     step: number;
 }
 
-interface OptimizationResult {
-    params: Record<string, number>;
-    metrics: {
-        total_return: number;
-        sharpe_ratio: number;
-        max_drawdown: number;
-        total_trades: number;
-    };
-}
+import { OptimizationResult } from '@/lib/api/backtest';
 
 interface OptimizationPanelProps {
     onRunOptimization: (ranges: Record<string, any>) => Promise<OptimizationResult[]>;

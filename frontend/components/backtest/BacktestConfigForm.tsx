@@ -26,7 +26,7 @@ export function BacktestConfigForm({ onRun, loading }: BacktestConfigFormProps) 
         let parsedParams = {};
         try {
             parsedParams = JSON.parse(params);
-        } catch (e) {
+        } catch (_e) {
             alert("Invalid JSON params");
             return;
         }

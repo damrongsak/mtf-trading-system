@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { IChartApi, MouseEventParams, Time, ISeriesApi } from 'lightweight-charts';
 
 interface ChartContainerProps {
@@ -14,6 +14,7 @@ interface ChartContainerProps {
 // Interface for stored chart info
 interface ChartRegistryEntry {
     chart: IChartApi;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     syncSeries?: ISeriesApi<any>;
 }
 
@@ -21,6 +22,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
   const registryRef = useRef<ChartRegistryEntry[]>([]);
   
   // Function for children to register themselves
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registerChart = (chart: IChartApi, syncSeries?: ISeriesApi<any>) => {
     if (!registryRef.current.find(e => e.chart === chart)) {
       registryRef.current.push({ chart, syncSeries });
@@ -74,6 +76,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const ChartSyncContext = React.createContext<(chart: IChartApi, syncSeries?: ISeriesApi<any>) => void>(() => {});
 
 export const useChartSync = () => React.useContext(ChartSyncContext);

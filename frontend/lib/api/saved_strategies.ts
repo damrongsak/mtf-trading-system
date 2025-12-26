@@ -2,8 +2,7 @@ import { apiClient } from './client';
 import {
   SavedStrategy,
   SavedStrategyCreate,
-  SavedStrategyUpdate,
-  APIResponse
+  SavedStrategyUpdate
 } from './types';
 
 export const getSavedStrategies = async (publicOnly: boolean = false): Promise<SavedStrategy[]> => {

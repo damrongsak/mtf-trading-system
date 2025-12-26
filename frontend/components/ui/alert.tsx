@@ -7,7 +7,7 @@ interface AlertProps {
     variant?: 'default' | 'destructive';
 }
 
-export const Alert: React.FC<AlertProps> = ({ children, className = '', variant = 'default' }) => {
+export const Alert: React.FC<AlertProps> = ({ children, className = '', variant: _variant = 'default' }) => {
     return (
         <div role="alert" className={`relative w-full rounded-lg border p-4 [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg+div]:translate-y-[-3px] [&:has(svg)]:pl-11 ${className}`}>
             {children}

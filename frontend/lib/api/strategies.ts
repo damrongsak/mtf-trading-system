@@ -34,6 +34,7 @@ export const createStrategy = async (data: StrategyCreate): Promise<StrategyResp
 export const startStrategy = async (id: string): Promise<APIResponse<{ status: string }>> => {
   const response = await apiClient.post<{ status: string }>(`/api/v1/strategies/${id}/start`, {});
   return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: response.status as any, // Enum mapping might be needed if strict
     timestamp: new Date().toISOString(),
     data: response.data
@@ -43,6 +44,7 @@ export const startStrategy = async (id: string): Promise<APIResponse<{ status: s
 export const stopStrategy = async (id: string): Promise<APIResponse<{ status: string }>> => {
   const response = await apiClient.post<{ status: string }>(`/api/v1/strategies/${id}/stop`, {});
   return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: response.status as any,
     timestamp: new Date().toISOString(),
   };
@@ -52,8 +54,10 @@ export const deleteStrategy = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v1/strategies/${id}`);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const validateStrategy = async (data: any): Promise<any> => {
   // Mock for now, replace with actual endpoint
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await apiClient.post<any>('/api/v1/strategies/backtest-custom', data);
   return response.data;
 };

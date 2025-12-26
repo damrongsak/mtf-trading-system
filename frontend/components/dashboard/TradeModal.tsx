@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Signal } from '@/lib/api/types';
-import { placeOrder, placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
+import { placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 
 interface TradeModalProps {
   signal: Signal | null;
@@ -58,9 +58,9 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
     
     try {
         if (mode === 'MANUAL') {
-            const units = signal.direction === 'LONG' || signal.direction === 'BULLISH' 
-                ? lotSize * 100000 
-                : -1 * lotSize * 100000;
+            // const units = signal.direction === 'LONG' || signal.direction === 'BULLISH' 
+            //    ? lotSize * 100000 
+            //    : -1 * lotSize * 100000;
             
             // For Manual, we still need basic OrderRequest structure
             // But wait, OrderRequest requires specific broker config usually?
@@ -129,8 +129,9 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
         
         onTradeSuccess();
         onClose();
-    } catch (err: any) {
-        setError(err.message || "Failed to place order");
+    } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to place order";
+        setError(message);
     } finally {
         setLoading(false);
     }

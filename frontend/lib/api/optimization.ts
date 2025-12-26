@@ -16,7 +16,12 @@ export interface MonteCarloResponse {
 
 export interface OptimizationResult {
     params: Record<string, string | number | boolean>;
-    metrics: Record<string, number>;
+    metrics: {
+        total_return: number;
+        sharpe_ratio: number;
+        max_drawdown: number;
+        total_trades: number;
+    };
 }
 
 export interface OptimizationResponse {

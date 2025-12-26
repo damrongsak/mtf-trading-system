@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
@@ -93,6 +93,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       chart.remove();
       chartRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
 
   // 2. Update Data (When data changes)

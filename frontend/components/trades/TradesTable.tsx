@@ -53,7 +53,7 @@ export const TradesTable: React.FC<TradesTableProps> = ({
   const formatDate = (dateString: string) => {
     try {
         return format(new Date(dateString), 'MMM dd, HH:mm');
-    } catch (e) {
+    } catch (_e) {
         return dateString;
     }
   };

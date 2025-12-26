@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card'; // Check if this exists, usually shadcn/ui
 import { Button } from '@/components/ui/button';
-import { Loader2, XCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { closeTrade } from '@/lib/api/execution';
 import { apiClient } from '@/lib/api/client';
 import { APIResponse } from '@/lib/api/types';

@@ -21,7 +21,8 @@ export async function getJournalEntries(
     perPage: number = 10,
     filters?: JournalFilters
 ): Promise<PaginatedResponse<JournalEntry>> {
-    const params: any = { page, per_page: perPage };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = { page, per_page: perPage };
 
     if (filters) {
         if (filters.symbol) params.symbol = filters.symbol;

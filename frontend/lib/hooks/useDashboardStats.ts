@@ -45,6 +45,7 @@ export function useDashboardStats(strategyId?: string): UseDashboardStatsReturn 
         const interval = setInterval(() => fetchStats(true), 30000);
 
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [strategyId]); // Re-fetch when strategyId changes
 
     // Wrap refetch to match interface (argumentless)

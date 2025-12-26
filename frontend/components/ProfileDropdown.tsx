@@ -47,7 +47,7 @@ export const ProfileDropdown = () => {
         aria-label="User menu"
       >
         {user.avatar_url ? (
-           <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
+           <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
         ) : (
            initial
         )}

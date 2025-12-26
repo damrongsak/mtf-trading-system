@@ -12,7 +12,7 @@ import { Modal } from '@/components/common';
 import { importTrades } from '@/lib/api/journal';
 
 export default function TradesPage() {
-    const { user } = useAuth();
+    // const { user } = useAuth();
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);

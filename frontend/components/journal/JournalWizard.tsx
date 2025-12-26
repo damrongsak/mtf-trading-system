@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { JournalEntry, CreateJournalEntryDto, TimelineEvent } from "@/lib/api/types";
 import { getPreferences } from "@/lib/api";
 import WizardLayout from "@/components/journal/WizardLayout";
@@ -11,8 +9,11 @@ import Step4RootCause from "@/components/journal/Step4RootCause";
 
 interface JournalWizardProps {
   initialData?: Partial<JournalEntry> & {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mental_state?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     timeline_events?: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     root_cause?: any;
   };
   onSubmit: (data: CreateJournalEntryDto) => Promise<void>;
@@ -37,73 +38,87 @@ export default function JournalWizard({ initialData, onSubmit, isSubmitting = fa
     fetchSymbols();
   }, []);
 
-  // Step 1 Data
-  const [step1Data, setStep1Data] = useState({
-    symbol: "XAU/USD",
-    direction: "LONG",
-    session: "",
-    entryPrice: "",
-    stopLoss: "",
-    takeProfit: "",
-    riskAmount: "",
-    exitPrice: "",
-    pnl: "",
-    contextScore: 5,
+  // Helper functions for state initialization
+  // Use any for data to handle the intersection type easily
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getInitialStep1Data = (data?: any) => ({
+    symbol: data?.symbol || "XAU/USD",
+    direction: (data?.direction || "LONG"), // Allow string to match Step1Technical
+    session: data?.session || "",
+    entryPrice: data?.entry_price?.toString() || "",
+    stopLoss: data?.stop_loss_price?.toString() || "",
+    takeProfit: data?.take_profit_price?.toString() || "",
+    riskAmount: data?.risk_amount?.toString() || "",
+    exitPrice: data?.exit_price?.toString() || "",
+    pnl: data?.pnl_amount?.toString() || "",
+    contextScore: data?.context_score || 5,
   });
 
-  // Step 2 Data
-  const [gameLevel, setGameLevel] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getInitialGameLevel = (data?: any) => data?.game_level || "";
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getInitialTimelineEvents = (data?: any) => data?.timeline_events || [];
 
-  // Step 3 Data
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
-  const [mentalState, setMentalState] = useState({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getInitialMentalState = (data?: any) => data?.mental_state || {
     greed_level: 0,
     fear_level: 0,
     tilt_level: 0,
     confidence_level: 5,
     discipline_level: 5,
-  });
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getInitialRootCause = (data?: any) => {
+    if (data?.root_cause) {
+        return {
+          problem: data.root_cause.problem || "",
+          why_exist: data.root_cause.why_exist || "",
+          flaw: data.root_cause.flaw || "",
+          correction: data.root_cause.correction || "",
+          logic: data.root_cause.logic || "",
+        };
+    }
+    return {
+        problem: "",
+        why_exist: "",
+        flaw: "",
+        correction: "",
+        logic: "",
+    };
+  };
+
+  // Step 1 Data
+  const [step1Data, setStep1Data] = useState(() => getInitialStep1Data(initialData));
+
+  // Step 2 Data
+  const [gameLevel, setGameLevel] = useState(() => getInitialGameLevel(initialData));
+
+  // Step 3 Data
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(() => getInitialTimelineEvents(initialData));
+  const [mentalState, setMentalState] = useState(() => getInitialMentalState(initialData));
 
   // Step 4 Data
-  const [rootCause, setRootCause] = useState({
-    problem: "",
-    why_exist: "",
-    flaw: "",
-    correction: "",
-    logic: "",
-  });
+  const [rootCause, setRootCause] = useState(() => getInitialRootCause(initialData));
+  
+  // Track previous initialData to detect changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prevInitialDataRef = useRef<any>(initialData);
 
   // Initialize data if provided (for edit mode)
   useEffect(() => {
-    if (initialData) {
-      setStep1Data({
-        symbol: initialData.symbol || "XAU/USD",
-        direction: initialData.direction || "LONG",
-        session: initialData.session || "",
-        entryPrice: initialData.entry_price?.toString() || "",
-        stopLoss: initialData.stop_loss_price?.toString() || "",
-        takeProfit: initialData.take_profit_price?.toString() || "",
-        riskAmount: initialData.risk_amount?.toString() || "",
-        exitPrice: initialData.exit_price?.toString() || "",
-        pnl: initialData.pnl_amount?.toString() || "",
-        contextScore: initialData.context_score || 5,
-      });
-
-      if (initialData.game_level) setGameLevel(initialData.game_level);
-      
-      // Note: These nested fields might need adjustment depending on how backend returns them
-      // Assuming the backend returns them in a compatible format or we map them before passing initialData
-      if (initialData.timeline_events) setTimelineEvents(initialData.timeline_events);
-      if (initialData.mental_state) setMentalState(initialData.mental_state);
-      if (initialData.root_cause) {
-        setRootCause({
-          problem: initialData.root_cause.problem || "",
-          why_exist: initialData.root_cause.why_exist || "",
-          flaw: initialData.root_cause.flaw || "",
-          correction: initialData.root_cause.correction || "",
-          logic: initialData.root_cause.logic || "",
-        });
-      }
+    // Only update if initialData has effectively changed from what we used to initialize
+    // This simple check prevents the effect from running on mount if data is same
+    if (initialData && initialData !== prevInitialDataRef.current) {
+       // eslint-disable-next-line
+       setStep1Data(getInitialStep1Data(initialData));
+       setGameLevel(getInitialGameLevel(initialData));
+       setTimelineEvents(getInitialTimelineEvents(initialData));
+       setMentalState(getInitialMentalState(initialData));
+       setRootCause(getInitialRootCause(initialData));
+       // Update ref
+       prevInitialDataRef.current = initialData;
     }
   }, [initialData]);
 

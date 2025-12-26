@@ -20,7 +20,7 @@ export async function runCustomBacktest(payload: StrategyBacktestRequest): Promi
 }
 
 export interface OptimizationResult {
-  params: Record<string, number>;
+  params: Record<string, string | number | boolean>;
   metrics: {
     total_return: number;
     sharpe_ratio: number;
@@ -35,9 +35,7 @@ export interface OptimizationResponse {
 
 
 export async function runOptimization(payload: StrategyBacktestRequest): Promise<OptimizationResult[]> {
-  // @ts-ignore - backend returns direct list
   const response = await apiClient.post<OptimizationResponse>('/api/v1/backtest/optimize', payload);
-  // @ts-ignore
   return response.data.results;
 }
 

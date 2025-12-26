@@ -19,6 +19,7 @@ export function MarketWatchCard({ symbols }: { symbols?: string[] }) {
     // Set default tab when categories load
     useEffect(() => {
         if (categories && categories.length > 0 && !activeTab) {
+            // eslint-disable-next-line
             setActiveTab(categories[0].id);
         }
     }, [categories, activeTab]);

@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { updateProfile, changePassword, uploadAvatar } from '@/lib/api';
 import { Camera } from 'lucide-react';
 
+import Image from 'next/image';
+
 export function ProfileSection() {
   const { user, setUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -122,10 +124,11 @@ export function ProfileSection() {
            <div className="relative group">
               <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-gray-700">
                  {user?.avatar_url ? (
-                   <img 
+                   <Image 
                       src={user.avatar_url} 
                       alt={user.username} 
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                    />
                  ) : (
                    <span className="text-3xl font-bold text-gray-500">

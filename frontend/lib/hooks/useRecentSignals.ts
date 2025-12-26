@@ -25,7 +25,7 @@ export function useRecentSignals(limit: number = 5, symbols?: string[]): UseRece
                 setLoading(true);
             }
             setError(null);
-            const data = await getRecentSignals(limit, symbols);
+            const data = await getRecentSignals(limit);
             setSignals(data);
         } catch (err: unknown) {
             const apiError = err as ApiError;

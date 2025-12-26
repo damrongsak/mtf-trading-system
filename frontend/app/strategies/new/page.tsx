@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStrategyTemplates, createStrategy, getAccounts, getFunds, type LogicTemplate, type BrokerAccount, type Fund } from '@/lib/api';
+import { getStrategyTemplates, createStrategy, getAccounts, getFunds, type LogicTemplate, type BrokerAccount } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ export default function NewStrategyPage() {
     const router = useRouter();
     const [templates, setTemplates] = useState<LogicTemplate[]>([]);
     const [accounts, setAccounts] = useState<BrokerAccount[]>([]);
-    const [funds, setFunds] = useState<Fund[]>([]);
+    // const [funds, setFunds] = useState<Fund[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function NewStrategyPage() {
                 
                 setTemplates(tmpls);
                 setAccounts(accts);
-                setFunds(fundsList);
+                // setFunds(fundsList);
 
                 if (tmpls.length > 0) setSelectedTemplate(tmpls[0].id);
                 if (accts.length > 0) setSelectedAccount(accts[0].id);

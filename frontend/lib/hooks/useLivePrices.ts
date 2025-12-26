@@ -19,7 +19,6 @@ export function useLivePrices(instruments: string[] = []) {
     const [connected, setConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
     const { authToken } = useAuth();
-    const headers = new Headers();
 
     // Create a stable key for instruments to avoid infinite re-renders
     const instrumentsList = instruments.map(s => s.replace('/', '_')).join(',');

@@ -12,12 +12,12 @@ test.describe('Journal Entry Flow', () => {
 
     // 1. Register via API (Real Backend)
     const registerResponse = await request.post('http://localhost:8000/api/v1/auth/register', {
-        data: {
-            username: `testuser${timestamp}`,
-            email: email,
-            password: password,
-            full_name: 'Test User'
-        }
+      data: {
+        username: `testuser${timestamp}`,
+        email: email,
+        password: password,
+        full_name: 'Test User'
+      }
     });
     expect(registerResponse.ok()).toBeTruthy();
 
@@ -28,8 +28,8 @@ test.describe('Journal Entry Flow', () => {
     await page.click('button[type="submit"]');
 
     // 3. Wait for Login to succeed (Profile API called)
-    await page.waitForResponse(response => 
-        response.url().includes('/api/v1/auth/profile') && response.status() === 200
+    await page.waitForResponse(response =>
+      response.url().includes('/api/v1/auth/profile') && response.status() === 200
     );
 
     // 4. Manually navigate to avoid redirect issues
@@ -38,8 +38,8 @@ test.describe('Journal Entry Flow', () => {
 
     // Mock Journal Create (to avoid dependency on backend DB state)
     await page.route('**/api/v1/journal/entries', async route => {
-         console.log('MOCK HIT: POST /api/v1/journal/entries');
-         await route.fulfill({ json: { status: 'success', data: { id: 'journal-123' } } });
+      console.log('MOCK HIT: POST /api/v1/journal/entries');
+      await route.fulfill({ json: { status: 'success', data: { id: 'journal-123' } } });
     });
   });
 
@@ -49,26 +49,27 @@ test.describe('Journal Entry Flow', () => {
 
     // Step 1: Technical
     await expect(page.getByText('Market Data (Forex)')).toBeVisible({ timeout: 10000 });
-    
+
     // Select symbol (default is XAU/USD, let's keep it or change)
-    const symbolSelect = page.locator('select').first(); 
+    // Select symbol (default is XAU/USD, let's keep it or change)
+    page.locator('select').first();
     // Or label based:
     // page.getByLabel('Pair') - waiting for hydration?
-    
+
     // Click LONG
     await page.getByText('LONG').click();
-    
+
     // Enter Price
     // Inputs: Entry Price, Stop Loss, Take Profit, Risk Amount ($), Exit Price, Realized P&L ($)
     // There are many inputs. Let's find by nearby text or order.
     // Label "Entry Price"
     // locator('label:has-text("Entry Price") + input')?
-    
+
     // Or just fill all inputs roughly if they are unique types? No they are all number.
     // Use layout.
     // We can use placeholders if they exist, but code didn't show them.
     // We can use: page.locator('input[type="number"]').nth(0) -> Entry Price
-    
+
     const inputs = page.locator('input[type="number"]');
     await inputs.nth(0).fill('2000'); // Entry
     await inputs.nth(1).fill('1990'); // SL
@@ -76,7 +77,7 @@ test.describe('Journal Entry Flow', () => {
     await inputs.nth(3).fill('100');  // Risk
     await inputs.nth(4).fill('2010'); // Exit
     await inputs.nth(5).fill('500');  // PnL
-    
+
     await page.getByText('Next: Game Level').click();
 
     // Step 2: Game Level

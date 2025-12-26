@@ -149,9 +149,17 @@ export function BacktestResults({ results }: BacktestResultsProps) {
     );
 }
 
-function KPICard({ title, value, subValue, icon: Icon, trend, inverse }: any) {
+interface KPICardProps {
+    title: string;
+    value: string | number;
+    subValue?: string;
+    icon?: React.ElementType;
+    trend?: 'up' | 'down';
+    inverse?: boolean;
+}
+
+function KPICard({ title, value, subValue, icon: Icon, trend, inverse }: KPICardProps) {
     const isPositive = trend === 'up';
-    const isNegative = trend === 'down';
     
     // Logic: 
     // If inverse (e.g. Drawdown), Negative is Red (Bad), Positive is Green (Good). 

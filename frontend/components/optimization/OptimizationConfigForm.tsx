@@ -16,8 +16,8 @@ export function OptimizationConfigForm({ onRun, loading }: OptimizationConfigFor
     const [timeframe, setTimeframe] = useState('H1');
     const [startDate, setStartDate] = useState('2024-01-01');
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-    const [capital, setCapital] = useState(10000);
-    const [fees, setFees] = useState(0.0001);
+    const [capital] = useState(10000);
+    const [fees] = useState(0.0001);
 
     // Optimization Ranges
     const [fastStart, setFastStart] = useState(10);

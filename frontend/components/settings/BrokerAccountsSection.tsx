@@ -74,8 +74,9 @@ export function BrokerAccountsSection() {
             setAccountNumber('');
             setApiKey('');
             setAccountId('');
-        } catch (err: any) {
-            setError(err.message || "Failed to add account");
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to add account";
+            setError(message);
         } finally {
             setSubmitting(false);
         }
@@ -91,7 +92,7 @@ export function BrokerAccountsSection() {
             await deleteAccount(deleteId);
             setAccounts(prev => prev.filter(a => a.id !== deleteId));
             setSuccess("Account deleted successfully");
-        } catch (err) {
+        } catch (_err) {
             setError("Failed to delete account");
         } finally {
             setIsDeleting(false);

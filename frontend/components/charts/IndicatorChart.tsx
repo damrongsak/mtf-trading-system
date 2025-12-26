@@ -39,6 +39,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<ISeriesApi<any>[]>([]);
   
   // Sync
@@ -95,7 +96,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
       chartRef.current = null;
       seriesRef.current = []; // Prevent stale series causing crashes on remount
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update Data
   useEffect(() => {
@@ -169,6 +170,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         chartRef.current.timeScale().fitContent();
     }
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, type, colors]);
 
   return <div ref={chartContainerRef} className="w-full relative" style={{ height: height }} />;

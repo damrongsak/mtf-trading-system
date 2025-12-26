@@ -1,12 +1,13 @@
 import { apiClient } from './client';
-import { DashboardStats, RecentSignal, Signal, APIResponse } from './types';
+import { DashboardStats, RecentSignal } from './types';
 
 /**
  * Get dashboard statistics
  * @returns Dashboard statistics
  */
 export async function getDashboardStats(strategyId?: string): Promise<DashboardStats> {
-    const params: any = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = {};
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
     const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats', { params });
@@ -20,7 +21,8 @@ export interface EquityPoint {
 }
 
 export async function getEquityCurve(days: number = 30, strategyId?: string): Promise<EquityPoint[]> {
-    const params: any = { days };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = { days };
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
     const response = await apiClient.get<EquityPoint[]>('/api/v1/dashboard/equity-curve', { params });
@@ -51,7 +53,7 @@ import { getBatchSignals } from './signals';
  * @param limit - Number of recent signals to fetch (default: 5)
  * @returns Array of recent signals
  */
-export async function getRecentSignals(limit: number = 5, symbols?: string[]): Promise<RecentSignal[]> {
+export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[]> {
     try {
         // Use batch fetching for efficiency
         const signals = await getBatchSignals("OANDA"); // Default to OANDA for now

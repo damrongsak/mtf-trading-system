@@ -1,39 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { OptimizationResult, runMonteCarlo, MonteCarloResponse } from '@/lib/api/optimization';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Assuming you have ui/table
-import { PlayCircle, Trophy, BarChart2 } from 'lucide-react';
+import { OptimizationResult } from '@/lib/api/backtest';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Trophy, BarChart2 } from 'lucide-react';
 
 interface OptimizationResultsProps {
     results: OptimizationResult[] | null;
 }
 
 export function OptimizationResults({ results }: OptimizationResultsProps) {
-    const [selectedResult, setSelectedResult] = useState<OptimizationResult | null>(null);
-    const [mcResults, setMcResults] = useState<MonteCarloResponse | null>(null);
-    const [mcLoading, setMcLoading] = useState(false);
 
-    const handleRunMonteCarlo = async (result: OptimizationResult) => {
-        setSelectedResult(result);
-        setMcLoading(true);
-        try {
-             // In a real app we would replicate the trades locally or fetch them.
-             // For this MVP, we will mock the trade data in the backend or 
-             // assume the backend result structure can be passed back?
-             // Actually, `run_grid_search` in backend returns metrics, not full trade list to optimize bandwidth.
-             // We can't run specific MC on summary metrics.
-             // We need to re-run backtest for that specific param set to get trades.
-             
-             // WORKAROUND: For MVP, we will just display an alert or mock it.
-             // Ideally: Add a "Detailed Backtest" button which navigates to /backtest page with pre-filled params.
-             console.log("Monte Carlo simulation requires trade list.");
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setMcLoading(false);
-        }
-    };
 
     if (!results) {
         return (

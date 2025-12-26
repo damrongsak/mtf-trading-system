@@ -68,7 +68,7 @@ export default function InteractiveBacktestChart({ plotJson }: InteractiveBackte
            };
         }
         return acc;
-      }, {} as any)
+      }, {} as any) // eslint-disable-line @typescript-eslint/no-explicit-any
     };
   }, [layout]);
 

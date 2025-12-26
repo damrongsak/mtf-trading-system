@@ -1,5 +1,4 @@
 import { apiClient } from './client';
-import { ApiError } from './errors';
 
 export interface MarketSymbol {
     id: string;
