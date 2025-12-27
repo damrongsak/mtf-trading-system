@@ -425,9 +425,17 @@ def run_optimization_endpoint(req: StrategyBacktestRequest):
 @router.post("/backtest/monte-carlo", response_model=MonteCarloResponse)
 def run_monte_carlo_endpoint(req: MonteCarloRequest):
     try:
+        logger.info(f"Received monte carlo request for {len(req.trades)} trades")
+        from app.analysis.monte_carlo import run_monte_carlo  # Import here to ensure latest version is used? No, should be top level but fine.
         metrics = run_monte_carlo(req.trades, n_sims=req.iterations)
+        
+        logger.info(f"Monte Carlo returned metrics: {metrics.keys()}")
+        # logger.info(f"Metrics content: {metrics}") # Verbose but useful
+        
         if not metrics:
              raise HTTPException(status_code=400, detail="No valid trades for simulation")
+             
+        return metrics
              
         return MonteCarloResponse(
             iterations=metrics["iterations"],

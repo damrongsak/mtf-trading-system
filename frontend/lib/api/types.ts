@@ -639,6 +639,8 @@ export interface MonteCarloResponse {
     iterations: number;
     max_drawdown: SensitivityMetrics;
     total_return: SensitivityMetrics;
+    sharpe_ratio: SensitivityMetrics;
+    ruin_probability: number;
 }
 
 export interface MonteCarloRequest {

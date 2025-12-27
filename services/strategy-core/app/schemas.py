@@ -194,6 +194,8 @@ class MonteCarloResponse(BaseModel):
     iterations: int
     max_drawdown: SensitivityMetrics
     total_return: SensitivityMetrics
+    sharpe_ratio: SensitivityMetrics
+    ruin_probability: float
 
 class MonteCarloRequest(BaseModel):
     trades: List[Dict[str, Any]]

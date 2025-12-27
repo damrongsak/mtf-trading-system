@@ -115,6 +115,43 @@ export function MonteCarloPanel({ trades, onRunSimulation, isLoading }: MonteCar
                                 </Card>
                             </div>
                         </div>
+
+                        <div>
+                            <h4 className="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Sharpe Ratio</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Card className="bg-slate-900 border-slate-800 p-3">
+                                    <div className="text-[10px] text-slate-500 uppercase">Median</div>
+                                    <div className="text-lg font-mono text-blue-400">
+                                        {results.sharpe_ratio.median.toFixed(2)}
+                                    </div>
+                                </Card>
+                                <Card className="bg-slate-900 border-slate-800 p-3">
+                                    <div className="text-[10px] text-slate-500 uppercase">Range (p5-Best)</div>
+                                    <div className="text-sm font-mono text-slate-300 flex items-center h-7">
+                                        {results.sharpe_ratio.p95.toFixed(2)} - {results.sharpe_ratio.best?.toFixed(2)}
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Survival Analysis</h4>
+                            <Card className={`bg-slate-900 border p-3 ${results.ruin_probability > 0.05 ? 'border-red-500/50 bg-red-500/5' : 'border-emerald-500/20'}`}>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="text-[10px] text-slate-500 uppercase">Ruin Probability ({">"}50% DD)</div>
+                                        <div className={`text-lg font-mono ${results.ruin_probability > 0.05 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                            {(results.ruin_probability * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                    {results.ruin_probability > 0.10 && (
+                                        <div className="text-xs text-red-400 max-w-[120px] text-right">
+                                            High risk of ruin!
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             )}
