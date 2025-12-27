@@ -420,8 +420,8 @@ def run_optimization_endpoint(req: StrategyBacktestRequest):
         
         if req.strategy_id:
             from app.utils.persistence import save_strategy_result
-            # Convert list of OptimizationResult to dict for JSON serialization
-            save_strategy_result(req.strategy_id, 'optimization', [r.dict() for r in results])
+            # Results are already dicts (from run_grid_search)
+            save_strategy_result(req.strategy_id, 'optimization', results)
             
         return response
         
