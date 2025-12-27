@@ -39,26 +39,35 @@ const DEFAULT_CODE = `import vectorbt as vbt
 import pandas as pd
 import numpy as np
 
-def strategy(data):
+def strategy(data, params=None):
     """
-    Vectorized Strategy
-    data: pd.DataFrame with columns: open, high, low, close, volume (lowercase)
-    Returns: entries, exits (boolean pd.Series)
+    Vectorized Strategy with Optimization Support
+    
+    Args:
+        data: pd.DataFrame with columns: open, high, low, close, volume (lowercase)
+        params: dict (optional) injected by the optimization engine
+    
+    Returns: 
+        entries, exits (boolean pd.Series)
     """
-    # data index is datetime
+    if params is None:
+        params = {}
+
+    # 0. Extract Parameters (with defaults for standard run)
+    fast_window = int(params.get('fast_window', 10))
+    slow_window = int(params.get('slow_window', 20))
+    
+    # 1. Prepare Data
     close = data['close']
     
-    # 1. Calculate Indicators
-    fast_ma = vbt.MA.run(close, 10, short_name='fast')
-    slow_ma = vbt.MA.run(close, 20, short_name='slow')
+    # 2. Calculate Indicators using dynamic parameters
+    fast_ma = vbt.MA.run(close, fast_window, short_name='fast')
+    slow_ma = vbt.MA.run(close, slow_window, short_name='slow')
     
-    # 2. Generate Signals
+    # 3. Generate Signals
     entries = fast_ma.ma_crossed_above(slow_ma)
     exits = fast_ma.ma_crossed_below(slow_ma)
    
-    # 3. Optional: Plotting
-    # You can return entries, exits and the system will generate a portfolio plot.
-    
     return entries, exits
 `;
 
@@ -171,6 +180,7 @@ export default function StrategyEditor() {
 
     // Confirmation Modal States
     const [showLoadConfirm, setShowLoadConfirm] = useState(false);
+    const [showNewStrategyConfirm, setShowNewStrategyConfirm] = useState(false);
     const [pendingLoadStrategy, setPendingLoadStrategy] = useState<SavedStrategy | null>(null);
 
     useEffect(() => {
@@ -385,11 +395,10 @@ export default function StrategyEditor() {
                 optimization: {
                     method: 'GRID' as const,
                     target_metric: 'sharpe_ratio', // default
-                    param_grid: paramGrid
+                    param_grid: paramGrid as any
                 }
             };
             
-            // @ts-ignore Types might be partial in FE
             const results = await runOptimization(payload);
             addLog('SUCCESS', `Optimization complete. Found ${results.length} results.`);
             return results;
@@ -410,14 +419,29 @@ export default function StrategyEditor() {
         }
     };
 
-    const handleNewStrategy = () => {
-        if (code !== DEFAULT_CODE && !confirm("Start new strategy? Unsaved changes will be lost.")) return;
+    const performNewStrategy = () => {
         setCode(DEFAULT_CODE);
         setTitle("New Strategy");
         setDescription("");
         setCurrentStrategyId(null);
         setPlotJson(null);
+        
+        setLastSavedCode(DEFAULT_CODE);
+        setLastSavedTitle("New Strategy");
+        
+        setShowNewStrategyConfirm(false);
         addLog('INFO', "Created new strategy draft.");
+    };
+
+    const handleNewStrategy = () => {
+        const isIgnore = code === DEFAULT_CODE; // If untouched default, just reset anyway (no-op visual)
+        const isDirty = (code !== lastSavedCode || title !== lastSavedTitle) && !isIgnore;
+
+        if (isDirty) {
+            setShowNewStrategyConfirm(true);
+            return;
+        }
+        performNewStrategy();
     };
 
     const handleClearLogs = () => setLogs([]);
@@ -455,7 +479,6 @@ export default function StrategyEditor() {
                 isLoading={isSaving}
             />
             
-            {/* Load Confirmation Modal */}
             <ConfirmationModal
                 isOpen={showLoadConfirm}
                 onClose={() => setShowLoadConfirm(false)}
@@ -463,6 +486,16 @@ export default function StrategyEditor() {
                 title="Unsaved Changes"
                 message="You have unsaved changes in your current strategy. Loading a new strategy will overwrite them. Are you sure you want to continue?"
                 confirmText="Load Strategy"
+                variant="danger"
+            />
+            
+            <ConfirmationModal
+                isOpen={showNewStrategyConfirm}
+                onClose={() => setShowNewStrategyConfirm(false)}
+                onConfirm={performNewStrategy}
+                title="Unsaved Changes"
+                message="You have unsaved changes in your current strategy. Starting a new strategy will overwrite them. Are you sure you want to continue?"
+                confirmText="Start New Strategy"
                 variant="danger"
             />
 

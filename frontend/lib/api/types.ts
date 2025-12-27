@@ -570,6 +570,7 @@ export interface StrategyBacktestRequest {
     initial_capital?: number;
     fees?: number;
     slippage?: number;
+    optimization?: OptimizationConfig;
 }
 
 export interface StrategyBacktestResponse {

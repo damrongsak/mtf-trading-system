@@ -152,6 +152,7 @@ class StrategyBacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     fees: float = 0.0001
     slippage: float = 0.0001
+    optimization: Optional[OptimizationConfig] = None
 
 class TradeResult(BaseModel):
     entry_time: datetime

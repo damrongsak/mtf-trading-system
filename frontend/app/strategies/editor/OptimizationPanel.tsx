@@ -22,7 +22,8 @@ interface OptimizationPanelProps {
 
 export function OptimizationPanel({ onRunOptimization, isLoading }: OptimizationPanelProps) {
     const [ranges, setRanges] = useState<ParamRange[]>([
-        { name: 'window', start: 10, stop: 50, step: 10 }
+        { name: 'fast_window', start: 5, stop: 30, step: 5 },
+        { name: 'slow_window', start: 40, stop: 100, step: 20 }
     ]);
     const [results, setResults] = useState<OptimizationResult[]>([]);
 
