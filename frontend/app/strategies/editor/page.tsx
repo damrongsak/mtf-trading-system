@@ -163,6 +163,8 @@ export default function StrategyEditor() {
     const [initialCapital, setInitialCapital] = useState(10000);
     const [fees, setFees] = useState(0.0001);
     const [slippage, setSlippage] = useState(0.0001);
+    const [orderSize, setOrderSize] = useState(1.0);
+    const [sizeType, setSizeType] = useState<'amount' | 'value' | 'percent'>('amount');
 
     // Strategy Library State
     const [savedStrategies, setSavedStrategies] = useState<SavedStrategy[]>([]);
@@ -236,7 +238,9 @@ export default function StrategyEditor() {
                 end_date: new Date(endDate).toISOString(),
                 initial_capital: initialCapital,
                 fees: fees,
-                slippage: slippage
+                slippage: slippage,
+                size: orderSize,
+                size_type: sizeType
             };
 
             addLog('INFO', "Sending code to server...");
@@ -280,7 +284,7 @@ export default function StrategyEditor() {
                 description: desc,
                 code,
                 parameters: {
-                    symbol, timeframe, initialCapital, fees, slippage
+                    symbol, timeframe, initialCapital, fees, slippage, orderSize, sizeType
                 },
                 last_results: plotJson ? {
                     metrics: null, 
@@ -327,17 +331,15 @@ export default function StrategyEditor() {
              if (strategy.parameters.symbol) setSymbol(String(strategy.parameters.symbol));
              if (strategy.parameters.timeframe) setTimeframe(String(strategy.parameters.timeframe));
              if (strategy.parameters.initialCapital) setInitialCapital(Number(strategy.parameters.initialCapital));
+             if (strategy.parameters.orderSize) setOrderSize(Number(strategy.parameters.orderSize));
+             if (strategy.parameters.sizeType) setSizeType(String(strategy.parameters.sizeType) as 'amount' | 'value' | 'percent');
         }
         addLog('INFO', `Loaded strategy: ${strategy.name}`);
         
         // Restore last results if available
-        if (strategy.last_results && strategy.last_results.plot_json) {
-            setPlotJson(strategy.last_results.plot_json);
-            if (strategy.last_results.trades) {
-                setLastBacktestTrades(strategy.last_results.trades);
-            } else {
-                setLastBacktestTrades(null);
-            }
+        if (strategy.last_results) {
+             setPlotJson(strategy.last_results.plot_json || null);
+             setLastBacktestTrades(strategy.last_results.trades || null);
         } else {
             setPlotJson(null);
             setLastBacktestTrades(null);
@@ -647,10 +649,16 @@ export default function StrategyEditor() {
                             )}
                             {activeTab === 'backtest' && (
                                 <div className="h-full w-full bg-slate-950 p-0">
-                                    {plotJson ? (
+                                    {plotJson || lastBacktestTrades ? (
                                         <div className="flex flex-col h-full overflow-hidden">
                                             <div className="flex-1 min-h-[500px]">
-                                                <InteractiveBacktestChart plotJson={plotJson} />
+                                                {plotJson ? (
+                                                    <InteractiveBacktestChart plotJson={plotJson} />
+                                                ) : (
+                                                    <div className="h-full flex items-center justify-center text-slate-500/50">
+                                                        <p>No chart data available</p>
+                                                    </div>
+                                                )}
                                             </div>
                                             {lastBacktestTrades && (
                                                 <div className="p-4 bg-slate-950">
@@ -808,6 +816,36 @@ export default function StrategyEditor() {
                                             <Input type="number" step="0.0001" value={slippage} onChange={(e) => setSlippage(Number(e.target.value))} className="bg-slate-900 border-slate-700" />
                                         </div>
                                     </div>
+                                </div>
+                                
+                                <div className="space-y-4 pt-4 border-t border-slate-800">
+                                     <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Position Sizing</h3>
+                                     <div className="grid grid-cols-2 gap-4">
+                                          <div className="space-y-2">
+                                             <Label className="text-xs text-slate-400">Type</Label>
+                                             <Select value={sizeType} onValueChange={(v) => setSizeType(v as "amount" | "value" | "percent")}>
+                                                 <SelectTrigger className="bg-slate-900 border-slate-700 h-8 text-xs"><SelectValue /></SelectTrigger>
+                                                 <SelectContent className="min-w-[150px]">
+                                                     <SelectItem value="amount">Fixed Amount</SelectItem>
+                                                     <SelectItem value="percent">Percent of Equity</SelectItem>
+                                                     <SelectItem value="value">Fixed Value ($)</SelectItem>
+                                                 </SelectContent>
+                                             </Select>
+                                         </div>
+                                         <div className="space-y-2">
+                                             <Label className="text-xs text-slate-400">Size</Label>
+                                             <Input 
+                                                 type="number" 
+                                                 value={orderSize} 
+                                                 onChange={(e) => setOrderSize(Number(e.target.value))} 
+                                                 className="bg-slate-900 border-slate-700 h-8 text-xs" 
+                                                 step="0.01"
+                                             />
+                                         </div>
+                                     </div>
+                                     {sizeType === 'percent' && (
+                                          <p className="text-[10px] text-slate-500 italic">100 = 100% of available cash per trade.</p>
+                                     )}
                                 </div>
                             </div>
                         )}

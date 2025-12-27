@@ -35,6 +35,8 @@ class BacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     fees: float = 0.0001 # 0.01%
     slippage: float = 0.0001 # 0.01%
+    size: float = 1.0
+    size_type: str = 'amount' # amount, value, percent
     
     # Profile References
     strategy_id: Optional[UUID] = None
@@ -53,6 +55,8 @@ class StrategyBacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     fees: float = 0.0001
     slippage: float = 0.0001
+    size: float = 1.0
+    size_type: str = 'amount'
 
 class TradeResult(BaseModel):
     entry_time: datetime

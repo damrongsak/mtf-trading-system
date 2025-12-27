@@ -426,6 +426,8 @@ export interface BacktestRequest {
     initial_capital: number;
     fees?: number;
     slippage?: number;
+    size?: number;
+    size_type?: 'amount' | 'value' | 'percent';
 
     // Profile References
     strategy_id?: string;
@@ -580,6 +582,8 @@ export interface StrategyBacktestRequest {
     initial_capital?: number;
     fees?: number;
     slippage?: number;
+    size?: number;
+    size_type?: 'amount' | 'value' | 'percent';
     optimization?: OptimizationConfig;
     strategy_id?: string;
 }
@@ -659,7 +663,7 @@ export interface MonteCarloResponse {
 }
 
 export interface MonteCarloRequest {
-    trades: Record<string, unknown>[];
+    trades: BacktestTrade[];
     iterations?: number;
     strategy_id?: string;
 }

@@ -122,6 +122,8 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
             init_cash=req_dict['initial_capital'],
             fees=req_dict['fees'],
             slippage=req_dict['slippage'],
+            size=req_dict.get('size', 1.0),
+            size_type=req_dict.get('size_type', 'amount'),
             freq=freq
         )
         
@@ -274,7 +276,9 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
         'code': req.code,
         'initial_capital': req.initial_capital,
         'fees': req.fees,
-        'slippage': req.slippage
+        'slippage': req.slippage,
+        'size': req.size,
+        'size_type': req.size_type
     }
 
     queue = multiprocessing.Queue()
@@ -418,7 +422,8 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
         # Standard columns: Entry Timestamp, Exit Timestamp, Entry Price, Exit Price, PnL, Return, Direction, Status
         # VBT 0.26 might differ.
         if not readable_trades.empty:
-             for idx, row in readable_trades.iterrows():
+            for idx, row in readable_trades.iterrows():
+                size_val = float(row.get('Size', 0.0))
                 trades_list.append(TradeResult(
                     entry_time=row['Entry Timestamp'],
                     exit_time=row['Exit Timestamp'],
@@ -427,10 +432,10 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
                     exit_price=float(row['Avg Exit Price']),
                     pnl=float(row['PnL']),
                     pnl_percent=float(row['Return'] * 100),
-                    size=float(row.get('Size', 0.0))
+                    size=size_val
                 ))
     except Exception as e:
-        print(f"Error parsing trades: {e}")
+        print(f"Error parsing trades: {e}", flush=True)
 
     # 6. Equity Curve
     equity_series = pf.value()

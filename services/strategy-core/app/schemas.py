@@ -138,6 +138,8 @@ class BacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     fees: float = 0.0001
     slippage: float = 0.0001
+    size: float = 1.0
+    size_type: str = 'amount'
     strategy_id: Optional[str] = None
     fund_id: Optional[str] = None
     trading_config_id: Optional[str] = None
@@ -152,6 +154,8 @@ class StrategyBacktestRequest(BaseModel):
     initial_capital: float = 10000.0
     fees: float = 0.0001
     slippage: float = 0.0001
+    size: float = 1.0
+    size_type: str = 'amount'
     optimization: Optional[OptimizationConfig] = None
     strategy_id: Optional[str] = None
 

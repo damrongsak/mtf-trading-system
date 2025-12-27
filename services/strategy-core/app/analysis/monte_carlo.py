@@ -30,6 +30,8 @@ def run_monte_carlo(trades: List[Dict[str, Any]], n_sims: int = 1000) -> Dict[st
             # Let's assume input has 'return_pct' (0.01 = 1%)
             if 'return_pct' in t:
                 returns.append(t['return_pct'])
+            elif 'pnl_percent' in t:
+                returns.append(t['pnl_percent'] / 100.0)
             elif 'pnl' in t and 'entry_price' in t:
                  # Rough approximation if pct not pre-calculated
                  returns.append(t['pnl'] / (t['entry_price'] * t.get('lot', 0.01) * 100000) if t.get('entry_price') else 0)
