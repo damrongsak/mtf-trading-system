@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { DeploymentModal } from './DeploymentModal';
-import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket } from 'lucide-react';
+import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket, PanelRight } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
@@ -559,26 +559,15 @@ export default function StrategyEditor() {
                     <p className="text-slate-400 text-sm truncate max-w-xl">{description || "Write, test, and deploy custom Python algorithms."}</p>
                 </div>
                 <div className="flex gap-3">
-                     <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800 mr-2">
-                        <Button 
-                            onClick={() => { setIsSidebarOpen(true); setSidebarTab('config'); }} 
-                            variant="ghost" 
-                            size="sm"
-                            className={`h-8 gap-2 ${isSidebarOpen && sidebarTab === 'config' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400'}`}
-                        >
-                            <Settings2 className="h-4 w-4" />
-                            Config
-                        </Button>
-                        <Button 
-                            onClick={() => { setIsSidebarOpen(true); setSidebarTab('library'); }} 
-                            variant="ghost" 
-                            size="sm"
-                            className={`h-8 gap-2 ${isSidebarOpen && sidebarTab === 'library' ? 'bg-slate-800 text-emerald-400' : 'text-slate-400'}`}
-                        >
-                            <BookOpen className="h-4 w-4" />
-                            Library
-                        </Button>
-                     </div>
+                     <Button 
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                        variant="ghost" 
+                        size="sm"
+                        className={`h-9 w-9 p-0 rounded-lg border transition-colors ${isSidebarOpen ? 'bg-slate-800 border-slate-700 text-emerald-400' : 'bg-transparent border-slate-800 text-slate-500 hover:text-emerald-400'}`}
+                        title="Toggle Sidebar"
+                     >
+                        <PanelRight className="h-5 w-5" />
+                     </Button>
 
                     <div className="h-8 w-[1px] bg-slate-700 mx-1" />
                     
