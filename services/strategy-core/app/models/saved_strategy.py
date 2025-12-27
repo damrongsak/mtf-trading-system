@@ -14,4 +14,7 @@ class SavedStrategy(Base):
     name = Column(String(100), nullable=False)
     code = Column(Text, nullable=False)
     parameters = Column(JSONB, nullable=False, default={})
+    last_results = Column(JSONB, nullable=True)
+    last_optimization_result = Column(JSONB, nullable=True)
+    last_simulation_result = Column(JSONB, nullable=True)
     is_public = Column(Boolean, default=False)

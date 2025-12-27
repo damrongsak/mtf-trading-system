@@ -460,6 +460,15 @@ export interface BacktestMetrics {
     candle_count?: number;
 }
 
+export interface OptimizationResult {
+    params: Record<string, unknown>;
+    metrics: BacktestMetrics;
+}
+
+export interface OptimizationResponse {
+    results: OptimizationResult[];
+}
+
 
 
 export interface BacktestConfig {
@@ -571,6 +580,7 @@ export interface StrategyBacktestRequest {
     fees?: number;
     slippage?: number;
     optimization?: OptimizationConfig;
+    strategy_id?: string;
 }
 
 export interface StrategyBacktestResponse {
@@ -601,6 +611,8 @@ export interface SavedStrategy {
         metrics: unknown;
         plot_json: string;
     };
+    last_optimization_result?: OptimizationResult[];
+    last_simulation_result?: MonteCarloResponse;
     is_public: boolean;
     created_at: string;
     updated_at: string;
@@ -641,11 +653,13 @@ export interface MonteCarloResponse {
     total_return: SensitivityMetrics;
     sharpe_ratio: SensitivityMetrics;
     ruin_probability: number;
+    equity_curves?: number[][];
 }
 
 export interface MonteCarloRequest {
-    trades: BacktestTrade[];
+    trades: any[];
     iterations?: number;
+    strategy_id?: string;
 }
 
 export interface Deployment {

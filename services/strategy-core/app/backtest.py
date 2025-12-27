@@ -296,7 +296,7 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
     if result['status'] == 'ERROR':
         return _empty_response(status=f"EXECUTION_ERROR: {result['message']}")
     
-    return BacktestResponse(
+    response = BacktestResponse(
         id=str(uuid4()),
         status="COMPLETED",
         metrics=result['metrics'],
@@ -304,6 +304,12 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
         equity_curve=result['equity_curve'],
         plot_json=result.get('plot_json')
     )
+
+    if req.strategy_id:
+        from app.utils.persistence import save_strategy_result
+        save_strategy_result(req.strategy_id, 'backtest', response)
+
+    return response
 
 
 

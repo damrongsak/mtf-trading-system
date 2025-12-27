@@ -17,8 +17,10 @@ import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSav
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
-import { BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse } from '@/lib/api/types';
+import { OptimizationResult, MonteCarloRequest, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { SimulationChart } from './SimulationChart';
+import { OptimizationChart } from './OptimizationChart';
 
 // ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
 const TIMEFRAME_MAP: Record<string, string> = {
@@ -153,8 +155,10 @@ export default function StrategyEditor() {
     const [isCopied, setIsCopied] = useState(false);
     
     // Visualization State
-    const [activeTab, setActiveTab] = useState<'editor' | 'chart'>('editor');
+    const [activeTab, setActiveTab] = useState<'editor' | 'backtest' | 'optimization' | 'simulation'>('editor');
     const [plotJson, setPlotJson] = useState<string | null>(null);
+    const [lastOptResult, setLastOptResult] = useState<OptimizationResult[] | null>(null);
+    const [lastSimResult, setLastSimResult] = useState<MonteCarloResponse | null>(null);
 
     // Configuration State
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -241,7 +245,10 @@ export default function StrategyEditor() {
             };
 
             addLog('INFO', "Sending code to server...");
-            const res = await runCustomBacktest(payload);
+            const res = await runCustomBacktest({
+                 ...payload,
+                 strategy_id: currentStrategyId || undefined
+            });
             
             addLog('SUCCESS', "Backtest Complete!");
             addLog('INFO', `----------------------------------------`);
@@ -254,7 +261,7 @@ export default function StrategyEditor() {
             if (res.plot_json) {
                 setPlotJson(res.plot_json);
                 setLastBacktestResult(res);
-                setActiveTab('chart');
+                setActiveTab('backtest');
                 addLog('SUCCESS', "Interactive Chart Generated.");
             }
             
@@ -329,12 +336,29 @@ export default function StrategyEditor() {
         // Restore last results if available
         if (strategy.last_results && strategy.last_results.plot_json) {
             setPlotJson(strategy.last_results.plot_json);
-            setActiveTab('chart');
-            addLog('SUCCESS', 'Restored previous backtest results.');
+            // Reconstruct metrics if missing in last_results.metrics (legacy) or just rely on plot
+            // For now, minimal restoration
         } else {
             setPlotJson(null);
-            setActiveTab('editor');
         }
+
+        if (strategy.last_optimization_result) {
+            setLastOptResult(strategy.last_optimization_result);
+        } else {
+            setLastOptResult(null);
+        }
+
+        if (strategy.last_simulation_result) {
+            setLastSimResult(strategy.last_simulation_result);
+        } else {
+            setLastSimResult(null);
+        }
+        
+        // Decide active tab based on what's available
+        if (strategy.last_simulation_result) setActiveTab('simulation');
+        else if (strategy.last_optimization_result) setActiveTab('optimization');
+        else if (strategy.last_results?.plot_json) setActiveTab('backtest');
+        else setActiveTab('editor');
 
         // Update last saved state
         setLastSavedCode(strategy.code);
@@ -399,7 +423,13 @@ export default function StrategyEditor() {
                 }
             };
             
-            const results = await runOptimization(payload);
+            
+            const results = await runOptimization({
+                ...payload,
+                strategy_id: currentStrategyId || undefined
+            });
+            setLastOptResult(results);
+            setActiveTab('optimization');
             addLog('SUCCESS', `Optimization complete. Found ${results.length} results.`);
             return results;
         } catch (error) {
@@ -413,7 +443,14 @@ export default function StrategyEditor() {
     const handleRunSimulation = async (trades: BacktestTrade[], iterations: number) => {
         setIsSimulating(true);
         try {
-             return await runMonteCarlo({ trades, iterations });
+             const res = await runMonteCarlo({ 
+                 trades, 
+                 iterations,
+                 strategy_id: currentStrategyId || undefined
+             });
+             setLastSimResult(res);
+             setActiveTab('simulation');
+             return res;
         } finally {
              setIsSimulating(false);
         }
@@ -424,7 +461,11 @@ export default function StrategyEditor() {
         setTitle("New Strategy");
         setDescription("");
         setCurrentStrategyId(null);
+        setCurrentStrategyId(null);
         setPlotJson(null);
+        setLastOptResult(null);
+        setLastSimResult(null);
+        setActiveTab('editor');
         
         setLastSavedCode(DEFAULT_CODE);
         setLastSavedTitle("New Strategy");
@@ -577,14 +618,26 @@ export default function StrategyEditor() {
                                 main.py
                             </button>
                             <button 
-                                onClick={() => setActiveTab('chart')}
-                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'chart' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                                onClick={() => setActiveTab('backtest')}
+                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'backtest' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
                             >
-                                Interactive Chart {plotJson && '•'}
+                                Backtest {plotJson && '•'}
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('optimization')}
+                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'optimization' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Optimization {lastOptResult && '•'}
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('simulation')}
+                                className={`text-xs font-mono px-2 py-1 rounded transition-colors ${activeTab === 'simulation' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                Simulation {lastSimResult && '•'}
                             </button>
                         </CardHeader>
                         <CardContent className="p-0 flex-1 relative min-h-0 overflow-hidden">
-                            {activeTab === 'editor' ? (
+                            {activeTab === 'editor' && (
                                 <Editor
                                     height="950px"
                                     defaultLanguage="python"
@@ -599,7 +652,8 @@ export default function StrategyEditor() {
                                         fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
                                     }}
                                 />
-                            ) : (
+                            )}
+                            {activeTab === 'backtest' && (
                                 <div className="h-full w-full bg-slate-950 p-0">
                                     {plotJson ? (
                                         <InteractiveBacktestChart plotJson={plotJson} />
@@ -609,6 +663,16 @@ export default function StrategyEditor() {
                                             <p>Run a backtest to generate an interactive chart.</p>
                                         </div>
                                     )}
+                                </div>
+                            )}
+                            {activeTab === 'optimization' && (
+                                <div className="h-full w-full bg-slate-950 p-0">
+                                    <OptimizationChart results={lastOptResult || undefined} />
+                                </div>
+                            )}
+                            {activeTab === 'simulation' && (
+                                <div className="h-full w-full bg-slate-950 p-0">
+                                    <SimulationChart equityCurves={lastSimResult?.equity_curves} />
                                 </div>
                             )}
                         </CardContent>

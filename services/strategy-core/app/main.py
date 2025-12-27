@@ -407,6 +407,7 @@ def run_optimization_endpoint(req: StrategyBacktestRequest):
             return OptimizationResponse(results=[])
             
         # Run Grid Search
+        # Run Grid Search
         results = run_grid_search(
             data=df,
             param_grid=req.optimization.param_grid,
@@ -415,7 +416,14 @@ def run_optimization_endpoint(req: StrategyBacktestRequest):
             code=req.code # Pass custom code
         )
         
-        return OptimizationResponse(results=results)
+        response = OptimizationResponse(results=results)
+        
+        if req.strategy_id:
+            from app.utils.persistence import save_strategy_result
+            # Convert list of OptimizationResult to dict for JSON serialization
+            save_strategy_result(req.strategy_id, 'optimization', [r.dict() for r in results])
+            
+        return response
         
     except Exception as e:
         import traceback
@@ -435,6 +443,10 @@ def run_monte_carlo_endpoint(req: MonteCarloRequest):
         if not metrics:
              raise HTTPException(status_code=400, detail="No valid trades for simulation")
              
+        if req.strategy_id:
+            from app.utils.persistence import save_strategy_result
+            save_strategy_result(req.strategy_id, 'simulation', metrics)
+
         return metrics
              
         return MonteCarloResponse(

@@ -16,6 +16,8 @@ class SavedStrategy(Base):
     code = Column(Text, nullable=False)
     parameters = Column(JSONB, nullable=False, default={})
     last_results = Column(JSONB, nullable=True, comment="Persisted backtest metrics and plot")
+    last_optimization_result = Column(JSONB, nullable=True)
+    last_simulation_result = Column(JSONB, nullable=True)
     is_public = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

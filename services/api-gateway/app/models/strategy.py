@@ -18,6 +18,12 @@ class Strategy(Base):
     risk_settings = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     custom_code = Column(String, nullable=True)
     is_active = Column(Boolean, default=False)
+    
+    # Persistence Fields
+    last_backtest_result = Column(JSONB, nullable=True)
+    last_optimization_result = Column(JSONB, nullable=True)
+    last_simulation_result = Column(JSONB, nullable=True)
+    
     created_at = Column(DateTime, server_default=text("now()"))
     updated_at = Column(DateTime, server_default=text("now()"), onupdate=text("now()"))
     # Relationships

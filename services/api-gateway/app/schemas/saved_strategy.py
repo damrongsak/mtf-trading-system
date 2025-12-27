@@ -9,6 +9,8 @@ class SavedStrategyBase(BaseModel):
     code: str
     parameters: Optional[Dict[str, Any]] = {}
     last_results: Optional[Dict[str, Any]] = None
+    last_optimization_result: Optional[Dict[str, Any]] = None
+    last_simulation_result: Optional[Dict[str, Any]] = None
     is_public: bool = False
 
 class SavedStrategyCreate(SavedStrategyBase):

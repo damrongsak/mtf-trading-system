@@ -153,6 +153,7 @@ class StrategyBacktestRequest(BaseModel):
     fees: float = 0.0001
     slippage: float = 0.0001
     optimization: Optional[OptimizationConfig] = None
+    strategy_id: Optional[str] = None
 
 class TradeResult(BaseModel):
     entry_time: datetime
@@ -196,10 +197,12 @@ class MonteCarloResponse(BaseModel):
     total_return: SensitivityMetrics
     sharpe_ratio: SensitivityMetrics
     ruin_probability: float
+    equity_curves: Optional[List[List[float]]] = None
 
 class MonteCarloRequest(BaseModel):
     trades: List[Dict[str, Any]]
     iterations: int = 1000
+    strategy_id: Optional[str] = None
 
 class OptimizationResult(BaseModel):
     params: Dict[str, Any]

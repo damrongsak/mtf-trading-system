@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { BacktestRequest, BacktestResponse, StrategyBacktestRequest, APIResponse } from './types';
+import { BacktestRequest, BacktestResponse, StrategyBacktestRequest, APIResponse, OptimizationResult, OptimizationResponse } from './types';
 
 export type { BacktestRequest, BacktestResponse, StrategyBacktestRequest };
 
@@ -19,19 +19,7 @@ export async function runCustomBacktest(payload: StrategyBacktestRequest): Promi
   return response.data.data;
 }
 
-export interface OptimizationResult {
-  params: Record<string, string | number | boolean>;
-  metrics: {
-    total_return: number;
-    sharpe_ratio: number;
-    max_drawdown: number;
-    total_trades: number;
-  };
-}
 
-export interface OptimizationResponse {
-  results: OptimizationResult[];
-}
 
 
 

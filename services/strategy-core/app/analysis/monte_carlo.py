@@ -105,13 +105,20 @@ def run_monte_carlo(trades: List[Dict[str, Any]], n_sims: int = 1000) -> Dict[st
         
         final_returns = []
         max_drawdowns = []
+        equity_curves_sample = [] # Store first 50 curves
         
-        for _ in range(n_sims):
+        for idx in range(n_sims):
             sim_returns = rng.permutation(returns_array)
             
             # Equity Curve
             equity_curve = np.cumprod(1 + sim_returns)
             final_returns.append(equity_curve[-1] - 1)
+            
+            # Store sample for UI
+            if idx < 50:
+                 # Prepend 1.0 (start) and convert to list
+                 curve_list = np.insert(equity_curve, 0, 1.0).tolist()
+                 equity_curves_sample.append(curve_list)
             
             # Max Drawdown
             running_max = np.maximum.accumulate(np.insert(equity_curve, 0, 1.0))
@@ -146,6 +153,9 @@ def run_monte_carlo(trades: List[Dict[str, Any]], n_sims: int = 1000) -> Dict[st
         best_sharpe = np.max(sharpe_ratios)
         
         logger.info("All metrics calculated successfully. Returning results.")
+
+        # Sample first 50 equity curves for UI visualization (Spaghetti Plot)
+        # Assuming equity_curves list was populated in the loop
         
         return {
             "iterations": n_sims,
@@ -167,7 +177,8 @@ def run_monte_carlo(trades: List[Dict[str, Any]], n_sims: int = 1000) -> Dict[st
                 "worst": float(np.min(sharpe_ratios)),
                 "best": float(best_sharpe)
             },
-            "ruin_probability": float(ruin_prob)
+            "ruin_probability": float(ruin_prob),
+            "equity_curves": equity_curves_sample
         }
     except Exception as e:
         logger.error(f"Monte Carlo Simulation Failed: {e}")
