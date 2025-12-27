@@ -665,7 +665,11 @@ export default function StrategyEditor() {
                                             </div>
                                             {lastBacktestTrades && (
                                                 <div className="p-4 bg-slate-950">
-                                                    <BacktestTradesTable trades={lastBacktestTrades} symbol={symbol} />
+                                                    <BacktestTradesTable 
+                                                        trades={lastBacktestTrades} 
+                                                        symbol={symbol} 
+                                                        strategyName={title}
+                                                    />
                                                 </div>
                                             )}
                                         </div>

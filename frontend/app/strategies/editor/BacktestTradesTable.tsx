@@ -11,15 +11,19 @@ import {
 } from '@/components/ui/table';
 import { BacktestTrade } from '@/lib/api/types';
 import { format } from 'date-fns';
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface BacktestTradesTableProps {
   trades: BacktestTrade[];
   symbol: string;
+  strategyName?: string;
 }
 
 export const BacktestTradesTable: React.FC<BacktestTradesTableProps> = ({ 
     trades, 
-    symbol
+    symbol,
+    strategyName = 'strategy'
 }) => {
   if (!trades || trades.length === 0) {
     return (
@@ -45,10 +49,58 @@ export const BacktestTradesTable: React.FC<BacktestTradesTableProps> = ({
     }
   };
 
+  const exportToCSV = () => {
+    const headers = [
+        "Entry Time", "Exit Time", "Symbol", "Direction", "Size", 
+        "Entry Price", "Exit Price", "PnL", "Return %"
+    ];
+
+    const rows = trades.map(t => [
+        t.entry_time,
+        t.exit_time,
+        symbol,
+        t.direction,
+        t.size || 0,
+        t.entry_price,
+        t.exit_price,
+        t.pnl,
+        t.pnl_percent
+    ]);
+
+    const csvContent = [
+        headers.join(","),
+        ...rows.map(row => row.map(val => `"${val}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    // sanitized strategy name for filename
+    const safeName = strategyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `backtest_trades_${safeName}_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-950/50 overflow-hidden mt-6">
-      <div className="p-4 border-b border-gray-800 bg-gray-900/30">
+      <div className="p-4 border-b border-gray-800 bg-gray-900/30 flex justify-between items-center">
         <h3 className="font-semibold text-gray-200">Transaction History</h3>
+        <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            className="h-8 gap-2 text-slate-400 border-slate-700 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/10"
+        >
+            <Download className="h-4 w-4" />
+            <span className="text-xs">Export CSV</span>
+        </Button>
       </div>
       <div className="max-h-[400px] overflow-auto">
       <Table>
