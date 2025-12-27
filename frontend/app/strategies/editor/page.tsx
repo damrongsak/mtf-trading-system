@@ -17,10 +17,11 @@ import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSav
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
-import { OptimizationResult, MonteCarloRequest, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse } from '@/lib/api/types';
+import { OptimizationResult, MonteCarloRequest, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse, OptimizationConfig } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { SimulationChart } from './SimulationChart';
 import { OptimizationChart } from './OptimizationChart';
+import { BacktestTradesTable } from './BacktestTradesTable';
 
 // ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
 const TIMEFRAME_MAP: Record<string, string> = {
@@ -86,15 +87,8 @@ interface SaveModalProps {
 function SaveModal({ isOpen, onClose, onConfirm, initialName = '', initialDescription = '', initialIsPublic = false, isLoading = false }: SaveModalProps) {
     const [name, setName] = useState(initialName);
     const [description, setDescription] = useState(initialDescription);
-    const [isPublic, setIsPublic] = useState(initialIsPublic);
 
-    useEffect(() => {
-        if (isOpen) {
-            setName(initialName);
-            setDescription(initialDescription);
-            setIsPublic(initialIsPublic);
-        }
-    }, [isOpen, initialName, initialDescription, initialIsPublic]);
+
 
     if (!isOpen) return null;
 
@@ -117,7 +111,7 @@ function SaveModal({ isOpen, onClose, onConfirm, initialName = '', initialDescri
                 <div className="px-6 py-4 bg-slate-900/50 flex justify-end gap-3 border-t border-slate-800">
                     <Button variant="ghost" onClick={onClose} disabled={isLoading}>Cancel</Button>
                     <Button 
-                        onClick={() => onConfirm(name, description, isPublic)} 
+                        onClick={() => onConfirm(name, description, initialIsPublic)} 
                         disabled={isLoading || !name.trim()} 
                         className="bg-emerald-600 hover:bg-emerald-700"
                     >
@@ -181,6 +175,7 @@ export default function StrategyEditor() {
     const [isSimulating, setIsSimulating] = useState(false);
     const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
     const [lastBacktestResult, setLastBacktestResult] = useState<BacktestResponse | null>(null);
+    const [lastBacktestTrades, setLastBacktestTrades] = useState<BacktestTrade[] | null>(null);
 
     // Confirmation Modal States
     const [showLoadConfirm, setShowLoadConfirm] = useState(false);
@@ -261,6 +256,7 @@ export default function StrategyEditor() {
             if (res.plot_json) {
                 setPlotJson(res.plot_json);
                 setLastBacktestResult(res);
+                setLastBacktestTrades(res.trades || []);
                 setActiveTab('backtest');
                 addLog('SUCCESS', "Interactive Chart Generated.");
             }
@@ -287,8 +283,9 @@ export default function StrategyEditor() {
                     symbol, timeframe, initialCapital, fees, slippage
                 },
                 last_results: plotJson ? {
-                    metrics: null, // Optimization: only saving plot for now as it contains metrics
-                    plot_json: plotJson
+                    metrics: null, 
+                    plot_json: plotJson,
+                    trades: lastBacktestTrades || undefined
                 } : null,
                 is_public: isPublic
             };
@@ -336,10 +333,14 @@ export default function StrategyEditor() {
         // Restore last results if available
         if (strategy.last_results && strategy.last_results.plot_json) {
             setPlotJson(strategy.last_results.plot_json);
-            // Reconstruct metrics if missing in last_results.metrics (legacy) or just rely on plot
-            // For now, minimal restoration
+            if (strategy.last_results.trades) {
+                setLastBacktestTrades(strategy.last_results.trades);
+            } else {
+                setLastBacktestTrades(null);
+            }
         } else {
             setPlotJson(null);
+            setLastBacktestTrades(null);
         }
 
         if (strategy.last_optimization_result) {
@@ -419,7 +420,7 @@ export default function StrategyEditor() {
                 optimization: {
                     method: 'GRID' as const,
                     target_metric: 'sharpe_ratio', // default
-                    param_grid: paramGrid as any
+                    param_grid: paramGrid as OptimizationConfig['param_grid']
                 }
             };
             
@@ -465,6 +466,7 @@ export default function StrategyEditor() {
         setPlotJson(null);
         setLastOptResult(null);
         setLastSimResult(null);
+        setLastBacktestTrades(null);
         setActiveTab('editor');
         
         setLastSavedCode(DEFAULT_CODE);
@@ -511,6 +513,7 @@ export default function StrategyEditor() {
 
             {/* Save Strategy Modal */}
             <SaveModal 
+                key={isSaveModalOpen ? 'open' : 'closed'}
                 isOpen={isSaveModalOpen} 
                 onClose={() => setIsSaveModalOpen(false)} 
                 onConfirm={handleConfirmSave} 
@@ -656,7 +659,16 @@ export default function StrategyEditor() {
                             {activeTab === 'backtest' && (
                                 <div className="h-full w-full bg-slate-950 p-0">
                                     {plotJson ? (
-                                        <InteractiveBacktestChart plotJson={plotJson} />
+                                        <div className="flex flex-col h-full overflow-hidden">
+                                            <div className="flex-1 min-h-[500px]">
+                                                <InteractiveBacktestChart plotJson={plotJson} />
+                                            </div>
+                                            {lastBacktestTrades && (
+                                                <div className="p-4 bg-slate-950">
+                                                    <BacktestTradesTable trades={lastBacktestTrades} symbol={symbol} />
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
                                         <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2">
                                             <span className="text-4xl">📊</span>

@@ -24,7 +24,7 @@ export function SimulationChart({ equityCurves }: SimulationChartProps) {
     const maxLength = Math.max(...equityCurves.map(c => c.length));
     
     const chartData = Array.from({ length: maxLength }, (_, i) => {
-        const point: any = { index: i };
+        const point: Record<string, number> = { index: i };
         equityCurves.forEach((curve, simIdx) => {
             if (i < curve.length) {
                 // Convert to percentage return (1.0 = 0%)

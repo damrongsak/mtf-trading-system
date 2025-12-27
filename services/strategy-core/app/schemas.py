@@ -163,6 +163,7 @@ class TradeResult(BaseModel):
     exit_price: float
     pnl: float
     pnl_percent: float
+    size: float = 0.0
 
 class BacktestMetrics(BaseModel):
     total_return: float

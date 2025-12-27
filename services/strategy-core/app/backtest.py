@@ -174,7 +174,8 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
                     entry_price=float(row['Avg Entry Price']),
                     exit_price=float(row['Avg Exit Price']),
                     pnl=float(row['PnL']),
-                    pnl_percent=float(row['Return'] * 100)
+                    pnl_percent=float(row['Return'] * 100),
+                    size=float(row.get('Size', 0.0))
                 ))
 
         # 6. Equity Curve
@@ -425,7 +426,8 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
                     entry_price=float(row['Avg Entry Price']),
                     exit_price=float(row['Avg Exit Price']),
                     pnl=float(row['PnL']),
-                    pnl_percent=float(row['Return'] * 100)
+                    pnl_percent=float(row['Return'] * 100),
+                    size=float(row.get('Size', 0.0))
                 ))
     except Exception as e:
         print(f"Error parsing trades: {e}")

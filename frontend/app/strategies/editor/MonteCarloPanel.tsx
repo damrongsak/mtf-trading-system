@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Play, Activity } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 import { BacktestTrade, MonteCarloResponse } from '@/lib/api/types';
 
 interface MonteCarloPanelProps {
@@ -29,7 +29,7 @@ export function MonteCarloPanel({ trades, onRunSimulation, isLoading }: MonteCar
             const res = await onRunSimulation(trades, iterations);
             setResults(res);
         } catch (err) {
-            setError((err as any).message || "Simulation failed");
+            setError((err as Error).message || "Simulation failed");
         }
     };
 
@@ -92,7 +92,7 @@ export function MonteCarloPanel({ trades, onRunSimulation, isLoading }: MonteCar
                                         {(results.max_drawdown.p95 * 100).toFixed(2)}%
                                     </div>
                                     <div className="text-[9px] text-slate-600 mt-1">
-                                        95% chance DD won't exceed this
+                                        95% chance DD won&apos;t exceed this
                                     </div>
                                 </Card>
                             </div>

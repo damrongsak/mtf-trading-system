@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Play, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -13,10 +12,10 @@ interface ParamRange {
     step: number;
 }
 
-import { OptimizationResult } from '@/lib/api/backtest';
+import { OptimizationResult } from '@/lib/api/types';
 
 interface OptimizationPanelProps {
-    onRunOptimization: (ranges: Record<string, any>) => Promise<OptimizationResult[]>;
+    onRunOptimization: (ranges: Record<string, unknown>) => Promise<OptimizationResult[]>;
     isLoading: boolean;
 }
 
@@ -47,7 +46,7 @@ export function OptimizationPanel({ onRunOptimization, isLoading }: Optimization
 
     const handleRun = async () => {
         // Convert array to dict format expected by backend: {'param': {'start': 1, 'stop': 10, 'step': 1}}
-        const paramGrid: Record<string, any> = {};
+        const paramGrid: Record<string, unknown> = {};
         for (const r of ranges) {
             if (r.name.trim()) {
                 paramGrid[r.name] = {
@@ -144,14 +143,14 @@ export function OptimizationPanel({ onRunOptimization, isLoading }: Optimization
                                 <TableRow key={i} className="hover:bg-slate-900/50 text-xs">
                                     <TableCell className="font-mono text-slate-300">
                                         {Object.entries(res.params).map(([k, v]) => (
-                                            <div key={k}>{k}: <span className="text-emerald-400">{v}</span></div>
+                                            <div key={k}>{k}: <span className="text-emerald-400">{String(v)}</span></div>
                                         ))}
                                     </TableCell>
                                     <TableCell className="text-right font-medium">
                                         {(res.metrics.total_return * 100).toFixed(2)}%
                                     </TableCell>
                                     <TableCell className="text-right text-slate-400">
-                                        {res.metrics.sharpe_ratio.toFixed(2)}
+                                        {(res.metrics.sharpe_ratio || 0).toFixed(2)}
                                     </TableCell>
                                     <TableCell className="text-right text-red-400">
                                         {(res.metrics.max_drawdown * 100).toFixed(2)}%

@@ -28,7 +28,7 @@ export function OptimizationChart({ results }: OptimizationChartProps) {
     let yLabel = 'Sharpe Ratio';
 
     const data = results.map((r, idx) => {
-        const item: any = { 
+        const item: Record<string, unknown> = { 
             id: idx,
             sharpe: r.metrics.sharpe_ratio,
             return: r.metrics.total_return_percent,

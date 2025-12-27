@@ -444,6 +444,7 @@ export interface BacktestTrade {
     exit_price: number;
     pnl: number;
     pnl_percent: number;
+    size: number;
 }
 
 export interface BacktestMetrics {
@@ -610,6 +611,7 @@ export interface SavedStrategy {
     last_results?: {
         metrics: unknown;
         plot_json: string;
+        trades?: BacktestTrade[];
     };
     last_optimization_result?: OptimizationResult[];
     last_simulation_result?: MonteCarloResponse;
@@ -657,7 +659,7 @@ export interface MonteCarloResponse {
 }
 
 export interface MonteCarloRequest {
-    trades: any[];
+    trades: Record<string, unknown>[];
     iterations?: number;
     strategy_id?: string;
 }
