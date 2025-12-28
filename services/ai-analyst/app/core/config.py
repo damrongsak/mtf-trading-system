@@ -12,8 +12,13 @@ class Settings(BaseSettings):
     )
 
     # Gemini
+    # Gemini
     GOOGLE_API_KEY: str
     GEMINI_MODEL_ID: str = "gemini-2.5-flash"
+    
+    # Google Search
+    GOOGLE_CSE_ID: Optional[str] = None
+    GOOGLE_SEARCH_API_KEY: Optional[str] = None
 
     # Service URLs
     STRATEGY_CORE_URL: str = "http://strategy-core:8000"

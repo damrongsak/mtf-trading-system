@@ -1152,7 +1152,7 @@ validation_rules:
         required: true
       - name: strategy_id
         type: uuid
-        foreign_key: "strategies.id"
+        foreign_key: "saved_strategies.id"
         nullable: true
         description: "Optional link to a specific strategy context"
       - name: title

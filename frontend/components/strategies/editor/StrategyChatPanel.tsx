@@ -134,19 +134,20 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
                                 ? "bg-indigo-600 text-white rounded-br-sm" 
                                 : "bg-slate-900 border border-slate-800 text-slate-300 rounded-bl-sm"
                         )}>
-                            <ReactMarkdown 
-                                className="prose prose-invert prose-xs max-w-none break-words"
-                                components={{
-                                    code({node, className, children, ...props}) {
-                                        return <code className={cn("bg-black/30 rounded px-1 py-0.5 font-mono text-[11px]", className)} {...props}>{children}</code>
-                                    },
-                                    pre({node, children, ...props}) {
-                                         return <pre className="bg-black/30 p-2 rounded-lg overflow-x-auto my-2 border border-white/5" {...props}>{children}</pre>
-                                    }
-                                }}
-                            >
-                                {msg.content}
-                            </ReactMarkdown>
+                            <div className="prose prose-invert prose-xs max-w-none break-words">
+                                <ReactMarkdown 
+                                    components={{
+                                        code({node, className, children, ...props}) {
+                                            return <code className={cn("bg-black/30 rounded px-1 py-0.5 font-mono text-[11px]", className)} {...props}>{children}</code>
+                                        },
+                                        pre({node, children, ...props}) {
+                                             return <pre className="bg-black/30 p-2 rounded-lg overflow-x-auto my-2 border border-white/5" {...props}>{children}</pre>
+                                        }
+                                    }}
+                                >
+                                    {msg.content}
+                                </ReactMarkdown>
+                            </div>
                         </div>
                     </div>
                 ))}

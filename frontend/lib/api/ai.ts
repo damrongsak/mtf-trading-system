@@ -49,25 +49,25 @@ export const aiApi = {
   // Get all chat sessions (optional strategy filter)
   getSessions: async (strategyId?: string): Promise<ChatSession[]> => {
     const params = strategyId ? { strategy_id: strategyId } : {};
-    const response = await apiClient.get<APIResponse<ChatSession[]>>('/ai/chat/sessions', { params });
+    const response = await apiClient.get<APIResponse<ChatSession[]>>('/api/v1/ai/chat/sessions', { params });
     return response.data.data!;
   },
 
   // Create a new session
   createSession: async (data: CreateChatSessionDto): Promise<ChatSession> => {
-    const response = await apiClient.post<APIResponse<ChatSession>>('/ai/chat/sessions', data);
+    const response = await apiClient.post<APIResponse<ChatSession>>('/api/v1/ai/chat/sessions', data);
     return response.data.data!;
   },
 
   // Get messages for a session
   getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
-    const response = await apiClient.get<APIResponse<ChatMessage[]>>(`/ai/chat/sessions/${sessionId}/messages`);
+    const response = await apiClient.get<APIResponse<ChatMessage[]>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`);
     return response.data.data!;
   },
 
   // Send a message
   sendMessage: async (sessionId: string, data: CreateChatMessageDto): Promise<ChatMessage> => {
-    const response = await apiClient.post<APIResponse<ChatMessage>>(`/ai/chat/sessions/${sessionId}/messages`, data);
+    const response = await apiClient.post<APIResponse<ChatMessage>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`, data);
     return response.data.data!;
   }
 };

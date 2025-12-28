@@ -5,6 +5,8 @@ from app.core.config import settings
 from app.tools.market import GetMarketContextTool
 from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool
+from app.tools.calendar import GetEconomicCalendarTool
+from app.tools.search import GoogleSearchTool
 
 class MarketObserverAgent:
     def __init__(self):
@@ -20,7 +22,9 @@ class MarketObserverAgent:
         self.tools = [
             GetMarketContextTool(),
             GetTechnicalSignalsTool(),
-            GetAccountStatusTool()
+            GetAccountStatusTool(),
+            GetEconomicCalendarTool(),
+            GoogleSearchTool()
         ]
         
         # LangGraph React Agent

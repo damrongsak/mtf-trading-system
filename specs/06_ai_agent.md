@@ -30,6 +30,24 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - **Pattern Recognition:** Uses RAG to compare current entry with historical "Tilt" or "Revenge Trading" patterns stored in Qdrant.
     - **Feedback Loop:** Suggests corrective actions (e.g., "Stop trading for 2 hours").
 
+### 2.3. Multimodal Chart Analysis (New)
+- **Goal:** Visual analysis of price action patterns (Head & Shoulders, Wedges) that are hard to describe mathematically.
+- **Input:** Chart screenshots (images) from the frontend.
+- **Process:**
+    - Gemini Vision Model analyzes the image.
+    - Correlates visual patterns with mathematical indicators.
+
+### 2.4. Agentic Code Execution (New)
+- **Goal:** Verify strategies by running them, not just hallucinating code.
+- **Process:**
+    - Agent generates Python code (using `vectorbt`).
+    - Code is executed in a secure sandbox.
+    - Results (PnL, Sharpe) are fed back to the agent to refine the strategy.
+
+### 2.5. Real-Time Search Grounding (New)
+- **Goal:** Incorporate live breaking news (not just scheduled calendar events).
+- **Process:** Use Google Search Tool to find reasons for sudden volatility (e.g., "Why is Gold dropping?").
+
 ## 3. Architecture components
 
 ### 3.1. RAG Engine (Retrieval Augmented Generation)
@@ -45,6 +63,8 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - `get_market_price(symbol)`
     - `get_account_exposure()`
     - `search_historical_patterns(query)`
+    - `google_search(query)` (New)
+    - `run_python_code(code)` (New)
 - **Loop (OODA):**
     1.  **Observe:** Fetch data.
     2.  **Orient:** Retrieve similar historical contexts.

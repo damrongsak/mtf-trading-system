@@ -4,6 +4,7 @@ from langchain_core.tools import tool
 from app.core.config import settings
 from app.services.rag import RAGService
 import logging
+from app.tools.strategy import StrategyBacktestTool
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class StrategyAdvisorAgent:
             except Exception as e:
                 return f"Error searching knowledge base: {str(e)}"
 
-        tools = [search_knowledge_base]
+        tools = [search_knowledge_base, StrategyBacktestTool()]
         
         system_prompt = """You are an expert Algorithmic Trading Advisor for the MTF Trading System.
         Your goal is to assist the user in writing, debugging, and optimizing Python strategies using vectorbt.
@@ -53,15 +54,17 @@ class StrategyAdvisorAgent:
         - Analyze user code for logical errors, look-ahead bias, or inefficiency.
         - Retrieve similar profitable strategies from the database to provide examples (use search_knowledge_base).
         - Suggest improvements based on Smart Money Concepts (SMC) and Multi-Timeframe (MTF) logic.
+        - Run and Verify strategies using the 'run_strategy_backtest' tool. ALWAYS verify your code before recommending it.
         
         Guidelines:
         - Always "Think Step-by-Step" before answering.
         - If the user provides code, analyze it first.
         - When suggesting code, ensure it is compatible with vectorbt (vbt) and pandas.
+        - If you write code, use 'run_strategy_backtest' to see if it works and what the Sharpe Ratio is.
         - Be concise and focused on the trading logic.
         """
 
-        graph = create_react_agent(self.llm, tools, state_modifier=system_prompt)
+        graph = create_react_agent(self.llm, tools, messages_modifier=system_prompt)
         
         # Prepare input
         full_prompt = f"User Request: {input_text}\n"

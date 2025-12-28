@@ -14,6 +14,7 @@ class GeminiClient:
     async def generate_market_outlook(self, context: dict) -> str:
         """
         Generates a market outlook based on technical indicators and SMC context.
+        Supports multimodal input (images).
         """
         prompt = f"""
         You are an elite institutional trader analyzing XAU/USD. 
@@ -31,10 +32,27 @@ class GeminiClient:
         ## 🧠 Strategy Bias (Bullish/Bearish/Neutral)
         """
         
+        contents = [prompt]
+        if "image_b64" in context and context["image_b64"]:
+            print("INFO: Processing multimodal request with image")
+            try:
+                import base64
+                from io import BytesIO
+                from PIL import Image
+                
+                # Convert base64 to Image object usually required by some SDKs or just pass as blob
+                # Google GenAI SDK supports dictionary for parts: {'mime_type': 'image/jpeg', 'data': bytes}
+                
+                img_data = base64.b64decode(context["image_b64"])
+                image_part = {"mime_type": "image/jpeg", "data": img_data}
+                contents.append(image_part)
+            except Exception as e:
+                return f"Error processing image: {str(e)}"
+
         try:
             response = await self.client.aio.models.generate_content(
                 model=self.model_id,
-                contents=prompt
+                contents=contents
             )
             return response.text
         except Exception as e:
