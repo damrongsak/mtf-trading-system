@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import { BacktestRequest, BacktestResponse, StrategyBacktestRequest, APIResponse, OptimizationResult, OptimizationResponse } from './types';
 
-export type { BacktestRequest, BacktestResponse, StrategyBacktestRequest };
+export type { BacktestRequest, BacktestResponse, StrategyBacktestRequest, OptimizationResult, OptimizationResponse };
 
 export async function runBacktest(payload: BacktestRequest): Promise<BacktestResponse> {
   const response = await apiClient.post<APIResponse<BacktestResponse>>('/api/v1/backtest/run', payload);
