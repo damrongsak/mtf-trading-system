@@ -75,23 +75,27 @@ async def run_market_observer(req: AgentRunRequest):
 
 # --- AI Chat Integration ---
 from sqlalchemy.orm import Session, joinedload
-from app.core.database import get_db
+from app.database import get_db
 from app.models.chat import ChatSession, ChatMessage
 from app.models.user_fund import User
-from app.core.security import get_current_user
+from app.security import get_current_user
 from fastapi import Depends
 from app.schemas.generated import (
-    APIResponse_ChatSessionList, 
-    APIResponse_ChatSession,
-    APIResponse_ChatMessageList,
-    APIResponse_ChatMessage,
-    ChatSessionCreate,
-    ChatMessageCreate
+    APIResponseChatSessionList, 
+    APIResponseChatMessageList,
+    APIResponseChatSession,
+    APIResponseChatMessage,
+    APIResponseAIReport,
+    ChatSessionCreate, 
+    ChatMessageCreate, 
+    ChatSession as ChatSessionSchema, 
+    ChatMessage as ChatMessageSchema,
+    ResponseStatus
 )
 from datetime import datetime
 import uuid
 
-@router.get("/chat/sessions", response_model=APIResponse_ChatSessionList)
+@router.get("/chat/sessions", response_model=APIResponseChatSessionList)
 def list_chat_sessions(
     strategy_id: uuid.UUID = None,
     current_user: User = Depends(get_current_user),
@@ -108,7 +112,7 @@ def list_chat_sessions(
         "data": sessions
     }
 
-@router.post("/chat/sessions", response_model=APIResponse_ChatSession)
+@router.post("/chat/sessions", response_model=APIResponseChatSession)
 def create_chat_session(
     session_in: ChatSessionCreate,
     current_user: User = Depends(get_current_user),
@@ -128,7 +132,7 @@ def create_chat_session(
         "data": new_session
     }
 
-@router.get("/chat/sessions/{session_id}/messages", response_model=APIResponse_ChatMessageList)
+@router.get("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessageList)
 def list_session_messages(
     session_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -151,7 +155,7 @@ def list_session_messages(
         "data": messages
     }
 
-@router.post("/chat/sessions/{session_id}/messages", response_model=APIResponse_ChatMessage)
+@router.post("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessage)
 async def send_chat_message(
     session_id: uuid.UUID,
     msg_in: ChatMessageCreate,

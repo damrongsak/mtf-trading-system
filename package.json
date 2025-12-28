@@ -1,7 +1,7 @@
 {
   "name": "mtf-trading-system-monorepo",
   "private": true,
-  "packageManager": "pnpm@10.25.0",
+  "packageManager": "pnpm@10.26.2",
   "scripts": {
     "dev": "pnpm -r run dev",
     "build": "pnpm -r run build",

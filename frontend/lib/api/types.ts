@@ -688,3 +688,35 @@ export interface DeploymentCreate {
     config_snapshot: Record<string, unknown>;
     is_live: boolean;
 }
+
+// ========================================
+// AI Chat Types
+// ========================================
+
+export interface ChatSession {
+    id: string;
+    user_id: string;
+    strategy_id?: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ChatMessage {
+    id: string;
+    session_id: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    context_snapshot?: Record<string, any>;
+    created_at: string;
+}
+
+export interface CreateChatSessionDto {
+    strategy_id?: string;
+    initial_message?: string;
+}
+
+export interface CreateChatMessageDto {
+    content: string;
+    context_snapshot?: Record<string, any>;
+}

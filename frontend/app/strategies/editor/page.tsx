@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { DeploymentModal } from './DeploymentModal';
-import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket, PanelRight } from 'lucide-react';
+import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket, PanelRight, Bot, SlidersHorizontal, Activity } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
@@ -22,6 +22,7 @@ import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { SimulationChart } from './SimulationChart';
 import { OptimizationChart } from './OptimizationChart';
 import { BacktestTradesTable } from './BacktestTradesTable';
+import { StrategyChatPanel } from '@/components/strategies/editor/StrategyChatPanel';
 
 // ... (Keep existing TIMEFRAME_MAP and DEFAULT_CODE) ...
 const TIMEFRAME_MAP: Record<string, string> = {
@@ -145,7 +146,7 @@ export default function StrategyEditor() {
     // UI State
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    const [sidebarTab, setSidebarTab] = useState<'config' | 'library' | 'optimize' | 'simulation'>('config');
+    const [sidebarTab, setSidebarTab] = useState<'config' | 'library' | 'optimize' | 'simulation' | 'chat'>('config');
     const [isCopied, setIsCopied] = useState(false);
     
     // Visualization State
@@ -560,7 +561,7 @@ export default function StrategyEditor() {
                      </div>
                     <p className="text-slate-400 text-sm truncate max-w-xl">{description || "Write, test, and deploy custom Python algorithms."}</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                      <Button 
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
                         variant="ghost" 
@@ -573,15 +574,33 @@ export default function StrategyEditor() {
 
                     <div className="h-8 w-[1px] bg-slate-700 mx-1" />
                     
-                    <Button onClick={handleNewStrategy} variant="ghost" title="New Strategy">
+                    <Button onClick={handleNewStrategy} variant="ghost" size="icon" title="New Strategy">
                         <Plus className="h-5 w-5" />
                     </Button>
+                    
+                    <Button onClick={handleSaveClick} variant="ghost" size="icon" title="Save Strategy">
+                        <Save className="h-5 w-5" />
+                    </Button>
 
-                    <Button onClick={handleRun} disabled={isRunning} variant="outline" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400">
+                    <div className="h-8 w-[1px] bg-slate-700 mx-1" />
+
+                    <Button onClick={handleRun} disabled={isRunning} variant="outline" className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 min-w-[100px]">
                         {isRunning ? <Loader2 className="animate-spin h-4 w-4" /> : <Play className="h-4 w-4" />}
                         Run
                     </Button>
                     
+                    <Button 
+                        onClick={() => {
+                            setSidebarTab('chat');
+                            setIsSidebarOpen(true);
+                        }}
+                        variant="outline"
+                        className={`gap-2 border-indigo-500/30 hover:bg-indigo-500/10 hover:text-indigo-400 ${sidebarTab === 'chat' && isSidebarOpen ? 'bg-indigo-500/20 text-indigo-300' : ''}`}
+                    >
+                         <Bot className="h-4 w-4" />
+                         AI Assist
+                    </Button>
+
                     <Button 
                         onClick={() => setIsDeployModalOpen(true)} 
                         disabled={!currentStrategyId}
@@ -590,11 +609,6 @@ export default function StrategyEditor() {
                         title={!currentStrategyId ? "Save strategy first to deploy" : "Deploy Live"}
                     >
                         <Rocket className="h-4 w-4" />
-                        Deploy
-                    </Button>
-                    <Button onClick={handleSaveClick} className="gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-900/20">
-                        <Save className="h-4 w-4" />
-                        Save
                     </Button>
                 </div>
             </div>
@@ -734,34 +748,41 @@ export default function StrategyEditor() {
                         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 p-0 border-0'}
                     `}
                 >
-                    <div className="p-0 border-b border-slate-800 flex">
-                        <button 
-                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'config' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                            onClick={() => setSidebarTab('config')}
-                        >
-                            Config
-                        </button>
-                        <button 
-                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'library' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                            onClick={() => setSidebarTab('library')}
-                        >
-                            Library
-                        </button>
-                        <button 
-                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'optimize' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                            onClick={() => setSidebarTab('optimize')}
-                        >
-                            Optimize
-                        </button>
-                        <button 
-                            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${sidebarTab === 'simulation' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-500/5' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                            onClick={() => setSidebarTab('simulation')}
-                        >
-                            Simulate
-                        </button>
+                    <div className="p-0 border-b border-slate-800 flex bg-slate-950/50">
+                        {[
+                            { id: 'config', icon: Settings2, label: 'Config' },
+                            { id: 'library', icon: BookOpen, label: 'Library' },
+                            { id: 'optimize', icon: SlidersHorizontal, label: 'Optimize' },
+                            { id: 'simulation', icon: Activity, label: 'Simulate' },
+                            { id: 'chat', icon: Bot, label: 'Assistant' },
+                        ].map((tab) => (
+                             <button 
+                                key={tab.id}
+                                className={`flex-1 py-4 flex flex-col items-center gap-1.5 transition-all relative group
+                                    ${sidebarTab === tab.id 
+                                        ? 'text-emerald-400 bg-slate-900/50' 
+                                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
+                                    }
+                                `}
+                                onClick={() => setSidebarTab(tab.id as any)}
+                                title={tab.label}
+                            >
+                                <tab.icon className={`h-5 w-5 ${sidebarTab === tab.id ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                                {sidebarTab === tab.id && (
+                                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 animate-in fade-in zoom-in duration-300" />
+                                )}
+                            </button>
+                        ))}
                     </div>
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                        {sidebarTab === 'chat' && (
+                             <StrategyChatPanel 
+                                strategyId={currentStrategyId || undefined} 
+                                contextCode={code}
+                                className="h-full border-0"
+                             />
+                        )}
                         {sidebarTab === 'config' && (
                             <div className="p-4 space-y-6">
                                 <div className="space-y-4">

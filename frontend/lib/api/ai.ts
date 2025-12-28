@@ -17,7 +17,7 @@ export async function runMarketObserver(inputText?: string): Promise<AIReportRes
   const payload: RunAgentRequest = {
     input_text: inputText || "Generate a market situation report for XAU/USD."
   };
-  
+
   // Note: The endpoint path might need adjustment if Nginx routing is /api/v1/ai/... 
   // currently assuming exposed via API Gateway or Nginx direct proxy.
   // Based on Status doc, AI Analyst is exposed. 
@@ -29,10 +29,45 @@ export async function runMarketObserver(inputText?: string): Promise<AIReportRes
   // Or API Gateway has a router that forwards.
   // I should check API Gateway router later. For now, let's target /api/v1/ai/agent/observer/run 
   // assuming a standard prefix or just /agent/observer/run if gateway forwards raw.
-  
+
   // Common pattern in this project seems to be /api/v1/...
   // Let's try /api/v1/ai/agent/observer/run 
-  
+
   const response = await apiClient.post<AIReportResponse>('/api/v1/ai/agent/observer/run', payload);
   return response.data;
 }
+
+import {
+  APIResponse,
+  ChatSession,
+  ChatMessage,
+  CreateChatSessionDto,
+  CreateChatMessageDto
+} from './types';
+
+export const aiApi = {
+  // Get all chat sessions (optional strategy filter)
+  getSessions: async (strategyId?: string): Promise<ChatSession[]> => {
+    const params = strategyId ? { strategy_id: strategyId } : {};
+    const response = await apiClient.get<APIResponse<ChatSession[]>>('/ai/chat/sessions', { params });
+    return response.data.data!;
+  },
+
+  // Create a new session
+  createSession: async (data: CreateChatSessionDto): Promise<ChatSession> => {
+    const response = await apiClient.post<APIResponse<ChatSession>>('/ai/chat/sessions', data);
+    return response.data.data!;
+  },
+
+  // Get messages for a session
+  getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
+    const response = await apiClient.get<APIResponse<ChatMessage[]>>(`/ai/chat/sessions/${sessionId}/messages`);
+    return response.data.data!;
+  },
+
+  // Send a message
+  sendMessage: async (sessionId: string, data: CreateChatMessageDto): Promise<ChatMessage> => {
+    const response = await apiClient.post<APIResponse<ChatMessage>>(`/ai/chat/sessions/${sessionId}/messages`, data);
+    return response.data.data!;
+  }
+};
