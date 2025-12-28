@@ -16,17 +16,20 @@ class RAGService:
             https=settings.QDRANT_GRPC_HTTPS
         )
         self.gemini = gemini_client or GeminiClient()
-        self.collection_name = "journal_entries"
-        self._ensure_collection()
+        self.journal_collection = "journal_entries"
+        self.strategy_collection = "strategies"
+        
+        self._ensure_collection(self.journal_collection)
+        self._ensure_collection(self.strategy_collection)
 
-    def _ensure_collection(self):
+    def _ensure_collection(self, name: str):
         """Ensure the Qdrant collection exists with proper config."""
         try:
-            self.qdrant.get_collection(self.collection_name)
+            self.qdrant.get_collection(name)
         except Exception:
-            logger.info(f"Creating collection {self.collection_name}")
+            logger.info(f"Creating collection {name}")
             self.qdrant.create_collection(
-                collection_name=self.collection_name,
+                collection_name=name,
                 vectors_config=models.VectorParams(
                     size=768,  # Gemini 1.5 embedding dimension
                     distance=models.Distance.COSINE
@@ -35,8 +38,6 @@ class RAGService:
 
     async def _get_embedding(self, text: str) -> list[float]:
         """Generate embedding using Gemini API."""
-        # Note: GeminiClient needs an embedding method. Adding a loose wrapper here 
-        # or assuming GeminiClient has it. Let's use the raw client for now if not exposed.
         try:
             result = await self.gemini.client.aio.models.embed_content(
                 model="models/text-embedding-004",
@@ -52,7 +53,7 @@ class RAGService:
         embedding = await self._get_embedding(content)
         
         point = models.PointStruct(
-            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, str(entry_id))), # Ensure valid UUID
+            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, str(entry_id))),
             vector=embedding,
             payload={
                 "content": content,
@@ -63,10 +64,33 @@ class RAGService:
         )
         
         self.qdrant.upsert(
-            collection_name=self.collection_name,
+            collection_name=self.journal_collection,
             points=[point]
         )
         logger.info(f"Ingested journal entry {entry_id} for user {user_id}")
+
+    async def ingest_strategy(self, strategy_id: str, code: str, user_id: str, stats: dict = None):
+        """Embed and upsert a strategy code snippet with performance stats."""
+        # Create a rich textual representation for embedding
+        text_rep = f"Strategy Code:\n{code}\n\nPerformance:\n{stats}"
+        embedding = await self._get_embedding(text_rep)
+        
+        point = models.PointStruct(
+            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, str(strategy_id))),
+            vector=embedding,
+            payload={
+                "code": code,
+                "stats": stats or {},
+                "original_id": strategy_id,
+                "user_id": user_id
+            }
+        )
+        
+        self.qdrant.upsert(
+            collection_name=self.strategy_collection,
+            points=[point]
+        )
+        logger.info(f"Ingested strategy {strategy_id} for user {user_id}")
 
     async def search_similar_entries(self, query: str, user_id: str, limit: int = 3) -> list[str]:
         """Search for semantically similar journal entries for a specific user."""
@@ -82,10 +106,41 @@ class RAGService:
         )
 
         search_result = self.qdrant.search(
-            collection_name=self.collection_name,
+            collection_name=self.journal_collection,
             query_vector=embedding,
             query_filter=search_filter,
             limit=limit
         )
         
         return [hit.payload["content"] for hit in search_result]
+
+    async def search_similar_strategies(self, query: str, user_id: str, limit: int = 3) -> list[dict]:
+        """Search for similar strategies to help with coding/optimization."""
+        embedding = await self._get_embedding(query)
+        
+        # Optional: Allow searching "Global Wisdom" (no user_id filter) or just "My Strategies"
+        # For now, let's search strict user_id to respect privacy/isolation
+        search_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id)
+                )
+            ]
+        )
+
+        search_result = self.qdrant.search(
+            collection_name=self.strategy_collection,
+            query_vector=embedding,
+            query_filter=search_filter,
+            limit=limit
+        )
+        
+        results = []
+        for hit in search_result:
+            results.append({
+                "code": hit.payload.get("code"),
+                "stats": hit.payload.get("stats"),
+                "score": hit.score
+            })
+        return results

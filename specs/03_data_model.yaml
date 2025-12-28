@@ -1135,3 +1135,63 @@ validation_rules:
       - name: last_signal_at
         type: datetime
         nullable: true
+
+  ChatSession:
+    description: "AI Chat sessions linked to strategies"
+    table_name: "chat_sessions"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["strategy_id"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: strategy_id
+        type: uuid
+        foreign_key: "strategies.id"
+        nullable: true
+        description: "Optional link to a specific strategy context"
+      - name: title
+        type: string
+        max_length: 200
+        nullable: true
+        description: "Auto-generated or user-defined title"
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
+  ChatMessage:
+    description: "Individual messages within a chat session"
+    table_name: "chat_messages"
+    indexes:
+      - fields: ["session_id", "created_at"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: session_id
+        type: uuid
+        foreign_key: "chat_sessions.id"
+        required: true
+      - name: role
+        type: enum
+        enum_values: ["user", "assistant", "system"]
+        required: true
+      - name: content
+        type: text
+        required: true
+      - name: context_snapshot
+        type: jsonb
+        nullable: true
+        description: "Snapshot of relevant context (code, metrics) at message time"
+      - name: created_at
+        type: datetime
+        default: "now()"

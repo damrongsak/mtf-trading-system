@@ -14,3 +14,4 @@ from .data_source import DataSource
 from .decision_log import DecisionLog
 from .market import MarketCategory, MarketSymbol
 from .deployment import Deployment
+from .chat import ChatSession, ChatMessage

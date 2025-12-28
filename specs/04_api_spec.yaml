@@ -47,6 +47,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Deployment'
 
+  /api/v1/ai/chat/sessions:
+    get:
+      summary: List chat sessions
+      parameters:
+        - name: strategy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of chat sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatSessionList'
+    post:
+      summary: Create a new chat session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatSessionCreate'
+      responses:
+        '201':
+          description: Created chat session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatSession'
+
+  /api/v1/ai/chat/sessions/{session_id}/messages:
+    get:
+      summary: Get messages for a session
+      parameters:
+         - name: session_id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+      responses:
+        '200':
+           description: List of messages
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/APIResponse_ChatMessageList'
+    post:
+      summary: Send a message to the AI
+      parameters:
+         - name: session_id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+               $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: AI Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatMessage'
+
   /api/v1/signal/latest/{symbol}:
     get:
       summary: Get the latest signal for a specific symbol
@@ -939,6 +1009,26 @@ components:
         - AUTH_1003
         - AUTH_1004
         - AUTH_1005
+        - VAL_2001
+        - VAL_2002
+        - VAL_2003
+        - VAL_2004
+        - VAL_2005
+        - VAL_2006
+        - VAL_2007
+        - RES_3001
+        - RES_3002
+        - RES_3003
+        - BIZ_4001
+        - BIZ_4002
+        - BIZ_4003
+        - BIZ_4004
+        - RATE_5001
+        - RATE_5002
+        - SRV_9001
+        - SRV_9002
+        - SRV_9003
+        - SRV_9004
 
     StrategyBacktestRequest:
       type: object
@@ -966,26 +1056,6 @@ components:
         initial_capital:
           type: number
           default: 10000.0
-        - VAL_2001
-        - VAL_2002
-        - VAL_2003
-        - VAL_2004
-        - VAL_2005
-        - VAL_2006
-        - VAL_2007
-        - RES_3001
-        - RES_3002
-        - RES_3003
-        - BIZ_4001
-        - BIZ_4002
-        - BIZ_4003
-        - BIZ_4004
-        - RATE_5001
-        - RATE_5002
-        - SRV_9001
-        - SRV_9002
-        - SRV_9003
-        - SRV_9004
 
     Meta:
       type: object
@@ -2483,3 +2553,120 @@ components:
           type: string
         data:
           $ref: '#/components/schemas/Deployment'
+
+    # --- AI Chat Schemas ---
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        strategy_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        context_snapshot:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ChatSessionCreate:
+      type: object
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+          nullable: true
+        initial_message:
+          type: string
+          description: "Optional initial message to start the session"
+
+    ChatMessageCreate:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        context_snapshot:
+          type: object
+          nullable: true
+    
+    APIResponse_ChatSessionList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatSession'
+    
+    APIResponse_ChatSession:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/ChatSession'
+
+    APIResponse_ChatMessageList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+
+    APIResponse_ChatMessage:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/ChatMessage'
+
+    APIResponse_AIReport: 
+       type: object
+       properties:
+         status:
+           type: string
+         data:
+           type: object
+           properties:
+             report:
+                type: string
+             timestamp:
+                type: string
+

@@ -133,8 +133,9 @@ The following features are prioritized for the next major release (Phase 3), tra
 ### 5.3. AI Integration (LLM & Algo)
 | Feature | Details |
 | :--- | :--- |
-| **LangChain Agents** | Use LangChain to orchestrate complex reasoning loops (e.g., "Analyze News" -> "Check Trend" -> "Formulate Opinion"). |
-| **Custom Models** | Integration of fine-tuned models or custom SLMs (Small Language Models) specifically trained on XAU/USD behavior. |
+| **Strategy Advisor Chat** | Interactive chat interface where the AI (Gemini) helps validate, debug, and optimize strategies using Chain-of-Thought (CoT) reasoning. |
+| **RAG Knowledge Base** | Retrieval Augmented Generation system that indexes user's trading journal, successful strategies, and market context to provide personalized advice. |
+| **LangChain Agents** | Multi-step reasoning agents (e.g., `StrategyAdvisorAgent`) that can "reflect" on code quality and suggest improvements based on SMC rules. |
 | **Narrative Trading** | Filter technical signals using AI-generated narrative bias (e.g., "Reject Longs if Fed is Hawkish"). |
 
 ---

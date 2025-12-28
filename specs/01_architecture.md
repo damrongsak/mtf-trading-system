@@ -88,6 +88,15 @@ graph TD
 - **Key Features**: 
     - OHLCV loading, resampling (15m -> 1H -> 4H -> D), database migration.
     - **Streaming Engine**: Fetches dynamic symbol list from DB and publishes ticks to Redis.
+### 3.7 AI Chat Integration (New)
+- **Architecture**:
+    - **Frontend**: `StrategyChatPanel` sends message + context (code, metrics) to `API Gateway`.
+    - **API Gateway**: Stores User message in `chat_messages` (PostgreSQL). Forwards request to `AI Analyst`.
+    - **AI Analyst**:
+        - **Retrieval (RAG)**: Queries `Qdrant` for similar profitable strategies or historical context using `StrategyAdvisorAgent`.
+        - **Reasoning (CoT)**: Uses Chain-of-Thought prompting to analyze code flaws or suggest optimizations.
+        - Returns response to Gateway.
+    - **API Gateway**: Stores AI response in `chat_messages`. Returns to Frontend.
 
 ## 4. Data Flow
 

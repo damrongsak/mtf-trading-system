@@ -16,16 +16,20 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+from app.schemas.chat import StrategyChatRequest
+from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.market_observer import MarketObserverAgent
 from pydantic import BaseModel
+import traceback
 
-# ... imports ...
+class AgentRunRequest(BaseModel):
+    input_text: str = "Generate a market situation report for XAU/USD."
 
-# Initialize services (Lazy loading could be better, but simple for now)
 # Initialize Services
 gemini_client = None
 rag_service = None
 market_observer = None
+strategy_advisor = None
 
 try:
     gemini_client = GeminiClient()
@@ -33,7 +37,7 @@ except Exception as e:
     print(f"Warning: Failed to initialize GeminiClient: {e}")
 
 try:
-    rag_service = RAGService()
+    rag_service = RAGService(gemini_client)
 except Exception as e:
     print(f"Warning: Failed to initialize RAGService: {e}")
 
@@ -42,12 +46,13 @@ try:
 except Exception as e:
     print(f"Warning: Failed to initialize MarketObserverAgent: {e}")
 
+try:
+    if rag_service:
+        strategy_advisor = StrategyAdvisorAgent(rag_service)
+except Exception as e:
+    print(f"Warning: Failed to initialize StrategyAdvisorAgent: {e}")
+
 # ... existing endpoints ...
-
-class AgentRunRequest(BaseModel):
-    input_text: str = "Generate a market situation report for XAU/USD."
-
-import traceback
 
 @app.post("/agent/observer/run")
 async def run_observer_agent(request: AgentRunRequest):
@@ -62,6 +67,29 @@ async def run_observer_agent(request: AgentRunRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/chat/strategy")
+async def chat_strategy(request: StrategyChatRequest):
+    """
+    Chat with the Strategy Advisor Agent regarding a specific strategy.
+    """
+    if not strategy_advisor:
+        raise HTTPException(status_code=503, detail="Strategy Advisor Agent unavailable (Check Gemini/Qdrant config)")
+    
+    try:
+        response_text = await strategy_advisor.run(
+            input_text=request.message, 
+            user_id=request.user_id,
+            context_code=request.context_code
+        )
+        return {
+            "response": response_text,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        print(f"Error in strategy chat: {str(e)}")
+        traceback.print_exc()
+        # Fallback error response properly formatted
+        raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
 
 @app.get("/health")
 def health_check():
@@ -69,7 +97,11 @@ def health_check():
         "status": "ok", 
         "service": "ai-analyst",
         "gemini": "active" if gemini_client else "inactive",
-        "rag": "active" if rag_service else "inactive"
+        "rag": "active" if rag_service else "inactive",
+        "agents": {
+            "market_observer": "active" if market_observer else "inactive",
+            "strategy_advisor": "active" if strategy_advisor else "inactive"
+        }
     }
 
 @app.post("/analyze/market", response_model=AnalysisResponse)
@@ -94,9 +126,10 @@ async def analyze_journal(request: JournalAnalysisRequest):
     similar_entries = []
     if rag_service:
         try:
-            similar_entries = await rag_service.search_similar(request.entry_content)
-        except Exception:
-            pass # Fail gracefully on RAG for now
+            # Legacy method call, ensuring compatibility if rag.py changed
+            similar_entries = await rag_service.search_similar_entries(request.entry_content, user_id=request.user_id)
+        except Exception as e:
+             print(f"RAG search failed: {e}")
 
     insight = await gemini_client.analyze_journal_entry(request.entry_content, similar_entries, user_id=request.user_id)
     
@@ -104,4 +137,5 @@ async def analyze_journal(request: JournalAnalysisRequest):
         insight=insight,
         timestamp=datetime.utcnow().isoformat()
     )
+
 
