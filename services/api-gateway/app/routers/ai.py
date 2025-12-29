@@ -191,14 +191,19 @@ async def send_chat_message(
         # Prepare payload for AI Analyst
         # We need to pass the code context if it exists in snapshot
         context_code = None
-        if msg_in.context_snapshot and "code" in msg_in.context_snapshot:
-             context_code = msg_in.context_snapshot["code"]
+        image_b64 = None
+        if msg_in.context_snapshot:
+             if "code" in msg_in.context_snapshot:
+                 context_code = msg_in.context_snapshot["code"]
+             if "image_b64" in msg_in.context_snapshot:
+                 image_b64 = msg_in.context_snapshot["image_b64"]
              
         payload = {
             "message": msg_in.content,
             "user_id": str(current_user.id),
             "strategy_id": str(session.strategy_id) if session.strategy_id else None,
-            "context_code": context_code
+            "context_code": context_code,
+            "image_b64": image_b64
         }
         
         async with httpx.AsyncClient() as client:

@@ -79,7 +79,8 @@ async def chat_strategy(request: StrategyChatRequest):
         response_text = await strategy_advisor.run(
             input_text=request.message, 
             user_id=request.user_id,
-            context_code=request.context_code
+            context_code=request.context_code,
+            image_b64=request.image_b64
         )
         return {
             "response": response_text,

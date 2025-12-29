@@ -70,7 +70,7 @@ export function useStrategyChat(strategyId?: string) {
         }
     };
 
-    const sendMessage = async (content: string, contextSnapshot?: any) => {
+    const sendMessage = async (content: string, contextSnapshot?: Record<string, unknown>) => {
         if (!content.trim()) return;
 
         let sessionId = activeSessionId;
@@ -96,7 +96,7 @@ export function useStrategyChat(strategyId?: string) {
 
         try {
             // Send to API
-            const aiResponse = await aiApi.sendMessage(sessionId!, {
+            await aiApi.sendMessage(sessionId!, {
                 content,
                 context_snapshot: contextSnapshot
             });
@@ -108,7 +108,7 @@ export function useStrategyChat(strategyId?: string) {
             // Let's refetch to be safe and consistent.
             await fetchMessages();
 
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to send message');
             // Rollback optimistic?
             setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));

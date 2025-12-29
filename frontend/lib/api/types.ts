@@ -707,7 +707,7 @@ export interface ChatMessage {
     session_id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    context_snapshot?: Record<string, any>;
+    context_snapshot?: Record<string, unknown>;
     created_at: string;
 }
 
@@ -718,5 +718,10 @@ export interface CreateChatSessionDto {
 
 export interface CreateChatMessageDto {
     content: string;
-    context_snapshot?: Record<string, any>;
+    context_snapshot?: {
+        strategy_code?: string;
+        market_data?: Record<string, unknown>;
+        image_b64?: string;
+        [key: string]: unknown;
+    };
 }

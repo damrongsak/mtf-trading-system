@@ -65,20 +65,30 @@ class StrategyAdvisorAgent:
         self.graph = create_react_agent(self.llm, tools)
         self.system_prompt = system_prompt
 
-    async def run(self, input_text: str, user_id: str, context_code: str = None) -> str:
+    async def run(self, input_text: str, user_id: str, context_code: str = None, image_b64: str = None) -> str:
         """
         Executes the advisor agent.
         """
-        # Prepare input
-        full_prompt = f"User Request: {input_text}\n"
-        full_prompt += f"Context: User ID is {user_id}. Always use this user_id when calling search_knowledge_base."
-        if context_code:
-            full_prompt += f"\n--- Current Strategy Code ---\n```python\n{context_code}\n```"
+        from langchain_core.messages import HumanMessage, SystemMessage
 
-        inputs = {"messages": [
-            ("system", self.system_prompt),
-            ("user", full_prompt)
-        ]}
+        # Prepare input
+        full_text = f"User Request: {input_text}\n"
+        full_text += f"Context: User ID is {user_id}. Always use this user_id when calling search_knowledge_base."
+        if context_code:
+            full_text += f"\n--- Current Strategy Code ---\n```python\n{context_code}\n```"
+
+        messages = [SystemMessage(content=self.system_prompt)]
+        
+        if image_b64:
+             # Multimodal Message
+             messages.append(HumanMessage(content=[
+                 {"type": "text", "text": full_text},
+                 {"type": "image_url", "image_url": f"data:image/jpeg;base64,{image_b64}"}
+             ]))
+        else:
+             messages.append(HumanMessage(content=full_text))
+
+        inputs = {"messages": messages}
         
         try:
             result = await self.graph.ainvoke(inputs)

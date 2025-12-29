@@ -1,12 +1,14 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStrategyChat } from '@/lib/hooks/useStrategyChat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Plus, MessageSquare, Loader2, Bot, User, Sparkles, Code2, Zap } from 'lucide-react';
+import { Send, Plus, Bot, Sparkles, Code2, Zap, X, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useDropzone } from 'react-dropzone';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -24,9 +26,6 @@ const SUGGESTIONS = [
 
 export function StrategyChatPanel({ strategyId, contextCode, className }: StrategyChatPanelProps) {
   const { 
-    sessions, 
-    activeSessionId, 
-    setActiveSessionId,
     messages, 
     loading, 
     sending, 
@@ -35,7 +34,26 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
   } = useStrategyChat(strategyId);
 
   const [inputText, setInputText] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    noClick: true,
+    noKeyboard: true
+  });
   
   // Auto-scroll to bottom
   useEffect(() => {
@@ -51,11 +69,14 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
   }, [messages]);
 
   const handleSend = async (text: string = inputText) => {
-    if (!text.trim()) return;
-    setInputText(''); 
+    if ((!text.trim() && !imagePreview)) return;
+    setInputText('');
+    const currentImage = imagePreview;
+    setImagePreview(null);
     
     await sendMessage(text, {
-        code: contextCode 
+        code: contextCode,
+        image_b64: currentImage?.split(',')[1] // Remove logic prefix (data:image/png;base64,)
     });
   };
 
@@ -67,7 +88,16 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-slate-950", className)}>
+    <div {...getRootProps()} className={cn("flex flex-col h-full bg-slate-950 relative", className)}>
+      <input {...getInputProps()} />
+      {isDragActive && (
+          <div className="absolute inset-0 z-50 bg-indigo-500/20 backdrop-blur-sm border-2 border-dashed border-indigo-400 flex items-center justify-center">
+              <div className="bg-slate-900 p-6 rounded-xl border border-indigo-500/30 flex flex-col items-center gap-2 animate-bounce">
+                  <ImageIcon className="h-8 w-8 text-indigo-400" />
+                  <span className="text-indigo-200 font-medium">Drop image to analyze</span>
+              </div>
+          </div>
+      )}
       {/* Header - Minimalist */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800/50">
         <div className="flex items-center gap-2">
@@ -136,12 +166,28 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
                         )}>
                             <div className="prose prose-invert prose-xs max-w-none break-words">
                                 <ReactMarkdown 
+                                    remarkPlugins={[remarkGfm]}
                                     components={{
-                                        code({node, className, children, ...props}) {
+                                        code({node: _node, className, children, ...props}) {
                                             return <code className={cn("bg-black/30 rounded px-1 py-0.5 font-mono text-[11px]", className)} {...props}>{children}</code>
                                         },
-                                        pre({node, children, ...props}) {
+                                        pre({node: _node, children, ...props}) {
                                              return <pre className="bg-black/30 p-2 rounded-lg overflow-x-auto my-2 border border-white/5" {...props}>{children}</pre>
+                                        },
+                                        table({node: _node, ...props}) {
+                                            return <div className="overflow-x-auto my-4 rounded-lg border border-slate-800"><table className="w-full text-sm text-left text-slate-300" {...props} /></div>
+                                        },
+                                        thead({node: _node, ...props}) {
+                                            return <thead className="bg-slate-900 text-xs uppercase text-slate-400" {...props} />
+                                        },
+                                        tr({node: _node, ...props}) {
+                                            return <tr className="border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors" {...props} />
+                                        },
+                                        th({node: _node, ...props}) {
+                                            return <th className="px-4 py-3 font-medium" {...props} />
+                                        },
+                                        td({node: _node, ...props}) {
+                                            return <td className="px-4 py-3" {...props} />
                                         }
                                     }}
                                 >
@@ -168,6 +214,21 @@ export function StrategyChatPanel({ strategyId, contextCode, className }: Strate
 
       {/* Input Area */}
       <div className="p-4 bg-slate-950">
+        
+        {/* Image Preview */}
+        {imagePreview && (
+            <div className="mb-2 relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Preview" className="h-16 w-auto rounded-lg border border-slate-700" />
+                <button 
+                    onClick={() => setImagePreview(null)}
+                    className="absolute -top-1.5 -right-1.5 bg-slate-800 rounded-full p-0.5 border border-slate-600 text-slate-400 hover:text-white"
+                >
+                    <X className="h-3 w-3" />
+                </button>
+            </div>
+        )}
+
         <div className="relative group">
             <Input
                 value={inputText}
