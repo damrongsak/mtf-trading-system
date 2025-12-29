@@ -19,33 +19,6 @@ class StrategyAdvisorAgent:
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.2
         )
-
-    async def run(self, input_text: str, user_id: str, context_code: str = None) -> str:
-        """
-        Executes the advisor agent.
-        Dynamically binds tools to the current user_id.
-        """
-        
-        @tool
-        async def search_knowledge_base(query: str) -> str:
-            """
-            Search the strategy database for similar code examples and performance stats.
-            Use this when the user asks for implementation help, "how to", or performance comparisons.
-            """
-            try:
-                results = await self.rag.search_similar_strategies(query, user_id=user_id)
-                if not results:
-                    return "No relevant strategies found in knowledge base."
-                
-                formatted = []
-                for res in results:
-                    code_snippet = res['code'][:800] + "..." if len(res['code']) > 800 else res['code']
-                    formatted.append(f"--- Similar Strategy (Score: {res['score']:.2f}) ---\nStats: {res['stats']}\nCode:\n{code_snippet}")
-                return "\n".join(formatted)
-            except Exception as e:
-                return f"Error searching knowledge base: {str(e)}"
-
-        tools = [search_knowledge_base, StrategyBacktestTool()]
         
         system_prompt = """You are an expert Algorithmic Trading Advisor for the MTF Trading System.
         Your goal is to assist the user in writing, debugging, and optimizing Python strategies using vectorbt.
@@ -64,17 +37,51 @@ class StrategyAdvisorAgent:
         - Be concise and focused on the trading logic.
         """
 
-        graph = create_react_agent(self.llm, tools, messages_modifier=system_prompt)
+        # Define tools that don't need user_id context at definition time 
+        # Or wrap them if they do.
         
+        @tool
+        async def search_knowledge_base(query: str, user_id: str = "default") -> str:
+            """
+            Search the strategy database for similar code examples and performance stats.
+            Use this when the user asks for implementation help, "how to", or performance comparisons.
+            """
+            try:
+                # We'll rely on the agent passing user_id in the prompt or context if needed,
+                # but for RAG it usually needs it.
+                results = await self.rag.search_similar_strategies(query, user_id=user_id)
+                if not results:
+                    return "No relevant strategies found in knowledge base."
+                
+                formatted = []
+                for res in results:
+                    code_snippet = res['code'][:800] + "..." if len(res['code']) > 800 else res['code']
+                    formatted.append(f"--- Similar Strategy (Score: {res['score']:.2f}) ---\nStats: {res['stats']}\nCode:\n{code_snippet}")
+                return "\n".join(formatted)
+            except Exception as e:
+                return f"Error searching knowledge base: {str(e)}"
+
+        tools = [search_knowledge_base, StrategyBacktestTool()]
+        self.graph = create_react_agent(self.llm, tools)
+        self.system_prompt = system_prompt
+
+    async def run(self, input_text: str, user_id: str, context_code: str = None) -> str:
+        """
+        Executes the advisor agent.
+        """
         # Prepare input
         full_prompt = f"User Request: {input_text}\n"
+        full_prompt += f"Context: User ID is {user_id}. Always use this user_id when calling search_knowledge_base."
         if context_code:
             full_prompt += f"\n--- Current Strategy Code ---\n```python\n{context_code}\n```"
 
-        inputs = {"messages": [("user", full_prompt)]}
+        inputs = {"messages": [
+            ("system", self.system_prompt),
+            ("user", full_prompt)
+        ]}
         
         try:
-            result = await graph.ainvoke(inputs)
+            result = await self.graph.ainvoke(inputs)
             # Extract content logic same as MarketObserver
             content = result["messages"][-1].content
             

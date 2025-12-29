@@ -21,13 +21,17 @@ class StrategyBacktestTool(BaseTool):
     async def _arun(self, symbol: str, code: str, timeframe: str = "1h"):
         url = f"{settings.STRATEGY_CORE_URL}/api/v1/backtest/custom"
         
+        from datetime import datetime, timedelta
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=365)
+
         # Prepare payload for Strategy Core
         payload = {
             "symbol": symbol,
             "timeframe": timeframe,
             "code": code,
-            "start_date": "2024-01-01T00:00:00", # Default to YTD or dynamic
-            "end_date": "2024-12-31T23:59:59",
+            "start_date": start_dt.isoformat(),
+            "end_date": end_dt.isoformat(),
             "initial_capital": 10000.0,
             "fees": 0.0001,
             "slippage": 0.0001

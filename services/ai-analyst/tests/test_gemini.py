@@ -67,8 +67,40 @@ async def test_generate_market_outlook_success(mock_settings, mock_genai_client)
     assert client.model_id == 'gemini-1.5-flash-test'
     
     # Mock the aio.models.generate_content method
-    assert "Uptrend" in kwargs['contents']
-    assert "2050.00" in kwargs['contents']
+    assert "Uptrend" in kwargs['contents'][0]
+    assert "2050.00" in kwargs['contents'][0]
+
+@pytest.mark.asyncio
+async def test_generate_market_outlook_with_image(mock_settings, mock_genai_client):
+    """
+    Test generate_market_outlook with base64 image input.
+    """
+    mock_response = MagicMock()
+    mock_response.text = "Chart looks bullish."
+    mock_genai_client.return_value = mock_response
+
+    client = GeminiClient()
+    
+    # Minimal valid base64 image (1x1 pixel)
+    b64_img = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    
+    context = {
+        "trend_4h": "Uptrend", 
+        "image_b64": b64_img
+    }
+    
+    result = await client.generate_market_outlook(context)
+    
+    assert "Chart looks bullish" in result
+    
+    # Check that contents list has 2 items: prompt and image dict
+    _, kwargs = mock_genai_client.call_args
+    contents = kwargs['contents']
+    assert len(contents) == 2
+    assert isinstance(contents[0], str) # Prompt
+    assert isinstance(contents[1], dict) # Image part
+    assert contents[1]['mime_type'] == "image/jpeg"
+
 
 @pytest.mark.asyncio
 async def test_generate_market_outlook_error(mock_settings, mock_genai_client):

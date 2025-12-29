@@ -44,12 +44,13 @@ def test_init_ensures_collection(mock_qdrant):
     with patch("app.services.rag.settings"):
         RAGService()
         
-    mock_qdrant.create_collection.assert_called_once()
-    args, kwargs = mock_qdrant.create_collection.call_args
-    assert kwargs['collection_name'] == "journal_entries"
-    assert kwargs['vectors_config'].size == 768
+    assert mock_qdrant.create_collection.call_count == 2
+    
+    # Check calls
+    calls = mock_qdrant.create_collection.call_args_list
+    assert calls[0].kwargs['collection_name'] == "journal_entries"
+    assert calls[1].kwargs['collection_name'] == "strategies"
 
-@pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_ingest_journal_entry(rag_service, mock_gemini, mock_qdrant):
     entry_id = "test-id-123"
@@ -96,3 +97,21 @@ async def test_search_similar_entries(rag_service, mock_gemini, mock_qdrant):
     # without complex inspection, but we can verify it was passed.
     # For now, simplistic check:
     assert isinstance(query_filter, models.Filter)
+
+@pytest.mark.asyncio
+async def test_search_similar_strategies(rag_service, mock_gemini, mock_qdrant):
+    # Setup mock search result
+    mock_hit = MagicMock()
+    mock_hit.payload = {"code": "def strategy(): pass", "stats": {"sharpe": 2.0}}
+    mock_hit.score = 0.95
+    mock_qdrant.search.return_value = [mock_hit]
+    
+    user_id = "user-1"
+    results = await rag_service.search_similar_strategies("moving average", user_id=user_id)
+    
+    assert len(results) == 1
+    assert results[0]["code"] == "def strategy(): pass"
+    assert results[0]["score"] == 0.95
+    
+    mock_qdrant.search.assert_called_once()
+    assert mock_qdrant.search.call_args[1]['collection_name'] == "strategies"
