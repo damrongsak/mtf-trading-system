@@ -744,7 +744,7 @@ export default function StrategyEditor() {
                 {/* Right Sidebar (Config & Library) */}
                 <div 
                     className={`
-                        bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl transition-all duration-300 ease-in-out overflow-hidden flex flex-col
+                        bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-xl transition-all duration-300 ease-in-out overflow-hidden flex flex-col max-h-[800px]
                         ${isSidebarOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10 p-0 border-0'}
                     `}
                 >
@@ -775,7 +775,7 @@ export default function StrategyEditor() {
                         ))}
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                    <div className={`flex-1 flex flex-col ${sidebarTab === 'chat' ? 'overflow-hidden' : 'overflow-y-auto custom-scrollbar'}`}>
                         {sidebarTab === 'chat' && (
                              <StrategyChatPanel 
                                 strategyId={currentStrategyId || undefined} 
