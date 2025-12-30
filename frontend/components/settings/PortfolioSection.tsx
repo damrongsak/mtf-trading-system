@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getPreferences, updatePreferences, getFunds, type Fund } from '@/lib/api';
+import { BrokerAccountsSection } from './BrokerAccountsSection';
 
 export function PortfolioSection() {
   const [funds, setFunds] = useState<Fund[]>([]);
@@ -110,6 +111,9 @@ export function PortfolioSection() {
           ))}
         </select>
       </div>
+
+      {/* Broker Accounts */}
+      <BrokerAccountsSection fundId={selectedFundId} />
 
       {/* Basic Risk Parameters */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">

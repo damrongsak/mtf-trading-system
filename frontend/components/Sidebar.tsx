@@ -61,8 +61,8 @@ const navCategories: NavCategory[] = [
     items: [
       { name: 'Live Deployments', href: '/deployments', icon: Rocket },
       { name: 'Signals', href: '/signals', icon: TrendingUp },
-      { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
-      { name: 'Settings', href: '/trading', icon: SettingsIcon },
+      { name: 'Funds & Accounts', href: '/portfolio', icon: Briefcase },
+      { name: 'Preferences', href: '/trading', icon: SettingsIcon },
     ],
   },
   {

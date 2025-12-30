@@ -11,7 +11,11 @@ import { getAccounts, createAccount, deleteAccount } from '@/lib/api/accounts';
 import { BrokerAccount } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 
-export function BrokerAccountsSection() {
+    interface BrokerAccountsSectionProps {
+        fundId?: string | null;
+    }
+
+    export function BrokerAccountsSection({ fundId }: BrokerAccountsSectionProps) {
     const [accounts, setAccounts] = useState<BrokerAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -33,13 +37,17 @@ export function BrokerAccountsSection() {
 
     useEffect(() => {
         fetchAccounts();
-    }, []);
+    }, [fundId]);
 
     const fetchAccounts = async () => {
         try {
             setLoading(true);
             const data = await getAccounts();
-            setAccounts(data);
+            if (fundId) {
+                setAccounts(data.filter(acc => acc.fund_id === fundId));
+            } else {
+                setAccounts(data);
+            }
         } catch (err) {
             console.error(err);
             setError("Failed to load accounts");
@@ -56,6 +64,7 @@ export function BrokerAccountsSection() {
 
         try {
             await createAccount({
+                fund_id: fundId || undefined,
                 broker_name: brokerName,
                 account_name: accountName,
                 account_number: accountNumber,
