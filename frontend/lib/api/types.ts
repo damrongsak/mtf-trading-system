@@ -518,6 +518,7 @@ export interface PriceUpdate {
 
 export interface BrokerAccount {
     id: string;
+    fund_id: string;
     broker_name: string;
     account_name: string;
     account_number?: string;
@@ -527,6 +528,7 @@ export interface BrokerAccount {
 }
 
 export interface BrokerAccountCreate {
+    fund_id?: string;
     broker_name: string;
     account_name: string;
     account_number?: string;

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { createFund, updateFund, deleteFund, type Fund } from '@/lib/api/fund';
+import { createFund, updateFund, deleteFund } from '@/lib/api/fund';
+import { Fund } from '@/lib/api/types';
 import { Loader2, Plus, Trash2, Edit } from "lucide-react";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 
@@ -110,7 +111,7 @@ export function FundManagementModal({ isOpen, onClose, onSuccess, funds, current
                 message="Are you sure you want to delete this fund? This action cannot be undone and may affect associated data."
                 confirmText="Delete Fund"
                 isLoading={isDeleting}
-                variant="destructive"
+                variant="danger"
             />
 
             <Dialog open={isOpen} onOpenChange={onClose}>

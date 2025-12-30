@@ -27,8 +27,6 @@ export async function getFund(fundId: string): Promise<Fund> {
 
     return response.data.data;
 }
-return response.data.data;
-}
 
 export interface CreateFundDto {
     name: string;
