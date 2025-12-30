@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { PaginatedResponse } from './types';
+import { PaginatedResponse, APIResponse } from './types';
 
 export interface AccountSummary {
     balance: string;
@@ -115,9 +115,14 @@ export interface SmartOrderRequest {
     risk_usd?: number;
 }
 
+
+
 export async function getBrokerAccounts(): Promise<ExecutionBrokerAccount[]> {
-    const response = await apiClient.get<ExecutionBrokerAccount[]>('/api/v1/execution/accounts');
-    return response.data;
+    const response = await apiClient.get<APIResponse<ExecutionBrokerAccount[]> | ExecutionBrokerAccount[]>('/api/v1/execution/accounts');
+    if ('data' in response.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+    }
+    return response.data as ExecutionBrokerAccount[];
 }
 
 export async function placeSmartOrder(data: SmartOrderRequest): Promise<OrderResponse> {
