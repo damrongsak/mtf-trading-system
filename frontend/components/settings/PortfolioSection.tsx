@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { getPreferences, updatePreferences, getFunds, type Fund } from '@/lib/api';
 import { BrokerAccountsSection } from './BrokerAccountsSection';
+import { FundManagementModal } from './FundManagementModal';
+import { Settings } from 'lucide-react';
 
 export function PortfolioSection() {
   const [funds, setFunds] = useState<Fund[]>([]);
@@ -24,6 +26,7 @@ export function PortfolioSection() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -83,6 +86,14 @@ export function PortfolioSection() {
 
   return (
     <div className="space-y-6">
+      <FundManagementModal 
+        isOpen={isManageModalOpen} 
+        onClose={() => setIsManageModalOpen(false)} 
+        onSuccess={loadData}
+        funds={funds}
+        currentFundId={selectedFundId}
+      />
+      
       {message && (
         <div
           className={`p-4 rounded-lg ${
@@ -97,7 +108,16 @@ export function PortfolioSection() {
 
       {/* Default Fund */}
       <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Default Fund</h2>
+        <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">Default Fund</h2>
+            <button 
+                onClick={() => setIsManageModalOpen(true)}
+                className="flex items-center gap-2 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+            >
+                <Settings size={14} />
+                Manage Funds
+            </button>
+        </div>
         <select
           value={selectedFundId || ''}
           onChange={(e) => setSelectedFundId(e.target.value || null)}

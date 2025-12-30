@@ -27,3 +27,48 @@ export async function getFund(fundId: string): Promise<Fund> {
 
     return response.data.data;
 }
+return response.data.data;
+}
+
+export interface CreateFundDto {
+    name: string;
+    description?: string;
+}
+
+export interface UpdateFundDto {
+    name?: string;
+    description?: string;
+}
+
+/**
+ * Create a new fund
+ */
+export async function createFund(data: CreateFundDto): Promise<Fund> {
+    const response = await apiClient.post<APIResponse<Fund>>('/api/v1/funds', data);
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from create fund endpoint');
+    }
+
+    return response.data.data;
+}
+
+/**
+ * Update a fund
+ */
+export async function updateFund(fundId: string, data: UpdateFundDto): Promise<Fund> {
+    const response = await apiClient.put<APIResponse<Fund>>(`/api/v1/funds/${fundId}`, data);
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from update fund endpoint');
+    }
+
+    return response.data.data;
+}
+
+/**
+ * Delete a fund
+ */
+export async function deleteFund(fundId: string): Promise<void> {
+    await apiClient.delete(`/api/v1/funds/${fundId}`);
+}

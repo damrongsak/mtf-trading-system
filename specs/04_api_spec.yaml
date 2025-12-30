@@ -380,7 +380,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_Fund'
-                $ref: '#/components/schemas/APIResponse_StrategyResponse'
+
+  /api/v1/funds/{fund_id}:
+    get:
+      summary: Get fund details
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fund details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Fund'
+    put:
+      summary: Update fund details
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundUpdate'
+      responses:
+        '200':
+          description: Fund updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Fund'
+    delete:
+      summary: Delete a fund
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Fund deleted
   /api/v1/strategies/templates:
     get:
       summary: List available strategy templates
@@ -2042,6 +2093,15 @@ components:
       type: object
       required:
         - name
+        - description
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    FundUpdate:
+      type: object
       properties:
         name:
           type: string
