@@ -133,6 +133,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_SignalResponse'
+  /api/v1/signal/detected:
+    get:
+      summary: Get detected signals history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of detected signals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalList'
+
+  /api/v1/internal/signals:
+    post:
+      summary: Report a signal from an internal service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                direction:
+                  type: string
+                timeframe:
+                  type: string
+                confidence:
+                  type: number
+                price:
+                  type: number
+                reason:
+                  type: string
+                deployment_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Signal processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
   /api/v1/signal/check:
     post:
       summary: Check if a signal is valid given current state
@@ -1805,27 +1855,7 @@ components:
           type: string
         timeframe:
           type: string
-    SignalResponse:
-      type: object
-      properties:
-        symbol:
-          type: string
-        timeframe:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
-        direction:
-          type: string
-          enum: [LONG, SHORT]
-        entry_price:
-          type: number
-        sl_price:
-          type: number
-        tp_price:
-          type: number
-        reason:
-          type: string
+
     RiskCheckRequest:
       type: object
       required:
@@ -2498,7 +2528,48 @@ components:
         data:
           type: array
           items:
+          items:
             $ref: '#/components/schemas/SignalResponse'
+
+    SignalResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        direction:
+          type: string
+          enum: [LONG, SHORT, NEUTRAL]
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        reason:
+          type: string
+          nullable: true
+        broker:
+          type: string
+          nullable: true
+        strategy_name:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          default: 0.0
+
+    APIResponse_SignalResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/SignalResponse'
 
     APIResponse_SymbolList:
       type: object

@@ -1201,3 +1201,56 @@ validation_rules:
       - name: created_at
         type: datetime
         default: "now()"
+  SignalLog:
+    description: "Persisted log of signals detected by strategies (both scanner and custom deployments)"
+    table_name: "signal_logs"
+    indexes:
+      - fields: ["timestamp"]
+      - fields: ["symbol"]
+      - fields: ["deployment_id"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+        required: true
+        description: "Time signal was detected"
+      - name: symbol
+        type: string
+        required: true
+        max_length: 20
+      - name: timeframe
+        type: string
+        default: "H1"
+        max_length: 10
+      - name: direction
+        type: string
+        required: true
+        description: "BULLISH, BEARISH, NEUTRAL"
+      - name: strategy_name
+        type: string
+        nullable: true
+        max_length: 100
+      - name: deployment_id
+        type: uuid
+        foreign_key: "deployments.id"
+        nullable: true
+      - name: confidence
+        type: decimal
+        precision: 5
+        scale: 4
+        default: 0.0
+      - name: price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "Price at detection"
+      - name: reason
+        type: text
+        nullable: true
+      - name: meta_data
+        type: jsonb
+        nullable: true
