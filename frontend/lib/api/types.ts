@@ -293,11 +293,7 @@ export interface UserPreferences {
     default_symbol: string;
     session_preferences: string[] | null;
 }
-preferred_timeframes: string[];
-default_symbol: string;
-session_preferences: string[] | null;
-supported_symbols: string[] | null;
-}
+
 
 export interface UpdatePreferencesDto {
     default_fund_id?: string | null;
@@ -305,10 +301,8 @@ export interface UpdatePreferencesDto {
     default_symbol?: string;
     session_preferences?: string[] | null;
 }
-default_symbol ?: string;
-session_preferences ?: string[] | null;
-supported_symbols ?: string[] | null;
-}
+
+
 
 // ========================================
 // Transaction Types

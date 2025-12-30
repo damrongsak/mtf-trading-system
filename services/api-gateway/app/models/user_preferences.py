@@ -57,8 +57,6 @@ class UserPreferences(Base):
     def __init__(self, **kwargs):
         """Initialize user preferences with proper defaults for JSONB fields"""
         # Set proper defaults for JSONB fields if not provided
-        if 'asset_classes' not in kwargs or kwargs['asset_classes'] is None:
-            kwargs['asset_classes'] = ["FX"]
         if 'preferred_timeframes' not in kwargs or kwargs['preferred_timeframes'] is None:
             kwargs['preferred_timeframes'] = ["4H", "1H", "15m"]
         super().__init__(**kwargs)

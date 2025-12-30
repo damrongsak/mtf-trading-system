@@ -53,10 +53,10 @@ class Fund(Base):
     position_limit_sector = Column(Numeric(5, 2), default=10.0, nullable=True)
 
     # Relationships
-    users = relationship("UserFund", back_populates="fund")
-    broker_accounts = relationship("BrokerAccount", back_populates="fund")
-    strategies = relationship("Strategy", back_populates="fund")
-    transactions = relationship("Transaction", back_populates="fund")
+    users = relationship("UserFund", back_populates="fund", cascade="all, delete-orphan")
+    broker_accounts = relationship("BrokerAccount", back_populates="fund", cascade="all, delete-orphan")
+    strategies = relationship("Strategy", back_populates="fund", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="fund", cascade="all, delete-orphan")
 
 class UserFund(Base):
     __tablename__ = "user_funds"

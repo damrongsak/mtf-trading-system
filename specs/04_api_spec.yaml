@@ -1995,34 +1995,18 @@ components:
           type: string
           format: uuid
           nullable: true
-        strategy_type:
-          type: string
-          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
-        asset_classes:
+        preferred_timeframes:
           type: array
           items:
             type: string
-        max_risk_per_trade:
-          type: number
-        default_lot_size:
-          type: number
-        max_drawdown_threshold:
-          type: number
           nullable: true
-        max_portfolio_beta:
-          type: number
+        default_symbol:
+          type: string
           nullable: true
-        gross_exposure_limit:
-          type: number
-          nullable: true
-        net_exposure_limit:
-          type: number
-          nullable: true
-        position_limit_single:
-          type: number
-          nullable: true
-        position_limit_sector:
-          type: number
+        session_preferences:
+          type: array
+          items:
+            type: string
           nullable: true
         preferred_timeframes:
           type: array
@@ -2093,11 +2077,7 @@ components:
           items:
             type: string
           nullable: true
-        supported_symbols:
-          type: array
-          items:
-            type: string
-          nullable: true
+
     Fund:
       type: object
       properties:
