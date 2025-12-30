@@ -269,6 +269,7 @@ export interface Fund {
     name: string;
     description: string | null;
     role: string | null;
+    owner_name: string | null;
 
     // Risk Settings
     strategy_type: StrategyType;

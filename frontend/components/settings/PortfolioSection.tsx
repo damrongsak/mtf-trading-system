@@ -118,7 +118,7 @@ export function PortfolioSection() {
   }
 
   const isAdvanced = strategyType !== 'MTF_SMC_BASIC';
-  const canEdit = !!activeFund;
+  const canEdit = !!activeFund && (activeFund.role === 'OWNER' || activeFund.role === 'MANAGER');
 
   return (
     <div className="space-y-6">
@@ -160,10 +160,13 @@ export function PortfolioSection() {
           className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
         >
           <option value="">Select a fund to manage...</option>
-          {funds.map((fund) => (
-            <option key={fund.id} value={fund.id}>
-              {fund.name} {fund.role && `(${fund.role})`}
-            </option>
+          {funds
+            .filter(fund => fund.role === 'OWNER')
+            .sort((a, b) => (a.owner_name || '').localeCompare(b.owner_name || ''))
+            .map((fund) => (
+              <option key={fund.id} value={fund.id}>
+                {fund.owner_name} - {fund.name}
+              </option>
           ))}
         </select>
         {!selectedFundId && (

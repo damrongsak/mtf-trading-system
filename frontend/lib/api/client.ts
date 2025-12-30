@@ -56,27 +56,29 @@ apiClient.interceptors.response.use(
             message = (data?.detail as string) || (data?.message as string) || `Error: ${error.response.status}`;
 
             // Handle specific status codes
-            switch (error.response.status) {
-                case 401:
-                    message = 'Authentication required. Please log in.';
-                    // Optionally redirect to login or trigger logout
-                    if (typeof window !== 'undefined') {
-                        // You could dispatch a logout event here
-                        console.warn('[API] Unauthorized - token may be expired');
-                    }
-                    break;
-                case 403:
-                    message = 'You do not have permission to perform this action.';
-                    break;
-                case 404:
-                    message = 'The requested resource was not found.';
-                    break;
-                case 422:
-                    message = 'Validation error. Please check your input.';
-                    break;
-                case 500:
-                    message = 'Server error. Please try again later.';
-                    break;
+            if (!data?.detail && !data?.message) {
+                switch (error.response.status) {
+                    case 401:
+                        message = 'Authentication required. Please log in.';
+                        // Optionally redirect to login or trigger logout
+                        if (typeof window !== 'undefined') {
+                            // You could dispatch a logout event here
+                            console.warn('[API] Unauthorized - token may be expired');
+                        }
+                        break;
+                    case 403:
+                        message = 'You do not have permission to perform this action.';
+                        break;
+                    case 404:
+                        message = 'The requested resource was not found.';
+                        break;
+                    case 422:
+                        message = 'Validation error. Please check your input.';
+                        break;
+                    case 500:
+                        message = 'Server error. Please try again later.';
+                        break;
+                }
             }
         } else if (error.request) {
             // Request was made but no response received

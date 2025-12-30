@@ -8,7 +8,7 @@ import {
 
 export const getAccounts = async (): Promise<BrokerAccount[]> => {
     // The backend returns APIResponse<List<BrokerAccountResponse>>
-    const response = await apiClient.get<APIResponse<BrokerAccount[]> | BrokerAccount[]>('/api/v1/accounts');
+    const response = await apiClient.get<APIResponse<BrokerAccount[]> | BrokerAccount[]>('/api/v1/accounts/');
 
     // Handle wrapper if present
     if ('data' in response.data && Array.isArray(response.data.data)) {
@@ -18,7 +18,7 @@ export const getAccounts = async (): Promise<BrokerAccount[]> => {
 };
 
 export const createAccount = async (data: BrokerAccountCreate): Promise<BrokerAccount> => {
-    const response = await apiClient.post<APIResponse<BrokerAccount>>('/api/v1/accounts', data);
+    const response = await apiClient.post<APIResponse<BrokerAccount>>('/api/v1/accounts/', data);
     if (response.data.data) {
         return response.data.data;
     }

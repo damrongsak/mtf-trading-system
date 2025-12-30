@@ -1,10 +1,7 @@
-from __future__ import annotations
-
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user_fund import Fund, UserFund
+from app.models.user_fund import Fund, UserFund, User
 from app.security import get_current_user
 from pydantic import BaseModel
 from app.schemas.response import APIResponse
@@ -24,6 +21,7 @@ class FundResponse(BaseModel):
     name: str
     description: str | None
     role: str | None  # User's role in this fund
+    owner_name: str | None = None
     
     # Risk Settings
     strategy_type: StrategyType | str
@@ -56,11 +54,25 @@ async def list_user_funds(
     for uf in user_funds:
         fund = db.query(Fund).filter(Fund.id == uf.fund_id).first()
         if fund:
+            # Find the owner name for this fund
+            from app.models.user_fund import UserRole as UserFundRole
+            owner_uf = db.query(UserFund).filter(
+                UserFund.fund_id == fund.id,
+                UserFund.role == UserFundRole.OWNER
+            ).first()
+            
+            owner_name = "Unknown"
+            if owner_uf:
+                owner = db.query(User).filter(User.id == owner_uf.user_id).first()
+                if owner:
+                    owner_name = owner.username
+
             funds_response.append(
                 FundResponse(
                     id=fund.id,
                     name=fund.name,
                     description=fund.description,
+                    owner_name=owner_name,
 
                     role=uf.role.value if uf.role else None,
                     strategy_type=fund.strategy_type,
@@ -110,12 +122,26 @@ async def get_fund(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Fund not found"
         )
+
+    # Find the owner name for this fund
+    from app.models.user_fund import UserRole as UserFundRole
+    owner_uf = db.query(UserFund).filter(
+        UserFund.fund_id == fund.id,
+        UserFund.role == UserFundRole.OWNER
+    ).first()
+    
+    owner_name = "Unknown"
+    if owner_uf:
+        owner = db.query(User).filter(User.id == owner_uf.user_id).first()
+        if owner:
+            owner_name = owner.username
     
     return success_response(
         data=FundResponse(
             id=fund.id,
             name=fund.name,
             description=fund.description,
+            owner_name=owner_name,
 
             role=user_fund.role.value if user_fund.role else None,
             strategy_type=fund.strategy_type,

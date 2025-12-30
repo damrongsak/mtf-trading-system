@@ -26,12 +26,15 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Save Confirmation State
+    const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+    const [pendingData, setPendingData] = useState<any>(null);
+
     // Form State
     const [brokerName, setBrokerName] = useState('OANDA');
     const [accountName, setAccountName] = useState('');
     const [accountNumber, setAccountNumber] = useState('');
     const [apiKey, setApiKey] = useState('');
-    const [accountId, setAccountId] = useState('');
     const [supportedSymbolsInput, setSupportedSymbolsInput] = useState('');
     const [riskSettingsInput, setRiskSettingsInput] = useState('');
     const [isLive, setIsLive] = useState(false);
@@ -60,11 +63,24 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSubmitting(true);
         setError(null);
         setSuccess(null);
 
         try {
+            // 1. Format Validation
+            if (brokerName === 'OANDA') {
+                const oandaPattern = /^\d{3}-\d{3}-\d+-\d{3}$/;
+                if (!oandaPattern.test(accountNumber)) {
+                     throw new Error("Invalid OANDA Account ID format. Expected: 000-000-0000000-000");
+                }
+            }
+
+            // 2. Duplicate Check
+            const isDuplicate = accounts.some(acc => acc.account_number === accountNumber);
+            if (isDuplicate) {
+                throw new Error(`Account number ${accountNumber} is already added to this fund.`);
+            }
+
             // Parse optional fields
             const supportedSymbols = supportedSymbolsInput.trim() 
                 ? supportedSymbolsInput.split(',').map(s => s.trim()).filter(Boolean)
@@ -79,35 +95,59 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                 }
             }
 
-            await createAccount({
+            // Prepare Payload
+            const cleanAccountNumber = accountNumber.trim();
+            const cleanApiKey = apiKey.trim();
+            const cleanAccountName = accountName.trim();
+
+            const payload = {
                 fund_id: fundId || undefined,
                 broker_name: brokerName,
-                account_name: accountName,
-                account_number: accountNumber,
+                account_name: cleanAccountName,
+                account_number: cleanAccountNumber,
                 is_live: isLive,
                 credentials: {
-                    api_key: apiKey,
-                    account_id: accountId,
+                    api_key: cleanApiKey,
+                    account_id: cleanAccountNumber, // Use accountNumber for OANDA ID
                     environment: isLive ? 'live' : 'practice'
                 },
                 supported_symbols: supportedSymbols,
                 risk_settings: riskSettings
-            });
+            };
+
+            setPendingData(payload);
+            setShowSaveConfirm(true);
+
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed to validate account";
+            setError(message);
+        }
+    };
+
+    const handleConfirmSave = async () => {
+        if (!pendingData) return;
+        setSubmitting(true);
+        setError(null);
+        
+        try {
+            await createAccount(pendingData);
             await fetchAccounts();
             setIsAdding(false);
-            setSuccess("Account added successfully");
+            setSuccess("Account verified and saved successfully");
             // Reset form
             setAccountName('');
             setAccountNumber('');
             setApiKey('');
-            setAccountId('');
             setSupportedSymbolsInput('');
             setRiskSettingsInput('');
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to add account";
+            const message = err instanceof Error ? err.message : "Failed to save account";
+            // If it's a backend validation error (like connection failed), it will show here
             setError(message);
         } finally {
             setSubmitting(false);
+            setShowSaveConfirm(false);
+            setPendingData(null);
         }
     };
 
@@ -139,6 +179,18 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                 message="Are you sure you want to remove this broker account? This action cannot be undone."
                 confirmText="Delete"
                 isLoading={isDeleting}
+                variant="danger"
+            />
+
+            <ConfirmationModal
+                isOpen={showSaveConfirm}
+                onClose={() => setShowSaveConfirm(false)}
+                onConfirm={handleConfirmSave}
+                title="Confirm Account Connection"
+                message={`Are you sure you want to connect ${brokerName} account ${pendingData?.account_number}? We will verify the credentials before saving.`}
+                confirmText="Verify & Save"
+                isLoading={submitting}
+                variant="default"
             />
             
             <Card className="bg-gray-950/50 backdrop-blur-sm border-gray-800">
@@ -196,8 +248,8 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                                     <Label>Broker Account ID</Label>
                                     <Input 
                                         placeholder="e.g. 001-001-XXXXXXX-001" 
-                                        value={accountId}
-                                        onChange={(e) => setAccountId(e.target.value)}
+                                        value={accountNumber}
+                                        onChange={(e) => setAccountNumber(e.target.value)}
                                         required
                                     />
                                 </div>

@@ -11,11 +11,46 @@ from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from typing import List, Optional, Dict, Any
 import uuid
+import httpx
 
 router = APIRouter(
     prefix="/api/v1/accounts",
     tags=["accounts"]
 )
+
+# --- Helpers ---
+async def verify_oanda_credentials(account_id: str, api_key: str, is_live: bool = False):
+    host = "api-fxtrade.oanda.com" if is_live else "api-fxpractice.oanda.com"
+    url = f"https://{host}/v3/accounts/{account_id}/summary"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers, timeout=10.0)
+            
+            if response.status_code == 200:
+                return
+                
+            # Error Handling
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('errorMessage', 'Unknown OANDA error')
+            except:
+                error_msg = f"HTTP {response.status_code}"
+
+            if response.status_code == 401:
+                 raise ValueError(f"OANDA Unauthorized (401): Invalid API Token. Check if token is correct.")
+            elif response.status_code == 403:
+                 env_str = "LIVE" if is_live else "DEMO"
+                 raise ValueError(f"OANDA Forbidden (403): {error_msg}. Check if Account ID '{account_id}' belongs to this token, and if Environment '{env_str}' is correct.")
+            else:
+                 raise ValueError(f"OANDA Connection Failed ({response.status_code}): {error_msg}")
+
+        except httpx.RequestError as e:
+             raise ValueError(f"OANDA Network Error: {str(e)}")
 
 # --- Schemas ---
 
@@ -92,6 +127,36 @@ async def create_account(
             status_code=status.HTTP_403_FORBIDDEN, 
             detail="Not authorized to manage this fund"
         )
+    
+    # 1. Check for Duplicate Account Number in this Fund
+    if account.account_number:
+        existing = db.query(BrokerAccount).filter(
+            BrokerAccount.fund_id == target_fund_id,
+            BrokerAccount.account_number == account.account_number
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Account number {account.account_number} already exists in this fund."
+            )
+            
+    # 2. Verify Broker Credentials (OANDA Only for now)
+    if account.broker_name.upper() == "OANDA":
+        api_key = account.credentials.get("api_key", "").strip()
+        acc_id = account.credentials.get("account_id", "").strip()
+        
+        # Update credentials with stripped values
+        account.credentials["api_key"] = api_key
+        account.credentials["account_id"] = acc_id
+        
+        if not api_key or not acc_id:
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing API Key or Account ID for OANDA")
+             
+        try:
+            # Note: This is a synchronous call in an async function, but verify_oanda_credentials is async
+            await verify_oanda_credentials(acc_id, api_key, account.is_live)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
     # Encrypt credentials
     encrypted_creds = encrypt_data(account.credentials)
