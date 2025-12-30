@@ -96,8 +96,10 @@
 - **Status:** ✅ Complete (2025-12-04)
 - **Features:**
     - User preferences model with strategy configuration.
-    - Portfolio (Fund) management.
-    - Settings page UI with 4 sections (Profile, Strategy, Portfolio, Trading).
+    - User preferences model with strategy configuration.
+    - Portfolio (Fund) management consolidated with Broker Accounts.
+    - Settings page UI refactored (Profile only).
+    - Dedicated Trading Preferences page.
     - Unit tests with 100% endpoint coverage.
     - **Commits:**
         - `bdbec98` (2025-12-04): Backend preferences model
@@ -319,6 +321,14 @@
         - **Deploy Button**: Integrated into Strategy Editor.
         - **Deployment Dashboard**: List active/stopped bots, monitoring status.
         - **Config Modal**: Configure live/paper mode, symbol, timeframe.
+
+### 25. Portfolio Consolidation
+- **Status:** ✅ Complete (2025-12-30)
+- **Features:**
+    - **Frontend:**
+        - **Funds & Accounts (`/portfolio`):** Unified view for Fund selection, Risk Params, and Broker Accounts.
+        - **Trading Preferences (`/trading`):** Dedicated page for Timeframes/Symbols.
+        - **Context-Aware Accounts:** Broker accounts are now filtered by and created for the selected Fund.
 
 ---
 
