@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime
 from app.schemas.signal import SignalResponse, SignalDirection
+from app.models.signal_log import SignalLog
+from app.database import get_db
+from sqlalchemy.orm import Session
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 import httpx
@@ -11,8 +14,46 @@ import asyncio
 router = APIRouter(
     prefix="/api/v1/signal",
     tags=["signal"],
+    tags=["signal"],
     responses={404: {"description": "Not found"}},
 )
+
+@router.get("/detected", response_model=APIResponse[List[SignalResponse]])
+async def get_detected_signals(
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Get signals that were detected and persisted in the database.
+    (Includes both executed and non-executed signals from deployments)
+    """
+    logs = db.query(SignalLog).order_by(SignalLog.timestamp.desc()).limit(limit).all()
+    
+    results = []
+    for log in logs:
+        meta = log.meta_data or {}
+        
+        # Map DB model to Schema
+        # Handle direction string to Enum
+        try:
+            direction = SignalDirection(log.direction)
+        except:
+            direction = SignalDirection.NEUTRAL
+
+        results.append(SignalResponse(
+            symbol=log.symbol,
+            timeframe=log.timeframe or "H1",
+            timestamp=log.timestamp,
+            direction=direction,
+            entry_price=log.price or 0.0,
+            sl_price=meta.get("stop_loss") or 0.0,
+            tp_price=meta.get("take_profit") or 0.0, # Might be missing in meta
+            reason=log.reason,
+            confidence=log.confidence or 0.0,
+            strategy_name=log.strategy_name
+        ))
+        
+    return success_response(data=results)
 
 DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 STRATEGY_SERVICE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
@@ -116,7 +157,8 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         entry_price=last_close,
         sl_price=last_close * 0.99 if direction == SignalDirection.LONG else last_close * 1.01,
         tp_price=last_close * 1.02 if direction == SignalDirection.LONG else last_close * 0.98,
-        reason=reason
+        reason=reason,
+        strategy_name="Smart Money Concepts (Scanner)"
     ))
 
 @router.post("/check", response_model=APIResponse[SignalResponse])
@@ -270,7 +312,8 @@ async def get_batch_signals(req: SignalBatchRequest):
                 sl_price=sl,
                 tp_price=tp,
                 reason=reason,
-                broker=req.broker
+                broker=req.broker,
+                strategy_name="Smart Money Concepts (Scanner)"
             ))
             
         return success_response(data=final_response)

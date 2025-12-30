@@ -18,6 +18,8 @@ class SignalResponse(BaseModel):
     tp_price: float
     reason: Optional[str] = None
     broker: Optional[str] = None
+    strategy_name: Optional[str] = None
+    confidence: Optional[float] = 0.0
     
     class Config:
         from_attributes = True

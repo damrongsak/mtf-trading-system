@@ -15,3 +15,4 @@ from .decision_log import DecisionLog
 from .market import MarketCategory, MarketSymbol
 from .deployment import Deployment
 from .chat import ChatSession, ChatMessage
+from .signal_log import SignalLog

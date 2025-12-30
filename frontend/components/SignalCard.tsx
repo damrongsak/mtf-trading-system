@@ -1,4 +1,7 @@
 import React from 'react';
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SignalCardProps {
   symbol: string;
@@ -12,6 +15,7 @@ interface SignalCardProps {
   sl_price?: number;
   tp_price?: number;
   broker?: string;
+  strategy_name?: string;
 }
 
 export const SignalCard: React.FC<SignalCardProps> = (props) => {
@@ -21,7 +25,9 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
       timestamp,
       confidence,
       timeframe,
-      broker
+
+      broker,
+      strategy_name
   } = props;
   const isBullish = direction === 'BULLISH';
   const isBearish = direction === 'BEARISH';
@@ -60,8 +66,16 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
                 {broker}
               </span>
             )}
+
           </div>
-          <span className="text-xs font-mono text-gray-500">{timeframe}</span>
+          <div className="flex flex-col">
+            <span className="text-xs font-mono text-gray-500">{timeframe}</span>
+            {strategy_name && (
+                <span className="text-[10px] text-purple-400 mt-1" title={strategy_name}>
+                    {strategy_name}
+                </span>
+            )}
+          </div>
         </div>
         <div className={`
           px-3 py-1 rounded-full text-xs font-bold tracking-wider
@@ -107,8 +121,16 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
              {props.reason || props.reasoning || "No reasoning provided."}
            </p>
            <p className="text-xs text-gray-600 mt-2 font-mono text-right">
-             {new Date(timestamp).toLocaleTimeString()}
+             Detected: {new Date(timestamp).toLocaleString()}
            </p>
+        </div>
+        
+        <div className="pt-3 border-t border-gray-800 flex justify-end">
+             <Link href={`/market?symbol=${symbol}&strategy=${strategy_name || ''}`}>
+                <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 text-slate-400 hover:text-white">
+                    <ExternalLink className="h-3 w-3" /> Analyze
+                </Button>
+             </Link>
         </div>
       </div>
     </div>

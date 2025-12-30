@@ -11,6 +11,8 @@ from typing import Dict, Any, Optional
 import os
 import logging
 from uuid import UUID
+from datetime import datetime
+from app.models.signal_log import SignalLog
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,31 @@ async def receive_internal_signal(
 
         if deployment.status != "ACTIVE":
              raise HTTPException(status_code=400, detail="Deployment is not active")
+
+        # 1.5 Persist Signal Log
+        try:
+            # Try to get strategy name
+            strat_name = f"Deployment-{deployment.id}"
+            if deployment.strategy:
+                strat_name = deployment.strategy.name
+            
+            signal_log = SignalLog(
+                timestamp=datetime.utcnow(),
+                symbol=payload.get("symbol"),
+                direction=payload.get("direction"),
+                timeframe=payload.get("timeframe", "H1"),
+                strategy_name=strat_name,
+                deployment_id=deployment.id,
+                confidence=payload.get("confidence", 0.0),
+                price=payload.get("price", 0.0),
+                reason=payload.get("reason"),
+                meta_data=payload
+            )
+            db.add(signal_log)
+            db.commit()
+        except Exception as se:
+            logger.error(f"Failed to persist signal log: {se}")
+            # Continue execution even if logging fails
 
         # Resolve User & Account
         user = db.query(User).filter(User.id == deployment.user_id).first()

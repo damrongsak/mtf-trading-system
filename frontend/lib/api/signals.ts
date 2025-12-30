@@ -26,3 +26,13 @@ export async function getBatchSignals(broker: string = "OANDA"): Promise<Signal[
     const response = await apiClient.post<APIResponse<Signal[]>>('/api/v1/signal/batch', { broker });
     return response.data.data || [];
 }
+
+/**
+ * Get detected signals history from database
+ */
+export async function getDetectedSignals(limit: number = 20): Promise<Signal[]> {
+    const response = await apiClient.get<APIResponse<Signal[]>>('/api/v1/signal/detected', {
+        params: { limit }
+    });
+    return response.data.data || [];
+}

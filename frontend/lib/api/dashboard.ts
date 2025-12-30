@@ -46,7 +46,7 @@ export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
  * @param limit - Number of recent signals to fetch (default: 5)
  * @returns Array of recent signals
  */
-import { getBatchSignals } from './signals';
+import { getBatchSignals, getDetectedSignals } from './signals';
 
 /**
  * Get recent trading signals
@@ -55,10 +55,27 @@ import { getBatchSignals } from './signals';
  */
 export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[]> {
     try {
-        // Use batch fetching for efficiency
-        const signals = await getBatchSignals("OANDA"); // Default to OANDA for now
+        // Fetch from both sources in parallel
+        const [scannerSignals, detectedSignals] = await Promise.all([
+            getBatchSignals("OANDA"),
+            getDetectedSignals(limit * 2)
+        ]);
 
-        const validSignals = signals
+        // Merge strategies (preferring detected if duplicates exist? 
+        // Actually, scanner signals are ephemeral ("now"). Detected are "history". 
+        // If scanner signal is "now", it might not be in DB yet if not executed/persisted by a deployment.
+        // But scanner signals are "potential" signals.
+        // Detected signals are FROM deployments (Scanner defaults usually don't save to DB unless we add autosave).
+        // For now, simple merge.
+
+        const allSignals = [...detectedSignals, ...scannerSignals];
+
+        // Remove duplicates based on ID (Symbol + Timestamp)
+        const uniqueSignals = Array.from(new Map(allSignals.map(item =>
+            [`${item.symbol}-${item.timestamp}`, item]
+        )).values());
+
+        const validSignals = uniqueSignals
             .filter(s => s.direction !== 'NEUTRAL')
             .map(s => {
                 const mapDirection = (dir: string): 'BULLISH' | 'BEARISH' | 'NEUTRAL' => {
@@ -81,6 +98,7 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
                     tp_price: s.tp_price,
                     reason: s.reason,
                     broker: s.broker,
+                    strategy_name: s.strategy_name,
                 } as RecentSignal;
             });
 
