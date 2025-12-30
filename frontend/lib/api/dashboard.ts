@@ -80,6 +80,7 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
                     sl_price: s.sl_price,
                     tp_price: s.tp_price,
                     reason: s.reason,
+                    broker: s.broker,
                 } as RecentSignal;
             });
 

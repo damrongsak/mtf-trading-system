@@ -11,6 +11,7 @@ interface SignalCardProps {
   entry_price?: number;
   sl_price?: number;
   tp_price?: number;
+  broker?: string;
 }
 
 export const SignalCard: React.FC<SignalCardProps> = (props) => {
@@ -19,7 +20,8 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
       direction,
       timestamp,
       confidence,
-      timeframe
+      timeframe,
+      broker
   } = props;
   const isBullish = direction === 'BULLISH';
   const isBearish = direction === 'BEARISH';
@@ -51,7 +53,14 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
     `}>
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-xl font-bold text-gray-100 tracking-tight">{symbol}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-bold text-gray-100 tracking-tight">{symbol}</h3>
+            {broker && (
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                {broker}
+              </span>
+            )}
+          </div>
           <span className="text-xs font-mono text-gray-500">{timeframe}</span>
         </div>
         <div className={`

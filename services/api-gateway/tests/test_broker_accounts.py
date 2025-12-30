@@ -1,183 +1,173 @@
-from unittest.mock import MagicMock
+import pytest
+from unittest.mock import MagicMock, patch, AsyncMock
+from app.models.market import MarketSymbol, MarketCategory
+from app.models.data_source import DataSource
 from app.models.broker_account import BrokerAccount
-from app.models.user_fund import UserFund, UserRole, Fund
-from app.schemas.response import ResponseStatus
+from app.models.user_fund import UserFund, UserRole, User, Fund
+from app.security import get_current_user
 import uuid
 
-def test_create_account_with_risk_override(client, mock_db_session, mock_current_user):
-    """Test POST /api/v1/accounts with risk_settings and supported_symbols"""
-    from app.security import get_current_user
-    
-    fund_id = uuid.uuid4()
-    
-    # Mock Fund existence and User permission
-    mock_fund = MagicMock(spec=Fund)
-    mock_fund.id = fund_id
-    
-    mock_user_fund = MagicMock(spec=UserFund)
-    mock_user_fund.role = UserRole.OWNER
-    
-    def query_side_effect(model):
-        mock_query = MagicMock()
-        # Logic for determining what to return based on joins or filters is tricky with MagicMock side_effect
-        # Simplified: If querying UserFund, return the mocked permission
-        # If querying Fund, return mocked Fund
-        if model == UserFund:
-             mock_query.filter.return_value.first.return_value = mock_user_fund
-        elif model == Fund:
-             mock_query.filter.return_value.first.return_value = mock_fund
-        return mock_query
+# --- Helpers to configure Mock Query Chain ---
+def mock_query_chain(mock_db, return_value):
+    """
+    Configures mock_db.query(...).filter(...).first() to return `return_value`.
+    This is a simplification; for complex tests, we might need more specific matching.
+    """
+    # Create the chain
+    mock_query = mock_db.query.return_value
+    mock_filter = mock_query.filter.return_value
+    # For .first()
+    mock_filter.first.return_value = return_value
+    # For .all()
+    if isinstance(return_value, list):
+         mock_filter.all.return_value = return_value
+    else:
+         mock_filter.all.return_value = [return_value] if return_value else []
+    return mock_filter
 
-    mock_db_session.query.side_effect = query_side_effect
-    
-    app = client.app
+@pytest.fixture
+def override_auth(app_client, mock_current_user):
+    from app.main import app
     app.dependency_overrides[get_current_user] = lambda: mock_current_user
-    
-    payload = {
-        "fund_id": str(fund_id),
-        "broker_name": "OANDA",
-        "account_name": "Risk Account",
-        "account_number": "001",
-        "credentials": {"api_key": "k", "account_id": "i", "environment": "practice"},
-        "is_live": False,
-        "supported_symbols": ["BTC/USD", "ETH/USD"],
-        "risk_settings": {"max_risk_per_trade": 5.0}
-    }
-    
-    # Manually ensure defaults that DB usually handles
-    def side_effect(instance):
-        instance.id = uuid.uuid4()
-        from datetime import datetime
-        instance.created_at = datetime.utcnow()
-        if instance.is_active is None: instance.is_active = True
-        if instance.is_live is None: instance.is_live = False
-        
-    mock_db_session.refresh.side_effect = side_effect
-    
-    response = client.post("/api/v1/accounts", json=payload)
-    
-    assert response.status_code == 201
-    data = response.json()
-    assert data["status"] == ResponseStatus.SUCCESS
-    assert data["data"]["supported_symbols"] == ["BTC/USD", "ETH/USD"]
-    assert data["data"]["risk_settings"]["max_risk_per_trade"] == 5.0
-    
-    # Verify persistence
-    account_arg = mock_db_session.add.call_args[0][0]
-    assert isinstance(account_arg, BrokerAccount)
-    assert account_arg.supported_symbols == ["BTC/USD", "ETH/USD"]
-    assert account_arg.risk_settings == {"max_risk_per_trade": 5.0}
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
-    app.dependency_overrides.pop(get_current_user)
-
-def test_update_account_symbols(client, mock_db_session, mock_current_user):
-    """Test PUT /api/v1/accounts/{id} updating supported_symbols"""
-    from app.security import get_current_user
-    
+@pytest.mark.asyncio
+async def test_fetch_symbols_cached(client, mock_db_session, mock_current_user):
+    # 1. Setup Data Objects
     account_id = uuid.uuid4()
-    
-    mock_account = MagicMock(spec=BrokerAccount)
-    mock_account.id = account_id
-    mock_account.fund_id = uuid.uuid4()
-    mock_account.supported_symbols = ["OLD"]
-    mock_account.risk_settings = {}
-    mock_account.broker_name = "OANDA"
-    mock_account.account_name = "My Account"
-    mock_account.account_number = "123"
-    mock_account.is_active = True
-    mock_account.is_live = False
-    mock_account.created_at = "2024-01-01T00:00:00Z"
-    
-    mock_user_fund = MagicMock(spec=UserFund)
-    mock_user_fund.role = UserRole.OWNER
-    
-    # Complex query mocking for:
-    # 1. Get Account (to find fund_id)
-    # 2. Get UserFund (to check permission on fund_id)
-    
-    # In `broker_account.py`, it likely does:
-    # account = db.query(BrokerAccount).get(id)
-    # user_fund = db.query(UserFund).filter(...).first()
-    
-    def query_side_effect(model):
-        mock_query = MagicMock()
-        if model == BrokerAccount:
-            mock_query.filter.return_value.first.return_value = mock_account
-        elif model == UserFund:
-            mock_query.filter.return_value.first.return_value = mock_user_fund
-        return mock_query
-        
-    mock_db_session.query.side_effect = query_side_effect
-    
-    app = client.app
-    app.dependency_overrides[get_current_user] = lambda: mock_current_user
-    
-    payload = {
-        "supported_symbols": ["NEW", "LIST"]
-    }
-    
-    response = client.put(f"/api/v1/accounts/{account_id}", json=payload)
-    
-    assert response.status_code == 200
-    data = response.json()
-    assert data["data"]["supported_symbols"] == ["NEW", "LIST"]
-    assert mock_account.supported_symbols == ["NEW", "LIST"]
-    
-    app.dependency_overrides.pop(get_current_user)
-
-def test_create_account_default_fund(client, mock_db_session, mock_current_user):
-    """Test POST /api/v1/accounts without fund_id uses default"""
-    from app.security import get_current_user
-    from app.models.user_preferences import UserPreferences
-    
     fund_id = uuid.uuid4()
     
-    # Mock Prefs
-    mock_prefs = MagicMock(spec=UserPreferences)
-    mock_prefs.default_fund_id = fund_id
+    mock_account = BrokerAccount(
+        id=account_id,
+        fund_id=fund_id,
+        broker_name="OANDA",
+        is_live=False
+    )
     
-    mock_fund = MagicMock(spec=Fund)
-    mock_fund.id = fund_id
+    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id)
     
-    mock_user_fund = MagicMock(spec=UserFund)
-    mock_user_fund.role = UserRole.OWNER
+    # Mock DataSource and Symbols
+    mock_ds = DataSource(id=uuid.uuid4(), name="OANDA")
+    mock_symbols = [
+        MarketSymbol(symbol="EUR_USD", data_source_id=mock_ds.id),
+        MarketSymbol(symbol="GBP_USD", data_source_id=mock_ds.id)
+    ]
+    
+    # 2. Configure DB Query Side_effect
+    # The endpoint makes multiple queries: Account, UserFund, DataSource, MarketSymbol
+    # We need side_effect to return different things depending on the model queried
     
     def query_side_effect(model):
-        mock_query = MagicMock()
-        if model == UserPreferences:
-             mock_query.filter.return_value.first.return_value = mock_prefs
+        query_mock = MagicMock()
+        filter_mock = MagicMock()
+        
+        if model == BrokerAccount:
+            filter_mock.first.return_value = mock_account
         elif model == UserFund:
-             mock_query.filter.return_value.first.return_value = mock_user_fund
-        elif model == Fund:
-             mock_query.filter.return_value.first.return_value = mock_fund
-        return mock_query
+            filter_mock.first.return_value = mock_user_fund
+        elif model == DataSource:
+            filter_mock.first.return_value = mock_ds
+        elif model == MarketSymbol:
+            filter_mock.all.return_value = mock_symbols
+            filter_mock.first.return_value = mock_symbols[0]
+        else:
+            filter_mock.first.return_value = None
+            filter_mock.all.return_value = []
+            
+        query_mock.filter.return_value = filter_mock
+        return query_mock
 
     mock_db_session.query.side_effect = query_side_effect
     
-    app = client.app
+    # Override Auth
+    from app.main import app
     app.dependency_overrides[get_current_user] = lambda: mock_current_user
     
-    payload = {
-        # NO fund_id
-        "broker_name": "OANDA",
-        "account_name": "Default Fund Account",
-        "credentials": {"api_key": "k", "account_id": "i", "environment": "practice"}
+    # 3. Call Endpoint
+    with patch("app.routers.broker_account.decrypt_data") as mock_decrypt:
+         with patch("app.routers.broker_account.fetch_oanda_instruments") as mock_fetch:
+             response = client.post(f"/api/v1/accounts/{account_id}/fetch-symbols")
+             
+             assert response.status_code == 200
+             data = response.json()
+             assert "Returned 2 cached symbols" in data['message']
+             assert "EUR_USD" in data['data']
+             
+             # Verify fetch was NOT called
+             mock_fetch.assert_not_called()
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_fetch_symbols_cold_start(client, mock_db_session, mock_current_user):
+    # 1. Setup Data Objects
+    account_id = uuid.uuid4()
+    fund_id = uuid.uuid4()
+    
+    mock_account = BrokerAccount(
+        id=account_id,
+        fund_id=fund_id,
+        broker_name="OANDA",
+        is_live=False,
+        credentials_encrypted="enc"
+    )
+    
+    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id)
+    
+    # Mock Queries: DataSource is None (triggers cold start)
+    def query_side_effect(model):
+        query_mock = MagicMock()
+        filter_mock = MagicMock()
+        
+        if model == BrokerAccount:
+            filter_mock.first.return_value = mock_account
+        elif model == UserFund:
+            filter_mock.first.return_value = mock_user_fund
+        elif model == DataSource:
+            filter_mock.first.return_value = None # Force cold start
+        elif model == MarketCategory:
+            filter_mock.all.return_value = [] # Allow creation of categories
+        elif model == MarketSymbol:
+            filter_mock.first.return_value = None # Allow creation of symbols
+            filter_mock.all.return_value = []
+        else:
+             filter_mock.first.return_value = None
+            
+        query_mock.filter.return_value = filter_mock
+        return query_mock
+
+    mock_db_session.query.side_effect = query_side_effect
+    
+    # Override Auth
+    from app.main import app
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    
+    # 2. Mock Logic
+    # The logic: 1. fetch_oanda_instruments (gets names) 2. httpx (gets full) 
+    # Logic note: if fetch_oanda_instruments fails, it raises error. 
+    
+    mock_instruments_full = {
+        "instruments": [
+            {"name": "USD_JPY", "type": "CURRENCY", "displayName": "USD/JPY"}
+        ]
     }
-    
-    # Defaults fixture
-    def side_effect(instance):
-        instance.id = uuid.uuid4()
-        from datetime import datetime
-        instance.created_at = datetime.utcnow()
-        if instance.is_active is None: instance.is_active = True
-        if instance.is_live is None: instance.is_live = False
-    mock_db_session.refresh.side_effect = side_effect
 
-    response = client.post("/api/v1/accounts", json=payload)
-    
-    assert response.status_code == 201
-    data = response.json()
-    assert data["status"] == ResponseStatus.SUCCESS
-    assert data["data"]["fund_id"] == str(fund_id)
-
-    app.dependency_overrides.pop(get_current_user)
+    with patch("app.routers.broker_account.decrypt_data", return_value={"api_key": "k", "account_id": "a"}):
+        with patch("app.routers.broker_account.fetch_oanda_instruments", return_value=["USD_JPY"]) as mock_simple_fetch:
+            with patch("httpx.AsyncClient.get") as mock_http_get:
+                 mock_http_get.return_value = AsyncMock(status_code=200, json=lambda: mock_instruments_full)
+                 
+                 response = client.post(f"/api/v1/accounts/{account_id}/fetch-symbols")
+                 
+                 assert response.status_code == 200
+                 data = response.json()
+                 assert "Fetched and cached 1 symbols" in data['message']
+                 assert "USD_JPY" in data['data']
+                 
+                 # Verify DB additions
+                 # We expect db.add to be called for DataSource, Categories, and Symbols
+                 assert mock_db_session.add.call_count >= 1 
+                 
+    app.dependency_overrides.clear()

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle } from "lucide-react";
-import { getAccounts, createAccount, deleteAccount } from '@/lib/api/accounts';
+import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw } from "lucide-react";
+import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
 import { BrokerAccount } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { TagsInput } from "@/components/ui/tags-input";
 
     interface BrokerAccountsSectionProps {
         fundId?: string | null;
@@ -39,6 +40,11 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
     const [riskSettingsInput, setRiskSettingsInput] = useState('');
     const [isLive, setIsLive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Edit State
+    const [editingAccount, setEditingAccount] = useState<BrokerAccount | null>(null);
+    const [editSymbols, setEditSymbols] = useState<string[]>([]);
+    const [isFetchingSymbols, setIsFetchingSymbols] = useState(false);
 
     useEffect(() => {
         fetchAccounts();
@@ -169,6 +175,38 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
         }
     };
 
+    const handleFetchSymbols = async (accountId: string) => {
+        setIsFetchingSymbols(true);
+        try {
+            const symbols = await fetchBrokerSymbols(accountId);
+            setEditSymbols(prev => Array.from(new Set([...prev, ...symbols])));
+            setSuccess(`Fetched ${symbols.length} symbols from broker`);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to fetch symbols");
+        } finally {
+            setIsFetchingSymbols(false);
+        }
+    };
+
+    const handleUpdate = async () => {
+        if (!editingAccount) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            await updateAccount(editingAccount.id, {
+                account_name: editingAccount.account_name,
+                supported_symbols: editSymbols
+            });
+            await fetchAccounts();
+            setEditingAccount(null);
+            setSuccess("Account updated successfully");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update account");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <>
             <ConfirmationModal
@@ -193,6 +231,55 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                 variant="default"
             />
             
+            {editingAccount && (
+                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-gray-900 border border-gray-800 p-6 rounded-lg w-full max-w-lg shadow-xl">
+                        <h3 className="text-lg font-semibold text-white mb-4">Edit Account: {editingAccount.broker_name}</h3>
+                        
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Account Alias</Label>
+                                <Input 
+                                    value={editingAccount.account_name}
+                                    onChange={(e) => setEditingAccount({...editingAccount, account_name: e.target.value})}
+                                />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <Label>Supported Symbols</Label>
+                                <div className="flex gap-2 mb-2">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleFetchSymbols(editingAccount.id)}
+                                        disabled={isFetchingSymbols}
+                                        className="text-xs"
+                                    >
+                                        {isFetchingSymbols ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <RefreshCw className="h-3 w-3 mr-1"/>}
+                                        Fetch from Broker
+                                    </Button>
+                                </div>
+                                <TagsInput 
+                                    value={editSymbols}
+                                    onChange={setEditSymbols}
+                                    placeholder="Type symbol and press Enter..."
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Add symbols this account is allowed to trade. fetch from broker to auto-populate.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-6">
+                            <Button variant="ghost" onClick={() => setEditingAccount(null)}>Cancel</Button>
+                            <Button onClick={handleUpdate} disabled={submitting}>
+                                {submitting ? <Loader2 className="h-4 w-4 animate-spin"/> : "Save Changes"}
+                            </Button>
+                        </div>
+                    </div>
+                 </div>
+            )}
+
             <Card className="bg-gray-950/50 backdrop-blur-sm border-gray-800">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -317,6 +404,12 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                                             <ShieldCheck className="h-3 w-3" />
                                             Encrypted
                                         </div>
+                                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => {
+                                            setEditingAccount(acc);
+                                            setEditSymbols(acc.supported_symbols || []);
+                                        }}>
+                                            <Edit2 className="h-4 w-4" />
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="text-gray-500 hover:text-red-400" onClick={() => setDeleteId(acc.id)}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>

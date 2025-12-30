@@ -36,3 +36,11 @@ export const updateAccount = async (id: string, data: BrokerAccountUpdate): Prom
 export const deleteAccount = async (id: string): Promise<void> => {
     await apiClient.delete(`/api/v1/accounts/${id}`);
 };
+
+export const fetchBrokerSymbols = async (id: string): Promise<string[]> => {
+    const response = await apiClient.post<APIResponse<string[]>>(`/api/v1/accounts/${id}/fetch-symbols`);
+    if (response.data.data) {
+        return response.data.data;
+    }
+    return [];
+};

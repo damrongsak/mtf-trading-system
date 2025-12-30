@@ -226,6 +226,7 @@ export interface Signal {
     entry_price?: number;
     sl_price?: number;
     tp_price?: number;
+    broker?: string;
 }
 
 // ========================================
@@ -254,7 +255,9 @@ export interface RecentSignal {
     entry_price?: number;
     sl_price?: number;
     tp_price?: number;
+    tp_price?: number;
     reason?: string;
+    broker?: string;
 }
 
 // ========================================

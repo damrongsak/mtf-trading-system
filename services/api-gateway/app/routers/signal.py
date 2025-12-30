@@ -210,11 +210,13 @@ async def get_batch_signals(req: SignalBatchRequest):
             smc_resp = await client.post(
                 f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc/batch",
                 json={"requests": smc_requests},
-                timeout=20.0 # Longer timeout for batch
+                timeout=60.0 # Increased timeout for batch
             )
             smc_resp.raise_for_status()
             analysis_results = smc_resp.json().get("results", {})
         except Exception as e:
+             import logging
+             logging.getLogger("uvicorn.error").error(f"Strategy Core Batch Error: {str(e)}")
              raise HTTPException(status_code=503, detail=f"Strategy Core Batch Error: {str(e)}")
              
         # 4. Process Results
@@ -267,7 +269,8 @@ async def get_batch_signals(req: SignalBatchRequest):
                 entry_price=last_close,
                 sl_price=sl,
                 tp_price=tp,
-                reason=reason
+                reason=reason,
+                broker=req.broker
             ))
             
         return success_response(data=final_response)
