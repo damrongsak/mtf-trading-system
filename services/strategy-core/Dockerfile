@@ -6,6 +6,7 @@ WORKDIR /app
 # Bookworm-slim is usually sufficient for wheels
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy configuration files

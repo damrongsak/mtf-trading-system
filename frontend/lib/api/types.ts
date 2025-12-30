@@ -255,7 +255,6 @@ export interface RecentSignal {
     entry_price?: number;
     sl_price?: number;
     tp_price?: number;
-    tp_price?: number;
     reason?: string;
     broker?: string;
 }
@@ -678,6 +677,7 @@ export interface Deployment {
     stopped_at?: string;
     last_error?: string;
     config_snapshot: Record<string, unknown>;
+    total_pnl_usd?: number;
 }
 
 export interface DeploymentCreate {

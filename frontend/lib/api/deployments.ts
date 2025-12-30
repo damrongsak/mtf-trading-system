@@ -16,3 +16,8 @@ export const stopDeployment = async (id: string): Promise<Deployment> => {
     const response = await apiClient.post<Deployment>(`/api/v1/deployments/${id}/stop`);
     return response.data;
 };
+
+export const restartDeployment = async (id: string): Promise<Deployment> => {
+    const response = await apiClient.post<Deployment>(`/api/v1/deployments/${id}/restart`);
+    return response.data;
+};

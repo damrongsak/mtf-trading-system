@@ -167,8 +167,21 @@ class FleetManager:
                 
                 if result:
                     logger.info(f"DYNAMIC SIGNAL {context['name']} (Live={context['is_live']}): {result}")
-                    # Dispatch to Execution Service...
-                    # await execution_client.place_order(...)
+                    
+                    from app.adapters.gateway import gateway_client
+                    
+                    # Prepare Payload
+                    payload = {
+                        "deployment_id": context["id"],
+                        "symbol": result.get("symbol", context["symbol"]),
+                        "direction": result.get("direction"), 
+                        "stop_loss": result.get("stop_loss"),
+                        "risk_usd": result.get("risk_usd"),
+                        "reason": result.get("reason", "Dynamic Strategy Signal")
+                    }
+                    
+                    # Async dispatch
+                    asyncio.create_task(gateway_client.execute_signal(payload))
             except Exception as e:
                 logger.error(f"Error ticking deployment {context['name']}: {e}")
 

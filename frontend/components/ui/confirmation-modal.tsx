@@ -23,6 +23,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   isLoading?: boolean;
   variant?: 'default' | 'danger';
+  showCancel?: boolean;
 }
 
 export function ConfirmationModal({
@@ -35,6 +36,7 @@ export function ConfirmationModal({
   cancelText = 'Cancel',
   isLoading = false,
   variant = 'default',
+  showCancel = true,
 }: ConfirmationModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -46,13 +48,15 @@ export function ConfirmationModal({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="ghost"
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            {cancelText}
-          </Button>
+          {showCancel && (
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              {cancelText}
+            </Button>
+          )}
           <Button
             variant={variant === 'danger' ? "destructive" : "default"}
             onClick={onConfirm}

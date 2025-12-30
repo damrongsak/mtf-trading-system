@@ -22,6 +22,7 @@ class DeploymentResponse(DeploymentBase):
     stopped_at: Optional[datetime] = None
     last_signal_at: Optional[datetime] = None
     last_error: Optional[str] = None
+    total_pnl_usd: Optional[float] = 0.0
     
     class Config:
         from_attributes = True

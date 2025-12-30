@@ -3,12 +3,13 @@ import httpx
 from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.security import get_current_user
 from app.models.deployment import Deployment
 from app.models.user_fund import User
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 import os
+from datetime import datetime
 
 router = APIRouter()
 
@@ -26,7 +27,36 @@ def list_deployments(
     List active deployments.
     """
     deployments = db.query(Deployment).filter(Deployment.user_id == current_user.id).offset(skip).limit(limit).all()
-    return deployments
+    
+    # Calculate PnL for each deployment
+    results = []
+    
+    # Pre-fetch all trades for user to avoid N+1? 
+    # Or just use SQL for PnL aggregation if we can join on metadata?
+    # SQLAlchemy JSON query is specific to dialect.
+    # Simple loop for MVP is fine if N < 100.
+    
+    for dep in deployments:
+        # PnL Sum
+        pnl = 0.0
+        # This query relies on metadata_json being searchable. 
+        # For Postgres: 
+        from sqlalchemy import func, cast, Float
+        from sqlalchemy.dialects.postgresql import JSONB
+        from app.models.trade import Trade
+        
+        # We need to filter trades that have metadata_json ->> 'deployment_id' == dep.id
+        # Note: metadata_json is JSONB in model.
+        
+        total_pnl = db.query(func.sum(Trade.pnl_usd)).filter(
+            Trade.metadata_json['deployment_id'].astext == str(dep.id)
+        ).scalar()
+        
+        dep_resp = DeploymentResponse.model_validate(dep)
+        dep_resp.total_pnl_usd = float(total_pnl) if total_pnl is not None else 0.0
+        results.append(dep_resp)
+        
+    return results
 
 @router.post("/", response_model=DeploymentResponse)
 async def create_deployment(
@@ -86,15 +116,46 @@ async def stop_deployment(
     # Trigger Backend Stop
     background_tasks.add_task(stop_bot_instance, str(deployment.id))
     
+    
+    return deployment
+
+@router.post("/{id}/restart", response_model=DeploymentResponse)
+async def restart_deployment(
+    id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Restart a stopped deployment.
+    """
+    deployment = db.query(Deployment).filter(Deployment.id == id, Deployment.user_id == current_user.id).first()
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+        
+    if deployment.status not in ["STOPPED", "ERROR", "STOPPING"]:
+        raise HTTPException(status_code=400, detail="Only STOPPED, ERROR, or STOPPING deployments can be restarted")
+        
+    # Reset Status
+    deployment.status = "STARTING"
+    deployment.last_error = None
+    db.commit()
+    
+    # Trigger Backend Start ( reusing start_bot_instance logic )
+    # Note: start_bot_instance expects config dict, but we can access deployment.config_snapshot
+    config = deployment.config_snapshot or {}
+    background_tasks.add_task(start_bot_instance, str(deployment.id), config)
+    
     return deployment
 
 
 async def start_bot_instance(deployment_id: str, config: dict):
     """
-    Call Strategy Core to spin up the bot.
+    Call Strategy Core to spin up the bot and update status locally.
     """
-    async with httpx.AsyncClient() as client:
-        try:
+    db = SessionLocal()
+    try:
+        async with httpx.AsyncClient() as client:
             # We need to fetch the strategy code first? 
             # Ideally Strategy Core fetches it from DB or we pass it here. 
             # Passing ID is better.
@@ -103,15 +164,64 @@ async def start_bot_instance(deployment_id: str, config: dict):
                 # passing config just in case, but core can fetch from DB
             }
             resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/live/deploy", json=payload, timeout=10.0)
-            if resp.status_code != 200:
+            
+            deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
+            if not deployment:
+                print(f"Deployment {deployment_id} not found during start callback")
+                return
+
+            if resp.status_code == 200:
+                deployment.status = "ACTIVE"
+                # deployment.started_at is already set on creation? Or should reset?
+                # Usually set on creation, but maybe update here if needed.
+            else:
                 print(f"Failed to start bot {deployment_id}: {resp.text}")
-                # Update DB status to ERROR? (Needs new session)
-        except Exception as e:
-            print(f"Error starting bot: {e}")
+                deployment.status = "ERROR"
+                deployment.last_error = f"Core Start Failed: {resp.text}"
+            
+            db.commit()
+            
+    except Exception as e:
+        print(f"Error starting bot: {e}")
+        deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
+        if deployment:
+            deployment.status = "ERROR"
+            deployment.last_error = f"Start Exception: {str(e)}"
+            db.commit()
+    finally:
+        db.close()
 
 async def stop_bot_instance(deployment_id: str):
-    async with httpx.AsyncClient() as client:
-        try:
-            await client.post(f"{STRATEGY_CORE_URL}/api/v1/live/stop/{deployment_id}", timeout=5.0)
-        except Exception as e:
-            print(f"Error stopping bot: {e}")
+    db = SessionLocal()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/live/stop/{deployment_id}", timeout=5.0)
+            
+            deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
+            if not deployment:
+                return
+
+            if resp.status_code == 200:
+                deployment.status = "STOPPED"
+                deployment.stopped_at = datetime.utcnow()
+            else:
+                # Even if core fails (e.g. not found), we should probably mark it stopped or error.
+                # If not found, it's stopped.
+                if resp.status_code == 404:
+                     deployment.status = "STOPPED"
+                     deployment.stopped_at = datetime.utcnow()
+                else:
+                    deployment.status = "ERROR"
+                    deployment.last_error = f"Stop Failed: {resp.text}"
+            
+            db.commit()
+
+    except Exception as e:
+        print(f"Error stopping bot: {e}")
+        deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
+        if deployment:
+            deployment.status = "ERROR" 
+            deployment.last_error = f"Stop Exception: {str(e)}"
+            db.commit()
+    finally:
+        db.close()

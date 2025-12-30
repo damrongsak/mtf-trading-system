@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Play, Square, Activity, AlertTriangle } from 'lucide-react';
-import { getDeployments, stopDeployment } from '@/lib/api/deployments';
+import { getDeployments, stopDeployment, restartDeployment } from '@/lib/api/deployments';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { Deployment } from '@/lib/api/types';
 import { format } from 'date-fns';
 
@@ -15,7 +16,11 @@ export default function DeploymentsPage() {
     const [deployments, setDeployments] = useState<Deployment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [processingAction, setProcessingAction] = useState<'stop' | 'restart' | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [stopModalOpen, setStopModalOpen] = useState(false);
+    const [errorModalOpen, setErrorModalOpen] = useState(false);
+    const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
 
     const fetchDeployments = async () => {
         try {
@@ -36,17 +41,45 @@ export default function DeploymentsPage() {
         return () => clearInterval(interval);
     }, []);
 
-    const handleStop = async (id: string) => {
-        if (!confirm("Are you sure you want to stop this bot?")) return;
-        
+    const handleRestartClick = async (id: string) => {
         setProcessingId(id);
+        setProcessingAction('restart');
         try {
-            await stopDeployment(id);
+            await restartDeployment(id);
             await fetchDeployments();
-        } catch (err) {
-            alert("Failed to stop deployment");
+        } catch (err: any) {
+             // Extract error message if possible
+            const msg = err.response?.data?.detail || "Failed to restart deployment";
+            setError(msg);
+            setErrorModalOpen(true);
         } finally {
             setProcessingId(null);
+            setProcessingAction(null);
+        }
+    };
+
+    const handleStopClick = (id: string) => {
+        setSelectedDeploymentId(id);
+        setStopModalOpen(true);
+    };
+
+    const handleConfirmStop = async () => {
+        if (!selectedDeploymentId) return;
+        
+        setProcessingId(selectedDeploymentId); 
+        setProcessingAction('stop');
+        
+        try {
+            await stopDeployment(selectedDeploymentId);
+            await fetchDeployments();
+            setStopModalOpen(false);
+        } catch (err: any) {
+            const msg = err.response?.data?.detail || "Failed to stop deployment";
+            setError(msg);
+            setErrorModalOpen(true);
+        } finally {
+            setProcessingId(null);
+            setProcessingAction(null);
         }
     };
 
@@ -106,6 +139,7 @@ export default function DeploymentsPage() {
                                     <TableHead className="text-slate-400">Symbol</TableHead>
                                     <TableHead className="text-slate-400">Timeframe</TableHead>
                                     <TableHead className="text-slate-400">Status</TableHead>
+                                    <TableHead className="text-slate-400 text-right">PnL</TableHead>
                                     <TableHead className="text-slate-400">Started At</TableHead>
                                     <TableHead className="text-right text-slate-400">Actions</TableHead>
                                 </TableRow>
@@ -146,25 +180,49 @@ export default function DeploymentsPage() {
                                                 </div>
                                             )}
                                         </TableCell>
+                                        <TableCell className={`text-right font-mono ${
+                                            (dep.total_pnl_usd || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                        }`}>
+                                            ${(dep.total_pnl_usd || 0).toFixed(2)}
+                                        </TableCell>
                                         <TableCell className="text-slate-500 text-xs">
                                             {format(new Date(dep.started_at), 'MMM dd HH:mm')}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                disabled={dep.status !== 'ACTIVE' || processingId === dep.id}
-                                                onClick={() => handleStop(dep.id)}
-                                                className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                                            >
-                                                {processingId === dep.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <>
-                                                        <Square className="h-4 w-4 mr-1 fill-current" /> Stop
-                                                    </>
-                                                )}
-                                            </Button>
+                                            <div className="flex gap-2 justify-end">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled={!['STOPPED', 'STOPPING', 'ERROR'].includes(dep.status) || processingId === dep.id}
+                                                        onClick={() => handleRestartClick(dep.id)}
+                                                        className={`border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 ${
+                                                            !['STOPPED', 'STOPPING', 'ERROR'].includes(dep.status) ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
+                                                    >
+                                                        {processingId === dep.id && processingAction === 'restart' ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <Play className="h-4 w-4 mr-1 fill-current" /> Start
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    disabled={['STOPPED', 'STOPPING'].includes(dep.status) || processingId === dep.id}
+                                                    onClick={() => handleStopClick(dep.id)}
+                                                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                                                >
+                                                    {processingId === dep.id && processingAction === 'stop' ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Square className="h-4 w-4 mr-1 fill-current" /> Stop
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -173,6 +231,28 @@ export default function DeploymentsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <ConfirmationModal 
+                isOpen={stopModalOpen}
+                onClose={() => setStopModalOpen(false)}
+                onConfirm={handleConfirmStop}
+                title="Stop Deployment"
+                message="Are you sure you want to stop this trading bot? Open positions will NOT be closed automatically."
+                confirmText="Stop Bot"
+                variant="danger"
+                isLoading={!!processingId}
+            />
+
+            <ConfirmationModal
+                isOpen={errorModalOpen}
+                onClose={() => setErrorModalOpen(false)}
+                onConfirm={() => setErrorModalOpen(false)}
+                title="Error"
+                message={error || "An unexpected error occurred."}
+                confirmText="Close"
+                showCancel={false}
+                variant="default"
+            />
         </div>
     );
 }

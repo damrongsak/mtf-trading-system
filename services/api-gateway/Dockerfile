@@ -5,6 +5,9 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# Install curl
+RUN apt-get update && apt-get install -y curl
+
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
