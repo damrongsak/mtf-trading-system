@@ -19,8 +19,8 @@ import {
   ChevronRight,
   Atom,
   ClipboardList,
-  Sliders,
   Terminal,
+  Rocket,
 } from 'lucide-react';
 
 type NavItem = {
@@ -42,30 +42,36 @@ const navCategories: NavCategory[] = [
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { name: 'AI Analyst', href: '/ai-analyst', icon: Bot },
+      { name: 'Market Watch', href: '/market', icon: TrendingUp },
+    ],
+  },
+  {
+    name: 'STRATEGY',
+    icon: Target,
+    items: [
+      { name: 'Library', href: '/strategies', icon: Target },
+      { name: 'Editor', href: '/strategies/editor', icon: Terminal },
+      { name: 'Backtest', href: '/backtest', icon: FlaskConical },
+      { name: 'GRID Lab', href: '/simulation', icon: Atom },
     ],
   },
   {
     name: 'TRADING',
-    icon: Target,
+    icon: Rocket,
     items: [
-      { name: 'Strategy', href: '/strategies', icon: Target },
-      { name: 'Strategy Editor', href: '/strategies/editor', icon: Terminal },
-      { name: 'Market Analysis', href: '/market', icon: TrendingUp },
-      { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
-      { name: 'Trading Settings', href: '/trading', icon: SettingsIcon },
+      { name: 'Live Deployments', href: '/deployments', icon: Rocket },
       { name: 'Signals', href: '/signals', icon: TrendingUp },
+      { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
+      { name: 'Settings', href: '/trading', icon: SettingsIcon },
     ],
   },
   {
-    name: 'ANALYSIS',
+    name: 'JOURNAL',
     icon: BookOpen,
     items: [
       { name: 'Journal', href: '/journal', icon: BookOpen },
+      { name: 'History', href: '/trades', icon: ClipboardList },
       { name: 'Transactions', href: '/transactions', icon: CreditCard },
-      { name: 'Trade History', href: '/trades', icon: ClipboardList },
-      { name: 'Backtest', href: '/backtest', icon: FlaskConical },
-      { name: 'Optimization', href: '/optimization', icon: Sliders },
-      { name: 'GRID Lab', href: '/simulation', icon: Atom },
     ],
   },
   {
