@@ -141,7 +141,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SignalRequest'
+            schema:
+              type: object
+              properties:
+                fund_id:
+                  type: string
+                  format: uuid
+                symbol: 
+                  type: string
+                direction:
+                  type: string
+                  enum: ["BULLISH", "BEARISH"]
+                stop_loss:
+                  type: number
+                risk_usd:
+                  type: number
+                  description: "Optional override for risk calculation"
+                generated_by:
+                  type: string
+                reason: 
+                  type: string
       responses:
         '200':
           description: signal check response
@@ -2099,6 +2118,35 @@ components:
           type: string
         description:
           type: string
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+        asset_classes:
+          type: array
+          items:
+            type: string
+        max_risk_per_trade:
+          type: number
+        default_lot_size:
+          type: number
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
 
     FundUpdate:
       type: object
@@ -2107,6 +2155,39 @@ components:
           type: string
         description:
           type: string
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+          nullable: true
+        asset_classes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        max_risk_per_trade:
+          type: number
+          nullable: true
+        default_lot_size:
+          type: number
+          nullable: true
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
     StrategyResponse:
       type: object
       properties:
@@ -2729,4 +2810,110 @@ components:
                 type: string
              timestamp:
                 type: string
+
+    BrokerAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fund_id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+        is_live:
+          type: boolean
+    
+    BrokerAccountCreate:
+      type: object
+      required:
+        - fund_id
+        - broker_name
+        - account_name
+        - credentials
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+          nullable: true
+        credentials:
+          type: object
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_live:
+          type: boolean
+          default: false
+
+    BrokerAccountUpdate:
+      type: object
+      properties:
+        account_name:
+          type: string
+          nullable: true
+        account_number:
+          type: string
+          nullable: true
+        credentials:
+          type: object
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+          nullable: true
+        is_live:
+          type: boolean
+          nullable: true
+
+    APIResponse_BrokerAccount:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/BrokerAccount'
+
+    APIResponse_BrokerAccountList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrokerAccount'
 
