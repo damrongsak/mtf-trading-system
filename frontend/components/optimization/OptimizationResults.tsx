@@ -44,8 +44,8 @@ export function OptimizationResults({ results }: OptimizationResultsProps) {
                         <TableBody>
                             {results.map((res, i) => (
                                 <TableRow key={i}>
-                                    <TableCell className="font-medium">{(res.params.fast_window as any) ?? '-'}</TableCell>
-                                    <TableCell>{(res.params.slow_window as any) ?? '-'}</TableCell>
+                                    <TableCell className="font-medium">{String(res.params['fast_window'] ?? '-')}</TableCell>
+                                    <TableCell>{String(res.params['slow_window'] ?? '-')}</TableCell>
                                     <TableCell className="text-right text-green-400 font-bold">
                                         {res.metrics.sharpe_ratio?.toFixed(2)}
                                     </TableCell>

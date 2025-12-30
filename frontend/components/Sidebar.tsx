@@ -87,8 +87,10 @@ export const Sidebar = () => {
   const pathname = usePathname();
   
   // Start with default expanded state to match server-side rendering
+  // Start with default expanded state to match server-side rendering
+  // Start with default expanded state to match server-side rendering
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['OVERVIEW', 'STRATEGY', 'TRADING', 'ANALYSIS', 'ACCOUNT']);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const isInitialized = React.useRef(false);
 
   // Initialize from localStorage on mount (client-only)
   useEffect(() => {
@@ -98,22 +100,26 @@ export const Sidebar = () => {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setExpandedCategories(parsed);
           }
         } catch (e) {
           console.error("Failed to parse sidebar categories", e);
         }
       }
-      setIsInitialized(true);
+      // Mark as initialized after first load
+      requestAnimationFrame(() => {
+        isInitialized.current = true;
+      });
     }
   }, []);
 
   // Save to localStorage whenever expanded state changes, but only after initialization
   useEffect(() => {
-    if (isInitialized) {
+    if (isInitialized.current) {
       localStorage.setItem('expandedCategories', JSON.stringify(expandedCategories));
     }
-  }, [expandedCategories, isInitialized]);
+  }, [expandedCategories]);
 
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories((prev) => {

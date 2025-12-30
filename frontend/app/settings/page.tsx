@@ -1,7 +1,6 @@
 'use client';
 
 import { ProfileSection } from '@/components/settings/ProfileSection';
-import { BrokerAccountsSection } from '@/components/settings/BrokerAccountsSection';
 
 export default function SettingsPage() {
   return (
@@ -16,7 +15,6 @@ export default function SettingsPage() {
         
         <div className="space-y-8">
             <ProfileSection />
-            <BrokerAccountsSection />
         </div>
       </div>
     </div>
