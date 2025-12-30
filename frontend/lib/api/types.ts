@@ -269,6 +269,18 @@ export interface Fund {
     name: string;
     description: string | null;
     role: string | null;
+
+    // Risk Settings
+    strategy_type: StrategyType;
+    asset_classes: AssetClass[];
+    max_risk_per_trade: number;
+    default_lot_size: number;
+    max_drawdown_threshold: number | null;
+    max_portfolio_beta: number | null;
+    gross_exposure_limit: number | null;
+    net_exposure_limit: number | null;
+    position_limit_single: number | null;
+    position_limit_sector: number | null;
 }
 
 export interface UserPreferences {
@@ -276,45 +288,26 @@ export interface UserPreferences {
     user_id: string;
     default_fund_id: string | null;
 
-    // Strategy Configuration
-    strategy_type: StrategyType;
-    asset_classes: AssetClass[];
-
-    // Basic Risk Parameters
-    max_risk_per_trade: number;
-    default_lot_size: number;
-    max_drawdown_threshold: number | null;
-
-    // Advanced Risk Parameters
-    max_portfolio_beta: number | null;
-    gross_exposure_limit: number | null;
-    net_exposure_limit: number | null;
-    position_limit_single: number | null;
-    position_limit_sector: number | null;
-
     // Trading Preferences
     preferred_timeframes: string[];
     default_symbol: string;
     session_preferences: string[] | null;
-    supported_symbols: string[] | null;
+}
+preferred_timeframes: string[];
+default_symbol: string;
+session_preferences: string[] | null;
+supported_symbols: string[] | null;
 }
 
 export interface UpdatePreferencesDto {
     default_fund_id?: string | null;
-    strategy_type?: StrategyType;
-    asset_classes?: AssetClass[];
-    max_risk_per_trade?: number;
-    default_lot_size?: number;
-    max_drawdown_threshold?: number | null;
-    max_portfolio_beta?: number | null;
-    gross_exposure_limit?: number | null;
-    net_exposure_limit?: number | null;
-    position_limit_single?: number | null;
-    position_limit_sector?: number | null;
     preferred_timeframes?: string[];
     default_symbol?: string;
     session_preferences?: string[] | null;
-    supported_symbols?: string[] | null;
+}
+default_symbol ?: string;
+session_preferences ?: string[] | null;
+supported_symbols ?: string[] | null;
 }
 
 // ========================================
@@ -525,6 +518,8 @@ export interface BrokerAccount {
     is_active: boolean;
     is_live: boolean;
     created_at: string;
+    supported_symbols?: string[];
+    risk_settings?: Record<string, unknown>;
 }
 
 export interface BrokerAccountCreate {
@@ -533,6 +528,8 @@ export interface BrokerAccountCreate {
     account_name: string;
     account_number?: string;
     credentials: Record<string, unknown>;
+    supported_symbols?: string[];
+    risk_settings?: Record<string, unknown>;
     is_live: boolean;
 }
 
@@ -540,6 +537,8 @@ export interface BrokerAccountUpdate {
     account_name?: string;
     account_number?: string;
     credentials?: Record<string, unknown>;
+    supported_symbols?: string[];
+    risk_settings?: Record<string, unknown>;
     is_active?: boolean;
     is_live?: boolean;
 }

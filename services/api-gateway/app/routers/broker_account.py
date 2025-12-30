@@ -25,12 +25,16 @@ class BrokerAccountCreate(BaseModel):
     account_name: str = Field(..., description="User friendly alias")
     account_number: Optional[str] = None
     credentials: Dict[str, Any] = Field(..., description="API keys and secrets")
+    supported_symbols: Optional[List[str]] = None
+    risk_settings: Optional[Dict[str, Any]] = None
     is_live: bool = False
 
 class BrokerAccountUpdate(BaseModel):
     account_name: Optional[str] = None
     account_number: Optional[str] = None
     credentials: Optional[Dict[str, Any]] = None
+    supported_symbols: Optional[List[str]] = None
+    risk_settings: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
     is_live: Optional[bool] = None
 
@@ -40,6 +44,8 @@ class BrokerAccountResponse(BaseModel):
     broker_name: str
     account_name: str
     account_number: Optional[str] = None
+    supported_symbols: Optional[List[str]] = None
+    risk_settings: Optional[Dict[str, Any]] = None
     is_active: bool
     is_live: bool
     created_at: Any
@@ -49,7 +55,7 @@ class BrokerAccountResponse(BaseModel):
 
 # --- Endpoints ---
 
-@router.post("/", response_model=APIResponse[BrokerAccountResponse])
+@router.post("/", response_model=APIResponse[BrokerAccountResponse], status_code=status.HTTP_201_CREATED)
 async def create_account(
     account: BrokerAccountCreate,
     db: Session = Depends(get_db),
@@ -96,6 +102,8 @@ async def create_account(
         account_name=account.account_name,
         account_number=account.account_number if account.account_number else None,
         credentials_encrypted=encrypted_creds,
+        supported_symbols=account.supported_symbols,
+        risk_settings=account.risk_settings,
         is_live=account.is_live,
         is_active=True
     )
@@ -155,6 +163,10 @@ async def update_account(
         account.is_live = updates.is_live
     if updates.credentials is not None:
         account.credentials_encrypted = encrypt_data(updates.credentials)
+    if updates.supported_symbols is not None:
+        account.supported_symbols = updates.supported_symbols
+    if updates.risk_settings is not None:
+        account.risk_settings = updates.risk_settings
         
     db.commit()
     db.refresh(account)

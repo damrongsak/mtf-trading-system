@@ -19,6 +19,10 @@ class BrokerAccount(Base):
     is_active = Column(Boolean, default=True)
     is_live = Column(Boolean, default=False) # Demo vs Live
     
+    # Configuration
+    supported_symbols = Column(JSONB, nullable=True)
+    risk_settings = Column(JSONB, nullable=True) # Account overrides
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

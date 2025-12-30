@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum, Numeric
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -39,6 +39,18 @@ class Fund(Base):
     name = Column(String(100), nullable=False)
     description = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Risk Settings (Advanced Risk Parameters)
+    strategy_type = Column(Enum("MTF_SMC_BASIC", "LONG_SHORT_EQUITY", "MACRO_TACTICAL", "MULTI_ASSET", name="strategy_type_enum"), default="MTF_SMC_BASIC", nullable=False)
+    asset_classes = Column(JSONB, default=["FX"], nullable=False)
+    max_risk_per_trade = Column(Numeric(10, 2), default=10.0, nullable=False)
+    default_lot_size = Column(Numeric(10, 2), default=0.01, nullable=False)
+    max_drawdown_threshold = Column(Numeric(10, 2), nullable=True)
+    max_portfolio_beta = Column(Numeric(5, 2), default=0.35, nullable=True)
+    gross_exposure_limit = Column(Numeric(5, 2), default=100.0, nullable=True)
+    net_exposure_limit = Column(Numeric(5, 2), default=15.0, nullable=True)
+    position_limit_single = Column(Numeric(5, 2), default=3.0, nullable=True)
+    position_limit_sector = Column(Numeric(5, 2), default=10.0, nullable=True)
 
     # Relationships
     users = relationship("UserFund", back_populates="fund")

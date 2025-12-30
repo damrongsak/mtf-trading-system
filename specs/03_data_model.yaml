@@ -55,6 +55,63 @@ entities:
       - name: created_at
         type: datetime
         default: "now()"
+      # Risk Settings (Advanced Risk Parameters moved from UserPreferences)
+      - name: strategy_type
+        type: enum
+        enum_values: ["MTF_SMC_BASIC", "LONG_SHORT_EQUITY", "MACRO_TACTICAL", "MULTI_ASSET"]
+        default: "MTF_SMC_BASIC"
+        required: true
+      - name: max_risk_per_trade
+        type: decimal
+        precision: 10
+        scale: 2
+        default: 10.00
+        required: true
+      - name: default_lot_size
+        type: decimal
+        precision: 10
+        scale: 2
+        default: 0.01
+        required: true
+      - name: max_drawdown_threshold
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+      - name: max_portfolio_beta
+        type: decimal
+        precision: 5
+        scale: 2
+        default: 0.35
+        nullable: true
+      - name: gross_exposure_limit
+        type: decimal
+        precision: 5
+        scale: 2
+        default: 100.00
+        nullable: true
+      - name: net_exposure_limit
+        type: decimal
+        precision: 5
+        scale: 2
+        default: 15.00
+        nullable: true
+      - name: position_limit_single
+        type: decimal
+        precision: 5
+        scale: 2
+        default: 3.00
+        nullable: true
+      - name: position_limit_sector
+        type: decimal
+        precision: 5
+        scale: 2
+        default: 10.00
+        nullable: true
+      - name: asset_classes
+        type: jsonb
+        default: '["FX"]'
+        required: true
 
   UserFund:
     description: "Many-to-Many relationship between Users and Funds with Roles"
@@ -296,6 +353,14 @@ entities:
       - name: created_at
         type: datetime
         default: "now()"
+      - name: supported_symbols
+        type: jsonb
+        nullable: true
+        description: "List of supported symbols for this account"
+      - name: risk_settings
+        type: jsonb
+        nullable: true
+        description: "Account-specific risk override (must be <= Fund limits)"
       - name: updated_at
         type: datetime
         default: "now()"
@@ -906,62 +971,6 @@ validation_rules:
         type: uuid
         foreign_key: "funds.id"
         nullable: true
-      - name: strategy_type
-        type: enum
-        enum_values: ["MTF_SMC_BASIC", "LONG_SHORT_EQUITY", "MACRO_TACTICAL", "MULTI_ASSET"]
-        default: "MTF_SMC_BASIC"
-        required: true
-      - name: asset_classes
-        type: jsonb
-        default: '["FX"]'
-        required: true
-      - name: max_risk_per_trade
-        type: decimal
-        precision: 10
-        scale: 2
-        default: 10.00
-        required: true
-      - name: default_lot_size
-        type: decimal
-        precision: 10
-        scale: 2
-        default: 0.01
-        required: true
-      - name: max_drawdown_threshold
-        type: decimal
-        precision: 10
-        scale: 2
-        nullable: true
-      - name: max_portfolio_beta
-        type: decimal
-        precision: 5
-        scale: 2
-        default: 0.35
-        nullable: true
-      - name: gross_exposure_limit
-        type: decimal
-        precision: 5
-        scale: 2
-        default: 100.00
-        nullable: true
-      - name: net_exposure_limit
-        type: decimal
-        precision: 5
-        scale: 2
-        default: 15.00
-        nullable: true
-      - name: position_limit_single
-        type: decimal
-        precision: 5
-        scale: 2
-        default: 3.00
-        nullable: true
-      - name: position_limit_sector
-        type: decimal
-        precision: 5
-        scale: 2
-        default: 10.00
-        nullable: true
       - name: preferred_timeframes
         type: jsonb
         default: '["4H", "1H", "15m"]'
@@ -972,9 +981,6 @@ validation_rules:
         default: "XAU/USD"
         required: true
       - name: session_preferences
-        type: jsonb
-        nullable: true
-      - name: supported_symbols
         type: jsonb
         nullable: true
       - name: created_at

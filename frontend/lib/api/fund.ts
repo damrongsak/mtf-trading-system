@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse, Fund } from './types';
+import { APIResponse, Fund, StrategyType, AssetClass } from './types';
 
 /**
  * Get all funds the current user has access to
@@ -36,6 +36,16 @@ export interface CreateFundDto {
 export interface UpdateFundDto {
     name?: string;
     description?: string;
+    strategy_type?: StrategyType;
+    asset_classes?: AssetClass[];
+    max_risk_per_trade?: number;
+    default_lot_size?: number;
+    max_drawdown_threshold?: number | null;
+    max_portfolio_beta?: number | null;
+    gross_exposure_limit?: number | null;
+    net_exposure_limit?: number | null;
+    position_limit_single?: number | null;
+    position_limit_sector?: number | null;
 }
 
 /**

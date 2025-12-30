@@ -138,6 +138,9 @@ async def health():
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.models import BrokerAccount
+from app.database import get_db
+from sqlalchemy.orm import Session
+from app.models import BrokerAccount, Fund
 import uuid
 
 class SmartOrderRequest(BaseModel):
@@ -184,7 +187,50 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
     # Determine Risk Amount
     # If not provided in request, could fallback to Account default or Global default
     # For now, we enforce a strict fallback if missing.
-    target_risk = req.risk_usd if req.risk_usd is not None else 10.0
+    # Determine Risk Amount
+    # HIERARCHICAL RISK CHECK
+    
+    # 2a. Fetch Fund
+    if not account.fund_id:
+        # Should not happen if data integrity is maintained
+        raise HTTPException(status_code=400, detail="Broker Account is not linked to a Fund")
+        
+    fund = db.query(Fund).filter(Fund.id == account.fund_id).first()
+    if not fund:
+         raise HTTPException(status_code=404, detail="Fund not found")
+    
+    # 2b. Check Symbol Whitelist (Account Level)
+    if account.supported_symbols:
+        # Simple check: exact match or "XAU/..."
+        # TODO: Better symbol matching (normalize slashes etc)
+        if req.symbol not in account.supported_symbols:
+             raise HTTPException(status_code=400, detail=f"Symbol {req.symbol} is not supported by this account")
+
+    # 2c. Determine Max Risk Limit (Hierarchical)
+    # Fund Hard Limit
+    fund_limit = float(fund.max_risk_per_trade)
+    
+    # Account Override (Optional, strict downward)
+    account_limit = None
+    if account.risk_settings and "max_risk_per_trade" in account.risk_settings:
+        account_limit = float(account.risk_settings["max_risk_per_trade"])
+        
+    # Effective Limit = Min(Fund, Account)
+    effective_limit = fund_limit
+    if account_limit is not None:
+        effective_limit = min(fund_limit, account_limit)
+        
+    # Requested Risk
+    requested_risk = req.risk_usd if req.risk_usd is not None else effective_limit  # Default to MAX if not specified? Or safe default?
+    # Better: Default to safe value (e.g. 1% or $10), but capped by limit
+    if req.risk_usd is None:
+        requested_risk = min(effective_limit, 10.0) # Logic from previous default
+        
+    # Enforce Limit
+    if requested_risk > effective_limit:
+         raise HTTPException(status_code=400, detail=f"Requested risk ${requested_risk} exceeds effective limit ${effective_limit} (Fund: ${fund_limit})")
+
+    target_risk = requested_risk
     
     # 3. Fetch Real-time Price
     try:

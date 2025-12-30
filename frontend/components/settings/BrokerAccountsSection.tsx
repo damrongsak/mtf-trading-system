@@ -32,6 +32,8 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
     const [accountNumber, setAccountNumber] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [accountId, setAccountId] = useState('');
+    const [supportedSymbolsInput, setSupportedSymbolsInput] = useState('');
+    const [riskSettingsInput, setRiskSettingsInput] = useState('');
     const [isLive, setIsLive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -63,6 +65,20 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
         setSuccess(null);
 
         try {
+            // Parse optional fields
+            const supportedSymbols = supportedSymbolsInput.trim() 
+                ? supportedSymbolsInput.split(',').map(s => s.trim()).filter(Boolean)
+                : undefined;
+            
+            let riskSettings = undefined;
+            if (riskSettingsInput.trim()) {
+                try {
+                    riskSettings = JSON.parse(riskSettingsInput);
+                } catch {
+                     throw new Error("Invalid JSON in Risk Settings");
+                }
+            }
+
             await createAccount({
                 fund_id: fundId || undefined,
                 broker_name: brokerName,
@@ -73,7 +89,9 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
                     api_key: apiKey,
                     account_id: accountId,
                     environment: isLive ? 'live' : 'practice'
-                }
+                },
+                supported_symbols: supportedSymbols,
+                risk_settings: riskSettings
             });
             await fetchAccounts();
             setIsAdding(false);
@@ -83,6 +101,8 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
             setAccountNumber('');
             setApiKey('');
             setAccountId('');
+            setSupportedSymbolsInput('');
+            setRiskSettingsInput('');
         } catch (err) {
             const message = err instanceof Error ? err.message : "Failed to add account";
             setError(message);
