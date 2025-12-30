@@ -678,6 +678,7 @@ export interface Deployment {
     last_error?: string;
     config_snapshot: Record<string, unknown>;
     total_pnl_usd?: number;
+    strategy_name?: string;
 }
 
 export interface DeploymentCreate {

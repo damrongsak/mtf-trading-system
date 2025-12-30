@@ -11,6 +11,7 @@ import { getDeployments, stopDeployment, restartDeployment } from '@/lib/api/dep
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { Deployment } from '@/lib/api/types';
 import { format } from 'date-fns';
+import { Pagination } from '@/components/common';
 
 export default function DeploymentsPage() {
     const [deployments, setDeployments] = useState<Deployment[]>([]);
@@ -20,12 +21,21 @@ export default function DeploymentsPage() {
     const [error, setError] = useState<string | null>(null);
     const [stopModalOpen, setStopModalOpen] = useState(false);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
+
     const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+    const [limit, setLimit] = useState(10);
 
     const fetchDeployments = async () => {
         try {
-            const data = await getDeployments();
-            setDeployments(data);
+            const response = await getDeployments(currentPage, limit);
+            setDeployments(response.data);
+            setTotalPages(response.meta.total_pages || 1);
+            setTotal(response.meta.total || 0);
             setError(null);
         } catch (err) {
             setError("Failed to load deployments.");
@@ -39,7 +49,7 @@ export default function DeploymentsPage() {
         fetchDeployments();
         const interval = setInterval(fetchDeployments, 5000); // Poll status every 5s
         return () => clearInterval(interval);
-    }, []);
+    }, [currentPage]); // Re-fetch on page change
 
     const handleRestartClick = async (id: string) => {
         setProcessingId(id);
@@ -88,7 +98,7 @@ export default function DeploymentsPage() {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-                        Bot Deployment Manager
+                        Fleet Command
                     </h1>
                     <p className="text-slate-400 mt-2">Manage your active algorithmic trading instances.</p>
                 </div>
@@ -136,6 +146,7 @@ export default function DeploymentsPage() {
                                 <TableRow className="border-slate-800 hover:bg-slate-900/50">
                                     <TableHead className="text-slate-400">ID</TableHead>
                                     <TableHead className="text-slate-400">Mode</TableHead>
+                                    <TableHead className="text-slate-400">Strategy Name</TableHead>
                                     <TableHead className="text-slate-400">Symbol</TableHead>
                                     <TableHead className="text-slate-400">Timeframe</TableHead>
                                     <TableHead className="text-slate-400">Status</TableHead>
@@ -157,7 +168,8 @@ export default function DeploymentsPage() {
                                                 <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">PAPER</Badge>
                                             )}
                                         </TableCell>
-                                        <TableCell className="font-medium text-white">{dep.stock_symbol}</TableCell>
+                                        <TableCell className="font-medium text-white">{dep.strategy_name || dep.id.slice(0, 8)}</TableCell>
+                                        <TableCell className="font-medium text-slate-300">{dep.stock_symbol}</TableCell>
                                         <TableCell className="text-slate-400">{dep.timeframe}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -231,6 +243,15 @@ export default function DeploymentsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                perPage={limit}
+                total={total}
+                onPageChange={setCurrentPage}
+                onPerPageChange={setLimit}
+            />
 
             <ConfirmationModal 
                 isOpen={stopModalOpen}

@@ -2,7 +2,7 @@
 import httpx
 from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database import get_db, SessionLocal
 from app.security import get_current_user
 from app.models.deployment import Deployment
@@ -16,7 +16,10 @@ router = APIRouter()
 # Service URLs
 STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
-@router.get("/", response_model=List[DeploymentResponse])
+from app.schemas.response import PaginatedResponse
+from app.utils.response import paginated_response
+
+@router.get("/", response_model=PaginatedResponse[DeploymentResponse])
 def list_deployments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -26,37 +29,48 @@ def list_deployments(
     """
     List active deployments.
     """
-    deployments = db.query(Deployment).filter(Deployment.user_id == current_user.id).offset(skip).limit(limit).all()
+    # 1. Get Total Count
+    total = db.query(Deployment).filter(Deployment.user_id == current_user.id).count()
+    
+    # 2. Get Data
+    deployments = db.query(Deployment).options(joinedload(Deployment.strategy)).filter(
+        Deployment.user_id == current_user.id
+    ).order_by(Deployment.started_at.desc()).offset(skip).limit(limit).all()
     
     # Calculate PnL for each deployment
     results = []
     
-    # Pre-fetch all trades for user to avoid N+1? 
-    # Or just use SQL for PnL aggregation if we can join on metadata?
-    # SQLAlchemy JSON query is specific to dialect.
-    # Simple loop for MVP is fine if N < 100.
-    
     for dep in deployments:
         # PnL Sum
-        pnl = 0.0
         # This query relies on metadata_json being searchable. 
         # For Postgres: 
-        from sqlalchemy import func, cast, Float
-        from sqlalchemy.dialects.postgresql import JSONB
+        from sqlalchemy import func
         from app.models.trade import Trade
         
         # We need to filter trades that have metadata_json ->> 'deployment_id' == dep.id
-        # Note: metadata_json is JSONB in model.
-        
         total_pnl = db.query(func.sum(Trade.pnl_usd)).filter(
             Trade.metadata_json['deployment_id'].astext == str(dep.id)
         ).scalar()
         
         dep_resp = DeploymentResponse.model_validate(dep)
         dep_resp.total_pnl_usd = float(total_pnl) if total_pnl is not None else 0.0
+        
+        # Populate Strategy Name
+        if dep.strategy:
+             dep_resp.strategy_name = dep.strategy.name
+        
         results.append(dep_resp)
         
-    return results
+    # 3. Return Paginated Response
+    # page = floor(skip / limit) + 1
+    page = (skip // limit) + 1
+    
+    return paginated_response(
+        data=results,
+        page=page,
+        per_page=limit,
+        total=total
+    )
 
 @router.post("/", response_model=DeploymentResponse)
 async def create_deployment(

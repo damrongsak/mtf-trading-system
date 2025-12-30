@@ -2,8 +2,11 @@
 import { apiClient } from './client';
 import { Deployment, DeploymentCreate } from './types';
 
-export const getDeployments = async (): Promise<Deployment[]> => {
-    const response = await apiClient.get<Deployment[]>('/api/v1/deployments/');
+import { PaginatedResponse } from './types';
+
+export const getDeployments = async (page = 1, limit = 10): Promise<PaginatedResponse<Deployment>> => {
+    const skip = (page - 1) * limit;
+    const response = await apiClient.get<PaginatedResponse<Deployment>>(`/api/v1/deployments/?skip=${skip}&limit=${limit}`);
     return response.data;
 };
 
