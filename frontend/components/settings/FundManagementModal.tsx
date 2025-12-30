@@ -127,9 +127,19 @@ export function FundManagementModal({ isOpen, onClose, onSuccess, funds, current
                     )}
 
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-                            <TabsTrigger value="create">Create New</TabsTrigger>
-                            <TabsTrigger value="edit">Edit Current</TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 rounded-lg">
+                            <TabsTrigger 
+                                value="create"
+                                className="rounded-md py-2 transition-all data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:text-gray-400 hover:bg-gray-700/50"
+                            >
+                                Create New
+                            </TabsTrigger>
+                            <TabsTrigger 
+                                value="edit"
+                                className="rounded-md py-2 transition-all data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=inactive]:text-gray-400 hover:bg-gray-700/50"
+                            >
+                                Edit Current
+                            </TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="create" className="space-y-4 py-4">
