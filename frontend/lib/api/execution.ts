@@ -61,8 +61,11 @@ export interface GetTradesParams {
  * Get real-time account summary from OANDA (via Execution Service)
  */
 export async function getAccountSummary(): Promise<AccountSummary> {
-    const response = await apiClient.get<AccountSummary>('/api/v1/execution/account/summary');
-    return response.data;
+    const response = await apiClient.get<AccountSummary | { data: AccountSummary }>('/api/v1/execution/account/summary');
+    if ('data' in response.data) {
+        return response.data.data;
+    }
+    return response.data as AccountSummary;
 }
 
 /**

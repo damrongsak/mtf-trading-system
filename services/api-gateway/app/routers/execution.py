@@ -56,8 +56,11 @@ async def get_account_summary(
         config = _get_broker_config(account)
         data = await execution_client.get_account_summary(config)
         return success_response(data=data)
+    except HTTPException:
+        raise
     except Exception as e:
         # Improve error handling (e.g. 503 if services down)
+        logger.error(f"Error fetching account summary: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/orders")
@@ -105,6 +108,8 @@ async def place_order(
                 logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
                 
         return success_response(data=execution_result, message="Order placed successfully")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error placing order: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -166,6 +171,7 @@ async def close_trade(
     except HTTPException as he:
         raise he
     except Exception as e:
+        logger.error(f"Error closing trade: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/trades")
@@ -279,6 +285,8 @@ async def get_accounts(
             }
             for account in accounts
         ])
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get accounts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

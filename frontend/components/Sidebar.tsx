@@ -86,28 +86,34 @@ const navCategories: NavCategory[] = [
 export const Sidebar = () => {
   const pathname = usePathname();
   
-  // Initialize state from localStorage or default to all expanded
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(() => {
+  // Start with default expanded state to match server-side rendering
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['OVERVIEW', 'STRATEGY', 'TRADING', 'ANALYSIS', 'ACCOUNT']);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize from localStorage on mount (client-only)
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('expandedCategories');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          return Array.isArray(parsed) ? parsed : ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
-        } catch {
-          return ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
+          if (Array.isArray(parsed)) {
+            setExpandedCategories(parsed);
+          }
+        } catch (e) {
+          console.error("Failed to parse sidebar categories", e);
         }
       }
+      setIsInitialized(true);
     }
-    return ['OVERVIEW', 'TRADING', 'ANALYSIS', 'ACCOUNT'];
-  });
+  }, []);
 
-  // Save to localStorage whenever expanded state changes
+  // Save to localStorage whenever expanded state changes, but only after initialization
   useEffect(() => {
-    if (expandedCategories.length > 0) {
+    if (isInitialized) {
       localStorage.setItem('expandedCategories', JSON.stringify(expandedCategories));
     }
-  }, [expandedCategories]);
+  }, [expandedCategories, isInitialized]);
 
   const toggleCategory = (categoryName: string) => {
     setExpandedCategories((prev) => {
