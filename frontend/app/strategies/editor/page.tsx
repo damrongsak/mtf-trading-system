@@ -184,6 +184,8 @@ export default function StrategyEditor() {
     const [showLoadConfirm, setShowLoadConfirm] = useState(false);
     const [showNewStrategyConfirm, setShowNewStrategyConfirm] = useState(false);
     const [pendingLoadStrategy, setPendingLoadStrategy] = useState<SavedStrategy | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [strategyToDelete, setStrategyToDelete] = useState<{id: string, name: string} | null>(null);
 
     useEffect(() => {
         const fetchPreferences = async () => {
@@ -387,9 +389,15 @@ export default function StrategyEditor() {
         performLoadStrategy(strategy);
     };
 
-    const handleDeleteStrategy = async (id: string, name: string, e: React.MouseEvent) => {
+    const handleDeleteClick = (id: string, name: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+        setStrategyToDelete({ id, name });
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteStrategy = async () => {
+        if (!strategyToDelete) return;
+        const { id, name } = strategyToDelete;
         
         try {
             await deleteSavedStrategy(id);
@@ -397,10 +405,14 @@ export default function StrategyEditor() {
             if (currentStrategyId === id) {
                 setCurrentStrategyId(null);
                 setTitle("My Custom Strategy");
+                performNewStrategy(); // Reset editor
             }
             addLog('SUCCESS', `Strategy "${name}" deleted.`);
         } catch (err) {
             addLog('ERROR', `Failed to delete: ${(err as Error).message}`);
+        } finally {
+            setShowDeleteConfirm(false);
+            setStrategyToDelete(null);
         }
     };
 
@@ -545,6 +557,17 @@ export default function StrategyEditor() {
                 confirmText="Start New Strategy"
                 variant="danger"
             />
+
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={confirmDeleteStrategy}
+                title="Delete Strategy"
+                message={`Are you sure you want to delete "${strategyToDelete?.name}"? This action cannot be undone and will delete all associated deployments.`}
+                confirmText="Delete Strategy"
+                variant="danger"
+            />
+
 
             {/* Header */}
             <div className="flex justify-between items-center bg-slate-950/50 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
@@ -895,7 +918,7 @@ export default function StrategyEditor() {
                                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                      <button 
                                                         className="text-slate-500 hover:text-red-400 p-0.5"
-                                                        onClick={(e) => handleDeleteStrategy(strat.id, strat.name, e)}
+                                                        onClick={(e) => handleDeleteClick(strat.id, strat.name, e)}
                                                     >
                                                         <Trash2 className="h-3 w-3" />
                                                      </button>

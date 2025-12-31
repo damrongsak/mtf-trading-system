@@ -11,7 +11,7 @@ class Deployment(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id"), nullable=False, index=True)
+    strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Configuration Snapshot (Immutable for this deployment instance)
     stock_symbol = Column(String, nullable=False) # e.g. "XAU/USD"

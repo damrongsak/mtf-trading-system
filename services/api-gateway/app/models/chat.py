@@ -11,7 +11,7 @@ class ChatSession(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id"), nullable=True, index=True)
+    strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -19,7 +19,7 @@ class ChatSession(Base):
     # Relationships
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     user = relationship("User") 
-    strategy = relationship("SavedStrategy") # Links to code template
+    strategy = relationship("SavedStrategy", back_populates="chat_sessions") # Links to code template
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"

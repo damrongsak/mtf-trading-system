@@ -24,4 +24,5 @@ class SavedStrategy(Base):
 
     # Relationships
     user = relationship("User", backref="saved_strategies")
-    deployments = relationship("Deployment", back_populates="strategy")
+    deployments = relationship("Deployment", back_populates="strategy", cascade="all, delete-orphan")
+    chat_sessions = relationship("ChatSession", back_populates="strategy", cascade="all, delete-orphan")
