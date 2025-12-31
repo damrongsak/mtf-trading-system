@@ -1,16 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useStrategies } from '@/lib/hooks/useStrategies';
-import { stopStrategy, startStrategy, deleteStrategy } from '@/lib/api/strategies';
+import { useSavedStrategies } from '@/lib/hooks/useSavedStrategies';
+import { deleteSavedStrategy } from '@/lib/api/saved_strategies';
 import { Pagination, Modal } from '@/components/common';
 import Link from 'next/link';
-import { Loader2, Play, Square, Trash2, LayoutDashboard, List as ListIcon } from 'lucide-react';
+import { Loader2, Trash2, LayoutDashboard, List as ListIcon, FileCode, Edit } from 'lucide-react';
+import { format } from 'date-fns';
 
 const StrategiesPage: React.FC = () => {
-    // Note: Layout toggler state kept for future extensibility (e.g. detailed view), 
-    // defaulting to LIST for now as per requirement.
-    const [view, setView] = useState<'LIST' | 'GRID'>('LIST'); 
+
 
     const {
         strategies,
@@ -23,29 +22,14 @@ const StrategiesPage: React.FC = () => {
         total,
         totalPages,
         refetch
-    } = useStrategies();
+    } = useSavedStrategies();
 
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [processingId, setProcessingId] = useState<string | null>(null);
 
-    const handleToggle = async (id: string, currentlyActive: boolean) => {
-        try {
-            setProcessingId(id);
-            if (currentlyActive) {
-                await stopStrategy(id);
-            } else {
-                await startStrategy(id);
-            }
-            await refetch();
-        } catch (err) {
-            alert("Failed to toggle strategy: " + (err instanceof Error ? err.message : String(err)));
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    const handleDeleteClick = (id: string) => {
+    const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
         setDeleteId(id);
     };
 
@@ -54,7 +38,7 @@ const StrategiesPage: React.FC = () => {
 
         try {
             setIsDeleting(true);
-            await deleteStrategy(deleteId);
+            await deleteSavedStrategy(deleteId);
             await refetch();
             setDeleteId(null);
         } catch (err) {
@@ -76,36 +60,19 @@ const StrategiesPage: React.FC = () => {
         <div className="container mx-auto p-4 bg-gray-900 min-h-screen text-white">
             <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <div>
-                   <h1 className="text-4xl font-bold text-center md:text-left text-emerald-400">Active Strategies</h1>
-                   <p className="text-gray-400 mt-2">Manage your fleet of automated trading bots.</p>
+                   <h1 className="text-4xl font-bold text-center md:text-left text-emerald-400">Strategy Library</h1>
+                   <p className="text-gray-400 mt-2">Manage your algorithmic blueprints and backtests.</p>
                 </div>
                 
                 <div className="flex gap-4">
-                     {/* View Toggler (Optional, consistent with Journal) */}
-                    <div className="bg-gray-800 p-1 rounded-lg flex border border-gray-700 h-fit">
-                        <button
-                            onClick={() => setView('LIST')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-300 ${
-                                view === 'LIST' 
-                                    ? 'bg-emerald-600 text-white shadow-lg' 
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
-                            }`}
-                        >
-                            <ListIcon size={18} />
-                            <span className="font-medium hidden sm:inline">List</span>
-                        </button>
-                         {/* Placeholder for future Grid/Analytics view */}
-                         <div className="px-4 py-2 text-gray-600 cursor-not-allowed hidden sm:flex items-center gap-2">
-                            <LayoutDashboard size={18} />
-                            <span className="font-medium">Grid</span>
-                         </div>
-                    </div>
+
 
                     <Link
-                        href="/strategies/new"
+                        href="/strategies/editor"
                         className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out flex items-center gap-2 h-fit"
                     >
-                        <span>+ Launch Strategy</span>
+                        <FileCode className="h-5 w-5" />
+                        <span>Open Editor</span>
                     </Link>
                 </div>
             </div>
@@ -118,7 +85,7 @@ const StrategiesPage: React.FC = () => {
 
             {strategies.length === 0 && !loading ? (
                 <div className="text-center text-gray-500 text-2xl mt-20">
-                    No active strategies found. Launch one above!
+                    No strategies found. Open the Editor to create one!
                 </div>
             ) : (
                 <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden shadow-xl animate-in fade-in duration-500">
@@ -126,11 +93,9 @@ const StrategiesPage: React.FC = () => {
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-gray-700 bg-gray-800/50">
-                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Name / Template</th>
-                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Symbol</th>
-                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Timeframe</th>
-                                    <th className="text-right py-4 px-6 font-medium text-gray-300">Risk</th>
-                                    <th className="text-center py-4 px-6 font-medium text-gray-300">Status</th>
+                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Name</th>
+                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Description</th>
+                                    <th className="text-left py-4 px-6 font-medium text-gray-300">Last Updated</th>
                                     <th className="text-right py-4 px-6 font-medium text-gray-300">Actions</th>
                                 </tr>
                             </thead>
@@ -138,56 +103,39 @@ const StrategiesPage: React.FC = () => {
                                 {strategies.map((strategy) => (
                                     <tr
                                         key={strategy.id}
-                                        className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors"
+                                        className="border-b border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                                        // Row click goes to editor
+                                        onClick={() => window.location.href = `/strategies/editor?id=${strategy.id}`}
                                     >
                                         <td className="py-4 px-6">
-                                            <div className="font-semibold text-gray-200">{strategy.name}</div>
-                                            <div className="text-xs text-gray-500 font-mono">{strategy.template_id}</div>
+                                            <div className="font-semibold text-gray-200 flex items-center gap-2">
+                                                <FileCode className="h-4 w-4 text-emerald-500" />
+                                                {strategy.name}
+                                            </div>
+                                            <div className="text-xs text-gray-600 font-mono mt-0.5">{strategy.id}</div>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <span className="font-medium text-gray-300">
-                                                 {strategy.config_json?.symbol || 'N/A'}
+                                            <span className="text-gray-400 text-sm">
+                                                 {strategy.description || '-'}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6">
-                                            <span className="bg-gray-800 text-gray-300 py-1 px-2 rounded text-xs font-mono">
-                                                {strategy.config_json?.timeframe || 'N/A'}
+                                            <span className="text-gray-400 text-sm">
+                                                {strategy.updated_at ? format(new Date(strategy.updated_at), 'MMM dd, yyyy') : 'N/A'}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                             <span className="font-mono font-bold text-red-400">
-                                                ${strategy.risk_settings?.max_risk_usd || 'N/A'}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                                strategy.is_active
-                                                    ? 'bg-green-900/50 text-green-400'
-                                                    : 'bg-gray-700 text-gray-400'
-                                            }`}>
-                                                {strategy.is_active ? "RUNNING" : "STOPPED"}
-                                            </span>
-                                        </td>
-                                        <td className="py-4 px-6 text-right">
-                                            <div className="flex justify-end gap-3">
-                                                 <button
-                                                    onClick={() => handleToggle(strategy.id, strategy.is_active)}
-                                                    disabled={!!processingId}
+                                            <div className="flex justify-end gap-3" onClick={(e) => e.stopPropagation()}>
+                                                <Link
+                                                    href={`/strategies/editor?id=${strategy.id}`}
                                                     className="text-gray-400 hover:text-emerald-400 transition-colors"
-                                                    title={strategy.is_active ? "Stop Strategy" : "Start Strategy"}
+                                                    title="Edit Strategy"
                                                 >
-                                                    {processingId === strategy.id ? (
-                                                        <Loader2 className="h-5 w-5 animate-spin" />
-                                                    ) : strategy.is_active ? (
-                                                        <Square className="h-5 w-5 fill-current text-orange-500" />
-                                                    ) : (
-                                                        <Play className="h-5 w-5 fill-current text-emerald-500" />
-                                                    )}
-                                                </button>
+                                                    <Edit className="h-5 w-5" />
+                                                </Link>
                                                 
                                                 <button
-                                                    onClick={() => handleDeleteClick(strategy.id)}
-                                                    disabled={!!processingId}
+                                                    onClick={(e) => handleDeleteClick(strategy.id, e)}
                                                     className="text-gray-400 hover:text-red-400 transition-colors"
                                                     title="Delete Strategy"
                                                 >
@@ -215,7 +163,7 @@ const StrategiesPage: React.FC = () => {
             <Modal
                 isOpen={!!deleteId}
                 onClose={() => setDeleteId(null)}
-                title="Confirm Delete"
+                title="Delete Strategy"
                 footer={
                     <>
                         <button
@@ -236,8 +184,10 @@ const StrategiesPage: React.FC = () => {
                 }
             >
                 <div className="text-gray-300">
-                    <p>Are you sure you want to delete this strategy?</p>
-                    <p className="text-sm text-gray-500 mt-2">This will permanently remove the strategy configuration and stop any active trading.</p>
+                    <p>Are you sure you want to delete this strategy blueprint?</p>
+                    <p className="text-sm text-yellow-500/80 mt-2 bg-yellow-900/20 p-2 rounded border border-yellow-900/50">
+                        Warning: This will also delete all associated Deployments and Chat Sessions.
+                    </p>
                 </div>
             </Modal>
         </div>
@@ -245,3 +195,5 @@ const StrategiesPage: React.FC = () => {
 };
 
 export default StrategiesPage;
+
+

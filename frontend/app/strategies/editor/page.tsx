@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
-import { getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSavedStrategy } from '@/lib/api/saved_strategies';
+import { getSavedStrategy, getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSavedStrategy } from '@/lib/api/saved_strategies';
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
@@ -135,6 +136,8 @@ export default function StrategyEditor() {
 
     const [code, setCode] = useState(DEFAULT_CODE);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [isRunning, setIsRunning] = useState(false);
     const [title, setTitle] = useState("My Custom Strategy");
     const [description, setDescription] = useState("");
@@ -205,6 +208,23 @@ export default function StrategyEditor() {
         fetchPreferences();
         fetchStrategies();
     }, []);
+
+    // Load Strategy from URL
+    useEffect(() => {
+        const id = searchParams.get('id');
+        if (id && id !== currentStrategyId) {
+             const loadFromUrl = async () => {
+                 try {
+                     const strategy = await getSavedStrategy(id);
+                     performLoadStrategy(strategy);
+                 } catch (err) {
+                     console.error(err);
+                     addLog('ERROR', `Failed to load strategy from URL: ${(err as Error).message}`);
+                 }
+             };
+             loadFromUrl();
+        }
+    }, [searchParams]);
 
     const fetchStrategies = async () => {
         try {
