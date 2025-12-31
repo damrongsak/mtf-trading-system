@@ -51,7 +51,6 @@ const navCategories: NavCategory[] = [
     items: [
       { name: 'Library', href: '/strategies', icon: Target },
       { name: 'Editor', href: '/strategies/editor', icon: Terminal },
-      { name: 'Backtest', href: '/backtest', icon: FlaskConical },
       { name: 'GRID Lab', href: '/simulation', icon: Atom },
     ],
   },
