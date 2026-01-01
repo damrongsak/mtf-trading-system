@@ -33,8 +33,8 @@ export function useDeployments(initialPage: number = 1, initialPerPage: number =
             const response = await getDeployments(page, perPage);
 
             setDeployments(response.data);
-            setTotal(response.total);
-            setTotalPages(Math.ceil(response.total / perPage));
+            setTotal(response.meta.total || 0);
+            setTotalPages(Math.ceil((response.meta.total || 0) / perPage));
 
         } catch (err) {
             if (err instanceof ApiError) {

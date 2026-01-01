@@ -36,8 +36,8 @@ export function StrategySection() {
   const loadPreferences = async () => {
     try {
       const prefs = await getPreferences();
-      setStrategyType(prefs.strategy_type);
-      setAssetClasses(prefs.asset_classes as AssetClass[]);
+      // setStrategyType(prefs.strategy_type); // Removed as obsolete
+      setAssetClasses(['FX']);
     } catch {
       setMessage({ type: 'error', text: 'Failed to load preferences' });
     } finally {
@@ -51,8 +51,8 @@ export function StrategySection() {
 
     try {
       await updatePreferences({
-        strategy_type: strategyType,
-        asset_classes: assetClasses,
+        // strategy_type: strategyType, // Obsolete
+        // asset_classes: assetClasses, // Obsolete
       });
       setMessage({ type: 'success', text: 'Strategy configuration saved successfully!' });
     } catch (error) {

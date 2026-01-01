@@ -81,11 +81,10 @@ export default function DashboardPage() {
         // ... (existing preferences logic) ...
         try {
             const prefs = await getPreferences();
-            if (prefs.supported_symbols && prefs.supported_symbols.length > 0) {
-                setWatchlist(prefs.supported_symbols);
-            } else if (prefs.default_symbol) {
-                setWatchlist([prefs.default_symbol]);
-            }
+             if (prefs.default_symbol) {
+                 // Initialize watchlist with default symbol if empty
+                 setWatchlist(prev => prev.length === 0 ? [prefs.default_symbol] : prev);
+             }
         } catch (e) {
             console.warn("Failed to load user preferences, using defaults", e);
         }

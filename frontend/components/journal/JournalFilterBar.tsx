@@ -16,8 +16,10 @@ export default function JournalFilterBar({ currentFilters, onFilterChange }: Jou
         const fetchSymbols = async () => {
             try {
                 const prefs = await getPreferences();
-                if (prefs.supported_symbols) {
-                    setSupportedSymbols(prefs.supported_symbols);
+                if (prefs.default_symbol) {
+                     setSupportedSymbols([prefs.default_symbol, "XAU_USD", "EUR_USD", "BTC_USD"]);
+                } else {
+                     setSupportedSymbols(["XAU_USD", "EUR_USD", "BTC_USD"]);
                 }
             } catch (error) {
                 console.error('Failed to load supported symbols', error);

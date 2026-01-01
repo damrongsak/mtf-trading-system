@@ -28,8 +28,8 @@ export default function JournalWizard({ initialData, onSubmit, isSubmitting = fa
     const fetchSymbols = async () => {
         try {
             const prefs = await getPreferences();
-            if (prefs.supported_symbols) {
-                setSupportedSymbols(prefs.supported_symbols);
+            if (prefs.default_symbol) {
+                setSupportedSymbols(prev => Array.from(new Set([prefs.default_symbol, "XAU_USD", "EUR_USD", "BTC_USD", ...prev])));
             }
         } catch (error) {
             console.error('Failed to load supported symbols', error);

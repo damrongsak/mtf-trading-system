@@ -181,7 +181,10 @@ export default function MarketPage() {
       setChartIndicators(newInds);
   };
 
-  const supportedSymbols = preferences?.supported_symbols || ['XAU_USD', 'EUR_USD', 'GBP_USD', 'BTC_USD', 'ETH_USD'];
+  const supportedSymbols = ['XAU_USD', 'EUR_USD', 'GBP_USD', 'BTC_USD', 'ETH_USD'];
+  if (preferences?.default_symbol && !supportedSymbols.includes(preferences.default_symbol)) {
+      supportedSymbols.unshift(preferences.default_symbol);
+  }
   const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
   const prevClose = candles.length > 1 ? candles[candles.length - 2].close : currentPrice;
   const change = currentPrice - prevClose;

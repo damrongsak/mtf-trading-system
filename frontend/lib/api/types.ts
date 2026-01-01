@@ -447,6 +447,10 @@ export interface BacktestMetrics {
     max_drawdown_percent: number;
     win_rate: number;
     sharpe_ratio?: number;
+    sortino_ratio?: number;
+    alpha?: number;
+    beta?: number;
+    information_ratio?: number;
     benchmark_return?: number;
     total_trades: number;
     winning_trades: number;

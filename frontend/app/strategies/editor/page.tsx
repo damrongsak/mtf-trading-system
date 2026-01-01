@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,9 @@ const TIMEFRAME_MAP: Record<string, string> = {
 
 const NORMALIZE_TF = (tf: string) => TIMEFRAME_MAP[tf.toLowerCase()] || tf.toUpperCase();
 
+// export const dynamic = 'force-dynamic'; // Wait, I need dynamic but not the import
+export const dynamic = 'force-dynamic';
+    
 const DEFAULT_CODE = `import vectorbt as vbt
 import pandas as pd
 import numpy as np
@@ -126,7 +129,7 @@ function SaveModal({ isOpen, onClose, onConfirm, initialName = '', initialDescri
     );
 }
 
-export default function StrategyEditor() {
+function StrategyEditorContent() {
     interface LogEntry {
         id: string;
         timestamp: Date;
@@ -277,6 +280,9 @@ export default function StrategyEditor() {
             addLog('INFO', `Total Return: $${res.metrics.total_return.toFixed(2)} (${res.metrics.total_return_percent.toFixed(2)}%)`);
             addLog('INFO', `Win Rate:     ${res.metrics.win_rate.toFixed(1)}%`);
             addLog('INFO', `Max Drawdown: $${res.metrics.max_drawdown.toFixed(2)} (${res.metrics.max_drawdown_percent.toFixed(2)}%)`);
+            addLog('INFO', `Sharpe Ratio: ${res.metrics.sharpe_ratio?.toFixed(2) ?? 'N/A'}`);
+            addLog('INFO', `Sortino Ratio:${res.metrics.sortino_ratio?.toFixed(2) ?? 'N/A'}`);
+            addLog('INFO', `Alpha / Beta: ${res.metrics.alpha?.toFixed(4) ?? '0.00'} / ${res.metrics.beta?.toFixed(2) ?? '0.00'}`);
             addLog('INFO', `Total Trades: ${res.metrics.total_trades}`);
             addLog('INFO', `----------------------------------------`);
             
@@ -834,7 +840,7 @@ export default function StrategyEditor() {
                                         <Select value={symbol} onValueChange={setSymbol}>
                                             <SelectTrigger className="bg-slate-900 border-slate-700"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                {(preferences?.supported_symbols || ["XAU_USD", "EUR_USD", "BTC_USD"]).map((s) => (
+                                                {(["XAU_USD", "EUR_USD", "BTC_USD", "GBP_USD", "USD_JPY", "SPX500_USD", "NAS100_USD"]).map((s) => (
                                                     <SelectItem key={s} value={s.replace('/', '_')}>{s.replace('_', '/')}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -973,5 +979,13 @@ export default function StrategyEditor() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function StrategyEditor() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-slate-500">Loading Editor...</div>}>
+            <StrategyEditorContent />
+        </Suspense>
     );
 }
