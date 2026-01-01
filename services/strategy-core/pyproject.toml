@@ -19,6 +19,8 @@ dependencies = [
     "redis>=5.0.0",
     "ipython>=8.30.0",
     "anywidget>=0.9.0",
+    "quantreo>=0.1.0",
+    "pyportfolioopt>=1.5.5",
 ]
 
 [dependency-groups]

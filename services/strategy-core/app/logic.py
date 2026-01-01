@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, Tuple
 from app.indicators import calculate_ema, calculate_atr
 from app.smc import detect_order_blocks, detect_fvg
+from app.features.quant_features import QuantreoFeatures
 
 class SignalDirection(str, Enum):
     BULLISH = "BULLISH"
@@ -75,15 +76,26 @@ def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
                  
     return False
 
-def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold: float = 0.7) -> bool:
+    return False
+
+def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
     """
     Rule C: Trigger
     - 15m Candle Validation.
     - Bullish: Strong Green Candle (Body > Wick).
     - Bearish: Strong Red Candle.
     - Body-to-Wick Ratio (Rv) > threshold.
+    - **Quantreo**: Parkinson Volatility > min_volatility (Avoid Dead Markets).
     """
-    if len(df_m15) < 2:
+    if len(df_m15) < 31: # Need 30 for vol calculation
+        return False
+
+    # 1. Quantreo Volatility Filter
+    df_vol = QuantreoFeatures.add_volatility_features(df_m15, window_size=30)
+    current_vol = df_vol['parkinson_vol_30'].iloc[-1]
+    
+    if current_vol < min_volatility:
+        # Market too quiet, reject trade
         return False
         
     # We check the LAST COMPLETED candle for the trigger shape

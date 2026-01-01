@@ -368,6 +368,15 @@
 ---
 
 
+
+### **Phase 7: Advanced Quantitative Integration (Completed)**
+- **Status:** ✅ Complete (2026-01-01)
+- **Features:**
+    - **Risk Citadel Upgrade:** Integrated `PyPortfolioOpt` for Risk Parity sizing (DYnamic Volatility-based allocation). Hard $10 risk cap removed.
+    - **Strategy Foundry Upgrade:** Integrated `Quantreo` for advanced feature engineering (Parkinson Volatility, Entropy).
+    - **AI Analyst Tools:** Added `calculate_efficient_frontier` and `analyze_market_regime` tools.
+    - **Backtest Engine:** Exposed advanced quant libraries to Custom Strategy Editor.
+
 ## 📋 Immediate Next Actions (Prioritized)
 
 1.  **[High]** CI/CD Integration for E2E tests.

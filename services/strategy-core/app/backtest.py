@@ -13,6 +13,8 @@ import traceback
 from typing import Tuple, Dict, Any
 import logging
 import inspect
+from app.analysis.optimizer import PortfolioOptimizer
+from app.features.quant_features import QuantreoFeatures
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -89,7 +91,9 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
             'pd': pd,
             'np': np,
             'vbt': vbt,
-            'vectorbt': vbt
+            'vectorbt': vbt,
+            'PortfolioOptimizer': PortfolioOptimizer,
+            'QuantreoFeatures': QuantreoFeatures
         }
         
         exec(req_dict['code'], exec_globals, local_scope)

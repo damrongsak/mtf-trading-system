@@ -78,7 +78,7 @@ The platform is built on five functional pillars:
 | :--- | :--- |
 | **F3.1** | **Minimax Regret**: Before every trade, calculate worst-case outcome. Reject if it exceeds `pain_threshold`. |
 | **F3.2** | **Risk Parity**: Dynamically allocate position sizes so that High-Vol and Low-Vol strategies contribute equal risk. |
-| **F3.3** | **Hard Guardrails**: Absolute $10 Risk Cap per trade (legacy constraint preserved). |
+| **F3.3** | **Dynamic Risk**: Position sizing is strictly determined by Risk Parity (Inverse Volatility). No hard dollar caps. |
 
 ### 4.4. The AI Coach (Psychology)
 | Requirement | Description (Behavior) |

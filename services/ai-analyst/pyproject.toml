@@ -16,6 +16,8 @@ dependencies = [
     "aiohttp>=3.9.0",
     "langgraph>=0.2.0",
     "pillow>=10.2.0",
+    "pyportfolioopt>=1.5.5",
+    "quantreo>=0.1.0",
 ]
 
 [dependency-groups]

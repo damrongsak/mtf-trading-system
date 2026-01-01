@@ -1,42 +1,51 @@
-# MTF Trading System (Phoenix Alpha Engine)
+# MTF Olympus (v2.0)
 
-**Status:** Phase 2 Complete (Ready for Live Testing)
+**Status:** In Development (Phase 6 - Portfolio Management & Transaction Tracking)  
 **License:** [Apache 2.0](LICENSE)
 
-The **MTF Trading System** is a sophisticated algorithmic trading platform designed for XAU/USD (Gold). It utilizes a **Multi-Timeframe (MTF)** analysis approach combined with **Smart Money Concepts (SMC)**, enforced by a strict risk management engine.
+**MTF Olympus** is an **Operating System (OS)** for wealth creation. It democratizes the sophisticated tools used by institutional hedge funds—**Game Theoretic Risk Management**, **Walk-Forward Validation**, and **AI-Driven Psychology Coaching**—allowing individuals to act as their own Quant Fund Managers.
 
-Built for the **AI Era**, it bridges the gap between discretionary trading and automated execution, featuring a "Psychological MRI" journal, an AI Market Analyst agent (Gemini Pro), and a robust microservices architecture.
+It evolves the previous "Phoenix Alpha Engine" into a distributed platform that separates Logic (Foundry), Validation (Proving Ground), Risk (Citadel), Execution (Edge), and Psychology (Coach).
 
-## 🚀 Key Features
+---
 
-### 🛡️ Risk & Execution
--   **Strict Risk Management:** Pre-trade validation ensuring no trade exceeds the defined risk limit.
--   **Configurable Risk Profiles:** User-defined max risk per trade (e.g., $10, 0.5%) and Max Drawdown limits per strategy.
--   **Volatility Guards:** Dynamic Stop Loss based on ATR; trades rejected if volatility is too high (>100 pips).
--   **Multi-Broker Support:** Securely manage multiple OANDA/Binance accounts with AES-256 credential encryption.
+## 🏛️ The 5 Pillars of Olympus
 
-### 🧠 Intelligence & Analysis
--   **AI Analyst:** "Market Observer" agent (Gemini 1.5 Pro) that provides narrative analysis of chart patterns and news.
--   **SMC Engine:** Automated detection of Order Blocks, Fair Value Gaps (FVG), and Liquidity Sweeps across M15, H1, H4 timeframes.
--   **Trading Journal:** Structured "Mental Hand History" wizard to track psychological state (Tilt, Fear, Greed) alongside technical performance.
+The platform is built on five functional pillars:
 
-### ⚡ Architecture & Performance
--   **Multi-Tenancy:** Support for multiple users and funds with Role-Based Access Control (RBAC).
--   **Strategy Registry:** JSON-configurable strategy templates (e.g., SMC_Basic, MACD_Cross) allowing multiple concurrent instances.
--   **Real-time Dashboard:** Live equity curves, P&L stats, and signal monitoring pushed via WebSockets (Redis Pub/Sub).
--   **Event-Driven Data Pipeline:** Centralized ingestion of market data (OANDA v20) distributed to all services.
+1.  **The Strategy Foundry**: Standardized "Lego Blocks" for creating strategies (no ad-hoc code).
+2.  **The Proving Ground**: Rigorous Walk-Forward Validation to prevent overfitting (Strategies must achieve a Robustness Score > 80).
+3.  **The Risk Citadel**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
+4.  **The Execution Edge**: Smart Order Routing and Liquidity analysis.
+5.  **The AI Coach**: Psychological intervention via **Mental Hand History** to detect "Tilt" and guide the user back to "A-Game".
+
+---
 
 ## 🏗️ System Architecture
 
+The system is organized into a 5-layer stack:
+
+| Layer | Name | Description | Service |
+| :--- | :--- | :--- | :--- |
+| **L1** | **Probability** | Statistical Analysis & Data Ingestion | Data Pipeline |
+| **L2** | **Structure** | Strategy Logic definition & Standardized Blocks | Strategy Foundry |
+| **L3** | **Context** | Validation, Walk-Forward Analysis, Market Regime | Proving Ground |
+| **L4** | **Risk** | Game Theoretic Risk Management (Minimax) | Risk Citadel |
+| **L5** | **Intelligence** | Psychological Coaching & Reasoning | AI Analyst |
+
+### Microservices
+
 | Service | Tech Stack | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 16 (React 19) | Modern, responsive dashboard for signals, charts, and configuration. |
+| **Frontend** | Next.js 16 (React 19) | Modern dashboard for Foundry, Citadel, and AI Coach. |
 | **API Gateway** | Python (FastAPI) | Central entry point, Auth (JWT), and request routing. |
-| **Strategy Core** | Python (Pandas/Vectorbt) | Signal generation, Backtesting engine, and Indicator calculation. |
-| **Execution** | Python (FastAPI) | Order routing, Risk constraints, and Broker connectivity. |
-| **Data Pipeline** | Python (Redis/Celery) | Real-time market data streaming and historical candle storage. |
-| **AI Analyst** | Python (LangGraph) | LLM-based market reasoning and RAG (Qdrant). |
-| **Database** | PostgreSQL 15 | Relational data (Users, Trades, Journals) + `pgvector` for RAG. |
+| **Strategy Core** | Python (Vectorbt) | Implements Foundry and Proving Ground logic. |
+| **Execution** | Python (FastAPI) | Implements Risk Citadel and Execution Edge. |
+| **AI Analyst** | Python (LangGraph) | Implements AI Coach (Gemini 1.5 Pro). |
+| **Data Pipeline** | Python (Redis) | L1 Probability Layer (Real-time & Historical Data). |
+| **Database** | PostgreSQL 15 | Relational data + `pgvector` for RAG. |
+
+---
 
 ## 📂 Project Structure
 
@@ -44,21 +53,23 @@ Built for the **AI Era**, it bridges the gap between discretionary trading and a
 mtf-trading-system/
 ├── services/               # Backend Microservices
 │   ├── api-gateway/        # Auth & API Routing
-│   ├── strategy-core/      # Algo Logic & Backtesting
-│   ├── execution/          # Broker Adapters & Risk Engine
-│   ├── data-pipeline/      # Market Data Ingestion
-│   └── ai-analyst/         # LLM Agent
+│   ├── strategy-core/      # L2 Structure & L3 Context
+│   ├── execution/          # L4 Risk & Execution Edge
+│   ├── ai-analyst/         # L5 Intelligence
+│   └── data-pipeline/      # L1 Probability
 ├── frontend/               # Next.js Web App
 ├── infra/                  # Nginx, Docker configs
 ├── specs/                  # SDD Specifications (Source of Truth)
 └── docker-compose.yml      # Local Orchestration
 ```
 
+---
+
 ## 🛠️ Getting Started
 
 ### Prerequisites
 -   Docker & Docker Compose
--   Node.js v22+ (for local frontend dev)
+-   Node.js v22+
 -   `uv` (Python package manager)
 
 ### Quick Start (Full Stack)
@@ -79,11 +90,9 @@ mtf-trading-system/
     -   API Docs: `http://localhost:8000/docs`
 
 4.  **Create Admin User:**
-    Use the `/api/v1/auth/register` endpoint or the frontend Register page to create your first user.
+    Register via the frontend or use the API.
 
-5.  **Configure Strategy:**
-    -   Go to **Settings -> Broker Accounts** to add OANDA credentials.
-    -   Go to **Strategies -> New Strategy** to configure and launch an SMC instance.
+---
 
 ## 🧩 Spec-Driven Development (SDD)
 
@@ -95,12 +104,7 @@ This project strictly follows SDD. **Do not write code without updating specs fi
 -   `specs/04_api_spec.yaml`: API Contracts (OpenAPI).
 -   `specs/10_implementation_status.md`: Progress Tracker.
 
-## 🤝 Contribution
-
-1.  Pick a task from `specs/10_implementation_status.md` (or create a new RFC).
-2.  Update the relevant Spec file in a PR.
-3.  Once the Spec is approved, implement the code.
-4.  Submit PR with tests.
+---
 
 ## ⚠️ Disclaimer
 

@@ -81,7 +81,9 @@ The system is organized into five decoupled layers of responsibility:
 - **Key Features**:
     - **Mental State Machine**: FSM tracking A-Game vs C-Game.
     - **Coaching Agent**: Intervenes during tilt using Steenbarger's framework.
+
     - **RAG**: Retrieves past "Mental Hand Histories" to show patterns.
+    - **Quant Tools**: `calculate_efficient_frontier` (PyPortfolioOpt) and `analyze_market_regime` (Quantreo).
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.
@@ -99,7 +101,7 @@ The system is organized into five decoupled layers of responsibility:
 3.  **Risk Citadel** calculates Minimax Regret for the trade.
     - *If Regret > PainThreshold*: REJECT.
     - *If Regret < PainThreshold*: Proceed.
-4.  **Portfolio Allocator** calculates exact lot size based on Risk Parity weights.
+4.  **Portfolio Allocator** calculates exact lot size based on **Risk Parity** (Volatility-based sizing).
 5.  **SOR** executes trade via Oanda.
 
 ### 5.3. Psychological Intervention
