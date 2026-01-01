@@ -18,6 +18,7 @@ import { getSavedStrategy, getSavedStrategies, createSavedStrategy, updateSavedS
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
+import { BacktestMetricsCard } from '@/components/dashboard/BacktestMetricsCard';
 import { OptimizationResult, MonteCarloRequest, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse, OptimizationConfig } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { SimulationChart } from './SimulationChart';
@@ -714,6 +715,11 @@ function StrategyEditorContent() {
                                 <div className="h-full w-full bg-slate-950 p-0">
                                     {plotJson || lastBacktestTrades ? (
                                         <div className="flex flex-col h-full overflow-hidden">
+                                            {lastBacktestResult?.metrics && (
+                                                <div className="p-4 bg-slate-950 border-b border-slate-800 shrink-0">
+                                                    <BacktestMetricsCard metrics={lastBacktestResult.metrics} />
+                                                </div>
+                                            )}
                                             <div className="flex-1 min-h-[500px]">
                                                 {plotJson ? (
                                                     <InteractiveBacktestChart plotJson={plotJson} />
