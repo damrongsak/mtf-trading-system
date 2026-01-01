@@ -26,6 +26,19 @@ class TrendEMACross(LogicBlock):
             'metadata': {'close': float(last_close)}
         }
 
+    def run_vector(self, context: Dict[str, Any]) -> pd.Series:
+        candles = context.get('candles', {}).get(self.timeframe)
+        if candles is None:
+            return pd.Series()
+            
+        ema = calculate_ema(candles['close'], span=self.period)
+        
+        # Vectorized comparison
+        res = pd.Series(0, index=candles.index)
+        res[candles['close'] > ema] = 1  # Bullish
+        res[candles['close'] < ema] = -1 # Bearish
+        return res
+
 class TrendAMA(LogicBlock):
     def __init__(self, name: str, parameters: Dict[str, Any] = None):
         super().__init__(name, BlockType.TREND, parameters)
@@ -61,3 +74,19 @@ class TrendAMA(LogicBlock):
             'value': float(curr_kama),
             'metadata': {'prev_value': float(prev_kama)}
         }
+
+    def run_vector(self, context: Dict[str, Any]) -> pd.Series:
+        candles = context.get('candles', {}).get(self.timeframe)
+        if candles is None:
+             return pd.Series()
+
+        kama = candles.ta.kama(length=self.period, fast=self.fast, slow=self.slow)
+        if kama is None: return pd.Series()
+        
+        # Slope: Current > Prev
+        diff = kama.diff()
+        
+        res = pd.Series(0, index=candles.index)
+        res[diff > 0] = 1
+        res[diff < 0] = -1
+        return res

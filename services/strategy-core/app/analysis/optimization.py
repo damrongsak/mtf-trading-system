@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Union, Callable, Optional, Tuple
 import vectorbt as vbt
 import numpy as np
 import pandas as pd
@@ -46,13 +46,15 @@ def run_grid_search(
     param_grid: Dict[str, Any], 
     capital: float = 10000.0,
     fees: float = 0.0005,
-    code: str = None
+    code: str = None,
+    strategy_callable: Optional[Callable[[pd.DataFrame, Dict[str, Any]], Tuple[Any, Any]]] = None
 ) -> List[Dict[str, Any]]:
     """
     Run grid search optimization.
-    Can optimize either:
-    1. Custom Code: if `code` is provided. Injects params into strategy(data, params=...).
-    2. Default simple MACD: if `code` is None (Backward compatibility).
+    Can optimize:
+    1. Callable: if `strategy_callable` provided (Priority).
+    2. Custom Code: if `code` is provided.
+    3. Default simple MACD: if neither.
     """
     if data.empty:
         return []
@@ -108,7 +110,9 @@ def run_grid_search(
             entries = None
             exits = None
             
-            if strategy_func:
+            if strategy_callable:
+                entries, exits = strategy_callable(data, current_params)
+            elif strategy_func:
                 # Run custom strategy with params
                 sig = inspect.signature(strategy_func)
                 if 'params' in sig.parameters:

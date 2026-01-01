@@ -222,3 +222,15 @@ class FoundryAssembleRequest(BaseModel):
 class FoundryAssembleResponse(BaseModel):
     pipeline_hash: str
     errors: List[str]
+
+class WalkForwardRequest(BaseModel):
+    symbol: str
+    timeframe: str
+    start_date: datetime
+    end_date: datetime
+    config: Dict[str, Any] # Foundry Config with Optimization Params
+
+class WalkForwardResponse(BaseModel):
+    robustness_score: int
+    avg_sharpe_test: float
+    details: List[Dict[str, Any]]

@@ -34,17 +34,24 @@ class LogicBlock(ABC):
     @abstractmethod
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute the logic block against the provided market context.
+        Execute the logic block against the provided market context for the LATEST candle.
+        Use this for Live Trading and Scanning.
         
         :param context: Dictionary containing:
             - 'candles': DataFrame or Dict of candles for required timeframes
-            - 'indicators': Pre-calculated indicators (optional)
-        :return: Dictionary containing:
-            - 'state': SignalState (BULLISH/BEARISH/NEUTRAL)
-            - 'value': Raw value (e.g., RSI value, EMA value)
-            - 'metadata': Any extra debug info
         """
         pass
+
+    def run_vector(self, context: Dict[str, Any]) -> Any:
+        """
+        Execute logic for ALL candles in the context.
+        Use this for Backtesting.
+        
+        :return: pd.Series of SignalState or Integers (1, -1, 0)
+        """
+        # Default fallback: iterate (Slow)
+        # Ideally overridden by efficient vector impl
+        raise NotImplementedError("Vector execution not implemented for this block")
 
     def get_param(self, key: str, default: Any = None) -> Any:
         return self.parameters.get(key, default)

@@ -1116,20 +1116,41 @@ paths:
 
   /api/v1/foundry/assemble:
     post:
-      summary: Compile strategy logic into executable pipeline
+      summary: Assemble and Validate Strategy Config
+      operationId: foundry_assemble
+      tags:
+        - Foundry
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/FoundryAssembleRequest'
       responses:
         '200':
-          description: Assembly result
+          description: Successful assembly
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse_FoundryAssembleResponse'
+                $ref: '#/components/schemas/APIResponse[FoundryAssembleResponse]'
+
+  /foundry/validate:
+    post:
+      summary: Run Walk-Forward Validation
+      operationId: foundry_validate
+      tags:
+        - Foundry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalkForwardRequest'
+      responses:
+        '200':
+          description: Successful validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse[WalkForwardResponse]'
 
   /api/v1/foundry/validate:
     post:
@@ -2649,6 +2670,50 @@ components:
           type: string
         data:
           $ref: '#/components/schemas/SignalResponse'
+
+    FoundryAssembleResponse:
+      type: object
+      properties:
+        pipeline_hash:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+
+    WalkForwardRequest:
+      type: object
+      required:
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - config
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        config:
+          type: object
+
+    WalkForwardResponse:
+      type: object
+      properties:
+        robustness_score:
+          type: integer
+        avg_sharpe_test:
+          type: number
+        details:
+          type: array
+          items:
+            type: object
 
     APIResponse_SymbolList:
       type: object

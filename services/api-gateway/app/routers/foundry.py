@@ -2,6 +2,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.generated import FoundryAssembleRequest, APIResponse_FoundryAssembleResponse
+from pydantic import BaseModel
+from typing import Dict, Any, List
+from datetime import datetime
+
+# Manually defining schemas to avoid regenerating everything right now
+class WalkForwardRequest(BaseModel):
+    symbol: str
+    timeframe: str
+    start_date: datetime
+    end_date: datetime
+    config: Dict[str, Any]
+
+class WalkForwardResponse(BaseModel):
+    robustness_score: int
+    avg_sharpe_test: float
+    details: List[Dict[str, Any]]
+
+class APIResponse_WalkForwardResponse(BaseModel):
+    status: str
+    data: WalkForwardResponse
 from app.models.strategy_config import StrategyConfig
 from app.models.user_fund import User
 from app.security import get_current_user
@@ -54,3 +74,27 @@ def assemble_strategy(
             status="error",
             data={"pipeline_hash": "", "errors": [str(e)]}
         )
+
+@router.post("/validate", response_model=APIResponse_WalkForwardResponse)
+def validate_strategy(
+    req: WalkForwardRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Proxy to Strategy Core
+        payload = req.model_dump(mode='json') # handle datetime serialization
+        
+        with httpx.Client(timeout=60.0) as client:
+            resp = client.post(f"{STRATEGY_CORE_URL}/api/v1/foundry/validate", json=payload)
+            if resp.status_code != 200:
+                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            
+            data = resp.json()
+            return APIResponse_WalkForwardResponse(
+                status="success",
+                data=data
+            )
+            
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))

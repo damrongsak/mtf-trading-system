@@ -34,6 +34,24 @@ class MomentumRSICross(LogicBlock):
             'metadata': {'prev_rsi': float(prev_rsi)}
         }
 
+    def run_vector(self, context: Dict[str, Any]) -> pd.Series:
+        candles = context.get('candles', {}).get(self.timeframe)
+        if candles is None: return pd.Series()
+
+        rsi = calculate_rsi(candles['close'], window=self.period)
+        
+        # shift(1) is Prev
+        prev_rsi = rsi.shift(1)
+        
+        res = pd.Series(0, index=candles.index)
+        
+        # Bullish Cross
+        res[(prev_rsi <= self.cross_level) & (rsi > self.cross_level)] = 1
+        # Bearish Cross
+        res[(prev_rsi >= self.cross_level) & (rsi < self.cross_level)] = -1
+        
+        return res
+
 class MomentumVectorCandle(LogicBlock):
     def __init__(self, name: str, parameters: Dict[str, Any] = None):
         super().__init__(name, BlockType.MOMENTUM, parameters)
@@ -75,3 +93,27 @@ class MomentumVectorCandle(LogicBlock):
             'value': float(rv),
             'metadata': {'threshold': self.rv_threshold}
         }
+
+    def run_vector(self, context: Dict[str, Any]) -> pd.Series:
+        candles = context.get('candles', {}).get(self.timeframe)
+        if candles is None: return pd.Series()
+        
+        open_p = candles['open']
+        close_p = candles['close']
+        high = candles['high']
+        low = candles['low']
+        
+        body = (close_p - open_p).abs()
+        rng = high - low
+        
+        # Avoid div by zero
+        rv = body / rng.replace(0, 1) # Simple safe div
+        
+        res = pd.Series(0, index=candles.index)
+        
+        # Green & High RV
+        res[(rv >= self.rv_threshold) & (close_p > open_p)] = 1
+        # Red & High RV
+        res[(rv >= self.rv_threshold) & (close_p < open_p)] = -1
+        
+        return res

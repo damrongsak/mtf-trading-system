@@ -50,6 +50,47 @@ class StrategyPipeline:
             'block_results': results
         }
 
+    def run_vector(self, context: Dict[str, Any]) -> tuple:
+        """
+        Run vectorized pipeline.
+        Returns (entries, exits) as boolean Series.
+        """
+        import pandas as pd
+        
+        if not self.blocks:
+             return None, None
+             
+        # Determine master index from first block result or context
+        # Ideally we check all blocks
+        
+        block_signals = []
+        for block in self.blocks:
+            # Series of 1, -1, 0
+            sig = block.run_vector(context)
+            if not sig.empty:
+                block_signals.append(sig)
+                
+        if not block_signals:
+            return None, None
+            
+        # Aggregate
+        # Sum logic?
+        total_signal = pd.concat(block_signals, axis=1).sum(axis=1)
+        
+        # Threshold: if consensus > 0 -> Entry Long??
+        # Simple Logic: > 0 = Bullish Entry, < 0 = Bearish Entry
+        # Exits? Opposite signal?
+        
+        entries = total_signal > 0 # Bullish
+        exits = total_signal < 0   # Bearish (Short entry or Long exit)
+        
+        # Note: Optimization.py expects (entries, exits). 
+        # If Long-Only, 'exits' closes long.
+        # If Long-Short, 'exits' might be Short Entry.
+        # Assuming Long-Only for now or simple reversal.
+        
+        return entries, exits
+
 class StrategyAssembler:
     @staticmethod
     def assemble(config: Dict[str, Any]) -> StrategyPipeline:
