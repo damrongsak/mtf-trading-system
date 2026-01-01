@@ -1,9 +1,9 @@
 
-from sqlalchemy import Column, String, Float, Boolean, ForeignKey, DateTime, Integer, JSON
+from sqlalchemy import Column, String, Float, Boolean, ForeignKey, DateTime, Integer, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 
 class Deployment(Base):
@@ -16,10 +16,10 @@ class Deployment(Base):
     # Configuration Snapshot (Immutable for this deployment instance)
     stock_symbol = Column(String, nullable=False) # e.g. "XAU/USD"
     timeframe = Column(String, nullable=False)    # e.g. "M15"
-    config_snapshot = Column(JSON, nullable=False) # { captial, risk_pct, strategy_params }
+    config_snapshot = Column(JSONB, nullable=False) # { captial, risk_pct, strategy_params }
     
     # State
-    status = Column(String, default="ACTIVE", index=True) # ACTIVE, STOPPED, ERROR
+    status = Column(Enum("STARTING", "ACTIVE", "STOPPED", "ERROR", "STOPPING", name="deployment_status_enum"), default="STARTING", index=True, nullable=False)
     is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
     
     # Performance/Tracking

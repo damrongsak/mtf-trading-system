@@ -144,6 +144,54 @@ entities:
         enum_values: ["OWNER", "MANAGER", "TRADER", "VIEWER"]
         required: true
 
+  MarketCategory:
+    description: "Category of market symbols (e.g., Forex, Crypto, Indices)"
+    table_name: "market_categories"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: name
+        type: string
+        required: true
+        unique: true
+      - name: order_index
+        type: integer
+        default: 0
+      - name: is_active
+        type: boolean
+        default: true
+
+  MarketSymbol:
+    description: "Tradable instrument definition"
+    table_name: "market_symbols"
+    indexes:
+      - fields: ["symbol"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: category_id
+        type: uuid
+        foreign_key: "market_categories.id"
+        required: true
+      - name: data_source_id
+        type: uuid
+        foreign_key: "data_sources.id"
+        nullable: true
+      - name: symbol
+        type: string
+        required: true
+        description: "Unified symbol identifier (e.g., 'EUR_USD')"
+      - name: display_name
+        type: string
+        nullable: true
+      - name: order_index
+        type: integer
+        default: 0
+
+
   Strategy:
     description: "Active Strategy Instance (Fleet Member)"
     table_name: "strategies"
@@ -189,6 +237,15 @@ entities:
       - name: is_active
         type: boolean
         default: false
+      - name: last_backtest_result
+        type: jsonb
+        nullable: true
+      - name: last_optimization_result
+        type: jsonb
+        nullable: true
+      - name: last_simulation_result
+        type: jsonb
+        nullable: true
       - name: created_at
         type: datetime
         default: "now()"
@@ -386,11 +443,11 @@ entities:
         type: uuid
         primary_key: true
         description: "Unique identifier for the candle"
-      - name: symbol
-        type: string
+      - name: market_symbol_id
+        type: uuid
+        foreign_key: "market_symbols.id"
         required: true
-        max_length: 20
-        description: "Trading pair symbol (e.g., XAU/USD)"
+        description: "Link to the MarketSymbol"
       - name: timeframe
         type: string
         required: true
@@ -465,6 +522,10 @@ entities:
         scale: 4
         nullable: true
         description: "Body-to-Wick Ratio (Rv) for vector candle confirmation"
+      - name: indicators
+        type: jsonb
+        nullable: true
+        description: "Flexible storage for calculated indicators"
       - name: created_at
         type: datetime
         default: "now()"
@@ -1246,6 +1307,16 @@ validation_rules:
       - name: is_public
         type: boolean
         default: false
+      - name: last_results
+        type: jsonb
+        nullable: true
+        description: "Persisted backtest metrics and plot"
+      - name: last_optimization_result
+        type: jsonb
+        nullable: true
+      - name: last_simulation_result
+        type: jsonb
+        nullable: true
       - name: created_at
         type: datetime
         default: "now()"

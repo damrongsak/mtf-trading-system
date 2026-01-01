@@ -26,7 +26,7 @@ class ChatMessage(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False, index=True)
-    role = Column(String(50), nullable=False) # 'user', 'assistant', 'system'
+    role = Column(Enum("user", "assistant", "system", name="chat_role_enum"), nullable=False) # 'user', 'assistant', 'system'
     content = Column(Text, nullable=False)
     context_snapshot = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
