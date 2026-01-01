@@ -2485,7 +2485,7 @@ components:
         status:
           type: string
         metrics:
-          type: object
+          $ref: '#/components/schemas/BacktestMetrics'
         trades:
           type: array
           items:
@@ -3209,3 +3209,39 @@ components:
              type: array
              items:
                 type: object # Placeholder for Strategy
+    BacktestMetrics:
+      type: object
+      properties:
+        total_return:
+          type: number
+        total_return_percent:
+          type: number
+        max_drawdown:
+          type: number
+        max_drawdown_percent:
+          type: number
+        win_rate:
+          type: number
+        benchmark_return:
+          type: number
+        sharpe_ratio:
+          type: number
+          nullable: true
+        sortino_ratio:
+          type: number
+          nullable: true
+        alpha:
+          type: number
+          nullable: true
+        beta:
+          type: number
+          nullable: true
+        information_ratio:
+          type: number
+          nullable: true
+        total_trades:
+          type: integer
+        winning_trades:
+          type: integer
+        losing_trades:
+          type: integer

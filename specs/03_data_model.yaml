@@ -763,6 +763,35 @@ entities:
         scale: 4
         nullable: true
         description: "Sharpe Ratio (target > 0.8)"
+      - name: sortino_ratio
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Sortino Ratio (penalizes downside risk only)"
+      - name: alpha
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Alpha vs Benchmark (Excess return)"
+      - name: beta
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Beta vs Benchmark (Market sensitivity)"
+      - name: information_ratio
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Information Ratio (Active return / Tracking error)"
+      - name: benchmark_symbol
+        type: string
+        max_length: 20
+        nullable: true
+        description: "Benchmark used for Alpha/Beta (e.g., XAU/USD)"
       - name: max_drawdown
         type: decimal
         precision: 10
