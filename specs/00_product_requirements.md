@@ -59,7 +59,13 @@ The platform is built on five functional pillars:
 
 ---
 
-## 4. Functional Requirements (Olympus v2.0)
+## 4. Quantitative Standards (CFA & ML Alignment)
+- **Core Metrics**: System MUST calculate Sharpe, Sortino, Max Drawdown, Alpha, and Beta using a centralized, validated engine.
+- **Benchmarking**: Strategies MUST be benchmarked against relevant assets (e.g., Gold, Bitcoin) to prove Alpha.
+- **Data Integrity**: Signal generation MUST use strictly bias-free data (e.g., Last Completed Candle `iloc[-2]`) to ensure valid ML training sets.
+- **ML Readiness**: All metric calculations MUST be vectorized for performance.
+
+## 5. Functional Requirements (Olympus v2.0)
 
 ### 4.1. The Strategy Foundry (Standardization)
 | Requirement | Description (Behavior) |

@@ -15,6 +15,8 @@ import logging
 import inspect
 from app.analysis.optimizer import PortfolioOptimizer
 from app.features.quant_features import QuantreoFeatures
+from app.analysis.metrics import calculate_sortino, calculate_alpha_beta, calculate_information_ratio
+from app.analysis.benchmark import BenchmarkService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -151,6 +153,30 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
         # max_drawdown in vbt is usually absolute dollar amount
         max_dd = float(pf.max_drawdown()) if hasattr(pf, 'max_drawdown') else abs(float(pf.stats().get('Max Drawdown [$]', 0.0)))
 
+        # Advanced Metrics (Olympus Upgrade)
+        # 1. Fetch Benchmark Data
+        # For MVP, we assume a default benchmark like 'XAU/USD' or 'BTC/USD' based on symbol, or just 'XAU/USD'
+        # In a real app, this might be passed in req_dict
+        benchmark_symbol = "XAU/USD" # Default
+        
+        # Determine start/end from df index
+        start_dt = df.index[0]
+        end_dt = df.index[-1]
+        
+        # Fetch Benchmark Returns
+        # Note: Database access inside worker process? usually okay if creating new session/engine
+        # But BenchmarkService uses 'engine'. multiprocessing fork might have issues with shared engine.
+        # Ideally we fetch benchmark OUTSIDE worker. But let's try inside for now, or fallback to mock.
+        bench_returns = BenchmarkService.fetch_benchmark_returns(benchmark_symbol, start_dt, end_dt)
+        
+        # Strategy Returns
+        strat_returns = pf.daily_returns() # Series
+        
+        # Calculate Advanced Metrics
+        sortino = calculate_sortino(strat_returns)
+        alpha_beta = calculate_alpha_beta(strat_returns, bench_returns)
+        info_ratio = calculate_information_ratio(strat_returns, bench_returns)
+
         metrics = BacktestMetrics(
             total_return=total_return, 
             total_return_percent=get_val('Total Return [%]'),
@@ -162,7 +188,12 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
             total_trades=int(get_val('Total Trades')),
             winning_trades=int(get_val('Winning Trades')),
             losing_trades=int(get_val('Losing Trades')),
-            candle_count=len(df)
+            candle_count=len(df),
+            # New CFA Metrics
+            sortino_ratio=float(sortino),
+            alpha=float(alpha_beta['alpha']),
+            beta=float(alpha_beta['beta']),
+            information_ratio=float(info_ratio)
         )
         
         if 'Total Return [$]' not in stats and 'Total Profit' in stats:

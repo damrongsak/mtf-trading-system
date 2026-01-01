@@ -182,6 +182,12 @@ class BacktestMetrics(BaseModel):
     losing_trades: int
     candle_count: Optional[int] = 0
 
+    # CFA / Advanced Metrics (Olympus Upgrade)
+    sortino_ratio: float = 0.0
+    alpha: float = 0.0
+    beta: float = 0.0
+    information_ratio: float = 0.0
+
 class BacktestResponse(BaseModel):
     id: str
     status: str

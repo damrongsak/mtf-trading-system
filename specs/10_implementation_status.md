@@ -377,6 +377,15 @@
     - **AI Analyst Tools:** Added `calculate_efficient_frontier` and `analyze_market_regime` tools.
     - **Backtest Engine:** Exposed advanced quant libraries to Custom Strategy Editor.
 
+
+### **Phase 8: Professional Standards & ML Readiness (In Progress)**
+- **Status:** 🟡 In Progress
+- **Features:**
+    - **Core Metrics Engine (`metrics.py`):** Centralized CFA-standard library.
+    - **Benchmark Integration (`benchmark.py`):** Alpha/Beta calculation against XAU/USD, BTC, SPY.
+    - **ML Optimization:** Vectorized calculations for high-frequency training loops.
+    - **Bias Prevention:** Strict `iloc[-2]` logic enforcement in Strategy Core.
+
 ## 📋 Immediate Next Actions (Prioritized)
 
 1.  **[High]** CI/CD Integration for E2E tests.

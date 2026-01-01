@@ -65,6 +65,8 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.2. Strategy Core (`services/strategy-core`)
 - **Role**: The "Foundry" and "Proving Ground".
 - **Key Features**:
+    - **Core Metrics Engine**: Centralized, vectorized financial math library (Sharpe, Sortino, Alpha/Beta).
+    - **Benchmark Service**: Automated benchmarking against XAU/USD, BTC, SPY.
     - **Strategy Assembler**: Compiles JSON `StrategyConfig` into Python pipelines.
     - **Walk-Forward Validator**: Automated Train/Test split engine to assign "Robustness Scores".
     - **Marketplace**: Endpoints for searching and preventing "Lemon" strategies.

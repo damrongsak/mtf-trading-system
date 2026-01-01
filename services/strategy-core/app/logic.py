@@ -11,25 +11,25 @@ class SignalDirection(str, Enum):
     BEARISH = "BEARISH"
     NEUTRAL = "NEUTRAL"
 
+
 def check_macro_bias(df_h4: pd.DataFrame, ema_period: int = 200) -> SignalDirection:
     """
     Rule A: Macro Bias
     - Bullish if Close > EMA200
     - Bearish if Close < EMA200
-    Checks the last completed candle.
+    
+    CRITICAL (Bias Prevention):
+    - Uses `iloc[-2]` (Last Completed Candle) to prevent look-ahead bias if
+      the DataFrame includes the current forming candle.
     """
-    if len(df_h4) < ema_period + 1:
+    if len(df_h4) < ema_period + 2:
         return SignalDirection.NEUTRAL
 
     ema = calculate_ema(df_h4['close'], span=ema_period)
     
-    # Use -1 or -2? 
-    # Usually we want the 'current context'. If we are waiting for a setup in M15, 
-    # the H4 bias is determined by where price IS currently relative to EMA.
-    # So we use the latest close (even if forming) or last completed?
-    # PRD says "Price vs EMA200". Let's use the last closed candle to be stable.
-    last_close = df_h4['close'].iloc[-1] 
-    last_ema = ema.iloc[-1]
+    # Strict Bias Prevention: Use -2 (Last Completed)
+    last_close = df_h4['close'].iloc[-2] 
+    last_ema = ema.iloc[-2]
 
     if last_close > last_ema:
         return SignalDirection.BULLISH
@@ -59,7 +59,9 @@ def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
     if not obs:
         return False
         
-    current_close = df_h1['close'].iloc[-1]
+    # Strict Bias Prevention: Check if LAST COMPLETED candle closed in OB
+    # (Or is testing it). For entry signal, we usually want the completed candle.
+    current_close = df_h1['close'].iloc[-2]
     
     for ob in obs:
         # Check alignment
@@ -81,18 +83,18 @@ def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
 def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
     """
     Rule C: Trigger
-    - 15m Candle Validation.
-    - Bullish: Strong Green Candle (Body > Wick).
-    - Bearish: Strong Red Candle.
-    - Body-to-Wick Ratio (Rv) > threshold.
-    - **Quantreo**: Parkinson Volatility > min_volatility (Avoid Dead Markets).
+    - Volatility Check (Quantreo)
+    - Candle Shape (Body/Wick)
+    
+    CRITICAL: Strict `iloc[-2]` usage.
     """
-    if len(df_m15) < 31: # Need 30 for vol calculation
+    if len(df_m15) < 32: 
         return False
 
     # 1. Quantreo Volatility Filter
     df_vol = QuantreoFeatures.add_volatility_features(df_m15, window_size=30)
-    current_vol = df_vol['parkinson_vol_30'].iloc[-1]
+    # Check volatility of the CLOSED candle setup
+    current_vol = df_vol['parkinson_vol_30'].iloc[-2]
     
     if current_vol < min_volatility:
         # Market too quiet, reject trade
@@ -130,12 +132,12 @@ def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold
 def calculate_stop_loss(df_m15: pd.DataFrame, direction: SignalDirection, atr_mult: float = 1.75) -> float:
     """
     Rule D: Risk Management (Stop Loss)
-    - SL = ATR(14) * M
+    - SL = ATR(14) * M (Using Last Completed Candle)
     """
     atr = calculate_atr(df_m15['high'], df_m15['low'], df_m15['close'], window=14)
-    last_atr = atr.iloc[-1]
+    last_atr = atr.iloc[-2]
     
-    current_price = df_m15['close'].iloc[-1]
+    current_price = df_m15['close'].iloc[-2]
     
     dist = last_atr * atr_mult
     
