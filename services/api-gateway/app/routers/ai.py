@@ -92,7 +92,7 @@ from app.schemas.generated import (
     ChatMessage as ChatMessageSchema,
     ResponseStatus
 )
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 @router.get("/chat/sessions", response_model=APIResponseChatSessionList)
@@ -181,7 +181,7 @@ async def send_chat_message(
     db.add(user_msg)
     
     # Update session timestamp
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user_msg)
     

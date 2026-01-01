@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from app.schemas.signal import SignalResponse, SignalDirection
 from app.models.signal_log import SignalLog
 from app.database import get_db
@@ -82,7 +82,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
             if not candles_data:
                  # Fallback/Empty
                 return success_response(data=SignalResponse(
-                    symbol=symbol.upper(), timeframe=timeframe, timestamp=datetime.utcnow(),
+                    symbol=symbol.upper(), timeframe=timeframe, timestamp=datetime.now(timezone.utc),
                     direction=SignalDirection.NEUTRAL, entry_price=0, sl_price=0, tp_price=0,
                     reason="No data available"
                 ))

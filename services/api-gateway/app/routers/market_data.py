@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import uuid
 
 from app.database import get_db
@@ -17,8 +17,7 @@ class SymbolSchema(BaseModel):
     order_index: int = 0
     broker: Optional[str] = None # Name of the data source
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CategorySchema(BaseModel):
     id: Optional[uuid.UUID] = None
@@ -26,8 +25,7 @@ class CategorySchema(BaseModel):
     order_index: int = 0
     items: List[SymbolSchema] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CreateCategorySchema(BaseModel):
     name: str

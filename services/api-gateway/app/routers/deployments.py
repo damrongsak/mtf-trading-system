@@ -9,7 +9,7 @@ from app.models.deployment import Deployment
 from app.models.user_fund import User
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -217,13 +217,13 @@ async def stop_bot_instance(deployment_id: str):
 
             if resp.status_code == 200:
                 deployment.status = "STOPPED"
-                deployment.stopped_at = datetime.utcnow()
+                deployment.stopped_at = datetime.now(timezone.utc)
             else:
                 # Even if core fails (e.g. not found), we should probably mark it stopped or error.
                 # If not found, it's stopped.
                 if resp.status_code == 404:
                      deployment.status = "STOPPED"
-                     deployment.stopped_at = datetime.utcnow()
+                     deployment.stopped_at = datetime.now(timezone.utc)
                 else:
                     deployment.status = "ERROR"
                     deployment.last_error = f"Stop Failed: {resp.text}"

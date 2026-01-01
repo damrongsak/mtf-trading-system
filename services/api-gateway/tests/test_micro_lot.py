@@ -5,7 +5,7 @@ from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.database import Base
 import uuid
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Connect to DB (assuming localhost for running outside docker or service name inside)
 # If running via docker compose exec api-gateway, localhost is the container itself, but db is at 'host.docker.internal' or 'postgresql'
@@ -31,7 +31,7 @@ def test_create_micro_lot_trade(db_session):
         trade_id=uuid.uuid4(),
         symbol="AUD/USD",
         strategy_name="Test Micro Lot",
-        signal_timestamp=datetime.utcnow(),
+        signal_timestamp=datetime.now(timezone.utc),
         status=TradeStatus.OPEN,
         direction=TradeDirection.SHORT,
         entry_price=0.6500,

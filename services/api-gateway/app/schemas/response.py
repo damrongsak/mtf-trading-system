@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from typing import Generic, TypeVar, Optional, List, Dict, Any
-from pydantic import BaseModel, Field
-from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime, timezone
 from enum import Enum
 
 # Generic type for data payload
@@ -60,8 +60,7 @@ class Meta(BaseModel):
     total: Optional[int] = Field(None, description="Total items")
     total_pages: Optional[int] = Field(None, description="Total pages")
     
-    class Config:
-        extra = "allow"  # Allow additional metadata fields
+    model_config = ConfigDict(extra="allow")
 
 class RateLimitInfo(BaseModel):
     """Rate limiting information"""
@@ -93,7 +92,7 @@ class APIResponse(BaseModel, Generic[T]):
     meta: Optional[Meta] = Field(None, description="Metadata (pagination, etc.)")
     auth: Optional[AuthTokens] = Field(None, description="Authentication tokens")
     rate_limit: Optional[RateLimitInfo] = Field(None, description="Rate limiting info")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Response timestamp")
 
 class PaginatedResponse(BaseModel, Generic[T]):
     """Standard paginated response"""
@@ -102,4 +101,4 @@ class PaginatedResponse(BaseModel, Generic[T]):
     message: Optional[str] = None
     meta: Meta = Field(..., description="Pagination metadata")
     rate_limit: Optional[RateLimitInfo] = Field(None, description="Rate limiting info")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

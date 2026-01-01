@@ -42,7 +42,7 @@ class RedisSubscriber:
 
     async def close(self):
         if self.pubsub:
-             await self.pubsub.close()
+             await self.pubsub.aclose()
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
             self.redis = None

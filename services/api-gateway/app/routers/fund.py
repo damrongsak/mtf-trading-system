@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_fund import Fund, UserFund, User
 from app.security import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from typing import List, Optional, Any
@@ -35,8 +35,7 @@ class FundResponse(BaseModel):
     position_limit_single: float | None = None
     position_limit_sector: float | None = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("", response_model=APIResponse[List[FundResponse]])

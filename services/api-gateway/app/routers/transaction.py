@@ -5,7 +5,7 @@ from typing import List
 import uuid
 import pandas as pd
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.transaction import Transaction, TransactionType
@@ -35,7 +35,7 @@ def create_response(data, status=ResponseStatus.success, message=None, meta=None
         "data": data,
         "message": message,
         "meta": meta,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @router.get("", response_model=PaginatedResponseTransactionResponse)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas.generated import FoundryAssembleRequest, APIResponse_FoundryAssembleResponse
+from app.schemas.generated import FoundryAssembleRequest, APIResponseFoundryAssembleResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List
 from datetime import datetime
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/foundry", tags=["foundry"])
 
 STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
-@router.post("/assemble", response_model=APIResponse_FoundryAssembleResponse)
+@router.post("/assemble", response_model=APIResponseFoundryAssembleResponse)
 def assemble_strategy(
     req: FoundryAssembleRequest,
     db: Session = Depends(get_db),
@@ -56,7 +56,7 @@ def assemble_strategy(
         with httpx.Client() as client:
             resp = client.post(f"{STRATEGY_CORE_URL}/api/v1/foundry/assemble", json=payload)
             if resp.status_code != 200:
-                return APIResponse_FoundryAssembleResponse(
+                return APIResponseFoundryAssembleResponse(
                     status="error",
                     data={"pipeline_hash": "", "errors": [f"Strategy Core Error: {resp.text}"]}
                 )
@@ -64,13 +64,13 @@ def assemble_strategy(
             data = resp.json() 
             # Strategy Core returns {pipeline_hash: ..., errors: []}
             
-            return APIResponse_FoundryAssembleResponse(
+            return APIResponseFoundryAssembleResponse(
                 status="success",
                 data=data
             )
 
     except Exception as e:
-         return APIResponse_FoundryAssembleResponse(
+         return APIResponseFoundryAssembleResponse(
             status="error",
             data={"pipeline_hash": "", "errors": [str(e)]}
         )
@@ -96,5 +96,7 @@ def validate_strategy(
                 data=data
             )
             
+    except HTTPException:
+        raise
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))

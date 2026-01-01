@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 from app.models.journal import JournalEntry, TimelineEvent, RootCauseAnalysis, GameLevel
 from app.schemas.response import ResponseStatus
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 def test_get_journal_stats(client, mock_db_session, mock_current_user):
     from app.security import get_current_user
@@ -115,11 +115,11 @@ def test_get_equity_curve(client, mock_db_session, mock_current_user):
     
     # Mock return entries
     mock_entry1 = MagicMock()
-    mock_entry1.created_at = datetime.utcnow()
+    mock_entry1.created_at = datetime.now(timezone.utc)
     mock_entry1.pnl_amount = 100.0
     
     mock_entry2 = MagicMock()
-    mock_entry2.created_at = datetime.utcnow()
+    mock_entry2.created_at = datetime.now(timezone.utc)
     mock_entry2.pnl_amount = 50.0
     
     # The router calls: db.query(...).filter(...).order_by(...).all()

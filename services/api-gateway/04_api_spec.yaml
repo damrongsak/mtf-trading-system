@@ -1,0 +1,3211 @@
+openapi: 3.0.0
+info:
+  title: MTF Trading API
+  version: 0.1.0
+paths:
+  /api/v1/deployments/:
+    get:
+      summary: List all deployments
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DeploymentList'
+    post:
+      summary: Create a new deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentCreate'
+      responses:
+        '200':
+          description: Created deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Deployment'
+
+  /api/v1/deployments/{id}/stop:
+    post:
+      summary: Stop a deployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deployment stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Deployment'
+
+  /api/v1/ai/chat/sessions:
+    get:
+      summary: List chat sessions
+      parameters:
+        - name: strategy_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of chat sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatSessionList'
+    post:
+      summary: Create a new chat session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatSessionCreate'
+      responses:
+        '201':
+          description: Created chat session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatSession'
+
+  /api/v1/ai/chat/sessions/{session_id}/messages:
+    get:
+      summary: Get messages for a session
+      parameters:
+         - name: session_id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+      responses:
+        '200':
+           description: List of messages
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/APIResponse_ChatMessageList'
+    post:
+      summary: Send a message to the AI
+      parameters:
+         - name: session_id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+               $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: AI Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ChatMessage'
+
+  /api/v1/signal/latest/{symbol}:
+    get:
+      summary: Get the latest signal for a specific symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Latest signal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalResponse'
+  /api/v1/signal/detected:
+    get:
+      summary: Get detected signals history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of detected signals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalList'
+
+  /api/v1/internal/signals:
+    post:
+      summary: Report a signal from an internal service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                direction:
+                  type: string
+                timeframe:
+                  type: string
+                confidence:
+                  type: number
+                price:
+                  type: number
+                reason:
+                  type: string
+                deployment_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Signal processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/signal/check:
+    post:
+      summary: Check if a signal is valid given current state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+            schema:
+              type: object
+              properties:
+                fund_id:
+                  type: string
+                  format: uuid
+                symbol: 
+                  type: string
+                direction:
+                  type: string
+                  enum: ["BULLISH", "BEARISH"]
+                stop_loss:
+                  type: number
+                risk_usd:
+                  type: number
+                  description: "Optional override for risk calculation"
+                generated_by:
+                  type: string
+                reason: 
+                  type: string
+      responses:
+        '200':
+          description: signal check response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalResponse'
+  /api/v1/signal/batch:
+    post:
+      summary: Fetch batch signals for multiple symbols
+      description: Orchestrates symbol discovery, candle fetching, and batch SMC analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalBatchRequest'
+      responses:
+        '200':
+          description: Batch of signals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SignalList'
+  /api/v1/data/symbols:
+    get:
+      summary: Get active symbols for a broker
+      parameters:
+        - name: broker
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of active symbols
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SymbolList'
+  /api/v1/risk/check:
+    post:
+      summary: Check if a trade execution is allowed based on risk rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskCheckRequest'
+      responses:
+        '200':
+          description: Risk check decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_RiskCheckResponse'
+  /api/v1/auth/token:
+    post:
+      summary: Login to get access token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/profile:
+    get:
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/auth/profile/avatar:
+    post:
+      summary: Upload user avatar
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserResponse'
+  /api/v1/settings/preferences:
+    get:
+      summary: Get current user preferences
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserPreferencesResponse'
+    put:
+      summary: Update user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesDto'
+      responses:
+        '200':
+          description: Updated user preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UserPreferencesResponse'
+  /api/v1/accounts/:
+    get:
+      summary: List broker accounts
+      responses:
+        '200':
+          description: List of broker accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccountList'
+    post:
+      summary: Add a new broker account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrokerAccountCreate'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccount'
+
+  /api/v1/accounts/{account_id}:
+    put:
+      summary: Update a broker account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrokerAccountUpdate'
+      responses:
+        '200':
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BrokerAccount'
+    delete:
+      summary: Delete a broker account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/funds:
+    get:
+      summary: List funds for current user
+      responses:
+        '200':
+          description: List of funds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_Fund'
+    post:
+      summary: Create a new fund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundCreate'
+      responses:
+        '201':
+          description: Fund created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Fund'
+
+  /api/v1/funds/{fund_id}:
+    get:
+      summary: Get fund details
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fund details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Fund'
+    put:
+      summary: Update fund details
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FundUpdate'
+      responses:
+        '200':
+          description: Fund updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Fund'
+    delete:
+      summary: Delete a fund
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Fund deleted
+  /api/v1/strategies/templates:
+    get:
+      summary: List available strategy templates
+      responses:
+        '200':
+          description: List of strategy templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyTemplateList'
+  /api/v1/strategies/{id}/config:
+    post:
+      summary: Update configuration for a strategy instance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyResponse'
+  /api/v1/journal/:
+    get:
+      summary: List journal entries for current user
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of journal entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_JournalEntryResponse'
+    post:
+      summary: Create a new journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalEntryCreate'
+      responses:
+        '200':
+          description: Created journal entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_JournalEntryResponse'
+  /api/v1/journal/{entry_id}:
+    get:
+      summary: Get journal entry details
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Journal entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_JournalEntryResponse'
+  /backtest/run:
+    post:
+      summary: Trigger a backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequest'
+      responses:
+        '200':
+          description: Backtest started/completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /backtest/optimize:
+    post:
+      summary: Run an optimization job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequest'
+      responses:
+        '200':
+          description: Optimization results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse' # Reusing BacktestResponse for now as it contains best_params
+  /backtest/monte-carlo:
+    post:
+      summary: Run a Monte Carlo simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonteCarloRequest'
+      responses:
+        '200':
+          description: Monte Carlo results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonteCarloResponse'
+  /backtest/custom:
+    post:
+      summary: Run a custom strategy backtest
+      description: Compiles and runs user-provided Python code against historical data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyBacktestRequest'
+      responses:
+        '200':
+          description: Custom backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /saved-strategies:
+    get:
+      summary: List saved strategies
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavedStrategyResponse'
+    post:
+      summary: Create a saved strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedStrategyCreate'
+      responses:
+        '201':
+          description: Strategy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+
+  /saved-strategies/{id}:
+    get:
+      summary: Get saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Strategy details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+    put:
+      summary: Update saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedStrategyUpdate'
+      responses:
+        '200':
+          description: Strategy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedStrategyResponse'
+    delete:
+      summary: Delete saved strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Strategy deleted
+
+  /backtest/results/{backtest_id}:
+    get:
+      summary: Get results of a specific backtest
+      parameters:
+        - name: backtest_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BacktestResponse'
+  /api/v1/transactions:
+    get:
+      summary: List transactions
+      parameters:
+        - name: fund_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_TransactionResponse'
+    post:
+      summary: Create a manual transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_TransactionResponse'
+  /api/v1/transactions/import:
+    post:
+      summary: Import transactions from Excel
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                fund_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_TransactionImportResponse'
+  /api/v1/transactions/balance:
+    get:
+      summary: Get fund balance
+      parameters:
+        - name: fund_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BalanceResponse'
+  /api/v1/market/categories:
+    get:
+      summary: List market categories
+      responses:
+        '200':
+          description: List of market categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketCategory'
+    post:
+      summary: Create a new market category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketCategoryCreate'
+      responses:
+        '201':
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketCategory'
+
+  /api/v1/market/categories/{category_id}/symbols:
+    post:
+      summary: Add a symbol to a category
+      parameters:
+        - name: category_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketSymbolCreate'
+      responses:
+        '201':
+          description: Added symbol
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketSymbol'
+
+  /api/v1/data/ingest/manual:
+    post:
+      summary: Manually trigger the OANDA data ingestion job.
+      description: This endpoint triggers the background job responsible for fetching recent OANDA candle data across configured symbols and timeframes, and storing it in the database. Returns a 202 Accepted response upon successful triggering of the background task.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional symbol to ingest (e.g., EUR_USD). If omitted, defaults to configured symbols.
+      responses:
+        '202':
+          description: Ingestion job triggered in background.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Ingestion job triggered in background
+  /api/v1/data/upload:
+    post:
+      summary: Upload historical data CSV
+      description: Bulk upload of historical candle data via CSV. Handles large files via Nginx proxy. Supports standard OHLCV formats including MetaTrader and Dukascopy.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  rows_processed:
+                    type: integer
+  /api/v1/execution/trades:
+    get:
+      summary: List trades with filtering and pagination
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, CLOSED, REJECTED, ALL]
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse_TradeResponse'
+  /api/v1/execution/trades/{trade_id}/close:
+    post:
+      summary: Manually close a trade
+      parameters:
+        - name: trade_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - exit_price
+              properties:
+                exit_price:
+                  type: number
+      responses:
+        '200':
+          description: Trade closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+    
+  /api/v1/execution/orders:
+    post:
+      summary: Place a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object # Simplify for now or look up OrderRequest
+      responses:
+        '200':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/data/candles:
+    get:
+      summary: Fetch historical candle data
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 1000
+      responses:
+        '200':
+          description: List of candles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Candle'
+
+  /api/v1/analysis/indicators:
+    get:
+      summary: Get multiple technical indicators
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: indicators
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Calculated indicators
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+
+  /api/v1/analysis/levels/indicators/{indicator_type}:
+    get:
+      summary: Get specific indicator data
+      parameters:
+        - name: indicator_type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Indicator data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /api/v1/execution/account/summary:
+    get:
+      summary: Get account summary
+      responses:
+        '200':
+          description: Account summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/foundry/assemble:
+    post:
+      summary: Assemble and Validate Strategy Config
+      operationId: foundry_assemble
+      tags:
+        - Foundry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FoundryAssembleRequest'
+      responses:
+        '200':
+          description: Successful assembly
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse[FoundryAssembleResponse]'
+
+  /foundry/validate:
+    post:
+      summary: Run Walk-Forward Validation
+      operationId: foundry_validate
+      tags:
+        - Foundry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalkForwardRequest'
+      responses:
+        '200':
+          description: Successful validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse[WalkForwardResponse]'
+
+  /api/v1/foundry/validate:
+    post:
+      summary: Run Walk-Forward Validation (Proving Ground)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FoundryValidateRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FoundryValidateResponse'
+
+  /api/v1/risk/portfolio:
+    post:
+      summary: Update portfolio risk parity settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioAllocationUpdate'
+      responses:
+        '200':
+          description: Allocation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/coach/mental-history:
+    post:
+      summary: Log a Mental Hand History entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MentalHandHistoryCreate'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/marketplace:
+    get:
+      summary: Browse verified strategies
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyList'
+
+components:
+  schemas:
+    # --- Standard Response Wrappers ---
+    ResponseStatus:
+      type: string
+      enum: [success, error, fail]
+    
+    ErrorCode:
+      type: string
+      enum:
+        - AUTH_1001
+        - AUTH_1002
+        - AUTH_1003
+        - AUTH_1004
+        - AUTH_1005
+        - VAL_2001
+        - VAL_2002
+        - VAL_2003
+        - VAL_2004
+        - VAL_2005
+        - VAL_2006
+        - VAL_2007
+        - RES_3001
+        - RES_3002
+        - RES_3003
+        - BIZ_4001
+        - BIZ_4002
+        - BIZ_4003
+        - BIZ_4004
+        - RATE_5001
+        - RATE_5002
+        - SRV_9001
+        - SRV_9002
+        - SRV_9003
+        - SRV_9004
+
+    StrategyBacktestRequest:
+      type: object
+      required:
+        - code
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        code:
+          type: string
+          description: "Python code defining the strategy (async def strategy...)"
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        initial_capital:
+          type: number
+          default: 10000.0
+
+    Meta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    AuthTokens:
+      type: object
+      required:
+        - access_token
+        - expires_in
+        - expires_at
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          default: Bearer
+        expires_in:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+
+    RateLimitInfo:
+      type: object
+      required:
+        - limit
+        - remaining
+        - reset
+        - reset_in_seconds
+      properties:
+        limit:
+          type: integer
+        remaining:
+          type: integer
+        reset:
+          type: string
+          format: date-time
+        reset_in_seconds:
+          type: integer
+
+    ErrorDetail:
+      type: object
+      required:
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+
+    # --- Generic Wrappers (instantiated for each type) ---
+    # Note: OpenAPI 3.0 doesn't support generics directly, so we define explicit types.
+    
+    APIResponse_SignalResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/SignalResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    Candle:
+      type: object
+      required:
+        - time
+        - open
+        - high
+        - low
+        - close
+        - volume
+      properties:
+        time:
+          type: string
+          format: date-time
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: integer
+        is_complete:
+          type: boolean
+
+    APIResponse_RiskCheckResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/RiskCheckResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_UserResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/UserResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_UserPreferencesResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/UserPreferencesResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BrokerAccount:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/BrokerAccountResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BrokerAccountList:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrokerAccountResponse'
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_Success:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_Fund:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/Fund'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_StrategyResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/StrategyResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_JournalEntryResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/JournalEntryResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BacktestResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/BacktestResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+          
+    MonteCarloRequest:
+      type: object
+      properties:
+        trades:
+          type: array
+          items:
+            type: object
+        iterations:
+          type: integer
+          default: 1000
+
+    MonteCarloResponse:
+      type: object
+      properties:
+        iterations:
+          type: integer
+        max_drawdown:
+          $ref: '#/components/schemas/SensitivityMetrics'
+        total_return:
+          $ref: '#/components/schemas/SensitivityMetrics'
+
+    SensitivityMetrics:
+      type: object
+      properties:
+        p95:
+          type: number
+        median:
+          type: number
+        worst:
+          type: number
+        best:
+          type: number
+
+    APIResponse_TransactionResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          $ref: '#/components/schemas/TransactionResponse'
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_TransactionImportResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: object
+          properties:
+            imported_count:
+              type: integer
+            skipped_count:
+              type: integer
+            errors:
+              type: array
+              items:
+                type: string
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_BalanceResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: object
+          properties:
+            balance:
+              type: number
+            currency:
+              type: string
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_TransactionResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        timestamp:
+          type: string
+          format: date-time
+
+    # --- Trade Schemas ---
+    TradeStatus:
+      type: string
+      enum: [OPEN, CLOSED, REJECTED]
+
+    TradeDirection:
+      type: string
+      enum: [LONG, SHORT]
+
+    TradeResponse:
+      type: object
+      required:
+        - trade_id
+        - symbol
+        - strategy_name
+        - signal_timestamp
+        - direction
+        - entry_price
+        - sl_price
+        - tp_price
+        - lot_size
+        - risk_usd
+        - status
+        - created_at
+        - updated_at
+      properties:
+        trade_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        strategy_name:
+          type: string
+        signal_timestamp:
+          type: string
+          format: date-time
+        direction:
+          $ref: '#/components/schemas/TradeDirection'
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        lot_size:
+          type: number
+        risk_usd:
+          type: number
+        status:
+          $ref: '#/components/schemas/TradeStatus'
+        pnl_usd:
+          type: number
+          nullable: true
+        exit_price:
+          type: number
+          nullable: true
+        exit_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        rejection_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PaginatedResponse_TradeResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        timestamp:
+          type: string
+          format: date-time
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_Fund:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fund'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_StrategyResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrategyResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse_JournalEntryResponse:
+      type: object
+      required:
+        - status
+        - data
+        - meta
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntryResponse'
+        message:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    # --- Domain Schemas ---
+    SignalRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+
+    RiskCheckRequest:
+      type: object
+      required:
+        - risk_usd
+        - sl_distance_usd
+        - min_lot
+      properties:
+        risk_usd:
+          type: number
+          description: Maximum risk in USD allowed for this trade
+        sl_distance_usd:
+          type: number
+          description: Distance to stop loss in USD (per unit/contract)
+        min_lot:
+          type: number
+          description: Minimum allowed lot size (e.g., 0.01)
+    RiskCheckResponse:
+      type: object
+      properties:
+        can_execute:
+          type: boolean
+        lot:
+          type: number
+        reason:
+          type: string
+    UserCreate:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+    
+    BrokerAccountCreate:
+      type: object
+      required:
+        - broker_name
+        - account_name
+        - credentials
+      properties:
+        broker_name:
+          type: string
+          enum: [OANDA, BINANCE]
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_live:
+          type: boolean
+          default: false
+        credentials:
+          type: object
+          description: "Key-value pairs of API keys, secrets, etc."
+
+    BrokerAccountUpdate:
+      type: object
+      properties:
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_live:
+          type: boolean
+        is_active:
+          type: boolean
+        credentials:
+          type: object
+
+    BrokerAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_id:
+          type: string
+
+    SmartOrderRequest:
+      type: object
+      required:
+        - broker_account_id
+        - symbol
+        - direction
+        - generated_by
+      properties:
+        broker_account_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum: [BULLISH, BEARISH]
+        stop_loss:
+          type: number
+        generated_by:
+          type: string
+        reason:
+          type: string
+        risk_usd:
+          type: number
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        instrument:
+          type: string
+        units:
+          type: string
+        price:
+          type: string
+        time:
+          type: string
+
+    BrokerAccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+        is_active:
+          type: boolean
+        is_live:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserPreferencesResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        default_fund_id:
+          type: string
+          format: uuid
+          nullable: true
+        preferred_timeframes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        default_symbol:
+          type: string
+          nullable: true
+        session_preferences:
+          type: array
+          items:
+            type: string
+          nullable: true
+        preferred_timeframes:
+          type: array
+          items:
+            type: string
+        default_symbol:
+          type: string
+        session_preferences:
+          type: array
+          items:
+            type: string
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+    UpdatePreferencesDto:
+      type: object
+      properties:
+        default_fund_id:
+          type: string
+          format: uuid
+          nullable: true
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+          nullable: true
+        asset_classes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        max_risk_per_trade:
+          type: number
+          nullable: true
+        default_lot_size:
+          type: number
+          nullable: true
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
+        preferred_timeframes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        default_symbol:
+          type: string
+          nullable: true
+        session_preferences:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    Fund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+    FundCreate:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+        asset_classes:
+          type: array
+          items:
+            type: string
+        max_risk_per_trade:
+          type: number
+        default_lot_size:
+          type: number
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
+
+    FundUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+          nullable: true
+        asset_classes:
+          type: array
+          items:
+            type: string
+          nullable: true
+        max_risk_per_trade:
+          type: number
+          nullable: true
+        default_lot_size:
+          type: number
+          nullable: true
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
+    StrategyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        template_id:
+          type: string
+        broker_account_id:
+          type: string
+          format: uuid
+        config_json:
+          type: object
+        risk_settings:
+          type: object
+        is_active:
+          type: boolean
+    StrategyCreate:
+      type: object
+      required:
+        - name
+        - fund_id
+        - template_id
+        - broker_account_id
+        - config_json
+      properties:
+        name:
+          type: string
+        fund_id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+        broker_account_id:
+          type: string
+          format: uuid
+        config_json:
+          type: object
+        risk_settings:
+          type: object
+    StrategyConfigUpdate:
+      type: object
+      properties:
+        config_json:
+          type: object
+        risk_settings:
+          type: object
+        is_active:
+          type: boolean
+    StrategyTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        default_config:
+          type: object
+        default_risk_settings:
+          type: object
+    JournalEntryCreate:
+      type: object
+      required:
+        - symbol
+        - direction
+      properties:
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        session:
+          type: string
+        entry_price:
+          type: number
+        exit_price:
+          type: number
+        pnl_amount:
+          type: number
+        pnl_r:
+          type: number
+        risk_amount:
+          type: number
+        stop_loss_price:
+          type: number
+        take_profit_price:
+          type: number
+        context_score:
+          type: integer
+          minimum: 1
+          maximum: 10
+        game_level:
+          type: string
+          enum: [A_GAME, B_GAME, C_GAME]
+        mental_state:
+          type: object
+          properties:
+            greed_level:
+              type: integer
+            fear_level:
+              type: integer
+            tilt_level:
+              type: integer
+            confidence_level:
+              type: integer
+            discipline_level:
+              type: integer
+        timeline_events:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              description:
+                type: string
+              order_index:
+                type: integer
+        root_cause:
+          type: object
+          properties:
+            problem:
+              type: string
+            why_exist:
+              type: string
+            flaw:
+              type: string
+            correction:
+              type: string
+            logic:
+              type: string
+    JournalEntryResponse:
+      allOf:
+        - $ref: '#/components/schemas/JournalEntryCreate'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            user_id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    
+    BacktestRequest:
+      type: object
+      required:
+        - strategy_id
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        initial_capital:
+          type: number
+    
+    BacktestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        metrics:
+          type: object
+        trades:
+          type: array
+          items:
+            type: object
+        plot_json:
+          type: string
+          description: "Serialized Plotly JSON string"
+
+    TransactionCreate:
+      type: object
+      required:
+        - fund_id
+        - transaction_date
+        - type
+        - amount
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        transaction_date:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL]
+        amount:
+          type: number
+        currency:
+          type: string
+          default: USD
+        status:
+          type: string
+        reference:
+          type: string
+        description:
+          type: string
+        payment_method:
+          type: string
+        trading_account:
+          type: string
+
+    TransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/TransactionCreate'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # --- Market Schemas ---
+    MarketCategory:
+      type: object
+      required:
+        - id
+        - name
+        - order_index
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        order_index:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketSymbol'
+
+    MarketCategoryCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        order_index:
+          type: integer
+
+    MarketSymbol:
+      type: object
+      required:
+        - id
+        - symbol
+        - category_id
+        - order_index
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        display_name:
+          type: string
+        category_id:
+          type: string
+          format: uuid
+        order_index:
+          type: integer
+
+    MarketSymbolCreate:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+        display_name:
+          type: string
+        order_index:
+          type: integer
+
+    # --- Batch Signal Schemas ---
+    SignalBatchRequest:
+      type: object
+      properties:
+        broker:
+          type: string
+          description: Broker name (e.g. OANDA)
+        symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Optional list of symbols to override broker defaults
+    
+    APIResponse_SignalList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+          items:
+            $ref: '#/components/schemas/SignalResponse'
+
+    SignalResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        direction:
+          type: string
+          enum: [LONG, SHORT, NEUTRAL]
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        reason:
+          type: string
+          nullable: true
+        broker:
+          type: string
+          nullable: true
+        strategy_name:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          default: 0.0
+
+    APIResponse_SignalResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/SignalResponse'
+
+    FoundryAssembleResponse:
+      type: object
+      properties:
+        pipeline_hash:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+
+    WalkForwardRequest:
+      type: object
+      required:
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - config
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        config:
+          type: object
+
+    WalkForwardResponse:
+      type: object
+      properties:
+        robustness_score:
+          type: integer
+        avg_sharpe_test:
+          type: number
+        details:
+          type: array
+          items:
+            type: object
+
+    APIResponse_SymbolList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            type: string
+
+    # --- Backtest Schemas ---
+    StrategyBacktestRequest:
+      type: object
+      required:
+        - code
+        - symbol
+        - timeframe
+        - start_date
+        - end_date
+        - initial_capital
+      properties:
+        code:
+          type: string
+          description: "Python code implementing strategy(data) -> entries, exits"
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          type: number
+        fees:
+          type: number
+        slippage:
+          type: number
+
+    SavedStrategyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        code:
+          type: string
+        parameters:
+          type: object
+        last_results:
+          type: object
+          nullable: true
+        is_public:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SavedStrategyCreate:
+      type: object
+      required:
+        - name
+        - code
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        parameters:
+          type: object
+        last_results:
+          type: object
+          nullable: true
+        is_public:
+          type: boolean
+
+    SavedStrategyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        code:
+          type: string
+        parameters:
+          type: object
+        last_results:
+          type: object
+          nullable: true
+        is_public:
+          type: boolean
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        strategy_id:
+          type: string
+          format: uuid
+        stock_symbol:
+          type: string
+        timeframe:
+          type: string
+        status:
+          type: string
+          enum: [STARTING, ACTIVE, STOPPED, ERROR, STOPPING]
+        is_live:
+          type: boolean
+        config_snapshot:
+          type: object
+        last_error:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+        stopped_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    DeploymentCreate:
+      type: object
+      required:
+        - strategy_id
+        - stock_symbol
+        - timeframe
+        - config_snapshot
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+        stock_symbol:
+          type: string
+        timeframe:
+          type: string
+        is_live:
+          type: boolean
+        config_snapshot:
+          type: object
+
+    APIResponse_DeploymentList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Deployment'
+
+    APIResponse_Deployment:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/Deployment'
+
+    # --- AI Chat Schemas ---
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        strategy_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        context_snapshot:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ChatSessionCreate:
+      type: object
+      properties:
+        strategy_id:
+          type: string
+          format: uuid
+          nullable: true
+        initial_message:
+          type: string
+          description: "Optional initial message to start the session"
+
+    ChatMessageCreate:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        context_snapshot:
+          type: object
+          nullable: true
+    
+    APIResponse_ChatSessionList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatSession'
+    
+    APIResponse_ChatSession:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/ChatSession'
+
+    APIResponse_ChatMessageList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+
+    APIResponse_ChatMessage:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/ChatMessage'
+
+    APIResponse_AIReport: 
+       type: object
+       properties:
+         status:
+           type: string
+         data:
+           type: object
+           properties:
+             report:
+                type: string
+             timestamp:
+                type: string
+
+    BrokerAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fund_id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+        is_live:
+          type: boolean
+    
+    BrokerAccountCreate:
+      type: object
+      required:
+        - fund_id
+        - broker_name
+        - account_name
+        - credentials
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        broker_name:
+          type: string
+        account_name:
+          type: string
+        account_number:
+          type: string
+          nullable: true
+        credentials:
+          type: object
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_live:
+          type: boolean
+          default: false
+
+    BrokerAccountUpdate:
+      type: object
+      properties:
+        account_name:
+          type: string
+          nullable: true
+        account_number:
+          type: string
+          nullable: true
+        credentials:
+          type: object
+          nullable: true
+        supported_symbols:
+          type: array
+          items:
+            type: string
+          nullable: true
+        risk_settings:
+          type: object
+          nullable: true
+        is_active:
+          type: boolean
+          nullable: true
+        is_live:
+          type: boolean
+          nullable: true
+
+    APIResponse_BrokerAccount:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/BrokerAccount'
+
+    APIResponse_BrokerAccountList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrokerAccount'
+
+
+    FoundryAssembleRequest:
+      type: object
+      properties:
+        config:
+           $ref: '#/components/schemas/StrategyConfigUpdate'
+        
+    APIResponse_FoundryAssembleResponse:
+      type: object
+      properties:
+        status:
+           type: string
+        data:
+           type: object
+           properties:
+              pipeline_hash:
+                 type: string
+              errors:
+                 type: array
+                 items:
+                    type: string
+    
+    FoundryValidateRequest:
+      type: object
+      required:
+        - config_id
+      properties:
+        config_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+    
+    APIResponse_FoundryValidateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+             robustness_score:
+                type: integer
+             is_passed:
+                type: boolean
+    
+    PortfolioAllocationUpdate:
+      type: object
+      properties:
+         allocations:
+            type: array
+            items:
+               type: object
+               properties:
+                  strategy_id:
+                     type: string
+                     format: uuid
+                  weight: 
+                     type: number
+    
+    MentalHandHistoryCreate:
+      type: object
+      required:
+         - journal_entry_id
+         - pre_trade_emotion
+         - trigger_event
+         - irrational_thought
+         - behavioral_result
+         - correction_logic
+      properties:
+         journal_entry_id:
+            type: string
+            format: uuid
+         pre_trade_emotion:
+            type: string
+         trigger_event: 
+            type: string
+         irrational_thought:
+            type: string
+         behavioral_result:
+            type: string
+         correction_logic:
+            type: string
+
+    APIResponse_StrategyList:
+       type: object
+       properties:
+          status:
+             type: string
+          data:
+             type: array
+             items:
+                type: object # Placeholder for Strategy

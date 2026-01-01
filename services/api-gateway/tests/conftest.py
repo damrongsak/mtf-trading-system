@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.user_fund import User
 
 import uuid
+from datetime import datetime, timezone
 
 @pytest.fixture
 def mock_db_session():
@@ -25,11 +26,9 @@ def mock_db_session():
         if not hasattr(instance, 'is_active') or instance.is_active is None:
             instance.is_active = True
         if not hasattr(instance, 'created_at') or instance.created_at is None:
-            from datetime import datetime
-            instance.created_at = datetime.utcnow()
+            instance.created_at = datetime.now(timezone.utc)
         if not hasattr(instance, 'updated_at') or instance.updated_at is None:
-            from datetime import datetime
-            instance.updated_at = datetime.utcnow()
+            instance.updated_at = datetime.now(timezone.utc)
 
     session.refresh.side_effect = simulate_refresh
     return session

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_preferences import UserPreferences, StrategyType
 from app.security import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 import uuid
@@ -28,8 +28,7 @@ class UserPreferencesResponse(BaseModel):
     default_symbol: str
     session_preferences: List[str] | None = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UpdatePreferencesDto(BaseModel):

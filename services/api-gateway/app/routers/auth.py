@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user_fund import User
 from app.security import verify_password, create_access_token, get_password_hash, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import timedelta
 from app.schemas.response import APIResponse, AuthTokens, ErrorCode
 from app.utils.response import success_response, create_auth_tokens, error_response
@@ -34,8 +34,7 @@ class UserResponse(BaseModel):
     is_active: bool
     avatar_url: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserUpdateDto(BaseModel):
     username: str | None = None

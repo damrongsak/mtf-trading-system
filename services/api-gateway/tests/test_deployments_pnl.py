@@ -8,7 +8,7 @@ from app.models.trade import Trade
 from app.models.user_fund import User
 from app.database import get_db
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 client = TestClient(app)
 
@@ -100,21 +100,34 @@ def test_deployment_pnl_aggregation(mock_db_session, override_dependency):
     dep1.id = str(uuid.uuid4())
     # Model validate checks attributes, we need to ensure they exist
     dep1.user_id = mock_user.id
+    dep1.strategy_id = uuid.uuid4()
     dep1.stock_symbol = "AAPL"
+    dep1.timeframe = "15m"
+    dep1.is_live = True
     dep1.status = "ACTIVE"
     dep1.config_snapshot = {}
-    dep1.started_at = datetime.utcnow()
+    dep1.started_at = datetime.now(timezone.utc)
     dep1.stopped_at = None
     dep1.last_error = None
     dep1.last_signal_at = None
+    dep1.strategy = MagicMock()
+    dep1.strategy.name = "Strat1"
     
     dep2 = MagicMock(spec=Deployment)
     dep2.id = str(uuid.uuid4())
     dep2.user_id = mock_user.id
+    dep2.strategy_id = uuid.uuid4()
     dep2.stock_symbol = "GOOG"
+    dep2.timeframe = "1h"
+    dep2.is_live = True
     dep2.status = "ACTIVE"
     dep2.config_snapshot = {}
     dep2.started_at = datetime.utcnow()
+    dep2.stopped_at = None
+    dep2.last_error = None
+    dep2.last_signal_at = None
+    dep2.strategy = MagicMock()
+    dep2.strategy.name = "Strat2"
     
     # DB Queries Sequence:
     # 1. Query Deployments -> list
@@ -128,7 +141,14 @@ def test_deployment_pnl_aggregation(mock_db_session, override_dependency):
     # total_pnl = db.query(func.sum(Trade.pnl_usd)).filter(...).scalar()
     
     mock_query_deps = MagicMock()
-    mock_query_deps.filter.return_value.offset.return_value.limit.return_value.all.return_value = [dep1, dep2]
+    # Handle .options() chain
+    mock_query_deps.options.return_value = mock_query_deps
+    # Handle filters chain
+    mock_query_deps.filter.return_value = mock_query_deps
+    
+    # Handle pagination chain
+    mock_query_deps.order_by.return_value.offset.return_value.limit.return_value.all.return_value = [dep1, dep2]
+    mock_query_deps.count.return_value = 2
     
     mock_query_pnl = MagicMock()
     # scalar() side effect for sequential calls
@@ -139,13 +159,14 @@ def test_deployment_pnl_aggregation(mock_db_session, override_dependency):
             return mock_query_deps
         # args[0] might be func.sum(...)
         return mock_query_pnl
-
+    
     mock_db_session.query.side_effect = query_side_effect
     
     # Call Endpoint
     response = client.get("/api/v1/deployments/")
     assert response.status_code == 200
-    data = response.json()
+    json_data = response.json()
+    data = json_data["data"]
     
     assert len(data) == 2
     assert data[0]["id"] == str(dep1.id)

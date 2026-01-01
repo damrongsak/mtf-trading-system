@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from app.database import get_db
@@ -85,7 +85,7 @@ async def get_equity_curve(
     """
     Get daily equity curve data for the last N days, optionally filtered by strategy_id.
     """
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Get all closed trades in the period, ordered by exit time
     query = db.query(Trade).filter(

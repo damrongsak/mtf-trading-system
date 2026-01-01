@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import get_db
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.trade import Trade
@@ -271,7 +271,7 @@ def import_trades(
             stop_loss_price=float(trade.sl_price) if trade.sl_price else None,
             take_profit_price=float(trade.tp_price) if trade.tp_price else None,
             session="Imported",
-            created_at=trade.created_at if trade.created_at else datetime.utcnow()
+            created_at=trade.created_at if trade.created_at else datetime.now(timezone.utc)
         )
         db.add(new_entry)
         imported_count += 1
@@ -376,7 +376,7 @@ def get_equity_curve(db: Session = Depends(get_db), current_user: User = Depends
     running_pnl = 0.0
     
     # Optionally add a starting point
-    curve.append(EquityCurvePoint(timestamp=datetime.utcnow(), balance=0, pnl=0)) # Placeholder start?
+    curve.append(EquityCurvePoint(timestamp=datetime.now(timezone.utc), balance=0, pnl=0)) # Placeholder start?
     # Better: Start from first trade
     
     for entry in entries:

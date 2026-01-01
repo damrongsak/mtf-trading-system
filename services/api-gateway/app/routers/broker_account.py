@@ -6,7 +6,7 @@ from app.models.user_fund import Fund, UserFund
 from app.models.user_preferences import UserPreferences
 from app.security import get_current_user
 from app.utils.crypto import encrypt_data, decrypt_data
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from typing import List, Optional, Dict, Any
@@ -131,8 +131,7 @@ class BrokerAccountResponse(BaseModel):
     is_live: bool
     created_at: Any
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Endpoints ---
 

@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 import os
 import logging
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.signal_log import SignalLog
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ async def receive_internal_signal(
                 strat_name = deployment.strategy.name
             
             signal_log = SignalLog(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 symbol=payload.get("symbol"),
                 direction=payload.get("direction"),
                 timeframe=payload.get("timeframe", "H1"),

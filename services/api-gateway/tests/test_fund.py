@@ -49,19 +49,42 @@ def test_get_funds_success(client, mock_db_session, mock_current_user):
     mock_user_fund2.fund_id = fund2_id
     mock_user_fund2.role = MagicMock(value="TRADER")
     
-    # Mock DB queries - create separate mock_query instances
-    user_fund_query = MagicMock()
-    user_fund_query.filter.return_value.all.return_value = [mock_user_fund1, mock_user_fund2]
+    # Setup query side effect
+    def query_side_effect(model):
+        mock_query = MagicMock()
+        if model == UserFund:
+            # First call is valid list, subsequent might be for owner check
+            mock_query.filter.return_value.all.return_value = [mock_user_fund1, mock_user_fund2]
+            mock_query.filter.return_value.first.return_value = None # Assume no owner found to simplify
+        elif model == Fund:
+            # Simplistic: return mock_fund1 then mock_fund2? Hard to distinguish without filter args check
+            # But the router loops results.
+            # Let's return a specific mock if possible, or just one that satisfies.
+            # Strategy: The test iterates user_funds. 
+            pass
+        return mock_query
+        
+    # Better approach: Just mock behavior based on call order or inspection
+    # Since side_effect via function is complex to maintain state, let's just make the list long enough
+    # returning defaults if needed.
+    # Actually, simpler: mock_db_session.query called with UserFund -> return list.
+    # Called with Fund -> return mock_fund (generic). 
     
-    fund_query1 = MagicMock()
-    fund_query1.filter.return_value.first.return_value = mock_fund1
+    mock_query_user_fund = MagicMock()
+    mock_query_user_fund.filter.return_value.all.return_value = [mock_user_fund1, mock_user_fund2]
+    mock_query_user_fund.filter.return_value.first.return_value = None # No owner found
+
+    mock_query_fund = MagicMock()
+    mock_query_fund.filter.return_value.first.side_effect = [mock_fund1, mock_fund2]
     
-    fund_query2 = MagicMock()
-    fund_query2.filter.return_value.first.return_value = mock_fund2
-    
-    # Setup query side effect to return correct mock based on model type
-    query_calls = [user_fund_query, fund_query1, fund_query2]
-    mock_db_session.query.side_effect = query_calls
+    def side_effect(model):
+        if model == UserFund:
+            return mock_query_user_fund
+        if model == Fund:
+            return mock_query_fund
+        return MagicMock()
+
+    mock_db_session.query.side_effect = side_effect
     
     # Override dependency
     app = client.app
@@ -125,6 +148,9 @@ def test_get_fund_by_id_success(client, mock_db_session, mock_current_user):
     mock_user_fund = MagicMock(spec=UserFund)
     mock_user_fund.role = MagicMock(value="OWNER")
     
+    mock_user = MagicMock(spec=User)
+    mock_user.username = "testowner"
+
     # Mock DB queries
     def query_side_effect(model):
         mock_query = MagicMock()
@@ -132,6 +158,8 @@ def test_get_fund_by_id_success(client, mock_db_session, mock_current_user):
             mock_query.filter.return_value.first.return_value = mock_user_fund
         elif model == Fund:
             mock_query.filter.return_value.first.return_value = mock_fund
+        elif model == User:
+            mock_query.filter.return_value.first.return_value = mock_user
         return mock_query
     
     mock_db_session.query.side_effect = query_side_effect

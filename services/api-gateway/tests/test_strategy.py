@@ -2,14 +2,18 @@ from unittest.mock import MagicMock
 from app.models.strategy import Strategy
 from app.models.user_fund import Fund
 from app.schemas.response import ResponseStatus
+from app.main import app
+from app.security import get_current_user
 import uuid
 
 def test_create_strategy_success(client, mock_db_session):
     fund_id = str(uuid.uuid4())
+    broker_id = str(uuid.uuid4())
     payload = {
         "name": "My Strategy",
         "fund_id": fund_id,
-        "type": "MOMENTUM",
+        "template_id": "MOMENTUM_V1",
+        "broker_account_id": broker_id,
         "config_json": {"param": 1}
     }
     
@@ -32,10 +36,12 @@ def test_create_strategy_success(client, mock_db_session):
 
 def test_create_strategy_fund_not_found(client, mock_db_session):
     fund_id = str(uuid.uuid4())
+    broker_id = str(uuid.uuid4())
     payload = {
         "name": "My Strategy",
         "fund_id": fund_id,
-        "type": "MOMENTUM",
+        "template_id": "MOMENTUM_V1",
+        "broker_account_id": broker_id,
         "config_json": {"param": 1}
     }
     
@@ -49,7 +55,8 @@ def test_create_strategy_fund_not_found(client, mock_db_session):
     data = response.json()
     assert data["status"] == ResponseStatus.ERROR
 
-def test_list_strategies(client, mock_db_session):
+def test_list_strategies(client, mock_db_session, mock_current_user):
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
     fund_id = str(uuid.uuid4())
     
     # Mock pagination query
@@ -60,8 +67,10 @@ def test_list_strategies(client, mock_db_session):
     mock_strategy.id = uuid.uuid4()
     mock_strategy.name = "Test Strategy"
     mock_strategy.is_active = True
-    mock_strategy.type = "MOMENTUM"
+    mock_strategy.template_id = "MOMENTUM_V1"
+    mock_strategy.broker_account_id = uuid.uuid4()
     mock_strategy.config_json = {}
+    mock_strategy.risk_settings = {"max_drawdown": 0.05}
     
     mock_query.offset.return_value.limit.return_value.all.return_value = [mock_strategy]
     
@@ -73,3 +82,5 @@ def test_list_strategies(client, mock_db_session):
     assert data["status"] == ResponseStatus.SUCCESS
     assert len(data["data"]) == 1
     assert data["meta"]["total"] == 1
+    
+    del app.dependency_overrides[get_current_user]

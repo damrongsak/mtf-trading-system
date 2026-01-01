@@ -6,7 +6,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models.candle import Candle
 from app.schemas.response import APIResponse, ResponseStatus
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(
     tags=["market"]
@@ -20,8 +20,7 @@ class CandleRes(BaseModel):
     close: float
     volume: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 @router.get("/candles", response_model=APIResponse[List[CandleRes]])
 async def get_candles(

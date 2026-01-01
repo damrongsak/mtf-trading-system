@@ -1,5 +1,5 @@
 from typing import Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.schemas.response import (
     APIResponse, ResponseStatus, Meta, AuthTokens, RateLimitInfo, 
     ErrorCode, ErrorDetail, PaginatedResponse
@@ -76,7 +76,7 @@ def create_auth_tokens(
     expires_in: int = 3600
 ) -> AuthTokens:
     """Create authentication tokens"""
-    expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
     return AuthTokens(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -90,7 +90,7 @@ def create_rate_limit_info(
     reset_after_seconds: int
 ) -> RateLimitInfo:
     """Create rate limit information"""
-    reset_time = datetime.utcnow() + timedelta(seconds=reset_after_seconds)
+    reset_time = datetime.now(timezone.utc) + timedelta(seconds=reset_after_seconds)
     return RateLimitInfo(
         limit=limit,
         remaining=remaining,

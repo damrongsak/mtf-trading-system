@@ -3,7 +3,7 @@ from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.models.journal import JournalEntry, GameLevel
 from app.models.user_fund import User
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import logging
 
@@ -32,7 +32,7 @@ class TradeService:
             trade_id=uuid.uuid4(),
             symbol=request_data.get("symbol"),
             strategy_name="Manual Execution", # Default for manual trades
-            signal_timestamp=datetime.utcnow(),
+            signal_timestamp=datetime.now(timezone.utc),
             status=TradeStatus.OPEN,
             direction=direction,
             entry_price=float(execution_data.get("price", 0)), # Actual fill price
@@ -60,7 +60,7 @@ class TradeService:
             take_profit_price=trade.tp_price,
             session="NEW_YORK", # Defaulting/Guessing for now
             game_level=GameLevel.B_GAME, # Default
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
             # Note: We should ideally link this to trade_id if schema supported it
             # For now, implicit link via symbol/time/user
         )
@@ -86,7 +86,7 @@ class TradeService:
             return trade
 
         trade.exit_price = exit_price
-        trade.exit_timestamp = datetime.utcnow()
+        trade.exit_timestamp = datetime.now(timezone.utc)
         trade.status = TradeStatus.CLOSED
         
         # Calculate PnL (Simplified linear calculation)
@@ -167,7 +167,7 @@ class TradeService:
                     broker_account_id=broker_account_id,
                     symbol=ot.get("instrument").replace("_", "/"), # Normalize Oanda format
                     strategy_name="Oanda Sync",
-                    signal_timestamp=datetime.utcnow(), # Approximate
+                    signal_timestamp=datetime.now(timezone.utc), # Approximate
                     status=TradeStatus.OPEN,
                     direction=direction,
                     entry_price=entry_price,
