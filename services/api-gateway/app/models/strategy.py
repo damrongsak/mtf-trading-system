@@ -13,6 +13,10 @@ class Strategy(Base):
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
     name = Column(String(100), nullable=False)
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True) # Check specs if nullable. Specs say required, but existing data? Let's assume nullable for migration then required later. Spec says required=true. But to migrate safely, we might need default or allow null first. Let's stick to specs: nullable=False ideally but might break existing. I will make it nullable=True for now to avoid migration breakage unless I can provide default. Existing rows have no broker_account. I'll make it nullable=True.
+    
+    # Olympus: Strategy Config Link
+    config_id = Column(UUID(as_uuid=True), ForeignKey("strategy_configs.id"), nullable=True)
+
     template_id = Column(String, nullable=False, comment="Identifier for the strategy logic template (e.g., 'SMC_V1')") # Was 'type'
     config_json = Column(JSONB, nullable=False, comment="Strategy-specific configuration parameters (overrides template defaults)")
     risk_settings = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
@@ -29,3 +33,5 @@ class Strategy(Base):
     # Relationships
     fund = relationship("Fund", back_populates="strategies")
     broker_account = relationship("BrokerAccount")
+    config = relationship("StrategyConfig")
+    allocations = relationship("PortfolioAllocation", back_populates="strategy", cascade="all, delete-orphan")

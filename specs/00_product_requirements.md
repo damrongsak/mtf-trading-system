@@ -1,166 +1,102 @@
-This document serves as the **Product Requirements Document (PRD.md)** for the initial release (MVP) of the MTF Trading System, focusing strictly on the core, risk-mitigating functionality as required by the Spec Driven Development (SDD) process.
+This document serves as the **Product Requirements Document (PRD.md)** for the **MTF Olympus** platform (v2.0), enabling the transition from a single-user trading bot to a distributed quant hedge fund platform.
 
 This PRD defines the **What** and **Why** of the product; the **How** (architecture, API contracts, technical implementation) is detailed in the corresponding SDD files in the `/specs` directory.
 
 ---
 
-# PRD.md: XAU/USD MTF Trading System (MVP: Risk-Controlled Core)
+# PRD.md: MTF Olympus Planform (v2.0)
 
 | Key Detail | Value |
 | :--- | :--- |
-| **Product Name** | XAU/USD MTF Alpha Engine (Codename: *Phoenix*) |
-| **Document Version** | 2.0 (Expansion Phase) |
-| **Target Audience** | Quant Funds, Prop Firms, Individual Traders |
-| **Release Target** | Phase 2 Completion (Multi-Tenancy, Multi-Strategy, Oanda) |
-| **Status** | **Phase 2 Complete** (Sandbox & Security Hardening Verified) |
+| **Product Name** | MTF Olympus (Formerly Phoenix) |
+| **Document Version** | 2.0 (Olympus Enhancement) |
+| **Target Audience** | Retail Quants, Fund Managers, AI Engineers |
+| **Release Target** | Phase 2 Completion (Distributed Quant Platform) |
+| **Status** | **In Development** |
 
 ---
 
 ## 1. Overview & Vision
 
-### 1.1. Problem Statement
-
-Automated trading systems often fail due to undisciplined risk management, look-ahead bias in testing, and a lack of confluence filtering, leading to rapid capital depletion, especially in high-volatility assets like XAU/USD (Gold) on small starting capital.
+### 1.1. Price Drift Problem
+Retail trading platforms (and bots) fail because they sell "Signals" (Fish) instead of "Logic" (Fishing Rods). They suffer from:
+1.  **Curve Fitting**: Strategies look good in backtests but fail in live markets.
+2.  **Gambler’s Ruin**: Lack of portfolio-level risk management.
+3.  **Psychological Decay**: No mechanism to fix the human error (Tilt/Fear).
 
 ### 1.2. Product Vision
+**MTF Olympus** is an **Operating System (OS)** for wealth creation. It democratizes the sophisticated tools used by institutional hedge funds—**Game Theoretic Risk Management**, **Walk-Forward Validation**, and **AI-Driven Psychology Coaching**—allowing individuals to act as their own Quant Fund Managers.
 
-To build a robust, reproducible, and capital-preserving XAU/USD algorithmic trading system that integrates proven Smart Money Concepts (SMC) and Multi-Timeframe (MTF) analysis, enforced by a non-negotiable risk engine, allowing the trader to focus on system optimization and strategic enhancement rather than manual execution or emotional risk.
-
-### 1.3. Expansion Scope Focus
-The **Expansion Focus** is on **Multi-tenancy, Multi-Strategy, Multi-Broker Support, and Oanda Integration**. The system will support multiple users/funds, concurrent execution of diverse strategies, management of multiple broker accounts, and live data ingestion from Oanda.
+### 1.3. The 5 Pillars of Olympus
+The platform is built on five functional pillars:
+1.  **The Strategy Foundry**: Standardized "Lego Blocks" for creating strategies (no ad-hoc code).
+2.  **The Proving Ground**: rigorous Walk-Forward Validation to prevent overfitting.
+3.  **The Risk Citadel**: Minimax Regret & Portfolio Risk Parity engine.
+4.  **The Execution Edge**: Smart Order Routing and Liquidity analysis.
+5.  **The AI Coach**: Psychological intervention via Mental Hand History.
 
 ---
 
-## 2. Goals and Success Metrics (MVP)
+## 2. Goals and Success Metrics
 
 | ID | Goal | Success Metric (KPI) |
 | :--- | :--- | :--- |
-| **G1** | **Capital Preservation** (Highest Priority) | Zero instances of trades where the per-trade risk exceeds the defined limit per fund/strategy. |
-| **G2** | **Strategy Validation** | Vectorized backtest (Vectorbt) yields a Sharpe Ratio > 0.8 and Max Drawdown < 15% across a 3-year historical period. |
-| **G3** | **Multi-Tenancy** | Support for multiple users and funds with distinct roles (Owner, Trader, Viewer). |
-| **G4** | **Multi-Strategy** | Concurrent execution of at least 3 distinct strategies with independent state management. |
-| **G5** | **Data Integration** | Successful ingestion and processing of live market data from Oanda v20 API. |
-| **G6** | **Trading Journal** | Structured psychological journal capturing mental patterns, game levels, and root cause analysis for AI-driven performance improvement. |
-| **G7** | **Dynamic Sandbox** | Ability to write, compile, and backtest custom python strategy code securely from the browser. |
+| **G1** | **Minimize Regret** | Zero trades accepted where potential "Regret" (Max Drawdown contribution) exceeds user threshold. |
+| **G2** | **Robustness** | Strategies must pass "Walk-Forward Gauntlet" (Train/Test deviation < 20%) to be verified. |
+| **G3** | **Capital Preservation** | Portfolio Risk Parity ensures no single strategy contributes > X% to total risk. |
+| **G4** | **Psychological Correction** | AI Coach successfully detects "C-Game" (Tilt) and forces "Mental Hand History" completion. |
+| **G5** | **Community Alpha** | Successful sharing of `StrategyConfig.json` between users via Marketplace. |
 
 ---
 
 ## 3. Target Users
 
-| User Type | Profile | Core Need Solved by MVP |
+| User Type | Profile | Core Need Solved |
 | :--- | :--- | :--- |
-| **Primary User (The Engineer)** | A full-stack AI engineer (analytical, design-focused) managing their own capital. | **Reliable Core Platform:** Provides a risk-guaranteed Python/FastAPI foundation for building advanced AI/ML features (e.g., LLM agent). |
-| **Fund Manager** | Manager of a quantitative trading fund. | **Multi-Tenancy:** Manage multiple strategies and users within a fund structure. |
-| **Trader** | Individual trader executing strategies. | **Execution & Monitoring:** Monitor signals and trade execution in real-time. |
-| **Quant Developer** | Strategy author. | **Sandbox:** Rapidly prototype and test new Python algorithms without deployment cycles. |
+| **The Architect (Quant)** | Designs logic. | **Foundry**: Rapidly assemble and validate logic without writing boilerplate code. |
+| **The Fund Manager** | Allocates capital. | **Citadel**: Manage a portfolio of strategies with Risk Parity. |
+| **The Trader** | Executes & monitors. | **AI Coach**: Keeps them in "A-Game" and prevents emotional tilt. |
 
 ---
 
-## 4. In-Scope Functional Requirements (MVP)
+## 4. Functional Requirements (Olympus v2.0)
 
-The MVP is defined by the following core system behaviors, translated directly from the blueprint:
-
-### 4.1. Core Signal Generation (SMC + MTF)
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F1.1** | The system must establish a Macro Bias (Long/Short) based on Price vs. EMA200 confluence on the 4H/D timeframes. | Macro bias (filter), Rule A |
-| **F1.2** | The system must identify a Setup Zone (Confluence Zone) using 4H/1H Fibonacci (50%-61.8%) that overlaps with an SMC element (Order Block or FVG). | Setup zone, Rule B |
-| **F1.3** | The system must wait for a 15m "Vector" candle confirmation where the `Body-to-Wick Ratio (Rv)` exceeds a set `threshold` (default 0.70) before entry. | Trigger, Rule C |
-| **F1.4** | The system must reject trades if the confluence zone requirement (F1.2) is not met. | Setup zone, Rule B |
-
-### 4.2. Absolute Risk & Position Sizing Engine
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F2.1** | The system must calculate Stop Loss (SL) distance based on a volatility-aware approach using `ATR(14, 15m) × M` (M=1.75 default). | Stop & Size, Rule D |
-| **F2.2** | The system must strictly enforce an **Absolute Risk Cap of $10 per trade** (`Lot = $10 / SL_distance_in_USD`). | Hard cap, Rule D / Sec 4 |
-| **F2.3** | The system must **reject a trade** if the calculated lot size is less than the minimum tradable lot (0.01). | Rejection Logic, Rule D / Sec 4 |
-| **F2.4** | The system must **reject a trade** if the ATR-based Stop Loss distance exceeds 100 pips (Volatility Guardrail). | Volatility-aware stops, Sec 4 |
-
-### 4.3. Data & Realtime Architecture
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F3.1** | The system must use a **Pub/Sub Architecture (Redis)** for low-latency market data distribution, decoupling ingestion from consumption. | Architecture, Sec 2 |
-| **F3.2** | The system must support **Dynamic Market Categories** (e.g., Forex, Crypto) configurable via API, allowing flexible grouping of symbols in the UI. | Frontend Design, Sec 7 |
-| **F3.3** | The system must implement **Decision Traceability** by logging every major action (Signal, Risk Check, Trade) to a centralized Audit Log. | Compliance, Sec 6 |
-| **F3.4** | The system must optimize resource usage by **batching signal requests** and utilizing a **5-minute ingestion/polling interval** for standard monitoring. | Optimization, Sec 8 |
-
-### 4.4. Backtesting & Reporting
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F3.1** | The system must enable vectorized backtesting (Vectorbt) with a parameter grid sweep for core parameters (EMA, ATR Mult, Rv Threshold). | Optimization Plan, Sec 5 |
-| **F3.2** | The backtesting environment must ensure **no look-ahead bias** via deterministic MTF resampling and indicator alignment. | Look-ahead protection, Sec 5 |
-| **F3.3** | The system must generate a basic Trade Log and Scorecard (MAE/MFE, WinRate, MDD, Sharpe) after each backtest run. | Monitoring & Scorekeeping, Sec 2 |
-
-### 4.5. Multi-Broker & Account Management
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F5.1** | The system must allow users to securely manage multiple broker accounts (OANDA, Binance) with encrypted credential storage (AES-256). | Security, Sec 6 |
-| **F5.2** | The system must support **Dynamic Instrument Management**, fetching active symbols directly from the database rather than hardcoded lists. | Data Architecture, Sec 2 |
-| **F5.3** | The system must enable **Account-Specific Execution**, allowing traders to select which account to route an order to or sync trades from. | Execution Engine, Sec 4 |
-
-### 4.6. Dynamic Capabilities
-
-| Requirement | Description (Behavior) | Blueprint Reference |
-| :--- | :--- | :--- |
-| **F6.1** | The system must provide an **In-Browser Code Editor** (Monaco) for authoring custom strategy logic in Python. | Sandbox |
-| **F6.2** | The system must execute custom strategies continuously alongside template strategies in the Fleet Manager. | Fleet Manager |
-
----
-
-## 5. Phase 3: Advanced & Autonomous Capabilities
-
-The following features are prioritized for the next major release (Phase 3), transforming the system into a professional, intelligent trading engine.
-
-### 5.1. Advanced Backtesting
-| Feature | Details |
+### 4.1. The Strategy Foundry (Standardization)
+| Requirement | Description (Behavior) |
 | :--- | :--- |
-| **Monte Carlo Simulation** | Stress-test strategies using randomized trade sequences and curve fitting analysis to ensure robustness. |
-| **Automated Optimization** | "Grid Search" and genetic algorithms to automatically tune parameters (EMA, RSI, TP/SL) for maximum Sharpe/Return. |
-| **Walk-Forward Analysis** | Verify strategy stability by simulating "out-of-sample" performance over rolling time windows. |
+| **F1.1** | Strategies must be defined as JSON configurations (`StrategyConfig`) referencing standardized Logic Blocks (Trend, MeanRev, etc.). |
+| **F1.2** | The system must support "Assembler" logic to compile JSON configs into executable Python pipelines. |
 
-### 5.2. Realtime Autonomous Bot (24/7)
-| Feature | Details |
+### 4.2. The Proving Ground (Validation)
+| Requirement | Description (Behavior) |
 | :--- | :--- |
-| **Autonomous Supervisor** | A 24/7 background process (`LiveRunner`) that manages the Oanda connection, triggers strategy loops, and handles error recovery without human intervention. |
-| **Order Execution Engine** | Low-latency order placement with precise slippage control and retry logic. |
-| **State Persistence** | Robust recovery from crashes or restarts, ensuring no signal or trade state is lost. |
+| **F2.1** | The system must enforce a "Walk-Forward Gauntlet" (Train on Period A, Test on Period B) for all strategies. |
+| **F2.2** | Strategies must achieve a **Robustness Score > 80** to be marked as "Verified". |
 
-### 5.3. AI Integration (LLM & Algo)
-| Feature | Details |
+### 4.3. The Risk Citadel (Minimax & Parity)
+| Requirement | Description (Behavior) |
 | :--- | :--- |
-| **Strategy Advisor Chat** | Interactive chat interface where the AI (Gemini) helps validate, debug, and optimize strategies using Chain-of-Thought (CoT) reasoning. |
-| **RAG Knowledge Base** | Retrieval Augmented Generation system that indexes user's trading journal, successful strategies, and market context to provide personalized advice. |
-| **LangChain Agents** | Multi-step reasoning agents (e.g., `StrategyAdvisorAgent`) that can "reflect" on code quality and suggest improvements based on SMC rules. |
-| **Narrative Trading** | Filter technical signals using AI-generated narrative bias (e.g., "Reject Longs if Fed is Hawkish"). |
+| **F3.1** | **Minimax Regret**: Before every trade, calculate worst-case outcome. Reject if it exceeds `pain_threshold`. |
+| **F3.2** | **Risk Parity**: Dynamically allocate position sizes so that High-Vol and Low-Vol strategies contribute equal risk. |
+| **F3.3** | **Hard Guardrails**: Absolute $10 Risk Cap per trade (legacy constraint preserved). |
+
+### 4.4. The AI Coach (Psychology)
+| Requirement | Description (Behavior) |
+| :--- | :--- |
+| **F4.1** | **State Detection**: Classify user state as A-Game, B-Game, or C-Game based on behavior (Loss Streak, rapid firing). |
+| **F4.2** | **Intervention**: If C-Game is detected, lock execution and prompt for "Mental Hand History". |
+| **F4.3** | **Coaching**: AI (Gemini) uses Steenbarger-style prompts to guide the user back to logic. |
+
+### 4.5. The Alpha Marketplace
+| Requirement | Description (Behavior) |
+| :--- | :--- |
+| **F5.1** | Users can publish `StrategyConfig.json` to the Marketplace (if Verified). |
+| **F5.2** | Other users can "Clone" strategies to their local Foundry. |
 
 ---
 
-## 6. User Stories (MVP)
-
-As the **AI Engineer**, I want to...
-
-| ID | User Story | Acceptance Criteria (Testable) |
-| :--- | :--- | :--- |
-| **US1** | ...define a wide range of strategy parameters, so I can efficiently sweep for the most robust settings using Vectorbt. | Parameter sweep runs successfully and produces a clean result table for [EMA, ATR, Rv] permutations. |
-| **US2** | ...receive a signal only when 4H/1H Fibo zones align with a detected SMC block, so I can ensure high-confluence entries. | Backtest trade log shows entries only when Macro Bias, Setup Zone, and Trigger conditions were met simultaneously. |
-| **US3** | ...input a risk check to the system, so that the $10 cap is never violated and my lot size is calculated correctly. | The `/risk/check` API endpoint returns `can_execute=false` for any trade proposal violating the $10 cap or the 0.01 min lot rule. |
-| **US4** | ...ensure the backtest uses only historical data, so that the performance metrics are a true reflection of the strategy's edge. | All indicators are proven non-look-ahead via the deterministic MTF resampling check. |
-| **US5** | ...see key metrics like Sharpe Ratio and Max Drawdown, so I can judge the viability of the optimized parameter sets. | Final backtest run successfully persists Sharpe, MDD, WinRate to the `StrategyRun` entity. |
-| **US6** | ...manage broker accounts independently of my user profile, assigning them to different Funds. | Creating a Broker Account automatically links it to my active Fund, not just my User ID. |
-| **US7** | ...write custom Python strategy logic in the browser and backtest it immediately. | Code Editor allows typing code, "Run Backtest" returns logs and metrics from the custom logic. |
-
----
-
-## 7. Release Criteria (Go/No-Go)
-
-The MVP is ready to proceed to the next development phase (Planning/Technical Design) when all of the following are met:
-
-1.  **[SDD]** All core specification files (`01_architecture.md`, `03_data_model.yaml`, `04_api_spec.yaml`, `08_execution_rules.md`) are complete and validated by the primary stakeholders.
-2.  **[Risk]** The core risk guardrail logic (F2.1 - F2.4) is coded, unit-tested, and verified to be non-violable in simulation.
-3.  **[Backtest]** The Vectorbt backtesting harness is operational and can successfully run a parameter sweep without look-ahead bias.
-4.  **[Metric]** Success Goal G2 (Sharpe > 0.8) has been achieved on at least one parameter set from the initial sweep.
+## 5. Release Criteria (Phase 2)
+1.  **[Foundry]** User can create a strategy via JSON and backtest it.
+2.  **[Citadel]** Minimax Engine rejects at least one "technically valid" but "risk-heavy" trade in testing.
+3.  **[Coach]** AI Coach successfully intervenes during a simulated "Tilt" session.
+4.  **[Schema]** Database fully migrated to v2.0 Schema.

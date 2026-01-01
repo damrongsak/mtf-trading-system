@@ -1,114 +1,88 @@
-# MTF Trading System - Execution Rules & Logic
-# Source of Truth for Strategy and Risk Engine
+# MTF Olympus - Execution & Risk Logic
+# Layer 2 (Structure) & Layer 4 (Risk)
 
 ## 1. Overview
-This document defines the strict logical rules for the "Phoenix" XAU/USD trading strategy. These rules are implemented in the `strategy-core` service (`app/logic.py`, `app/smc.py`) and the `execution` service (`app/executor.py`). Any deviation between this document and the code is a bug.
-
-## 2. Market Structure & Timeframes
-The strategy utilizes a Multi-Timeframe (MTF) approach to align momentum with the higher-timeframe trend.
-
-| Role | Timeframe | Purpose |
-| :--- | :--- | :--- |
-| **Macro** | 4H / Daily | Defines the overall directional bias (Trend). |
-| **Setup** | 1H | Identifies high-probability areas of interest (Order Blocks). |
-| **Trigger** | 15m | Confirms entry with momentum and precise candle formations. |
+This document defines the specialized logic for **Layer 2 (Strategy Foundry)** and **Layer 4 (Risk Citadel)**. Unlike the MVP which had one hardcoded strategy, Olympus uses standardized "Logic Blocks" and a Game-Theoretic Risk Engine.
 
 ---
 
-## 3. Signal Generation Rules
+## 2. Layer 2: Strategy Foundry (Logic Blocks)
 
-### Rule A: Macro Bias (Trend Filter)
-**Context:** 4H or Daily Chart
-**Function:** `check_macro_bias` in `logic.py`
+Strategies are assembled from these standardized, reusable blocks.
 
-1.  **Indicator:** Exponential Moving Average (EMA) with period 200 on the 4H timeframe.
-2.  **Logic:**
-    *   **BULLISH:** The last closed 4H candle's Close Price > 4H EMA(200).
-    *   **BEARISH:** The last closed 4H candle's Close Price < 4H EMA(200).
-    *   **NEUTRAL:** Insufficient data or undefined state.
-3.  **Constraint:** If the bias is NEUTRAL, no trades are taken.
+### 2.1 Trend Blocks (The "Bias")
+* Used to determine the overall market direction.
+* **BLOCK_TREND_EMA_CROSS**:
+    * **Logic**: Price > EMA(Period).
+    * **State**: BULLISH if Close > EMA, BEARISH if Close < EMA.
+* **BLOCK_TREND_AMA**:
+    * **Logic**: Kaufman's Adaptive Moving Average slope.
+    * **State**: BULLISH if AMA is rising, BEARISH if falling.
 
-### Rule B: Setup Zone (Confluence)
-**Context:** 1H Chart
-**Function:** `check_setup_zone` in `logic.py` & `detect_order_blocks` in `smc.py`
+### 2.2 Structure Blocks (The "Where")
+* Used to identify High-Probability Zones (POI).
+* **BLOCK_STRUCT_SMC_OB**:
+    * **Logic**: Order Blocks (Last opposing candle before displacement).
+    * **State**: VALID if Price is inside the OB body range.
+* **BLOCK_STRUCT_FIB_GOLDEN**:
+    * **Logic**: Fibonacci Retracement (0.5 - 0.618) of the last swing.
+    * **State**: VALID if Price is inside the Golden Pocket.
 
-1.  **Concept:** Price must be inside a valid **Order Block (OB)** aligned with the Macro Bias.
-2.  **Order Block Definition:**
-    *   **Bullish OB:** The last down candle (Red) before a strong up move (Green) that breaks structure/displaces price.
-        *   *Validation:* Current Close > Prev Open AND Current Body > 1.5 * Prev Body.
-    *   **Bearish OB:** The last up candle (Green) before a strong down move (Red).
-        *   *Validation:* Current Close < Prev Open AND Current Body > 1.5 * Prev Body.
-    *   **Volume Filter:** The impulsive move should ideally have higher volume than the 20-period average (if volume data is available).
-3.  **Zone Logic:**
-    *   The system scans for unmitigated Order Blocks on the 1H timeframe.
-    *   **Signal Valid If:** Current 1H Close Price is physically inside the price range (High-Low) of an active OB matching the Macro Bias.
-        *   *Bullish:* Price inside Bullish OB.
-        *   *Bearish:* Price inside Bearish OB.
-
-### Rule C: Trigger (Entry Confirmation)
-**Context:** 15m Chart
-**Function:** `check_trigger` in `logic.py`
-
-1.  **Concept:** A "Vector Candle" confirming momentum in the trade direction.
-2.  **Logic:**
-    *   Analyze the **last completed** 15m candle.
-    *   **Body-to-Wick Ratio (Rv):** `Body Length / Total Range`.
-    *   **Threshold:** Rv must be >= **0.70** (configurable).
-3.  **Direction Check:**
-    *   **Long:** Candle must be Green (Close > Open).
-    *   **Short:** Candle must be Red (Close < Open).
+### 2.3 Momentum/Trigger Blocks (The "When")
+* Used to time the entry with precision.
+* **BLOCK_MOM_RSI_CROSS**:
+    * **Logic**: RSI(14) crosses 50 or exits oversold/overbought.
+* **BLOCK_MOM_VECTOR_CANDLE**:
+    * **Logic**: 15m Candle with `Body/Range > 0.70` (SMC Impulse).
+    * **State**: TRIGGER if confirmed close.
 
 ---
 
-## 4. Risk Management Rules (The "Iron Guardrail")
+## 3. Layer 4: Risk Citadel (The Rules)
 
-These rules are enforced by the `Execution Service` and cannot be overridden by the strategy.
+These rules are enforced by the `Execution Service` **before** any trade is submitted to the broker.
 
-### Rule D: Dynamic Stop Loss
-**Function:** `calculate_stop_loss` in `logic.py`
+### 3.1 Minimax Regret Engine (The "Kernel")
+**Goal**: Minimize the maximum possible regret (loss of capital or missed opportunity).
 
-1.  **Based on Volatility:** Uses the Average True Range (ATR).
-2.  **Calculation:**
-    *   `ATR_Value` = ATR(14) on 15m timeframe.
-    *   `SL_Distance` = `ATR_Value` * `ATR_Multiplier` (Default: 1.75).
-3.  **Placement:**
-    *   **Long:** Entry Price - SL_Distance.
-    *   **Short:** Entry Price + SL_Distance.
+1.  **Inputs**:
+    *   `Signal Confidence` (0.0 - 1.0)
+    *   `Market Volatility` (ATR Regime)
+    *   `Strategy Drawdown` (Current DD%)
+2.  **Regret Matrix Calculation**:
+    *   *Regret(Trade)* = Potential Loss if Trade Fails.
+    *   *Regret(NoTrade)* = Potential Missed Profit if Trade Wins.
+    *   *Worst Case*: `Max(Regret(Trade), Regret(NoTrade))`.
+3.  **Decision**:
+    *   If `Worst Case > User_Pain_Threshold`, **REJECT** trade.
+    *   *Example*: If User cannot handle a $50 loss (Pain Threshold), and the setup implies a $60 risk for a low-probability win, Minimax rejects it.
 
-### Rule E: Position Sizing & Capital Preservation
-**Function:** `can_execute` in `executor.py`
+### 3.2 Portfolio Risk Parity (Allocation)
+**Goal**: Equalize risk contribution across strategies.
 
-1.  **Risk Configuration:**
-    *   Risk is defined in the **Strategy Configuration** (e.g., Fixed USD Amount or % of Equity).
-    *   The `Strategy Core` passes the `target_risk_usd` to the Execution Service.
-2.  **Lot Calculation Formula:**
-    ```python
-    risk_per_share = abs(entry_price - sl_price)
-    raw_lot = target_risk_usd / (risk_per_share * contract_size)
-    final_lot = floor(raw_lot, 2 decimals)
-    ```
-3.  **Minimum Viable Trade:**
-    *   If `final_lot` < **0.01**, the trade is **REJECTED**.
-    *   *Reasoning:* Prevents forcing trades with negligible size.
-4.  **Global Safety Cap (Optional):**
-    *   A hard server-side limit (e.g., $100) may still be enforced as a "Sanity Check" to prevent massive errors.
+1.  **Formula**:
+    *   `Weight_i = (1 / Volatility_i) / Sum(1 / Volatility_j)`
+2.  **Effect**:
+    *   High-Volatility strategies get smaller position sizes.
+    *   Low-Volatility strategies get larger position sizes.
+3.  **Constraint**:
+    *   Total Risk across all active trades must not exceed `Fund_Max_Risk` (e.g., 2% of equity).
 
-### Rule F: Volatility Guardrail (Implied)
-1.  **Constraint:** If `SL_Distance` is negative or zero, trade is rejected.
-2.  **Constraint:** If `target_risk_usd` exceeds the Account's available margin or global safety caps, trade is rejected.
+### 3.3 The Iron Guardrails (Hard Constraints)
+These legacy rules remain as a final safety net:
+
+1.  **Max Risk Cap**: No single trade can risk > **$10 USD** (or configured limit).
+2.  **Min Lot Size**: Trades leading to lots < **0.01** are rejected.
+3.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
 
 ---
 
-## 5. Execution Flow Summary
+## 4. Layer 5: AI Coach Intervention
+The AI Coach monitors the *execution behavior*, not the price.
 
-1.  **Ingest:** Data Pipeline fetches latest 15m, 1H, 4H candles.
-2.  **Analyze (Strategy Core):**
-    *   Check 4H EMA (Rule A).
-    *   Check 1H Order Blocks (Rule B).
-    *   Check 15m Candle Rv (Rule C).
-3.  **Propose:** If A+B+C passed, Strategy Core calculates Entry and SL (Rule D).
-4.  **Validate (Execution Service):**
-    *   Receive Proposal: `{ risk_usd: 10, sl_dist: ..., min_lot: 0.01 }`.
-    *   Calculate Lot Size (Rule E).
-    *   Check Constraints (Rule E, F).
-5.  **Execute:** If valid, place order via Oanda Adapter.
+1.  **Tilt Detection**:
+    *   If `Time_Between_Trades < 5 min` AND `Last_Result == LOSS` -> Flag "Revenge Trading".
+2.  **Lockout**:
+    *   Execution Service returns `423 Locked (Psychological Stop)`.
+3.  **Unlock**:
+    *   User must complete `POST /coach/mental-history` to reset the lock.

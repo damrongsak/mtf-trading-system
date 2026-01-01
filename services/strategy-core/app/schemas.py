@@ -216,3 +216,9 @@ class OptimizationResult(BaseModel):
 class OptimizationResponse(BaseModel):
     results: List[OptimizationResult]
 
+class FoundryAssembleRequest(BaseModel):
+    config: Dict[str, Any]
+
+class FoundryAssembleResponse(BaseModel):
+    pipeline_hash: str
+    errors: List[str]

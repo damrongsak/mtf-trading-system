@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum, Numeric
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum, Numeric, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,13 +23,17 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     avatar_url = Column(String, nullable=True)
+    reputation_score = Column(Integer, default=0)
+    is_verified_quant = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     funds = relationship("UserFund", back_populates="user")
     journal_entries = relationship("JournalEntry", back_populates="user")
+    mental_hand_histories = relationship("MentalHandHistory", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
     deployments = relationship("Deployment", back_populates="user")
+    strategy_configs = relationship("StrategyConfig", back_populates="author")
 
 class Fund(Base):
     __tablename__ = "funds"
@@ -57,6 +61,7 @@ class Fund(Base):
     broker_accounts = relationship("BrokerAccount", back_populates="fund", cascade="all, delete-orphan")
     strategies = relationship("Strategy", back_populates="fund", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="fund", cascade="all, delete-orphan")
+    allocations = relationship("PortfolioAllocation", back_populates="fund", cascade="all, delete-orphan")
 
 class UserFund(Base):
     __tablename__ = "user_funds"

@@ -486,6 +486,8 @@ async def stop_strategy_instance(deployment_id: str):
     return {"status": "stopped", "id": deployment_id}
 
 app.include_router(router)
+from app.foundry.router import router as foundry_router
+app.include_router(foundry_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup_event():

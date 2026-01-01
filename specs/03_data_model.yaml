@@ -37,6 +37,14 @@ entities:
         type: string
         nullable: true
         description: "URL to user profile picture"
+      - name: reputation_score
+        type: integer
+        default: 0
+        description: "Gamified score based on strategy performance and community contribution"
+      - name: is_verified_quant
+        type: boolean
+        default: false
+        description: "True if user has passed the Proving Ground with at least one strategy"
 
   Fund:
     description: "Quant Fund or Trading Group"
@@ -155,6 +163,11 @@ entities:
         type: string
         required: true
         description: "Identifier for the strategy logic template (e.g., 'SMC_V1')"
+      - name: config_id
+        type: uuid
+        foreign_key: "strategy_configs.id"
+        nullable: true
+        description: "Link to standardized StrategyConfig (replaces ad-hoc config_json)"
       - name: broker_account_id
         type: uuid
         foreign_key: "broker_accounts.id"
@@ -176,6 +189,158 @@ entities:
       - name: is_active
         type: boolean
         default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  StrategyConfig:
+    description: "Standardized JSON configuration for a trading strategy (The Logic)"
+    table_name: "strategy_configs"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+      - name: author_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: logic_schema_version
+        type: string
+        default: "1.0.0"
+      - name: logic_blocks
+        type: jsonb
+        required: true
+        description: "List of logic blocks (e.g., TREND_AMA, STRUCT_SMC)"
+      - name: parameters
+        type: jsonb
+        required: true
+        description: "Global parameters for the blocks"
+      - name: timeframe_settings
+        type: jsonb
+        required: true
+        description: "Timeframes used (e.g., execution=15m, trend=4H)"
+      - name: is_public
+        type: boolean
+        default: false
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  StrategyValidation:
+    description: "Walk-Forward Analysis results (The Proof)"
+    table_name: "strategy_validations"
+    indexes:
+      - fields: ["config_id"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: config_id
+        type: uuid
+        foreign_key: "strategy_configs.id"
+        required: true
+      - name: robustness_score
+        type: integer
+        required: true
+        description: "0-100 Score based on Train/Test deviation"
+      - name: sharpe_train
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: sharpe_test
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: car_train
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: car_test
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: max_dd_train
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: max_dd_test
+        type: decimal
+        precision: 5
+        scale: 2
+      - name: validation_date
+        type: datetime
+        default: "now()"
+      - name: is_passed
+        type: boolean
+        default: false
+
+  PortfolioAllocation:
+    description: "Risk Parity allocation for a fund"
+    table_name: "portfolio_allocations"
+    indexes:
+      - fields: ["fund_id", "strategy_id"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+      - name: strategy_id
+        type: uuid
+        foreign_key: "strategies.id"
+        required: true
+      - name: weight
+        type: decimal
+        precision: 5
+        scale: 4
+        required: true
+        description: "Allocated weight (0.0 to 1.0)"
+      - name: volatility_target
+        type: decimal
+        precision: 5
+        scale: 2
+        nullable: true
+      - name: last_rebalance
+        type: datetime
+        default: "now()"
+
+  MentalHandHistory:
+    description: "Structured psychological reflection (The Coach)"
+    table_name: "mental_hand_histories"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: journal_entry_id
+        type: uuid
+        foreign_key: "journal_entries.id"
+        description: "Link to specific trade context"
+      - name: pre_trade_emotion
+        type: string
+        max_length: 50
+        description: "Emotion before execution (e.g., 'Anxious')"
+      - name: trigger_event
+        type: string
+        description: "What triggered the emotion?"
+      - name: irrational_thought
+        type: text
+        description: "What was the internal narrative?"
+      - name: behavioral_result
+        type: text
+        description: "What did you do? (e.g., 'Moved Stop Loss')"
+      - name: correction_logic
+        type: text
+        description: "The logic that counters the irrational thought"
       - name: created_at
         type: datetime
         default: "now()"

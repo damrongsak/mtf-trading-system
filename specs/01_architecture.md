@@ -1,138 +1,110 @@
-# MTF Trading System - System Architecture
+# MTF Olympus - System Architecture
 
 ## 1. High-Level Overview
 
-The MTF Trading System is a microservices-based application designed for automated trading of XAU/USD using Multi-Timeframe (MTF) analysis and Smart Money Concepts (SMC). The system is composed of several specialized services that communicate via REST APIs, orchestrated by Docker Compose for local development and deployed to GCP Cloud Run for production.
+**MTF Olympus** is a distributed quantitative hedge fund platform. It evolves the previous microservices architecture into a 5-layer "Operating System" for wealth creation, separating Logic (Foundry), Validation (Proving Ground), Risk (Citadel), Execution (Edge), and Psychology (Coach).
 
 ## 2. Component Diagram
 
 ```mermaid
 graph TD
-    User[User / Trader] -->|HTTPS| Nginx[Nginx Reverse Proxy]
+    User[User / Quant] -->|HTTPS| Nginx[Nginx Reverse Proxy]
     Nginx -->|/api| Gateway[API Gateway]
     Nginx -->|/| Frontend[Frontend -Next.js-]
 
-    subgraph "Backend Services"
-        Gateway -->|/risk| Execution[Execution Service]
-        Gateway -->|/strategy| Strategy[Strategy Core]
-        Gateway -->|/analyst| AI[AI Analyst]
-        Gateway -->|/data| Data[Data Pipeline]
+    subgraph "Layer 1 & 2: Strategy Foundry"
+        Gateway -->|/foundry| Foundry[Strategy Core: Foundry]
+        Foundry -->|Validate| ProvingGround[Strategy Core: Proving Ground]
+        ProvingGround -->|Store| DB[(PostgreSQL)]
     end
 
-    subgraph "Data Persistence"
-        Execution --> DB[(PostgreSQL)]
-        Strategy --> DB
-        Data --> DB
-        AI --> Qdrant[(Qdrant Vector Store)]
-        Data --> Qdrant
-        Data --> Redis[(Redis Pub/Sub)]
-        Strategy --> Redis
-        Gateway --> Redis
-        Gateway --> Vault[(Encrypted Credentials)]
+    subgraph "Layer 3 & 4: Risk Citadel"
+        Gateway -->|/execution| Execution[Execution Service]
+        Execution -->|Minimax Check| Citadel[Risk Citadel Engine]
+        Citadel -->|Risk Parity| DB
+    end
+
+    subgraph "Layer 5: AI Coach"
+        Gateway -->|/analyst| AI[AI Analyst]
+        AI -->|Logs| MentalDB[(Psychology DB)]
+    end
+
+    subgraph "Data Fabric"
+        Data[Data Pipeline] -->|Ticks| Redis[(Redis Pub/Sub)]
+        Data -->|OHLCV| DB
+        AI -->|RAG| Qdrant[(Qdrant Vector Store)]
     end
 
     subgraph "External"
         AI --> Gemini[Google Gemini API]
-        Data --> MarketData[Market Data Provider]
+        Data --> Oanda[Oanda v20 API]
     end
 ```
 
-## 3. Microservices Description
+## 3. The 5-Layer Stack
 
-### 3.1. Frontend (`frontend`)
+The system is organized into five decoupled layers of responsibility:
+
+| Layer | Name | Responsibility | Key Component |
+| :--- | :--- | :--- | :--- |
+| **L1** | **Probability** | Statistical Analysis & Data Ingestion. | Data Pipeline / Vectorbt |
+| **L2** | **Structure** | Strategy Logic definition & Standardized Blocks. | Strategy Foundry |
+| **L3** | **Context** | Validation, Walk-Forward Analysis, Market Regime. | Proving Ground |
+| **L4** | **Risk** | Game Theoretic Risk Management (Minimax). | Risk Citadel |
+| **L5** | **Intelligence** | Psychological Coaching & Reasoning. | AI Analyst |
+
+## 4. Microservices Description
+
+### 4.1. Frontend (`frontend`)
 - **Tech Stack**: Next.js 16, React 19, TailwindCSS.
-- **Responsibility**: User interface for monitoring signals, viewing trade logs, running backtests, and interacting with the AI agent.
-- **Communication**: Calls API Gateway for all data.
+- **New Features**:
+    - **Foundry UI**: Drag-and-drop strategy builder.
+    - **Coach Mode**: "Mental Hand History" wizard.
+    - **Citadel View**: Portfolio Risk Parity visualization.
 
-### 3.2. API Gateway (`services/api-gateway`)
-- **Tech Stack**: Python, FastAPI.
-- **Responsibility**: Entry point for all backend requests. Handles authentication, routing, and request validation.
-- **Communication**: Routes requests to internal microservices.
+### 4.2. Strategy Core (`services/strategy-core`)
+- **Role**: The "Foundry" and "Proving Ground".
+- **Key Features**:
+    - **Strategy Assembler**: Compiles JSON `StrategyConfig` into Python pipelines.
+    - **Walk-Forward Validator**: Automated Train/Test split engine to assign "Robustness Scores".
+    - **Marketplace**: Endpoints for searching and preventing "Lemon" strategies.
 
-### 3.3. Execution Service (`services/execution`)
-- **Tech Stack**: Python, FastAPI.
-- **Responsibility**: Risk management and trade execution. Enforces strict risk rules (e.g., $10 max risk, 0.01 min lot).
-- **Key Features**: 
-    - **Stateless Router**: Accepts broker configuration/IDs per request, agnostic to User/Fund.
-    - **Fund-Centric Access**: Strictly enforces `User` -> `UserFund` -> `Fund` -> `BrokerAccount` resource ownership chain.
-    - **Dynamic Adapters**: Uses `BrokerFactory` to instantiate OANDA/Binance adapters on the fly.
-    - `can_execute` guardrail, risk calculation, trade logging.
+### 4.3. Execution Service (`services/execution`)
+- **Role**: The "Risk Citadel" and "Execution Edge".
+- **Key Features**:
+    - **Minimax Engine**: Calculates worst-case regret before accepting any order.
+    - **Smart Order Router (SOR)**: Checks liquidity depth before execution.
+    - **Portfolio Allocator**: Balances position sizes using Inverse Volatility.
 
-### 3.4. Strategy Core (`services/strategy-core`)
-- **Tech Stack**: Python, Vectorbt, Pandas.
-- **Responsibility**: Signal generation, backtesting, and validation.
-- **Key Features**: 
-    - Deterministic resampling & parameter sweeping.
-    - **Dynamic Sandbox**: Compiles and executes custom Python strategy code (uploaded via Frontend) in a restricted scope.
-    - **Optimization Engine**: Grid search and genetic algorithms for parameter tuning.
-    - **Monte Carlo Simulator**: Robustness testing via randomized simulations.
-    - **Market Analysis API**: Real-time calculation of technical indicators (RSI, MACD, etc.) for frontend visualization.
-    - **Multi-Tenant Fleet Manager**:
-        - **Registry**: Manages "Strategy Templates" (code) vs "Strategy Instances" (DB config) vs "Custom Strategies".
-        - **Fleet Looper**: Iterates through thousands of active strategies per market tick.
-        - **Shared Market Data**: Deduplicates tick processing to minimize RAM usage.
-        - **Redis Caching**: Caches user configurations to minimize DB latency.
-        - **Credential Isolation**: Never loads API keys; delegates all execution to Execution Service via `broker_account_id`.
+### 4.4. AI Analyst (`services/ai-analyst`)
+- **Role**: The "Performance Coach".
+- **Key Features**:
+    - **Mental State Machine**: FSM tracking A-Game vs C-Game.
+    - **Coaching Agent**: Intervenes during tilt using Steenbarger's framework.
+    - **RAG**: Retrieves past "Mental Hand Histories" to show patterns.
 
-### 3.5. AI Analyst (`services/ai-analyst`)
-- **Tech Stack**: Python, Google Gemini Pro, LangChain.
-- **Responsibility**: Semantic market analysis, narrative generation, and agentic reasoning.
-- **Key Features**: 
-    - **LangChain Orchestrator**: Manages multi-step reasoning chains (News -> Trend -> Bias).
-    - **RAG**: Retrieval Augmented Generation using Qdrant.
-    - **Custom Models**: Integration hooks for fine-tuned SLMs.
+### 4.5. Data Pipeline (`services/data-pipeline`)
+- **Role**: The foundation. Providing clean, bias-free data for L1 and L3.
 
-### 3.6. Data Pipeline (`services/data-pipeline`)
-- **Tech Stack**: Python, FastAPI, SQLAlchemy, Pandas.
-- **Responsibility**: Data ingestion, storage, and processing.
-- **Key Features**: 
-    - OHLCV loading, resampling (15m -> 1H -> 4H -> D), database migration.
-    - **Streaming Engine**: Fetches dynamic symbol list from DB and publishes ticks to Redis.
-### 3.7 AI Chat Integration (New)
-- **Architecture**:
-    - **Frontend**: `StrategyChatPanel` sends message + context (code, metrics) to `API Gateway`.
-    - **API Gateway**: Stores User message in `chat_messages` (PostgreSQL). Forwards request to `AI Analyst`.
-    - **AI Analyst**:
-        - **Retrieval (RAG)**: Queries `Qdrant` for similar profitable strategies or historical context using `StrategyAdvisorAgent`.
-        - **Reasoning (CoT)**: Uses Chain-of-Thought prompting to analyze code flaws or suggest optimizations.
-        - Returns response to Gateway.
-    - **API Gateway**: Stores AI response in `chat_messages`. Returns to Frontend.
+## 5. Data Flow
 
-## 4. Data Flow
+### 5.1. Strategy Creation & Validation
+1.  User assembles logic in **Foundry UI** -> `POST /strategies/assemble`.
+2.  **Strategy Core** compiles logic and initiates **Walk-Forward Analysis** (Proving Ground).
+3.  If `Robustness Score > 80`, strategy is marked `is_verified=True` and stored in DB.
 
-### 4.1. Signal Generation
-1.  `Data Pipeline` publishes ticks to Redis.
-2.  `Strategy Core` (via `SharedMarketDataManager`) updates internal market state.
-3.  `Strategy Core` iterates active **Strategy Instances**.
-    - Loads config from **Redis Cache**.
-    - Applies logic from **Strategy Template**.
-4.  If signal found, `Strategy Core` sends proposal to `Execution Service` payload `{ "broker_account_id": "...", "signal": "..." }`.
-5.  `Execution Service` retrieves credentials from Vault/DB using `broker_account_id`.
-6.  `Execution Service` validates risk (User Risk Profile) and executes order.
+### 5.2. Live Execution (Citadel-Guarded)
+1.  **Strategy Core** generates a Signal (Buy XAU/USD).
+2.  Request sent to **Execution Service**.
+3.  **Risk Citadel** calculates Minimax Regret for the trade.
+    - *If Regret > PainThreshold*: REJECT.
+    - *If Regret < PainThreshold*: Proceed.
+4.  **Portfolio Allocator** calculates exact lot size based on Risk Parity weights.
+5.  **SOR** executes trade via Oanda.
 
-### 4.2. Backtesting
-1.  User initiates backtest via `Frontend`.
-2.  `API Gateway` routes request to `Strategy Core`.
-3.  `Strategy Core` fetches historical data from `Data Pipeline` (or DB).
-4.  `Strategy Core` runs Vectorbt simulation.
-5.  Results are stored in `PostgreSQL` and returned to `Frontend`.
-
-### 4.3. Real-time Data Streaming
-1.  `Data Pipeline` connects to OANDA v20 Stream API.
-2.  `Data Pipeline` publishes ticks/candles to Redis channels (e.g., `market_data:EUR_USD`).
-3.  **Strategy Consumption**: `Strategy Core` subscribes to Redis channels. `LiveRunner` normalizes tickers and routes them to active strategies.
-4.  **Frontend Consumption**: `API Gateway` subscribes to Redis and forwards data to `Frontend` via WebSocket (`/api/v1/stream/prices`).
-5.  **Multi-Broker Support**: All historical and real-time data flow is normalized via `MarketSymbol` IDs, ensuring the Strategy Core is agnostic to the underlying provider (OANDA, Binance, etc.).
-
-## 5. Infrastructure
-
-- **Local**: Docker Compose orchestrates all services and databases.
-- **Production**: GCP Cloud Run (Serverless Containers) + Cloud SQL (PostgreSQL) + Qdrant Cloud + Redis Cloud.
-- **CI/CD**: GitHub Actions for testing and building images. Cloud Build for deployment.
-
-## 6. Security & Isolation (New)
-
-### 6.1. Strategy Core Isolation
-- **Container**: `strategy-core` runs as non-root user `trader`.
-- **Worker**: Custom strategies (RCE target) run in a separate `multiprocessing` worker with a hard timeout.
-- **Sanitization**: All input code is scanned via AST to reject unsafe imports (`os`, `sys`) before execution.
+### 5.3. Psychological Intervention
+1.  **AI Analyst** monitors stream: "User closed trade manually 5s after entry" (Panic).
+2.  **AI Analyst** flags "C-Game" potential.
+3.  If Pattern persists, **AI Analyst** locks Execution API.
+4.  Frontend displays **Mental Hand History** form.
+5.  User submits reflection -> AI unlocks Execution.

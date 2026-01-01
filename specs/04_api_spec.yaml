@@ -1114,6 +1114,85 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Success'
 
+  /api/v1/foundry/assemble:
+    post:
+      summary: Compile strategy logic into executable pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FoundryAssembleRequest'
+      responses:
+        '200':
+          description: Assembly result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FoundryAssembleResponse'
+
+  /api/v1/foundry/validate:
+    post:
+      summary: Run Walk-Forward Validation (Proving Ground)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FoundryValidateRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FoundryValidateResponse'
+
+  /api/v1/risk/portfolio:
+    post:
+      summary: Update portfolio risk parity settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioAllocationUpdate'
+      responses:
+        '200':
+          description: Allocation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/coach/mental-history:
+    post:
+      summary: Log a Mental Hand History entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MentalHandHistoryCreate'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/marketplace:
+    get:
+      summary: Browse verified strategies
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyList'
+
 components:
   schemas:
     # --- Standard Response Wrappers ---
@@ -2968,3 +3047,100 @@ components:
           items:
             $ref: '#/components/schemas/BrokerAccount'
 
+
+    FoundryAssembleRequest:
+      type: object
+      properties:
+        config:
+           $ref: '#/components/schemas/StrategyConfigUpdate'
+        
+    APIResponse_FoundryAssembleResponse:
+      type: object
+      properties:
+        status:
+           type: string
+        data:
+           type: object
+           properties:
+              pipeline_hash:
+                 type: string
+              errors:
+                 type: array
+                 items:
+                    type: string
+    
+    FoundryValidateRequest:
+      type: object
+      required:
+        - config_id
+      properties:
+        config_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+    
+    APIResponse_FoundryValidateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+             robustness_score:
+                type: integer
+             is_passed:
+                type: boolean
+    
+    PortfolioAllocationUpdate:
+      type: object
+      properties:
+         allocations:
+            type: array
+            items:
+               type: object
+               properties:
+                  strategy_id:
+                     type: string
+                     format: uuid
+                  weight: 
+                     type: number
+    
+    MentalHandHistoryCreate:
+      type: object
+      required:
+         - journal_entry_id
+         - pre_trade_emotion
+         - trigger_event
+         - irrational_thought
+         - behavioral_result
+         - correction_logic
+      properties:
+         journal_entry_id:
+            type: string
+            format: uuid
+         pre_trade_emotion:
+            type: string
+         trigger_event: 
+            type: string
+         irrational_thought:
+            type: string
+         behavioral_result:
+            type: string
+         correction_logic:
+            type: string
+
+    APIResponse_StrategyList:
+       type: object
+       properties:
+          status:
+             type: string
+          data:
+             type: array
+             items:
+                type: object # Placeholder for Strategy
