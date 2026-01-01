@@ -17,7 +17,6 @@ erDiagram
     Fund {
         uuid id PK
         string name
-        string description
         enum strategy_type
         decimal max_risk_per_trade
         decimal default_lot_size
@@ -34,10 +33,43 @@ erDiagram
         uuid fund_id FK
         string name
         string template_id
+        uuid config_id FK
         uuid broker_account_id FK
         jsonb config_json
         jsonb risk_settings
         boolean is_active
+    }
+    StrategyConfig {
+        uuid id PK
+        string name
+        uuid author_id FK
+        string logic_schema_version
+        jsonb logic_blocks
+        jsonb parameters
+        jsonb timeframe_settings
+        boolean is_public
+    }
+    StrategyValidation {
+        uuid id PK
+        uuid config_id FK
+        integer robustness_score
+        decimal sharpe_train
+        decimal sharpe_test
+        boolean is_passed
+    }
+    PortfolioAllocation {
+        uuid id PK
+        uuid fund_id FK
+        uuid strategy_id FK
+        decimal weight
+        decimal volatility_target
+    }
+    MentalHandHistory {
+        uuid id PK
+        uuid user_id FK
+        uuid journal_entry_id FK
+        string pre_trade_emotion
+        string correction_logic
     }
     DataSource {
         uuid id PK
@@ -255,6 +287,12 @@ erDiagram
     }
 
     %% Relationships
+    User ||--o{ StrategyConfig : "authors"
+    StrategyConfig ||--o{ Strategy : "configures"
+    StrategyConfig ||--o{ StrategyValidation : "validated by"
+    Fund ||--o{ PortfolioAllocation : "allocates"
+    Strategy ||--o{ PortfolioAllocation : "receives"
+    
     User ||--o{ UserFund : "has access"
     Fund ||--o{ UserFund : "has members"
     Fund ||--o{ Strategy : "runs"
@@ -289,3 +327,46 @@ erDiagram
     
     Deployment ||--o{ SignalLog : "generates"
 ```
+
+### strategy_configs
+*Standardized Strategy Logic (The Blueprint)*
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| id | UUID | PK | |
+| name | VARCHAR(100) | NN | |
+| logic_blocks | JSONB | NN | Trend, Structure, Momentum blocks |
+| parameters | JSONB | NN | Global params |
+| timeframe_settings| JSONB | NN | e.g. {"exec": "15m"} |
+
+### strategy_validations
+*Walk-Forward Analysis Results*
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| id | UUID | PK | |
+| config_id | UUID | FK | |
+| robustness_score | INTEGER | NN | 0-100 Score |
+| is_passed | BOOLEAN | | Validated status |
+
+### portfolio_allocations
+*Risk Parity Weightings*
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| id | UUID | PK | |
+| fund_id | UUID | FK | |
+| strategy_id | UUID | FK | |
+| weight | DECIMAL | NN | 0.0 - 1.0 |
+| volatility_target| DECIMAL | | Annualized Vol Target |
+
+### mental_hand_histories
+*Psychological Reflections*
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| id | UUID | PK | |
+| user_id | UUID | FK | |
+| journal_entry_id | UUID | FK | |
+| pre_trade_emotion| VARCHAR | | |
+| correction_logic | TEXT | | CBT Logic |
