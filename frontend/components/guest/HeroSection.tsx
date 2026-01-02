@@ -22,7 +22,7 @@ export function HeroSection() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800/50 border border-gray-700/50 backdrop-blur-sm mb-8 animate-fade-in">
           <TrendingUp className="w-4 h-4 text-accent-green" />
           <span className="text-sm text-gray-300">
-            AI-Powered • Real-time Analysis • $10 Risk Management
+            AI-Powered • CFA-Grade Metrics • Plugin Ecosystem
           </span>
         </div>
 

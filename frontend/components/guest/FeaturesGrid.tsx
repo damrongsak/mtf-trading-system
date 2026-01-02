@@ -28,6 +28,12 @@ const features: Feature[] = [
     description: 'Identify institutional order blocks, liquidity zones, and market structure shifts for high-probability setups.',
     gradient: 'from-accent-blue to-blue-700',
   },
+  {
+    icon: <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
+    title: 'Plugin Architecture',
+    description: 'Modular engine supporting custom Alpha, Risk, and Execution plugins. Extend your edge with Python-based logic.',
+    gradient: 'from-orange-500 to-red-600',
+  },
 ];
 
 export function FeaturesGrid() {
@@ -45,7 +51,7 @@ export function FeaturesGrid() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 gap-8">
           {features.map((feature, index) => (
             <div
               key={index}
