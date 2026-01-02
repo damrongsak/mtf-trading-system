@@ -3245,3 +3245,92 @@ components:
           type: integer
         losing_trades:
           type: integer
+
+    PluginResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        category:
+          type: string
+        is_active:
+          type: boolean
+          description: "True if active for current user"
+    
+    PluginConfigUpdate:
+      type: object
+      required:
+        - config_overrides
+      properties:
+        config_overrides:
+          type: object
+  
+  /api/v1/plugins:
+    get:
+      summary: List all plugins
+      responses:
+        '200':
+          description: List of plugins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PluginResponse'
+
+  /api/v1/plugins/{id}/activate:
+    post:
+      summary: Activate a plugin for current user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: 
+                    type: string
+                    example: "active"
+
+  /api/v1/plugins/{id}/deactivate:
+    post:
+      summary: Deactivate a plugin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin deactivated
+
+  /api/v1/plugins/{id}/config:
+    put:
+      summary: Update plugin configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated

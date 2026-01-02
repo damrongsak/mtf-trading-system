@@ -1519,3 +1519,104 @@ validation_rules:
       - name: meta_data
         type: jsonb
         nullable: true
+
+  Plugin:
+    description: "Registry of available system plugins"
+    table_name: "plugins"
+    fields:
+      - name: id
+        type: string
+        primary_key: true
+        max_length: 100
+        description: "Unique plugin identifier (e.g., 'olympus-lstm-predictor')"
+      - name: name
+        type: string
+        required: true
+        max_length: 255
+      - name: description
+        type: text
+        nullable: true
+      - name: author
+        type: string
+        max_length: 100
+        nullable: true
+      - name: version
+        type: string
+        max_length: 50
+        required: true
+      - name: category
+        type: enum
+        enum_values: ["ALPHA", "RISK", "EXECUTION", "UTILITY"]
+        required: true
+      - name: base_config_schema
+        type: jsonb
+        required: true
+        default: "{}"
+        description: "JSON Schema for user configuration"
+      - name: is_system
+        type: boolean
+        default: false
+        description: "If true, cannot be uninstalled"
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  UserPlugin:
+    description: "User-specific activation and configuration of plugins"
+    table_name: "user_plugins"
+    indexes:
+      - fields: ["user_id", "plugin_id"]
+        unique: true
+    fields:
+      - name: instance_id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: plugin_id
+        type: string
+        foreign_key: "plugins.id"
+        required: true
+      - name: is_active
+        type: boolean
+        default: false
+      - name: config_overrides
+        type: jsonb
+        nullable: true
+        description: "User-specific parameter values matching base_config_schema"
+      - name: activated_at
+        type: datetime
+        nullable: true
+
+  AuditLog:
+    description: "Compliance log for system and plugin actions"
+    table_name: "audit_logs"
+    fields:
+      - name: log_id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        nullable: true
+      - name: action_type
+        type: string
+        required: true
+        max_length: 50
+        description: "e.g., PLUGIN_ACTIVATE, STRATEGY_UPDATE"
+      - name: resource_id
+        type: string
+        nullable: true
+        description: "ID of the affected resource"
+      - name: details_json
+        type: jsonb
+        nullable: true
+        description: "Snapshot of changes or context"
+      - name: ip_address
+        type: string
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"

@@ -44,7 +44,7 @@ This document translates the complete multi-dimensional trading system blueprint
 | Create `Candle` table migration | Able to ingest CSV of candles and query by timeframe | Alembic + ingestion test |
 | Implement OHLCV loader | Returns DataFrame with timezone-aware timestamps | Unit test with fixture CSV |
 | Implement resampling util (15m→1H→4H→D) | No lookahead; resample deterministic | Deterministic resample test |
-| Embedding job to Qdrant/pgvector | Embeddings stored and retrievable | Mock embedding + retrieval test |
+| Embedding job to Qdrant/PostgreSQL | Embeddings stored and retrievable | Mock embedding + retrieval test |
 
 ### **B. Execution / Risk (Service: `execution`) — Start here**
 | Task | Acceptance Criteria | Test |

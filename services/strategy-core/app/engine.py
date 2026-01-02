@@ -38,9 +38,57 @@ class StrategyEngine:
         from app.streaming.subscriber import RedisSubscriber
         self.subscriber = RedisSubscriber(self.on_candle_event)
 
+        # Plugin Engine
+        from app.plugins.plugin_engine import HookManager, PluginLoader
+        self.hook_manager = HookManager()
+        self.loader = PluginLoader(self.hook_manager, plugin_dir=os.path.join(os.path.dirname(__file__), "plugins"))
+        
+        # System Hooks
+        self.hook_manager.add_action("on_plugin_error", self.handle_plugin_error)
+
+    def handle_plugin_error(self, error_ctx: dict):
+        """System-level handler for plugin errors."""
+        logger.error(f"🚨 PLUGIN ERROR: {error_ctx}")
+        # Could also disable the plugin here for safety
+        
     async def start(self):
         """Start the engine components (subscriber)"""
         await self.subscriber.connect()
+        # Load Plugins
+        await self.load_active_plugins()
+
+    async def load_active_plugins(self):
+        """Load all active plugins from DB"""
+        from app.database import SessionLocal
+        from app.models.plugins import UserPlugin, Plugin
+        from sqlalchemy import select
+
+        logger.info("Loading active plugins...")
+        db = SessionLocal()
+        try:
+            query = select(UserPlugin, Plugin).join(Plugin).where(UserPlugin.is_active == True)
+            results = db.execute(query).all()
+            
+            for user_plugin, plugin in results:
+                # Context could be richer (DB connection, etc)
+                context = {
+                    "db": SessionLocal, # Factory
+                    "market_data": market_data_manager
+                }
+                
+                success = self.loader.load_plugin_for_user(
+                    plugin_id=plugin.id,
+                    user_id=str(user_plugin.user_id),
+                    context=context,
+                    config=user_plugin.config_overrides
+                )
+                if success:
+                    logger.info(f"Activated plugin {plugin.name} for user {user_plugin.user_id}")
+                    
+        except Exception as e:
+            logger.error(f"Error loading plugins: {e}")
+        finally:
+            db.close()
 
     async def start_strategy(self, strategy_id: str, config: dict):
         if strategy_id in self.active_strategies:
@@ -85,6 +133,10 @@ class StrategyEngine:
             
             symbol = parts[2]
             tf = parts[3]
+            
+            # HOOK: on_market_data
+            # We pass the raw data dict for now, or the standardized one.
+            self.hook_manager.do_action("on_market_data", data)
             
             # 1. Update Shared Market Data
             # Note: This is simplified. Realistically, we'd act on specific TFs.
@@ -131,6 +183,9 @@ class StrategyEngine:
             symbol = data.get("instrument")
             if not symbol:
                 return
+            
+            # HOOK: on_market_tick (Optional, high frequency)
+            # self.hook_manager.do_action("on_market_tick", data)
                 
             # Extract Price (using mid price)
             price = (float(data["bid"]) + float(data["ask"])) / 2
@@ -167,6 +222,14 @@ class StrategyEngine:
     async def _execute_signal(self, strategy_id: str, state: StrategyState, signal: dict):
         logger.info(f"Signal for {strategy_id}: {signal}")
         
+        # HOOK: filter_signal
+        # Allow plugins to modify signal (e.g. filter out, change size hint)
+        signal = self.hook_manager.apply_filters("filter_signal", signal, state)
+        
+        if not signal:
+            logger.info(f"Signal for {strategy_id} filtered out by plugin.")
+            return
+
         if state.mode == ExecutionMode.AUTO:
             try:
                 # Retrieve current config from Cache (in case Risk settings changed)
@@ -182,6 +245,14 @@ class StrategyEngine:
                     "reason": signal.get("reason", "Strategy Signal")
                 }
                 
+                # HOOK: filter_trade_request
+                # Last line of defense before execution
+                order_payload = self.hook_manager.apply_filters("filter_trade_request", order_payload)
+                
+                if not order_payload:
+                     logger.warning(f"Trade request filtered out for {strategy_id}")
+                     return
+
                 # Send to Execution Service
                 # Note: Execution Service 'place_order' adapter might need update to accept this payload
                 # Currently it expects 'units'. Execution Service needs to calculate units based on Risk.

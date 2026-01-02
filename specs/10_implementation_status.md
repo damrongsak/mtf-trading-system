@@ -387,8 +387,23 @@
     - **Bias Prevention:** Strict `iloc[-2]` logic enforcement in Strategy Core.
     - **Backtest Metrics Card:** Professional visual dashboard for Sharpe, Sortino, Alpha/Beta.
 
-## 📋 Immediate Next Actions (Prioritized)
+### Phase 9: Olympus Plugin Architecture (OPA)
+- **Status:** ✅ Complete (2026-01-02)
+- **Features:**
+    - **Database Schema:** Added `plugins`, `user_plugins`, and `audit_logs` tables.
+    - **Migration:** Alembic migration applied.
+    - **Core Engine:** `services/strategy-core/app/plugins/plugin_engine.py` implemented.
+    - **Hooks:** `on_market_data` and `filter_signal` hooks injected into `StrategyEngine`.
+    - **API Endpoint:** `POST /api/v1/plugins/{id}/activate` implemented.
 
-1.  **[High]** CI/CD Integration for E2E tests.
-2.  **[Medium]** Backfill missing API specs (if any).
+### Phase 10: AI Developer Audit & Refactor
+- **Status:** ✅ Complete (2026-01-02)
+- **Features:**
+    - **Audit:** Verified code against `MTF - Olympus_ AI Developer Checklist (Plugin Audit).md`.
+    - **Refactor:**
+        - **Safety:** Added global `on_plugin_error` hook and `try-except` wrappers in `HookManager`.
+        - **Standards:** Added strict type hinting and enhanced logging to `plugin_engine.py`.
+        - **Isolation:** Added `requirements.txt` to `Olympus-LSTM-Predictor`.
+        - **Logic:** Implemented "Reckless" (Optimistic) vs "Prudent" (Volatility Scaling) modes in reference plugin.
+    - **Resolution:** Performed full database reset and re-migration to fix schema inconsistencies.
 

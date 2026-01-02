@@ -42,7 +42,7 @@ MTF implements a rigorous evaluation pipeline to ensure production-readiness:
 
 * **Language:** Python 3.13 (Core), Next.js 15 / React 19 (Frontend)  
 * **Backend:** FastAPI (Microservices), Celery (Async Tasks), uv (Package Management)  
-* **Databases:** PostgreSQL 15 \+ pgvector (Structured/Embeddings), Qdrant (Vector Store)  
+* **Databases:** PostgreSQL 15 (Structured/Embeddings), Qdrant (Vector Store)  
 * **AI/LLM:** Gemini 1.5 Pro via Google Cloud Vertex AI  
 * **Infrastructure:** Dockerized Microservices, Nginx Reverse Proxy  
 * **Cloud:** Google Cloud Platform (Cloud Run, Cloud SQL, Secret Manager)

@@ -16,7 +16,7 @@ The project distinguishes itself through:
 | **API Gateway** | Python (FastAPI) | Entry point for all backend operations; routes to internal logic. |
 | **Strategy Core** | Python (Vectorbt, Pandas, Quantreo) | Implements MTF/SMC logic, signal generation, and backtesting. |
 | **Execution Service** | Python (FastAPI, PyPortfolioOpt) | Handles trade execution and Risk Parity sizing. |
-| **Database** | PostgreSQL 15 + pgvector | Stores relational trade data and vector embeddings. |
+| **Database** | PostgreSQL 15 | Stores relational trade data and vector embeddings. |
 | **Vector Store** | Qdrant | Handles similarity search for pattern recognition and RAG. |
 | **Infrastructure** | Docker Compose, Nginx | Container orchestration and reverse proxying. |
 | **Cloud Target** | GCP (Cloud Run, SQL) | Production environment (Project: `line-bot-2b383`). |
@@ -304,4 +304,4 @@ try {
 | **Rebuild Specific** | `docker compose up --build <service_name>` |
 | **Stop All** | `docker compose down` |
 | **Deploy** | `./deploy.sh` |
-| **Connect to DB** | `docker exec -it pgvector psql -U trader -d mtf_db` |
+| **Connect to DB** | `docker exec -it postgresql psql -U trader -d mtf_db` |
