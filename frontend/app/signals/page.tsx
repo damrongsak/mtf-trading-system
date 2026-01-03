@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { SignalCard } from '@/components/SignalCard';
+import { SkippedTradesTable } from '@/components/analysis/SkippedTradesTable';
 
 import { getRecentSignals } from '@/lib/api/dashboard';
+
 import { RecentSignal } from '@/lib/api/types';
 
 export default function SignalsPage() {
@@ -53,7 +55,12 @@ export default function SignalsPage() {
             ))}
           </div>
         )}
+        
+        <div className="mt-12">
+             <SkippedTradesTable />
+        </div>
       </div>
     </div>
   );
 }
+

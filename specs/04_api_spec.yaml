@@ -1124,6 +1124,25 @@ paths:
                 items:
                   type: object
 
+  /api/v1/analysis/opportunities:
+    get:
+      summary: Get skipped trade opportunities (filtered by Volatility/Sentiment)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of skipped opportunities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OpportunityLog'
+
   /api/v1/execution/account/summary:
     get:
       summary: Get account summary
@@ -3385,3 +3404,27 @@ components:
       responses:
         '200':
           description: Configuration updated
+
+    OpportunityLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        symbol:
+          type: string
+        direction:
+          type: string
+        filter_name:
+          type: string
+        filter_value:
+          type: number
+        threshold_value:
+          type: number
+        reason:
+          type: string
+        strategy_name:
+          type: string

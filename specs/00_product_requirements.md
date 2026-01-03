@@ -99,6 +99,14 @@ The platform is built on five functional pillars:
 | **F5.1** | Users can publish `StrategyConfig.json` to the Marketplace (if Verified). |
 | **F5.2** | Other users can "Clone" strategies to their local Foundry. |
 
+### 4.6. Olympus Enhancements (Phases 1-4)
+| Requirement | Description (Behavior) |
+| :--- | :--- |
+| **F6.1** | **Automated Reporting**: System must generate Daily Briefings summarizing PnL using LLM agents. |
+| **F6.2** | **Sentiment Factor**: Signal generation must consider News Sentiment Score (-1.0 to 1.0). High negative sentiment must block Long signals. |
+| **F6.3** | **Volatility Filtering**: Trades in low-volatility regimes (Low ATR) must be filtered to reduce noise. |
+| **F6.4** | **Traceability**: All skipped trades must be logged (`OpportunityLog`) for analysis. |
+
 ---
 
 ## 5. Release Criteria (Phase 2)

@@ -756,3 +756,15 @@ export interface Plugin {
 export interface PluginConfigUpdate {
     config_overrides: Record<string, unknown>;
 }
+
+export interface OpportunityLog {
+    id: string;
+    timestamp: string;
+    symbol: string;
+    direction: string;
+    filter_name: string;
+    filter_value?: number;
+    threshold_value?: number;
+    reason?: string;
+    strategy_name?: string;
+}

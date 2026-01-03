@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Query, Body, status
+from fastapi import APIRouter, HTTPException, Query, Body, status, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
 from typing import List, Optional
 import httpx
@@ -165,3 +168,11 @@ async def calculate_adx(req: ADXRequest):
         except Exception as e:
             logger.error(f"ADX Proxy failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.get("/opportunities", status_code=200)
+def get_opportunities(limit: int = 50, db: Session = Depends(get_db)):
+    """
+    Get skipped trade opportunities (filtered by Volatility/Sentiment).
+    """
+    logs = db.query(OpportunityLog).order_by(OpportunityLog.timestamp.desc()).limit(limit).all()
+    return logs

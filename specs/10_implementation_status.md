@@ -422,4 +422,13 @@
     - **Refactor:** Consolidated `BrokerAccountsSection`, `TradingPreferencesSection`, and `PluginManagement` into `settings/page.tsx`.
     - **Code Quality:** Resolved lint errors and strict type checking issues.
 
+### Phase 13: Olympus Enhancements (Visual & Quant)
+- **Status:** ✅ Complete (2026-01-03)
+- **Features:**
+    - **Automated Reporting:** Daily Briefing Agent (`ai-analyst`) and UI Card.
+    - **Sentiment Analysis:** NewsAPI integration, Sentiment Scoring, and Strategy filtering logic.
+    - **Volatility Filter:** ATR-based filtering and Opportunity Logging (`opportunity_logs`).
+    - **Visualization:** "Skipped Trades" table (`SkippedTradesTable`) for transparency.
+    - **Specs:** Updated PRD, Data Model, and API Spec.
+
 

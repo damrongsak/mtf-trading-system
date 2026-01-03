@@ -1,4 +1,11 @@
 import { apiClient } from './client';
+import { OpportunityLog } from './types';
+
+export async function getOpportunities(limit: number = 50): Promise<OpportunityLog[]> {
+    const response = await apiClient.get<OpportunityLog[]>('/api/v1/analysis/opportunities', { params: { limit } });
+    return response.data;
+}
+
 
 export interface IndicatorResponse {
     values: (number | null)[];
