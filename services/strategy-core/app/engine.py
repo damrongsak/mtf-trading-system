@@ -15,6 +15,7 @@ from app.smc import detect_order_blocks
 from app.adapters.ai_analyst import get_market_sentiment
 from app.database import SessionLocal
 from app.models.signal_log import SignalLog
+from app.models.opportunity_log import OpportunityLog
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +231,53 @@ class StrategyEngine:
         # Allow plugins to modify signal (e.g. filter out, change size hint)
         signal = self.hook_manager.apply_filters("filter_signal", signal, state)
         
+        # --- VOLATILITY FILTER (New) ---
+        # Calculate ATR to check if market is dead
+        # Simplified: Get recent candles, calc ATR.
+        try:
+            # We need recent data. market_data_manager has it.
+            df = market_data_manager.get_data(state.symbol)
+            if not df.empty and len(df) > 20: 
+                 # Calc ATR(14)
+                 high = df['high']
+                 low = df['low']
+                 close = df['close']
+                 atr_series = calculate_atr(high, low, close, window=14)
+                 current_atr = atr_series.iloc[-1]
+                 
+                 # Threshold: Hardcoded 5 pips (0.0005 for forex) or generic?
+                 # For XAUUSD, 1.0 is decent.
+                 # Let's use a dynamic threshold or config.
+                 # For MVP: 0.5 for Gold.
+                 min_volatility = 0.5 if "XAU" in state.symbol else 0.0005
+                 
+                 if current_atr < min_volatility:
+                     logger.info(f"Signal BLOCKED by Volatility: ATR {current_atr:.4f} < {min_volatility}")
+                     
+                     # Log Opportunity
+                     try:
+                         db = SessionLocal()
+                         opp_log = OpportunityLog(
+                             symbol=state.symbol,
+                             timeframe=state.timeframe,
+                             direction=signal['direction'],
+                             strategy_name=f"Strategy-{strategy_id}",
+                             filter_name="ATR_VOLATILITY",
+                             filter_value=float(current_atr),
+                             threshold_value=float(min_volatility),
+                             reason=f"Low Volatility (ATR < {min_volatility})",
+                             meta_data=signal.get('meta_data')
+                         )
+                         db.add(opp_log)
+                         db.commit()
+                         db.close()
+                     except Exception as ex:
+                         logger.error(f"Failed to save OpportunityLog: {ex}")
+                         
+                     return # SKIP EXECUTION
+        except Exception as e:
+            logger.warning(f"Volatility check failed: {e}")
+
         if not signal:
             logger.info(f"Signal for {strategy_id} filtered out by plugin.")
             return

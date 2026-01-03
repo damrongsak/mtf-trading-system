@@ -1676,3 +1676,45 @@ validation_rules:
         enum_values: ["DAILY", "ALERTS"]
         default: "DAILY"
         required: true
+
+  OpportunityLog:
+    description: "Log of skipped trade opportunities due to filters (e.g. Volatility, Sentiment)"
+    table_name: "opportunity_logs"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+        index: true
+      - name: symbol
+        type: string
+        required: true
+        index: true
+      - name: timeframe
+        type: string
+        default: "H1"
+      - name: direction
+        type: string
+        required: true
+        description: "BULLISH, BEARISH"
+      - name: strategy_name
+        type: string
+        nullable: true
+      - name: filter_name
+        type: string
+        required: true
+        description: "ATR_VOLATILITY, SENTIMENT, etc."
+      - name: filter_value
+        type: float
+        nullable: true
+      - name: threshold_value
+        type: float
+        nullable: true
+      - name: reason
+        type: string
+        nullable: true
+      - name: meta_data
+        type: jsonb
+        nullable: true

@@ -2683,6 +2683,13 @@ components:
         confidence:
           type: number
           default: 0.0
+        sentiment_score:
+          type: number
+          nullable: true
+          description: "Market sentiment (-1.0 to 1.0)"
+        sentiment_reason:
+          type: string
+          nullable: true
 
     APIResponse_SignalResponse:
       type: object
