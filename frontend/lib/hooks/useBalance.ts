@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getBalance } from '../api/transaction';
+import { getBalance } from '../api/transactions';
 import { BalanceResponse } from '../api/types';
 
 export interface UseBalanceResult {

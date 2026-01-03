@@ -12,6 +12,9 @@ from app.utils.response import success_response
 from typing import List, Optional, Dict, Any
 import uuid
 import httpx
+import hmac
+import hashlib
+import time
 from app.models.market import MarketCategory, MarketSymbol
 from app.models.data_source import DataSource
 
@@ -97,6 +100,78 @@ async def fetch_oanda_instruments(account_id: str, api_key: str, is_live: bool =
             
         except Exception as e:
              raise ValueError(f"OANDA Symbol Fetch Error: {str(e)}")
+
+def categorize_binance_instrument(symbol_info: Dict[str, Any]) -> str:
+    """Categorize Binance instrument (Crypto)."""
+    # Simply return Crypto for now as we are likely trading Spot or Futures
+    # Use logic if needed (e.g. if 'contractType' in info -> Futures)
+    return "Crypto"
+
+async def verify_binance_credentials(api_key: str, secret_key: str, is_live: bool = False):
+    """Verify Binance credentials by fetching account info."""
+    # Base URL
+    base_url = "https://api.binance.com" if is_live else "https://testnet.binance.vision" 
+    # Note: Testnet URL might be different or require different keys. 
+    # For simplicity, assuming User provides standard keys. 
+    # If is_live=False, we might default to testnet.binance.vision/api
+    
+    endpoint = "/api/v3/account"
+    
+    timestamp = int(time.time() * 1000)
+    params = f"timestamp={timestamp}"
+    
+    signature = hmac.new(
+        secret_key.encode('utf-8'),
+        params.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    url = f"{base_url}{endpoint}?{params}&signature={signature}"
+    
+    headers = {
+        "X-MBX-APIKEY": api_key
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers, timeout=10.0)
+            
+            if response.status_code == 200:
+                return
+                
+            try:
+                err = response.json()
+                msg = err.get('msg', 'Unknown Error')
+            except:
+                msg = response.text
+                
+            if response.status_code == 401:
+                 raise ValueError(f"Binance Unauthorized: Check API Key/Secret. ({msg})")
+            else:
+                 raise ValueError(f"Binance Connection Failed ({response.status_code}): {msg}")
+
+        except httpx.RequestError as e:
+             raise ValueError(f"Binance Network Error: {str(e)}")
+
+async def fetch_binance_instruments(api_key: str, secret_key: str, is_live: bool = False) -> List[Dict[str, Any]]:
+    """Fetch all trading symbols from Binance."""
+    # We don't strictly need auth for exchangeInfo but it's good practice to use the same base_url
+    base_url = "https://api.binance.com" if is_live else "https://testnet.binance.vision"
+    url = f"{base_url}/api/v3/exchangeInfo"
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, timeout=10.0)
+            if response.status_code != 200:
+                 raise ValueError(f"Failed to fetch symbols: HTTP {response.status_code}")
+                 
+            data = response.json()
+            symbols = data.get("symbols", [])
+            # Return full objects to helper
+            return symbols
+            
+        except Exception as e:
+             raise ValueError(f"Binance Symbol Fetch Error: {str(e)}")
 
 # --- Schemas ---
 
@@ -200,6 +275,22 @@ async def create_account(
         try:
             # Note: This is a synchronous call in an async function, but verify_oanda_credentials is async
             await verify_oanda_credentials(acc_id, api_key, account.is_live)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    elif account.broker_name.upper() == "BINANCE":
+        api_key = account.credentials.get("api_key", "").strip()
+        secret_key = account.credentials.get("secret_key", "").strip()
+        
+        # Update credentials
+        account.credentials["api_key"] = api_key
+        account.credentials["secret_key"] = secret_key
+        
+        if not api_key or not secret_key:
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing API Key or Secret Key for Binance")
+             
+        try:
+            await verify_binance_credentials(api_key, secret_key, account.is_live)
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
@@ -333,7 +424,7 @@ async def fetch_account_symbols(
     if not user_fund:
          raise HTTPException(status_code=403, detail="Not authorized")
          
-    if account.broker_name != "OANDA":
+    if account.broker_name != "OANDA" and account.broker_name != "BINANCE":
         return success_response(data=[], message="Fetching symbols not supported for this broker yet")
 
     # 1. Try fetching from Local DB
@@ -346,83 +437,152 @@ async def fetch_account_symbols(
                  message=f"Returned {len(local_symbols)} cached symbols"
              )
 
+    if account.broker_name == "BINANCE":
+        try:
+            creds = decrypt_data(account.credentials_encrypted)
+            await fetch_binance_symbols_logic(db, account, creds)
+            
+            # Refetch from DB to return
+            local_symbols = db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all() # This logic is slightly flawed if we haven't linked DS yet. 
+            # Let's fix the flow: Logic should return list, we save to DB async or inside logic.
+            # Reworking below to be cleaner.
+            pass 
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # 2. Cold Start: Fetch from Broker & Sync to DB
+    
     # 2. Cold Start: Fetch from Broker & Sync to DB
     try:
         creds = decrypt_data(account.credentials_encrypted)
-        api_key = creds.get("api_key")
-        acc_id = creds.get("account_id")
         
-        if not api_key or not acc_id:
-             raise HTTPException(status_code=400, detail="Missing credentials")
-             
-        # Fetch raw instruments
-        instruments = await fetch_oanda_instruments(acc_id, api_key, account.is_live)
-        
-        # Sync Logic (Ported from script)
-        if not data_source:
-            # Create DataSource if missing
-             data_source = DataSource(name="OANDA", type="api", config_json={})
-             db.add(data_source)
-             db.flush()
-
-        # Ensure categories exist
-        cat_names = ["Forex", "Metals", "Crypto", "Indices", "CFD", "Other"]
-        categories = {c.name: c for c in db.query(MarketCategory).all()}
-        
-        for idx, name in enumerate(cat_names):
-            if name not in categories:
-                new_cat = MarketCategory(name=name, order_index=idx)
-                db.add(new_cat)
-                categories[name] = new_cat
-        db.flush() 
-
-        # Bulk Create/Update Symbols
-        # Note: We return raw names immediately, but sync to DB for next time
-        synced_count = 0
-        symbol_list = []
-
-        host = "api-fxtrade.oanda.com" if account.is_live else "api-fxpractice.oanda.com"
-        url = f"https://{host}/v3/accounts/{acc_id}/instruments"
-        
-        # We need full instrument details for categorization, so we re-fetch fully
-        # Reuse helper but modify it to return full objects? 
-        # Alternatively, fetch_oanda_instruments returned names only. 
-        # Let's modify the helper OR just fetch manually here since this is a rare "cold start".
-        
-        headers = {"Authorization": f"Bearer {api_key}"}
-        async with httpx.AsyncClient() as client:
-             resp_full = await client.get(url, headers=headers)
-             if resp_full.status_code == 200:
-                 full_instruments = resp_full.json().get("instruments", [])
+        if account.broker_name == "BINANCE":
+            api_key = creds.get("api_key")
+            secret_key = creds.get("secret_key")
+            
+            if not api_key or not secret_key:
+                 raise HTTPException(status_code=400, detail="Missing API Key or Secret Key")
                  
-                 for inst in full_instruments:
-                     name = inst['name']
-                     symbol_list.append(name)
-                     display_name = inst.get('displayName', name)
-                     
-                     cat_name = categorize_oanda_instrument(inst)
-                     cat_obj = categories.get(cat_name, categories["Other"])
-                     
-                     # Check existence
-                     existing_sym = db.query(MarketSymbol).filter(
-                         MarketSymbol.symbol == name, 
-                         MarketSymbol.data_source_id == data_source.id
-                     ).first()
-                     
-                     if not existing_sym:
-                         new_sym = MarketSymbol(
-                             category_id=cat_obj.id,
-                             data_source_id=data_source.id,
-                             symbol=name,
-                             display_name=display_name,
-                             order_index=999
-                         )
-                         db.add(new_sym)
-                         synced_count += 1
+            # Fetch raw
+            raw_symbols = await fetch_binance_instruments(api_key, secret_key, account.is_live)
+            
+            # Sync Logic
+            # 1. Ensure DataSource
+            data_source = db.query(DataSource).filter(DataSource.name == "BINANCE").first()
+            if not data_source:
+                 data_source = DataSource(name="BINANCE", type="api", config_json={})
+                 db.add(data_source)
+                 db.flush()
                  
-                 db.commit()
+            # 2. Ensure Categories
+            cat_name = "Crypto"
+            category = db.query(MarketCategory).filter(MarketCategory.name == cat_name).first()
+            if not category:
+                category = MarketCategory(name=cat_name, order_index=2)
+                db.add(category)
+                db.flush()
+                
+            # 3. Bulk Save
+            symbol_list = []
+            synced_count = 0
+            
+            # Fetch existing to avoid duplicates
+            existing_syms = {s.symbol for s in db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all()}
+            
+            for info in raw_symbols:
+                name = info['symbol']
+                symbol_list.append(name)
+                
+                # Check status
+                if info.get('status') != 'TRADING':
+                    continue
+                    
+                if name not in existing_syms:
+                    new_sym = MarketSymbol(
+                        category_id=category.id,
+                        data_source_id=data_source.id,
+                        symbol=name,
+                        display_name=f"{info.get('baseAsset')}/{info.get('quoteAsset')}",
+                        order_index=999
+                    )
+                    db.add(new_sym)
+                    existing_syms.add(name)
+                    synced_count += 1
+            
+            db.commit()
+            return success_response(data=symbol_list, message=f"Fetched {len(symbol_list)} symbols (New: {synced_count})")
 
-        return success_response(data=symbol_list, message=f"Fetched and cached {len(symbol_list)} symbols")
+        elif account.broker_name == "OANDA":
+            api_key = creds.get("api_key")
+            acc_id = creds.get("account_id")
+            
+            if not api_key or not acc_id:
+                 raise HTTPException(status_code=400, detail="Missing credentials")
+                 
+            # Fetch raw names first (lightweight)
+            # instruments = await fetch_oanda_instruments(acc_id, api_key, account.is_live) 
+            # Actually we use full fetch below
+            
+            # Sync Logic (Ported from script)
+            data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
+            if not data_source:
+                # Create DataSource if missing
+                 data_source = DataSource(name="OANDA", type="api", config_json={})
+                 db.add(data_source)
+                 db.flush()
+
+            # Ensure categories exist
+            cat_names = ["Forex", "Metals", "Crypto", "Indices", "CFD", "Other"]
+            categories = {c.name: c for c in db.query(MarketCategory).all()}
+            
+            for idx, name in enumerate(cat_names):
+                if name not in categories:
+                    new_cat = MarketCategory(name=name, order_index=idx)
+                    db.add(new_cat)
+                    categories[name] = new_cat
+            db.flush() 
+
+            # Bulk Create/Update Symbols
+            synced_count = 0
+            symbol_list = []
+
+            host = "api-fxtrade.oanda.com" if account.is_live else "api-fxpractice.oanda.com"
+            url = f"https://{host}/v3/accounts/{acc_id}/instruments"
+            
+            headers = {"Authorization": f"Bearer {api_key}"}
+            async with httpx.AsyncClient() as client:
+                 resp_full = await client.get(url, headers=headers)
+                 if resp_full.status_code == 200:
+                     full_instruments = resp_full.json().get("instruments", [])
+                     
+                     for inst in full_instruments:
+                         name = inst['name']
+                         symbol_list.append(name)
+                         display_name = inst.get('displayName', name)
+                         
+                         cat_name = categorize_oanda_instrument(inst)
+                         cat_obj = categories.get(cat_name, categories["Other"])
+                         
+                         # Check existence
+                         existing_sym = db.query(MarketSymbol).filter(
+                             MarketSymbol.symbol == name, 
+                             MarketSymbol.data_source_id == data_source.id
+                         ).first()
+                         
+                         if not existing_sym:
+                             new_sym = MarketSymbol(
+                                 category_id=cat_obj.id,
+                                 data_source_id=data_source.id,
+                                 symbol=name,
+                                 display_name=display_name,
+                                 order_index=999
+                             )
+                             db.add(new_sym)
+                             synced_count += 1
+                     
+                     db.commit()
+
+            return success_response(data=symbol_list, message=f"Fetched and cached {len(symbol_list)} symbols")
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

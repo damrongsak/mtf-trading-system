@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTransactions } from '../api/transaction';
+import { getTransactions } from '../api/transactions';
 import { Transaction, PaginatedResponse } from '../api/types';
 
 export interface UseTransactionsResult {

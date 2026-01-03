@@ -12,7 +12,6 @@ export * from './fund';
 export * from './settings';
 export * from './transactions';
 export * from './simulation';
-export * from './backtest';
 export * from './analysis';
 export * from './plugins';
 export * from './signals';

@@ -568,7 +568,7 @@ entities:
       - name: credentials_encrypted
         type: jsonb
         required: true
-        description: "Encrypted API keys and secrets"
+        description: "Encrypted API keys and secrets. OANDA: {api_key, account_id}, BINANCE: {api_key, secret_key}"
       - name: is_active
         type: boolean
         default: true

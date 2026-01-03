@@ -36,6 +36,7 @@ import { TagsInput } from "@/components/ui/tags-input";
     const [accountName, setAccountName] = useState('');
     const [accountNumber, setAccountNumber] = useState('');
     const [apiKey, setApiKey] = useState('');
+    const [secretKey, setSecretKey] = useState('');
     const [supportedSymbolsInput, setSupportedSymbolsInput] = useState('');
     const [riskSettingsInput, setRiskSettingsInput] = useState('');
     const [isLive, setIsLive] = useState(false);
@@ -104,6 +105,7 @@ import { TagsInput } from "@/components/ui/tags-input";
             // Prepare Payload
             const cleanAccountNumber = accountNumber.trim();
             const cleanApiKey = apiKey.trim();
+            const cleanSecretKey = secretKey.trim();
             const cleanAccountName = accountName.trim();
 
             const payload = {
@@ -114,6 +116,7 @@ import { TagsInput } from "@/components/ui/tags-input";
                 is_live: isLive,
                 credentials: {
                     api_key: cleanApiKey,
+                    secret_key: brokerName === 'BINANCE' ? cleanSecretKey : undefined,
                     account_id: cleanAccountNumber, // Use accountNumber for OANDA ID
                     environment: isLive ? 'live' : 'practice'
                 },
@@ -144,6 +147,7 @@ import { TagsInput } from "@/components/ui/tags-input";
             setAccountName('');
             setAccountNumber('');
             setApiKey('');
+            setSecretKey('');
             setSupportedSymbolsInput('');
             setRiskSettingsInput('');
         } catch (err) {
@@ -318,7 +322,7 @@ import { TagsInput } from "@/components/ui/tags-input";
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="OANDA">OANDA</SelectItem>
-                                            <SelectItem value="BINANCE">Binance (Coming Soon)</SelectItem>
+                                            <SelectItem value="BINANCE">Binance</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -350,6 +354,18 @@ import { TagsInput } from "@/components/ui/tags-input";
                                         required
                                     />
                                 </div>
+                                {brokerName === 'BINANCE' && (
+                                    <div className="space-y-2">
+                                        <Label>Secret Key</Label>
+                                        <Input 
+                                            type="password"
+                                            placeholder="****************" 
+                                            value={secretKey}
+                                            onChange={(e) => setSecretKey(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <input 
