@@ -90,6 +90,15 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.
 
+
+### 4.6. Plugin Architecture (OPA)
+- **Role**: Extensibility Engine.
+- **Key Features**:
+    - **Plugin Engine**: Dynamic loading of `BasePlugin` implementations.
+    - **Hook System**: Event-driven hooks (`on_market_data`, `filter_signal`) for modifying system behavior.
+    - **Registry**: Database-backed plugin management (`plugins`, `user_plugins`).
+    - **Sandboxing**: Isolated execution for 3rd party logic (Planned).
+
 ## 5. Data Flow
 
 ### 5.1. Strategy Creation & Validation

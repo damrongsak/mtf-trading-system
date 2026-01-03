@@ -1547,28 +1547,53 @@ validation_rules:
       - name: category
         type: enum
         enum_values: ["ALPHA", "RISK", "EXECUTION", "UTILITY"]
+  Plugin:
+    description: "System extension module (Olympus Plugin Architecture)"
+    table_name: "plugins"
+    fields:
+      - name: id
+        type: string
+        primary_key: true
+        description: "Unique plugin identifier slug (e.g., 'olympus-lstm-predictor')"
+      - name: name
+        type: string
         required: true
+        max_length: 100
+      - name: version
+        type: string
+        required: true
+        max_length: 20
+      - name: author
+        type: string
+        required: true
+        max_length: 100
+      - name: description
+        type: text
+        nullable: true
+      - name: category
+        type: string
+        required: true
+        description: "ALPHA, RISK, EXECUTION, ANALYTICS"
+      - name: is_active
+        type: boolean
+        default: true
+        description: "Global system-level switch"
       - name: base_config_schema
         type: jsonb
-        required: true
         default: "{}"
-        description: "JSON Schema for user configuration"
-      - name: is_system
-        type: boolean
-        default: false
-        description: "If true, cannot be uninstalled"
+        description: "JSON Schema for configuration validation"
       - name: created_at
         type: datetime
         default: "now()"
 
   UserPlugin:
-    description: "User-specific activation and configuration of plugins"
+    description: "User-specific plugin activation and configuration"
     table_name: "user_plugins"
     indexes:
       - fields: ["user_id", "plugin_id"]
         unique: true
     fields:
-      - name: instance_id
+      - name: id
         type: uuid
         primary_key: true
       - name: user_id
@@ -1582,41 +1607,42 @@ validation_rules:
       - name: is_active
         type: boolean
         default: false
+        description: "User-level activation switch"
       - name: config_overrides
         type: jsonb
-        nullable: true
-        description: "User-specific parameter values matching base_config_schema"
-      - name: activated_at
-        type: datetime
-        nullable: true
-
-  AuditLog:
-    description: "Compliance log for system and plugin actions"
-    table_name: "audit_logs"
-    fields:
-      - name: log_id
-        type: uuid
-        primary_key: true
-      - name: user_id
-        type: uuid
-        foreign_key: "users.id"
-        nullable: true
-      - name: action_type
-        type: string
-        required: true
-        max_length: 50
-        description: "e.g., PLUGIN_ACTIVATE, STRATEGY_UPDATE"
-      - name: resource_id
-        type: string
-        nullable: true
-        description: "ID of the affected resource"
-      - name: details_json
-        type: jsonb
-        nullable: true
-        description: "Snapshot of changes or context"
-      - name: ip_address
-        type: string
-        nullable: true
+        default: "{}"
+        description: "User-specific configuration values"
       - name: created_at
         type: datetime
         default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
+
+  AuditLog:
+    description: "Immutable system-wide audit trail"
+    table_name: "audit_logs"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+      - name: actor
+        type: string
+        required: true
+        description: "User ID or System Component Name"
+      - name: action
+        type: string
+        required: true
+        description: "Event type (e.g., PLUGIN_ACTIVATED, TRADE_EXECUTED)"
+      - name: target
+        type: string
+        nullable: true
+        description: "ID of the resource being acted upon"
+      - name: details
+        type: jsonb
+        nullable: true
+        description: "Contextual data for the event"
