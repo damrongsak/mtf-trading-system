@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Play, Square, Activity, AlertTriangle } from 'lucide-react';
 import { getDeployments, stopDeployment, restartDeployment } from '@/lib/api/deployments';
+import { isAxiosError } from 'axios';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { Deployment } from '@/lib/api/types';
 import { format } from 'date-fns';
@@ -57,9 +58,12 @@ export default function DeploymentsPage() {
         try {
             await restartDeployment(id);
             await fetchDeployments();
-        } catch (err: any) {
+        } catch (err) {
              // Extract error message if possible
-            const msg = err.response?.data?.detail || "Failed to restart deployment";
+            let msg = "Failed to restart deployment";
+            if (isAxiosError(err) && err.response?.data?.detail) {
+                 msg = err.response.data.detail;
+            }
             setError(msg);
             setErrorModalOpen(true);
         } finally {
@@ -83,8 +87,11 @@ export default function DeploymentsPage() {
             await stopDeployment(selectedDeploymentId);
             await fetchDeployments();
             setStopModalOpen(false);
-        } catch (err: any) {
-            const msg = err.response?.data?.detail || "Failed to stop deployment";
+        } catch (err) {
+            let msg = "Failed to stop deployment";
+            if (isAxiosError(err) && err.response?.data?.detail) {
+                msg = err.response.data.detail;
+            }
             setError(msg);
             setErrorModalOpen(true);
         } finally {

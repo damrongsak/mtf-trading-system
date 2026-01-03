@@ -7,6 +7,7 @@ const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then
 const ChartContainer = dynamic(() => import('@/components/charts/ChartContainer').then(mod => mod.ChartContainer), { ssr: false });
 const IndicatorChart = dynamic(() => import('@/components/charts/IndicatorChart').then(mod => mod.IndicatorChart), { ssr: false });
 import { IndicatorData } from '@/components/charts/CandleChart';
+import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { fetchSystemConfig } from '@/lib/api/system';
 import { Button } from '@/components/ui/button';
@@ -315,7 +316,7 @@ export default function MarketPage() {
                            <IndicatorChart 
                               key={ind.name}
                               type="RSI"
-                              data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))} // Mapping needs safety
+                              data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))} // Mapping needs safety
                               height={150}
                               colors={{ lineColor: ind.color, textColor: '#737373' }}
                            />
@@ -326,7 +327,7 @@ export default function MarketPage() {
                            <IndicatorChart 
                                key={ind.name}
                                type="ATR"
-                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))}
+                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
                                height={150}
                                colors={{ lineColor: ind.color, textColor: '#737373' }}
                            />
@@ -346,7 +347,7 @@ export default function MarketPage() {
                                     // We should fix updateIndicators to maintain grouping or reconstructing here.
                                     // For now reconstructing:
                                     return macd.map((v, i) => ({
-                                        time: new Date(candles[i]?.timestamp).getTime() / 1000 as any,
+                                        time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time,
                                         value: v || 0,
                                         signal: signal[i] || 0,
                                         hist: (v || 0) - (signal[i] || 0) // Naive hist calc if not stored
@@ -362,7 +363,7 @@ export default function MarketPage() {
                            <IndicatorChart 
                                key={ind.name}
                                type="ADX"
-                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as any, value: v || 0 }))}
+                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
                                height={150}
                                colors={{ lineColor: ind.color, textColor: '#737373' }}
                            />

@@ -99,6 +99,7 @@ services:
       - ./services/ai-analyst:/app
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
     deploy:
       resources:
         limits:

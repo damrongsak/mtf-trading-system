@@ -19,7 +19,7 @@ class SignalLog(Base):
     direction = Column(String, nullable=False) # BULLISH, BEARISH, NEUTRAL
     
     strategy_name = Column(String, nullable=True) # "SMC Scanner" or "Deployment-123"
-    deployment_id = Column(UUID(as_uuid=True), ForeignKey("deployments.id"), nullable=True, index=True)
+    deployment_id = Column(UUID(as_uuid=True), index=True, nullable=True)
     
     confidence = Column(Numeric(5, 4), default=0.0)
     price = Column(Float, nullable=True) # Price at signal detection
@@ -29,7 +29,3 @@ class SignalLog(Base):
 
     sentiment_score = Column(Numeric(3, 2), nullable=True)
     sentiment_reason = Column(String, nullable=True)
-
-
-    # Relationships
-    deployment = relationship("Deployment", backref="signals")

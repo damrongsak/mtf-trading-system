@@ -78,6 +78,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_ChatSession'
 
+  /api/v1/ai/briefing:
+    get:
+      summary: Get latest daily briefing
+      responses:
+        '200':
+          description: Latest briefing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Briefing'
+    post:
+      summary: Trigger generation of a new briefing
+      responses:
+        '200':
+          description: Briefing generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Briefing'
+
+
   /api/v1/ai/chat/sessions/{session_id}/messages:
     get:
       summary: Get messages for a session
@@ -3268,6 +3289,29 @@ components:
       properties:
         config_overrides:
           type: object
+
+    Briefing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+        type: 
+          type: string
+          enum: [DAILY, ALERTS]
+
+    APIResponse_Briefing:
+        type: object
+        properties:
+          status:
+            type: string
+          data:
+            $ref: '#/components/schemas/Briefing'
   
   /api/v1/plugins:
     get:

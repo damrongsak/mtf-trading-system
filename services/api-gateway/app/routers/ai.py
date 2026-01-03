@@ -73,6 +73,32 @@ async def run_market_observer(req: AgentRunRequest):
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
+@router.get("/briefing")
+async def get_daily_briefing():
+    """
+    Get the latest daily briefing from AI Analyst.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            # We call the POST endpoint on AI Analyst to generate/fetch
+            response = await client.post(
+                f"{AI_SERVICE_URL}/agent/briefing",
+                timeout=60.0 
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Transform to Briefing model format
+            return success_response(data={
+                "content": data.get("report", ""),
+                "generated_at": data.get("timestamp"),
+                "type": "DAILY"
+            })
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+
 # --- AI Chat Integration ---
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db

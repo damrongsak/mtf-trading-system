@@ -39,9 +39,10 @@ export default function BacktestPage() {
             } else {
                 addLog(`Backtest finished with status: ${data.status}`, 'warning');
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Backtest failed", error);
-            addLog(`Error: ${error.message || 'Unknown error occurred'}`, 'error');
+            const msg = error instanceof Error ? error.message : 'Unknown error occurred';
+            addLog(`Error: ${msg}`, 'error');
             alert("Backtest failed. Check console.");
         } finally {
             setLoading(false);

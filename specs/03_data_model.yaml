@@ -1519,6 +1519,16 @@ validation_rules:
       - name: meta_data
         type: jsonb
         nullable: true
+      - name: sentiment_score
+        type: decimal
+        precision: 3
+        scale: 2
+        nullable: true
+        description: "News sentiment score (-1.0 to 1.0) at time of signal"
+      - name: sentiment_reason
+        type: text
+        nullable: true
+        description: "Explanation of the sentiment score"
 
   Plugin:
     description: "Registry of available system plugins"
@@ -1646,3 +1656,23 @@ validation_rules:
         type: jsonb
         nullable: true
         description: "Contextual data for the event"
+
+  Briefing:
+    description: "Daily AI-generated trading briefing"
+    table_name: "briefings"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: content
+        type: text
+        required: true
+        description: "Markdown content of the briefing"
+      - name: generated_at
+        type: datetime
+        default: "now()"
+      - name: type
+        type: enum
+        enum_values: ["DAILY", "ALERTS"]
+        default: "DAILY"
+        required: true

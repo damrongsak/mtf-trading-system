@@ -18,6 +18,7 @@ dependencies = [
     "pillow>=10.2.0",
     "pyportfolioopt>=1.5.5",
     "quantreo>=0.1.0",
+    "redis>=5.0.0",
 ]
 
 [dependency-groups]

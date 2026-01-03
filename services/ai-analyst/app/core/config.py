@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     GOOGLE_CSE_ID: Optional[str] = None
     GOOGLE_SEARCH_API_KEY: Optional[str] = None
 
+    # NewsAPI
+    NEWS_API_KEY: Optional[str] = None
+
     # Service URLs
     STRATEGY_CORE_URL: str = "http://strategy-core:8000"
     EXECUTION_SERVICE_URL: str = "http://execution:8000"
@@ -31,6 +34,9 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: Optional[str] = None
     QDRANT_URL: Optional[str] = None # Alternative if full URL provided
     QDRANT_GRPC_HTTPS: bool = False # Whether to use HTTPS for Qdrant client connection
+
+    # Redis
+    REDIS_URL: str = "redis://redis:6379/0"
 
     @property
     def qdrant_location(self) -> str:

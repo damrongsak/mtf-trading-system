@@ -69,5 +69,17 @@ export const aiApi = {
   sendMessage: async (sessionId: string, data: CreateChatMessageDto): Promise<ChatMessage> => {
     const response = await apiClient.post<APIResponse<ChatMessage>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`, data);
     return response.data.data!;
+  },
+
+  // Daily Briefing
+  getDailyBriefing: async (): Promise<Briefing> => {
+    const response = await apiClient.get<APIResponse<Briefing>>('/api/v1/ai/briefing');
+    return response.data.data!;
   }
 };
+
+export interface Briefing {
+  content: string;
+  generated_at: string;
+  type: 'DAILY' | 'ALERTS';
+}

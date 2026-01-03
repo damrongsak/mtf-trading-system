@@ -19,17 +19,31 @@ app.add_middleware(
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.market_observer import MarketObserverAgent
+from app.agents.daily_briefing import DailyBriefingAgent
+from app.services.sentiment import SentimentService
 from pydantic import BaseModel
 import traceback
 
 class AgentRunRequest(BaseModel):
     input_text: str = "Generate a market situation report for XAU/USD."
 
+class AnalysisRequest(BaseModel):
+    symbol: str = "XAU/USD"
+    context: str = ""
+
+@app.post("/analyze/sentiment")
+async def analyze_sentiment(req: AnalysisRequest):
+    if not sentiment_service:
+        raise HTTPException(status_code=503, detail="Sentiment Service unavailable (Check NewsAPI Key)")
+    return await sentiment_service.get_sentiment(req.symbol)
+
 # Initialize Services
 gemini_client = None
 rag_service = None
 market_observer = None
 strategy_advisor = None
+daily_briefing = None
+sentiment_service = None
 
 try:
     gemini_client = GeminiClient()
@@ -52,6 +66,16 @@ try:
 except Exception as e:
     print(f"Warning: Failed to initialize StrategyAdvisorAgent: {e}")
 
+try:
+    daily_briefing = DailyBriefingAgent()
+except Exception as e:
+    print(f"Warning: Failed to initialize DailyBriefingAgent: {e}")
+
+try:
+    sentiment_service = SentimentService()
+except Exception as e:
+    print(f"Warning: Failed to initialize SentimentService: {e}")
+
 # ... existing endpoints ...
 
 @app.post("/agent/observer/run")
@@ -66,8 +90,20 @@ async def run_observer_agent(request: AgentRunRequest):
         print(f"Error executing agent: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/chat/strategy")
+@app.post("/agent/briefing")
+async def run_daily_briefing():
+    if not daily_briefing:
+        raise HTTPException(status_code=503, detail="Daily Briefing Agent unavailable")
+    
+    try:
+        report = await daily_briefing.run("Generate valid Daily Briefing.")
+        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        print(f"Error executing agent: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 async def chat_strategy(request: StrategyChatRequest):
     """
     Chat with the Strategy Advisor Agent regarding a specific strategy.
@@ -101,7 +137,9 @@ def health_check():
         "rag": "active" if rag_service else "inactive",
         "agents": {
             "market_observer": "active" if market_observer else "inactive",
-            "strategy_advisor": "active" if strategy_advisor else "inactive"
+            "strategy_advisor": "active" if strategy_advisor else "inactive",
+            "daily_briefing": "active" if daily_briefing else "inactive",
+            "sentiment_service": "active" if sentiment_service and sentiment_service.news_api_key else "inactive"
         }
     }
 

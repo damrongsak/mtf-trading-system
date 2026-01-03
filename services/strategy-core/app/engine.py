@@ -10,7 +10,11 @@ from app.adapters.execution import execution_client
 from app.schemas import ExecutionMode
 # # from app.adapters.oanda_history import OandaHistoryAdapter
 from app.indicators import calculate_ema, calculate_atr, calculate_rsi
+from app.indicators import calculate_ema, calculate_atr, calculate_rsi
 from app.smc import detect_order_blocks
+from app.adapters.ai_analyst import get_market_sentiment
+from app.database import SessionLocal
+from app.models.signal_log import SignalLog
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +233,59 @@ class StrategyEngine:
         if not signal:
             logger.info(f"Signal for {strategy_id} filtered out by plugin.")
             return
+
+        # --- SENTIMENT CHECK (New) ---
+        sentiment_data = None
+        # Only check if we are about to trade (AUTO) or notify (MANUAL)
+        # For efficiency, maybe only check strictly before 'place_order' or saving signal.
+        # Let's check it now to include in the log.
+        try:
+            sentiment_data = await get_market_sentiment(state.symbol)
+        except Exception as e:
+            logger.warning(f"Sentiment check failed/skipped: {e}")
+
+        # Block if sentiment opposes direction strong?
+        # Threshold: Score < -0.5 for invalidating LONG, Score > 0.5 for invalidating SHORT
+        # This is a basic rule. Could be configurable in StrategyConfig.
+        is_sentiment_blocked = False
+        if sentiment_data:
+            s_score = sentiment_data.get("score", 0.0)
+            if signal['direction'] == "BULLISH" and s_score < -0.5:
+                is_sentiment_blocked = True
+                logger.info(f"Signal BLOCKED by Sentiment: Score {s_score} (Bearish) vs Signal Bullish")
+            elif signal['direction'] == "BEARISH" and s_score > 0.5:
+                is_sentiment_blocked = True
+                logger.info(f"Signal BLOCKED by Sentiment: Score {s_score} (Bullish) vs Signal Bearish")
+
+        # --- PERSIST SIGNAL LOG ---
+        try:
+            db = SessionLocal()
+            new_signal = SignalLog(
+                symbol=state.symbol,
+                timeframe=state.timeframe,
+                direction=signal['direction'],
+                strategy_name=f"Strategy-{strategy_id}", # Or lookup name
+                deployment_id=None, # We don't have deployment ID handy in StrategyState yet, simplistic
+                confidence=signal.get('confidence', 0.0),
+                price=signal.get('price'),
+                reason=signal.get('reason'),
+                meta_data=signal.get('meta_data', {}),
+                sentiment_score=sentiment_data.get("score") if sentiment_data else None,
+                sentiment_reason=sentiment_data.get("reason") if sentiment_data else None
+            )
+            # Mark if blocked in metadata
+            if is_sentiment_blocked:
+                if not new_signal.meta_data: new_signal.meta_data = {}
+                new_signal.meta_data["blocked_by"] = "sentiment"
+            
+            db.add(new_signal)
+            db.commit()
+            db.close()
+        except Exception as e:
+            logger.error(f"Failed to save SignalLog: {e}")
+
+        if is_sentiment_blocked:
+            return # Stop execution
 
         if state.mode == ExecutionMode.AUTO:
             try:
