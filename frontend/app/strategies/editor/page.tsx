@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { DeploymentModal } from './DeploymentModal';
-import { Play, Save, Terminal, Loader2, Settings2, Trash2, Copy, Check, BookOpen, FileCode, Plus, Search, Rocket, PanelRight, Bot, SlidersHorizontal, Activity } from 'lucide-react';
+import { Play, Save, Terminal, Loader2, Trash2, Copy, Check, Plus, Rocket, PanelRight, Bot } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
@@ -19,7 +19,7 @@ import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
 import { BacktestMetricsCard } from '@/components/dashboard/BacktestMetricsCard';
-import { OptimizationResult, MonteCarloRequest, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse, OptimizationConfig } from '@/lib/api/types';
+import { OptimizationResult, MonteCarloResponse, BacktestTrade, UserPreferences, SavedStrategy, BacktestResponse, OptimizationConfig } from '@/lib/api/types';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { SimulationChart } from './SimulationChart';
 import { OptimizationChart } from './OptimizationChart';
@@ -140,7 +140,7 @@ function StrategyEditorContent() {
 
     const [code, setCode] = useState(DEFAULT_CODE);
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const router = useRouter();
+    // const router = useRouter(); // Unused
     const searchParams = useSearchParams();
     const [isRunning, setIsRunning] = useState(false);
     const [title, setTitle] = useState("My Custom Strategy");
@@ -819,7 +819,7 @@ function StrategyEditorContent() {
                                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
                                     }
                                 `}
-                                onClick={() => setSidebarTab(tab.id as any)}
+                                onClick={() => setSidebarTab(tab.id as 'config' | 'library' | 'optimize' | 'simulation' | 'chat')}
                                 title={tab.label}
                             >
                                 <tab.icon className={`h-5 w-5 ${sidebarTab === tab.id ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />

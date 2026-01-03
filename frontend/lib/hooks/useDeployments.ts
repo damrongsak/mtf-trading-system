@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDeployments } from '../api/deployments';
-import { Deployment, PaginatedResponse } from '../api/types';
+import { Deployment } from '../api/types';
 import { ApiError } from '../api/errors';
 
 interface UseDeploymentsReturn {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw } from "lucide-react";
 import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
-import { BrokerAccount } from '@/lib/api/types';
+import { BrokerAccount, BrokerAccountCreate } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { TagsInput } from "@/components/ui/tags-input";
 
@@ -29,7 +29,7 @@ import { TagsInput } from "@/components/ui/tags-input";
 
     // Save Confirmation State
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-    const [pendingData, setPendingData] = useState<any>(null);
+    const [pendingData, setPendingData] = useState<BrokerAccountCreate | null>(null);
 
     // Form State
     const [brokerName, setBrokerName] = useState('OANDA');
@@ -46,11 +46,7 @@ import { TagsInput } from "@/components/ui/tags-input";
     const [editSymbols, setEditSymbols] = useState<string[]>([]);
     const [isFetchingSymbols, setIsFetchingSymbols] = useState(false);
 
-    useEffect(() => {
-        fetchAccounts();
-    }, [fundId]);
-
-    const fetchAccounts = async () => {
+    const fetchAccounts = useCallback(async () => {
         try {
             setLoading(true);
             const data = await getAccounts();
@@ -65,7 +61,11 @@ import { TagsInput } from "@/components/ui/tags-input";
         } finally {
             setLoading(false);
         }
-    };
+    }, [fundId]);
+
+    useEffect(() => {
+        fetchAccounts();
+    }, [fetchAccounts]);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();

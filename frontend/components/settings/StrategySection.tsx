@@ -35,7 +35,7 @@ export function StrategySection() {
 
   const loadPreferences = async () => {
     try {
-      const prefs = await getPreferences();
+      await getPreferences();
       // setStrategyType(prefs.strategy_type); // Removed as obsolete
       setAssetClasses(['FX']);
     } catch {

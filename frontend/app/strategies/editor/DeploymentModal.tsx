@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Rocket, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, Rocket, AlertTriangle } from 'lucide-react';
 import { createDeployment } from '@/lib/api/deployments';
 import { useRouter } from 'next/navigation';
 
@@ -14,15 +14,15 @@ interface DeploymentModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     strategyId: string | null;
-    initialConfig: any;
+    initialConfig: Record<string, unknown>;
     onSuccess?: () => void;
 }
 
 export function DeploymentModal({ open, onOpenChange, strategyId, initialConfig, onSuccess }: DeploymentModalProps) {
     const router = useRouter();
     const [isLive, setIsLive] = useState(false);
-    const [symbol, setSymbol] = useState(initialConfig?.symbol || "XAU/USD");
-    const [timeframe, setTimeframe] = useState(initialConfig?.timeframe || "M15");
+    const [symbol, setSymbol] = useState(initialConfig?.symbol ? String(initialConfig.symbol) : "XAU/USD");
+    const [timeframe, setTimeframe] = useState(initialConfig?.timeframe ? String(initialConfig.timeframe) : "M15");
     const [isDeploying, setIsDeploying] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -47,8 +47,8 @@ export function DeploymentModal({ open, onOpenChange, strategyId, initialConfig,
             // Redirect to deployments page
             router.push('/deployments');
             
-        } catch (err: any) {
-            setError(err.message || "Failed to deploy strategy");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to deploy strategy");
         } finally {
             setIsDeploying(false);
         }

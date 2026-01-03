@@ -10,24 +10,35 @@ from sqlalchemy import text
 def seed_plugin():
     db = SessionLocal()
     try:
-        plugin_id = "olympus-lstm-predictor"
-        existing = db.query(Plugin).filter(Plugin.id == plugin_id).first()
-        if existing:
-            print(f"Plugin {plugin_id} already exists.")
-            return
-
-        plugin = Plugin(
-            id=plugin_id,
-            name="Olympus LSTM Predictor",
-            description="Predicts next candle close (Mock)",
-            version="1.0.0",
-            category=PluginCategory.ALPHA,
-            base_config_schema={},
-            is_system=False
-        )
-        db.add(plugin)
-        db.commit()
-        print(f"Successfully seeded plugin {plugin_id}")
+        plugins = [
+            Plugin(
+                id="olympus-lstm-predictor",
+                name="Olympus LSTM Predictor",
+                description="Uses LSTM model to predict trends based on recent candles.",
+                version="1.0.0",
+                author="System",
+                category=PluginCategory.ALPHA,
+                base_config_schema={"mode": "string", "lookback": "integer"}
+            ),
+            Plugin(
+                id="risk-guardrail",
+                name="Risk Guardrail (Kernel)",
+                description="Blocks trades that exceed defined risk limits.",
+                version="1.0.0",
+                author="System",
+                category=PluginCategory.RISK,
+                base_config_schema={"max_risk_per_trade": "number", "blacklist": "array", "mode": "string"}
+            )
+        ]
+    
+        for p in plugins:
+            existing = db.query(Plugin).filter(Plugin.id == p.id).first()
+            if not existing:
+                db.add(p)
+                print(f"Seeded plugin: {p.name}")
+            else:
+                print(f"Plugin already exists: {p.name}")
+            db.commit() # Commit after each plugin addition or check
     except Exception as e:
         print(f"Error seeding plugin: {e}")
     finally:

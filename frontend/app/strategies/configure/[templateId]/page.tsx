@@ -8,7 +8,7 @@ import { LogicTemplate, StrategyCreate } from '@/lib/api/types';
 import Link from 'next/link';
 
 // Simple JSON Editor Component using textarea for now (replace with library later if needed)
-function JsonEditor({ value, onChange, label }: { value: any, onChange: (v: any) => void, label: string }) {
+function JsonEditor({ value, onChange, label }: { value: Record<string, unknown>, onChange: (v: Record<string, unknown>) => void, label: string }) {
     const [text, setText] = useState(JSON.stringify(value, null, 2));
     const [valid, setValid] = useState(true);
 
@@ -19,7 +19,7 @@ function JsonEditor({ value, onChange, label }: { value: any, onChange: (v: any)
             const parsed = JSON.parse(newVal);
             setValid(true);
             onChange(parsed);
-        } catch (err) {
+        } catch {
             setValid(false);
         }
     };
@@ -64,8 +64,8 @@ export default function ConfigureStrategyPage() {
     const [fundId, setFundId] = useState('00000000-0000-0000-0000-000000000000'); // Default Fund? Needs valid UUID.
     // Fetch funds?
     
-    const [configJson, setConfigJson] = useState<any>({});
-    const [riskSettings, setRiskSettings] = useState<any>({});
+    const [configJson, setConfigJson] = useState<Record<string, unknown>>({});
+    const [riskSettings, setRiskSettings] = useState<Record<string, unknown>>({});
     
     // Error
     const [error, setError] = useState<string|null>(null);
@@ -81,7 +81,7 @@ export default function ConfigureStrategyPage() {
                 // The API function handles unwrapping, but let's be safe.
                 // The implementation in strategies.ts returns LogicTemplate[] directly if successful (mostly)
                 // But type is LogicTemplate[]
-                const templates = Array.isArray(res) ? res : (res as any).data;
+                const templates = Array.isArray(res) ? res : (res as { data: LogicTemplate[] }).data;
                 
                 if (templates) {
                     const found = templates.find((t: LogicTemplate) => t.id === templateId);
@@ -94,7 +94,7 @@ export default function ConfigureStrategyPage() {
                         setError('Template not found');
                     }
                 }
-            } catch (err) {
+            } catch {
                 setError('Failed to load template details');
             } finally {
                 setLoading(false);
@@ -128,8 +128,8 @@ export default function ConfigureStrategyPage() {
             
             await createStrategy(payload);
             router.push('/dashboard'); // Or back to strategies list
-        } catch (err: any) {
-            setError(err.message || "Failed to create strategy");
+        } catch (err: unknown) {
+            setError((err as Error).message || "Failed to create strategy");
         } finally {
             setSubmitting(false);
         }

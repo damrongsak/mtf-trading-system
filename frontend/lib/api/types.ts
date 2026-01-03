@@ -730,3 +730,29 @@ export interface CreateChatMessageDto {
         [key: string]: unknown;
     };
 }
+
+// ========================================
+// Plugin Types
+// ========================================
+
+export enum PluginCategory {
+    ALPHA = "ALPHA",
+    RISK = "RISK",
+    EXECUTION = "EXECUTION",
+    UTILITY = "UTILITY"
+}
+
+export interface Plugin {
+    id: string;
+    name: string;
+    description?: string;
+    author?: string;
+    version: string;
+    category: PluginCategory;
+    base_config_schema: Record<string, unknown>;
+    is_active: boolean;
+}
+
+export interface PluginConfigUpdate {
+    config_overrides: Record<string, unknown>;
+}

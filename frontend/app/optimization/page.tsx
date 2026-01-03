@@ -23,7 +23,7 @@ export default function OptimizationPage() {
         
         addLog(`Starting Grid Search for ${config.symbol}...`, 'info');
         if (config.optimization?.param_grid) {
-             const grid = config.optimization.param_grid;
+             // const grid = config.optimization.param_grid;
              // Rough estimate
              // addLog(`Grid: Fast [${grid.fast_window}] Slow [${grid.slow_window}]`, 'info'); 
         }
@@ -37,9 +37,9 @@ export default function OptimizationPage() {
             addLog(`Optimization completed in ${duration}s`, 'success');
             addLog(`Found ${data.results.length} results. Top Sharpe: ${data.results[0]?.metrics.sharpe_ratio?.toFixed(2)}`, 'success');
             
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Optimization failed", error);
-            addLog(`Error: ${error.message || 'Unknown error occurred'}`, 'error');
+            addLog(`Error: ${(error as Error).message || 'Unknown error occurred'}`, 'error');
         } finally {
             setLoading(false);
         }
