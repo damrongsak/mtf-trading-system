@@ -1,14 +1,12 @@
 
 import React from 'react';
 
-interface SwitchProps {
+interface SwitchProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
     checked: boolean;
     onCheckedChange: (checked: boolean) => void;
-    className?: string;
-    disabled?: boolean;
 }
 
-export const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange, className = '', disabled = false }) => {
+export const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange, className = '', disabled = false, ...props }) => {
     return (
         <button
             type="button"
@@ -21,6 +19,7 @@ export const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange, classN
                 ${checked ? 'bg-emerald-600' : 'bg-slate-700'}
                 ${className}
             `}
+            {...props}
         >
             <span
                 className={`

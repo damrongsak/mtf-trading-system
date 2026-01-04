@@ -3,9 +3,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileSection } from '@/components/settings/ProfileSection';
 import { PluginManagement } from '@/components/settings/PluginManagement';
+import { DataSourcesSection } from '@/components/settings/DataSourcesSection';
 import { BrokerAccountsSection } from '@/components/settings/BrokerAccountsSection';
 import { TradingPreferencesSection } from '@/components/settings/TradingPreferencesSection';
-import { User, Settings, Briefcase, Cpu } from 'lucide-react';
+import { User, Settings, Briefcase, Cpu, Database } from 'lucide-react';
 
 export default function SettingsPage() {
   return (
@@ -14,7 +15,7 @@ export default function SettingsPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
           <p className="text-gray-400">
-            Manage your account, trading preferences, broker connections, and plugins.
+            Manage your account, trading preferences, broker connections, data sources, and plugins.
           </p>
         </div>
         
@@ -32,6 +33,10 @@ export default function SettingsPage() {
               <Briefcase className="w-4 h-4 mr-2" />
               Brokerage
             </TabsTrigger>
+             <TabsTrigger value="datasources" className="data-[state=active]:bg-gray-800">
+              <Database className="w-4 h-4 mr-2" />
+              Data Sources
+            </TabsTrigger>
             <TabsTrigger value="plugins" className="data-[state=active]:bg-gray-800">
               <Cpu className="w-4 h-4 mr-2" />
               Plugins
@@ -48,6 +53,10 @@ export default function SettingsPage() {
 
           <TabsContent value="brokerage" className="space-y-6 animate-fade-in">
              <BrokerAccountsSection />
+          </TabsContent>
+
+          <TabsContent value="datasources" className="space-y-6 animate-fade-in">
+             <DataSourcesSection />
           </TabsContent>
 
           <TabsContent value="plugins" className="space-y-6 animate-fade-in">

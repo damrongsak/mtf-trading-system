@@ -3,6 +3,87 @@ info:
   title: MTF Trading API
   version: 0.1.0
 paths:
+  /api/v1/data-sources:
+    get:
+      summary: List all data sources
+      responses:
+        '200':
+          description: List of data sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DataSourceList'
+    post:
+      summary: Create a new data source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataSourceCreate'
+      responses:
+        '200':
+          description: Created data source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DataSource'
+
+  /api/v1/data-sources/{id}:
+    get:
+      summary: Get a specific data source
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Data source details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DataSource'
+    put:
+      summary: Update a data source
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataSourceUpdate'
+      responses:
+        '200':
+          description: Updated data source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DataSource'
+    delete:
+      summary: Delete a data source
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Data source deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   /api/v1/deployments/:
     get:
       summary: List all deployments
@@ -1289,7 +1370,12 @@ components:
         - SRV_9002
         - SRV_9003
         - SRV_9004
-
+    DataSourceType:
+      type: string
+      enum: [api, csv, db, websocket]
+    DataSourceProvider:
+      type: string
+      enum: [OANDA, BINANCE]
     StrategyBacktestRequest:
       type: object
       required:
@@ -1298,6 +1384,85 @@ components:
         - timeframe
         - start_date
         - end_date
+
+    DataSource:
+      type: object
+      required:
+        - name
+        - provider
+        - type
+        - config_json
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        provider:
+          $ref: '#/components/schemas/DataSourceProvider'
+        type:
+          $ref: '#/components/schemas/DataSourceType'
+        config_json:
+          type: object
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DataSourceCreate:
+      type: object
+      required:
+        - name
+        - provider
+        - type
+        - config_json
+      properties:
+        name:
+          type: string
+        provider:
+          $ref: '#/components/schemas/DataSourceProvider'
+        type:
+          $ref: '#/components/schemas/DataSourceType'
+        config_json:
+          type: object
+        is_active:
+          type: boolean
+
+    DataSourceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        provider:
+          $ref: '#/components/schemas/DataSourceProvider'
+        type:
+          $ref: '#/components/schemas/DataSourceType'
+        config_json:
+          type: object
+        is_active:
+          type: boolean
+
+    APIResponse_DataSourceList:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/DataSource'
+
+    APIResponse_DataSource:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DataSource'
         - initial_capital
       properties:
         code:

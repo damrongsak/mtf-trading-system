@@ -427,31 +427,18 @@ async def fetch_account_symbols(
     if account.broker_name != "OANDA" and account.broker_name != "BINANCE":
         return success_response(data=[], message="Fetching symbols not supported for this broker yet")
 
-    # 1. Try fetching from Local DB
-    data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
-    if data_source:
-        local_symbols = db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all()
-        if local_symbols:
-             return success_response(
-                 data=[s.symbol for s in local_symbols], 
-                 message=f"Returned {len(local_symbols)} cached symbols"
-             )
+    # 1. Try fetching from Local DB - DISABLED for explicit fetch
+    # This logic was flawed (hardcoded OANDA) and prevented updates.
+    # explicit 'fetch-symbols' action should always hit the broker.
+    # data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
+    # if data_source:
+    #     local_symbols = db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all()
+    #     if local_symbols:
+    #          return success_response(
+    #              data=[s.symbol for s in local_symbols], 
+    #              message=f"Returned {len(local_symbols)} cached symbols"
+    #          )
 
-    if account.broker_name == "BINANCE":
-        try:
-            creds = decrypt_data(account.credentials_encrypted)
-            await fetch_binance_symbols_logic(db, account, creds)
-            
-            # Refetch from DB to return
-            local_symbols = db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all() # This logic is slightly flawed if we haven't linked DS yet. 
-            # Let's fix the flow: Logic should return list, we save to DB async or inside logic.
-            # Reworking below to be cleaner.
-            pass 
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    # 2. Cold Start: Fetch from Broker & Sync to DB
-    
     # 2. Cold Start: Fetch from Broker & Sync to DB
     try:
         creds = decrypt_data(account.credentials_encrypted)
@@ -491,12 +478,18 @@ async def fetch_account_symbols(
             
             for info in raw_symbols:
                 name = info['symbol']
-                symbol_list.append(name)
+                quote_asset = info.get('quoteAsset')
                 
                 # Check status
                 if info.get('status') != 'TRADING':
                     continue
-                    
+
+                # Filter: Only USDT pairs for now to prevent UI flooding (~300 vs 1600)
+                if quote_asset != "USDT":
+                     continue
+                
+                symbol_list.append(name)
+                
                 if name not in existing_syms:
                     new_sym = MarketSymbol(
                         category_id=category.id,

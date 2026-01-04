@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 from app.adapters.base import BrokerAdapter
 from app.adapters.oanda_order import OandaOrderAdapter
+from app.adapters.binance_adapter import BinanceAdapter
 
 class BrokerFactory:
     """
@@ -17,9 +18,12 @@ class BrokerFactory:
                 account_id=credentials.get("account_id"),
                 environment=credentials.get("environment", "practice")
             )
-        # Add other brokers here
-        # elif broker_name == "BINANCE":
-        #     return BinanceAdapter(...)
+        elif broker_name == "BINANCE":
+            return BinanceAdapter(
+                api_key=credentials.get("api_key"),
+                secret_key=credentials.get("secret_key"),
+                is_live=(credentials.get("environment") == "live")
+            )
             
         else:
             raise ValueError(f"Unsupported broker: {broker_name}")

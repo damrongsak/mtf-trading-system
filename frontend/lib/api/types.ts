@@ -768,3 +768,37 @@ export interface OpportunityLog {
     reason?: string;
     strategy_name?: string;
 }
+
+// ========================================
+// Data Source Types
+// ========================================
+
+export type DataSourceType = 'api' | 'csv' | 'db' | 'websocket';
+export type DataSourceProvider = 'OANDA' | 'BINANCE';
+
+export interface DataSource {
+    id: string;
+    name: string;
+    provider?: DataSourceProvider; // Optional to handle legacy data if any
+    type: DataSourceType;
+    config_json: Record<string, unknown>;
+    is_active: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface DataSourceCreate {
+    name: string;
+    provider: DataSourceProvider;
+    type: DataSourceType;
+    config_json: Record<string, unknown>;
+    is_active: boolean;
+}
+
+export interface DataSourceUpdate {
+    name?: string;
+    provider?: DataSourceProvider;
+    type?: DataSourceType;
+    config_json?: Record<string, unknown>;
+    is_active?: boolean;
+}

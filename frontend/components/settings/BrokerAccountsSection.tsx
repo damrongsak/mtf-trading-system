@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
 import { BrokerAccount, BrokerAccountCreate } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
@@ -397,13 +398,16 @@ import { TagsInput } from "@/components/ui/tags-input";
                     ) : (
                         <div className="space-y-3">
                             {accounts.map(acc => (
-                                <div key={acc.id} className="flex items-center justify-between p-4 rounded-lg border border-gray-800 bg-gray-900/30 hover:border-gray-700 transition-colors">
+                                <div key={acc.id} className={`flex items-center justify-between p-4 rounded-lg border border-gray-800 ${acc.is_active !== false ? 'bg-gray-900/30' : 'bg-gray-900/10 opacity-70'} hover:border-gray-700 transition-colors`}>
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-xs">
+                                        <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs ${acc.is_active !== false ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-800 text-gray-500'}`}>
                                             {acc.broker_name.substring(0, 2)}
                                         </div>
                                         <div>
-                                            <h4 className="font-medium text-gray-200">{acc.account_name}</h4>
+                                            <h4 className="font-medium text-gray-200 flex items-center gap-2">
+                                                {acc.account_name}
+                                                {acc.is_active === false && <span className="text-xs text-amber-500 font-normal border border-amber-500/20 px-1.5 rounded">Disabled</span>}
+                                            </h4>
                                             <div className="flex items-center gap-2 text-xs text-gray-500">
                                                 <span>{acc.broker_name}</span>
                                                 <span>•</span>
@@ -415,20 +419,44 @@ import { TagsInput } from "@/components/ui/tags-input";
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1 text-xs text-green-500 bg-green-500/5 px-2 py-1 rounded border border-green-500/10">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            Encrypted
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor={`switch-${acc.id}`} className="text-xs text-gray-500 cursor-pointer">
+                                                {acc.is_active !== false ? 'Active' : 'Unified'} 
+                                            </Label>
+                                            <Switch 
+                                                id={`switch-${acc.id}`}
+                                                checked={acc.is_active !== false}
+                                                onCheckedChange={async (chk) => {
+                                                    try {
+                                                        await updateAccount(acc.id, { is_active: chk });
+                                                        // Optimistic update or refetch
+                                                        setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, is_active: chk } : a));
+                                                    } catch (err) {
+                                                        // Revert on error
+                                                        setError("Failed to update status");
+                                                    }
+                                                }}
+                                            />
                                         </div>
-                                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => {
-                                            setEditingAccount(acc);
-                                            setEditSymbols(acc.supported_symbols || []);
-                                        }}>
-                                            <Edit2 className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-red-400" onClick={() => setDeleteId(acc.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+
+                                        <div className="h-4 w-px bg-gray-800" />
+
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1 text-xs text-green-500 bg-green-500/5 px-2 py-1 rounded border border-green-500/10">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Encrypted
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => {
+                                                setEditingAccount(acc);
+                                                setEditSymbols(acc.supported_symbols || []);
+                                            }}>
+                                                <Edit2 className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-red-400" onClick={() => setDeleteId(acc.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

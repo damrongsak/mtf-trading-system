@@ -56,6 +56,7 @@ def seed_data():
             }
             ds = DataSource(
                 name="OANDA",
+                provider="OANDA",
                 type="api",
                 config_json=config,
                 is_active=True

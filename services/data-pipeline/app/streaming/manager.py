@@ -35,7 +35,7 @@ class StreamManager:
                     logger.warning(f"No symbols found for data source {ds.name}")
                     continue
 
-                if ds.name.lower() == 'oanda':
+                if ds.provider == 'OANDA':
                     self._start_oanda(ds.config_json, symbol_list)
                 # Add other adapters here (e.g. Binance)
                 

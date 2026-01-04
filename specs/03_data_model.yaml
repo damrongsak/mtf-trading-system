@@ -409,16 +409,21 @@ entities:
       - name: id
         type: uuid
         primary_key: true
+      - name: provider
+        type: enum
+        enum_values: ["OANDA", "BINANCE"]
+        required: true
+        description: "Provider Implementation (e.g., OANDA, BINANCE)"
       - name: name
         type: string
         required: true
         unique: true
-        description: "Provider name (e.g., OANDA, BINANCE)"
+        description: "User-defined alias"
       - name: type
-        type: string
+        type: enum
+        enum_values: ["api", "csv", "db", "websocket"]
         required: true
-        max_length: 50
-        description: "Type of data source (e.g., api, csv, db)"
+        description: "Type of data source"
       - name: config_json
         type: jsonb
         required: true

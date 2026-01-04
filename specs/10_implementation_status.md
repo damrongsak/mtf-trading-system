@@ -432,3 +432,28 @@
     - **Specs:** Updated PRD, Data Model, and API Spec.
 
 
+### Phase 14: Binance Broker Integration
+- **Status:** ✅ Complete (2026-01-03)
+- **Features:**
+    - **Backend:** 
+        - `BINANCE` broker support in `api-gateway` (`broker_account.py`).
+        - HMAC SHA256 signature generation for secure API requests.
+        - Symbol fetching and categorization (`Crypto`) for Binance instruments.
+    - **Frontend:**
+        - Updated `BrokerAccountsSection` to support `BINANCE`.
+        - Conditional "Secret Key" input field for Binance credentials.
+    - **Verification:**
+        - Unit tests (`test_broker_binance.py`) passing.
+
+### Phase 15: Data Source Management
+- **Status:** ✅ Complete (2026-01-04)
+- **Features:**
+    - **Backend:** 
+        - `DataSource` schema defined with Pydantic serialization.
+        - CRUD Router (`routers/data_source.py`) implemented for managing providers.
+    - **Frontend:**
+        - "Data Sources" tab in Settings page.
+        - `DataSourcesSection` UI for List, Create, Update/Disable of global providers.
+        - JSON Editor support for configuration.
+        - API Client (`lib/api/data-sources.ts`) with properly typed response handling.
+

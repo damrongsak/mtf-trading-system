@@ -37,6 +37,7 @@ def seed_datasource():
         oanda_source = DataSource(
             id=uuid.uuid4(),
             name="OANDA",
+            provider="OANDA",
             type="api",
             config_json={
                 "token": token,

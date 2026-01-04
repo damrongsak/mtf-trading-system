@@ -17,7 +17,7 @@ class ExecutionClient:
         """
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.post(f"{self.base_url}/orders", json=order_data, timeout=10.0)
+                resp = await client.post(f"{self.base_url}/smart-orders", json=order_data, timeout=10.0)
                 resp.raise_for_status()
                 return resp.json()
             except httpx.HTTPError as e:

@@ -95,6 +95,9 @@ app.include_router(foundry.router, prefix="/api/v1")
 from app.routers import plugins
 app.include_router(plugins.router, prefix="/api/v1")
 
+from app.routers import data_source
+app.include_router(data_source.router, prefix="/api/v1")
+
 
 
 @app.get("/health")

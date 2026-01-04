@@ -94,12 +94,13 @@ export const SelectContent: React.FC<SelectContentProps> = ({ children, classNam
   if (!context) throw new Error("SelectContent must be used within a Select");
   const { open } = context;
 
-  if (!open) return null;
+  // if (!open) return null; // Removed to allow SelectItems to register labels
 
   return (
     <div 
         className={cn(
             "absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-700 bg-gray-900 text-gray-100 shadow-md animate-in fade-in-80 mt-1 w-full",
+            !open && "hidden", 
             className
         )}
         {...props}
