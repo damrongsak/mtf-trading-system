@@ -16,7 +16,8 @@ export function OpenInterestAnalytics() {
     // Filters
     const [contracts, setContracts] = useState<string[]>([]);
     const [selectedContract, setSelectedContract] = useState<string>("");
-    const [minOi, setMinOi] = useState<number[]>([0]); // Initialize with 0
+    const [minOi, setMinOi] = useState<number[]>([0, 5000]); // Initialize with Range [0, 5000]
+    const [sliderMax, setSliderMax] = useState<number>(10000); // Dynamic Slider Max Scale
 
     const [analysis, setAnalysis] = useState<OpenInterestAnalysis | null>(null);
     const [loading, setLoading] = useState(false);
@@ -61,18 +62,24 @@ export function OpenInterestAnalytics() {
         });
     }, [selectedSnapshot]);
 
-    // Fetch Analysis when Snapshot or Filters change
+    // Fetch Analysis when Snapshot or Filters change (Debounced)
     useEffect(() => {
         if (!selectedSnapshot) return;
 
-        setLoading(true);
-        // Debounce handling could be good here if slider is drag-heavy, but for now simple effect is fine.
-        const minOiVal = minOi.length > 0 ? minOi[0] : 0;
-        
-        getOpenInterestAnalysis(selectedSnapshot, selectedContract, minOiVal)
-            .then(data => setAnalysis(data))
-            .catch(err => console.error(err))
-            .finally(() => setLoading(false));
+        const timeoutId = setTimeout(() => {
+            setLoading(true);
+            const minOiVal = minOi.length > 0 ? minOi[0] : 0;
+            const maxOiVal = minOi.length > 1 ? minOi[1] : 5000;
+            // Handle "All Contracts" reset value
+            const queryContract = (!selectedContract || selectedContract === "ALL_CONTRACTS_VALUE_RESET") ? undefined : selectedContract;
+            
+            getOpenInterestAnalysis(selectedSnapshot, queryContract, minOiVal, maxOiVal)
+                .then(data => setAnalysis(data))
+                .catch(err => console.error(err))
+                .finally(() => setLoading(false));
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
     }, [selectedSnapshot, selectedContract, minOi]);
 
     if(loading && !analysis) { // Only show full loader if no data exists yet
@@ -143,29 +150,71 @@ export function OpenInterestAnalytics() {
                     {/* Divider (Desktop only) */}
                     <div className="hidden md:block w-px h-10 bg-slate-800 mx-2"></div>
 
-                    {/* Right Group: Slider */}
+                    {/* Right Group: Slider with Inputs */}
                     <div className="flex-1 w-full flex flex-col justify-center px-2">
                         <div className="flex justify-between items-center mb-3">
                             <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
                                 <Filter className="w-3.5 h-3.5 text-blue-400" />
-                                Noise Filter <span className="text-slate-600 font-normal ml-1">(Min OI)</span>
+                                Noise Filter <span className="text-slate-600 font-normal ml-1">(OI Range)</span>
                             </label>
-                            <div className="text-sm font-mono font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded border border-blue-400/20">
-                                {minOi[0] || 0}
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="number" 
+                                    value={minOi[0]} 
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (isNaN(val)) return; // Allow empty/invalid temporarily if needed, or handle differently
+                                        
+                                        const currentMax = minOi[1] || 5000;
+                                        // Smart Logic: If Min > Max, push Max up
+                                        if (val > currentMax) {
+                                            setMinOi([val, val]);
+                                        } else {
+                                            setMinOi([val, currentMax]);
+                                        }
+                                    }}
+                                    className="w-16 h-7 text-xs bg-slate-950 border border-slate-700 rounded text-center focus:border-blue-500 focus:outline-none transition-colors text-blue-400 font-mono"
+                                />
+                                <span className="text-slate-600">-</span>
+                                <input 
+                                    type="number" 
+                                    value={minOi[1] || 5000} 
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        if (isNaN(val)) return;
+
+                                        const currentMin = minOi[0];
+                                        
+                                        // Auto-expand slider scale if user types a huge number
+                                        if (val > sliderMax) {
+                                            setSliderMax(val + 5000); // Expand by chunk
+                                        }
+
+                                        // Smart Logic: If Max < Min, pull Min down
+                                        if (val < currentMin) {
+                                            setMinOi([val, val]);
+                                        } else {
+                                            setMinOi([currentMin, val]);
+                                        }
+                                    }}
+                                    className="w-16 h-7 text-xs bg-slate-950 border border-slate-700 rounded text-center focus:border-blue-500 focus:outline-none transition-colors text-blue-400 font-mono"
+                                />
                             </div>
                         </div>
                         
                         <div className="relative flex items-center gap-3">
                              <span className="text-[10px] font-mono text-slate-600">0</span>
                              <Slider 
-                                defaultValue={[0]} 
+                                defaultValue={[0, 5000]} 
                                 value={minOi}
                                 onValueChange={setMinOi}
-                                max={5000} 
+                                min={0}
+                                max={sliderMax} 
                                 step={100}
+                                minStepsBetweenThumbs={1}
                                 className="flex-1 py-1 cursor-pointer"
                             />
-                             <span className="text-[10px] font-mono text-slate-600">5k</span>
+                             <span className="text-[10px] font-mono text-slate-600">{(sliderMax/1000).toFixed(0)}k+</span>
                         </div>
                     </div>
                 </div>
