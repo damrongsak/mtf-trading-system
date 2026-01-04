@@ -190,6 +190,12 @@ entities:
       - name: order_index
         type: integer
         default: 0
+      - name: details
+        type: jsonb
+        nullable: true
+        description: >-
+          Broker-specific instrument metadata (e.g. pipLocation, displayPrecision, 
+          marginRate, financing rates). Synced from broker API.
 
 
   Strategy:
