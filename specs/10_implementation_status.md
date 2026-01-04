@@ -497,3 +497,20 @@
         - `/data/open-interest` page.
     - **Database:**
         - `open_interest` table with historical snapshots logic.
+
+### Phase 19: Clean Architecture & Refactoring (Data Pipeline)
+- **Status:** ✅ Complete (2026-01-05)
+- **Features:**
+    - **Refactoring:**
+        - Implemented **Service-Repository Pattern** in `data-pipeline`.
+        - Decoupled `MarketRepository`, `CandleRepository`, `OpenInterestRepository`.
+        - Removed raw SQL and direct DB access from Routes/Jobs.
+        - Strict Type Hinting and Pydantic usage.
+    - **Bug Fixes:** 
+        - Fixed `MarketRepository` filter to strictly exclude inactive symbols from scheduler.
+    - **Testing:**
+        - >90% Unit Test Coverage (`tests/test_services`).
+        - Automated Verification Script (`verify_all.py`).
+    - **Performance:**
+        - Optimization: Increased candle fetch batch size to 100 per request.
+

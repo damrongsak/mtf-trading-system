@@ -460,7 +460,47 @@ paths:
                      created_at:
                        type: string
                        format: date-time
+                      created_at:
+                       type: string
+                       format: date-time
 
+  /api/v1/data/open-interest/analysis:
+    get:
+      summary: Get Open Interest Analysis
+      parameters:
+        - name: snapshot_at
+          in: query
+          description: "Optional snapshot time (defaults to latest)"
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Analytics data (PCR, Max Pain, Net Delta)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
+
+  /api/v1/data/open-interest/details:
+    get:
+      summary: Get Open Interest Details
+      parameters:
+        - name: snapshot_at
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Detailed active OI records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OpenInterestCommon'
   /api/v1/data/symbols/{symbol_id}:
     patch:
       summary: Update symbol status
