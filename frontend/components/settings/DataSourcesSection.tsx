@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Trash2, Edit2, Database, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { getDataSources, createDataSource, updateDataSource, deleteDataSource, DataSource, DataSourceCreate, DataSourceType, DataSourceProvider } from '@/lib/api/data-sources';
+import { BackfillModal } from './BackfillModal';
 
 const TEMPLATES = {
     OANDA_LIVE: {
@@ -51,6 +52,9 @@ export function DataSourcesSection() {
     const [editingSource, setEditingSource] = useState<DataSource | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+
+    // Backfill Modal State
+    const [backfillSource, setBackfillSource] = useState<DataSource | null>(null);
 
     // Form State
     const [formData, setFormData] = useState<DataSourceCreate>({
@@ -190,6 +194,15 @@ export function DataSourcesSection() {
                 isLoading={submitting}
                 variant="danger"
             />
+
+            {backfillSource && (
+                <BackfillModal 
+                    isOpen={!!backfillSource}
+                    onClose={() => setBackfillSource(null)}
+                    dataSourceId={backfillSource.id}
+                    dataSourceName={backfillSource.name}
+                />
+            )}
 
             {(isAdding || editingSource) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -363,6 +376,9 @@ export function DataSourcesSection() {
                                             />
                                         </div>
                                         <div className="h-4 w-px bg-gray-800" />
+                                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-green-400" onClick={() => setBackfillSource(source)} title="Import Data">
+                                            <Database className="h-4 w-4" />
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => handleEditClick(source)}>
                                             <Edit2 className="h-4 w-4" />
                                         </Button>

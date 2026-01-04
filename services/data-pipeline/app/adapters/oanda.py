@@ -29,7 +29,9 @@ class OandaClient:
         }
         
         try:
-            r = instruments.InstrumentsCandles(instrument=symbol, params=params)
+            # Oanda requires underscore, e.g. XAU_USD
+            norm_symbol = symbol.replace('/', '_')
+            r = instruments.InstrumentsCandles(instrument=norm_symbol, params=params)
             self.client.request(r)
             return r.response.get('candles', [])
         except Exception as e:

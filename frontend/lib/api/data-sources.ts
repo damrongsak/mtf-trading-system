@@ -29,3 +29,12 @@ export async function updateDataSource(id: string, data: DataSourceUpdate): Prom
 export async function deleteDataSource(id: string): Promise<void> {
     await apiClient.delete(`/api/v1/data-sources/${id}`);
 }
+
+export async function triggerBackfill(id: string, params: { symbol: string, timeframe: string, count: number }): Promise<void> {
+    await apiClient.post(`/api/v1/data-sources/${id}/backfill`, params);
+}
+
+export async function fetchDataSourceSymbols(id: string): Promise<string[]> {
+    const response = await apiClient.get<APIResponse<string[]>>(`/api/v1/data-sources/${id}/symbols`);
+    return response.data.data || [];
+}

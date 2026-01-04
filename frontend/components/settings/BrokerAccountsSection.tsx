@@ -268,6 +268,7 @@ import { TagsInput } from "@/components/ui/tags-input";
                                     value={editSymbols}
                                     onChange={setEditSymbols}
                                     placeholder="Type symbol and press Enter..."
+                                    className="max-h-[300px] overflow-y-auto"
                                 />
                                 <p className="text-xs text-gray-500">
                                     Add symbols this account is allowed to trade. fetch from broker to auto-populate.

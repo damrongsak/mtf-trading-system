@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { AuthProvider } from "@/context/AuthContext";
 import { SidebarProvider } from "@/context/SidebarContext";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -42,6 +43,7 @@ export default function RootLayout({
         <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
           <AuthProvider>
             {children}
+            <Toaster richColors closeButton position="top-right" />
           </AuthProvider>
         </body>
       </html>
@@ -69,6 +71,7 @@ export default function RootLayout({
               </div>
             </div>
           </SidebarProvider>
+          <Toaster richColors closeButton position="top-right" />
         </AuthProvider>
       </body>
     </html>

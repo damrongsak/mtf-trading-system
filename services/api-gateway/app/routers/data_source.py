@@ -9,6 +9,11 @@ from app.schemas.data_source import DataSourceCreate, DataSourceUpdate, DataSour
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from app.security import get_current_user
+from fastapi import BackgroundTasks
+from app.services.oanda_backfill import run_backfill_task
+from app.routers.broker_account import fetch_binance_instruments
+from app.services.oanda_backfill import OandaBackfillService
+from app.database import SessionLocal
 
 router = APIRouter(
     prefix="/data-sources",
@@ -118,3 +123,99 @@ async def delete_data_source(
     db.delete(source)
     db.commit()
     return success_response(data=None, message="Data Source deleted successfully")
+
+@router.post("/{source_id}/backfill")
+async def trigger_backfill(
+    source_id: uuid.UUID,
+    payload: dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Trigger a background backfill task.
+    Payload: {symbol: str, timeframe: str, count: int}
+    """
+    source = db.query(DataSource).filter(DataSource.id == source_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Data Source not found")
+
+    symbol = payload.get("symbol")
+    timeframe = payload.get("timeframe")
+    count = payload.get("count", 500)
+
+    if not symbol or not timeframe:
+        raise HTTPException(status_code=400, detail="Symbol and Timeframe are required")
+
+    # Launch Background Task
+    background_tasks.add_task(run_backfill_task, str(source.id), symbol, timeframe, count)
+
+    return success_response(
+        data={"status": "queued", "job_id": str(uuid.uuid4())},
+        message=f"Backfill started for {symbol}"
+    )
+
+@router.get("/{source_id}/symbols")
+async def get_source_symbols(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Fetch available symbols from the data source provider."""
+    source = db.query(DataSource).filter(DataSource.id == source_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Data Source not found")
+        
+    try:
+        if source.provider == "OANDA":
+             # Use the service we created to fetch symbols?
+             # Or just raw client. The service doesn't have list_symbols yet.
+             # Let's instantiate service and use client from it?
+             # Or add list_symbols to service.
+             
+             # Quick fix: direct client usage or expand service.
+             # Expanding service is cleaner.
+             # For now, let's just return a static list if service expansion is too much, 
+             # OR try to reuse what we have.
+             # Let's do a quick inline fetch using the config
+            config = source.config_json
+            from oandapyV20 import API
+            import oandapyV20.endpoints.accounts as accounts
+            
+            hostname = config.get("hostname", "api-fxtrade.oanda.com")
+            token = config.get("token")
+            env = "practice" if "practice" in hostname else "live"
+            
+            client = API(access_token=token, environment=env)
+            account_id = config.get("account_id")
+            
+            # Use AccountInstruments endpoint
+            r = accounts.AccountInstruments(accountID=account_id)
+            client.request(r)
+            
+            instruments = r.response.get("instruments", [])
+            # Format: {symbol: "EUR_USD", ...}
+            # Return list of strings
+            symbols = [i['name'] for i in instruments]
+            return success_response(data=symbols)
+
+        elif source.provider == "BINANCE":
+             # Reuse helper from broker_account
+             # Check credentials
+             api_key = source.config_json.get("api_key")
+             secret_key = source.config_json.get("secret_key")
+             # is_live logic?
+             is_live = not source.config_json.get("testnet", False)
+             
+             if not api_key:
+                  return success_response(data=[])
+
+             raw_symbols = await fetch_binance_instruments(api_key, secret_key, is_live)
+             symbols = [s['symbol'] for s in raw_symbols if s['status'] == 'TRADING']
+             return success_response(data=symbols)
+             
+        else:
+            return success_response(data=[])
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
