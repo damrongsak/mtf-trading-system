@@ -4,6 +4,7 @@ from typing import List, Optional
 import shutil
 import os
 from app.database import get_db
+from sqlalchemy import func, desc
 from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
 from app.models.market import MarketSymbol
@@ -81,6 +82,36 @@ async def ingest_open_interest(
         logger.error(f"Ingestion failed: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@router.get("/ingest/open-interest/snapshots", response_model=List[dict])
+def get_open_interest_snapshots(
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of available Open Interest snapshots.
+    """
+    from app.models.open_interest import OpenInterest
+    
+    # Aggregate by snapshot_at
+    results = db.query(
+        OpenInterest.snapshot_at,
+        func.count(OpenInterest.id).label('count'),
+        func.max(OpenInterest.created_at).label('created_at')
+    ).group_by(OpenInterest.snapshot_at)\
+     .order_by(desc(OpenInterest.snapshot_at))\
+     .limit(limit)\
+     .all()
+    
+    return [
+        {
+            "snapshot_at": r.snapshot_at, 
+            "count": r.count, 
+            "created_at": r.created_at
+        } 
+        for r in results
+    ]
+
 async def upload_candles(
     file: UploadFile = File(...),
     symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),

@@ -20,3 +20,16 @@ export async function uploadOpenInterest(file: File, snapshotAt?: Date): Promise
     });
     return response.data;
 }
+
+export interface OpenInterestSnapshot {
+    snapshot_at: string;
+    count: number;
+    created_at: string;
+}
+
+export async function getOpenInterestSnapshots(limit: number = 20): Promise<OpenInterestSnapshot[]> {
+    const response = await apiClient.get<OpenInterestSnapshot[]>('/api/v1/data/open-interest/snapshots', {
+        params: { limit }
+    });
+    return response.data;
+}

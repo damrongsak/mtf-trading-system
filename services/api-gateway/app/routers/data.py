@@ -112,6 +112,26 @@ async def upload_open_interest(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
+@router.get("/open-interest/snapshots")
+async def get_open_interest_snapshots(
+    limit: int = Query(20, ge=1, le=100)
+):
+    """
+    Get available OI snapshots. Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/snapshots",
+                params={"limit": limit},
+                timeout=5.0
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
 @router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_sync(
     symbol: str = Query(..., description="Symbol to sync (e.g. XAU_USD)")
