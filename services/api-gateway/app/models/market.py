@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
 from app.database import Base
@@ -34,3 +34,7 @@ class MarketSymbol(Base):
     @property
     def broker(self):
         return self.data_source.name if self.data_source else None
+
+    # Global Broker Reference Details (from Oanda/Binance)
+    # Stores: pipLocation, marginRate, displayPrecision, maxOrderUnits, etc.
+    details = Column(JSONB, nullable=True)

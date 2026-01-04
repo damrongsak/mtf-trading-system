@@ -512,11 +512,10 @@ async def fetch_account_symbols(
             if not api_key or not acc_id:
                  raise HTTPException(status_code=400, detail="Missing credentials")
                  
-            # Fetch raw names first (lightweight)
-            # instruments = await fetch_oanda_instruments(acc_id, api_key, account.is_live) 
-            # Actually we use full fetch below
+            # Fetch raw names first (lightweight) - SKIPPED
+            # We use full fetch below to get details
             
-            # Sync Logic (Ported from script)
+            # Sync Logic
             data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
             if not data_source:
                 # Create DataSource if missing
@@ -568,10 +567,16 @@ async def fetch_account_symbols(
                                  data_source_id=data_source.id,
                                  symbol=name,
                                  display_name=display_name,
-                                 order_index=999
+                                 order_index=999,
+                                 details=inst  # Store full Oanda details
                              )
                              db.add(new_sym)
                              synced_count += 1
+                         else:
+                             # Update details if existing
+                             if existing_sym.details != inst:
+                                 existing_sym.details = inst
+                                 synced_count += 1
                      
                      db.commit()
 

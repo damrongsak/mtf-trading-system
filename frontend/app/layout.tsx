@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { AuthProvider } from "@/context/AuthContext";
 import { SidebarProvider } from "@/context/SidebarContext";
+import { BrokerReferenceProvider } from "@/context/BrokerReferenceContext";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -66,7 +67,9 @@ export default function RootLayout({
               <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-64">
                 <Header />
                 <main className="flex-1 overflow-y-auto p-6">
-                  {children}
+                  <BrokerReferenceProvider>
+                    {children}
+                  </BrokerReferenceProvider>
                 </main>
               </div>
             </div>

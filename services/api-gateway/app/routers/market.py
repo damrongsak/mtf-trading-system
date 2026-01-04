@@ -6,6 +6,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models.candle import Candle
 from app.schemas.response import APIResponse, ResponseStatus
+from app.utils.response import success_response
 from pydantic import BaseModel, ConfigDict
 
 router = APIRouter(
@@ -72,3 +73,33 @@ async def get_candles(
         status=ResponseStatus.SUCCESS,
         data=candles
     )
+
+@router.get("/symbols", response_model=APIResponse[List[dict]])
+async def get_market_symbols(
+    data_source: str = Query("OANDA", description="Data Source Name"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all market symbols for a given data source, including global broker details.
+    """
+    from app.models.market import MarketSymbol
+    from app.models.data_source import DataSource
+    
+    symbols = db.query(MarketSymbol).join(DataSource).filter(
+        DataSource.name == data_source,
+        DataSource.is_active == True
+    ).all()
+    
+    # Simple Dict conversion to include 'details' JSON
+    # Pydantic model would be better but dict is flexible for variable JSON schemas
+    data = []
+    for s in symbols:
+        data.append({
+            "id": str(s.id),
+            "symbol": s.symbol,
+            "display_name": s.display_name,
+            "category": s.category.name if s.category else "Other",
+            "details": s.details # This is the critical new part
+        })
+        
+    return success_response(data=data)
