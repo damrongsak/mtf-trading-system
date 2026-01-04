@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** 2026-01-03
-**Current Phase:** Phase 12 - Settings Page Unification (Complete)
+**Last Updated:** 2026-01-04
+**Current Phase:** Phase 16 - Backfill Architecture Refactor (Complete)
 
 ---
 
@@ -146,7 +146,7 @@
     - **Enum Update:** `NEUTRAL` direction added to `SignalDirection` enum.
 
 ### **11. Data Pipeline (`services/data-pipeline`)**
-- **Status:** ✅ Complete (Refactored 2025-12-21)
+- **Status:** ✅ Complete (Refactored 2026-01-04)
 - **Features:**
     - Service structure created.
     - `Candle` model defined.
@@ -457,3 +457,14 @@
         - JSON Editor support for configuration.
         - API Client (`lib/api/data-sources.ts`) with properly typed response handling.
 
+### Phase 16: Backfill Architecture Refactor
+- **Status:** ✅ Complete (2026-01-04)
+- **Features:**
+    - **Backend:**
+        - Moved backfill logic from `api-gateway` to `data-pipeline` service (Layer separation).
+        - Created `POST /api/v1/backfill` endpoint in `data-pipeline`.
+        - Refactored `api-gateway` to proxy backfill requests to pipeline via `httpx`.
+        - Cleaned up obsolete `oanda_backfill` code.
+    - **Validation:**
+        - Verified with `bulk_backfill.sh` (1,143 job trigger).
+        - Confirmed service stability via logs.

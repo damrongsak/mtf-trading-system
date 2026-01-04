@@ -1,37 +1,48 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import List, Optional
 from decimal import Decimal
-
-class CandleBase(BaseModel):
-    symbol: str
-    timeframe: str
-    timestamp: datetime
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
-    volume: Decimal
-
-class CandleCreate(CandleBase):
-    pass
-
+from typing import Optional, List, Any
 from uuid import UUID
 
-class CandleResponse(CandleBase):
-    id: UUID
-    ema_9_4h: Optional[Decimal] = None
-    ema_200_4h: Optional[Decimal] = None
-    ema_200_d: Optional[Decimal] = None
-    atr_14_15m: Optional[Decimal] = None
-    body_to_wick_ratio: Optional[Decimal] = None
-    broker: Optional[str] = None
+class HealthCheck(BaseModel):
+    status: str
+    service: str
+    scheduler: str
 
-    class Config:
-        from_attributes = True
+class BackfillRequest(BaseModel):
+    symbol: str
+    timeframe: str
+    from_date: Optional[str] = None # ISO format
+    to_date: Optional[str] = None
+    count: Optional[int] = 2500
+
+class BackfillResponse(BaseModel):
+    message: str
+    job_id: Optional[str]
+
+class CandleResponse(BaseModel):
+    id: UUID
+    symbol: str
+    broker: str
+    timeframe: str
+    timestamp: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    ema_9_4h: Optional[float] = None
+    ema_200_4h: Optional[float] = None
+    ema_200_d: Optional[float] = None
+    atr_14_15m: Optional[float] = None
+    body_to_wick_ratio: Optional[float] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class PaginationResponse(BaseModel):
     total: int
     page: int
     page_size: int
     data: List[CandleResponse]
+
+    model_config = ConfigDict(from_attributes=True)

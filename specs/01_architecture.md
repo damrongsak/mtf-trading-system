@@ -89,6 +89,11 @@ The system is organized into five decoupled layers of responsibility:
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.
+- **Key Features**:
+    - **Data Ingestion**: Scheduled fetching of OHLCV data from OANDA/Binance.
+    - **Historical Backfill**: High-throughput backfilling of historical data (formerly in API Gateway).
+    - **Streaming**: Real-time tick data processing via Redis Pub/Sub.
+
 
 
 ### 4.6. Plugin Architecture (OPA)

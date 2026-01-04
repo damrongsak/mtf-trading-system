@@ -84,6 +84,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse'
 
+  /api/v1/data-sources/{id}/backfill:
+    post:
+      summary: Trigger a historical backfill
+      description: Proxies the request to the Data Pipeline service to fetch and ingest historical candles.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+                - timeframe
+              properties:
+                symbol:
+                  type: string
+                  example: "EUR_USD"
+                timeframe:
+                  type: string
+                  example: "H1"
+                count:
+                  type: integer
+                  default: 500
+      responses:
+        '202':
+          description: Backfill job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  job_id:
+                    type: string
+
   /api/v1/deployments/:
     get:
       summary: List all deployments

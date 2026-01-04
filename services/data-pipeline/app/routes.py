@@ -8,7 +8,7 @@ from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
-from app.schemas import CandleResponse, PaginationResponse
+from app.schemas import CandleResponse, PaginationResponse, BackfillRequest, BackfillResponse
 from app.scheduler.jobs import run_ingestion_job
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
@@ -19,6 +19,29 @@ import uuid
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+@router.post("/backfill", response_model=BackfillResponse, status_code=202)
+async def trigger_backfill(
+    request: BackfillRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Trigger a historical data backfill job.
+    """
+    from_date_obj = datetime.fromisoformat(request.from_date) if request.from_date else None
+    to_date_obj = datetime.fromisoformat(request.to_date) if request.to_date else None
+    
+    background_tasks.add_task(
+        run_ingestion_job, 
+        symbols=[request.symbol], 
+        from_date=from_date_obj, 
+        to_date=to_date_obj
+    )
+    
+    return BackfillResponse(
+        message=f"Backfill triggered for {request.symbol} {request.timeframe}",
+        job_id=str(uuid.uuid4())
+    )
 
 @router.post("/ingest/manual", status_code=202)
 async def trigger_ingestion(

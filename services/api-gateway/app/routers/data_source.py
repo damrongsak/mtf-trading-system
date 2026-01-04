@@ -10,9 +10,7 @@ from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from app.security import get_current_user
 from fastapi import BackgroundTasks
-from app.services.oanda_backfill import run_backfill_task
 from app.routers.broker_account import fetch_binance_instruments
-from app.services.oanda_backfill import OandaBackfillService
 from app.database import SessionLocal
 
 router = APIRouter(
@@ -124,16 +122,17 @@ async def delete_data_source(
     db.commit()
     return success_response(data=None, message="Data Source deleted successfully")
 
+import httpx
+
 @router.post("/{source_id}/backfill")
 async def trigger_backfill(
     source_id: uuid.UUID,
     payload: dict,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """
-    Trigger a background backfill task.
+    Trigger a background backfill task via Data Pipeline Service.
     Payload: {symbol: str, timeframe: str, count: int}
     """
     source = db.query(DataSource).filter(DataSource.id == source_id).first()
@@ -142,17 +141,31 @@ async def trigger_backfill(
 
     symbol = payload.get("symbol")
     timeframe = payload.get("timeframe")
-    count = payload.get("count", 500)
-
+    
     if not symbol or not timeframe:
         raise HTTPException(status_code=400, detail="Symbol and Timeframe are required")
 
-    # Launch Background Task
-    background_tasks.add_task(run_backfill_task, str(source.id), symbol, timeframe, count)
+    # Forward to Data Pipeline
+    DATA_PIPELINE_URL = "http://data-pipeline:8000/api/v1/backfill"
+    
+    # Map payload to BackfillRequest schema
+    request_data = {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "count": payload.get("count", 2500)
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(DATA_PIPELINE_URL, json=request_data)
+            resp.raise_for_status()
+            data_pipeline_resp = resp.json()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to contact Data Pipeline: {str(e)}")
 
     return success_response(
-        data={"status": "queued", "job_id": str(uuid.uuid4())},
-        message=f"Backfill started for {symbol}"
+        data={"status": "queued", "job_id": data_pipeline_resp.get("job_id")},
+        message=f"Backfill started for {symbol} (via Pipeline)"
     )
 
 @router.get("/{source_id}/symbols")
