@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, Query, HTTPException, status
 from app.schemas.response import APIResponse
-from app.utils.response import success_response
+from app.utils.response import success_response, error_response
 import httpx
+from typing import Optional
+from datetime import datetime
 import os
 
 router = APIRouter(
@@ -64,6 +66,51 @@ async def upload_historical_data(
             raise he
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@router.post("/open-interest/upload", status_code=status.HTTP_201_CREATED)
+async def upload_open_interest(
+    file: UploadFile = File(...),
+    snapshot_at: Optional[datetime] = None
+):
+    """
+    Upload Open Interest Matrix Excel file.
+    Proxies to Data Pipeline.
+    """
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx).")
+
+    async with httpx.AsyncClient() as client:
+        try:
+            content = await file.read()
+            files = {'file': (file.filename, content, file.content_type or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+            params = {}
+            if snapshot_at:
+                params['snapshot_at'] = snapshot_at.isoformat()
+
+            response = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest",
+                params=params,
+                files=files,
+                timeout=60.0
+            )
+
+            if response.status_code != 201:
+                 # Propagate error
+                 try:
+                     err = response.json()
+                     detail = err.get('detail', response.text)
+                 except:
+                     detail = response.text
+                 raise HTTPException(status_code=response.status_code, detail=detail)
+
+            return response.json()
+
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 @router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_sync(

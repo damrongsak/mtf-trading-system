@@ -21,4 +21,4 @@ export * from './errors';
 export * from './execution';
 export * from './system';
 export * from './accounts';
-export * from './deployments';
+export * from './deployments';export * from './data';

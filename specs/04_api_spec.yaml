@@ -395,7 +395,67 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse_SymbolList'
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketSymbolResponse'
+  /api/v1/data/open-interest/upload:
+    post:
+      summary: Upload Open Interest Matrix Excel
+      description: Proxies the upload to the data-pipeline service.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      parameters:
+        - name: snapshot_at
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Optional snapshot timestamp override
+      responses:
+        '201':
+          description: Data imported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  records_processed:
+                    type: integer
+                  snapshot_at:
+                    type: string
+
+  /api/v1/data/symbols/{symbol_id}:
+    patch:
+      summary: Update symbol status
+      parameters:
+        - name: symbol_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketSymbolUpdate'
+      responses:
+        '200':
+          description: Symbol updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketSymbolResponse'
   /api/v1/risk/check:
     post:
       summary: Check if a trade execution is allowed based on risk rules
@@ -3636,3 +3696,27 @@ components:
           type: string
         strategy_name:
           type: string
+
+    MarketSymbolResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        data_source_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    MarketSymbolUpdate:
+      type: object
+      properties:
+        is_active:
+          type: boolean

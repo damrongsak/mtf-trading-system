@@ -1732,3 +1732,49 @@ validation_rules:
       - name: meta_data
         type: jsonb
         nullable: true
+
+  OpenInterest:
+    description: "Open Interest data for options contracts from Matrix files. Supports historical tracking by hour/day."
+    table_name: "open_interest"
+    indexes:
+      - fields: ["contract_symbol", "strike", "snapshot_at"]
+        unique: true
+      - fields: ["snapshot_at"]
+      - fields: ["contract_symbol"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: snapshot_at
+        type: datetime
+        required: true
+        description: "Timestamp of the data snapshot. user-provided or parsed."
+      - name: contract_symbol
+        type: string
+        required: true
+        max_length: 50
+        description: "Contract identifier (e.g. G5WZ5)"
+      - name: dte
+        type: integer
+        required: true
+        description: "Days to Expiration at snapshot time"
+      - name: strike
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+      - name: call_oi
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Open Interest for Call"
+      - name: put_oi
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Open Interest for Put"
+      - name: created_at
+        type: datetime
+        default: "now()"

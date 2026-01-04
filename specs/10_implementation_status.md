@@ -468,3 +468,32 @@
     - **Validation:**
         - Verified with `bulk_backfill.sh` (1,143 job trigger).
         - Confirmed service stability via logs.
+### Phase 17: Data Pipeline Optimization & Symbol Management
+- **Status:** ✅ Complete (2026-01-05)
+- **Features:**
+    - **Performance:**
+        - Added `is_active` flag to `market_symbols` and optimized `StreamManager` to filter inactive symbols.
+        - Reduced API calls to OANDA, significantly lowering CPU Usage.
+    - **Backend:**
+        - `PATCH /api/v1/data/symbols/{id}` endpoint for symbol toggling.
+        - Rich metadata response for `GET /api/v1/data/symbols`.
+    - **Frontend:**
+        - `SymbolManagementModal` with search and toggle functionality.
+        - Integrated into Settings > Data Sources.
+
+### Phase 18: Open Interest Data Pipeline
+- **Status:** ✅ Complete (2026-01-05)
+- **Features:**
+    - **Backend (Data Pipeline):**
+        - Refactored `OpenInterest` parsing logic to `data-pipeline` service.
+        - `OpenInterestService` handles Excel parsing (Pandas/OpenPyXL).
+        - `POST /api/v1/ingest/open-interest` endpoint.
+        - Unit tests with `pytest`.
+    - **Backend (API Gateway):**
+        - Proxy endpoint `POST /api/v1/data/open-interest/upload`.
+        - Database migration management.
+    - **Frontend:**
+        - `OpenInterestUpload` component with datetime picker.
+        - `/data/open-interest` page.
+    - **Database:**
+        - `open_interest` table with historical snapshots logic.

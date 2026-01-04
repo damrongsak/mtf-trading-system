@@ -14,11 +14,12 @@ from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
 import logging
 import traceback
+from app.services.open_interest_service import OpenInterestService
 import uuid
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1")
 
 @router.post("/backfill", response_model=BackfillResponse, status_code=202)
 async def trigger_backfill(
@@ -57,7 +58,29 @@ async def trigger_ingestion(
     background_tasks.add_task(run_ingestion_job, symbols, from_date, to_date)
     return {"message": "Ingestion job triggered in background"}
 
-@router.post("/upload", status_code=201)
+    background_tasks.add_task(run_ingestion_job, symbols, from_date, to_date)
+    return {"message": "Ingestion job triggered in background"}
+
+@router.post("/ingest/open-interest", status_code=201)
+async def ingest_open_interest(
+    file: UploadFile = File(...),
+    snapshot_at: Optional[datetime] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Ingest Open Interest Matrix Excel file.
+    """
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx).")
+
+    try:
+        content = await file.read()
+        result = OpenInterestService.parse_and_store(content, db, snapshot_at)
+        return result
+    except Exception as e:
+        logger.error(f"Ingestion failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 async def upload_candles(
     file: UploadFile = File(...),
     symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),
