@@ -773,6 +773,14 @@ export interface OpportunityLog {
 // Data Source Types
 // ========================================
 
+export interface MarketSymbol {
+    id: string;
+    symbol: string;
+    display_name?: string;
+    is_active: boolean;
+    data_source_id?: string;
+}
+
 export type DataSourceType = 'api' | 'csv' | 'db' | 'websocket';
 export type DataSourceProvider = 'OANDA' | 'BINANCE';
 

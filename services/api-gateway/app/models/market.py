@@ -27,6 +27,7 @@ class MarketSymbol(Base):
     symbol = Column(String, nullable=False) # e.g. "EUR_USD"
     display_name = Column(String, nullable=True) # e.g. "Euro / US Dollar"
     order_index = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
     
     data_source = relationship("DataSource")
     category = relationship("MarketCategory", back_populates="items")

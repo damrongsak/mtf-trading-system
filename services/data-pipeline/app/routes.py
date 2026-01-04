@@ -8,7 +8,7 @@ from app.services.loader import load_candles_from_csv
 from app.models.candle import Candle
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
-from app.schemas import CandleResponse, PaginationResponse, BackfillRequest, BackfillResponse
+from app.schemas import CandleResponse, PaginationResponse, BackfillRequest, BackfillResponse, MarketSymbolResponse, MarketSymbolUpdate
 from app.scheduler.jobs import run_ingestion_job
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
@@ -221,7 +221,7 @@ def get_candles(
         data=data
     )
 
-@router.get("/symbols", response_model=List[str])
+@router.get("/symbols", response_model=List[MarketSymbolResponse])
 def get_active_symbols(
     broker: str = Query("OANDA", description="Filter by broker name"),
     db: Session = Depends(get_db)
@@ -230,12 +230,11 @@ def get_active_symbols(
     Get list of active symbols for a specific broker.
     Used for batch analysis auto-discovery.
     """
-    symbols = db.query(MarketSymbol.symbol).join(DataSource).filter(
+    symbols = db.query(MarketSymbol).join(DataSource).filter(
         DataSource.name == broker
-    ).all()
+    ).order_by(MarketSymbol.is_active.desc(), MarketSymbol.symbol).all()
     
-    # Flatten list of tuples
-    return [s[0] for s in symbols]
+    return symbols
 
 @router.post("/stream/refresh", status_code=200)
 async def refresh_streams():
@@ -245,3 +244,22 @@ async def refresh_streams():
     from app.streaming.manager import stream_manager
     await stream_manager.refresh_subscriptions()
     return {"message": "Streaming subscriptions refreshed"}
+
+@router.patch("/symbols/{symbol_id}", response_model=MarketSymbolResponse)
+def update_symbol_status(
+    symbol_id: uuid.UUID,
+    update_data: MarketSymbolUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update symbol status (is_active).
+    """
+    symbol = db.query(MarketSymbol).filter(MarketSymbol.id == symbol_id).first()
+    if not symbol:
+        raise HTTPException(status_code=404, detail="Symbol not found")
+        
+    symbol.is_active = update_data.is_active
+    db.commit()
+    db.refresh(symbol)
+    
+    return symbol

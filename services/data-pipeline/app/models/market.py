@@ -26,6 +26,7 @@ class MarketSymbol(Base):
     symbol = Column(String, nullable=False)
     display_name = Column(String, nullable=True)
     order_index = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
     
     category = relationship("MarketCategory", back_populates="items")
     data_source = relationship("DataSource")

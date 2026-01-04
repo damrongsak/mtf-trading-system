@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse, DataSource, DataSourceCreate, DataSourceUpdate, DataSourceType, DataSourceProvider } from './types';
+import { APIResponse, DataSource, DataSourceCreate, DataSourceUpdate, DataSourceType, DataSourceProvider, MarketSymbol } from './types';
 
 export type { DataSource, DataSourceCreate, DataSourceUpdate, DataSourceType, DataSourceProvider };
 
@@ -34,7 +34,20 @@ export async function triggerBackfill(id: string, params: { symbol: string, time
     await apiClient.post(`/api/v1/data-sources/${id}/backfill`, params);
 }
 
+
 export async function fetchDataSourceSymbols(id: string): Promise<string[]> {
     const response = await apiClient.get<APIResponse<string[]>>(`/api/v1/data-sources/${id}/symbols`);
     return response.data.data || [];
+}
+
+export async function getBrokerSymbols(broker: string): Promise<MarketSymbol[]> {
+    const response = await apiClient.get<MarketSymbol[]>(`/api/v1/data/symbols`, {
+        params: { broker }
+    });
+    return response.data;
+}
+
+export async function updateSymbolStatus(id: string, is_active: boolean): Promise<MarketSymbol> {
+    const response = await apiClient.patch<MarketSymbol>(`/api/v1/data/symbols/${id}`, { is_active });
+    return response.data;
 }

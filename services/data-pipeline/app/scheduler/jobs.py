@@ -51,7 +51,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         await publisher.connect()
 
         # 1. Fetch Market Symbols configured for OANDA
-        query = db.query(MarketSymbol).join(DataSource).filter(DataSource.name == "OANDA")
+        query = db.query(MarketSymbol).join(DataSource).filter(DataSource.name == "OANDA", MarketSymbol.is_active == True)
         if symbols:
             query = query.filter(MarketSymbol.symbol.in_(symbols))
             

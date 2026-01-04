@@ -26,7 +26,8 @@ class StreamManager:
             for ds in data_sources:
                 # Fetch symbols configured for this data source
                 symbols = db.query(MarketSymbol).filter(
-                    MarketSymbol.data_source_id == ds.id
+                    MarketSymbol.data_source_id == ds.id,
+                    MarketSymbol.is_active == True
                 ).all()
                 
                 symbol_list = [s.symbol for s in symbols]

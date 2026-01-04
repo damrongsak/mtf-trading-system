@@ -151,3 +151,31 @@ async def get_active_symbols(
             raise he
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.patch("/symbols/{symbol_id}")
+async def update_symbol_status(
+    symbol_id: str,
+    payload: dict,
+):
+    """
+    Update symbol status. Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.patch(
+                f"{DATA_SERVICE_URL}/api/v1/symbols/{symbol_id}",
+                json=payload,
+                timeout=5.0
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+            return response.json()
+            
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")

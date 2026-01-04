@@ -190,6 +190,9 @@ entities:
       - name: order_index
         type: integer
         default: 0
+      - name: is_active
+        type: boolean
+        default: true
       - name: details
         type: jsonb
         nullable: true

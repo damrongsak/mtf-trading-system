@@ -46,3 +46,15 @@ class PaginationResponse(BaseModel):
     data: List[CandleResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+class MarketSymbolUpdate(BaseModel):
+    is_active: bool
+
+class MarketSymbolResponse(BaseModel):
+    id: UUID
+    symbol: str
+    display_name: Optional[str]
+    is_active: bool
+    data_source_id: Optional[UUID]
+
+    model_config = ConfigDict(from_attributes=True)
