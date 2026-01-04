@@ -21,6 +21,8 @@ import {
   ClipboardList,
   Terminal,
   Rocket,
+  Database, // New Import
+  FileSpreadsheet, // New Import
 } from 'lucide-react';
 
 type NavItem = {
@@ -65,6 +67,13 @@ const navCategories: NavCategory[] = [
     ],
   },
   {
+    name: 'DATA',
+    icon: Database,
+    items: [
+      { name: 'Open Interest', href: '/data/open-interest', icon: FileSpreadsheet },
+    ],
+  },
+  {
     name: 'JOURNAL',
     icon: BookOpen,
     items: [
@@ -88,7 +97,8 @@ export const Sidebar = () => {
   // Start with default expanded state to match server-side rendering
   // Start with default expanded state to match server-side rendering
   // Start with default expanded state to match server-side rendering
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['OVERVIEW', 'STRATEGY', 'TRADING', 'ANALYSIS', 'ACCOUNT']);
+  // Start with default expanded state to match server-side rendering
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['OVERVIEW', 'STRATEGY', 'TRADING', 'DATA', 'JOURNAL', 'ACCOUNT']);
   const isInitialized = React.useRef(false);
 
   // Initialize from localStorage on mount (client-only)

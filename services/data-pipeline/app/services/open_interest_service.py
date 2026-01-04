@@ -33,26 +33,44 @@ class OpenInterestService:
                 except ValueError:
                     snapshot_at = datetime.utcnow()
             
-            # Read dataframe with header None to handle multi-row header manually
-            df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+            # Find Header Row & Strike Column
+            header_row_idx = -1
+            strike_col_idx = -1
             
-            # Row 0: Contract Headers (e.g. "G5WZ5\n5 DTE")
-            # Row 1: C / P
-            # Row 2+: Data
+            # Optimization: Read first 20 rows to find header
+            preview_df = pd.read_excel(xls, sheet_name=sheet_name, header=None, nrows=20)
             
-            # Find Strike Column Index (Usually 0)
-            strike_col_idx = 0
-            # Verify "Strike" is in cell (0,0) or similar
-            if str(df.iloc[0,0]).strip() != "Strike":
-                 # Search for "Strike"
-                 found = False
-                 for c in range(df.shape[1]):
-                     if str(df.iloc[0,c]).strip() == "Strike":
-                         strike_col_idx = c
-                         found = True
-                         break
-                 if not found:
-                     raise ValueError("Could not find 'Strike' column")
+            for r in range(preview_df.shape[0]):
+                for c in range(preview_df.shape[1]):
+                    val = str(preview_df.iloc[r, c]).strip()
+                    if val.lower() == "strike":
+                        header_row_idx = r
+                        strike_col_idx = c
+                        break
+                if header_row_idx != -1:
+                    break
+            
+            if header_row_idx == -1:
+                raise ValueError("Could not find 'Strike' column in first 20 rows.")
+
+            # Re-read dataframe starting from header row
+            # We explicitly read without header again to handle multi-line headers manually via iloc, 
+            # but we skiprows up to the header row.
+            # Actually, to access row+1 (C/P), we need to read from header_row_idx.
+            df = pd.read_excel(xls, sheet_name=sheet_name, header=None, skiprows=header_row_idx)
+            # Now row 0 is header (Strike, Contract...), row 1 is subheader (C/P)
+            
+            # Reset strike_col_idx relative to new df (it should technically be the same col index if we didn't drop columns, 
+            # but skiprows doesn't drop columns, usually. However, read_excel might behave differently if empty cols exist)
+            # Let's re-verify strike in row 0 of new df
+            strike_col_idx = -1
+            for c in range(df.shape[1]):
+                if str(df.iloc[0,c]).strip().lower() == "strike":
+                    strike_col_idx = c
+                    break
+            
+            if strike_col_idx == -1:
+                 raise ValueError("Could not verify 'Strike' column after adjustment.")
 
             records_to_insert = []
             
