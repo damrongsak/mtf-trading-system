@@ -1,7 +1,9 @@
 from app.adapters.oanda import OandaClient
 from app.database import SessionLocal
 from app.models.candle import Candle
-from sqlalchemy.dialects.postgresql import insert
+## Removed insert import as it's handled by repo
+from app.repositories.candle_repository import CandleRepository
+from app.repositories.market_repository import MarketRepository
 from datetime import datetime
 import pandas as pd
 import logging
@@ -51,11 +53,20 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         await publisher.connect()
 
         # 1. Fetch Market Symbols configured for OANDA
-        query = db.query(MarketSymbol).join(DataSource).filter(DataSource.name == "OANDA", MarketSymbol.is_active == True)
+        repo = MarketRepository(db)
+        # Assuming we just get OANDA symbols. 
+        # But get_symbols_for_datasource needs ID. 
+        # Let's import MarketRepository first.
+        # We can query all active OANDA symbols using helper in manager logic or just use repo methods.
+        # Repository has get_active_symbols(broker='OANDA')
+        market_symbols = repo.get_active_symbols("OANDA")
+
         if symbols:
-            query = query.filter(MarketSymbol.symbol.in_(symbols))
+            # Filter in python if repository doesn't support list filter yet.
+            # Or assume symbols arg is small.
+            market_symbols = [ms for ms in market_symbols if ms.symbol in symbols]
             
-        market_symbols = query.all()
+        # market_symbols = query.all() # Removed query usage
         
         if not market_symbols:
             logger.warning("No OANDA symbols found in database to ingest.")
@@ -118,21 +129,11 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                             if not batch_data:
                                 break
                                 
-                            # Bulk Insert
-                            stmt = insert(Candle).values(batch_data)
-                            do_update_stmt = stmt.on_conflict_do_update(
-                                index_elements=['market_symbol_id', 'timeframe', 'timestamp'],
-                                set_={
-                                    'open': stmt.excluded.open,
-                                    'high': stmt.excluded.high,
-                                    'low': stmt.excluded.low,
-                                    'close': stmt.excluded.close,
-                                    'volume': stmt.excluded.volume,
-                                    'is_complete': stmt.excluded.is_complete
-                                }
-                            )
-                            db.execute(do_update_stmt)
-                            db.commit()
+                            # Bulk Upsert via Repository
+                            candle_repo = CandleRepository(db)
+                            candle_repo.bulk_upsert(batch_data)
+                            
+                            logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
                             total_saved += len(batch_data)
                             
                             last_ts = batch_data[-1]["timestamp"]
@@ -149,7 +150,8 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
 
                 else:
                     # REAL-TIME CATCHUP (Default)
-                    candles = client.fetch_candles(symbol_name, tf, count=50)
+                    # User requested 100 to ensure faster import
+                    candles = client.fetch_candles(symbol_name, tf, count=100)
                     
                     if not candles:
                         continue
@@ -170,20 +172,8 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         })
                     
                     if batch_data:
-                        stmt = insert(Candle).values(batch_data)
-                        do_update_stmt = stmt.on_conflict_do_update(
-                            index_elements=['market_symbol_id', 'timeframe', 'timestamp'],
-                            set_={
-                                'open': stmt.excluded.open,
-                                'high': stmt.excluded.high,
-                                'low': stmt.excluded.low,
-                                'close': stmt.excluded.close,
-                                'volume': stmt.excluded.volume,
-                                'is_complete': stmt.excluded.is_complete
-                            }
-                        )
-                        db.execute(do_update_stmt)
-                        db.commit()
+                        candle_repo = CandleRepository(db)
+                        candle_repo.bulk_upsert(batch_data)
                         logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
 
                         # Publish Events for Completed Candles

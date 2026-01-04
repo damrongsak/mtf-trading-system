@@ -132,6 +132,46 @@ async def get_open_interest_snapshots(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
+@router.get("/open-interest/details")
+async def get_open_interest_details(
+    snapshot_at: datetime = Query(...)
+):
+    """
+    Get detailed OI records. Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/details",
+                params={"snapshot_at": snapshot_at.isoformat()},
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/open-interest/analysis")
+async def get_open_interest_analysis(
+    snapshot_at: datetime = Query(...)
+):
+    """
+    Get detailed OI analysis. Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/analysis",
+                params={"snapshot_at": snapshot_at.isoformat()},
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
 @router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_sync(
     symbol: str = Query(..., description="Symbol to sync (e.g. XAU_USD)")

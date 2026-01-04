@@ -1,5 +1,7 @@
 import { OpenInterestUpload } from '@/components/data/OpenInterestUpload';
 import { OpenInterestHistory } from '@/components/data/OpenInterestHistory';
+import { OpenInterestHeatmap } from '@/components/data/OpenInterestHeatmap';
+import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 
 export default function OpenInterestPage() {
     return (
@@ -14,6 +16,14 @@ export default function OpenInterestPage() {
                 <div className="h-full">
                      <OpenInterestHistory />
                 </div>
+            </div>
+            
+            <div className="mt-8">
+                <OpenInterestAnalytics />
+            </div>
+
+            <div className="mt-8">
+                <OpenInterestHeatmap />
             </div>
         </div>
     );

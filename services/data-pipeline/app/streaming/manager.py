@@ -1,9 +1,8 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models.data_source import DataSource
-from app.models.market import MarketSymbol
 from app.streaming.adapters.oanda import OandaStreamer
 from app.streaming.publisher import RedisPublisher
+from app.repositories.market_repository import MarketRepository
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,15 +19,13 @@ class StreamManager:
         # Load configs
         db = SessionLocal()
         try:
-            data_sources = db.query(DataSource).filter(DataSource.is_active == True).all()
+            repo = MarketRepository(db)
+            data_sources = repo.get_active_data_sources()
             logger.info(f"Found {len(data_sources)} active data sources")
             
             for ds in data_sources:
                 # Fetch symbols configured for this data source
-                symbols = db.query(MarketSymbol).filter(
-                    MarketSymbol.data_source_id == ds.id,
-                    MarketSymbol.is_active == True
-                ).all()
+                symbols = repo.get_symbols_for_datasource(ds.id)
                 
                 symbol_list = [s.symbol for s in symbols]
                 

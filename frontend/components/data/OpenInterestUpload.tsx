@@ -74,6 +74,9 @@ export function OpenInterestUpload() {
                 text: `Successfully imported ${result.records_processed} records` 
             });
             setFile(null); // Clear file on success
+            
+            // Trigger refresh for history component
+            window.dispatchEvent(new Event('refresh_oi_history'));
         } catch (error: any) {
              setMessage({ 
                 type: 'error', 

@@ -33,3 +33,18 @@ export async function getOpenInterestSnapshots(limit: number = 20): Promise<Open
     });
     return response.data;
 }
+
+export interface OpenInterestRecord {
+    contract_symbol: string;
+    dte: number;
+    strike: number;
+    call_oi: number;
+    put_oi: number;
+}
+
+export async function getOpenInterestDetails(snapshotAt: string): Promise<OpenInterestRecord[]> {
+    const response = await apiClient.get<OpenInterestRecord[]>('/api/v1/data/open-interest/details', {
+        params: { snapshot_at: snapshotAt }
+    });
+    return response.data;
+}

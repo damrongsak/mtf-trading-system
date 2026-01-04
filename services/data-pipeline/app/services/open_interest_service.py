@@ -2,12 +2,17 @@ import pandas as pd
 import io
 import re
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import insert
-from app.models.open_interest import OpenInterest
+from app.repositories.open_interest_repository import OpenInterestRepository
+from app.schemas import (
+    OpenInterestSnapshotResponse, 
+    OpenInterestRecordResponse, 
+    OpenInterestAnalysisResponse,
+    AnalysisSummary,
+    AnalysisDistribution
+)
 import logging
-
 logger = logging.getLogger(__name__)
 
 class OpenInterestService:
@@ -197,3 +202,110 @@ class OpenInterestService:
             db.rollback()
             logger.error(f"Error parsing OI file: {e}")
             raise e
+
+    @staticmethod
+    def get_snapshots(db: Session, limit: int = 20) -> List[OpenInterestSnapshotResponse]:
+        """
+        Get list of available Open Interest snapshots.
+        """
+        repo = OpenInterestRepository(db)
+        results = repo.get_snapshots(limit)
+        
+        return [
+            OpenInterestSnapshotResponse(
+                snapshot_at=r.snapshot_at,
+                count=r.count,
+                created_at=r.created_at
+            )
+            for r in results
+        ]
+
+    @staticmethod
+    def get_details(db: Session, snapshot_at: datetime) -> List[OpenInterestRecordResponse]:
+        """
+        Get detailed Open Interest records for a specific snapshot.
+        """
+        repo = OpenInterestRepository(db)
+        records = repo.get_by_snapshot(snapshot_at)
+        
+        return [
+            OpenInterestRecordResponse(
+                contract_symbol=r.contract_symbol,
+                dte=r.dte,
+                strike=float(r.strike),
+                call_oi=float(r.call_oi) if r.call_oi else 0.0,
+                put_oi=float(r.put_oi) if r.put_oi else 0.0
+            ) 
+            for r in records
+        ]
+
+    @staticmethod
+    def get_analysis(db: Session, snapshot_at: datetime) -> OpenInterestAnalysisResponse:
+        """
+        Get aggregated analytics for a specific snapshot.
+        """
+        repo = OpenInterestRepository(db)
+        records = repo.get_analysis_data(snapshot_at)
+        
+        if not records:
+             # Return empty structure if no data
+            return OpenInterestAnalysisResponse(
+                summary=AnalysisSummary(
+                    total_call_oi=0, total_put_oi=0, pcr=0, max_call_strike=0, max_put_strike=0
+                ),
+                distribution=[]
+            )
+            
+        total_call_oi = 0
+        total_put_oi = 0
+        max_call_oi = 0
+        max_call_strike = 0
+        max_put_oi = 0
+        max_put_strike = 0
+        
+        distribution_by_strike = {}
+        
+        for r in records:
+            c_oi = float(r.call_oi) if r.call_oi else 0
+            p_oi = float(r.put_oi) if r.put_oi else 0
+            strike = float(r.strike)
+            
+            total_call_oi += c_oi
+            total_put_oi += p_oi
+            
+            if c_oi > max_call_oi:
+                max_call_oi = c_oi
+                max_call_strike = strike
+                
+            if p_oi > max_put_oi:
+                max_put_oi = p_oi
+                max_put_strike = strike
+                
+            if strike not in distribution_by_strike:
+                distribution_by_strike[strike] = {'call_oi': 0.0, 'put_oi': 0.0}
+            
+            distribution_by_strike[strike]['call_oi'] += c_oi
+            distribution_by_strike[strike]['put_oi'] += p_oi
+            
+        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+        
+        # Format distribution for charts (list of objects)
+        chart_data = []
+        for strike in sorted(distribution_by_strike.keys()):
+            chart_data.append(AnalysisDistribution(
+                strike=strike,
+                call_oi=distribution_by_strike[strike]['call_oi'],
+                put_oi=distribution_by_strike[strike]['put_oi'],
+                net_delta=distribution_by_strike[strike]['call_oi'] - distribution_by_strike[strike]['put_oi']
+            ))
+            
+        return OpenInterestAnalysisResponse(
+            summary=AnalysisSummary(
+                total_call_oi=total_call_oi,
+                total_put_oi=total_put_oi,
+                pcr=round(pcr, 4),
+                max_call_strike=max_call_strike,
+                max_put_strike=max_put_strike
+            ),
+            distribution=chart_data
+        )

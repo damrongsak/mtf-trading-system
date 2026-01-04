@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Boolean, DateTime
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Column, String, Boolean, DateTime, Uuid
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 import uuid
 from app.database import Base
@@ -7,7 +7,7 @@ from app.database import Base
 class DataSource(Base):
     __tablename__ = "data_sources"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, unique=True, nullable=False, comment="User-defined alias")
     provider = Column(String, nullable=True, comment="Provider Implementation (e.g., OANDA, BINANCE)")
     type = Column(String, nullable=False, comment="Type of data source (e.g., api, csv, db)")
