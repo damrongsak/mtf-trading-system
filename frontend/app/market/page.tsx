@@ -234,7 +234,7 @@ export default function MarketPage() {
             <PanelGroup key={showAccountPanel ? 'expanded' : 'collapsed'} orientation="vertical" className="h-full w-full">
                 
                 {/* Top Area: Chart & Execution */}
-                <Panel defaultSize={showAccountPanel ? "15" : "100"} minSize="20">
+                <Panel defaultSize={showAccountPanel ? "20" : "100"} minSize="20">
                     <PanelGroup orientation="horizontal" className="h-full w-full">
                         
                         {/* Left: Chart */}
