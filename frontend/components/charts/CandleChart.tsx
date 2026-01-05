@@ -45,7 +45,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
         textColor: colors.textColor || '#d1d5db',
       },
       width: chartContainerRef.current.clientWidth,
-      height: 500,
+      height: chartContainerRef.current.clientHeight,
       grid: {
         vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
         horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
@@ -95,7 +95,10 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     // Resize Handler using ResizeObserver
     const handleResize = () => {
       if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+        chart.applyOptions({ 
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight
+        });
       }
     };
 
@@ -187,6 +190,6 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
   }, [indicators, data]); 
 
-  return <div ref={chartContainerRef} className="w-full h-[500px]" />;
+  return <div ref={chartContainerRef} className="w-full h-full" />;
 };
 

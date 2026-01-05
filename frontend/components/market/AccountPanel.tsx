@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { getTrades, Trade, getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { TradesTable } from '@/components/trades/TradesTable'; // Reuse existing table
 
-import { Wallet, History, Radio, RefreshCcw } from 'lucide-react';
+import { Wallet, History, Radio, RefreshCcw, Maximize2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Simple mocked tabs if shadcn not fully available or for simplicity in this file
@@ -31,9 +31,11 @@ const PanelTab = ({ active, onClick, icon: Icon, label }: PanelTabProps) => (
 interface AccountPanelProps {
     accountId: string;
     refreshTrigger: number;
+    onMaximize: () => void;
+    onMinimize: () => void;
 }
 
-export const AccountPanel: React.FC<AccountPanelProps> = ({ accountId, refreshTrigger }) => {
+export const AccountPanel: React.FC<AccountPanelProps> = ({ accountId, refreshTrigger, onMaximize, onMinimize }) => {
     const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY'>('POSITIONS');
     const [trades, setTrades] = useState<Trade[]>([]);
     const [history, setHistory] = useState<Trade[]>([]);
@@ -90,9 +92,18 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ accountId, refreshTr
                         onClick={() => setActiveTab('SUMMARY')} 
                     />
                  </div>
-                 <button onClick={loadData} className="p-2 text-gray-500 hover:text-white transition-colors">
-                     <RefreshCcw size={14} className={cn(loading && "animate-spin")} />
-                 </button>
+                 <div className="flex items-center gap-1">
+                     <button onClick={loadData} className="p-2 text-gray-500 hover:text-white transition-colors" title="Refresh Data">
+                         <RefreshCcw size={14} className={cn(loading && "animate-spin")} />
+                     </button>
+                     <div className="w-px h-4 bg-white/10 mx-1" />
+                     <button onClick={onMinimize} className="p-2 text-gray-500 hover:text-white transition-colors" title="Minimize">
+                         <ChevronDown size={14} />
+                     </button>
+                     <button onClick={onMaximize} className="p-2 text-gray-500 hover:text-white transition-colors" title="Maximize">
+                         <Maximize2 size={14} />
+                     </button>
+                 </div>
             </div>
 
             {/* Content Content - Scrollable */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { IndicatorData } from '@/components/charts/CandleChart';
 import { Time } from 'lightweight-charts';
@@ -15,7 +15,7 @@ import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 
@@ -50,6 +50,8 @@ export default function MarketPage() {
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
   const [showAccountPanel, setShowAccountPanel] = useState(false); // Default CLOSED for Focus Mode
   const [mounted, setMounted] = useState(false);
+  
+  const accountPanelRef = useRef<PanelImperativeHandle>(null);
 
   // --- State: Broker Accounts (Lifted State) ---
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
@@ -356,10 +358,18 @@ export default function MarketPage() {
                 {showAccountPanel && (
                     <>
                         <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
-                        <Panel defaultSize="30" minSize="10" collapsible={true} onCollapse={() => setShowAccountPanel(false)}>
+                        <Panel 
+                            id="account-panel"
+                            order={2}
+                            panelRef={accountPanelRef}
+                            defaultSize={30} 
+                            minSize={4} 
+                        >
                              <AccountPanel 
                                 accountId={selectedAccountId}
                                 refreshTrigger={refreshTrigger}
+                                onMaximize={() => accountPanelRef.current?.resize("30")}
+                                onMinimize={() => accountPanelRef.current?.resize("4")}
                             />
                         </Panel>
                     </>

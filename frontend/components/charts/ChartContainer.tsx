@@ -85,7 +85,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
 
   return (
     <ChartSyncContext.Provider value={registerChart}>
-      <div className="flex flex-col gap-[2px] bg-transparent w-full">
+      <div className="flex flex-col gap-[2px] bg-transparent w-full h-full">
         {children}
       </div>
     </ChartSyncContext.Provider>
