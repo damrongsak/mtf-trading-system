@@ -380,9 +380,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_SignalList'
-  /api/v1/data/symbols:
+  /api/v1/market/symbols:
     get:
       summary: Get active symbols for a broker
+      description: Returns a list of active market symbols (is_active=True) for the specified data source.
       parameters:
         - name: broker
           in: query
@@ -1319,7 +1320,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Success'
 
-  /api/v1/data/candles:
+  /api/v1/market/candles:
     get:
       summary: Fetch historical candle data
       parameters:
