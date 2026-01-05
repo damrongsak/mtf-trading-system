@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 import logging
 import json
+import asyncio
 from app.streaming.publisher import RedisPublisher
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         
                         try:
                             # Using client.ctx check similar to before
-                            response = client.ctx.instrument.candles(**kwargs)
+                            response = await asyncio.to_thread(client.ctx.instrument.candles, **kwargs)
                             
                             if response.status != 200:
                                 logger.error(f"Oanda Error: {response.body}")
@@ -131,7 +132,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 
                             # Bulk Upsert via Repository
                             candle_repo = CandleRepository(db)
-                            candle_repo.bulk_upsert(batch_data)
+                            await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
                             
                             logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
                             total_saved += len(batch_data)
@@ -151,7 +152,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                 else:
                     # REAL-TIME CATCHUP (Default)
                     # User requested 100 to ensure faster import
-                    candles = client.fetch_candles(symbol_name, tf, count=100)
+                    candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=100)
                     
                     if not candles:
                         continue
@@ -173,7 +174,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                     
                     if batch_data:
                         candle_repo = CandleRepository(db)
-                        candle_repo.bulk_upsert(batch_data)
+                        await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
                         logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
 
                         # Publish Events for Completed Candles
