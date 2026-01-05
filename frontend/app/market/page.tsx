@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import dynamic from 'next/dynamic';
 const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
 const ChartContainer = dynamic(() => import('@/components/charts/ChartContainer').then(mod => mod.ChartContainer), { ssr: false });
@@ -10,34 +9,32 @@ import { IndicatorData } from '@/components/charts/CandleChart';
 import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { fetchSystemConfig } from '@/lib/api/system';
-import { Button } from '@/components/ui/button';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
-import { RefreshCcw, Activity, Layers, BarChart2 } from 'lucide-react';
+import { RefreshCcw, Activity, TrendingUp, BarChart2, Zap, Layers, Maximize2, Minimize2, ChevronDown, ChevronRight, Layout } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 
-// Icons need lucide-react, assuming it's installed as it's common in Shadcn. 
-// If not, we might need to remove them or use text.
-
+// --- Types ---
 interface UserPreferences {
     supported_symbols?: string[];
     default_symbol?: string;
 }
 
-// Default fallback until config loads
 const DEFAULT_TIMEFRAMES = ['M15', 'H1', 'H4', 'D'];
 
 export default function MarketPage() {
+  // --- State: Market Data ---
   const [candles, setCandles] = useState<Candle[]>([]);
   const [symbol, setSymbol] = useState('EUR_USD');
   const [timeframe, setTimeframe] = useState('H1');
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>(DEFAULT_TIMEFRAMES);
   const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  
-  // Indicators
+
+  // --- State: Indicators ---
   const [showEMA, setShowEMA] = useState(false);
   const [showEMA50, setShowEMA50] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
@@ -45,10 +42,14 @@ export default function MarketPage() {
   const [showMACD, setShowMACD] = useState(false);
   const [showADX, setShowADX] = useState(false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
+  
+  // --- State: UI Layout ---
+  const [showAnalytics, setShowAnalytics] = useState(true);
 
-  // Live Hook
+  // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
 
+  // --- Effects: Initialization ---
   useEffect(() => {
     // Load System Config
     fetchSystemConfig().then(config => {
@@ -64,9 +65,10 @@ export default function MarketPage() {
     }).catch(err => console.error("Failed to load preferences", err));
   }, []);
 
+  // --- Effects: Data Loading ---
   const loadData = useCallback(async () => {
     setLoading(true);
-    setCandles([]); // Clear old data to show loading state for new symbol
+    setCandles([]); // Clear old data
     try {
       const data = await fetchCandles({ symbol, timeframe, count: 500 });
       setCandles(data);
@@ -79,7 +81,7 @@ export default function MarketPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Live Updates
+  // --- Effects: Live Price Updates ---
   useEffect(() => {
       if (!prices[symbol] || prices[symbol].type !== 'PRICE') return;
       
@@ -101,11 +103,11 @@ export default function MarketPage() {
       });
   }, [prices, symbol]);
 
-  // Indicator logic
+  // --- Effects: Indicators ---
   useEffect(() => {
     if (candles.length === 0) return;
     updateIndicators();
-  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]); // Recalc mainly on new candles or toggle. live tick update ignored for perf.
+  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]);
 
   const updateIndicators = async () => {
       const newInds: IndicatorData[] = [];
@@ -113,75 +115,31 @@ export default function MarketPage() {
       
       if (closes.length === 0) return;
 
-      if (showEMA) {
+      // ... (Same Indicator Logic as before, keeping code clean) ...
+      // Helper to handle promise errors silently
+      const tryCalc = async (fn: () => Promise<any>, pushFn: (res: any) => void) => {
           try {
-              const res = await calculateEMA({ data: closes, span: 200 });
-              newInds.push({ name: 'EMA 200', data: res, color: '#2563eb' }); // blue-600
-          } catch(e) {
-              console.error("EMA Calculation failed:", e);
-          }
-      }
-      
-      if (showEMA50) {
-          try {
-              const res = await calculateEMA({ data: closes, span: 50 });
-              newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }); // amber-500
-          } catch(e) {
-              console.error("EMA 50 Calculation failed:", e);
-          }
-      }
+              const res = await fn();
+              pushFn(res);
+          } catch(e) { console.error("Indicator Calc Failed", e); }
+      };
 
-      if (showRSI) {
-          try {
-              const res = await calculateRSI({ close: closes, window: 14 });
-              newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }); // purple-500
-          } catch(e) {
-               console.error("RSI Calculation failed:", e);
-          }
-      }
-      
-      if (showATR) {
-          try {
-              const res = await calculateATR({ 
-                  high: candles.map(c => c.high), 
-                  low: candles.map(c => c.low), 
-                  close: closes, 
-                  window: 14 
-              });
-              newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }); // pink-500
-          } catch(e) {
-              console.error("ATR Failed:", e);
-          }
-      }
-      
+      if (showEMA) await tryCalc(() => calculateEMA({ data: closes, span: 200 }), (res) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' }));
+      if (showEMA50) await tryCalc(() => calculateEMA({ data: closes, span: 50 }), (res) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }));
+      if (showRSI) await tryCalc(() => calculateRSI({ close: closes, window: 14 }), (res) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }));
+      if (showATR) await tryCalc(() => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), (res) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }));
       if (showMACD) {
-          try {
-              const res = await calculateMACD({ close: closes });
-              newInds.push({ name: 'MACD', data: res.macd, color: '#22d3ee', priceScaleId: 'left' }); // cyan-400
-              newInds.push({ name: 'Signal', data: res.signal, color: '#f472b6', priceScaleId: 'left' }); // pink-400
-          } catch(e) {
-              console.error("MACD Failed:", e);
-          }
+           await tryCalc(() => calculateMACD({ close: closes }), (res) => {
+               newInds.push({ name: 'MACD', data: res.macd, color: '#06b6d4', priceScaleId: 'left' });
+               newInds.push({ name: 'Signal', data: res.signal, color: '#f472b6', priceScaleId: 'left' });
+           });
       }
+      if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
       
-      if (showADX) {
-          try {
-              const res = await calculateADX({ 
-                  high: candles.map(c => c.high), 
-                  low: candles.map(c => c.low), 
-                  close: closes, 
-                  length: 14 
-              });
-              newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }); // yellow-500
-          } catch(e) {
-              console.error("ADX Failed:", e);
-          }
-      }
-      
-      console.log(`[MarketPage] Updated indicators: ${newInds.map(i => i.name).join(', ')}`);
       setChartIndicators(newInds);
   };
 
+  // --- Derived Data ---
   const supportedSymbols = ['XAU_USD', 'EUR_USD', 'GBP_USD', 'BTC_USD', 'ETH_USD'];
   if (preferences?.default_symbol && !supportedSymbols.includes(preferences.default_symbol)) {
       supportedSymbols.unshift(preferences.default_symbol);
@@ -192,198 +150,197 @@ export default function MarketPage() {
   const changePercent = prevClose ? (change / prevClose) * 100 : 0;
   const isUp = change >= 0;
 
-  console.log('[MarketPage] Render:', { 
-      candles: candles.length, 
-      loading, 
-      symbol, 
-      indicators: chartIndicators.length 
-  });
-
+  // --- Render ---
   return (
-    <div className="min-h-screen bg-black/95 text-gray-100 p-6 space-y-8 font-sans">
-      
-      {/* Header Stats Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="md:col-span-1 border-white/5 bg-white/5 backdrop-blur-xl">
-             <CardContent className="p-6 flex flex-col justify-center h-full relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <Activity size={48} />
+    <div className="min-h-screen bg-black text-gray-300 font-sans selection:bg-blue-500/30">
+        
+        {/* Top Bar: Market Ticker */}
+        <header className="border-b border-white/5 bg-gray-950/50 backdrop-blur-md sticky top-0 z-40 h-14 flex items-center px-6 justify-between">
+            <div className="flex items-center gap-6">
+                 {/* Symbol Selector embedded in header for quick switch */}
+                <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-500/10 rounded-md">
+                        <Activity size={18} className="text-blue-500" />
+                    </div>
+                    <Select value={symbol} onValueChange={setSymbol}>
+                        <SelectTrigger className="w-[140px] h-8 bg-transparent border-none text-white font-bold text-lg focus:ring-0 px-0">
+                             <SelectValue>{symbol.replace('_', '/')}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-gray-800">
+                            {supportedSymbols.map(s => (
+                                <SelectItem key={s} value={s} className="text-gray-300 focus:bg-gray-800 focus:text-white">{s.replace('_', '/')}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
-                <div className="flex items-center gap-3 mb-2">
-                     <h2 className="text-xl font-bold tracking-tight text-white">{symbol.replace('_', '/')}</h2>
-                     <span className={cn("px-2 py-0.5 rounded text-xs font-bold", connected ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400")}>
-                        {connected ? 'LIVE' : 'OFFLINE'}
-                     </span>
-                </div>
+
+                <div className="h-6 w-px bg-white/10" />
+
+                {/* Price Stats */}
                 <div className="flex items-baseline gap-3">
-                    <span className="text-4xl font-mono font-medium text-white">
+                    <span className="text-xl font-mono font-medium text-white tracking-tight">
                         {currentPrice.toFixed(symbol.includes('JPY') ? 3 : 5)}
                     </span>
-                    <span className={cn("text-sm font-medium", isUp ? "text-emerald-400" : "text-rose-400")}>
-                        {isUp ? '+' : ''}{change.toFixed(5)} ({changePercent.toFixed(2)}%)
+                    <span className={cn("text-sm font-mono font-medium flex items-center", isUp ? "text-emerald-400" : "text-rose-400")}>
+                        {isUp ? <TrendingUp size={14} className="mr-1" /> : <TrendingUp size={14} className="mr-1 rotate-180" />}
+                        {change.toFixed(5)} ({changePercent.toFixed(2)}%)
                     </span>
                 </div>
-             </CardContent>
-          </Card>
-          
-          {/* Quick Stats (Mocked for layout) */}
-           <Card className="md:col-span-3 border-white/5 bg-white/5 backdrop-blur-xl flex items-center p-0">
-               <div className="grid grid-cols-3 w-full h-full divide-x divide-white/10">
-                   <div className="p-6 flex flex-col justify-center">
-                        <span className="text-muted-foreground text-xs uppercase tracking-wider">24h Volume</span>
-                        <span className="text-2xl font-mono text-white mt-1">142.5M</span>
-                   </div>
-                    <div className="p-6 flex flex-col justify-center">
-                        <span className="text-muted-foreground text-xs uppercase tracking-wider">24h High</span>
-                        <span className="text-2xl font-mono text-emerald-400 mt-1">{(currentPrice * 1.002).toFixed(5)}</span>
-                   </div>
-                    <div className="p-6 flex flex-col justify-center">
-                        <span className="text-muted-foreground text-xs uppercase tracking-wider">24h Low</span>
-                        <span className="text-2xl font-mono text-rose-400 mt-1">{(currentPrice * 0.998).toFixed(5)}</span>
-                   </div>
-               </div>
-           </Card>
-      </div>
+            </div>
 
-      {/* Chart Content */}
-      <Card className="border-white/5 bg-white/[0.02] backdrop-blur-2xl shadow-2xl overflow-hidden min-h-[600px] flex flex-col">
-          {/* Toolbar */}
-          <div className="border-b border-white/10 p-4 flex flex-wrap gap-4 justify-between items-center bg-white/5">
-              <div className="flex items-center gap-4">
-                  <Select value={symbol} onValueChange={setSymbol}>
-                      <SelectTrigger className="w-[180px] bg-black/20 border-white/10 text-white focus:ring-0 focus:border-white/20 h-10">
-                          <SelectValue>{symbol.replace('_', '/')}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                          {supportedSymbols.map(s => (
-                              <SelectItem key={s} value={s}>{s.replace('_', '/')}</SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
+            <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
+                <div className="flex items-center gap-2">
+                    <span>STATUS:</span>
+                    <span className={cn("px-1.5 py-0.5 rounded-sm font-bold", connected ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500")}>
+                        {connected ? 'LIVE' : 'DISCONNECTED'}
+                    </span>
+                </div>
+                <span>VOL: 142.5M</span>
+            </div>
+        </header>
 
-                  <div className="h-6 w-px bg-white/10 mx-2" />
+        <div className="p-4 space-y-4 max-w-[1920px] mx-auto">
+            
+            {/* Main Chart Panel */}
+            <div className="border border-white/5 bg-gray-900/30 rounded-xl backdrop-blur-sm overflow-hidden shadow-2xl">
+                {/* Toolbar */}
+                <div className="bg-white/[0.02] border-b border-white/5 p-2 px-4 flex justify-between items-center">
+                    <div className="flex items-center gap-1">
+                        {availableTimeframes.map(tf => (
+                            <button
+                                key={tf}
+                                onClick={() => setTimeframe(tf)}
+                                className={cn(
+                                    "px-3 py-1 rounded text-xs font-bold transition-all",
+                                    timeframe === tf 
+                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" 
+                                        : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                                )}
+                            >
+                                {tf}
+                            </button>
+                        ))}
+                    </div>
 
-                  <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
-                      {availableTimeframes.map(tf => (
-                          <button
-                              key={tf}
-                              onClick={() => setTimeframe(tf)}
-                              className={cn(
-                                  "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
-                                  timeframe === tf 
-                                      ? "bg-white/10 text-white shadow-sm" 
-                                      : "text-gray-400 hover:text-white hover:bg-white/5"
-                              )}
-                          >
-                              {tf}
-                          </button>
-                      ))}
-                  </div>
-              </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
+                            {[
+                                { id: 'EMA', label: 'EMA', state: showEMA, set: setShowEMA },
+                                { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
+                                { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
+                                { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
+                            ].map(btn => (
+                                <button
+                                    key={btn.id}
+                                    onClick={() => btn.set(!btn.state)}
+                                    className={cn(
+                                        "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                                        btn.state ? "bg-white/10 text-white border border-white/10" : "text-gray-600 hover:text-gray-400"
+                                    )}
+                                >
+                                    {btn.label}
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={loadData} className="p-2 hover:bg-white/10 rounded-md text-gray-500 hover:text-white transition-colors">
+                            <RefreshCcw size={16} className={cn(loading && "animate-spin")} />
+                        </button>
+                    </div>
+                </div>
 
-              <div className="flex items-center gap-3">
-                   <div className="flex items-center gap-2 mr-4 flex-wrap">
-                       <button onClick={() => setShowEMA(!showEMA)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showEMA ? "bg-blue-500/20 border-blue-500/50 text-blue-400" : "border-white/10 text-gray-400 hover:border-white/20")}>EMA 200</button>
-                       <button onClick={() => setShowEMA50(!showEMA50)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showEMA50 ? "bg-amber-500/20 border-amber-500/50 text-amber-500" : "border-white/10 text-gray-400 hover:border-white/20")}>EMA 50</button>
-                       <button onClick={() => setShowRSI(!showRSI)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showRSI ? "bg-purple-500/20 border-purple-500/50 text-purple-400" : "border-white/10 text-gray-400 hover:border-white/20")}>RSI</button>
-                       <button onClick={() => setShowATR(!showATR)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showATR ? "bg-pink-500/20 border-pink-500/50 text-pink-400" : "border-white/10 text-gray-400 hover:border-white/20")}>ATR</button>
-                       <button onClick={() => setShowMACD(!showMACD)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showMACD ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400" : "border-white/10 text-gray-400 hover:border-white/20")}>MACD</button>
-                       <button onClick={() => setShowADX(!showADX)} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-all", showADX ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500" : "border-white/10 text-gray-400 hover:border-white/20")}>ADX</button>
-                   </div>
-                   
-                   <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="border-white/10 bg-white/5 hover:bg-white/10 text-white hover:text-white w-10 h-10">
-                      <RefreshCcw size={18} className={cn(loading && "animate-spin")} />
-                   </Button>
-              </div>
-          </div>
-          
-          <div className="flex-1 relative min-h-[500px] w-full bg-gradient-to-b from-transparent to-black/20 p-4">
-               {candles.length > 0 ? (
-                   <ChartContainer>
-                       {/* Main Chart (Price + Overlays) */}
-                       <CandleChart 
-                          data={candles} 
-                          indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} // Pass only overlays
-                          colors={{
-                              backgroundColor: 'transparent',
-                              textColor: '#737373', // neutral-500
-                          }} 
-                       />
-                       
-                       {/* Stacked Oscillators */}
-                       {/* RSI */}
-                       {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
-                           <IndicatorChart 
-                              key={ind.name}
-                              type="RSI"
-                              data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))} // Mapping needs safety
-                              height={150}
-                              colors={{ lineColor: ind.color, textColor: '#737373' }}
+                {/* Chart Area */}
+                <div className="relative min-h-[600px] w-full bg-gradient-to-b from-transparent to-black/40">
+                    {candles.length > 0 ? (
+                       <ChartContainer>
+                           {/* Main Chart (Price + Overlays) */}
+                           <CandleChart 
+                              data={candles} 
+                              indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} // Pass only overlays
+                              colors={{
+                                  backgroundColor: 'transparent',
+                                  textColor: '#525252',
+                              }} 
                            />
-                       ))}
+                           
+                           {/* Stacked Oscillators */}
+                           {/* RSI */}
+                           {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
+                               <IndicatorChart 
+                                   key={ind.name}
+                                   type="RSI"
+                                   data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))} // Mapping needs safety
+                                   height={120}
+                                   colors={{ lineColor: ind.color, textColor: '#525252' }}
+                               />
+                           ))}
 
-                       {/* ATR */}
-                       {chartIndicators.filter(i => i.name.startsWith('ATR')).map(ind => (
-                           <IndicatorChart 
-                               key={ind.name}
-                               type="ATR"
-                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
-                               height={150}
-                               colors={{ lineColor: ind.color, textColor: '#737373' }}
-                           />
-                       ))}
+                           {/* ATR */}
+                           {chartIndicators.filter(i => i.name.startsWith('ATR')).map(ind => (
+                               <IndicatorChart 
+                                   key={ind.name}
+                                   type="ATR"
+                                   data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
+                                   height={120}
+                                   colors={{ lineColor: ind.color, textColor: '#525252' }}
+                               />
+                           ))}
 
-                        {/* MACD */}
-                        {showMACD && (
-                            <IndicatorChart 
-                                key="MACD"
-                                type="MACD"
-                                data={(() => {
-                                    const macd = chartIndicators.find(i => i.name === 'MACD')?.data || [];
-                                    const signal = chartIndicators.find(i => i.name === 'Signal')?.data || [];
-                                    // Hist is usually MACD - Signal but API returns it? 
-                                    // Our API calculateMACD response includes hist. But updateIndicators only pushes MACD and Signal as separate lines?
-                                    // Ah, updatedIndicators pushed MACD and Signal separately. 
-                                    // We should fix updateIndicators to maintain grouping or reconstructing here.
-                                    // For now reconstructing:
-                                    return macd.map((v, i) => ({
-                                        time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time,
-                                        value: v || 0,
-                                        signal: signal[i] || 0,
-                                        hist: (v || 0) - (signal[i] || 0) // Naive hist calc if not stored
-                                    }));
-                                })()}
-                                height={200}
-                                colors={{ lineColor: '#22d3ee', signalColor: '#f472b6', histColor: '#26a69a', textColor: '#737373' }}
-                            />
-                        )}
+                            {/* MACD */}
+                            {showMACD && (
+                                <IndicatorChart 
+                                    key="MACD"
+                                    type="MACD"
+                                    data={(() => {
+                                        const macd = chartIndicators.find(i => i.name === 'MACD')?.data || [];
+                                        const signal = chartIndicators.find(i => i.name === 'Signal')?.data || [];
+                                        return macd.map((v, i) => ({
+                                            time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time,
+                                            value: v || 0,
+                                            signal: signal[i] || 0,
+                                            hist: (v || 0) - (signal[i] || 0)
+                                        }));
+                                    })()}
+                                    height={180}
+                                    colors={{ lineColor: '#22d3ee', signalColor: '#f472b6', histColor: '#26a69a', textColor: '#525252' }}
+                                />
+                            )}
+                       </ChartContainer>
+                   ) : (
+                       <div className="absolute inset-0 flex items-center justify-center text-gray-600 flex-col gap-3">
+                           {loading ? (
+                               <>
+                                  <RefreshCcw className="animate-spin text-blue-500" size={32} />
+                                  <span className="font-mono text-sm">Loading Market Data...</span>
+                               </>
+                           ) : (
+                               <span>Waiting for data...</span>
+                           )}
+                       </div>
+                   )}
+                </div>
+            </div>
 
-                        {/* ADX */}
-                        {chartIndicators.filter(i => i.name.startsWith('ADX')).map(ind => (
-                           <IndicatorChart 
-                               key={ind.name}
-                               type="ADX"
-                               data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
-                               height={150}
-                               colors={{ lineColor: ind.color, textColor: '#737373' }}
-                           />
-                       ))}
+            {/* Analytics Panel Toggle */}
+            <div className="flex items-center justify-between">
+                <div onClick={() => setShowAnalytics(!showAnalytics)} className="flex items-center gap-2 cursor-pointer group select-none">
+                     <div className={cn("p-1.5 rounded transition-colors group-hover:bg-blue-500/20", showAnalytics ? "bg-blue-500/10 text-blue-400" : "bg-white/5 text-gray-500")}>
+                        {showAnalytics ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                     </div>
+                     <span className={cn("text-sm font-bold tracking-wide uppercase transition-colors", showAnalytics ? "text-blue-400" : "text-gray-500 group-hover:text-gray-300")}>
+                        Market Sentiment & Depth
+                     </span>
+                </div>
+                <div className="h-px bg-white/5 flex-1 ml-4" />
+            </div>
 
-                   </ChartContainer>
-               ) : (
-                   <div className="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2">
-                       {loading ? (
-                           <>
-                              <RefreshCcw className="animate-spin mb-2" />
-                              <span>Loading Market Data...</span>
-                           </>
-                       ) : (
-                           <span>Select a symbol to begin analysis</span>
-                       )}
-                   </div>
-               )}
-          </div>
-      </Card>
+            {/* Analytics Content */}
+            {showAnalytics && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                     <OpenInterestAnalytics />
+                </div>
+            )}
+        </div>
     </div>
   );
 }
+

@@ -101,13 +101,15 @@ def get_open_interest_snapshots(
 def get_open_interest_details(
     snapshot_at: datetime = Query(..., description="Snapshot timestamp"),
     contract: Optional[str] = Query(None, description="Filter by contract symbol"),
+    min_oi: int = Query(0, description="Minimum Open Interest filter"),
+    max_oi: Optional[int] = Query(None, description="Maximum Open Interest filter"),
     smart_filter: bool = Query(False, description="Apply smart range filtering (std dev)"),
     db: Session = Depends(get_db)
 ):
     """
     Get detailed Open Interest records for a specific snapshot.
     """
-    return OpenInterestService.get_details(db, snapshot_at, contract, smart_filter)
+    return OpenInterestService.get_details(db, snapshot_at, contract, min_oi, max_oi, smart_filter)
 
 @router.get("/ingest/open-interest/analysis", response_model=OpenInterestAnalysisResponse)
 def get_open_interest_analysis(

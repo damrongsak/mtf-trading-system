@@ -45,10 +45,14 @@ export interface OpenInterestRecord {
 export async function getOpenInterestDetails(
     snapshotAt: string,
     contract?: string,
+    minOi?: number,
+    maxOi?: number,
     smartFilter?: boolean
 ): Promise<OpenInterestRecord[]> {
-    const params: any = { snapshot_at: snapshotAt };
+    const params: Record<string, string | number | boolean> = { snapshot_at: snapshotAt };
     if (contract) params.contract = contract;
+    if (minOi && minOi > 0) params.min_oi = minOi;
+    if (maxOi) params.max_oi = maxOi;
     if (smartFilter) params.smart_filter = smartFilter;
 
     const response = await apiClient.get<OpenInterestRecord[]>('/api/v1/data/open-interest/details', {
@@ -79,7 +83,7 @@ export async function getOpenInterestAnalysis(
     minOi?: number,
     maxOi?: number
 ): Promise<OpenInterestAnalysis> {
-    const params: any = { snapshot_at: snapshotAt };
+    const params: Record<string, string | number | boolean> = { snapshot_at: snapshotAt || '' };
     if (contract) params.contract = contract;
     if (minOi && minOi > 0) params.min_oi = minOi;
     if (maxOi) params.max_oi = maxOi;

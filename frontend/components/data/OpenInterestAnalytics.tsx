@@ -78,6 +78,13 @@ export function OpenInterestAnalytics() {
         return () => clearTimeout(timeoutId);
     }, [selectedSnapshot, selectedContract, minOi]);
 
+    // Memoize chart data to avoid re-render cost
+    const chartData = useMemo(() => {
+        if (!analysis) return [];
+        // Optional downsampling if too many bars
+        return analysis.distribution;
+    }, [analysis]);
+
     if(loading && !analysis) { // Only show full loader if no data exists yet
         return (
              <Card className="w-full border-gray-800 bg-gray-950/50 backdrop-blur shadow-xl mt-6 min-h-[400px] flex items-center justify-center">
@@ -88,7 +95,7 @@ export function OpenInterestAnalytics() {
 
     if (!analysis) return null;
 
-    const { summary, distribution } = analysis;
+    const { summary } = analysis;
     
     // Derived active contract for props
     const activeContract = (!selectedContract || selectedContract === "ALL_CONTRACTS_VALUE_RESET") ? undefined : selectedContract;
@@ -96,7 +103,7 @@ export function OpenInterestAnalytics() {
     return (
         <div className="space-y-6 mt-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
+                <h2 className="text-xl font-bold text-gray-200">Analytics Dashboard</h2>
                 
                 {/* Premium Filter Toolbar */}
                 <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-900/50 backdrop-blur-md p-4 rounded-xl border border-slate-800 shadow-xl w-full relative z-50">
@@ -226,7 +233,7 @@ export function OpenInterestAnalytics() {
                         <CardTitle className="text-sm font-medium text-gray-400">Put/Call Ratio</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold flex items-center gap-2">
+                        <div className="text-2xl font-bold flex items-center gap-2 font-mono text-white">
                             {summary.pcr.toFixed(2)}
                             {summary.pcr > 1 ? <ArrowUp className="w-4 h-4 text-red-500" /> : <ArrowDown className="w-4 h-4 text-green-500" />}
                         </div>
@@ -240,7 +247,7 @@ export function OpenInterestAnalytics() {
                         <CardTitle className="text-sm font-medium text-gray-400">Total Market OI</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-2xl font-bold font-mono text-white">
                             {((summary.total_call_oi + summary.total_put_oi) / 1000).toFixed(1)}k
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -253,7 +260,7 @@ export function OpenInterestAnalytics() {
                         <CardTitle className="text-sm font-medium text-gray-400">Max Call (Resistance)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-400">
+                        <div className="text-2xl font-bold text-red-400 font-mono">
                             {summary.max_call_strike}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -266,7 +273,7 @@ export function OpenInterestAnalytics() {
                         <CardTitle className="text-sm font-medium text-gray-400">Max Put (Support)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-400">
+                        <div className="text-2xl font-bold text-green-400 font-mono">
                             {summary.max_put_strike}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -295,19 +302,19 @@ export function OpenInterestAnalytics() {
                 <CardContent className="h-[500px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                            data={distribution}
+                            data={chartData}
                             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                            <XAxis dataKey="strike" stroke="#888" />
-                            <YAxis stroke="#888" />
+                            <XAxis dataKey="strike" stroke="#888" fontSize={11} tickFormatter={(v) => v.toString()} />
+                            <YAxis stroke="#888" fontSize={11} />
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#111', borderColor: '#333' }}
                                 itemStyle={{ color: '#fff' }}
                             />
                             <Legend />
-                            <ReferenceLine x={summary.max_call_strike} stroke="red" label="Res" />
-                            <ReferenceLine x={summary.max_put_strike} stroke="green" label="Sup" />
+                            <ReferenceLine x={summary.max_call_strike} stroke="red" label={{ value: 'Res', fill: 'red', fontSize: 10 }} />
+                            <ReferenceLine x={summary.max_put_strike} stroke="green" label={{ value: 'Sup', fill: 'green', fontSize: 10 }} />
                             <Bar dataKey="call_oi" name="Call OI" fill="#ef4444" stackId="a" />
                             <Bar dataKey="put_oi" name="Put OI" fill="#22c55e" stackId="a" />
                         </BarChart>

@@ -508,6 +508,17 @@ paths:
           description: "Optional contract filter"
           schema:
             type: string
+        - name: min_oi
+          in: query
+          description: "Minimum OI filter"
+          schema:
+            type: integer
+            default: 0
+        - name: max_oi
+          in: query
+          description: "Maximum OI filter"
+          schema:
+            type: integer
         - name: smart_filter
           in: query
           description: "Apply smart range filtering (std dev)"

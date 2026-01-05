@@ -134,16 +134,30 @@ async def get_open_interest_snapshots(
 
 @router.get("/open-interest/details")
 async def get_open_interest_details(
-    snapshot_at: datetime = Query(...)
+    snapshot_at: datetime = Query(...),
+    contract: Optional[str] = Query(None),
+    min_oi: int = Query(0),
+    max_oi: Optional[int] = Query(None),
+    smart_filter: bool = Query(True)
 ):
     """
     Get detailed OI records. Proxies to Data Pipeline.
     """
     async with httpx.AsyncClient() as client:
         try:
+            params = {
+                "snapshot_at": snapshot_at.isoformat(),
+                "min_oi": min_oi,
+                "smart_filter": str(smart_filter).lower()
+            }
+            if contract:
+                params["contract"] = contract
+            if max_oi is not None:
+                params["max_oi"] = max_oi
+
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/details",
-                params={"snapshot_at": snapshot_at.isoformat()},
+                params=params,
                 timeout=10.0
             )
             if response.status_code != 200:

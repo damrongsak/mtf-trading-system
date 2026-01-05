@@ -24,7 +24,7 @@ class OpenInterestRepository:
          .limit(limit)\
          .all()
 
-    def get_by_snapshot(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, smart_filter: bool = False) -> List[OpenInterest]:
+    def get_by_snapshot(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False) -> List[OpenInterest]:
         """
         Get all Open Interest records for a specific snapshot with optional filters.
         """
@@ -34,6 +34,13 @@ class OpenInterestRepository:
 
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
+
+        # Apply Total OI Filter (Call + Put)
+        if min_oi > 0:
+            query = query.filter((OpenInterest.call_oi + OpenInterest.put_oi) >= min_oi)
+        
+        if max_oi is not None:
+            query = query.filter((OpenInterest.call_oi + OpenInterest.put_oi) <= max_oi)
 
         if smart_filter:
             min_k, max_k = self.get_active_strike_range(snapshot_at, contract_symbol)

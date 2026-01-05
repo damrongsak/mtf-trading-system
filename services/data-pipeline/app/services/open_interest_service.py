@@ -228,13 +228,15 @@ class OpenInterestService:
         db: Session, 
         snapshot_at: datetime, 
         contract: Optional[str] = None, 
+        min_oi: int = 0,
+        max_oi: Optional[int] = None,
         smart_filter: bool = False
     ) -> List[OpenInterestRecordResponse]:
         """
         Get detailed Open Interest records for a specific snapshot.
         """
         repo = OpenInterestRepository(db)
-        records = repo.get_by_snapshot(snapshot_at, contract, smart_filter)
+        records = repo.get_by_snapshot(snapshot_at, contract, min_oi, max_oi, smart_filter)
         
         return [
             OpenInterestRecordResponse(
