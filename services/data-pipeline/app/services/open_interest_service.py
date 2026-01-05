@@ -5,13 +5,16 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from app.repositories.open_interest_repository import OpenInterestRepository
+from app.models.open_interest import OpenInterest
 from app.schemas import (
     OpenInterestSnapshotResponse, 
     OpenInterestRecordResponse, 
     OpenInterestAnalysisResponse,
     AnalysisSummary,
+    AnalysisSummary,
     AnalysisDistribution
 )
+from sqlalchemy.dialects.postgresql import insert
 import logging
 logger = logging.getLogger(__name__)
 
@@ -221,12 +224,17 @@ class OpenInterestService:
         ]
 
     @staticmethod
-    def get_details(db: Session, snapshot_at: datetime) -> List[OpenInterestRecordResponse]:
+    def get_details(
+        db: Session, 
+        snapshot_at: datetime, 
+        contract: Optional[str] = None, 
+        smart_filter: bool = False
+    ) -> List[OpenInterestRecordResponse]:
         """
         Get detailed Open Interest records for a specific snapshot.
         """
         repo = OpenInterestRepository(db)
-        records = repo.get_by_snapshot(snapshot_at)
+        records = repo.get_by_snapshot(snapshot_at, contract, smart_filter)
         
         return [
             OpenInterestRecordResponse(
@@ -240,54 +248,24 @@ class OpenInterestService:
         ]
 
     @staticmethod
-    def get_analysis(db: Session, snapshot_at: datetime) -> OpenInterestAnalysisResponse:
+    def get_analysis(
+        db: Session, 
+        snapshot_at: datetime, 
+        contract_symbol: Optional[str] = None, 
+        min_oi: int = 0,
+        max_oi: Optional[int] = None
+    ) -> OpenInterestAnalysisResponse:
         """
-        Get aggregated analytics for a specific snapshot.
+        Get aggregated analytics for a specific snapshot with optional filters.
         """
         repo = OpenInterestRepository(db)
-        records = repo.get_analysis_data(snapshot_at)
+        # Repository now handles aggregation and returns the final structure
+        analysis_data = repo.get_analysis_data(snapshot_at, contract_symbol, min_oi, max_oi, smart_filter=True)
         
-        if not records:
-             # Return empty structure if no data
-            return OpenInterestAnalysisResponse(
-                summary=AnalysisSummary(
-                    total_call_oi=0, total_put_oi=0, pcr=0, max_call_strike=0, max_put_strike=0
-                ),
-                distribution=[]
-            )
-            
-        total_call_oi = 0
-        total_put_oi = 0
-        max_call_oi = 0
-        max_call_strike = 0
-        max_put_oi = 0
-        max_put_strike = 0
-        
-        distribution_by_strike = {}
-        
-        for r in records:
-            c_oi = float(r.call_oi) if r.call_oi else 0
-            p_oi = float(r.put_oi) if r.put_oi else 0
-            strike = float(r.strike)
-            
-            total_call_oi += c_oi
-            total_put_oi += p_oi
-            
-            if c_oi > max_call_oi:
-                max_call_oi = c_oi
-                max_call_strike = strike
-                
-            if p_oi > max_put_oi:
-                max_put_oi = p_oi
-                max_put_strike = strike
-                
-            if strike not in distribution_by_strike:
-                distribution_by_strike[strike] = {'call_oi': 0.0, 'put_oi': 0.0}
-            
-            distribution_by_strike[strike]['call_oi'] += c_oi
-            distribution_by_strike[strike]['put_oi'] += p_oi
-            
-        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+        return OpenInterestAnalysisResponse(
+            summary=AnalysisSummary(**analysis_data['summary']),
+            distribution=[AnalysisDistribution(**d) for d in analysis_data['distribution']]
+        )
         
         # Format distribution for charts (list of objects)
         chart_data = []
@@ -309,3 +287,11 @@ class OpenInterestService:
             ),
             distribution=chart_data
         )
+
+    @staticmethod
+    def get_contracts(db: Session, snapshot_at: datetime) -> List[str]:
+        """
+        Get list of available contracts for a snapshot.
+        """
+        repo = OpenInterestRepository(db)
+        return repo.get_available_contracts(snapshot_at)

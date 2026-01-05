@@ -474,6 +474,17 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: contract
+          in: query
+          description: "Optional contract filter"
+          schema:
+            type: string
+        - name: smart_filter
+          in: query
+          description: "Apply smart range filtering (std dev)"
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: Analytics data (PCR, Max Pain, Net Delta)
@@ -492,6 +503,17 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: contract
+          in: query
+          description: "Optional contract filter"
+          schema:
+            type: string
+        - name: smart_filter
+          in: query
+          description: "Apply smart range filtering (std dev)"
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: Detailed active OI records
@@ -1318,23 +1340,29 @@ paths:
     get:
       summary: Get multiple technical indicators
       parameters:
-        - name: symbol
+        - name: snapshot_at
           in: query
           required: true
           schema:
             type: string
-        - name: timeframe
+            format: date-time
+        - name: contract
           in: query
-          required: true
+          required: false
           schema:
             type: string
-        - name: indicators
+        - name: min_oi
           in: query
-          required: true
+          required: false
           schema:
-            type: array
-            items:
-              type: string
+            type: integer
+            default: 0
+        - name: max_oi
+          in: query
+          required: false
+          schema:
+            type: integer
+            description: Maximum Open Interest filter
       responses:
         '200':
           description: Calculated indicators

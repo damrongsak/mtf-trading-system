@@ -100,23 +100,39 @@ def get_open_interest_snapshots(
 @router.get("/ingest/open-interest/details", response_model=List[OpenInterestRecordResponse])
 def get_open_interest_details(
     snapshot_at: datetime = Query(..., description="Snapshot timestamp"),
+    contract: Optional[str] = Query(None, description="Filter by contract symbol"),
+    smart_filter: bool = Query(False, description="Apply smart range filtering (std dev)"),
     db: Session = Depends(get_db)
 ):
     """
     Get detailed Open Interest records for a specific snapshot.
     """
-    return OpenInterestService.get_details(db, snapshot_at)
+    return OpenInterestService.get_details(db, snapshot_at, contract, smart_filter)
 
 @router.get("/ingest/open-interest/analysis", response_model=OpenInterestAnalysisResponse)
 def get_open_interest_analysis(
     snapshot_at: datetime = Query(..., description="Snapshot timestamp"),
+    contract: Optional[str] = Query(None, description="Filter by contract symbol"),
+    min_oi: int = Query(0, description="Minimum Open Interest filter"),
+    max_oi: Optional[int] = Query(None, description="Maximum Open Interest filter"),
     db: Session = Depends(get_db)
 ):
     """
     Get aggregated analytics for a specific snapshot.
     Returns PCR, Max Levels, and Distribution.
+    Supports filtering by contract, min_oi, and max_oi.
     """
-    return OpenInterestService.get_analysis(db, snapshot_at)
+    return OpenInterestService.get_analysis(db, snapshot_at, contract, min_oi, max_oi)
+
+@router.get("/ingest/open-interest/contracts", response_model=List[str])
+def get_open_interest_contracts(
+    snapshot_at: datetime = Query(..., description="Snapshot timestamp"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of available contracts (expiries) for a specific snapshot.
+    """
+    return OpenInterestService.get_contracts(db, snapshot_at)
 
 async def upload_candles(
     file: UploadFile = File(...),

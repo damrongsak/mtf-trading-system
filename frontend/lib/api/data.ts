@@ -42,8 +42,56 @@ export interface OpenInterestRecord {
     put_oi: number;
 }
 
-export async function getOpenInterestDetails(snapshotAt: string): Promise<OpenInterestRecord[]> {
+export async function getOpenInterestDetails(
+    snapshotAt: string,
+    contract?: string,
+    smartFilter?: boolean
+): Promise<OpenInterestRecord[]> {
+    const params: any = { snapshot_at: snapshotAt };
+    if (contract) params.contract = contract;
+    if (smartFilter) params.smart_filter = smartFilter;
+
     const response = await apiClient.get<OpenInterestRecord[]>('/api/v1/data/open-interest/details', {
+        params
+    });
+    return response.data;
+}
+
+export interface OpenInterestAnalysis {
+    summary: {
+        total_call_oi: number;
+        total_put_oi: number;
+        pcr: number;
+        max_call_strike: number;
+        max_put_strike: number;
+    };
+    distribution: {
+        strike: number;
+        call_oi: number;
+        put_oi: number;
+        net_delta: number;
+    }[];
+}
+
+export async function getOpenInterestAnalysis(
+    snapshotAt?: string,
+    contract?: string,
+    minOi?: number,
+    maxOi?: number
+): Promise<OpenInterestAnalysis> {
+    const params: any = { snapshot_at: snapshotAt };
+    if (contract) params.contract = contract;
+    if (minOi && minOi > 0) params.min_oi = minOi;
+    if (maxOi) params.max_oi = maxOi;
+
+    const response = await apiClient.get<OpenInterestAnalysis>('/api/v1/data/open-interest/analysis', {
+        params
+    });
+    return response.data;
+}
+
+export async function getOpenInterestContracts(snapshotAt: string): Promise<string[]> {
+    const response = await apiClient.get<string[]>('/api/v1/data/open-interest/contracts', {
         params: { snapshot_at: snapshotAt }
     });
     return response.data;
