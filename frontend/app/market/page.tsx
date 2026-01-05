@@ -48,7 +48,7 @@ export default function MarketPage() {
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
-  const [showAccountPanel, setShowAccountPanel] = useState(false); // Default CLOSED for Focus Mode
+  const [showAccountPanel, setShowAccountPanel] = useState(true); // Default OPEN for Focus Mode
   const [mounted, setMounted] = useState(false);
   
   const accountPanelRef = useRef<PanelImperativeHandle>(null);
@@ -234,7 +234,7 @@ export default function MarketPage() {
             <PanelGroup key={showAccountPanel ? 'expanded' : 'collapsed'} orientation="vertical" className="h-full w-full">
                 
                 {/* Top Area: Chart & Execution */}
-                <Panel defaultSize={showAccountPanel ? "70" : "100"} minSize="30">
+                <Panel defaultSize={showAccountPanel ? "15" : "100"} minSize="20">
                     <PanelGroup orientation="horizontal" className="h-full w-full">
                         
                         {/* Left: Chart */}
@@ -291,7 +291,7 @@ export default function MarketPage() {
                             </div>
 
                             {/* Chart Container */}
-                            <div className="w-full h-full bg-gradient-to-b from-gray-900/50 to-black pt-12">
+                            <div className="w-full h-full bg-gradient-to-b from-gray-900/50 to-black pt-12 cursor-crosshair active:cursor-grabbing">
                                  {candles.length > 0 ? (
                                     <ChartContainer>
                                         <CandleChart 
@@ -300,7 +300,14 @@ export default function MarketPage() {
                                             colors={{
                                                 backgroundColor: 'transparent',
                                                 textColor: '#525252',
-                                            }} 
+                                                upColor: '#3b82f6',     // Blue-500
+                                                downColor: '#ffffff',   // White
+                                                wickUpColor: '#3b82f6',
+                                                wickDownColor: '#ffffff',
+                                            }}
+                                            rightOffset={15} 
+                                            bid={prices[symbol]?.bid}
+                                            ask={prices[symbol]?.ask}
                                         />
                                         {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
                                             <IndicatorChart 
@@ -369,7 +376,7 @@ export default function MarketPage() {
                                 accountId={selectedAccountId}
                                 refreshTrigger={refreshTrigger}
                                 onMaximize={() => accountPanelRef.current?.resize("30")}
-                                onMinimize={() => accountPanelRef.current?.resize("4")}
+                                onMinimize={() => accountPanelRef.current?.resize("5")}
                             />
                         </Panel>
                     </>
