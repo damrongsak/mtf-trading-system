@@ -89,7 +89,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     chartRef.current = chart;
     
     // Register for sync
-    if (registerChart) registerChart(chart, candlestickSeries);
+    let unregister: (() => void) | void;
+    if (registerChart) unregister = registerChart(chart, candlestickSeries);
 
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -101,6 +102,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (typeof unregister === 'function') unregister();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;

@@ -41,6 +41,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
   const chartRef = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const seriesRef = useRef<ISeriesApi<any>[]>([]);
+  const unregisterSyncRef = useRef<(() => void) | void>(undefined);
   
   // Sync
   const registerChart = useChartSync();
@@ -92,6 +93,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (unregisterSyncRef.current) unregisterSyncRef.current();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = []; // Prevent stale series causing crashes on remount
@@ -124,7 +126,9 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         seriesRef.current.push(lineSeries);
 
         // Register Sync with this main series
-        if (registerChart && chartRef.current) registerChart(chartRef.current, lineSeries);
+        if (registerChart && chartRef.current) {
+             unregisterSyncRef.current = registerChart(chartRef.current, lineSeries);
+        }
         
         // Add 70/30 lines for RSI
         if (type === 'RSI') {
@@ -145,7 +149,9 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         seriesRef.current.push(histSeries);
         
         // Register Sync (Using histogram as reference)
-        if (registerChart && chartRef.current) registerChart(chartRef.current, histSeries);
+        if (registerChart && chartRef.current) {
+             unregisterSyncRef.current = registerChart(chartRef.current, histSeries);
+        }
 
         // MACD Line
         const macdSeries = chartRef.current.addSeries(LineSeries, {

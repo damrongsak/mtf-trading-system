@@ -101,12 +101,13 @@ async def calculate_rsi(req: RSIRequest):
             logger.info(f"Strategy Core RSI response time: {process_time:.4f}s")
             
             if response.status_code != 200:
+                 logger.error(f"Strategy Core returned {response.status_code}: {response.text}")
                  raise HTTPException(status_code=response.status_code, detail=response.text)
             
             return response.json()
         except httpx.RequestError as e:
-            logger.error(f"Strategy Core unavailable: {str(e)}")
-            raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+            logger.error(f"Strategy Core connection error for {e.request.url}: {type(e).__name__} - {str(e)}")
+            raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {type(e).__name__} - {str(e)}")
         except Exception as e:
             logger.error(f"RSI Proxy failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
@@ -118,14 +119,15 @@ async def calculate_atr(req: ATRRequest):
             response = await client.post(
                 f"{STRATEGY_CORE_URL}/api/v1/calculate/atr",
                 json=req.model_dump(),
-                timeout=10.0
+                timeout=30.0
             )
             if response.status_code != 200:
+                 logger.error(f"Strategy Core returned {response.status_code}: {response.text}")
                  raise HTTPException(status_code=response.status_code, detail=response.text)
             return response.json()
         except httpx.RequestError as e:
-             logger.error(f"Strategy Core unavailable: {str(e)}")
-             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+             logger.error(f"Strategy Core connection error for {e.request.url}: {type(e).__name__} - {str(e)}")
+             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {type(e).__name__} - {str(e)}")
         except Exception as e:
             logger.error(f"ATR Proxy failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")

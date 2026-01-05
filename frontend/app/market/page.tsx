@@ -42,6 +42,7 @@ export default function MarketPage() {
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
@@ -56,6 +57,7 @@ export default function MarketPage() {
         }
     }).catch(err => console.error("Failed to load system config", err));
 
+    setMounted(true);
   }, []);
 
   // --- Effects: Data Loading ---
@@ -201,7 +203,7 @@ export default function MarketPage() {
                 {/* Toolbar */}
                 <div className="bg-white/[0.02] border-b border-white/5 p-2 px-4 flex justify-between items-center">
                     <div className="flex items-center gap-1">
-                        {availableTimeframes.map(tf => (
+                        {mounted ? availableTimeframes.map(tf => (
                             <button
                                 key={tf}
                                 onClick={() => setTimeframe(tf)}
@@ -214,7 +216,14 @@ export default function MarketPage() {
                             >
                                 {tf}
                             </button>
-                        ))}
+                        )) : (
+                            // Skeleton/Loading state for SSR to prevent mismatch if config loads fast
+                            DEFAULT_TIMEFRAMES.slice(0, 4).map(tf => (
+                                 <div key={tf} className="px-3 py-1 rounded text-xs font-bold text-gray-700 bg-white/5">
+                                    {tf}
+                                 </div>
+                            ))
+                        )}
                     </div>
 
                     <div className="flex items-center gap-4">
