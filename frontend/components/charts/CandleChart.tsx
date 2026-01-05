@@ -92,16 +92,18 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     let unregister: (() => void) | void;
     if (registerChart) unregister = registerChart(chart, candlestickSeries);
 
+    // Resize Handler using ResizeObserver
     const handleResize = () => {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (typeof unregister === 'function') unregister();
       chart.remove();
       chartRef.current = null;

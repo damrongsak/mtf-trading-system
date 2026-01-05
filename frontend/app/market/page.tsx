@@ -15,6 +15,7 @@ import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 
@@ -47,7 +48,7 @@ export default function MarketPage() {
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
-  const [showAccountPanel, setShowAccountPanel] = useState(true);
+  const [showAccountPanel, setShowAccountPanel] = useState(false); // Default CLOSED for Focus Mode
   const [mounted, setMounted] = useState(false);
 
   // --- State: Broker Accounts (Lifted State) ---
@@ -226,133 +227,144 @@ export default function MarketPage() {
             </div>
         </header>
 
-        {/* Workspace Layout */}
-        <div className="flex-1 flex flex-col min-h-0">
-            {/* Top Workspace: Chart + Order Panel */}
-            <div className="flex-1 flex min-h-0 bg-gray-950/30">
-                {/* Main Chart Area */}
-                <div className="flex-1 flex flex-col min-w-0 relative">
-                     {/* Toolbar */}
-                    <div className="z-10 bg-white/[0.02] border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
-                        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                            {mounted ? availableTimeframes.map(tf => (
-                                <button
-                                    key={tf}
-                                    onClick={() => setTimeframe(tf)}
-                                    className={cn(
-                                        "px-2.5 py-1 rounded text-[10px] font-bold transition-all shrink-0",
-                                        timeframe === tf 
-                                            ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" 
-                                            : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
-                                    )}
-                                >
-                                    {tf}
-                                </button>
-                            )) : (
-                                DEFAULT_TIMEFRAMES.slice(0, 4).map(tf => (
-                                    <div key={tf} className="px-3 py-1 rounded text-xs font-bold text-gray-700 bg-white/5">
-                                        {tf}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-4 ml-4">
-                            <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-                                {[
-                                    { id: 'EMA', label: 'EMA', state: showEMA, set: setShowEMA },
-                                    { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
-                                    { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
-                                    { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
-                                ].map(btn => (
-                                    <button
-                                        key={btn.id}
-                                        onClick={() => btn.set(!btn.state)}
-                                        className={cn(
-                                            "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
-                                            btn.state ? "bg-white/10 text-white border border-white/10" : "text-gray-600 hover:text-gray-400"
-                                        )}
-                                    >
-                                        {btn.label}
-                                    </button>
-                                ))}
-                            </div>
-                            <button onClick={loadData} className="p-2 hover:bg-white/10 rounded-md text-gray-500 hover:text-white transition-colors">
-                                <RefreshCcw size={16} className={cn(loading && "animate-spin")} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Chart Container */}
-                    <div className="flex-1 relative w-full h-full bg-gradient-to-b from-transparent to-black/40">
-                         {candles.length > 0 ? (
-                            <ChartContainer>
-                                <CandleChart 
-                                    data={candles} 
-                                    indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} 
-                                    colors={{
-                                        backgroundColor: 'transparent',
-                                        textColor: '#525252',
-                                    }} 
-                                />
-                                {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
-                                    <IndicatorChart 
-                                        key={ind.name}
-                                        type="RSI"
-                                        data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
-                                        height={100}
-                                        colors={{ lineColor: ind.color, textColor: '#525252' }}
-                                    />
-                                ))}
-                                {/* Add other indicators back if needed but keep minimal for "Pro" look */}
-                            </ChartContainer>
-                         ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-600 flex-col gap-3">
-                                    {loading ? (
-                                        <>
-                                            <RefreshCcw className="animate-spin text-blue-500" size={32} />
-                                            <span className="font-mono text-sm">Loading Market Data...</span>
-                                        </>
-                                    ) : (
-                                        <span>Waiting for data...</span>
+        {/* Workspace Layout: Resizable Panels */}
+        <div className="flex-1 min-h-0 relative group">
+            <PanelGroup key={showAccountPanel ? 'expanded' : 'collapsed'} orientation="vertical" className="h-full w-full">
+                
+                {/* Top Area: Chart & Execution */}
+                <Panel defaultSize={showAccountPanel ? "70" : "100"} minSize="30">
+                    <PanelGroup orientation="horizontal" className="h-full w-full">
+                        
+                        {/* Left: Chart */}
+                        <Panel defaultSize="80" minSize="50" className="relative">
+                             {/* Toolbar (Moved inside Chart Panel) */}
+                            <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
+                                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                                    {mounted ? availableTimeframes.map(tf => (
+                                        <button
+                                            key={tf}
+                                            onClick={() => setTimeframe(tf)}
+                                            className={cn(
+                                                "px-2.5 py-1 rounded text-[10px] font-bold transition-all shrink-0",
+                                                timeframe === tf 
+                                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" 
+                                                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                                            )}
+                                        >
+                                            {tf}
+                                        </button>
+                                    )) : (
+                                        DEFAULT_TIMEFRAMES.slice(0, 4).map(tf => (
+                                            <div key={tf} className="px-3 py-1 rounded text-xs font-bold text-gray-700 bg-white/5">
+                                                {tf}
+                                            </div>
+                                        ))
                                     )}
                                 </div>
-                         )}
 
-                         {/* Sentiment Overlay Toggle (Floating) */}
-                         <div className="absolute top-2 left-2 z-20">
-                            <button 
-                                onClick={() => setShowAnalytics(!showAnalytics)}
-                                className={cn("p-2 rounded bg-gray-900/80 backdrop-blur border border-white/10 hover:bg-gray-800 transition-colors", showAnalytics && "text-blue-400 border-blue-500/30")}
-                            >
-                                <Activity size={16} />
-                            </button>
-                         </div>
-                    </div>
-                </div>
+                                <div className="flex items-center gap-4 ml-4">
+                                    <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
+                                        {[
+                                            { id: 'EMA', label: 'EMA', state: showEMA, set: setShowEMA },
+                                            { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
+                                            { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
+                                            { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
+                                        ].map(btn => (
+                                            <button
+                                                key={btn.id}
+                                                onClick={() => btn.set(!btn.state)}
+                                                className={cn(
+                                                    "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                                                    btn.state ? "bg-white/10 text-white border border-white/10" : "text-gray-600 hover:text-gray-400"
+                                                )}
+                                            >
+                                                {btn.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button onClick={loadData} className="p-2 hover:bg-white/10 rounded-md text-gray-500 hover:text-white transition-colors">
+                                        <RefreshCcw size={16} className={cn(loading && "animate-spin")} />
+                                    </button>
+                                </div>
+                            </div>
 
-                {/* Right Panel: Order Entry */}
-                <div className="hidden lg:block w-[320px] shrink-0 border-l border-white/5 h-full relative z-20">
-                    <OrderPanel 
-                        symbol={symbol} 
-                        currentPrice={currentPrice} 
-                        onOrderSuccess={handleOrderSuccess}
-                        accounts={accounts}
-                        selectedAccountId={selectedAccountId}
-                        onAccountChange={setSelectedAccountId}
-                    />
-                </div>
-            </div>
+                            {/* Chart Container */}
+                            <div className="w-full h-full bg-gradient-to-b from-gray-900/50 to-black pt-12">
+                                 {candles.length > 0 ? (
+                                    <ChartContainer>
+                                        <CandleChart 
+                                            data={candles} 
+                                            indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} 
+                                            colors={{
+                                                backgroundColor: 'transparent',
+                                                textColor: '#525252',
+                                            }} 
+                                        />
+                                        {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
+                                            <IndicatorChart 
+                                                key={ind.name}
+                                                type="RSI"
+                                                data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
+                                                height={100}
+                                                colors={{ lineColor: ind.color, textColor: '#525252' }}
+                                            />
+                                        ))}
+                                    </ChartContainer>
+                                 ) : (
+                                        <div className="flex items-center justify-center h-full text-gray-600 flex-col gap-3">
+                                            {loading ? (
+                                                <>
+                                                    <RefreshCcw className="animate-spin text-blue-500" size={32} />
+                                                    <span className="font-mono text-sm">Loading Market Data...</span>
+                                                </>
+                                            ) : (
+                                                <span>Waiting for data...</span>
+                                            )}
+                                        </div>
+                                 )}
 
-            {/* Bottom Workspace: Account Panel */}
-            {showAccountPanel && (
-                <div className="h-[300px] shrink-0 border-t border-white/5 relative z-30">
-                    <AccountPanel 
-                        accountId={selectedAccountId}
-                        refreshTrigger={refreshTrigger}
-                    />
-                </div>
-            )}
+                                 {/* Sentiment Overlay Toggle (Floating) */}
+                                 <div className="absolute top-14 left-2 z-20">
+                                    <button 
+                                        onClick={() => setShowAnalytics(!showAnalytics)}
+                                        className={cn("p-2 rounded bg-gray-900/80 backdrop-blur border border-white/10 hover:bg-gray-800 transition-colors", showAnalytics && "text-blue-400 border-blue-500/30")}
+                                    >
+                                        <Activity size={16} />
+                                    </button>
+                                 </div>
+                            </div>
+                        </Panel>
+
+                        <PanelResizeHandle className="w-1.5 bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize" />
+
+                        {/* Right: Order Panel */}
+                        <Panel defaultSize="20" minSize="20" maxSize="50" className="bg-gray-950">
+                            <OrderPanel 
+                                symbol={symbol} 
+                                currentPrice={currentPrice} 
+                                onOrderSuccess={handleOrderSuccess}
+                                accounts={accounts}
+                                selectedAccountId={selectedAccountId}
+                                onAccountChange={setSelectedAccountId}
+                            />
+                        </Panel>
+
+                    </PanelGroup>
+                </Panel>
+
+                {/* Bottom Area: Account Panel */}
+                {showAccountPanel && (
+                    <>
+                        <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
+                        <Panel defaultSize="30" minSize="10" collapsible={true} onCollapse={() => setShowAccountPanel(false)}>
+                             <AccountPanel 
+                                accountId={selectedAccountId}
+                                refreshTrigger={refreshTrigger}
+                            />
+                        </Panel>
+                    </>
+                )}
+            </PanelGroup>
         </div>
         
         {/* Analytics Overlay (Absolute) */}
