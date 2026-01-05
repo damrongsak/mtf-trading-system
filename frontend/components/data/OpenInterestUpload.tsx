@@ -125,7 +125,44 @@ export function OpenInterestUpload() {
                         onChange={handleFileChange} 
                     />
                     
-                    {file ? (
+                    {/* Content Logic based on State */}
+                    {isDragging ? (
+                         // DRAGGING STATE
+                         <div className="flex flex-col items-center text-center p-4">
+                            <div className="w-12 h-12 bg-accent-blue/20 rounded-full flex items-center justify-center mb-3">
+                                <UploadCloud className="w-6 h-6 text-accent-blue" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-300">Drop file here</p>
+                        </div>
+                    ) : message ? (
+                        // MESSAGE STATE (Success/Error)
+                        <div className="w-full max-w-[90%] px-4 animate-in fade-in zoom-in duration-300">
+                             <Alert 
+                                variant={message.type === 'error' ? 'destructive' : 'default'} 
+                                className={cn(
+                                    "border shadow-lg",
+                                    message.type === 'success' 
+                                        ? "border-green-500/50 bg-green-500/10 text-green-400" 
+                                        : "border-red-500/50 bg-red-500/10 text-red-400"
+                                )}
+                            >
+                                 {message.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                                 <AlertTitle className="mb-1 font-bold">{message.type === 'success' ? "Success" : "Error"}</AlertTitle>
+                                 <AlertDescription className="text-xs opacity-90">{message.text}</AlertDescription>
+                            </Alert>
+                             <div className="text-center mt-4">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-gray-500 hover:text-white"
+                                    onClick={(e) => { e.stopPropagation(); setMessage(null); }}
+                                >
+                                    Dismiss
+                                </Button>
+                             </div>
+                        </div>
+                    ) : file ? (
+                        // FILE SELECTED STATE
                         <div className="flex flex-col items-center text-center p-4 animate-in fade-in zoom-in duration-300">
                             <div className="w-12 h-12 bg-accent-green/20 rounded-full flex items-center justify-center mb-3">
                                 <FileSpreadsheet className="w-6 h-6 text-accent-green" />
@@ -142,18 +179,13 @@ export function OpenInterestUpload() {
                             </Button>
                         </div>
                     ) : (
+                        // EMPTY STATE
                         <div className="flex flex-col items-center text-center p-4">
-                            <div className={cn(
-                                "w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors",
-                                isDragging ? "bg-accent-blue/20" : "bg-gray-900"
-                            )}>
-                                <UploadCloud className={cn(
-                                    "w-6 h-6 transition-colors", 
-                                    isDragging ? "text-accent-blue" : "text-gray-500 group-hover:text-gray-400"
-                                )} />
+                            <div className="w-12 h-12 bg-gray-900 rounded-full flex items-center justify-center mb-3 transition-colors group-hover:bg-gray-800">
+                                <UploadCloud className="w-6 h-6 text-gray-500 group-hover:text-gray-400" />
                             </div>
                             <p className="text-sm font-medium text-gray-300">
-                                {isDragging ? "Drop file here" : "Click to upload or drag & drop"}
+                                Click to upload or drag & drop
                             </p>
                             <p className="text-xs text-gray-500 mt-1">Excel files only (.xlsx)</p>
                         </div>
@@ -186,22 +218,7 @@ export function OpenInterestUpload() {
                     </div>
                 </div>
 
-                {/* Feedback Messages */}
-                {message && (
-                    <Alert 
-                        variant={message.type === 'error' ? 'destructive' : 'default'} 
-                        className={cn(
-                            "animate-in slide-in-from-bottom-2 fade-in",
-                            message.type === 'success' 
-                                ? "border-green-500/50 bg-green-500/10 text-green-400" 
-                                : "border-red-500/50 bg-red-500/10 text-red-400"
-                        )}
-                    >
-                         {message.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                         <AlertTitle>{message.type === 'success' ? "Success" : "Error"}</AlertTitle>
-                         <AlertDescription>{message.text}</AlertDescription>
-                    </Alert>
-                )}
+                {/* Action Button */}
 
                 <Button 
                     className={cn(

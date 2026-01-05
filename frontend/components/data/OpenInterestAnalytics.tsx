@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { Loader2, TrendingUp, BarChart2, Activity, ArrowDown, ArrowUp, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { OpenInterestHeatmap } from './OpenInterestHeatmap';
 
 export function OpenInterestAnalytics() {
     const [snapshots, setSnapshots] = useState<OpenInterestSnapshot[]>([]);
@@ -52,13 +53,8 @@ export function OpenInterestAnalytics() {
         
         getOpenInterestContracts(selectedSnapshot).then(data => {
             setContracts(data);
-            // Auto-select first contract (expiry) if available, or "ALL" if preferred. 
-            // For rigorous quant analysis, selecting the front-month is usually default.
-            if (data.length > 0) {
-                setSelectedContract(data[0]);
-            } else {
-                setSelectedContract("");
-            }
+            // Default select "All Contracts" as requested by user
+            setSelectedContract("ALL_CONTRACTS_VALUE_RESET");
         });
     }, [selectedSnapshot]);
 
@@ -93,6 +89,9 @@ export function OpenInterestAnalytics() {
     if (!analysis) return null;
 
     const { summary, distribution } = analysis;
+    
+    // Derived active contract for props
+    const activeContract = (!selectedContract || selectedContract === "ALL_CONTRACTS_VALUE_RESET") ? undefined : selectedContract;
 
     return (
         <div className="space-y-6 mt-6">
@@ -100,7 +99,7 @@ export function OpenInterestAnalytics() {
                 <h2 className="text-2xl font-bold">Analytics Dashboard</h2>
                 
                 {/* Premium Filter Toolbar */}
-                <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-900/50 backdrop-blur-md p-4 rounded-xl border border-slate-800 shadow-xl w-full">
+                <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-900/50 backdrop-blur-md p-4 rounded-xl border border-slate-800 shadow-xl w-full relative z-50">
                     
                     {/* Left Group: Selectors */}
                     <div className="flex gap-4 w-full md:w-auto">
@@ -315,6 +314,14 @@ export function OpenInterestAnalytics() {
                     </ResponsiveContainer>
                 </CardContent>
             </Card>
+
+            {/* Heatmap Section */}
+            <OpenInterestHeatmap 
+                snapshotAt={selectedSnapshot}
+                contract={activeContract}
+                minOi={minOi[0] || 0}
+                maxOi={minOi[1] || sliderMax} // Use sliderMax as upper bound if undefined
+            />
         </div>
     );
 }
