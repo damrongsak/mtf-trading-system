@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
+import { placeSmartOrder, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { Loader2, TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
@@ -10,14 +10,22 @@ interface OrderPanelProps {
   symbol: string;
   currentPrice: number;
   onOrderSuccess: () => void;
+  accounts: ExecutionBrokerAccount[];
+  selectedAccountId: string;
+  onAccountChange: (id: string) => void;
 }
 
-export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, onOrderSuccess }) => {
+export const OrderPanel: React.FC<OrderPanelProps> = ({ 
+    symbol, 
+    currentPrice, 
+    onOrderSuccess,
+    accounts,
+    selectedAccountId,
+    onAccountChange
+}) => {
   // Logic from TradeModal + Improvements
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
-  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   
   const [riskUsd, setRiskUsd] = useState<number>(10.0);
   const [sl, setSl] = useState<number>(0);
@@ -26,14 +34,6 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Initialize
-  useEffect(() => {
-    getBrokerAccounts().then(accs => {
-        setAccounts(accs);
-        if (accs.length > 0) setSelectedAccountId(accs[0].id);
-    }).catch(err => console.error("Failed to load accounts", err));
-  }, []);
 
   // Set default SL/TP based on price when symbol impacts
   useEffect(() => {
@@ -98,7 +98,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
                 <label className="text-xs text-gray-500 font-mono">BROKER ACCOUNT</label>
                 <select 
                     value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    onChange={(e) => onAccountChange(e.target.value)}
                     className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-300 focus:border-blue-500 outline-none"
                     disabled={accounts.length === 0}
                 >

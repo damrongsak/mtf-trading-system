@@ -28,7 +28,12 @@ const PanelTab = ({ active, onClick, icon: Icon, label }: PanelTabProps) => (
     </button>
 );
 
-export const AccountPanel = () => {
+interface AccountPanelProps {
+    accountId: string;
+    refreshTrigger: number;
+}
+
+export const AccountPanel: React.FC<AccountPanelProps> = ({ accountId, refreshTrigger }) => {
     const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY'>('POSITIONS');
     const [trades, setTrades] = useState<Trade[]>([]);
     const [history, setHistory] = useState<Trade[]>([]);
@@ -36,13 +41,15 @@ export const AccountPanel = () => {
     const [loading, setLoading] = useState(false);
 
     const loadData = async () => {
+        if (!accountId) return; // Don't fetch if no account selected
+        
         setLoading(true);
         try {
             // Parallel fetch
             const [openRes, closedRes, sumRes] = await Promise.all([
-                getTrades({ status: 'OPEN', page: 1, per_page: 50 }),
-                getTrades({ status: 'CLOSED', page: 1, per_page: 50 }),
-                getAccountSummary()
+                getTrades({ status: 'OPEN', page: 1, per_page: 50, account_id: accountId }),
+                getTrades({ status: 'CLOSED', page: 1, per_page: 50, account_id: accountId }),
+                getAccountSummary(accountId)
             ]);
 
             setTrades(openRes.data || []);
@@ -55,7 +62,7 @@ export const AccountPanel = () => {
         }
     };
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { loadData(); }, [accountId, refreshTrigger]);
 
     // Expose refresh method to parent if needed via ref, but for now auto-refresh or manual button
     

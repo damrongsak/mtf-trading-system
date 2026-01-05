@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { IndicatorData } from '@/components/charts/CandleChart';
 import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
+import { getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { fetchSystemConfig } from '@/lib/api/system';
 import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
@@ -49,6 +50,11 @@ export default function MarketPage() {
   const [showAccountPanel, setShowAccountPanel] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  // --- State: Broker Accounts (Lifted State) ---
+  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
   const { symbols: brokerSymbols } = useBrokerReference();
@@ -60,6 +66,16 @@ export default function MarketPage() {
             setAvailableTimeframes(config.supported_timeframes);
         }
     }).catch(err => console.error("Failed to load system config", err));
+
+    // Load Broker Accounts
+    getBrokerAccounts().then(accs => {
+        setAccounts(accs);
+        if (accs.length > 0) {
+            // Smart Selection: Prefer OANDA for XAU_USD default, or just prefer OANDA generally for now as it's the primary
+            const preferred = accs.find(a => a.broker_name.toUpperCase().includes('OANDA'));
+            setSelectedAccountId(preferred ? preferred.id : accs[0].id);
+        }
+    }).catch(err => console.error("Failed to load accounts", err));
 
     setMounted(true);
   }, []);
@@ -142,11 +158,18 @@ export default function MarketPage() {
   const changePercent = prevClose ? (change / prevClose) * 100 : 0;
   const isUp = change >= 0;
 
+
+  // Trigger refresh function
+  const handleOrderSuccess = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   // --- Render ---
   return (
     <div className="h-screen bg-black text-gray-300 font-sans selection:bg-blue-500/30 flex flex-col overflow-hidden">
         
         {/* Top Bar: Market Ticker */}
+        {/* ... (Header content unchanged) ... */}
         <header className="border-b border-white/5 bg-gray-950/50 backdrop-blur-md z-40 h-14 flex items-center px-4 justify-between shrink-0">
             <div className="flex items-center gap-6">
                  {/* Symbol Selector embedded in header for quick switch */}
@@ -313,7 +336,10 @@ export default function MarketPage() {
                     <OrderPanel 
                         symbol={symbol} 
                         currentPrice={currentPrice} 
-                        onOrderSuccess={() => { /* Trigger refresh if needed */ }} 
+                        onOrderSuccess={handleOrderSuccess}
+                        accounts={accounts}
+                        selectedAccountId={selectedAccountId}
+                        onAccountChange={setSelectedAccountId}
                     />
                 </div>
             </div>
@@ -321,7 +347,10 @@ export default function MarketPage() {
             {/* Bottom Workspace: Account Panel */}
             {showAccountPanel && (
                 <div className="h-[300px] shrink-0 border-t border-white/5 relative z-30">
-                    <AccountPanel />
+                    <AccountPanel 
+                        accountId={selectedAccountId}
+                        refreshTrigger={refreshTrigger}
+                    />
                 </div>
             )}
         </div>
