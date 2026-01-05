@@ -194,187 +194,193 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
             
-            {/* 4. Volume / Risk */}
-            <div className="space-y-3">
-                 <div className="flex justify-between items-end">
-                     <span className="text-xs text-gray-400 font-medium">Volume Calculation</span>
-                     <span className="text-[10px] text-gray-500">
-                         Bal: <span className="text-gray-300">${balance.toFixed(0)}</span>
-                     </span>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-3">
-                     <div className="bg-[#1e2029] rounded border border-white/5 p-2.5">
-                         <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Lot Size</div>
-                         <div className="font-mono text-white text-base font-bold">
-                             {estLots > 0 ? estLots.toFixed(2) : '0.00'} <span className="text-gray-500 text-[10px] font-normal">LOTS</span>
-                         </div>
+            {/* Top Section Wrapper */}
+            <div className="space-y-6">
+                {/* 4. Volume / Risk */}
+                <div className="space-y-3">
+                     <div className="flex justify-between items-end">
+                         <span className="text-xs text-gray-400 font-medium">Volume Calculation</span>
+                         <span className="text-[10px] text-gray-500">
+                             Bal: <span className="text-gray-300">${balance.toFixed(0)}</span>
+                         </span>
                      </div>
                      
-                     <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group">
-                         <div className="text-[10px] text-blue-400 flex items-center gap-1 cursor-pointer uppercase tracking-wider mb-1">
-                             Risk Amount (USD) <ChevronDown size={10} />
+                     <div className="grid grid-cols-2 gap-3">
+                         <div className="bg-[#1e2029] rounded border border-white/5 p-2.5">
+                             <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Lot Size</div>
+                             <div className="font-mono text-white text-base font-bold">
+                                 {estLots > 0 ? estLots.toFixed(2) : '0.00'} <span className="text-gray-500 text-[10px] font-normal">LOTS</span>
+                             </div>
                          </div>
-                         <div className="flex items-center">
-                            <input 
-                                type="number"
-                                value={riskUsd}
-                                onChange={e => setRiskUsd(parseFloat(e.target.value))}
-                                className="bg-transparent w-full text-white font-mono text-base font-bold outline-none border-none p-0 focus:ring-0"
-                            />
-                            <DollarSign size={14} className="text-gray-500 ml-1" />
+                         
+                         <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group">
+                             <div className="text-[10px] text-blue-400 flex items-center gap-1 cursor-pointer uppercase tracking-wider mb-1">
+                                 Risk Amount (USD) <ChevronDown size={10} />
+                             </div>
+                             <div className="flex items-center">
+                                <input 
+                                    type="number"
+                                    value={riskUsd}
+                                    onChange={e => setRiskUsd(parseFloat(e.target.value))}
+                                    className="bg-transparent w-full text-white font-mono text-base font-bold outline-none border-none p-0 focus:ring-0"
+                                />
+                                <DollarSign size={14} className="text-gray-500 ml-1" />
+                             </div>
                          </div>
                      </div>
-                 </div>
-            </div>
+                </div>
 
-            <div className="h-px bg-white/5" />
+                <div className="h-px bg-white/5" />
 
-            {/* 5. Protection */}
-            <div className="space-y-5">
-                {/* Take Profit */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                {/* 5. Protection */}
+                <div className="space-y-5">
+                    {/* Take Profit */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                 <input 
+                                    type="checkbox" 
+                                    checked={takeProfitEnabled} 
+                                    onChange={e => setTakeProfitEnabled(e.target.checked)}
+                                    className="w-4 h-4 rounded bg-[#2b2e3b] border-gray-600 checked:bg-blue-500 cursor-pointer" 
+                                />
+                                 <span className="text-xs font-bold text-gray-300">Take Profit</span>
+                            </div>
+                            {/* R:R Buttons */}
+                            <div className="flex gap-1">
+                                 {[1, 2, 3].map(r => (
+                                     <button 
+                                        key={r} 
+                                        onClick={() => applyRR(r)}
+                                        className="px-2 py-0.5 bg-[#2b2e3b] hover:bg-blue-600 hover:text-white rounded text-[10px] text-gray-400 transition-colors font-mono"
+                                    >
+                                        1:{r}
+                                     </button>
+                                 ))}
+                            </div>
+                        </div>
+                        
+                        {takeProfitEnabled && (
+                            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                 <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
+                                     <div className="text-[10px] text-gray-500 uppercase">Target Price</div>
+                                     <input 
+                                         type="number" 
+                                         value={tpPrice} 
+                                         disabled 
+                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
+                                     />
+                                 </div>
+                                  <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-blue-500/20">
+                                     <div className="text-[10px] text-blue-400 uppercase font-bold">Profit Ticks</div>
+                                     <input 
+                                         type="number" 
+                                         value={tpPips} 
+                                         onChange={e => setTpPips(parseInt(e.target.value))}
+                                         className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
+                                     />
+                                 </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Stop Loss */}
+                    <div className="space-y-2">
                         <div className="flex items-center gap-2">
                              <input 
                                 type="checkbox" 
-                                checked={takeProfitEnabled} 
-                                onChange={e => setTakeProfitEnabled(e.target.checked)}
-                                className="w-4 h-4 rounded bg-[#2b2e3b] border-gray-600 checked:bg-blue-500 cursor-pointer" 
+                                checked={stopLossEnabled} 
+                                onChange={e => setStopLossEnabled(e.target.checked)}
+                                className="w-4 h-4 rounded bg-[#2b2e3b] border-gray-600 checked:bg-rose-500 cursor-pointer" 
                             />
-                             <span className="text-xs font-bold text-gray-300">Take Profit</span>
+                             <span className="text-xs font-bold text-gray-300">Stop Loss</span>
                         </div>
-                        {/* R:R Buttons */}
-                        <div className="flex gap-1">
-                             {[1, 2, 3].map(r => (
-                                 <button 
-                                    key={r} 
-                                    onClick={() => applyRR(r)}
-                                    className="px-2 py-0.5 bg-[#2b2e3b] hover:bg-blue-600 hover:text-white rounded text-[10px] text-gray-400 transition-colors font-mono"
-                                >
-                                    1:{r}
-                                 </button>
-                             ))}
-                        </div>
+                        {stopLossEnabled && (
+                            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                 <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
+                                     <div className="text-[10px] text-gray-500 uppercase">Stop Price</div>
+                                     <input 
+                                         type="number" 
+                                         value={slPrice} 
+                                         disabled 
+                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
+                                     />
+                                 </div>
+                                  <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-rose-500/20">
+                                     <div className="text-[10px] text-rose-400 uppercase font-bold">Risk Ticks</div>
+                                     <input 
+                                         type="number" 
+                                         value={slPips} 
+                                         onChange={e => setSlPips(parseInt(e.target.value))}
+                                         className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
+                                     />
+                                 </div>
+                            </div>
+                        )}
                     </div>
-                    
-                    {takeProfitEnabled && (
-                        <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                             <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
-                                 <div className="text-[10px] text-gray-500 uppercase">Target Price</div>
-                                 <input 
-                                     type="number" 
-                                     value={tpPrice} 
-                                     disabled 
-                                     className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
-                                 />
-                             </div>
-                              <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-blue-500/20">
-                                 <div className="text-[10px] text-blue-400 uppercase font-bold">Profit Ticks</div>
-                                 <input 
-                                     type="number" 
-                                     value={tpPips} 
-                                     onChange={e => setTpPips(parseInt(e.target.value))}
-                                     className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
-                                 />
-                             </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Stop Loss */}
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                         <input 
-                            type="checkbox" 
-                            checked={stopLossEnabled} 
-                            onChange={e => setStopLossEnabled(e.target.checked)}
-                            className="w-4 h-4 rounded bg-[#2b2e3b] border-gray-600 checked:bg-rose-500 cursor-pointer" 
-                        />
-                         <span className="text-xs font-bold text-gray-300">Stop Loss</span>
-                    </div>
-                    {stopLossEnabled && (
-                        <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                             <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
-                                 <div className="text-[10px] text-gray-500 uppercase">Stop Price</div>
-                                 <input 
-                                     type="number" 
-                                     value={slPrice} 
-                                     disabled 
-                                     className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
-                                 />
-                             </div>
-                              <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-rose-500/20">
-                                 <div className="text-[10px] text-rose-400 uppercase font-bold">Risk Ticks</div>
-                                 <input 
-                                     type="number" 
-                                     value={slPips} 
-                                     onChange={e => setSlPips(parseInt(e.target.value))}
-                                     className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
-                                 />
-                             </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
-            {/* 6. Position Math & Footer */}
-             <div className="bg-[#16171d] rounded p-3 space-y-2 border border-white/5">
-                <div className="flex items-center gap-2 pb-2 border-b border-white/5 mb-1">
-                    <Calculator size={14} className="text-blue-500" />
-                    <span className="text-xs font-bold text-gray-200">Position Math</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-y-1 gap-x-4 text-[11px]">
-                     <div className="flex justify-between">
-                         <span className="text-gray-500">Risk / Pip</span>
-                         <span className="text-gray-300 font-mono font-medium">${(riskUsd / slPips).toFixed(2)}</span>
-                     </div>
-                      <div className="flex justify-between">
-                         <span className="text-gray-500">Tick Value</span>
-                         <span className="text-gray-300 font-mono font-medium">{pipVal} USD</span>
-                     </div>
-                      <div className="flex justify-between">
-                         <span className="text-gray-500">Spread Cost</span>
-                         <span className="text-rose-400 font-mono font-medium">-${(estLots * 10 * spreadPips).toFixed(2)}</span>
-                     </div>
-                      <div className="flex justify-between">
-                         <span className="text-gray-500">Trade Value</span>
-                         <span className="text-gray-300 font-mono font-medium">${(estLots * 100000 * currentPrice).toLocaleString([], {maximumFractionDigits:0})}</span>
-                     </div>
-                </div>
+            {/* 6. Position Math (Natural Flow) */}
+             <div className="space-y-4 pt-4">
+                 <div className="bg-[#16171d] rounded p-3 space-y-2 border border-white/5">
+                    <div className="flex items-center gap-2 pb-2 border-b border-white/5 mb-1">
+                        <Calculator size={14} className="text-blue-500" />
+                        <span className="text-xs font-bold text-gray-200">Position Math</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-y-1 gap-x-4 text-[11px]">
+                         <div className="flex justify-between">
+                             <span className="text-gray-500">Risk / Pip</span>
+                             <span className="text-gray-300 font-mono font-medium">${(riskUsd / slPips).toFixed(2)}</span>
+                         </div>
+                          <div className="flex justify-between">
+                             <span className="text-gray-500">Tick Value</span>
+                             <span className="text-gray-300 font-mono font-medium">{pipVal} USD</span>
+                         </div>
+                          <div className="flex justify-between">
+                             <span className="text-gray-500">Spread Cost</span>
+                             <span className="text-rose-400 font-mono font-medium">-${(estLots * 10 * spreadPips).toFixed(2)}</span>
+                         </div>
+                          <div className="flex justify-between">
+                             <span className="text-gray-500">Trade Value</span>
+                             <span className="text-gray-300 font-mono font-medium">${(estLots * 100000 * currentPrice).toLocaleString([], {maximumFractionDigits:0})}</span>
+                         </div>
+                    </div>
+                 </div>
+                 
+                 {error && <div className="text-xs text-red-400 bg-red-500/10 p-3 rounded border border-red-500/20 flex items-center gap-2"><Info size={14} /> {error}</div>}
+                 {successMsg && <div className="text-xs text-green-400 bg-green-500/10 p-3 rounded border border-green-500/20 flex items-center gap-2"><Check size={14} /> {successMsg}</div>}
              </div>
-             
-              {error && <div className="text-xs text-red-400 bg-red-500/10 p-3 rounded border border-red-500/20 flex items-center gap-2"><Info size={14} /> {error}</div>}
-              {successMsg && <div className="text-xs text-green-400 bg-green-500/10 p-3 rounded border border-green-500/20 flex items-center gap-2"><Check size={14} /> {successMsg}</div>}
 
+             {/* 7. Action Button (Scrolls with content) */}
+            <div className="pt-2 pb-6">
+                <button 
+                    onClick={handleOrder}
+                    disabled={loading || !selectedAccountId}
+                    className={cn(
+                        "w-full py-3.5 rounded text-white font-bold text-base shadow-lg transition-all flex flex-col items-center justify-center leading-none gap-1.5",
+                        direction === 'BULLISH' ? "bg-blue-600 hover:bg-blue-500 shadow-blue-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20",
+                        loading && "opacity-50 cursor-not-allowed"
+                    )}
+                >
+                    {loading ? (
+                        <Loader2 className="animate-spin" size={24} />
+                    ) : (
+                        <>
+                            <span className="uppercase tracking-wide">{direction === 'BULLISH' ? 'BUY' : 'SELL'} {symbol.replace('_', '/')}</span>
+                            <div className="text-xs opacity-75 font-normal font-mono">
+                               {estLots > 0 ? `${estLots.toFixed(2)}` : '0.01'} LOTS @ MARKET
+                            </div>
+                        </>
+                    )}
+                </button>
+            </div>
         </div>
 
-        {/* 7. Footer Execute Button */}
-        <div className="p-4 bg-[#16171d] border-t border-black">
-            <button 
-                onClick={handleOrder}
-                disabled={loading || !selectedAccountId}
-                className={cn(
-                    "w-full py-3.5 rounded text-white font-bold text-base shadow-lg transition-all flex flex-col items-center justify-center leading-none gap-1.5",
-                    direction === 'BULLISH' ? "bg-blue-600 hover:bg-blue-500 shadow-blue-900/20" : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20",
-                    loading && "opacity-50 cursor-not-allowed"
-                )}
-            >
-                {loading ? (
-                    <Loader2 className="animate-spin" size={24} />
-                ) : (
-                    <>
-                        <span className="uppercase tracking-wide">{direction === 'BULLISH' ? 'BUY' : 'SELL'} {symbol.replace('_', '/')}</span>
-                        <div className="text-xs opacity-75 font-normal font-mono">
-                           {estLots > 0 ? `${estLots.toFixed(2)}` : '0.01'} LOTS @ MARKET
-                        </div>
-                    </>
-                )}
-            </button>
-        </div>
+
     </div>
   );
 };

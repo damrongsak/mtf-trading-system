@@ -323,7 +323,7 @@ export default function MarketPage() {
                                         </div>
                                  )}
 
-                                 {/* Sentiment Overlay Toggle (Floating) */}
+                                 {/* Sentiment Overlay Overlay Toggle (Floating) */}
                                  <div className="absolute top-14 left-2 z-20">
                                     <button 
                                         onClick={() => setShowAnalytics(!showAnalytics)}
