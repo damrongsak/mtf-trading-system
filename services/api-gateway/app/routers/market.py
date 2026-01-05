@@ -87,8 +87,9 @@ async def get_market_symbols(
     
     symbols = db.query(MarketSymbol).join(DataSource).filter(
         DataSource.name == data_source,
-        DataSource.is_active == True
-    ).all()
+        DataSource.is_active == True,
+        MarketSymbol.is_active == True
+    ).order_by(MarketSymbol.symbol).all()
     
     # Simple Dict conversion to include 'details' JSON
     # Pydantic model would be better but dict is flexible for variable JSON schemas

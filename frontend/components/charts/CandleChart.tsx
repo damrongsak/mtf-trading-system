@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData, SeriesMarker, createSeriesMarkers, ISeriesMarkersPluginApi } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
 
@@ -15,6 +15,7 @@ export interface IndicatorData {
 interface CandleChartProps {
   data: Candle[];
   indicators?: IndicatorData[];
+  markers?: SeriesMarker<Time>[]; // New Prop
   colors?: {
     backgroundColor?: string;
     lineColor?: string;
@@ -24,11 +25,12 @@ interface CandleChartProps {
   };
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], colors = {} }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], colors = {} }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const indicatorSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   
   // Use Sync Context
   const registerChart = useChartSync();
@@ -39,8 +41,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: colors.backgroundColor || 'transparent' }, // Transparent for glassmorphism
-        textColor: colors.textColor || '#d1d5db', // gray-300
+        background: { type: ColorType.Solid, color: colors.backgroundColor || 'transparent' }, 
+        textColor: colors.textColor || '#d1d5db',
       },
       width: chartContainerRef.current.clientWidth,
       height: 500,
@@ -77,13 +79,22 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     });
     seriesRef.current = candlestickSeries;
 
+    // Initialize Markers Plugin
+    try {
+        markersPluginRef.current = createSeriesMarkers(candlestickSeries, []);
+    } catch (e) {
+        console.error('[CandleChart] Failed to create markers plugin:', e);
+    }
+
     chartRef.current = chart;
     
     // Register for sync
     if (registerChart) registerChart(chart, candlestickSeries);
 
     const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
     };
 
     window.addEventListener('resize', handleResize);
@@ -92,6 +103,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
+      seriesRef.current = null;
+      markersPluginRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once on mount
@@ -101,13 +114,10 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     if (!chartRef.current || !seriesRef.current) return;
 
     // Format Data
-    // console.warn('[CandleChart] Raw Data Input Size:', data.length); // Reduced log noise
-
     const formattedData = data
       .map((item) => {
         const time = new Date(item.timestamp).getTime() / 1000;
         if (isNaN(time)) {
-             // console.error('[CandleChart] Invalid timestamp:', item);
              return null;
         }
         return {
@@ -126,16 +136,19 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     
     seriesRef.current.setData(uniqueData);
     
-    // Fit content if initial load 
-    // AND if no indicators are forcing a specific range? 
-    // Actually we only fit content if it's the first load usually. 
-    // But for now, let's fit.
-    // if (uniqueData.length > 0) {
-    //    chartRef.current.timeScale().fitContent(); 
-    // }
   }, [data]);
 
-  // 3. Update Indicators (Overlays ONLY: EMA, BBands)
+  // 3. Update Markers (New Effect)
+  useEffect(() => {
+    if (!markersPluginRef.current) return;
+    try {
+        markersPluginRef.current.setMarkers(markers);
+    } catch (e) {
+        console.error('[CandleChart] Error setting markers:', e);
+    }
+  }, [markers]);
+
+  // 4. Update Indicators (Overlays ONLY)
   useEffect(() => {
     if (!chartRef.current || !seriesRef.current) return;
     
@@ -145,10 +158,6 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
     const candleTimes = data.map(d => new Date(d.timestamp).getTime() / 1000).sort((a,b) => a-b);
 
-    // Filter for Overlay indicators only (those without explicit left scale or specifically marked)
-    // For now we assume anything passed here is an Overlay if we moved Oscillators out. 
-    // BUT MarketPage might still pass them until refactored.
-    // So we filter out ones with priceScaleId 'left'.
     const overlayIndicators = indicators.filter(i => i.priceScaleId !== 'left');
 
     overlayIndicators.forEach(ind => {
@@ -161,9 +170,6 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
         });
 
         const lineData = ind.data.map((val, i) => {
-             // Alignment is naive here (by index), assumed data is same length/timestamps as candles
-             // Ideally we pass {time, value} from parent
-             // But for now we map by index if timestamps match
              if (val === null || i >= candleTimes.length) return null;
              return {
                  time: candleTimes[i] as Time,

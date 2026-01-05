@@ -11,28 +11,25 @@ import { fetchCandles, Candle } from '@/lib/api/market';
 import { fetchSystemConfig } from '@/lib/api/system';
 import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
-import { apiClient } from '@/lib/api/client';
+
 import { cn } from '@/lib/utils';
 import { RefreshCcw, Activity, TrendingUp, BarChart2, Zap, Layers, Maximize2, Minimize2, ChevronDown, ChevronRight, Layout } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
+import { useBrokerReference } from '@/context/BrokerReferenceContext';
 
 // --- Types ---
-interface UserPreferences {
-    supported_symbols?: string[];
-    default_symbol?: string;
-}
 
-const DEFAULT_TIMEFRAMES = ['M15', 'H1', 'H4', 'D'];
+const DEFAULT_TIMEFRAMES = ['M5', 'M15', 'H1', 'H4', 'D', 'W', 'M'];
 
 export default function MarketPage() {
   // --- State: Market Data ---
   const [candles, setCandles] = useState<Candle[]>([]);
-  const [symbol, setSymbol] = useState('EUR_USD');
+  const [symbol, setSymbol] = useState('XAU_USD');
   const [timeframe, setTimeframe] = useState('H1');
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>(DEFAULT_TIMEFRAMES);
   const [loading, setLoading] = useState(false);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+
 
   // --- State: Indicators ---
   const [showEMA, setShowEMA] = useState(false);
@@ -48,6 +45,7 @@ export default function MarketPage() {
 
   // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
+  const { symbols: brokerSymbols } = useBrokerReference();
 
   // --- Effects: Initialization ---
   useEffect(() => {
@@ -58,11 +56,6 @@ export default function MarketPage() {
         }
     }).catch(err => console.error("Failed to load system config", err));
 
-    // Load User Preferences
-    apiClient.get('/api/v1/settings/preferences').then(res => {
-        setPreferences(res.data);
-        if (res.data.default_symbol) setSymbol(res.data.default_symbol);
-    }).catch(err => console.error("Failed to load preferences", err));
   }, []);
 
   // --- Effects: Data Loading ---
@@ -140,10 +133,6 @@ export default function MarketPage() {
   };
 
   // --- Derived Data ---
-  const supportedSymbols = ['XAU_USD', 'EUR_USD', 'GBP_USD', 'BTC_USD', 'ETH_USD'];
-  if (preferences?.default_symbol && !supportedSymbols.includes(preferences.default_symbol)) {
-      supportedSymbols.unshift(preferences.default_symbol);
-  }
   const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
   const prevClose = candles.length > 1 ? candles[candles.length - 2].close : currentPrice;
   const change = currentPrice - prevClose;
@@ -162,14 +151,20 @@ export default function MarketPage() {
                     <div className="p-1.5 bg-blue-500/10 rounded-md">
                         <Activity size={18} className="text-blue-500" />
                     </div>
-                    <Select value={symbol} onValueChange={setSymbol}>
+                     <Select value={symbol} onValueChange={setSymbol}>
                         <SelectTrigger className="w-[140px] h-8 bg-transparent border-none text-white font-bold text-lg focus:ring-0 px-0">
                              <SelectValue>{symbol.replace('_', '/')}</SelectValue>
                         </SelectTrigger>
                         <SelectContent className="bg-gray-900 border-gray-800">
-                            {supportedSymbols.map(s => (
-                                <SelectItem key={s} value={s} className="text-gray-300 focus:bg-gray-800 focus:text-white">{s.replace('_', '/')}</SelectItem>
-                            ))}
+                            {brokerSymbols.length > 0 ? (
+                                brokerSymbols.map(s => (
+                                    <SelectItem key={s.id} value={s.symbol} className="text-gray-300 focus:bg-gray-800 focus:text-white">
+                                        {s.symbol.replace('_', '/')}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value={symbol} disabled>{symbol.replace('_', '/')}</SelectItem>
+                            )}
                         </SelectContent>
                     </Select>
                 </div>
