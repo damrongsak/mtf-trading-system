@@ -23,21 +23,28 @@ export function useLivePrices(instruments: string[] = []) {
     // Create a stable key for instruments to avoid infinite re-renders
     const instrumentsList = instruments.map(s => s.replace('/', '_')).join(',');
 
+    // Use refs to handle high-frequency updates without causing infinite render loops
+    const pricesRef = useRef<Record<string, PriceUpdate>>({});
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
-        // If socket exists, close it to reconnect with new symbols (cleanup will handle this, but we want to be explicit if needed)
-        // Actually, the cleanup function from the previous effect run will have already closed the socket and set ws.current = null
-        // So we don't need to check ws.current here usually, unless strict mode causes double mounts.
-        // But to be safe against double-mounts:
-        if (ws.current) {
-            // If we are here, it means cleanup didn't run or we are in a race.
-            // Ideally cleanup runs before next effect.
-            // We can proceed.
-        }
+        let isMounted = true;
+        let activeSocket: WebSocket | null = null;
+
+        // Cleanup function for the throttle timeout
+        const clearThrottle = () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
 
         // Wait for auth token
         if (!authToken) return;
 
         const connect = () => {
+            if (!isMounted) return;
+
             const queryParams = new URLSearchParams();
             if (instrumentsList) {
                 queryParams.append('symbols', instrumentsList);
@@ -45,20 +52,34 @@ export function useLivePrices(instruments: string[] = []) {
             queryParams.append('token', authToken);
 
             const socket = new WebSocket(`${WS_URL}?${queryParams.toString()}`);
+            activeSocket = socket;
+            ws.current = socket;
 
             socket.onopen = () => {
-                console.log('Connected to Price Stream');
-                setConnected(true);
+                if (isMounted) {
+                    console.log('Connected to Price Stream');
+                    setConnected(true);
+                }
             };
 
             socket.onmessage = (event) => {
+                if (!isMounted) return;
                 try {
                     const data: PriceUpdate = JSON.parse(event.data);
                     if (data.type === 'PRICE') {
-                        setPrices(prev => ({
-                            ...prev,
-                            [data.instrument]: data
-                        }));
+                        // Update ref immediately
+                        pricesRef.current[data.instrument] = data;
+
+                        // Throttle state updates to max 5 per second (200ms)
+                        // This prevents "Maximum update depth exceeded" errors
+                        if (!timeoutRef.current) {
+                            timeoutRef.current = setTimeout(() => {
+                                if (isMounted) {
+                                    setPrices({ ...pricesRef.current });
+                                }
+                                timeoutRef.current = null;
+                            }, 200);
+                        }
                     }
                 } catch (e) {
                     console.error('Error parsing price update:', e);
@@ -66,33 +87,31 @@ export function useLivePrices(instruments: string[] = []) {
             };
 
             socket.onclose = (event) => {
+                if (!isMounted) return;
+
                 console.log('Price Stream disconnected', event.reason);
                 setConnected(false);
                 ws.current = null;
 
-                // Only reconnect if not closed intentionally by unmount (which calls close())
-                // But here we can't easily distinguish. 
-                // However, since we return a cleanup function that closes it,
-                // we should be careful. 
-                // Simplest is to NOT auto-reconnect inside the effect if we rely on effect dependencies.
-                // If we want auto-reconnect for network issues, we keep it.
-                // But caution: if token is invalid, valid reconnect loop might spam.
-                // The backend sends WS_1008_POLICY_VIOLATION for bad token.
-
                 if (event.code !== 1008) {
-                    setTimeout(connect, 3000);
+                    // Only reconnect if this specific socket instance was the active one
+                    // and the component is still mounted.
+                    if (activeSocket === socket) {
+                        setTimeout(connect, 3000);
+                    }
                 }
             };
-
-            ws.current = socket;
         };
 
         connect();
 
         return () => {
+            isMounted = false;
+            clearThrottle();
+            if (activeSocket) {
+                activeSocket.close();
+            }
             if (ws.current) {
-                // Remove onclose to prevent reconnect attempts during cleanup
-                ws.current.onclose = null;
                 ws.current.close();
                 ws.current = null;
             }
