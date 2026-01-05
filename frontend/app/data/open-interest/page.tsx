@@ -21,10 +21,6 @@ export default function OpenInterestPage() {
             <div className="mt-8">
                 <OpenInterestAnalytics />
             </div>
-
-            <div className="mt-8">
-                <OpenInterestHeatmap />
-            </div>
         </div>
     );
 }

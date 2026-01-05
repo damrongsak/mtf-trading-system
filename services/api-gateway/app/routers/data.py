@@ -154,21 +154,68 @@ async def get_open_interest_details(
 
 @router.get("/open-interest/analysis")
 async def get_open_interest_analysis(
-    snapshot_at: datetime = Query(...)
+    snapshot_at: datetime = Query(...),
+    contract: Optional[str] = Query(None),
+    min_oi: int = Query(0),
+    max_oi: Optional[int] = Query(None)
 ):
     """
     Get detailed OI analysis. Proxies to Data Pipeline.
     """
     async with httpx.AsyncClient() as client:
         try:
+            params = {
+                "snapshot_at": snapshot_at.isoformat(),
+                "min_oi": min_oi
+            }
+            if contract:
+                params["contract"] = contract
+            if max_oi is not None:
+                params["max_oi"] = max_oi
+
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/analysis",
-                params={"snapshot_at": snapshot_at.isoformat()},
+                params=params,
                 timeout=10.0
             )
             if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail=response.text)
+                # If pipeline returns 404/500, propagate
+                # Ideally, we should check application/json vs text
+                try:
+                    detail = response.json().get('detail', response.text)
+                except:
+                    detail = response.text
+                raise HTTPException(status_code=response.status_code, detail=detail)
+
             return response.json()
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/open-interest/contracts")
+async def get_open_interest_contracts(
+    snapshot_at: datetime = Query(...)
+):
+    """
+    Get list of contracts. Proxies to Data Pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/contracts",
+                params={"snapshot_at": snapshot_at.isoformat()},
+                timeout=5.0
+            )
+            if response.status_code != 200:
+                 try:
+                    detail = response.json().get('detail', response.text)
+                 except:
+                    detail = response.text
+                 raise HTTPException(status_code=response.status_code, detail=detail)
+            return response.json()
+        except HTTPException as he:
+            raise he
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
