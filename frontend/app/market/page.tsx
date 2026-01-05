@@ -158,8 +158,8 @@ export default function MarketPage() {
                              <SelectValue>{symbol.replace('_', '/')}</SelectValue>
                         </SelectTrigger>
                         <SelectContent className="bg-gray-900 border-gray-800">
-                            {brokerSymbols.length > 0 ? (
-                                brokerSymbols.map(s => (
+                            {brokerSymbols.size > 0 ? (
+                                Array.from(brokerSymbols.values()).map(s => (
                                     <SelectItem key={s.id} value={s.symbol} className="text-gray-300 focus:bg-gray-800 focus:text-white">
                                         {s.symbol.replace('_', '/')}
                                     </SelectItem>

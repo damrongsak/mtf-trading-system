@@ -115,9 +115,10 @@ export const SelectContent: React.FC<SelectContentProps> = ({ children, classNam
 interface SelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
   value: string;
   children: React.ReactNode;
+  disabled?: boolean;
 }
 
-export const SelectItem: React.FC<SelectItemProps> = ({ value, children, className, ...props }) => {
+export const SelectItem: React.FC<SelectItemProps> = ({ value, children, className, disabled, ...props }) => {
   const context = useContext(SelectContext);
   if (!context) throw new Error("SelectItem must be used within a Select");
   const { value: selectedValue, onValueChange, setOpen, setLabel } = context;
@@ -132,12 +133,16 @@ export const SelectItem: React.FC<SelectItemProps> = ({ value, children, classNa
 
   return (
     <div
+      aria-disabled={disabled}
+      data-disabled={disabled}
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-gray-800 focus:bg-gray-800 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-gray-800 focus:bg-gray-800 focus:text-accent-foreground",
         isSelected ? 'bg-gray-800 font-medium' : '',
+        disabled && "pointer-events-none opacity-50",
         className
       )}
       onClick={() => {
+        if (disabled) return;
         onValueChange(value);
         setOpen(false);
       }}
