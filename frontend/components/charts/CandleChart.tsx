@@ -142,6 +142,23 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(chartContainerRef.current);
 
+    // Dynamic Cursor
+    chart.subscribeCrosshairMove(param => {
+        if (!chartContainerRef.current) return;
+        
+        // If hovering over data (candles)
+        if (param.time || (param.seriesData && param.seriesData.size > 0)) {
+            chartContainerRef.current.style.cursor = 'pointer';
+        } else {
+            // Restore default or fallback (Note: 'active:cursor-grabbing' is handled by CSS, 
+            // but JS inline style overrides standard class CSS. We need to be careful not to break grabbing.)
+            // Actually, LWC clears cursor style when not set? 
+            // Let's set it to 'crosshair' as fallback, but check if dragging?
+            // Simple approach: Set it to default empty, let CSS class handle the rest.
+            chartContainerRef.current.style.cursor = ''; 
+        }
+    });
+
     return () => {
       resizeObserver.disconnect();
       if (typeof unregister === 'function') unregister();
