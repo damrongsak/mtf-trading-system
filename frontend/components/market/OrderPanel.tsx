@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Crosshair, Target } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
+import { cn } from '@/lib/utils';
 
 interface OrderPanelProps {
   symbol: string;
@@ -13,7 +14,8 @@ interface OrderPanelProps {
 
 export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, onOrderSuccess }) => {
   // Logic from TradeModal + Improvements
-  const { symbols } = useBrokerReference();
+  const { getInstrument, formatPrice } = useBrokerReference();
+  const instrument = getInstrument(symbol);
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   
@@ -35,12 +37,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
 
   // Set default SL/TP based on price when symbol impacts
   useEffect(() => {
-    if (currentPrice > 0) {
-       // Only default if 0
-       if (sl === 0) setSl(currentPrice * 0.995); // 0.5% default SL
-       if (tp === 0) setTp(currentPrice * 1.01); // 1% default TP
+    if (currentPrice > 0 && sl === 0 && tp === 0) {
+       // Only default if both are 0 (initial load)
+       setSl(currentPrice * 0.995); // 0.5% default SL
+       setTp(currentPrice * 1.01); // 1% default TP
     }
-  }, [symbol, currentPrice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, currentPrice]); // Intentionally omitting sl/tp to avoid reset loop
 
   const handleOrder = async (direction: 'BULLISH' | 'BEARISH') => {
       setLoading(true);
@@ -63,8 +66,12 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
           setSuccessMsg(`${direction} Order Placed!`);
           onOrderSuccess();
           // Reset slightly? maybe keep values for rapid fire
-      } catch (err: any) {
-          setError(err.message || 'Order Failed');
+      } catch (err: unknown) {
+          if (err instanceof Error) {
+              setError(err.message || 'Order Failed');
+          } else {
+             setError('Order Failed');
+          }
       } finally {
           setLoading(false);
       }
@@ -73,7 +80,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
   const dist = Math.abs(currentPrice - sl);
   const estimatedUnits = dist > 0 ? riskUsd / dist : 0;
   
-  const formattedSymbol = symbol.replace('_', '/');
+  const minSize = instrument?.details?.minimumTradeSize ? parseFloat(instrument.details.minimumTradeSize) : 0;
+  const isBelowMin = estimatedUnits < minSize;
 
   return (
     <div className="h-full flex flex-col bg-gray-900/50 backdrop-blur border-l border-white/5">
@@ -85,7 +93,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
         </div>
 
         {/* Account Selection */}
-        <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto w-full">
              <div className="space-y-1">
                 <label className="text-xs text-gray-500 font-mono">BROKER ACCOUNT</label>
                 <select 
@@ -124,7 +132,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
                         <label className="text-xs text-red-400 font-mono">STOP LOSS</label>
                         <input 
                             type="number"
-                             step="0.00001"
+                             step={instrument?.details?.displayPrecision ? Math.pow(10, -instrument.details.displayPrecision) : "0.00001"}
                             value={sl}
                              onChange={(e) => setSl(Number(e.target.value))}
                             className="w-full bg-gray-800 border-l-2 border-l-red-500 border-gray-700 rounded px-2 py-1.5 text-gray-300 font-mono text-xs focus:border-red-500 outline-none"
@@ -134,7 +142,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
                         <label className="text-xs text-green-400 font-mono">TAKE PROFIT</label>
                         <input 
                             type="number"
-                             step="0.00001"
+                             step={instrument?.details?.displayPrecision ? Math.pow(10, -instrument.details.displayPrecision) : "0.00001"}
                             value={tp}
                              onChange={(e) => setTp(Number(e.target.value))}
                             className="w-full bg-gray-800 border-l-2 border-l-green-500 border-gray-700 rounded px-2 py-1.5 text-gray-300 font-mono text-xs focus:border-green-500 outline-none"
@@ -147,11 +155,24 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({ symbol, currentPrice, on
             <div className="bg-white/5 p-3 rounded text-xs space-y-2 border border-white/5">
                 <div className="flex justify-between">
                     <span className="text-gray-500">Est. Position</span>
-                    <span className="text-gray-300 font-mono">~{Math.floor(estimatedUnits)} units</span>
+                    <span className={cn("text-gray-300 font-mono", isBelowMin && "text-red-500")}>
+                        ~{Math.floor(estimatedUnits)} units
+                    </span>
+                </div>
+                {isBelowMin && (
+                    <div className="text-[10px] text-red-400 text-right">
+                        Min: {instrument?.details?.minimumTradeSize}
+                    </div>
+                )}
+                 <div className="flex justify-between">
+                    <span className="text-gray-500">Pip Value</span>
+                    <span className="text-gray-300 font-mono">
+                         {instrument?.details?.pipLocation ? `10^${instrument.details.pipLocation}` : '-'}
+                    </span>
                 </div>
                 <div className="flex justify-between">
                     <span className="text-gray-500">Current Price</span>
-                    <span className="text-gray-300 font-mono">{currentPrice}</span>
+                    <span className="text-gray-300 font-mono">{formatPrice(symbol, currentPrice)}</span>
                 </div>
             </div>
 
