@@ -513,12 +513,13 @@ paths:
           description: "Minimum OI filter"
           schema:
             type: integer
-            default: 0
+            default: 2000
         - name: max_oi
           in: query
           description: "Maximum OI filter"
           schema:
             type: integer
+            default: 5500
         - name: smart_filter
           in: query
           description: "Apply smart range filtering (std dev)"

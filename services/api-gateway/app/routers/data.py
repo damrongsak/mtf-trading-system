@@ -136,8 +136,8 @@ async def get_open_interest_snapshots(
 async def get_open_interest_details(
     snapshot_at: datetime = Query(...),
     contract: Optional[str] = Query(None),
-    min_oi: int = Query(0),
-    max_oi: Optional[int] = Query(None),
+    min_oi: int = Query(2000),
+    max_oi: Optional[int] = Query(5500),
     smart_filter: bool = Query(True)
 ):
     """

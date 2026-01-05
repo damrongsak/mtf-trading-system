@@ -101,8 +101,8 @@ def get_open_interest_snapshots(
 def get_open_interest_details(
     snapshot_at: datetime = Query(..., description="Snapshot timestamp"),
     contract: Optional[str] = Query(None, description="Filter by contract symbol"),
-    min_oi: int = Query(0, description="Minimum Open Interest filter"),
-    max_oi: Optional[int] = Query(None, description="Maximum Open Interest filter"),
+    min_oi: int = Query(2000, description="Minimum Open Interest filter"),
+    max_oi: Optional[int] = Query(5500, description="Maximum Open Interest filter"),
     smart_filter: bool = Query(False, description="Apply smart range filtering (std dev)"),
     db: Session = Depends(get_db)
 ):

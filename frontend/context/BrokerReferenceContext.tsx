@@ -15,7 +15,7 @@ export interface BrokerInstrumentDetails {
         longRate: string;
         shortRate: string;
     };
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface BrokerSymbol {
@@ -24,6 +24,10 @@ export interface BrokerSymbol {
     display_name: string;
     category: string;
     details: BrokerInstrumentDetails | null;
+}
+
+interface BrokerSymbolsResponse {
+    data: BrokerSymbol[];
 }
 
 interface BrokerReferenceContextType {
@@ -47,19 +51,19 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
             setLoading(true);
             // Default to OANDA for Global Reference for now. 
             // In future, this could be dynamic based on selected account context.
-            const response = await apiClient.get<any>('/api/v1/market/symbols?data_source=OANDA');
+            const response = await apiClient.get<BrokerSymbolsResponse>('/api/v1/market/symbols?data_source=OANDA');
             
             const data = response.data?.data || [];
             const map = new Map<string, BrokerSymbol>();
             
-            data.forEach((s: any) => {
+            data.forEach((s: BrokerSymbol) => {
                 map.set(s.symbol, s);
                 // Also map display name for fuzzy search if needed?
             });
             
             setSymbols(map);
             setError(null);
-        } catch (err: any) {
+        } catch (err: unknown) {
              console.error("Failed to load broker reference:", err);
             // Don't block app flow, just log error.
             setError("Failed to load global broker data");

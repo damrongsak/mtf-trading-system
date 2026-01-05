@@ -4,9 +4,6 @@ import { useEffect, useState, useMemo, memo, CSSProperties } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getOpenInterestDetails, OpenInterestRecord } from '@/lib/api/data';
 import { Loader2, Flame } from 'lucide-react';
-// @ts-expect-error: React-Window definition mismatch
-import { List } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
 import { cn } from '@/lib/utils';
 
 interface OpenInterestHeatmapProps {
@@ -128,6 +125,8 @@ export function OpenInterestHeatmap({ snapshotAt, contract, minOi = 0, maxOi }: 
         maxPut
     }), [filteredRecords, maxCall, maxPut]);
 
+
+
     if (!snapshotAt) return null;
 
     return (
@@ -161,30 +160,21 @@ export function OpenInterestHeatmap({ snapshotAt, contract, minOi = 0, maxOi }: 
                              <div className="col-span-1"></div>
                         </div>
                         
-                        <div className="flex-1 w-full min-h-0 bg-transparent">
+                        <div className="flex-1 w-full min-h-0 bg-transparent relative">
                              {filteredRecords.length === 0 ? (
                                 <div className="flex items-center justify-center h-full text-slate-500">No levels found in this range.</div>
                             ) : (
                                 <div className="h-full w-full">
-                                    {(AutoSizer as any) && (
-                                        <div className="h-full w-full"> 
-                                            {/* @ts-expect-error: Library type definition mismatch */}
-                                            <AutoSizer>
-                                                {({ height, width }: { height: number, width: number }) => (
-                                                    <List
-                                                        height={height}
-                                                        itemCount={filteredRecords.length}
-                                                        itemSize={40} // px per row
-                                                        width={width}
-                                                        itemData={itemData}
-                                                        className="custom-scrollbar"
-                                                    >
-                                                        {HeatmapRow}
-                                                    </List>
-                                                )}
-                                            </AutoSizer>
-                                        </div>
-                                    )}
+                                    <div className="h-full w-full overflow-auto custom-scrollbar">
+                                        {filteredRecords.map((record, index) => (
+                                            <HeatmapRow 
+                                                key={`${record.contract_symbol}-${record.strike}`} 
+                                                data={itemData} 
+                                                index={index} 
+                                                style={{ height: 40, width: '100%' }} 
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
