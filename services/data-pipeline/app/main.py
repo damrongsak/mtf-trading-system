@@ -21,7 +21,7 @@ async def start_scheduler():
     from app.database import engine
     logger.info(f"Database Pool Size: {engine.pool.size()}")
     # Schedule ingestion every 5 minutes (Optimized for RAM/CPU)
-    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job')
+    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job', misfire_grace_time=60)
     scheduler.start()
     
     # Start Stream Manager
