@@ -24,6 +24,12 @@ class RedisSubscriber:
         await self.pubsub.subscribe(*channels)
         logger.info(f"Subscribed to {channels}")
 
+    async def psubscribe(self, pattern: str):
+        if not self.pubsub:
+            await self.connect()
+        await self.pubsub.psubscribe(pattern)
+        logger.info(f"PSubscribed to pattern: {pattern}")
+
     async def unsubscribe(self):
         if self.pubsub:
             await self.pubsub.unsubscribe()

@@ -88,33 +88,16 @@ class ConnectionManager:
         """Consumes messages from Redis and fans them out."""
         await self.redis.connect()
         # Subscribe to all tick data
-        await self.redis.subscribe(["market_data:tick:*"]) # Note: RedisSubscriber needs psubscribe support for patterns
-        
-        # NOTE: The existing RedisSubscriber might not support psubscribe or might need adjustment.
-        # Checking existing code: it uses self.pubsub.subscribe(*channels).
-        # To support patterns, we should use psubscribe. 
-        # But wait, existing RedisSubscriber uses standard subscribe. 
-        # For simplicity and compatibility with existing patterns (market_data:tick:EUR_USD),
-        # we can just use psubscribe with pattern "market_data:tick:*" 
-        # IF the underlying library supports it. 
-        # redis-py pubsub supports psubscribe.
-        # Let's adjust RedisSubscriber if needed, OR just update this to use psubscribe directly if RedisSubscriber exposes it.
-        # Actually, let's look at RedisSubscriber source again. It calls self.pubsub.subscribe.
-        # I should probably update RedisSubscriber to support pattern subscription or access pubsub directly.
-        # For now, I will assume I need to update RedisSubscriber OR use a pattern.
-        # Let's try to access the underlying pubsub object if possible or add a psubscribe method to RedisSubscriber.
-        # BUT, to adhere to clean code, I should probably add `psubscribe` to `RedisSubscriber`.
-        
-        # Let's optimistically assume I'll add psubscribe to RedisSubscriber or just access it.
-        # The current implementation in `app/streaming/manager.py` needs to call psubscribe.
-        
-        if self.redis.pubsub:
-             await self.redis.pubsub.psubscribe("market_data:tick:*")
-        else:
-             # Fallback if connect wasn't called (it is called above) or logic differs
-             pass
+        # Subscribe to all tick data using pattern matching
+        logger.info("StreamManager: Attempting to psubscribe to market_data:tick:*")
+        try:
+            await self.redis.psubscribe("market_data:tick:*")
+            logger.info("StreamManager: PSubscribed successfully.")
+        except Exception as e:
+            logger.error(f"StreamManager: PSubscribe FAILED: {e}")
 
         async for msg in self.redis.listen():
+            logger.debug(f"StreamManager received redis msg: {msg}")
             if msg["type"] == "pmessage": # pattern message
                 # channel is the specific channel (market_data:tick:EUR_USD)
                 # data is the payload

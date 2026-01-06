@@ -19,8 +19,13 @@ class RedisPublisher:
         if not self.redis:
             await self.connect()
         try:
-            # Use default=str to handle datetime objects automatically
-            await self.redis.publish(channel, json.dumps(message, default=str))
+            # Ensure datetime objects are serialized to ISO format
+            def json_serial(obj):
+                if hasattr(obj, 'isoformat'):
+                    return obj.isoformat()
+                return str(obj)
+
+            await self.redis.publish(channel, json.dumps(message, default=json_serial))
         except Exception as e:
             logger.error(f"Failed to publish to {channel}: {e}")
 

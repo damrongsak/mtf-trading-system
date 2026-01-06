@@ -26,6 +26,8 @@ interface CandleChartProps {
     areaBottomColor?: string;
     wickUpColor?: string;
     wickDownColor?: string;
+    upColor?: string;
+    downColor?: string;
   };
   rightOffset?: number;
   bid?: number;
@@ -214,7 +216,15 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     if (!chartRef.current || !seriesRef.current) return;
     
     // Clean up old indicators
-    indicatorSeriesRefs.current.forEach(series => chartRef.current?.removeSeries(series));
+    indicatorSeriesRefs.current.forEach(series => {
+        try {
+            if (chartRef.current) {
+                chartRef.current.removeSeries(series);
+            }
+        } catch (e) {
+            console.warn('[CandleChart] Failed to remove series:', e);
+        }
+    });
     indicatorSeriesRefs.current.clear();
 
     const candleTimes = data.map(d => new Date(d.timestamp).getTime() / 1000).sort((a,b) => a-b);
@@ -222,24 +232,29 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     const overlayIndicators = indicators.filter(i => i.priceScaleId !== 'left');
 
     overlayIndicators.forEach(ind => {
-        const lineSeries = chartRef.current!.addSeries(LineSeries, {
-            color: ind.color,
-            lineWidth: 2,
-            crosshairMarkerVisible: false,
-            lastValueVisible: false,
-            priceLineVisible: false,
-        });
+        if (!chartRef.current) return;
+        try {
+            const lineSeries = chartRef.current.addSeries(LineSeries, {
+                color: ind.color,
+                lineWidth: 2,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            });
 
-        const lineData = ind.data.map((val, i) => {
-             if (val === null || i >= candleTimes.length) return null;
-             return {
-                 time: candleTimes[i] as Time,
-                 value: val
-             };
-        }).filter((item): item is {time: Time, value: number} => item !== null);
+            const lineData = ind.data.map((val, i) => {
+                 if (val === null || i >= candleTimes.length) return null;
+                 return {
+                     time: candleTimes[i] as Time,
+                     value: val
+                 };
+            }).filter((item): item is {time: Time, value: number} => item !== null);
 
-        lineSeries.setData(lineData);
-        indicatorSeriesRefs.current.set(ind.name, lineSeries);
+            lineSeries.setData(lineData);
+            indicatorSeriesRefs.current.set(ind.name, lineSeries);
+        } catch (e) {
+             console.error('[CandleChart] Failed to add indicator series:', e);
+        }
     });
 
   }, [indicators, data]); 

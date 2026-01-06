@@ -96,7 +96,7 @@ class TickStreamer:
                         # Construct payload
                         # msg is a Model instance, access fields directly
                         payload = {
-                            "type": "tick",
+                            "type": "PRICE",
                             "instrument": msg.instrument,
                             "time": msg.time,
                             "bid": float(msg.bids[0].price) if msg.bids else None,
