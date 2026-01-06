@@ -28,14 +28,24 @@ class RedisSubscriber:
         await self.pubsub.subscribe(*channels)
         logger.info(f"Subscribed to {channels}")
 
+    async def psubscribe(self, patterns: list[str]):
+        if not self.pubsub:
+            await self.connect()
+        await self.pubsub.psubscribe(*patterns)
+        logger.info(f"Subscribed to patterns {patterns}")
+
     async def unsubscribe(self, channels: list[str]):
         if self.pubsub:
             await self.pubsub.unsubscribe(*channels)
 
+    async def punsubscribe(self, patterns: list[str]):
+        if self.pubsub:
+            await self.pubsub.punsubscribe(*patterns)
+
     async def _listen(self):
         try:
             async for message in self.pubsub.listen():
-                if message['type'] == 'message':
+                if message['type'] in ('message', 'pmessage'):
                     channel = message['channel']
                     try:
                         data = json.loads(message['data'])

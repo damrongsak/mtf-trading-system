@@ -494,6 +494,9 @@ async def startup_event():
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
     
+    # Ensure LiveRunner (Tick Stream) is active
+    await live_runner.start()
+    
     # Initialize and load Fleet
     # Initialize and load Fleet
     from app.fleet import FleetManager

@@ -16,6 +16,7 @@ from app.adapters.ai_analyst import get_market_sentiment
 from app.database import SessionLocal
 from app.models.signal_log import SignalLog
 from app.models.opportunity_log import OpportunityLog
+from app.streaming.subscriber import RedisSubscriber
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,6 @@ class StrategyEngine:
         self._history_adapter = None
         
         # Redis Subscriber
-        from app.streaming.subscriber import RedisSubscriber
         self.subscriber = RedisSubscriber(self.on_candle_event)
 
         # Plugin Engine
