@@ -2,11 +2,11 @@ from fastapi import FastAPI
 from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.scheduler.jobs import run_ingestion_job
+from app.logging_config import setup_logging
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logging()
 
 app = FastAPI(title="Data Pipeline Service")
 

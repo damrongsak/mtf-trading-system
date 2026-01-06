@@ -1,8 +1,9 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Any
 from uuid import UUID
+import re
 
 class HealthCheck(BaseModel):
     status: str
@@ -15,6 +16,22 @@ class BackfillRequest(BaseModel):
     from_date: Optional[str] = None # ISO format
     to_date: Optional[str] = None
     count: Optional[int] = 2500
+
+    @field_validator('symbol')
+    def validate_symbol(cls, v):
+        if not re.match(r'^[A-Z0-9_]+$', v):
+            raise ValueError('Symbol must contain only uppercase letters, numbers, and underscores')
+        return v
+
+    @field_validator('from_date', 'to_date')
+    def validate_dates(cls, v):
+        if v:
+            try:
+                # Basic ISO format check
+                datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError('Date must be in ISO format (YYYY-MM-DDTHH:MM:SS)')
+        return v
 
 class BackfillResponse(BaseModel):
     message: str

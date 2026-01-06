@@ -57,3 +57,18 @@ frontend/
 1. Install Playwright in `frontend/`.
 2. Configure `playwright.config.ts`.
 3. Write `auth.spec.ts` as the first test case.
+
+## 6. Dependency Testing Strategy
+
+### 6.1 Critical UI Dependencies
+- **Charts (`recharts`, `lightweight-charts`)**:
+    - **E2E**: Verify chart container is visible and canvas/svg elements render (`page.locator('canvas').toBeVisible()`).
+    - **Visual**: Use Snapshot testing for static charts (`recharts`).
+- **UI Libs (`@radix-ui`, `framer-motion`)**:
+    - **Interactive**: Verify open/close states of Dialogs, Dropdowns via Playwright.
+
+### 6.2 State & Logic
+- **Context (`AuthContext`)**:
+    - **Unit**: Test `useAuth` hook limits and token persistence logic.
+- **API (`axios`)**:
+    - **Unit**: Verify interceptor error handling (401/500 responses).

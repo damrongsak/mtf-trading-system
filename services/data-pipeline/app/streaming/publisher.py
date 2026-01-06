@@ -19,7 +19,8 @@ class RedisPublisher:
         if not self.redis:
             await self.connect()
         try:
-            await self.redis.publish(channel, json.dumps(message))
+            # Use default=str to handle datetime objects automatically
+            await self.redis.publish(channel, json.dumps(message, default=str))
         except Exception as e:
             logger.error(f"Failed to publish to {channel}: {e}")
 

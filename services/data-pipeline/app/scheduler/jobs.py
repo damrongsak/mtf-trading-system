@@ -10,14 +10,14 @@ import logging
 import json
 import asyncio
 from app.streaming.publisher import RedisPublisher
+from app.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
-    if isinstance(obj, (datetime, pd.Timestamp)):
-        return obj.isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
+@async_retry(max_retries=3, initial_delay=2, exceptions=(Exception,))
+async def fetch_candles_safe(client_ctx, **kwargs):
+    """Safe wrapper for OANDA candle fetch with retry."""
+    return await asyncio.to_thread(client_ctx.instrument.candles, **kwargs)
 
 async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = None, to_date: datetime = None):
     """
@@ -98,7 +98,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         
                         try:
                             # Using client.ctx check similar to before
-                            response = await asyncio.to_thread(client.ctx.instrument.candles, **kwargs)
+                            response = await fetch_candles_safe(client.ctx, **kwargs)
                             
                             if response.status != 200:
                                 logger.error(f"Oanda Error: {response.body}")
@@ -187,20 +187,6 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 
                                 channel = f"market_data:candle:{symbol_name}:{tf}"
                                 try:
-                                    # Use explicit serializer for datetimes
-                                    json_str = json.dumps(event_payload, default=json_serial)
-                                    # RedisPublisher.publish expects dict, but internally json.dumps. 
-                                    # Wait, RedisPublisher.publish does `json.dumps(message)`.
-                                    # So we should pass the dict, but we need to ensure it's serializable.
-                                    # Let's modify RedisPublisher or just clean the dict here.
-                                    # The `RedisPublisher.publish` does: `json.dumps(message)`
-                                    # It might fail on datetime.
-                                    # Workaround: serialize manually and send as string, or fix publisher?
-                                    # Let's fix publisher later. For now, serialize to string and send as pre-serialized dict? No it dumps again.
-                                    # Better: convert datetime to string in event_payload before sending.
-                                    if isinstance(event_payload['timestamp'], (datetime, pd.Timestamp)):
-                                        event_payload['timestamp'] = event_payload['timestamp'].isoformat()
-                                    
                                     await publisher.publish(channel, event_payload)
                                 except Exception as pub_err:
                                     logger.error(f"Failed to publish event {channel}: {pub_err}")
