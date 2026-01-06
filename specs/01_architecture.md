@@ -68,6 +68,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Core Metrics Engine**: Centralized, vectorized financial math library (Sharpe, Sortino, Alpha/Beta).
     - **Benchmark Service**: Automated benchmarking against XAU/USD, BTC, SPY.
     - **Strategy Assembler**: Compiles JSON `StrategyConfig` into Python pipelines.
+    - **Unified Streaming**: Robust Redis Pub/Sub subscriber supporting pattern matching (`psubscribe`) for efficient real-time data ingestion.
     - **Walk-Forward Validator**: Automated Train/Test split engine to assign "Robustness Scores".
     - **Marketplace**: Endpoints for searching and preventing "Lemon" strategies.
 

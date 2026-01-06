@@ -514,3 +514,17 @@
     - **Performance:**
         - Optimization: Increased candle fetch batch size to 100 per request.
 
+### Phase 20: Streaming Architecture Unification
+- **Status:** ✅ Complete (2026-01-06)
+- **Features:**
+    - **Strategy Core:**
+        - Unified `RedisSubscriber` implementation in `app/streaming/subscriber.py`.
+        - Removed duplicate legacy streaming code (`utils/redis_subscriber.py`).
+        - Enhanced `LiveRunner` to use robust pattern subscription (`psubscribe`).
+        - Verified `LiveRunner` integration with `app/main.py` startup checks.
+    - **API Gateway:**
+        - Confirmed robust `StreamManager` implementation with multiplexing.
+    - **Testing:**
+        - Added dedicated streaming unit tests (`test_streaming.py`).
+        - Achieved >80% test coverage for streaming components.
+
