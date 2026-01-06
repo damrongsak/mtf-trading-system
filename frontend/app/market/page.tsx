@@ -39,10 +39,10 @@ export default function MarketPage() {
 
   // --- State: Indicators ---
   const [showEMA, setShowEMA] = useState(false);
-  const [showEMA50, setShowEMA50] = useState(false);
+  const [showEMA50, setShowEMA50] = useState(true);
   const [showRSI, setShowRSI] = useState(false);
-  const [showATR, setShowATR] = useState(false);
-  const [showMACD, setShowMACD] = useState(false);
+  const [showATR, setShowATR] = useState(true);
+  const [showMACD, setShowMACD] = useState(true);
   const [showADX, setShowADX] = useState(false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
   
@@ -127,6 +127,7 @@ export default function MarketPage() {
   }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]);
 
   const updateIndicators = async () => {
+      console.log('[MarketPage] Updating Indicators. State:', { showEMA, showEMA50, showRSI, showATR, showMACD });
       const newInds: IndicatorData[] = [];
       const closes = candles.map(c => c.close);
       
@@ -151,6 +152,7 @@ export default function MarketPage() {
       }
       if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
       
+      console.log('[MarketPage] Indicators Calculated:', newInds.map(i => i.name));
       setChartIndicators(newInds);
   };
 

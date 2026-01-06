@@ -59,6 +59,7 @@ services:
 
   data-pipeline:
     build: ./services/data-pipeline
+    image: mtf-data-pipeline
     container_name: data-pipeline
     volumes:
       - ./services/data-pipeline:/app
@@ -68,6 +69,25 @@ services:
     environment:
       - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
+    networks:
+      - default
+      - external
+
+  tick-streamer:
+    image: mtf-data-pipeline
+    container_name: tick-streamer
+    command: uv run python run_stream.py
+    volumes:
+      - ./services/data-pipeline:/app
+    env_file: .env
+    depends_on:
+      - redis
+      - data-pipeline
+    environment:
+      - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
+      - REDIS_URL=redis://redis:6379/0
+      - STREAM_SYMBOLS=EUR_USD,USD_JPY,XAU_USD
+    restart: unless-stopped
     networks:
       - default
       - external

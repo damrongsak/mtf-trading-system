@@ -1211,6 +1211,27 @@ paths:
                   message:
                     type: string
                     example: Ingestion job triggered in background
+  /api/v1/data/sync:
+    post:
+      summary: Trigger manual data sync for a symbol.
+      description: Proxies the request to the Data Pipeline service to trigger a manual ingestion job.
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Symbol to sync (e.g. XAU_USD)
+      responses:
+        '202':
+          description: Sync triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
   /api/v1/data/upload:
     post:
       summary: Upload historical data CSV

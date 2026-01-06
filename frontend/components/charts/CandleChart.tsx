@@ -291,6 +291,6 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
 
   }, [bid, ask, colors]);
 
-  return <div ref={chartContainerRef} className="w-full h-full" />;
+  return <div ref={chartContainerRef} className="w-full flex-1 min-h-0" />;
 };
 

@@ -65,7 +65,26 @@ mtf-trading-system/
 
 ---
 
-## 🛠️ Getting Started
+*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `data-pipeline`).
+*   `frontend/`: Next.js web application.
+*   `specs/`: SDD source of truth.
+
+## 📡 Real-Time Data Streaming
+
+The system includes a high-performance **Tick Streamer** built on the OANDA v20 SDK and Redis Pub/Sub.
+
+- **Service**: `tick-streamer` (Dockerized)
+- **Mechanism**: Dedicated background worker fetching ticks from OANDA.
+- **Data Distribution**: Publishes to Redis channels `market_data:tick:{SYMBOL}`.
+- **Dynamic Configuration**: Automatically loads active symbols from the `market_symbols` database table.
+
+### Monitoring Ticks
+To verify real-time data flow, use the Redis CLI:
+```bash
+docker compose exec redis redis-cli PSUBSCRIBE "market_data:tick:*"
+```
+
+## 🛠️ Development Workflow
 
 ### Prerequisites
 -   Docker & Docker Compose

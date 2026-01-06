@@ -92,8 +92,7 @@ The system is organized into five decoupled layers of responsibility:
 - **Key Features**:
     - **Data Ingestion**: Scheduled fetching of OHLCV data from OANDA/Binance.
     - **Historical Backfill**: High-throughput backfilling of historical data (formerly in API Gateway).
-    - **Historical Backfill**: High-throughput backfilling of historical data (formerly in API Gateway).
-    - **Streaming**: Real-time tick data processing via Redis Pub/Sub.
+    - **Tick Streamer**: Dedicated service (`tick-streamer`) for real-time market data streaming via Redis Pub/Sub.
     - **Architecture**: Service-Repository Pattern (Clean Architecture) for decoupled logic and data access.
     - **Data Sources**: DB-driven configuration (`DataSource` model) with active symbol filtering.
 
