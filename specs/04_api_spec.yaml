@@ -262,6 +262,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_ChatMessage'
 
+  /api/v1/stream/prices:
+    get:
+      summary: WebSocket for real-time price updates
+      description: |
+        Connect via WebSocket to receive real-time tick data for specified symbols.
+        URL: ws://{host}/api/v1/stream/prices
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: JWT Access Token
+        - name: symbols
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of symbols (e.g., "EUR_USD,XAU_USD")
+      responses:
+        '101':
+          description: Switching Protocols to WebSocket
+        '401':
+          description: Unauthorized
+
+
   /api/v1/signal/latest/{symbol}:
     get:
       summary: Get the latest signal for a specific symbol

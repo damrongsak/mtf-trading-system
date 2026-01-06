@@ -8,12 +8,21 @@ from app.routers import signal, risk, backtest, strategy, saved_strategies, jour
 # ... (existing code)
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
+from app.streaming.manager import stream_manager
 
 app = FastAPI(
     title="MTF Trading System API",
     description="API Gateway for Signal Generation, Risk Management, and AI Analysis",
     version="0.1.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    await stream_manager.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await stream_manager.stop()
 
 # Exception Handlers
 @app.exception_handler(HTTPException)
