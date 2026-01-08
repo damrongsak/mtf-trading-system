@@ -266,38 +266,42 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
   useEffect(() => {
     if (!seriesRef.current) return;
 
-    // --- Bid Line ---
-    if (bid !== undefined) {
+    // Default colors if not provided in props (using explicit defaults for Bid/Ask clarity)
+    const bidColor = (colors as any).upColor || '#22c55e'; // Green-500
+    const askColor = (colors as any).downColor || '#ef4444'; // Red-500
+
+    // --- Bid Line (Buy Price) ---
+    if (bid !== undefined && bid !== null) {
         if (!bidLineRef.current) {
             bidLineRef.current = seriesRef.current.createPriceLine({
                 price: bid,
-                color: (colors as any).upColor || '#3b82f6', // Use Up Color
+                color: bidColor,
                 lineWidth: 1,
                 lineStyle: 2, // Dashed
                 axisLabelVisible: true,
                 title: 'BID',
             });
         } else {
-            bidLineRef.current.applyOptions({ price: bid });
+            bidLineRef.current.applyOptions({ price: bid, color: bidColor });
         }
     } else if (bidLineRef.current) {
         seriesRef.current.removePriceLine(bidLineRef.current);
         bidLineRef.current = null;
     }
 
-    // --- Ask Line ---
-    if (ask !== undefined) {
+    // --- Ask Line (Sell Price) ---
+    if (ask !== undefined && ask !== null) {
         if (!askLineRef.current) {
             askLineRef.current = seriesRef.current.createPriceLine({
                 price: ask,
-                color: (colors as any).downColor || '#ffffff', // Use Down Color
+                color: askColor,
                 lineWidth: 1,
                 lineStyle: 2, // Dashed
                 axisLabelVisible: true,
                 title: 'ASK',
             });
         } else {
-            askLineRef.current.applyOptions({ price: ask });
+            askLineRef.current.applyOptions({ price: ask, color: askColor });
         }
     } else if (askLineRef.current) {
         seriesRef.current.removePriceLine(askLineRef.current);

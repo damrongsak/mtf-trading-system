@@ -101,8 +101,8 @@ class TickStreamer:
                             "time": msg.time,
                             "bid": float(msg.bids[0].price) if msg.bids else None,
                             "ask": float(msg.asks[0].price) if msg.asks else None,
-                            "status": msg.status
-                            # Could add liquidity/volume if needed
+                            "status": msg.status,
+                            "volume": msg.bids[0].liquidity if (msg.bids and hasattr(msg.bids[0], 'liquidity')) else 0
                         }
                         
                         # Send to async loop
