@@ -153,3 +153,78 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
             })
             
     return sweeps
+
+def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> Dict[str, Any]:
+    """
+    Detect Market Structure (Pivots, HH/LL, BoS, CHoCH).
+    Matches Mxwll's logic of using a rolling window to find fractals.
+    """
+    if len(ohlc) < window * 2:
+        return {"pivots": [], "labels": [], "events": []}
+
+    highs = ohlc['high'].values
+    lows = ohlc['low'].values
+    
+    structure = {
+        "pivots": [],
+        "labels": [],
+        "events": []
+    }
+    
+    pivots = []
+
+    # Detect Pivots
+    for i in range(window, len(ohlc) - window):
+        # High Pivot
+        if highs[i] == max(highs[i-window:i+window+1]):
+             pivots.append({"index": int(i), "type": "high", "price": float(highs[i])})
+        # Low Pivot
+        elif lows[i] == min(lows[i-window:i+window+1]):
+             pivots.append({"index": int(i), "type": "low", "price": float(lows[i])})
+
+    structure["pivots"] = pivots
+    
+    # Label HH/LL/LH/HL
+    if len(pivots) > 1:
+        last_high = None
+        last_low = None
+        
+        for p in pivots:
+            if p["type"] == "high":
+                label = "H"
+                if last_high:
+                    label = "HH" if p["price"] > last_high["price"] else "LH"
+                structure["labels"].append({"index": p["index"], "text": label, "price": p["price"]})
+                last_high = p
+            else:
+                label = "L"
+                if last_low:
+                    label = "LL" if p["price"] < last_low["price"] else "HL"
+                structure["labels"].append({"index": p["index"], "text": label, "price": p["price"]})
+                last_low = p
+
+    return structure
+
+def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, float]:
+    """
+    Calculate Fib levels from the High/Low of the last 'window' candles.
+    """
+    if len(ohlc) < 2: return {}
+    
+    # Use the implementation from the plan
+    recent = ohlc.iloc[-window:] if len(ohlc) > window else ohlc
+    high_val = float(recent['high'].max())
+    low_val = float(recent['low'].min())
+    diff = high_val - low_val
+    
+    if diff == 0: return {}
+    
+    return {
+        "0.0": low_val,
+        "0.236": low_val + diff * 0.236,
+        "0.382": low_val + diff * 0.382,
+        "0.5": low_val + diff * 0.5,
+        "0.618": low_val + diff * 0.618,
+        "0.786": low_val + diff * 0.786,
+        "1.0": high_val
+    }

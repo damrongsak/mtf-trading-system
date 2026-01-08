@@ -50,6 +50,13 @@ class ADXRequest(BaseModel):
     close: List[float]
     length: int = 14
 
+class SMCRequest(BaseModel):
+    open: List[float]
+    high: List[float]
+    low: List[float]
+    close: List[float]
+    volume: Optional[List[float]] = None
+
 # ... (imports)
 import httpx
 from contextlib import asynccontextmanager
@@ -177,6 +184,23 @@ async def calculate_adx(req: ADXRequest):
             raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
     except Exception as e:
         logger.error(f"ADX Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/calculate/smc", status_code=200)
+async def calculate_smc(req: SMCRequest):
+    try:
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/calculate/smc",
+            json=req.model_dump()
+        )
+        if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+        return response.json()
+    except httpx.RequestError as e:
+            logger.error(f"Strategy Core unavailable: {str(e)}")
+            raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+    except Exception as e:
+        logger.error(f"SMC Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
 @router.get("/opportunities", status_code=200)

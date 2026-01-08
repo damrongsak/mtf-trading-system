@@ -10,7 +10,7 @@ from app.indicators import (
     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
 )
 from app.backtest import run_historical_backtest
-from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps
+from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps, detect_structure, calculate_auto_fibs
 from app.simulation import run_grid_simulation_logic
 from app.analysis.optimization import run_grid_search
 from app.analysis.monte_carlo import run_monte_carlo
@@ -292,8 +292,10 @@ def get_smc(req: SMCRequest):
         obs = detect_order_blocks(df)
         fvgs = detect_fvg(df)
         sweeps = detect_liquidity_sweeps(df)
+        structure = detect_structure(df)
+        fibs = calculate_auto_fibs(df)
         
-        return SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps)
+        return SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps, structure=structure, auto_fibs=fibs)
     except HTTPException:
         raise
     except Exception as e:
@@ -324,8 +326,10 @@ def get_smc_batch(req: SMCBatchRequest):
                 obs = detect_order_blocks(df)
                 fvgs = detect_fvg(df)
                 sweeps = detect_liquidity_sweeps(df)
+                structure = detect_structure(df)
+                fibs = calculate_auto_fibs(df)
                 
-                results[symbol] = SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps)
+                results[symbol] = SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps, structure=structure, auto_fibs=fibs)
             except Exception as e:
                 logger.error(f"Error processing {symbol}: {e}")
                 # Return empty/safe response on individual failure so entire batch doesn't fail

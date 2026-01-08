@@ -57,6 +57,8 @@ class SMCResponse(BaseModel):
     order_blocks: List[Dict[str, Any]]
     fvgs: List[Dict[str, Any]]
     liquidity_sweeps: List[Dict[str, Any]] = []
+    structure: Dict[str, Any] = {}
+    auto_fibs: Dict[str, float] = {}
 
 class SMCBatchRequest(BaseModel):
     # Dictionary mapping symbol -> SMCRequest

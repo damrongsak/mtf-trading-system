@@ -547,3 +547,14 @@
     - **Smart Order:** Added "Smart Size (1%)" toggle to `OrderPanel`, auto-calculating risk based on Account Balance.
     - **API:** Integrated `getDriftAnalysis` client.
 
+### 28. SMC Analysis & Frontend Integration
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **Strategy Core:** Enhanced SMC logic with Liquidity Sweep detection (`detect_liquidity_sweeps`), Volume-aware Order Blocks, and Market Structure labeling (`detect_structure`).
+    - **Frontend:** 
+        - Integrated SMC visualization into `CandleChart` (`smcMarkers`, `smcPriceLines`).
+        - Added SMC toggle to Market Page toolbar.
+        - Strict typing for SMC data (`SMCResponse`, `SMCOrderBlock`).
+    - **API Gateway:** Added `/api/v1/analysis/calculate/smc` proxy endpoint.
+    - **Testing:** Achieved >92% test coverage for `app/smc.py`.
+

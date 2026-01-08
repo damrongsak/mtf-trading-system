@@ -12,10 +12,20 @@ export interface IndicatorData {
   priceScaleId?: string;
 }
 
+export interface ChartPriceLine {
+    price: number;
+    color: string;
+    title?: string;
+    lineStyle?: number; // 0=Solid, 1=Dotted, 2=Dashed, 3=LargeDashed, 4=SparseDotted
+    lineWidth?: number;
+    axisLabelVisible?: boolean;
+}
+
 interface CandleChartProps {
   data: Candle[];
   indicators?: IndicatorData[];
-  markers?: SeriesMarker<Time>[]; // New Prop
+  markers?: SeriesMarker<Time>[]; 
+  priceLines?: ChartPriceLine[]; // New Prop
   colors?: {
     backgroundColor?: string;
     lineColor?: string;
@@ -32,7 +42,7 @@ interface CandleChartProps {
   ask?: number;
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], colors = {}, rightOffset = 15, bid, ask }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 15, bid, ask }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -278,6 +288,41 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     }
 
   }, [bid, ask, colors]);
+
+  // 6. Update Generic Price Lines
+  const priceLinesMapRef = useRef<Map<string, IPriceLine>>(new Map());
+
+  useEffect(() => {
+    if (!seriesRef.current) return;
+    
+    // Remove old lines
+    priceLinesMapRef.current.forEach(line => {
+        try {
+           seriesRef.current?.removePriceLine(line);
+        } catch(e) { console.warn(e); }
+    });
+    priceLinesMapRef.current.clear();
+
+    // Add new lines
+    priceLines.forEach((pl, index) => {
+        try {
+            const line = seriesRef.current?.createPriceLine({
+                price: pl.price,
+                color: pl.color,
+                title: pl.title || '',
+                lineStyle: pl.lineStyle ?? 2,
+                lineWidth: pl.lineWidth ?? 1,
+                axisLabelVisible: pl.axisLabelVisible ?? true,
+            });
+            if (line) {
+                priceLinesMapRef.current.set(`line-${index}`, line);
+            }
+        } catch (e) {
+            console.error('Failed to create price line:', e);
+        }
+    });
+
+  }, [priceLines]);
 
   return <div ref={chartContainerRef} className="w-full flex-1 min-h-0" />;
 };

@@ -17,7 +17,7 @@ class GeminiClient:
         Supports multimodal input (images).
         """
         prompt = f"""
-        You are an elite institutional trader analyzing XAU/USD. 
+        You are an elite institutional trader analyzing the financial markets. 
         Analyze the following market context and provide a concise, narrative-based outlook.
         
         Context:
@@ -99,3 +99,38 @@ class GeminiClient:
             return response.text
         except Exception as e:
             return f"Error analyzing journal: {str(e)}"
+
+    async def generate_smc_narrative(self, smc_data: dict, price_context: dict) -> str:
+        """
+        Generates a narrative based on SMC data (Order Blocks, FVGs, Structure).
+        """
+        prompt = f"""
+        You are an expert Smart Money Concepts (SMC) trader.
+        Analyze the current market structure and generate a professional trade narrative.
+        
+        Market Context:
+        - Price: {price_context.get('price')}
+        - Trend: {price_context.get('trend')}
+        
+        SMC Structure:
+        - Structure: {smc_data.get('structure', {})}
+        - Order Blocks: {smc_data.get('order_blocks', [])}
+        - FVGs: {smc_data.get('fvgs', [])}
+        - Liquidity Sweeps: {smc_data.get('liquidity_sweeps', [])}
+        
+        Explain the "Story of Price". specificially:
+        1. liquidity objectives (where is the draw on liquidity?)
+        2. structural bias (internal vs external structure)
+        3. valid POIs (unmigitated OBs or FVGs)
+        
+        Keep it concise (under 200 words). Use bolding for key terms like **BOS**, **CHoCH**, **Order Block**.
+        """
+        
+        try:
+             response = await self.client.aio.models.generate_content(
+                model=self.model_id,
+                contents=prompt
+            )
+             return response.text
+        except Exception as e:
+            return f"Error generating narrative: {str(e)}"

@@ -7,8 +7,10 @@ import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { fetchSystemConfig } from '@/lib/api/system';
-import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX } from '@/lib/api/analysis';
+import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX, calculateSMC, SMCResponse, SMCStructureLabel, SMCOrderBlock } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
+import { ChartPriceLine } from '@/components/charts/CandleChart';
+import { SeriesMarker } from 'lightweight-charts';
 
 import { cn } from '@/lib/utils';
 import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemplate } from 'lucide-react';
@@ -45,6 +47,10 @@ export default function MarketPage() {
   const [showMACD, setShowMACD] = useState(true);
   const [showADX, setShowADX] = useState(false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
+  const [showSMC, setShowSMC] = useState(false);
+  const [smcData, setSmcData] = useState<SMCResponse | null>(null);
+  const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
+  const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
@@ -155,6 +161,96 @@ export default function MarketPage() {
       console.log('[MarketPage] Indicators Calculated:', newInds.map(i => i.name));
       setChartIndicators(newInds);
   };
+
+  // --- Effect: SMC ---
+  useEffect(() => {
+    if (!showSMC || candles.length === 0) {
+        setSmcData(null);
+        setSmcMarkers([]);
+        setSmcPriceLines([]);
+        return;
+    }
+
+    const loadSMC = async () => {
+         try {
+             // 1. Fetch
+             const res = await calculateSMC({
+                 open: candles.map(c => c.open),
+                 high: candles.map(c => c.high),
+                 low: candles.map(c => c.low),
+                 close: candles.map(c => c.close),
+                 volume: candles.map(c => c.volume || 0),
+             });
+             setSmcData(res);
+             
+             // 2. Transform for Chart
+             const newMarkers: SeriesMarker<Time>[] = [];
+             const newPriceLines: ChartPriceLine[] = [];
+             
+             // Structure Labels
+             if (res.structure && res.structure.labels) {
+                 res.structure.labels.forEach((l: SMCStructureLabel) => {
+                     const candle = candles[l.index];
+                     if (candle) {
+                         newMarkers.push({
+                             time: new Date(candle.timestamp).getTime() / 1000 as Time,
+                             position: l.text.endsWith('H') ? 'aboveBar' : 'belowBar',
+                             shape: 'arrowDown', // Placeholder, LWC only supports limited shapes
+                             text: l.text,
+                             color: l.text.endsWith('H') ? '#ef4444' : '#22c55e',
+                         });
+                     }
+                 });
+             }
+
+             // Order Blocks
+             if (res.order_blocks) {
+                 res.order_blocks.forEach((ob: SMCOrderBlock) => {
+                     newPriceLines.push({
+                         price: ob.top,
+                         color: ob.type === 'bullish' ? '#22c55e' : '#ef4444',
+                         title: ob.type === 'bullish' ? 'Bull OB' : 'Bear OB',
+                         lineStyle: 0,
+                         lineWidth: 2,
+                         axisLabelVisible: true
+                     });
+                     newPriceLines.push({
+                         price: ob.bottom,
+                         color: ob.type === 'bullish' ? '#22c55e' : '#ef4444',
+                         lineStyle: 0,
+                         lineWidth: 1,
+                         axisLabelVisible: false
+                     });
+                 });
+             }
+
+            // Auto Fibs
+            if (res.auto_fibs) {
+                 Object.entries(res.auto_fibs).forEach(([level, price]) => {
+                     const p = price as number;
+                     if (p > 0) {
+                         newPriceLines.push({
+                             price: p,
+                             color: '#fbbf24', // Amber-400
+                             title: `Fib ${level}`,
+                             lineStyle: 2, // Dashed
+                             lineWidth: 1,
+                             axisLabelVisible: true
+                         });
+                     }
+                 });
+            }
+
+             setSmcMarkers(newMarkers);
+             setSmcPriceLines(newPriceLines);
+
+         } catch (e) {
+             console.error("SMC Calc Failed", e);
+         }
+    };
+    
+    loadSMC();
+  }, [showSMC, candles.length, candles]); // Re-calc on data update or toggle
 
   // --- Derived Data ---
   const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
@@ -273,6 +369,7 @@ export default function MarketPage() {
                                             { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
                                             { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
                                             { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
+                                            { id: 'SMC', label: 'SMC', state: showSMC, set: setShowSMC },
                                         ].map(btn => (
                                             <button
                                                 key={btn.id}
@@ -310,6 +407,8 @@ export default function MarketPage() {
                                             rightOffset={15} 
                                             bid={prices[symbol]?.bid}
                                             ask={prices[symbol]?.ask}
+                                            markers={smcMarkers}
+                                            priceLines={smcPriceLines}
                                         />
                                         {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
                                             <IndicatorChart 

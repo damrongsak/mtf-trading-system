@@ -67,11 +67,11 @@ The project distinguishes itself through:
     > ```
 
 *   **Command Execution Strategy (Important):**
-    *   **Prefer Docker:** For consistency, use `docker compose exec <service> <command>` for backend/database tasks.
-        *   Example: `docker compose exec api-gateway uv run pytest`
-    *   **Local Shell:** The environment uses `zsh` with `nvm` (Node v22) and `conda`.
-        *   Frontend: Ensure Node v22 is active (`nvm use 22`).
-        *   Tools: `uv` is in `~/.local/bin`.
+    *   **Backend Services (MANDATORY):** All backend commands MUST be run inside their respective Docker containers to ensure environment consistency.
+        *   **Syntax:** `docker compose exec <service_name> <command>`
+        *   **Example (Test):** `docker compose exec strategy-core uv run pytest`
+        *   **Example (Run):** `docker compose exec api-gateway uv run uvicorn ...`
+    *   **Frontend:** Can be run locally using `nvm` (Node v22) or via Docker.
 
 *   **Frontend Only:**
     ```bash
@@ -291,6 +291,22 @@ try {
 
 **Environment Variables:**
 - `NEXT_PUBLIC_API_BASE_URL`: Set to `''` (empty) for Nginx routing, or `http://localhost:8000` for direct dev
+### 8. Code Quality & Standards
+**Strict adherence to Type Safety and Linting rules is MANDATORY.**
+
+#### TypeScript Best Practices
+*   **Strict Typing:** NEVER use `any`. Always define interfaces or types for all variables, props, and API responses.
+    *   ❌ `const data: any = ...`
+    *   ✅ `const data: Signal[] = ...`
+*   **Shared Interfaces:** Define reusable types in `lib/api/types.ts` to ensure consistency between API clients and components.
+*   **Prop Validation:** Component props must be strictly typed. Avoid optional props (`?`) unless absolutely necessary.
+*   **Async Handling:** Always handle potential `null` or `undefined` states in async data fetching.
+
+#### Linting & Formatting
+*   **No Unused Variables:** Remove all unused imports and variables.
+*   **Hooks Dependencies:** exhaustive-deps constraint must be respected.
+*   **Console Logs:** Remove `console.log` in production code; use proper error handling or a logging service.
+
 ## 🔑 Key Logic & Constraints (from PRD)
 *   **Risk Management:** Strict **$10 max risk per trade**. Minimum lot **0.01**.
 *   **Strategy:**

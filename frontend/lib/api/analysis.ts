@@ -95,3 +95,60 @@ export async function getDriftAnalysis(window_hours: number = 24): Promise<Drift
     const response = await apiClient.post<DriftAnalysisResponse>('/api/v1/analysis/drift', null, { params: { window_hours } });
     return response.data;
 }
+
+export interface SMCParams {
+    open: number[];
+    high: number[];
+    low: number[];
+    close: number[];
+    volume?: number[];
+}
+
+export interface SMCOrderBlock {
+    type: 'bullish' | 'bearish';
+    index: number;
+    top: number;
+    bottom: number;
+    mitigated: boolean;
+    strength: string;
+}
+
+export interface SMCFVG {
+    type: 'bullish' | 'bearish';
+    index: number;
+    top: number;
+    bottom: number;
+    mitigated: boolean;
+}
+
+export interface SMCSweep {
+    type: 'bullish_sweep' | 'bearish_sweep';
+    index: number;
+    level: number;
+    description: string;
+}
+
+export interface SMCStructureLabel {
+    index: number;
+    text: string;
+    price: number;
+}
+
+export interface SMCStructure {
+    pivots?: Array<{ index: number, type: string, price: number }>;
+    labels?: SMCStructureLabel[];
+    events?: Array<{ index: number, type: string, direction: string }>;
+}
+
+export interface SMCResponse {
+    order_blocks: SMCOrderBlock[];
+    fvgs: SMCFVG[];
+    liquidity_sweeps: SMCSweep[];
+    structure: SMCStructure;
+    auto_fibs: Record<string, number>;
+}
+
+export async function calculateSMC(params: SMCParams): Promise<SMCResponse> {
+    const response = await apiClient.post<SMCResponse>('/api/v1/analysis/calculate/smc', params);
+    return response.data;
+}

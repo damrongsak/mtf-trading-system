@@ -517,8 +517,25 @@ paths:
           description: Analytics data (PCR, Max Pain, Net Delta)
           content:
             application/json:
-              schema:
                 $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
+
+  /api/v1/analysis/calculate/smc:
+    post:
+      summary: Calculate Smart Money Concepts (SMC)
+      description: Detects Order Blocks, FVGs, Liquidity Sweeps, and Market Structure.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMCRequest'
+      responses:
+        '200':
+          description: SMC Analysis Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCResponse'
 
   /api/v1/data/open-interest/details:
     get:
@@ -3797,6 +3814,130 @@ components:
       responses:
         '200':
           description: List of plugins
+
+    # --- SMC Schemas ---
+    SMCRequest:
+      type: object
+      required:
+        - open
+        - high
+        - low
+        - close
+      properties:
+        open:
+          type: array
+          items:
+            type: number
+        high:
+          type: array
+          items:
+            type: number
+        low:
+          type: array
+          items:
+            type: number
+        close:
+          type: array
+          items:
+            type: number
+        volume:
+          type: array
+          items:
+            type: number
+          nullable: true
+
+    SMCOrderBlock:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [bullish, bearish]
+        index:
+          type: integer
+        top:
+          type: number
+        bottom:
+          type: number
+        mitigated:
+          type: boolean
+        strength:
+          type: string
+
+    SMCFVG:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [bullish, bearish]
+        index:
+          type: integer
+        top:
+          type: number
+        bottom:
+          type: number
+        mitigated:
+          type: boolean
+
+    SMCSweep:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [bullish_sweep, bearish_sweep]
+        index:
+          type: integer
+        level:
+          type: number
+        description:
+          type: string
+
+    SMCStructureLabel:
+      type: object
+      properties:
+        index:
+          type: integer
+        text:
+          type: string
+        price:
+          type: number
+
+    SMCStructure:
+      type: object
+      properties:
+        pivots:
+          type: array
+          items:
+            type: object
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/SMCStructureLabel'
+        events:
+          type: array
+          items:
+            type: object
+
+    SMCResponse:
+        type: object
+        properties:
+          order_blocks:
+            type: array
+            items:
+              $ref: '#/components/schemas/SMCOrderBlock'
+          fvgs:
+            type: array
+            items:
+              $ref: '#/components/schemas/SMCFVG'
+          liquidity_sweeps:
+            type: array
+            items:
+              $ref: '#/components/schemas/SMCSweep'
+          structure:
+            $ref: '#/components/schemas/SMCStructure'
+          auto_fibs:
+            type: object
+            additionalProperties:
+              type: number
           content:
             application/json:
               schema:

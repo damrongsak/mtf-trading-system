@@ -177,4 +177,18 @@ async def analyze_journal(request: JournalAnalysisRequest):
         timestamp=datetime.utcnow().isoformat()
     )
 
+class SMCNarrativeRequest(BaseModel):
+    smc_data: dict
+    price_context: dict
 
+@app.post("/analyze/smc-narrative", response_model=AnalysisResponse)
+async def analyze_smc_narrative(request: SMCNarrativeRequest):
+    if not gemini_client:
+        raise HTTPException(status_code=503, detail="AI Service unavailable")
+    
+    insight = await gemini_client.generate_smc_narrative(request.smc_data, request.price_context)
+    
+    return AnalysisResponse(
+        insight=insight,
+        timestamp=datetime.utcnow().isoformat()
+    )
