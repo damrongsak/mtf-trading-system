@@ -3,21 +3,31 @@
 **Status:** In Development (Phase 6 - Portfolio Management & Transaction Tracking)  
 **License:** [Apache 2.0](LICENSE)
 
-**MTF Olympus** is an **Operating System (OS)** for wealth creation. It democratizes the sophisticated tools used by institutional hedge funds—**Game Theoretic Risk Management**, **Walk-Forward Validation**, and **AI-Driven Psychology Coaching**—allowing individuals to act as their own Quant Fund Managers.
+# Start with Why: The MTF Olympus Story
 
-It evolves the previous "Phoenix Alpha Engine" into a distributed platform that separates Logic (Foundry), Validation (Proving Ground), Risk (Citadel), Execution (Edge), and Psychology (Coach).
+## The Why: Breaking the Cycle of Gambler's Ruin
+
+Most retail traders fail not because they lack intelligence, but because they are fighting a war with broken tools. They buy "signals" from gurus—buying fish instead of learning how to fish. They use backtesting software that lies to them, showing beautiful equity curves that crumble the moment real money is on the line (curve fitting). And most fatally, they have no defense against their own psychology; when they tilt, they lose everything.
+
+**MTF Olympus exists to democratize the institutional "Edge".**
+
+We believe that wealth creation shouldn't be a gamble. It should be an engineering discipline. We believe that if you give a retail trader the same tools used by a quantitative hedge fund—Game Theoretic Risk Management, Walk-Forward Validation, and AI-Driven Psychological Coaching—they can stop gambling and start building a legacy.
+
+**We don't build trading bots. We build Fund Managers.**
 
 ---
 
-## 🏛️ The 5 Pillars of Olympus
+## The Vision: An Operating System for Wealth
 
-The platform is built on five functional pillars:
+MTF Olympus is not a tool; it is an **Operating System**. Just as Windows or macOS manages the complexity of hardware so you can run applications, Olympus manages the complexity of the Market so you can run **Strategies**.
 
-1.  **The Strategy Foundry**: Standardized "Lego Blocks" for creating strategies (no ad-hoc code).
-2.  **The Proving Ground**: Rigorous Walk-Forward Validation to prevent overfitting (Strategies must achieve a Robustness Score > 80).
-3.  **The Risk Citadel**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
-4.  **The Execution Edge**: Smart Order Routing and Liquidity analysis.
-5.  **The AI Coach**: Psychological intervention via **Mental Hand History** to detect "Tilt" and guide the user back to "A-Game".
+### The 5 Pillars of the OS
+
+1.  **The Foundry (Creation)**: Standardized "Lego Blocks" for strategy creation. No coding required, just logic.
+2.  **The Proving Ground (Truth)**: Rigorous Walk-Forward Validation to prevent overfitting. Strategies must achieve a Robustness Score > 80.
+3.  **The Risk Citadel (Survival)**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
+4.  **The Execution Edge (Speed)**: Professional-grade routing to get the best price and liquidity analysis.
+5.  **The AI Coach (Discipline)**: Psychological intervention via **Mental Hand History** to detect "Tilt" and guide the user back to "A-Game".
 
 ---
 
@@ -41,7 +51,7 @@ The system is organized into a 5-layer stack:
 | **API Gateway** | Python (FastAPI) | Central entry point, Auth (JWT), and request routing. |
 | **Strategy Core** | Python (Vectorbt) | Implements Foundry and Proving Ground logic. |
 | **Execution** | Python (FastAPI) | Implements Risk Citadel and Execution Edge. |
-| **AI Analyst** | Python (LangGraph) | Implements AI Coach (Gemini 1.5 Pro). |
+| **AI Analyst** | Python (LangGraph) | Implements AI Coach (gemini-2.5-flash). |
 | **Data Pipeline** | Python (Redis) | L1 Probability Layer (Real-time & Historical Data). |
 | **Database** | PostgreSQL 15 | Relational data + `pgvector` for RAG. |
 

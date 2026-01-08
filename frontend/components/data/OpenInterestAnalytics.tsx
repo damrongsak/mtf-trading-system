@@ -137,8 +137,8 @@ export function OpenInterestAnalytics() {
                                 <TrendingUp className="w-3.5 h-3.5" />
                                 Expiry
                             </label>
-                            <Select value={selectedContract} onValueChange={setSelectedContract} disabled={contracts.length === 0}>
-                                <SelectTrigger className="h-10 bg-slate-950 border-slate-700 hover:border-slate-600 transition-colors">
+                            <Select value={selectedContract} onValueChange={setSelectedContract}>
+                                <SelectTrigger className="h-10 bg-slate-950 border-slate-700 hover:border-slate-600 transition-colors" disabled={contracts.length === 0}>
                                     <SelectValue placeholder={contracts.length === 0 ? "Loading..." : "All Contracts"} />
                                 </SelectTrigger>
                                 <SelectContent>

@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 
-export interface MarketSymbol {
+export interface MarketCategorySymbol {
     id: string;
     symbol: string;
     display_name: string;
@@ -13,7 +13,7 @@ export interface MarketCategory {
     id: string;
     name: string;
     order_index: number;
-    items: MarketSymbol[];
+    items: MarketCategorySymbol[];
 }
 
 export async function getMarketCategories(): Promise<MarketCategory[]> {
@@ -26,8 +26,8 @@ export async function createMarketCategory(name: string): Promise<MarketCategory
     return response.data;
 }
 
-export async function addSymbolToCategory(categoryId: string, symbol: string, displayName?: string): Promise<MarketSymbol> {
-    const response = await apiClient.post<MarketSymbol>(`/api/v1/market/categories/${categoryId}/symbols`, {
+export async function addSymbolToCategory(categoryId: string, symbol: string, displayName?: string): Promise<MarketCategorySymbol> {
+    const response = await apiClient.post<MarketCategorySymbol>(`/api/v1/market/categories/${categoryId}/symbols`, {
         symbol,
         display_name: displayName
     });

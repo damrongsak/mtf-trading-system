@@ -1,6 +1,6 @@
 'use client';
 
-import { LineChart, BrainCircuit, TrendingUp } from 'lucide-react';
+import { ShieldCheck, BrainCircuit, Activity, Zap, Layers } from 'lucide-react';
 
 interface Feature {
   icon: React.ReactNode;
@@ -11,28 +11,34 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    icon: <LineChart className="w-8 h-8" />,
-    title: 'Multi-Timeframe Strategy',
-    description: 'Macro bias from 4H/Daily timeframes, with precision entries on 15m charts. Combines Fibonacci retracements and SMC order blocks.',
+    icon: <Layers className="w-8 h-8" />,
+    title: 'The Strategy Foundry',
+    description: 'Stop writing spaghetti code. Snap together standardized logic blocks like "Trend Following" and "Mean Reversion" to build robust strategies.',
+    gradient: 'from-blue-500 to-indigo-600',
+  },
+  {
+    icon: <ShieldCheck className="w-8 h-8" />,
+    title: 'The Proving Ground',
+    description: 'Rigorous Walk-Forward Validation. Use a "Train/Test" gauntlet to identify and kill overfitted strategies before they risk your capital.',
     gradient: 'from-accent-green to-emerald-600',
   },
   {
-    icon: <BrainCircuit className="w-8 h-8" />,
-    title: 'AI Market Analyst',
-    description: 'Google Gemini AI provides semantic market context and narrative-based reasoning for enhanced decision-making.',
-    gradient: 'from-purple-500 to-purple-700',
-  },
-  {
-    icon: <TrendingUp className="w-8 h-8" />,
-    title: 'Smart Money Concepts',
-    description: 'Identify institutional order blocks, liquidity zones, and market structure shifts for high-probability setups.',
-    gradient: 'from-accent-blue to-blue-700',
-  },
-  {
-    icon: <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>,
-    title: 'Plugin Architecture',
-    description: 'Modular engine supporting custom Alpha, Risk, and Execution plugins. Extend your edge with Python-based logic.',
+    icon: <Activity className="w-8 h-8" />,
+    title: 'The Risk Citadel',
+    description: 'Game Theoretic Risk Management. Minimax Regret and Portfolio Risk Parity ensure you survive volatility and avoid "Gambler\'s Ruin".',
     gradient: 'from-orange-500 to-red-600',
+  },
+  {
+    icon: <Zap className="w-8 h-8" />,
+    title: 'The Execution Edge',
+    description: 'Professional-grade Smart Order Routing and liquidity analysis to get the best fills and minimize slippage.',
+    gradient: 'from-yellow-400 to-orange-500',
+  },
+  {
+    icon: <BrainCircuit className="w-8 h-8" />,
+    title: 'The AI Coach',
+    description: 'Your digital mentor. Detects "Tilt" and "C-Game" patterns in your behavior and intervenes with Mental Hand History exercises.',
+    gradient: 'from-purple-500 to-purple-700',
   },
 ];
 
@@ -43,15 +49,15 @@ export function FeaturesGrid() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-            Powerful Trading Features
+            The 5 Pillars of Olympus
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Advanced toolkit combining technical analysis, AI intelligence, and institutional trading concepts
+            A complete ecosystem designed to turn retail traders into Fund Managers
           </p>
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center">
           {features.map((feature, index) => (
             <div
               key={index}

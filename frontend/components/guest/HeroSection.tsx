@@ -22,22 +22,22 @@ export function HeroSection() {
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800/50 border border-gray-700/50 backdrop-blur-sm mb-8 animate-fade-in">
           <TrendingUp className="w-4 h-4 text-accent-green" />
           <span className="text-sm text-gray-300">
-            AI-Powered • CFA-Grade Metrics • Plugin Ecosystem
+            MTF Olympus OS • v2.0
           </span>
         </div>
 
         {/* Main Headline */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400 leading-tight animate-slide-up">
-          Intelligent XAU/USD Trading
+          Stop Gambling.
           <br />
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent-blue via-purple-400 to-accent-blue bg-size-200 animate-gradient">
-            with Multi-Timeframe Analysis
+            Start Building.
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto animate-slide-up delay-100">
-          Combine Smart Money Concepts with AI-powered market insights for precision Gold trading
+          The Operating System for Wealth. Democratizing the tools of quantitative hedge funds—Risk Parity, Walk-Forward Validation, and AI Coaching—for the retail trader.
         </p>
 
         {/* CTA Buttons */}

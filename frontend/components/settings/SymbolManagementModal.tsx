@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getBrokerSymbols, updateSymbolStatus, MarketSymbol } from '@/lib/api/data-sources';
+import { getBrokerSymbols, updateSymbolStatus } from '@/lib/api/data-sources';
+import { MarketSymbol } from "@/lib/api/types";
 
 interface SymbolManagementModalProps {
     isOpen: boolean;

@@ -45,6 +45,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   
   const [slPrice, setSlPrice] = useState<number>(0);
   const [slPips, setSlPips] = useState<number>(500); // 50 pips
+  const [tpPrice, setTpPrice] = useState<number>(0);
+  const [tpPips, setTpPips] = useState<number>(500);
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = useState(false);
