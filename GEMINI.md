@@ -149,6 +149,7 @@ To apply schema changes to the database:
 *   ✅ **Journal Analytics:** "Psychological MRI" and Pattern Analysis.
 *   ✅ **Binance Integration:** Multi-broker support including Crypto.
 *   ✅ **System Drift Monitor:** Real-time health check (`/analysis/drift`).
+*   ✅ **AI Analyst V2:** Doc-RAG (Self-Awareness), Workflow Engine, and BYOK.
 
 ##  Inspiration & Examples
 *   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration.

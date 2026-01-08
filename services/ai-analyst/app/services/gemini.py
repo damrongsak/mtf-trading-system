@@ -2,12 +2,15 @@ from google import genai
 from app.core.config import settings
 
 class GeminiClient:
-    def __init__(self):
+    def __init__(self, client_factory=None):
         if not settings.GOOGLE_API_KEY:
             raise ValueError("GOOGLE_API_KEY is not set")
         
+        # Dependency Injection for testing
+        self.client_factory = client_factory or genai.Client
+        
         # Initialize the client with the API key
-        self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        self.client = self.client_factory(api_key=settings.GOOGLE_API_KEY)
         # Using configured model
         self.model_id = settings.GEMINI_MODEL_ID
 
@@ -61,13 +64,19 @@ class GeminiClient:
                 return f"Error processing image: {str(e)}"
 
         try:
+            # Use transient client for BYOK if key provided
+            client = self.client
+            if api_key:
+                client = self.client_factory(api_key=api_key)
+            
             response = await client.aio.models.generate_content(
-                model=active_model,
+                model=model_id or self.model_id,
                 contents=contents
             )
             return response.text
         except Exception as e:
-            return f"Error generating insight: {str(e)}"
+            print(f"Gemini Error: {e}")
+            return f"Error generating outlook: {str(e)}"
 
     async def analyze_journal_entry(self, entry_content: str, similar_entries: list = None, user_id: str = None) -> str:
         """
@@ -110,6 +119,33 @@ class GeminiClient:
             return response.text
         except Exception as e:
             return f"Error analyzing journal: {str(e)}"
+
+    async def generate_smc_analysis(self, smc_data: dict, api_key: str = None, model_id: str = None) -> str:
+        """
+        Specialized analysis for Smart Money Concepts
+        """
+        prompt = f"""
+        Analyze this SMC Data and find the best trade setup.
+        Data: {smc_data}
+        
+        Focus on:
+        1. Liquidity Sweeps
+        2. Order Blocks
+        3. Fair Value Gaps
+        """
+        
+        try:
+            client = self.client
+            if api_key:
+                client = self.client_factory(api_key=api_key)
+
+            response = await client.aio.models.generate_content(
+                model=model_id or self.model_id,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            return f"Error generating narrative: {str(e)}"
 
     async def generate_smc_narrative(self, smc_data: dict, price_context: dict, api_key: str = None, model_id: str = None) -> str:
         """

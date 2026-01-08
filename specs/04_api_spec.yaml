@@ -223,6 +223,60 @@ paths:
                 $ref: '#/components/schemas/APIResponse_Briefing'
 
 
+  /ai/chat/sessions/message:
+    post:
+      summary: Chat with Strategy Advisor
+      description: Direct chat endpoint for Strategy Advisor agent.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyChatRequest'
+      responses:
+        '200':
+          description: AI Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response: 
+                    type: string
+                  timestamp:
+                    type: string
+        '503':
+           description: Agent Unavailable
+
+  /api/v1/ai/ingest/upload:
+    post:
+      summary: Upload context file
+      description: Upload a file (PDF, Image) for AI context.
+      requestBody:
+        content:
+           multipart/form-data:
+             schema:
+               type: object
+               properties:
+                 file:
+                   type: string
+                   format: binary
+                 user_id:
+                   type: string
+                 context_type:
+                   type: string
+      responses:
+        '200':
+          description: File uploaded
+          content:
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   filename:
+                     type: string
+                   context_ref:
+                     type: object
+
   /api/v1/ai/chat/sessions/{session_id}/messages:
     get:
       summary: Get messages for a session

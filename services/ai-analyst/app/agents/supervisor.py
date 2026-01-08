@@ -35,10 +35,11 @@ class SupervisorAgent:
             # We use a lightweight call here. 
             # Note: We duplicate logic from GeminiClient temporarily or expose a raw method
             # Ideally GeminiClient should have a 'generate_raw'
+            # Ideally GeminiClient should have a 'generate_raw'
             client = self.gemini.client
             if api_key:
-                from google import genai
-                client = genai.Client(api_key=api_key)
+                # Use the factory from the injected gemini instance
+                client = self.gemini.client_factory(api_key=api_key)
             
             response = await client.aio.models.generate_content(
                 model=model_id or self.gemini.model_id,

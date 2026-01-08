@@ -89,7 +89,7 @@ def test_chat_strategy_success(mock_dependencies):
         "context_code": "def strategy(): pass"
     }
     
-    response = client.post("/chat/strategy", json=payload)
+    response = client.post("/ai/chat/sessions/message", json=payload)
     assert response.status_code == 200
     assert response.json()["response"] == "Strategy looks good"
 
@@ -100,5 +100,5 @@ def test_chat_strategy_unavailable(mock_dependencies):
             "message": "Check this code",
             "user_id": "user1"
         }
-        response = client.post("/chat/strategy", json=payload)
+        response = client.post("/ai/chat/sessions/message", json=payload)
         assert response.status_code == 503

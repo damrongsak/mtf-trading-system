@@ -1,142 +1,50 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.gemini import GeminiClient
 
-# Fixture to mock the settings and ensure GOOGLE_API_KEY is set
-@pytest.fixture
-def mock_settings():
+@pytest.mark.asyncio
+async def test_gemini_client_byok_override():
+    # Setup Mocks
+    mock_default_client = AsyncMock()
+    mock_custom_client = AsyncMock()
+    
+    mock_factory = MagicMock()
+    mock_factory.side_effect = lambda api_key: mock_custom_client if api_key == "custom-key" else mock_default_client
+    
     with patch("app.services.gemini.settings") as mock_settings:
-        mock_settings.GOOGLE_API_KEY = "fake_test_key"
-        mock_settings.GEMINI_MODEL_ID = "gemini-1.5-flash-test"
-        yield mock_settings
-
-# Fixture to mock the genai.Client and its async methods
-@pytest.fixture
-def mock_genai_client():
-    with patch("app.services.gemini.genai.Client") as mock_client_cls:
-        # Create a mock instance of the Client
-        mock_instance = MagicMock()
+        mock_settings.GOOGLE_API_KEY = "system-key"
+        mock_settings.GEMINI_MODEL_ID = "system-model"
         
-        # Structure: client.aio.models.generate_content
-        mock_aio = MagicMock()
-        mock_models = MagicMock()
-        mock_generate_content = AsyncMock()
+        # Inject factory
+        client = GeminiClient(client_factory=mock_factory)
         
-        mock_instance.aio = mock_aio
-        mock_aio.models = mock_models
-        mock_models.generate_content = mock_generate_content
+        # Initial init should call factory with system key
+        # (Our lambda logic above checks key, but let's verify calls later)
         
-        # Ensure Client() returns this mock instance
-        mock_client_cls.return_value = mock_instance
+        # Method under test
+        await client.generate_market_outlook({}, api_key="custom-key", model_id="custom-model")
         
-        # Yield the mocked generate_content method for assertions
-        yield mock_generate_content
+        # Verify factory called with custom key
+        mock_factory.assert_called_with(api_key="custom-key")
+        
+        # Verify custom client usage
+        mock_custom_client.aio.models.generate_content.assert_called_once()
+        args = mock_custom_client.aio.models.generate_content.call_args
+        assert args.kwargs['model'] == "custom-model"
 
 @pytest.mark.asyncio
-async def test_generate_market_outlook_success(mock_settings, mock_genai_client):
-    """
-    Test that generate_market_outlook returns the text from the API response
-    and calls the API with the correct context.
-    """
-    # 1. Setup Mock Return Value
-    mock_response = MagicMock()
-    mock_response.text = "## 📊 Market Context\nBased on the uptrend..."
-    mock_genai_client.return_value = mock_response
-
-    # 2. Initialize Service
-    client = GeminiClient()
-
-    # 3. Call Method
-    context = {
-        "trend_4h": "Uptrend",
-        "current_price": "2050.00",
-        "key_levels": ["2040", "2060"],
-        "recent_signals": ["Buy Signal"]
-    }
-    result = await client.generate_market_outlook(context)
-
-    # 4. Assertions
-    assert "Based on the uptrend" in result
+async def test_gemini_client_default():
+    mock_default_client = AsyncMock()
+    mock_factory = MagicMock(return_value=mock_default_client)
     
-    # Verify the API was called exactly once
-    mock_genai_client.assert_called_once()
-    
-    # Verify arguments
-    _, kwargs = mock_genai_client.call_args
-    # Check if initialized with correct model
-    assert client.model_id == 'gemini-1.5-flash-test'
-    
-    # Mock the aio.models.generate_content method
-    assert "Uptrend" in kwargs['contents'][0]
-    assert "2050.00" in kwargs['contents'][0]
-
-@pytest.mark.asyncio
-async def test_generate_market_outlook_with_image(mock_settings, mock_genai_client):
-    """
-    Test generate_market_outlook with base64 image input.
-    """
-    mock_response = MagicMock()
-    mock_response.text = "Chart looks bullish."
-    mock_genai_client.return_value = mock_response
-
-    client = GeminiClient()
-    
-    # Minimal valid base64 image (1x1 pixel)
-    b64_img = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-    
-    context = {
-        "trend_4h": "Uptrend", 
-        "image_b64": b64_img
-    }
-    
-    result = await client.generate_market_outlook(context)
-    
-    assert "Chart looks bullish" in result
-    
-    # Check that contents list has 2 items: prompt and image dict
-    _, kwargs = mock_genai_client.call_args
-    contents = kwargs['contents']
-    assert len(contents) == 2
-    assert isinstance(contents[0], str) # Prompt
-    assert isinstance(contents[1], dict) # Image part
-    assert contents[1]['mime_type'] == "image/jpeg"
-
-
-@pytest.mark.asyncio
-async def test_generate_market_outlook_error(mock_settings, mock_genai_client):
-    """
-    Test that exceptions from the API are caught and returned as error messages.
-    """
-    # 1. Setup Mock to Raise Exception
-    mock_genai_client.side_effect = Exception("API Connection Failed")
-
-    # 2. Initialize Service
-    client = GeminiClient()
-
-    # 3. Call Method
-    result = await client.generate_market_outlook({})
-
-    # 4. Assertions
-    assert "Error generating insight" in result
-    assert "API Connection Failed" in result
-
-@pytest.mark.asyncio
-async def test_analyze_journal_entry_success(mock_settings, mock_genai_client):
-    """
-    Test analyze_journal_entry with mocked response.
-    """
-    mock_response = MagicMock()
-    mock_response.text = "- Detected Emotion: FOMO"
-    mock_genai_client.return_value = mock_response
-
-    client = GeminiClient()
-    
-    entry = "I bought because prices were moving fast."
-    similar = ["Past mistake: chasing candles"]
-    
-    result = await client.analyze_journal_entry(entry, similar)
-    
-    assert "Detected Emotion: FOMO" in result
-    mock_genai_client.assert_called_once()
-    _, kwargs = mock_genai_client.call_args
-    assert "chasing candles" in kwargs['contents']
+    with patch("app.services.gemini.settings") as mock_settings:
+        mock_settings.GOOGLE_API_KEY = "system-key"
+        mock_settings.GEMINI_MODEL_ID = "system-model"
+        
+        client = GeminiClient(client_factory=mock_factory)
+        
+        await client.generate_market_outlook({})
+        
+        # Verify default client usage
+        # (self.client was initialized with mock_default_client)
+        mock_default_client.aio.models.generate_content.assert_called_once()

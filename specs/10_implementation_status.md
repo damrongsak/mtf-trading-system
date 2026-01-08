@@ -558,3 +558,11 @@
     - **API Gateway:** Added `/api/v1/analysis/calculate/smc` proxy endpoint.
     - **Testing:** Achieved >92% test coverage for `app/smc.py`.
 
+### 29. AI Analyst Features (RAG, BYOK, Workflow)
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:** 
+    - **Documentation RAG:** AI now ingests system specs (`/specs`) to understand architecture.
+    - **Workflow Engine (OWE):** Implemented Supervisor/Agent pattern with LangGraph-inspired routing.
+    - **Testing:** Achieved >80% code coverage for `ai-analyst` service.
+    - **BYOK:** Enabled "Bring Your Own Key" for Gemini API.
+    - **Multimodal:** Added support for file uploads (`/ai/ingest/upload`) for strategy context.

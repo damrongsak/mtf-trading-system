@@ -1,54 +1,76 @@
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from app.agents.strategy_advisor import StrategyAdvisorAgent
-
-@pytest.fixture
-def mock_agent_deps():
-    with patch("app.agents.strategy_advisor.ChatGoogleGenerativeAI") as mock_llm, \
-         patch("app.agents.strategy_advisor.settings") as mock_settings, \
-         patch("app.agents.strategy_advisor.create_react_agent") as mock_create_agent:
-        
-        mock_settings.GOOGLE_API_KEY = "fake_key"
-        
-        # Mock graph run
-        mock_graph = MagicMock()
-        mock_message = MagicMock()
-        mock_message.content = "Analysis complete."
-        mock_graph.ainvoke = AsyncMock(return_value={"messages": [mock_message]})
-        
-        mock_create_agent.return_value = mock_graph
-        
-        yield mock_create_agent
+from unittest.mock import AsyncMock, MagicMock
+from app.agents.strategy_advisor import StrategyAdvisorAgent, AgentState
+from langchain_core.messages import HumanMessage
 
 @pytest.mark.asyncio
-async def test_strategy_advisor_run(mock_agent_deps):
-    mock_rag = MagicMock()
-    agent = StrategyAdvisorAgent(rag_service=mock_rag)
+async def test_strategy_advisor_run():
+    # Setup Mocks
+    mock_rag = AsyncMock()
+    mock_rag.search_documentation.return_value = [{"filename": "spec.md", "content": "API Spec"}]
+    mock_rag.search_similar_strategies.return_value = [{"code": "def old_strat(): pass"}]
+
+    mock_gemini = MagicMock()
+    mock_gemini.model_id = "test-model"
+    mock_client = AsyncMock()
+    # Mock responses for Plan and Generate steps
+    mock_plan_resp = MagicMock()
+    mock_plan_resp.text = "Step 1: Write code"
+    mock_code_resp = MagicMock()
+    mock_code_resp.text = "def strategy(): pass"
     
-    result = await agent.run(input_text="Help me", user_id="user1", context_code="def foo(): pass")
+    mock_client.aio.models.generate_content.side_effect = [mock_plan_resp, mock_code_resp]
+    mock_gemini.client = mock_client
+
+    advisor = StrategyAdvisorAgent(mock_rag, mock_gemini)
     
-    assert "Analysis complete" in result
+    state: AgentState = {
+        "messages": [HumanMessage(content="Create a strategy")],
+        "user_id": "test",
+        "user_config": {},
+        "context": {},
+        "scratchpad": []
+    }
     
-    # Verify graph created with correct args (no modifiers for this version)
-    mock_agent_deps.assert_called_once()
-    call_kwargs = mock_agent_deps.call_args[1]
-    assert "state_modifier" not in call_kwargs
-    assert "messages_modifier" not in call_kwargs
+    # Run
+    new_state = await advisor.run(state)
     
-    # Verify graph invoked
-    mock_agent_deps.return_value.ainvoke.assert_called_once()
-    
-    # Verify input structure
-    args = mock_agent_deps.return_value.ainvoke.call_args[0][0]
-    # messages[0] should be system, messages[1] should be user
-    assert args["messages"][0][0] == "system"
-    assert "expert Algorithmic Trading Advisor" in args["messages"][0][1]
-    assert args["messages"][1][0] == "user"
-    assert "Help me" in args["messages"][1][1]
-    assert "def foo(): pass" in args["messages"][1][1]
+    # Verify Flow
+    mock_rag.search_documentation.assert_called_once()
+    assert "Plan: Step 1: Write code" in new_state["scratchpad"][0]
+    assert new_state["final_response"] == "def strategy(): pass"
 
 @pytest.mark.asyncio
-async def test_strategy_advisor_search_tool_logic(mock_agent_deps):
-    # Testing the inner tool logic is tricky because it's defined inside run()
-    # But we can verify that RAG is passed correctly
-    pass
+async def test_strategy_advisor_multimodal_file():
+    # Setup Mocks
+    mock_rag = AsyncMock()
+    mock_rag.search_documentation.return_value = []
+    mock_rag.search_similar_strategies.return_value = []
+
+    mock_gemini = MagicMock()
+    mock_client = AsyncMock()
+    mock_resp = MagicMock()
+    mock_resp.text = "Plan"
+    mock_client.aio.models.generate_content.return_value = mock_resp
+    mock_gemini.client = mock_client
+
+    advisor = StrategyAdvisorAgent(mock_rag, mock_gemini)
+    
+    state: AgentState = {
+        "messages": [HumanMessage(content="Analyze this chart")],
+        "user_id": "test",
+        "user_config": {},
+        "context": {
+            "file_context": {"type": "base64", "data": "ABCD", "mime_type": "image/png"}
+        },
+        "scratchpad": []
+    }
+    
+    await advisor.run(state)
+    
+    # Verify image data passed to prompt
+    call_args = mock_client.aio.models.generate_content.call_args_list[0]
+    contents = call_args.kwargs['contents']
+    # Contents should be [Text, ImageDict]
+    assert len(contents) == 2
+    assert contents[1]["mime_type"] == "image/png"
