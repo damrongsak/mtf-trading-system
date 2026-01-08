@@ -16,6 +16,7 @@ interface SignalCardProps {
   tp_price?: number;
   broker?: string;
   strategy_name?: string;
+  rrr?: number;
 }
 
 export const SignalCard: React.FC<SignalCardProps> = (props) => {
@@ -27,7 +28,8 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
       timeframe,
 
       broker,
-      strategy_name
+      strategy_name,
+      rrr
   } = props;
   const isBullish = direction === 'BULLISH';
   const isBearish = direction === 'BEARISH';
@@ -116,6 +118,15 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
                     SL: <span className="text-accent-red">{props.sl_price ? Number(props.sl_price).toFixed(5) : '-'}</span>
                 </div>
             </div>
+            
+            {rrr && (
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs text-gray-500">Risk:Reward</span>
+                    <span className={`text-xs font-mono font-bold ${rrr >= 1.5 ? 'text-accent-green' : 'text-yellow-500'}`}>
+                        1:{rrr.toFixed(2)}
+                    </span>
+                </div>
+            )}
 
            <p className="text-sm text-gray-400 line-clamp-2">
              {props.reason || props.reasoning || "No reasoning provided."}

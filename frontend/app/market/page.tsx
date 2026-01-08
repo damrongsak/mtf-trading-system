@@ -369,8 +369,7 @@ export default function MarketPage() {
                         <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
                         <Panel 
                             id="account-panel"
-                            order={2}
-                            panelRef={accountPanelRef}
+                            ref={accountPanelRef}
                             defaultSize={30} 
                             minSize={4} 
                         >

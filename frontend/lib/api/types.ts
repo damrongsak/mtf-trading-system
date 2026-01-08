@@ -228,6 +228,7 @@ export interface Signal {
     tp_price?: number;
     broker?: string;
     strategy_name?: string;
+    rrr?: number;
 }
 
 // ========================================

@@ -536,4 +536,14 @@
     - **Risk Management:** Updated `Fund` model and Execution Service to support Dynamic Position Sizing (1% of NAV), respecting Hard Caps.
     - **AI Feedback Loop:** Implemented `PerformanceMonitor` and `/analysis/drift` endpoint to detect System Drift (High Filter Rate).
     - **Specs:** Updated PRD, Data Model, API Spec, and Execution Rules.
+    - **Specs:** Updated PRD, Data Model, API Spec, and Execution Rules.
     - **Verification:** Unit and Integration tests passed for all components.
+
+### 27. Olympus Frontend Integration
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **Signal Card:** Updated `Signal` interface and UI to display **RRR** (Risk:Reward Ratio) and Logic Reasoning.
+    - **System Drift:** Implemented `DriftDashboard` (`/analysis/drift`) visualizing Health Status, Rejection Rate, and Top Blockers.
+    - **Smart Order:** Added "Smart Size (1%)" toggle to `OrderPanel`, auto-calculating risk based on Account Balance.
+    - **API:** Integrated `getDriftAnalysis` client.
+

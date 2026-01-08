@@ -42,11 +42,12 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [takeProfitEnabled, setTakeProfitEnabled] = useState(false);
   const [stopLossEnabled, setStopLossEnabled] = useState(true);
 
-  const [tpPrice, setTpPrice] = useState<number>(0);
-  const [tpPips, setTpPips] = useState<number>(0);
   
   const [slPrice, setSlPrice] = useState<number>(0);
   const [slPips, setSlPips] = useState<number>(500); // 50 pips
+
+  // --- State: Smart Sizing ---
+  const [isSmartSize, setIsSmartSize] = useState(false);
 
   // --- State: Async ---
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
         })
         .finally(() => setLoadingBalance(false));
   }, [selectedAccountId]);
+
+  // Smart Sizing Logic
+  useEffect(() => {
+      if (isSmartSize && balance > 0) {
+          setRiskUsd(parseFloat((balance * 0.01).toFixed(2)));
+      }
+  }, [isSmartSize, balance]);
 
   // Sync Pips -> Price 
   useEffect(() => {
@@ -216,15 +224,22 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                          </div>
                          
                          <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group">
-                             <div className="text-[10px] text-blue-400 flex items-center gap-1 cursor-pointer uppercase tracking-wider mb-1">
-                                 Risk Amount (USD) <ChevronDown size={10} />
+                             <div className="text-[10px] text-blue-400 flex items-center justify-between gap-1 mb-1">
+                                 <span className="cursor-pointer uppercase tracking-wider flex items-center gap-1">Risk Amount (USD) <ChevronDown size={10} /></span>
+                                 <div 
+                                    onClick={() => setIsSmartSize(!isSmartSize)}
+                                    className={`cursor-pointer px-1.5 py-0.5 rounded text-[9px] font-bold border ${isSmartSize ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-800 text-gray-500 border-gray-700'}`}
+                                 >
+                                    1% {isSmartSize ? 'ON' : 'OFF'}
+                                 </div>
                              </div>
                              <div className="flex items-center">
                                 <input 
                                     type="number"
                                     value={riskUsd}
-                                    onChange={e => setRiskUsd(parseFloat(e.target.value))}
-                                    className="bg-transparent w-full text-white font-mono text-base font-bold outline-none border-none p-0 focus:ring-0"
+                                    readOnly={isSmartSize}
+                                    onChange={e => !isSmartSize && setRiskUsd(parseFloat(e.target.value))}
+                                    className={`bg-transparent w-full font-mono text-base font-bold outline-none border-none p-0 focus:ring-0 ${isSmartSize ? 'text-blue-400' : 'text-white'}`}
                                 />
                                 <DollarSign size={14} className="text-gray-500 ml-1" />
                              </div>

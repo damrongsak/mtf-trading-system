@@ -81,3 +81,17 @@ export async function calculateADX(params: AdxParams): Promise<AdxResponse> {
     const response = await apiClient.post<AdxResponse>('/api/v1/analysis/calculate/adx', params);
     return response.data;
 }
+
+export interface DriftAnalysisResponse {
+    status: 'HEALTHY' | 'MONITORING' | 'DRIFT_WARNING' | 'INACTIVE';
+    filter_rate: number;
+    signal_count?: number;
+    opportunity_count?: number;
+    top_rejection_reason?: string;
+    window_hours?: number;
+}
+
+export async function getDriftAnalysis(window_hours: number = 24): Promise<DriftAnalysisResponse> {
+    const response = await apiClient.post<DriftAnalysisResponse>('/api/v1/analysis/drift', null, { params: { window_hours } });
+    return response.data;
+}

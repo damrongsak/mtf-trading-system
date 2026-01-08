@@ -57,7 +57,14 @@ The project distinguishes itself through:
     ```
     *   Frontend: `http://localhost:3000`
     *   API Docs: `http://localhost:8000/docs`
+    *   Frontend: `http://localhost:3000`
+    *   API Docs: `http://localhost:8000/docs`
     *   Qdrant Dashboard: `http://localhost:6333/dashboard`
+
+    > **Note:** If you encounter `npm` or `node` command errors locally, ensure NVM is loaded:
+    > ```bash
+    > export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    > ```
 
 *   **Command Execution Strategy (Important):**
     *   **Prefer Docker:** For consistency, use `docker compose exec <service> <command>` for backend/database tasks.
