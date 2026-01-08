@@ -24,6 +24,9 @@ class AgentState(TypedDict):
     # Reasoning Trace (CoT)
     scratchpad: List[str]
     
+    # Context Management
+    summary: Optional[str] # Long-term conversation summary
+    
     # Decisions
     next_node: Optional[str]
     final_response: Optional[str]

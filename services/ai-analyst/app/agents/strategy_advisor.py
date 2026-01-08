@@ -43,6 +43,10 @@ class StrategyAdvisorAgent(OlympusWorkflow):
         multimodal_content = []
         prompt_text = f"""
         You are an expert Quant Developer for the MTF Olympus System.
+        
+        Session Summary:
+        {state.get("summary", "None")}
+        
         User Request: "{query}"
 
         Knowledge Base:

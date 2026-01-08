@@ -566,3 +566,10 @@
     - **Testing:** Achieved >80% code coverage for `ai-analyst` service.
     - **BYOK:** Enabled "Bring Your Own Key" for Gemini API.
     - **Multimodal:** Added support for file uploads (`/ai/ingest/upload`) for strategy context.
+
+### 30. AI Memory Optimization (Semantic Summarization)
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **SummarizerAgent:** Implemented recursive summarization for long conversations (>5 messages).
+    - **Context Management:** Added `summary` field to `AgentState` to persist long-term context while refreshing short-term memory.
+    - **Testing:** Unit tests (`tests/test_summarizer.py`) verified logic.
