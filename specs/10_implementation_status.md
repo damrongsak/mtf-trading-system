@@ -573,3 +573,12 @@
     - **SummarizerAgent:** Implemented recursive summarization for long conversations (>5 messages).
     - **Context Management:** Added `summary` field to `AgentState` to persist long-term context while refreshing short-term memory.
     - **Testing:** Unit tests (`tests/test_summarizer.py`) verified logic.
+
+### 31. Universal Agents & MCP
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **UniversalAgent:** Created a configurable, "Lego-like" agent factory (`app/agents/universal.py`).
+    - **AgentConfig:** JSON/Pydantic schema (`app/schemas/agent.py`) for defining agents via pure configuration.
+    - **MCP Adapter:** Implemented `MCPToolAdapter` to load external Model Context Protocol tools.
+    - **Tool Registry:** Enhanced registry with bootstrapping (`bootstrap.py`) for string-based tool lookup.
+    - **Refactoring:** Migrated `MarketObserver` to use the new `UniversalAgent` engine.

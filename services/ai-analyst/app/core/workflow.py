@@ -34,18 +34,50 @@ class AgentState(TypedDict):
 # --- Tool Registry (The "Node" Library) ---
 class ToolRegistry:
     def __init__(self):
-        self._tools = {}
+        self._tools: Dict[str, Any] = {}
+        self._metadata: Dict[str, Dict] = {}
 
-    def register(self, name: str, func: callable):
-        self._tools[name] = func
+    def register(self, name: str, tool: Any, description: str = ""):
+        """Register a tool instance or callable."""
+        self._tools[name] = tool
+        
+        # Extract metadata if available (LangChain BaseTool)
+        desc = description
+        args = {}
+        
+        if hasattr(tool, "description") and not desc:
+            desc = tool.description
+        if hasattr(tool, "args"):
+            args = tool.args
+            
+        self._metadata[name] = {
+            "name": name,
+            "description": desc,
+            "args": args
+        }
 
-    def get(self, name: str):
+    def get(self, name: str) -> Any:
         return self._tools.get(name)
+        
+    def list_tools(self) -> List[Dict]:
+        """Return list of available tools for UI."""
+        return list(self._metadata.values())
 
     async def execute(self, name: str, **kwargs):
         if name not in self._tools:
             raise ValueError(f"Tool {name} not found")
-        return await self._tools[name](**kwargs)
+        
+        tool = self._tools[name]
+        
+        # Handle LangChain BaseTool
+        if hasattr(tool, "ainvoke"):
+            return await tool.ainvoke(kwargs)
+        elif hasattr(tool, "invoke"):
+            # Fallback for sync tools if needed, but perform strictly async here ideally
+            return tool.invoke(kwargs)
+            
+        # Handle simple callable
+        return await tool(**kwargs)
 
 # Global Registry Instance
 registry = ToolRegistry()

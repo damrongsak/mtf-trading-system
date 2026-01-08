@@ -41,6 +41,9 @@ async def analyze_sentiment(req: AnalysisRequest):
     return await sentiment_service.get_sentiment(req.symbol)
 
 # Initialize Services
+from app.core.bootstrap import bootstrap_tools
+bootstrap_tools()
+
 gemini_client = None
 rag_service = None
 market_observer = None
