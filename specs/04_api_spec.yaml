@@ -3797,6 +3797,179 @@ components:
         sharpe_ratio:
           type: number
           nullable: true
+
+    # --- System Prompt Schemas ---
+    SystemPromptCreate:
+      type: object
+      required:
+        - name
+        - template
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        template:
+          type: string
+        input_variables:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+          default: true
+    
+    SystemPromptUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        template:
+          type: string
+        input_variables:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+
+    SystemPromptResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        template:
+          type: string
+        input_variables:
+          type: array
+          items:
+             type: string
+        version:
+          type: integer
+        is_active:
+          type: boolean
+        created_at: 
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+  # --- Prompt Endpoints ---
+  /api/v1/prompts:
+    get:
+      summary: List system prompts
+      parameters:
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of prompts
+          content:
+             application/json:
+               schema:
+                 type: array
+                 items:
+                   $ref: '#/components/schemas/SystemPromptResponse'
+    post:
+      summary: Create new system prompt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemPromptCreate'
+      responses:
+         '200':
+           description: Prompt Created
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/SystemPromptResponse'
+
+  /api/v1/prompts/{id}:
+    get:
+      summary: Get system prompt details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+           description: Prompt Details
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/SystemPromptResponse'
+    put:
+      summary: Update system prompt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+             type: string
+             format: uuid
+      requestBody:
+        content:
+          application/json:
+             schema:
+               $ref: '#/components/schemas/SystemPromptUpdate'
+      responses:
+        '200':
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemPromptResponse'
+
+  /api/v1/prompts/{id}/render:
+     post:
+       summary: Render prompt with variables
+       parameters:
+         - name: id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+       requestBody:
+         content:
+           application/json:
+             schema:
+               type: object
+               required:
+                 - variables
+               properties:
+                 variables:
+                   type: object
+       responses:
+         '200':
+            description: Rendered Text
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                     rendered_text:
+                       type: string
+                     missing_variables:
+                       type: array
+                       items:
+                         type: string
         sortino_ratio:
           type: number
           nullable: true

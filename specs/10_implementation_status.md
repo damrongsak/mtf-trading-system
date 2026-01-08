@@ -582,3 +582,11 @@
     - **MCP Adapter:** Implemented `MCPToolAdapter` to load external Model Context Protocol tools.
     - **Tool Registry:** Enhanced registry with bootstrapping (`bootstrap.py`) for string-based tool lookup.
     - **Refactoring:** Migrated `MarketObserver` to use the new `UniversalAgent` engine.
+
+### 32. Dynamic Prompt Management (DB & Audit)
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **Centralized Storage:** `SystemPrompt` and `AuditLog` tables implemented in API Gateway (PostgreSQL).
+    - **API:** RESTful CRUD endpoints (`/api/v1/prompts`) for managing agent roles.
+    - **Ownership & Audit:** Prompts are linked to Users; detailed Audit Log tracks all version changes.
+    - **Integration:** `UniversalAgent` dynamically fetches Prompts via API Gateway, with caching in `PromptRegistry`.
