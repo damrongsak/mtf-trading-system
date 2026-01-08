@@ -21,7 +21,7 @@ const steps = [
     number: '03',
     icon: <Zap className="w-8 h-8" />,
     title: 'Execute',
-    description: '15m trigger signals delivered with strict $10 max risk management',
+    description: '15m trigger signals executed with Configurable Smart Risk Management',
     color: 'accent-green',
   },
 ];
