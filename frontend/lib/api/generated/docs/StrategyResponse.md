@@ -7,8 +7,10 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **string** |  | [optional] [default to undefined]
 **name** | **string** |  | [optional] [default to undefined]
-**type** | **string** |  | [optional] [default to undefined]
+**template_id** | **string** |  | [optional] [default to undefined]
+**broker_account_id** | **string** |  | [optional] [default to undefined]
 **config_json** | **object** |  | [optional] [default to undefined]
+**risk_settings** | **object** |  | [optional] [default to undefined]
 **is_active** | **boolean** |  | [optional] [default to undefined]
 
 ## Example
@@ -19,8 +21,10 @@ import { StrategyResponse } from './api';
 const instance: StrategyResponse = {
     id,
     name,
-    type,
+    template_id,
+    broker_account_id,
     config_json,
+    risk_settings,
     is_active,
 };
 ```

@@ -590,3 +590,13 @@
     - **API:** RESTful CRUD endpoints (`/api/v1/prompts`) for managing agent roles.
     - **Ownership & Audit:** Prompts are linked to Users; detailed Audit Log tracks all version changes.
     - **Integration:** `UniversalAgent` dynamically fetches Prompts via API Gateway, with caching in `PromptRegistry`.
+
+## Phase 33: Frontend AI Integration
+- [x] **Frontend API Generation**:
+  - [x] Resolved YAML duplication and schema errors in `specs/04_api_spec.yaml`.
+  - [x] Successfully generated TypeScript client via `pnpm run gen:api`.
+  - [x] Integrated `defaultApi` into `frontend/lib/api/client.ts`.
+- [x] **Prompt Editor UI**:
+  - [x] Refactored `components/ai/PromptEditor.tsx` to use generated API client.
+  - [x] Verified parameter mapping for `apiV1Prompts*` methods.
+

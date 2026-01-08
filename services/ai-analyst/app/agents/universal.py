@@ -23,9 +23,17 @@ class UniversalAgent:
                 self.tools.append(tool)
             else:
                 logger.warning(f"Tool '{tool_name}' not found in registry. Skipping.")
-        
-        # 2. Initialize LLM
-        # Handle BYOK if needed (TODO: Pass runtime config for keys, here using system defaults for simplicity/prototype)
+
+        # 2. Resolve Role
+        self.role = config.role
+        if config.role_prompt_id:
+            fetched = self._fetch_role_sync(config.role_prompt_id)
+            if fetched:
+                self.role = fetched
+            else:
+                logger.warning(f"Using fallback role for {config.name}")
+
+        # 3. Initialize LLM
         if not settings.GOOGLE_API_KEY:
              raise ValueError("GOOGLE_API_KEY is not set")
              
@@ -35,9 +43,20 @@ class UniversalAgent:
             temperature=config.temperature
         )
         
-        # 3. Build Graph
-        # We use create_react_agent which gives us a compiled graph
-        self.graph = create_react_agent(self.llm, self.tools, messages_modifier=config.role)
+        # 4. Build Graph
+        self.graph = create_react_agent(self.llm, self.tools, messages_modifier=self.role)
+
+    def _fetch_role_sync(self, prompt_id: str) -> str:
+        import httpx
+        try:
+             url = f"{settings.API_GATEWAY_URL}/api/v1/prompts/{prompt_id}"
+             with httpx.Client() as client:
+                 resp = client.get(url, timeout=3.0)
+                 if resp.status_code == 200:
+                     return resp.json().get("template", "")
+        except Exception as e:
+            logger.error(f"Failed to fetch prompt sync: {e}")
+        return ""
 
     async def run(self, input_text: str) -> str:
         """

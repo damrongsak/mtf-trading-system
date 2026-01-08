@@ -7,8 +7,9 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **string** |  | [optional] [default to undefined]
 **status** | **string** |  | [optional] [default to undefined]
-**metrics** | **object** |  | [optional] [default to undefined]
+**metrics** | [**BacktestMetrics**](BacktestMetrics.md) |  | [optional] [default to undefined]
 **trades** | **Array&lt;object&gt;** |  | [optional] [default to undefined]
+**plot_json** | **string** | Serialized Plotly JSON string | [optional] [default to undefined]
 
 ## Example
 
@@ -20,6 +21,7 @@ const instance: BacktestResponse = {
     status,
     metrics,
     trades,
+    plot_json,
 };
 ```
 

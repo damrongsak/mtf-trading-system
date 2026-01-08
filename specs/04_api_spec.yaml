@@ -29,6 +29,174 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_DataSource'
 
+  # --- Prompt Endpoints ---
+  /api/v1/prompts:
+    get:
+      summary: List system prompts
+      parameters:
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of prompts
+          content:
+             application/json:
+               schema:
+                 type: array
+                 items:
+                   $ref: '#/components/schemas/SystemPromptResponse'
+    post:
+      summary: Create new system prompt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemPromptCreate'
+      responses:
+         '200':
+           description: Prompt Created
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/SystemPromptResponse'
+
+  /api/v1/prompts/{id}:
+    get:
+      summary: Get system prompt details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+           description: Prompt Details
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/SystemPromptResponse'
+    put:
+      summary: Update system prompt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+             type: string
+             format: uuid
+      requestBody:
+        content:
+          application/json:
+             schema:
+               $ref: '#/components/schemas/SystemPromptUpdate'
+      responses:
+        '200':
+          description: Prompt updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemPromptResponse'
+
+  /api/v1/prompts/{id}/render:
+     post:
+       summary: Render prompt with variables
+       parameters:
+         - name: id
+           in: path
+           required: true
+           schema:
+             type: string
+             format: uuid
+       requestBody:
+         content:
+           application/json:
+             schema:
+               type: object
+               required:
+                 - variables
+               properties:
+                 variables:
+                   type: object
+       responses:
+         '200':
+            description: Rendered Text
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                     rendered_text:
+                       type: string
+                     missing_variables:
+                       type: array
+                       items:
+                         type: string
+
+  /api/v1/plugins:
+    get:
+      summary: List all plugins
+      responses:
+        '200':
+          description: List of plugins
+
+  /api/v1/plugins/{id}/activate:
+    post:
+      summary: Activate a plugin for current user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: 
+                    type: string
+                    example: "active"
+
+  /api/v1/plugins/{id}/deactivate:
+    post:
+      summary: Deactivate a plugin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin deactivated
+
+  /api/v1/plugins/{id}/config:
+    put:
+      summary: Update plugin configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated
+
   /api/v1/data-sources/{id}:
     get:
       summary: Get a specific data source
@@ -416,7 +584,7 @@ paths:
         content:
           application/json:
             schema:
-            schema:
+
               type: object
               properties:
                 fund_id:
@@ -541,9 +709,6 @@ paths:
                      created_at:
                        type: string
                        format: date-time
-                      created_at:
-                       type: string
-                       format: date-time
 
   /api/v1/data/open-interest/analysis:
     get:
@@ -571,6 +736,7 @@ paths:
           description: Analytics data (PCR, Max Pain, Net Delta)
           content:
             application/json:
+              schema:
                 $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
 
   /api/v1/analysis/calculate/smc:
@@ -1582,7 +1748,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse[FoundryAssembleResponse]'
+                $ref: '#/components/schemas/APIResponse_FoundryAssembleResponse'
 
   /foundry/validate:
     post:
@@ -1601,7 +1767,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse[WalkForwardResponse]'
+                $ref: '#/components/schemas/APIResponse_WalkForwardResponse'
 
   /api/v1/foundry/validate:
     post:
@@ -1734,14 +1900,7 @@ components:
     DataSourceProvider:
       type: string
       enum: [OANDA, BINANCE]
-    StrategyBacktestRequest:
-      type: object
-      required:
-        - code
-        - symbol
-        - timeframe
-        - start_date
-        - end_date
+
 
     DataSource:
       type: object
@@ -1813,6 +1972,26 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/DataSource'
+
+    APIResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+
+    APIResponse_StrategyTemplateList:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StrategyTemplate'
 
     APIResponse_DataSource:
       allOf:
@@ -1905,31 +2084,8 @@ components:
     # --- Generic Wrappers (instantiated for each type) ---
     # Note: OpenAPI 3.0 doesn't support generics directly, so we define explicit types.
     
-    APIResponse_SignalResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/SignalResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+
+
 
     Candle:
       type: object
@@ -2035,43 +2191,9 @@ components:
           type: string
           format: date-time
 
-    APIResponse_BrokerAccount:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/BrokerAccountResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        timestamp:
-          type: string
-          format: date-time
 
-    APIResponse_BrokerAccountList:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/BrokerAccountResponse'
-        message:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
+
+
 
     APIResponse_Success:
       type: object
@@ -2434,9 +2556,7 @@ components:
           format: date-time
         rate_limit:
           $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+
 
     PaginatedResponse_Fund:
       type: object
@@ -2570,51 +2690,9 @@ components:
         is_active:
           type: boolean
     
-    BrokerAccountCreate:
-      type: object
-      required:
-        - broker_name
-        - account_name
-        - credentials
-      properties:
-        broker_name:
-          type: string
-          enum: [OANDA, BINANCE]
-        account_name:
-          type: string
-        account_number:
-          type: string
-        is_live:
-          type: boolean
-          default: false
-        credentials:
-          type: object
-          description: "Key-value pairs of API keys, secrets, etc."
 
-    BrokerAccountUpdate:
-      type: object
-      properties:
-        account_name:
-          type: string
-        account_number:
-          type: string
-        is_live:
-          type: boolean
-        is_active:
-          type: boolean
-        credentials:
-          type: object
 
-    BrokerAccount:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        broker_name:
-          type: string
-        account_id:
-          type: string
+
 
     SmartOrderRequest:
       type: object
@@ -2701,17 +2779,7 @@ components:
           items:
             type: string
           nullable: true
-        preferred_timeframes:
-          type: array
-          items:
-            type: string
-        default_symbol:
-          type: string
-        session_preferences:
-          type: array
-          items:
-            type: string
-          nullable: true
+
         supported_symbols:
           type: array
           items:
@@ -3191,7 +3259,6 @@ components:
         data:
           type: array
           items:
-          items:
             $ref: '#/components/schemas/SignalResponse'
 
     SignalResponse:
@@ -3319,7 +3386,6 @@ components:
         end_date:
           type: string
           format: date-time
-          type: number
         fees:
           type: number
         slippage:
@@ -3798,6 +3864,27 @@ components:
           type: number
           nullable: true
 
+
+
+        sortino_ratio:
+          type: number
+          nullable: true
+        alpha:
+          type: number
+          nullable: true
+        beta:
+          type: number
+          nullable: true
+        information_ratio:
+          type: number
+          nullable: true
+        total_trades:
+          type: integer
+        winning_trades:
+          type: integer
+        losing_trades:
+          type: integer
+
     # --- System Prompt Schemas ---
     SystemPromptCreate:
       type: object
@@ -3863,131 +3950,6 @@ components:
           type: string
           format: date-time
 
-  # --- Prompt Endpoints ---
-  /api/v1/prompts:
-    get:
-      summary: List system prompts
-      parameters:
-        - name: owner_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: List of prompts
-          content:
-             application/json:
-               schema:
-                 type: array
-                 items:
-                   $ref: '#/components/schemas/SystemPromptResponse'
-    post:
-      summary: Create new system prompt
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SystemPromptCreate'
-      responses:
-         '200':
-           description: Prompt Created
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/SystemPromptResponse'
-
-  /api/v1/prompts/{id}:
-    get:
-      summary: Get system prompt details
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-           description: Prompt Details
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/SystemPromptResponse'
-    put:
-      summary: Update system prompt
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-             type: string
-             format: uuid
-      requestBody:
-        content:
-          application/json:
-             schema:
-               $ref: '#/components/schemas/SystemPromptUpdate'
-      responses:
-        '200':
-          description: Prompt updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SystemPromptResponse'
-
-  /api/v1/prompts/{id}/render:
-     post:
-       summary: Render prompt with variables
-       parameters:
-         - name: id
-           in: path
-           required: true
-           schema:
-             type: string
-             format: uuid
-       requestBody:
-         content:
-           application/json:
-             schema:
-               type: object
-               required:
-                 - variables
-               properties:
-                 variables:
-                   type: object
-       responses:
-         '200':
-            description: Rendered Text
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                     rendered_text:
-                       type: string
-                     missing_variables:
-                       type: array
-                       items:
-                         type: string
-        sortino_ratio:
-          type: number
-          nullable: true
-        alpha:
-          type: number
-          nullable: true
-        beta:
-          type: number
-          nullable: true
-        information_ratio:
-          type: number
-          nullable: true
-        total_trades:
-          type: integer
-        winning_trades:
-          type: integer
-        losing_trades:
-          type: integer
 
     PluginResponse:
       type: object
@@ -4035,12 +3997,7 @@ components:
           data:
             $ref: '#/components/schemas/Briefing'
   
-  /api/v1/plugins:
-    get:
-      summary: List all plugins
-      responses:
-        '200':
-          description: List of plugins
+
 
     # --- SMC Schemas ---
     SMCRequest:
@@ -4165,65 +4122,8 @@ components:
             type: object
             additionalProperties:
               type: number
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PluginResponse'
 
-  /api/v1/plugins/{id}/activate:
-    post:
-      summary: Activate a plugin for current user
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Plugin activated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: 
-                    type: string
-                    example: "active"
 
-  /api/v1/plugins/{id}/deactivate:
-    post:
-      summary: Deactivate a plugin
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Plugin deactivated
-
-  /api/v1/plugins/{id}/config:
-    put:
-      summary: Update plugin configuration
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PluginConfigUpdate'
-      responses:
-        '200':
-          description: Configuration updated
 
     OpportunityLog:
       type: object
@@ -4272,3 +4172,95 @@ components:
       properties:
         is_active:
           type: boolean
+
+    StrategyChatRequest:
+      type: object
+      required:
+        - message
+        - user_id
+      properties:
+        message:
+          type: string
+        user_id:
+          type: string
+        strategy_id:
+          type: string
+          nullable: true
+        context_code:
+          type: string
+          nullable: true
+        context_stats:
+          type: object
+          nullable: true
+        image_b64:
+          type: string
+          nullable: true
+
+    OpenInterestCommon:
+      type: object
+      properties:
+        contract_symbol:
+          type: string
+        dte:
+          type: integer
+        strike:
+          type: number
+        call_oi:
+          type: number
+        put_oi:
+          type: number
+
+    APIResponse_WalkForwardResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/WalkForwardResponse'
+
+    AnalysisSummary:
+      type: object
+      properties:
+        total_call_oi:
+          type: number
+        total_put_oi:
+          type: number
+        pcr:
+          type: number
+        max_call_strike:
+          type: number
+        max_put_strike:
+          type: number
+
+    AnalysisDistribution:
+      type: object
+      properties:
+        strike:
+          type: number
+        call_oi:
+          type: number
+        put_oi:
+          type: number
+        net_delta:
+          type: number
+
+    OpenInterestAnalysisResponse:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/AnalysisSummary'
+        distribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisDistribution'
+
+    APIResponse_OpenInterestAnalytics:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/OpenInterestAnalysisResponse'
+
+
+

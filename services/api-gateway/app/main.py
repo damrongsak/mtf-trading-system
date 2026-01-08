@@ -88,12 +88,9 @@ app.include_router(ai.router)
 
 # Routers with prefixes (matching Nginx rewrites or specific paths)
 app.include_router(dashboard.router, prefix="/api/v1/dashboard")
-app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(data.router) # data router likely has /api/v1/data inside or is handled
-app.include_router(execution.router, prefix="/api/v1")
 app.include_router(stream.router, prefix="/api/v1/stream")
 app.include_router(market.router, prefix="/api/v1/market")
-app.include_router(analysis.router)
 app.include_router(market_data.router, prefix="/api/v1")
 app.include_router(broker_account.router)
 app.include_router(system.router, prefix="/api/v1/system", tags=["System"])
@@ -104,8 +101,18 @@ app.include_router(foundry.router, prefix="/api/v1")
 from app.routers import plugins
 app.include_router(plugins.router, prefix="/api/v1")
 
-from app.routers import data_source
-app.include_router(data_source.router, prefix="/api/v1")
+from app.routers import auth, strategies, execution, risk, data_source, backtest, journal, data_symbols, data_open_interest, analysis, prompts
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(strategies.router, prefix="/api/v1/strategies", tags=["Strategies"])
+app.include_router(execution.router, prefix="/api/v1/execution", tags=["Execution"])
+app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk"])
+app.include_router(data_source.router, prefix="/api/v1/data-sources", tags=["Data Sources"])
+app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["Backtest"])
+app.include_router(journal.router, prefix="/api/v1/journal", tags=["Journal"])
+app.include_router(data_symbols.router, prefix="/api/v1/data/symbols", tags=["Market Data"])
+app.include_router(data_open_interest.router, prefix="/api/v1/data/open-interest", tags=["Open Interest"])
+app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Analysis"])
+app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
 
 
 

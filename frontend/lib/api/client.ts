@@ -103,4 +103,17 @@ apiClient.interceptors.response.use(
     }
 );
 
+
+import { Configuration, DefaultApi, AnalysisApi, FoundryApi } from './generated';
+
+const apiConfig = new Configuration({
+    basePath: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+});
+
+// Initialize API clients with the axios instance that handles auth/logging
+export const defaultApi = new DefaultApi(apiConfig, undefined, apiClient);
+export const analysisApi = new AnalysisApi(apiConfig, undefined, apiClient);
+export const foundryApi = new FoundryApi(apiConfig, undefined, apiClient);
+
 export { apiClient };
+

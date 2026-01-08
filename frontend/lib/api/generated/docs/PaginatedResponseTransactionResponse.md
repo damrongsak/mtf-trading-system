@@ -9,7 +9,6 @@ Name | Type | Description | Notes
 **data** | [**Array&lt;TransactionResponse&gt;**](TransactionResponse.md) |  | [default to undefined]
 **message** | **string** |  | [optional] [default to undefined]
 **meta** | [**Meta**](Meta.md) |  | [default to undefined]
-**rate_limit** | [**RateLimitInfo**](RateLimitInfo.md) |  | [optional] [default to undefined]
 **timestamp** | **string** |  | [default to undefined]
 
 ## Example
@@ -22,7 +21,6 @@ const instance: PaginatedResponseTransactionResponse = {
     data,
     message,
     meta,
-    rate_limit,
     timestamp,
 };
 ```

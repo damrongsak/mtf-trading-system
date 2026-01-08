@@ -13,6 +13,11 @@ Name | Type | Description | Notes
 **sl_price** | **number** |  | [optional] [default to undefined]
 **tp_price** | **number** |  | [optional] [default to undefined]
 **reason** | **string** |  | [optional] [default to undefined]
+**broker** | **string** |  | [optional] [default to undefined]
+**strategy_name** | **string** |  | [optional] [default to undefined]
+**confidence** | **number** |  | [optional] [default to 0.0]
+**sentiment_score** | **number** | Market sentiment (-1.0 to 1.0) | [optional] [default to undefined]
+**sentiment_reason** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -28,6 +33,11 @@ const instance: SignalResponse = {
     sl_price,
     tp_price,
     reason,
+    broker,
+    strategy_name,
+    confidence,
+    sentiment_score,
+    sentiment_reason,
 };
 ```
 

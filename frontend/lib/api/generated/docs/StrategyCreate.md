@@ -7,8 +7,10 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **string** |  | [default to undefined]
 **fund_id** | **string** |  | [default to undefined]
-**type** | **string** |  | [default to undefined]
+**template_id** | **string** |  | [default to undefined]
+**broker_account_id** | **string** |  | [default to undefined]
 **config_json** | **object** |  | [default to undefined]
+**risk_settings** | **object** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -18,8 +20,10 @@ import { StrategyCreate } from './api';
 const instance: StrategyCreate = {
     name,
     fund_id,
-    type,
+    template_id,
+    broker_account_id,
     config_json,
+    risk_settings,
 };
 ```
 
