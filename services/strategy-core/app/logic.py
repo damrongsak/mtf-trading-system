@@ -145,3 +145,61 @@ def calculate_stop_loss(df_m15: pd.DataFrame, direction: SignalDirection, atr_mu
         return current_price - dist
     else:
         return current_price + dist
+
+def calculate_target_price(df_h1: pd.DataFrame, direction: SignalDirection, entry_price: float, sl_price: float) -> float:
+    """
+    Calculate Target Price (TP) for RRR calculation.
+    
+    Logic:
+    1. Look for nearest "Opposing" Order Block (e.g. Bearish OB for Long trade).
+    2. If found, TP = Edge of OB (Bottom for Bearish, Top for Bullish).
+    3. If NOT found (or too far), use a fixed 2.0R Fallback.
+    """
+    risk_dist = abs(entry_price - sl_price)
+    
+    # Fallback Target (2R)
+    if direction == SignalDirection.BULLISH:
+        fallback_tp = entry_price + (risk_dist * 2.0)
+    else:
+        fallback_tp = entry_price - (risk_dist * 2.0)
+        
+    # Get Order Blocks
+    obs = detect_order_blocks(df_h1)
+    
+    nearest_ob_price = None
+    
+    if direction == SignalDirection.BULLISH:
+        # Looking for Bearish OBs ABOVE entry
+        candidates = [ob['bottom'] for ob in obs if ob['type'] == 'bearish' and ob['bottom'] > entry_price]
+        if candidates:
+            # Nearest one (min value > entry)
+            nearest_ob_price = min(candidates)
+            
+    elif direction == SignalDirection.BEARISH:
+        # Looking for Bullish OBs BELOW entry
+        candidates = [ob['top'] for ob in obs if ob['type'] == 'bullish' and ob['top'] < entry_price]
+        if candidates:
+            # Nearest one (max value < entry)
+            nearest_ob_price = max(candidates)
+            
+    # Decision: Use OB if it exists, otherwise Fallback
+    # Note: Realistically, if OB is too close (< 1R), check_rrr will fail anyway.
+    if nearest_ob_price is not None:
+        return nearest_ob_price
+        
+    return fallback_tp
+
+def check_rrr(entry_price: float, sl_price: float, tp_price: float, min_rrr: float = 1.5) -> bool:
+    """
+    Rule E: Risk Reward Ratio Check
+    """
+    risk = abs(entry_price - sl_price)
+    reward = abs(tp_price - entry_price)
+    
+    if risk == 0:
+        return False
+        
+    rrr = reward / risk
+    
+    return rrr >= min_rrr
+

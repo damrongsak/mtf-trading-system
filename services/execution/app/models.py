@@ -22,6 +22,7 @@ class Fund(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     strategy_type = Column(String, nullable=False) # Enum as string
     max_risk_per_trade = Column(Numeric(10, 2), nullable=False)
+    risk_percentage = Column(Numeric(5, 4), default=0.01) # Default 1% (0.01). Precision 5,4 allows 0.0050 (0.5%)
     asset_classes = Column(JSON, nullable=False)
     # Add other risk params as needed, or just mapped broadly
     default_lot_size = Column(Numeric(10, 2), nullable=False)

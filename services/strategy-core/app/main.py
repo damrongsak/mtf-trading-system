@@ -459,6 +459,14 @@ def run_monte_carlo_endpoint(req: MonteCarloRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/analysis/drift")
+def analyze_system_drift(window_hours: int = 24):
+    try:
+        from app.analysis.monitor import performance_monitor
+        return performance_monitor.analyze_drift(window_hours=window_hours)
+    except Exception as e:
+        logger.error(f"Drift endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Live Deployment Endpoints ---
 

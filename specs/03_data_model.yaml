@@ -75,6 +75,13 @@ entities:
         scale: 2
         default: 10.00
         required: true
+      - name: risk_percentage
+        type: decimal
+        precision: 5
+        scale: 4
+        default: 0.01
+        required: true
+        description: "Dynamic risk per trade as % of NAV (e.g. 0.01 = 1%)"
       - name: default_lot_size
         type: decimal
         precision: 10

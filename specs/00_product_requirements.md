@@ -106,6 +106,9 @@ The platform is built on five functional pillars:
 | **F6.2** | **Sentiment Factor**: Signal generation must consider News Sentiment Score (-1.0 to 1.0). High negative sentiment must block Long signals. |
 | **F6.3** | **Volatility Filtering**: Trades in low-volatility regimes (Low ATR) must be filtered to reduce noise. |
 | **F6.4** | **Traceability**: All skipped trades must be logged (`OpportunityLog`) for analysis. |
+| **F6.5** | **RRR Filtering**: Trades must have Risk-Reward Ratio >= 1.5. Uses Order Block targets or 2R fallback. |
+| **F6.6** | **Dynamic Risk**: Position sizing uses `Risk = 1% of NAV` (configurable), capped by `max_risk_per_trade`. |
+| **F6.7** | **Drift Detection**: Monitor `Skipped / Total` signals. Alert if Filter Rate > 80%. |
 
 ---
 

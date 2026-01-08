@@ -71,9 +71,11 @@ These rules are enforced by the `Execution Service` **before** any trade is subm
 ### 3.3 The Iron Guardrails (Hard Constraints)
 These legacy rules remain as a final safety net:
 
-1.  **Max Risk Cap**: No single trade can risk > **$10 USD** (or configured limit).
-2.  **Min Lot Size**: Trades leading to lots < **0.01** are rejected.
-3.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
+1.  **Max Risk Cap**: No single trade can risk > `Fund.max_risk_per_trade` (or configured limit).
+2.  **Dynamic Position Sizing**: `Risk = NAV * Fund.risk_percentage`.
+    *   Hard Cap: `Min(Dynamic Risk, Max Risk Cap)`.
+3.  **Min Lot Size**: Trades leading to lots < **0.01** are rejected.
+4.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
 
 ---
 

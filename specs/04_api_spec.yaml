@@ -1594,6 +1594,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_StrategyList'
 
+  /analysis/drift:
+    post:
+      summary: "Analyze System Drift"
+      description: "Detects if strategy filters are rejecting an abnormal number of trades (Drift)."
+      tags:
+        - "Analysis"
+      parameters:
+        - name: window_hours
+          in: query
+          schema:
+            type: integer
+            default: 24
+      responses:
+        "200":
+          description: "Drift Analysis Report"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ["HEALTHY", "MONITORING", "DRIFT_WARNING", "INACTIVE"]
+                  filter_rate:
+                    type: number
+                  top_rejection_reason:
+                    type: string
+
 components:
   schemas:
     # --- Standard Response Wrappers ---

@@ -528,3 +528,12 @@
         - Added dedicated streaming unit tests (`test_streaming.py`).
         - Achieved >80% test coverage for streaming components.
 
+
+### 26. Project Olympus Enhancements (Core Logic)
+- **Status:** ✅ Complete (2026-01-08)
+- **Features:**
+    - **RRR Filter:** Implemented logic to calculate Target Price (Order Block or 2R) and reject trades with RRR < 1.5.
+    - **Risk Management:** Updated `Fund` model and Execution Service to support Dynamic Position Sizing (1% of NAV), respecting Hard Caps.
+    - **AI Feedback Loop:** Implemented `PerformanceMonitor` and `/analysis/drift` endpoint to detect System Drift (High Filter Rate).
+    - **Specs:** Updated PRD, Data Model, API Spec, and Execution Rules.
+    - **Verification:** Unit and Integration tests passed for all components.

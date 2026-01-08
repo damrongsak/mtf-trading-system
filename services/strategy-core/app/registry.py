@@ -3,7 +3,7 @@ import asyncio
 import logging
 from typing import Optional, Dict
 import pandas as pd
-from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection
+from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
 from app.indicators import calculate_ema, calculate_rsi, calculate_macd
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,21 @@ async def smc_v1_strategy(state, data_manager):
         return None
 
     stop_loss = calculate_stop_loss(df_base, bias)
+    
+    # --- RRR Filter ---
+    entry_price = df_base['close'].iloc[-1] # Current price (or approximate entry)
+    target_price = calculate_target_price(df_h1, bias, entry_price, stop_loss)
+    
+    if not check_rrr(entry_price, stop_loss, target_price):
+         logger.info(f"Signal filtered by RRR: Entry={entry_price}, SL={stop_loss}, TP={target_price}")
+         return None
 
     return {
         "direction": bias.value,
         "stop_loss": stop_loss,
+        "take_profit": target_price,
+        "target_price": target_price,
+        "rrr": abs(target_price - entry_price) / abs(entry_price - stop_loss),
         "reason": f"SMC Entry: {bias.value} Bias + OB + Trigger"
     }
 

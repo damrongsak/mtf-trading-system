@@ -219,13 +219,50 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
     effective_limit = fund_limit
     if account_limit is not None:
         effective_limit = min(fund_limit, account_limit)
-        
+    
+    # --- DYNAMIC RISK CALCULATION ---
+    # Default to requested or effective limit if no dynamic rule
+    calculated_risk = effective_limit
+    
+    # If Fund has Risk % set (e.g. 0.01 for 1%)
+    if fund.risk_percentage and float(fund.risk_percentage) > 0:
+        try:
+             # Fetch Account NAV
+             # We reuse the adapter we already instantiated
+             summary = adapter.get_summary() # Should return dict with 'NAV' or 'balance' or 'marginAvailable'
+             # Oanda summary has 'NAV' (Net Asset Value)
+             nav_str = summary.get('NAV')
+             if nav_str:
+                 nav = float(nav_str)
+                 
+                 # Calc Dynamic Risk
+                 dynamic_risk = nav * float(fund.risk_percentage)
+                 
+                 # Cap at Effective Limit (Safety Guardrail)
+                 calculated_risk = min(dynamic_risk, effective_limit)
+                 
+                 # Log for debugging (in real system use logger)
+                 print(f"Dynamic Risk: NAV={nav} * {fund.risk_percentage} = {dynamic_risk}. Capped at {effective_limit} -> {calculated_risk}")
+             else:
+                 # Fallback if NAV not available? 
+                 # Use effective_limit but maybe warn?
+                 pass
+        except Exception as e:
+            # If fetch fails, fallback to safe limit or existing logic?
+            # For safety, maybe fallback to a safe default if fetching NAV fails?
+            # Or just proceed with effective_limit?
+            # Let's log and proceed
+            print(f"Failed to calc dynamic risk: {e}")
+
     # Requested Risk
-    requested_risk = req.risk_usd if req.risk_usd is not None else effective_limit  # Default to MAX if not specified? Or safe default?
-    # Better: Default to safe value (e.g. 1% or $10), but capped by limit
-    if req.risk_usd is None:
-        requested_risk = min(effective_limit, 10.0) # Logic from previous default
-        
+    # checking if user provided a specific override
+    requested_risk = req.risk_usd if req.risk_usd is not None else calculated_risk
+    
+    # Cap User Request at Effective Limit (and maybe dynamic limit?)
+    # If user manually requests $50 but dynamic is $20, should we allow?
+    # Usually manual override (req.risk_usd) implies "I know what I'm doing".
+    # But we MUST respect the HARD LIMIT (effective_limit).
+    
     # Enforce Limit
     if requested_risk > effective_limit:
          raise HTTPException(status_code=400, detail=f"Requested risk ${requested_risk} exceeds effective limit ${effective_limit} (Fund: ${fund_limit})")
