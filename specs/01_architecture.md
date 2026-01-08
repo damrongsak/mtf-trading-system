@@ -82,10 +82,13 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.4. AI Analyst (`services/ai-analyst`)
 - **Role**: The "Performance Coach".
 - **Key Features**:
+    - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration (Supervisor Pattern).
+    - **Summarizer Agent**: Compresses conversation history to optimize Token Context (Semantic Memory).
+    - **Self-Awareness (Doc-RAG)**: Ingests and references system documentation to understand its own architecture.
+    - **Bring Your Own Key (BYOK)**: Supports user-provided Gemini API keys and models.
+    - **Multimodal Support**: Analysis of uploaded files (PDFs, Images) for strategy context.
     - **Mental State Machine**: FSM tracking A-Game vs C-Game.
     - **Coaching Agent**: Intervenes during tilt using Steenbarger's framework.
-
-    - **RAG**: Retrieves past "Mental Hand Histories" to show patterns.
     - **Quant Tools**: `calculate_efficient_frontier` (PyPortfolioOpt) and `analyze_market_regime` (Quantreo).
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
