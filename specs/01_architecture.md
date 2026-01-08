@@ -82,6 +82,8 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.4. AI Analyst (`services/ai-analyst`)
 - **Role**: The "Performance Coach".
 - **Key Features**:
+    - **Universal Agent**: Configurable "Lego" agent factory (`UniversalAgent`) for dynamic role creation.
+    - **MCP Support**: Adapter for Model Context Protocol to plug external tools.
     - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration (Supervisor Pattern).
     - **Summarizer Agent**: Compresses conversation history to optimize Token Context (Semantic Memory).
     - **Self-Awareness (Doc-RAG)**: Ingests and references system documentation to understand its own architecture.
