@@ -11,11 +11,22 @@ class GeminiClient:
         # Using configured model
         self.model_id = settings.GEMINI_MODEL_ID
 
-    async def generate_market_outlook(self, context: dict) -> str:
+    async def generate_market_outlook(self, context: dict, api_key: str = None, model_id: str = None) -> str:
         """
         Generates a market outlook based on technical indicators and SMC context.
         Supports multimodal input (images).
+        Values in `context` can optionally override `api_key` and `model_id`.
         """
+        
+        # Determine strict client config
+        active_key = api_key or settings.GOOGLE_API_KEY
+        active_model = model_id or self.model_id
+        
+        # Instantiate transient client if key differs, else use default
+        client = self.client
+        if api_key and api_key != settings.GOOGLE_API_KEY:
+            client = genai.Client(api_key=active_key)
+
         prompt = f"""
         You are an elite institutional trader analyzing the financial markets. 
         Analyze the following market context and provide a concise, narrative-based outlook.
@@ -50,8 +61,8 @@ class GeminiClient:
                 return f"Error processing image: {str(e)}"
 
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model_id,
+            response = await client.aio.models.generate_content(
+                model=active_model,
                 contents=contents
             )
             return response.text
@@ -100,10 +111,17 @@ class GeminiClient:
         except Exception as e:
             return f"Error analyzing journal: {str(e)}"
 
-    async def generate_smc_narrative(self, smc_data: dict, price_context: dict) -> str:
+    async def generate_smc_narrative(self, smc_data: dict, price_context: dict, api_key: str = None, model_id: str = None) -> str:
         """
         Generates a narrative based on SMC data (Order Blocks, FVGs, Structure).
         """
+        active_key = api_key or settings.GOOGLE_API_KEY
+        active_model = model_id or self.model_id
+        
+        client = self.client
+        if api_key and api_key != settings.GOOGLE_API_KEY:
+            client = genai.Client(api_key=active_key)
+
         prompt = f"""
         You are an expert Smart Money Concepts (SMC) trader.
         Analyze the current market structure and generate a professional trade narrative.
@@ -127,8 +145,8 @@ class GeminiClient:
         """
         
         try:
-             response = await self.client.aio.models.generate_content(
-                model=self.model_id,
+             response = await client.aio.models.generate_content(
+                model=active_model,
                 contents=prompt
             )
              return response.text

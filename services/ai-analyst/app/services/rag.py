@@ -18,9 +18,11 @@ class RAGService:
         self.gemini = gemini_client or GeminiClient()
         self.journal_collection = "journal_entries"
         self.strategy_collection = "strategies"
+        self.docs_collection = "system_docs"
         
         self._ensure_collection(self.journal_collection)
         self._ensure_collection(self.strategy_collection)
+        self._ensure_collection(self.docs_collection)
 
     def _ensure_collection(self, name: str):
         """Ensure the Qdrant collection exists with proper config."""
@@ -144,3 +146,39 @@ class RAGService:
                 "score": hit.score
             })
         return results
+
+    async def ingest_document(self, filename: str, content: str, doc_type: str = "spec"):
+        """Ingest a system documentation file (Spec or Guide)."""
+        embedding = await self._get_embedding(content)
+        
+        point = models.PointStruct(
+            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, filename)),
+            vector=embedding,
+            payload={
+                "filename": filename,
+                "content": content,
+                "doc_type": doc_type
+            }
+        )
+        
+        self.qdrant.upsert(
+            collection_name=self.docs_collection,
+            points=[point]
+        )
+        logger.info(f"Ingested document: {filename}")
+
+    async def search_documentation(self, query: str, limit: int = 3) -> list[dict]:
+        """Search system documentation for context."""
+        embedding = await self._get_embedding(query)
+        
+        search_result = self.qdrant.search(
+            collection_name=self.docs_collection,
+            query_vector=embedding,
+            limit=limit
+        )
+        
+        return [{
+            "filename": hit.payload["filename"],
+            "content": hit.payload["content"],
+            "score": hit.score
+        } for hit in search_result]

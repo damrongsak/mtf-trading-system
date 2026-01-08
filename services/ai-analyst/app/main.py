@@ -16,6 +16,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+from app.routers import ingest
+app.include_router(ingest.router, prefix="/api/v1/ai/ingest", tags=["Ingest"])
+
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.market_observer import MarketObserverAgent
@@ -104,6 +107,7 @@ async def run_daily_briefing():
         print(f"Error executing agent: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/ai/chat/sessions/message")
 async def chat_strategy(request: StrategyChatRequest):
     """
     Chat with the Strategy Advisor Agent regarding a specific strategy.

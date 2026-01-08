@@ -1,29 +1,32 @@
 # GEMINI.md
 
 ## 🚀 Project Overview
-**MTF Trading System** is a sophisticated algorithmic trading platform designed for XAU/USD (Gold) trading. It utilizes a **Multi-Timeframe (MTF)** analysis approach combined with **Smart Money Concepts (SMC)**.
+**MTF Olympus (v2.0)** is a distributed quantitative trading platform designed for XAU/USD (Gold). It evolves the concept of a "Trading Bot" into a comprehensive **Wealth Operating System**, combining **Multi-Timeframe (MTF)** analysis with **Smart Money Concepts (SMC)** and **Game Theoretic Risk Management**.
 
 The project distinguishes itself through:
 1.  **Spec-Driven Development (SDD):** Architecture and data contracts are defined in YAML/Markdown specs *before* implementation.
-2.  **AI-First Design:** Integrates Google Gemini (via Vertex AI) for semantic market analysis and reasoning.
-3.  **Microservices Architecture:** Modular Python services for strategy, execution, and AI analysis, fronted by a Next.js dashboard.
+2.  **AI-First Design:** Integrates **Google Gemini 2.5** (via Vertex AI) for semantic market analysis and psychological coaching.
+3.  **Institutional Risk Engine:** Uses **Minimax Regret** and **Portfolio Risk Parity** (PyPortfolioOpt) instead of static lot sizes.
+4.  **Microservices Architecture:** Modular Python services (FastAPI) for strategy, execution, and AI analysis, fronted by a Next.js 16 dashboard.
 
 ## 🏗️ Architecture & Tech Stack
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 16 (React 19) | Dashboard for signals, trade logs, and backtest visualization. |
-| **API Gateway** | Python (FastAPI) | Entry point for all backend operations; routes to internal logic. |
-| **Strategy Core** | Python (Vectorbt, Pandas, Quantreo) | Implements MTF/SMC logic, signal generation, and backtesting. |
-| **Execution Service** | Python (FastAPI, PyPortfolioOpt) | Handles trade execution and Risk Parity sizing. |
+| **Frontend** | Next.js 16 (React 19) | Modern dashboard for Signals, Journal, and Backtesting. |
+| **API Gateway** | Python (FastAPI) | Entry point for all backend operations; Auth (JWT) and routing. |
+| **Strategy Core** | Python (Vectorbt, Pandas) | Implements SMC Logic, Market Structure, and Backtesting Engine. |
+| **Execution Service** | Python (FastAPI, PyPortfolioOpt) | Handles trade execution and Smart Dynamic Risk sizing. |
+| **AI Analyst** | Python (LangGraph, Gemini 2.5) | "Market Observer" Agent and RAG-based Journal analysis. |
+| **Data Pipeline** | Python (Redis, Oanda v20) | Real-time StreamManager and OpenInterest ingestion. |
 | **Database** | PostgreSQL 15 | Stores relational trade data and vector embeddings. |
 | **Vector Store** | Qdrant | Handles similarity search for pattern recognition and RAG. |
 | **Infrastructure** | Docker Compose, Nginx | Container orchestration and reverse proxying. |
-| **Cloud Target** | GCP (Cloud Run, SQL) | Production environment (Project: `line-bot-2b383`). |
+| **Cloud Target** | GCP (Cloud Run, SQL) | Production environment. |
 
 ### 📂 Directory Structure
 *   `specs/`: **Source of Truth**. Contains Architecture (`01`), Data Models (`03`), API Contracts (`04`), and Logic Rules (`08`).
-*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `execution`).
+*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `execution`, `data-pipeline`).
 *   `frontend/`: Next.js web application.
 *   `infra/`: Infrastructure configurations (Nginx, etc.).
 *   `docker-compose.yml`: Orchestration for local development.
@@ -57,8 +60,6 @@ The project distinguishes itself through:
     ```
     *   Frontend: `http://localhost:3000`
     *   API Docs: `http://localhost:8000/docs`
-    *   Frontend: `http://localhost:3000`
-    *   API Docs: `http://localhost:8000/docs`
     *   Qdrant Dashboard: `http://localhost:6333/dashboard`
 
     > **Note:** If you encounter `npm` or `node` command errors locally, ensure NVM is loaded:
@@ -67,10 +68,9 @@ The project distinguishes itself through:
     > ```
 
 *   **Command Execution Strategy (Important):**
-    *   **Backend Services (MANDATORY):** All backend commands MUST be run inside their respective Docker containers to ensure environment consistency.
+    *   **Backend Services (MANDATORY):** All backend commands MUST be run inside their respective Docker containers.
         *   **Syntax:** `docker compose exec <service_name> <command>`
         *   **Example (Test):** `docker compose exec strategy-core uv run pytest`
-        *   **Example (Run):** `docker compose exec api-gateway uv run uvicorn ...`
     *   **Frontend:** Can be run locally using `nvm` (Node v22) or via Docker.
 
 *   **Frontend Only:**
@@ -116,6 +116,7 @@ To apply schema changes to the database:
     ```bash
     ./venv/bin/alembic upgrade head
     ```
+
 ### 5. Git Flow & Version Control
 **Strictly follow this workflow for all changes:**
 1.  **Checkout `dev` branch:** `git checkout dev`
@@ -130,195 +131,29 @@ To apply schema changes to the database:
     git push origin dev
     ```
 
-### 6. Frontend Clean Code Guidelines
-Adhere to these principles for a scalable and maintainable frontend:
-*   **Modularization:** Break down the app into small, independent components.
-*   **Directory Structure:** Use a clear layout (e.g., `src/components`, `src/hooks`, `src/context`).
-*   **Naming Conventions:**
-    *   **Components:** `UpperCamelCase` (e.g., `SignalCard.tsx`)
-    *   **Functions/Hooks:** `camelCase` (e.g., `useAuth`, `fetchSignals`)
-*   **State Management:**
-    *   Use `useContext` + `useReducer` for global state (Auth, Theme).
-    *   Keep form/toggle state local to components.
-    *   Avoid overusing global state libraries unless necessary.
-*   **Performance:**
-    *   Implement **Code-Splitting** and **Lazy-Loading** for routes.
-    *   Optimize images and assets.
-*   **Design Consistency:** Always use the design system tokens (colors, spacing) defined in `globals.css` / Tailwind config.
-
-### 7. Frontend API Client Architecture
-**All API calls MUST use the centralized axios client in `frontend/lib/api/`.** Do not use `fetch()` directly.
-
-#### 📂 lib/ Structure
-```
-frontend/lib/
-├── api/
-│   ├── client.ts       # Axios instance with interceptors (NEVER modify directly)
-│   ├── types.ts        # Shared TypeScript interfaces
-│   ├── auth.ts         # Auth endpoints
-│   ├── journal.ts      # Journal endpoints
-│   └── index.ts        # Barrel export
-├── hooks/
-│   ├── useJournalEntries.ts
-│   ├── useAsync.ts     # Generic async handler
-│   └── index.ts
-└── utils.ts            # Formatting, storage, helpers
-```
-
-#### ✅ Adding New API Endpoints
-
-**Step 1: Add Types** (`lib/api/types.ts`)
-```typescript
-export interface Signal {
-  id: string;
-  symbol: string;
-  direction: 'BULLISH' | 'BEARISH';
-  confidence: number;
-}
-
-export interface CreateSignalDto {
-  symbol: string;
-  direction: string;
-  reasoning?: string;
-}
-```
-
-**Step 2: Create Service File** (`lib/api/signals.ts`)
-```typescript
-import { apiClient } from './client';
-import { Signal, CreateSignalDto } from './types';
-
-export async function getSignals(): Promise<Signal[]> {
-  const response = await apiClient.get<Signal[]>('/api/v1/signals');
-  return response.data;
-}
-
-export async function createSignal(data: CreateSignalDto): Promise<Signal> {
-  const response = await apiClient.post<Signal>('/api/v1/signals', data);
-  return response.data;
-}
-```
-
-**Step 3: Export in Barrel** (`lib/api/index.ts`)
-```typescript
-export * from './signals';
-```
-
-**Step 4: Use in Components**
-```typescript
-import { getSignals } from '@/lib/api';
-
-const signals = await getSignals();
-```
-
-#### 🎣 Creating Custom Hooks
-
-**For Auto-Fetch on Mount:**
-```typescript
-// lib/hooks/useSignals.ts
-import { useState, useEffect } from 'react';
-import { getSignals } from '../api/signals';
-import { Signal, ApiError } from '../api/types';
-
-export function useSignals() {
-  const [signals, setSignals] = useState<Signal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchSignals = async () => {
-    try {
-      setLoading(true);
-      const data = await getSignals();
-      setSignals(data);
-    } catch (err) {
-      setError((err as ApiError).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSignals();
-  }, []);
-
-  return { signals, loading, error, refetch: fetchSignals };
-}
-```
-
-**For Manual Operations (Forms):**
-```typescript
-import { useAsync } from '@/lib/hooks';
-import { createSignal } from '@/lib/api';
-
-const { execute: submitSignal, loading, error } = useAsync(createSignal);
-
-await submitSignal({ symbol: 'XAU/USD', direction: 'BULLISH' });
-```
-
-#### ⚠️ Error Handling
-
-**Client-Side (Automatic via Interceptor):**
-- ✅ Token injection: Auto-adds `Authorization: Bearer {token}`
-- ✅ Error transformation: Converts axios errors to `ApiError`
-- ✅ Status code handling: 401, 403, 404, 422, 500
-- ✅ Dev logging: Console logs in development mode
-
-**Component-Level:**
-```typescript
-try {
-  const data = await createJournalEntry(payload);
-  alert('Success!');
-} catch (error) {
-  const apiError = error as ApiError;
-  alert(`Error: ${apiError.message}`);
-  // apiError.status - HTTP status code
-  // apiError.details - Backend error details
-}
-```
-
-#### 🔐 Authentication Flow
-
-1. **Login:** Call `login(username, password)` from `lib/api/auth`
-2. **Token Storage:** AuthContext stores token in localStorage
-3. **Auto-Injection:** Request interceptor reads token and adds to headers
-4. **401 Handling:** Response interceptor logs warnings (future: auto-logout)
-
-**DO NOT:**
-- ❌ Use `fetch()` directly
-- ❌ Manually add `Authorization` headers (interceptor handles this)
-- ❌ Access `localStorage` directly for tokens (use AuthContext)
-- ❌ Create axios instances outside `lib/api/client.ts`
-
-**Environment Variables:**
-- `NEXT_PUBLIC_API_BASE_URL`: Set to `''` (empty) for Nginx routing, or `http://localhost:8000` for direct dev
-### 8. Code Quality & Standards
-**Strict adherence to Type Safety and Linting rules is MANDATORY.**
-
-#### TypeScript Best Practices
-*   **Strict Typing:** NEVER use `any`. Always define interfaces or types for all variables, props, and API responses.
-    *   ❌ `const data: any = ...`
-    *   ✅ `const data: Signal[] = ...`
-*   **Shared Interfaces:** Define reusable types in `lib/api/types.ts` to ensure consistency between API clients and components.
-*   **Prop Validation:** Component props must be strictly typed. Avoid optional props (`?`) unless absolutely necessary.
-*   **Async Handling:** Always handle potential `null` or `undefined` states in async data fetching.
-
-#### Linting & Formatting
-*   **No Unused Variables:** Remove all unused imports and variables.
-*   **Hooks Dependencies:** exhaustive-deps constraint must be respected.
-*   **Console Logs:** Remove `console.log` in production code; use proper error handling or a logging service.
-
-## 🔑 Key Logic & Constraints (from PRD)
-*   **Risk Management:** Strict **$10 max risk per trade**. Minimum lot **0.01**.
-*   **Strategy:**
+## 🔑 Key Logic & Constraints (Phases 1-28)
+*   **Risk Management:** 
+    *   **Smart Dynamic Risk:** 1% of NAV per trade, capped by Fund Limit.
+    *   **Guardrails:** Risk-Reward Ratio (RRR) must be >= 1.5.
+*   **Strategy (SMC):**
     *   **Macro Bias:** 4H/Daily Price vs EMA200.
-    *   **Setup:** 4H/1H Fibo (50-61.8%) + SMC Order Block.
-    *   **Trigger:** 15m Candle with high Body-to-Wick ratio.
-*   **Status:** The project is evolving. While the PRD defines a strict MVP, the codebase includes "Future" features like the AI Analyst and Frontend, indicating active expansion.
+    *   **Structure:** Liquidity Sweeps, Fair Value Gaps (FVG), and Order Blocks (OB).
+    *   **Trigger:** 15m Candle confirmation inside an H1 POI.
+*   **Monitoring:**
+    *   **System Drift:** Monitors Rejection Rate (Skipped / Total Signals). Alert if > 80%.
+    *   **AI Analyst:** Daily "Market Observer" briefings and drift analysis.
 
-## � Inspiration & Examples
-*   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration (Vite + React).
+## ✨ Completed Features (Major)
+*   ✅ **Backtesting Engine:** Full historical simulation with fees/slippage (`/backtest`).
+*   ✅ **Live Strategy Editor:** Python-based strategy sandbox (`/strategies/editor`).
+*   ✅ **Journal Analytics:** "Psychological MRI" and Pattern Analysis.
+*   ✅ **Binance Integration:** Multi-broker support including Crypto.
+*   ✅ **System Drift Monitor:** Real-time health check (`/analysis/drift`).
 
-## �📝 Common Commands
+##  Inspiration & Examples
+*   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration.
+
+## 📝 Common Commands
 | Action | Command |
 | :--- | :--- |
 | **Start Full Stack** | `docker compose up --build` |
@@ -326,5 +161,4 @@ try {
 | **Start Frontend Only** | `docker compose up frontend` |
 | **Rebuild Specific** | `docker compose up --build <service_name>` |
 | **Stop All** | `docker compose down` |
-| **Deploy** | `./deploy.sh` |
 | **Connect to DB** | `docker exec -it postgresql psql -U trader -d mtf_db` |

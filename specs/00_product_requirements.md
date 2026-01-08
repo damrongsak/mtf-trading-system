@@ -109,6 +109,9 @@ The platform is built on five functional pillars:
 | **F6.5** | **RRR Filtering**: Trades must have Risk-Reward Ratio >= 1.5. Uses Order Block targets or 2R fallback. |
 | **F6.6** | **Smart Dynamic Risk**: Position sizing is determined by hierarchy: `Min(Fund Limit, Account Limit, Dynamic % of NAV)`. Default Max Risk assumes $10 for base tier. |
 | **F6.7** | **Drift Detection**: Monitor `Skipped / Total` signals. Alert if Filter Rate > 80%. |
+| **F6.8** | **Squawk Box**: Real-time AI audio/text commentary streamed via WebSocket when high-confidence patterns emerge. |
+| **F6.9** | **Strategy Auto-Tuner**: AI Agent capable of running GridSearch jobs and recommending optimal parameters. |
+| **F6.10** | **Documentation RAG**: Ingest system specs and docs into Qdrant so the AI knows the platform's own API. |
 
 ---
 
