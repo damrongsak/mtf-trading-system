@@ -22,9 +22,9 @@ class RiskGuardrailPlugin(BasePlugin):
     def version(self) -> str:
         return "1.0.0"
         
-    def register(self, hook_manager):
+    def register_hooks(self, hook_manager):
         # Filter: Modifies (or rejects) the signal before it's sent to execution
-        hook_manager.register_filter('filter_signal', self.enforce_risk_limits)
+        hook_manager.add_filter('filter_signal', self.enforce_risk_limits)
 
     def activate(self):
         logger.info(f"🛡️ RiskGuardrail Activated")
