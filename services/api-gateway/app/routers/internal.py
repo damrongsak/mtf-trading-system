@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.deployment import Deployment
 from app.models.broker_account import BrokerAccount
-from app.models.user_fund import User
+from app.models.user import User
 from app.services.internal_client import execution_client
 from app.services.trade_service import TradeService
 from typing import Dict, Any, Optional

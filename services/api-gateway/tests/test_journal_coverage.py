@@ -5,7 +5,7 @@ from app.main import app
 from app.database import get_db
 from app.security import get_current_user
 from app.models.journal import JournalEntry, MentalState, RootCauseAnalysis, TimelineEvent
-from app.models.user_fund import User
+from app.models.user import User
 from app.models.trade import Trade, TradeDirection
 import uuid
 

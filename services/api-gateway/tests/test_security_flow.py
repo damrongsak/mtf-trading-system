@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from app.main import app
 from app.database import get_db
 from app.security import create_access_token
-from app.models.user_fund import User
+from app.models.user import User
 import uuid
 
 @pytest.fixture

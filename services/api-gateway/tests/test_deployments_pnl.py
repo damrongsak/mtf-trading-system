@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch, AsyncMock, ANY
 from app.main import app
 from app.models.deployment import Deployment
 from app.models.trade import Trade
-from app.models.user_fund import User
+from app.models.user import User
 from app.database import get_db
 import uuid
 from datetime import datetime, timezone

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database import get_db
 from app.security import get_current_user
-from app.models.user_fund import User
+from app.models.user import User
 
 @pytest.fixture
 def mock_db_session():

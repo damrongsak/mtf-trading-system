@@ -12,28 +12,7 @@ class UserRole(str, enum.Enum):
     TRADER = "TRADER"
     VIEWER = "VIEWER"
 
-class User(Base):
-    __tablename__ = "users"
-    __table_args__ = {"extend_existing": True}
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    username = Column(String(50), unique=True, nullable=False)
-    email = Column(String(100), unique=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    avatar_url = Column(String, nullable=True)
-    reputation_score = Column(Integer, default=0)
-    is_verified_quant = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    funds = relationship("UserFund", back_populates="user")
-    journal_entries = relationship("JournalEntry", back_populates="user")
-    mental_hand_histories = relationship("MentalHandHistory", back_populates="user")
-    preferences = relationship("UserPreferences", back_populates="user", uselist=False)
-    deployments = relationship("Deployment", back_populates="user")
-    strategy_configs = relationship("StrategyConfig", back_populates="author")
 
 class Fund(Base):
     __tablename__ = "funds"

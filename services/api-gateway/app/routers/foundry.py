@@ -23,7 +23,7 @@ class APIResponse_WalkForwardResponse(BaseModel):
     status: str
     data: WalkForwardResponse
 from app.models.strategy_config import StrategyConfig
-from app.models.user_fund import User
+from app.models.user import User
 from app.security import get_current_user
 import httpx
 import os

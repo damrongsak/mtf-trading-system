@@ -6,7 +6,7 @@ from app.database import get_db
 from app.security import get_current_user
 from app.models.trade import Trade, TradeDirection
 from app.models.broker_account import BrokerAccount
-from app.models.user_fund import User
+from app.models.user import User
 from app.services.trade_service import TradeService
 import uuid
 

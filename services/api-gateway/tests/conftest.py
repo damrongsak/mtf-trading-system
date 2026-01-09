@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from app.main import app
 from app.database import get_db
-from app.models.user_fund import User
+from app.models.user import User
 
 import uuid
 from datetime import datetime, timezone

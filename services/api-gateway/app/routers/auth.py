@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user_fund import User
+from app.models.user import User
 from app.security import verify_password, create_access_token, get_password_hash, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 from pydantic import BaseModel, ConfigDict
 from datetime import timedelta

@@ -4,7 +4,7 @@ from datetime import datetime
 import uuid
 from app.services.trade_service import TradeService
 from app.models.trade import Trade, TradeStatus, TradeDirection
-from app.models.user_fund import User
+from app.models.user import User
 from app.models.journal import JournalEntry
 
 @pytest.fixture

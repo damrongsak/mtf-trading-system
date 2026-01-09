@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.models.journal import JournalEntry, GameLevel
-from app.models.user_fund import User
+from app.models.user import User
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 import uuid

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 from app.database import get_db
 from app.main import app
-from app.models.user_fund import User
+from app.models.user import User
 from app.models.broker_account import BrokerAccount
 from app.security import get_current_user
 

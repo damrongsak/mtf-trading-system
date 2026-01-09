@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.saved_strategy import SavedStrategy
 from app.schemas.saved_strategy import SavedStrategyCreate, SavedStrategyUpdate, SavedStrategyResponse
 from app.security import get_current_user
-from app.models.user_fund import User
+from app.models.user import User
 
 router = APIRouter(prefix="/saved-strategies", tags=["Strategies (Library)"])
 

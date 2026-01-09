@@ -4,7 +4,8 @@ from typing import List, Optional
 from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
-from app.models.user_fund import Fund, User, UserFund
+from app.models.user_fund import Fund, UserFund
+from app.models.user import User
 from app.routers.auth import oauth2_scheme
 from app.security import get_current_user
 from app.schemas.response import APIResponse, PaginatedResponse

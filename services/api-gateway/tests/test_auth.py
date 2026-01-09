@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from app.models.user_fund import User
+from app.models.user import User
 from app.schemas.response import ResponseStatus, ErrorCode
 import uuid
 

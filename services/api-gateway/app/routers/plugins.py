@@ -7,7 +7,7 @@ import uuid
 
 from app.database import get_db
 from app.models.plugins import Plugin, UserPlugin, AuditLog, PluginCategory
-from app.models.user_fund import User
+from app.models.user import User
 from app.security import get_current_user
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])

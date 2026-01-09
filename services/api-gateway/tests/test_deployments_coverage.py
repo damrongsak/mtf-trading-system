@@ -6,7 +6,7 @@ from app.database import get_db
 from app.security import get_current_user
 from app.models.deployment import Deployment
 from app.routers.deployments import start_bot_instance, stop_bot_instance
-from app.models.user_fund import User
+from app.models.user import User
 import uuid
 import httpx
 

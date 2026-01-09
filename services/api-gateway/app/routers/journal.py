@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from app.database import get_db
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.trade import Trade
-from app.models.user_fund import User
+from app.models.user import User
 from app.schemas.journal import JournalEntryCreate, JournalEntryResponse, JournalStatsResponse, PatternAnalysisResponse, EquityCurvePoint, PatternItem, JournalImportRequest, JournalImportResponse
 from app.schemas.response import APIResponse, PaginatedResponse
 from app.utils.response import success_response, paginated_response

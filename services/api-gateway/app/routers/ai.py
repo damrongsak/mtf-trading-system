@@ -122,7 +122,7 @@ async def get_daily_briefing():
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.chat import ChatSession, ChatMessage
-from app.models.user_fund import User
+from app.models.user import User
 from app.security import get_current_user
 from fastapi import Depends
 from app.schemas.generated import (

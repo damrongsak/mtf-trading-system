@@ -234,7 +234,7 @@ def test_get_fund_not_found(client, mock_db_session, mock_current_user):
 def test_create_fund_with_risk_params(client, mock_db_session, mock_current_user):
     """Test POST /api/v1/funds with risk parameters"""
     from app.security import get_current_user
-    from app.models.user_fund import UserRole
+    from app.models.user import UserRole
     
     # Payload with risk params
     payload = {
@@ -283,7 +283,7 @@ def test_create_fund_with_risk_params(client, mock_db_session, mock_current_user
 def test_update_fund_risk_params(client, mock_db_session, mock_current_user):
     """Test PUT /api/v1/funds/{fund_id} updating risk params"""
     from app.security import get_current_user
-    from app.models.user_fund import UserRole
+    from app.models.user import UserRole
     
     fund_id = uuid.uuid4()
     

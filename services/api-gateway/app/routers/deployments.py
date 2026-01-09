@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db, SessionLocal
 from app.security import get_current_user
 from app.models.deployment import Deployment
-from app.models.user_fund import User
+from app.models.user import User
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 import os
 from datetime import datetime, timezone

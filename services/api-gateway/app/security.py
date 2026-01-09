@@ -35,7 +35,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     """
     Validate JWT token and return current user
     """
-    from app.models.user_fund import User
+    from app.models.user import User
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

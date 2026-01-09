@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from app.database import get_db
 from app.security import get_current_user
-from app.models.user_fund import User
+from app.models.user import User
 from app.models.trade import Trade, TradeStatus
 from app.models.strategy_run import StrategyRun
 from app.models.strategy import Strategy

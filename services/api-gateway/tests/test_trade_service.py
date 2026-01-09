@@ -5,7 +5,7 @@ import uuid
 from app.services.trade_service import TradeService
 from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.models.journal import JournalEntry
-from app.models.user_fund import User
+from app.models.user import User
 
 @pytest.fixture
 def mock_db_session():
