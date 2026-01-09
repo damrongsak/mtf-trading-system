@@ -35,8 +35,8 @@ class SystemPrompt(Base):
             "updated_at": self.updated_at.isoformat()
         }
 
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
+class PromptAuditLog(Base):
+    __tablename__ = "prompt_audit_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

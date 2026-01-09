@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData, SeriesMarker, createSeriesMarkers, ISeriesMarkersPluginApi, IPriceLine } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData, SeriesMarker, createSeriesMarkers, ISeriesMarkersPluginApi, IPriceLine, LineWidth } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
 
@@ -311,7 +311,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
                 color: pl.color,
                 title: pl.title || '',
                 lineStyle: pl.lineStyle ?? 2,
-                lineWidth: pl.lineWidth ?? 1,
+                lineWidth: (pl.lineWidth ?? 1) as LineWidth,
                 axisLabelVisible: pl.axisLabelVisible ?? true,
             });
             if (line) {

@@ -36,6 +36,14 @@ export interface APIResponseAIReportData {
     'report'?: string;
     'timestamp'?: string;
 }
+export interface APIResponseAgent {
+    'status'?: string;
+    'data'?: Agent;
+}
+export interface APIResponseAgentList {
+    'status'?: string;
+    'data'?: Array<Agent>;
+}
 export interface APIResponseBacktestResponse {
     'status': ResponseStatus;
     'data'?: BacktestResponse;
@@ -272,6 +280,23 @@ export interface APIResponseWalkForwardResponse {
     'status'?: string;
     'data'?: WalkForwardResponse;
 }
+export interface Agent {
+    'id'?: string;
+    'name'?: string;
+    'role'?: string;
+    'description'?: string;
+    'status'?: AgentStatusEnum;
+    'capabilities'?: Array<string>;
+}
+
+export const AgentStatusEnum = {
+    Active: 'active',
+    Inactive: 'inactive',
+    Busy: 'busy'
+} as const;
+
+export type AgentStatusEnum = typeof AgentStatusEnum[keyof typeof AgentStatusEnum];
+
 export interface AiChatSessionsMessagePost200Response {
     'response'?: string;
     'timestamp'?: string;
@@ -1636,6 +1661,70 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(brokerAccountCreate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List available AI Agents
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentsGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/agents`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get AI Agent details
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentsIdGet: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1AiAgentsIdGet', 'id', id)
+            const localVarPath = `/api/v1/ai/agents/{id}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -4948,6 +5037,31 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary List available AI Agents
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiAgentsGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAgentList>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiAgentsGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiAgentsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get AI Agent details
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiAgentsIdGet(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAgent>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiAgentsIdGet(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiAgentsIdGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Get latest daily briefing
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -6163,6 +6277,25 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
+         * @summary List available AI Agents
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentsGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAgentList> {
+            return localVarFp.apiV1AiAgentsGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get AI Agent details
+         * @param {DefaultApiApiV1AiAgentsIdGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentsIdGet(requestParameters: DefaultApiApiV1AiAgentsIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAgent> {
+            return localVarFp.apiV1AiAgentsIdGet(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Get latest daily briefing
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -7052,6 +7185,13 @@ export interface DefaultApiApiV1AccountsPostRequest {
 }
 
 /**
+ * Request parameters for apiV1AiAgentsIdGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1AiAgentsIdGetRequest {
+    readonly id: string
+}
+
+/**
  * Request parameters for apiV1AiChatSessionsGet operation in DefaultApi.
  */
 export interface DefaultApiApiV1AiChatSessionsGetRequest {
@@ -7739,6 +7879,27 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1AccountsPost(requestParameters: DefaultApiApiV1AccountsPostRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1AccountsPost(requestParameters.brokerAccountCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List available AI Agents
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiAgentsGet(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1AiAgentsGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get AI Agent details
+     * @param {DefaultApiApiV1AiAgentsIdGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiAgentsIdGet(requestParameters: DefaultApiApiV1AiAgentsIdGetRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1AiAgentsIdGet(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

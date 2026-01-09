@@ -1,4 +1,6 @@
 import { PromptEditor } from '@/components/ai/PromptEditor';
+import { AgentList } from '@/components/ai/AgentList';
+import { ChatInterface } from '@/components/ai/ChatInterface';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function AIWorkspacePage() {
@@ -12,11 +14,17 @@ export default function AIWorkspacePage() {
       <Tabs defaultValue="prompts" className="flex-1 flex flex-col min-h-0">
         <TabsList>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="agents" disabled>Agents (Coming Soon)</TabsTrigger>
-          <TabsTrigger value="chat" disabled>Chat (Coming Soon)</TabsTrigger>
+          <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="prompts" className="flex-1 min-h-0 mt-4">
           <PromptEditor />
+        </TabsContent>
+        <TabsContent value="agents" className="flex-1 min-h-0 mt-4 overflow-y-auto">
+          <AgentList />
+        </TabsContent>
+        <TabsContent value="chat" className="flex-1 min-h-0 mt-4">
+          <ChatInterface />
         </TabsContent>
       </Tabs>
     </div>

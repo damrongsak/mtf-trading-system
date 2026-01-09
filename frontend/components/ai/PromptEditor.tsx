@@ -32,8 +32,8 @@ export function PromptEditor() {
         setIsLoading(true);
         try {
             const response = await defaultApi.apiV1PromptsGet();
-            if (response.data.data) {
-                setPrompts(response.data.data);
+            if (response.data) {
+                setPrompts(response.data);
             }
         } catch (error) {
             toast.error("Failed to load prompts");
@@ -84,8 +84,8 @@ export function PromptEditor() {
                     }
                 });
                 toast.success("Prompt updated");
-                if (response.data.data) {
-                    handleSelect(response.data.data);
+                if (response.data) {
+                    handleSelect(response.data);
                 }
             } else {
                 // Create
@@ -99,8 +99,8 @@ export function PromptEditor() {
                     }
                 });
                 toast.success("Prompt created");
-                if (response.data.data) {
-                    handleSelect(response.data.data);
+                if (response.data) {
+                    handleSelect(response.data);
                 }
             }
             fetchPrompts();
@@ -119,10 +119,10 @@ export function PromptEditor() {
                 id: selectedPrompt.id,
                 apiV1PromptsIdRenderPostRequest: vars
             });
-            if (response.data.data) {
-                setRenderResult(response.data.data.rendered_text || "");
-                if (response.data.data.missing_variables && response.data.data.missing_variables.length > 0) {
-                    toast.warning(`Missing variables: ${response.data.data.missing_variables.join(", ")}`);
+            if (response.data) {
+                setRenderResult(response.data.rendered_text || "");
+                if (response.data.missing_variables && response.data.missing_variables.length > 0) {
+                    toast.warning(`Missing variables: ${response.data.missing_variables.join(", ")}`);
                 }
             }
         } catch (e) {

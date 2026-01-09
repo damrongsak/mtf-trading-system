@@ -7,6 +7,8 @@ configuration.ts
 docs/APIResponse.md
 docs/APIResponseAIReport.md
 docs/APIResponseAIReportData.md
+docs/APIResponseAgent.md
+docs/APIResponseAgentList.md
 docs/APIResponseBacktestResponse.md
 docs/APIResponseBalanceResponse.md
 docs/APIResponseBalanceResponseData.md
@@ -42,6 +44,7 @@ docs/APIResponseTransactionResponse.md
 docs/APIResponseUserPreferencesResponse.md
 docs/APIResponseUserResponse.md
 docs/APIResponseWalkForwardResponse.md
+docs/Agent.md
 docs/AiChatSessionsMessagePost200Response.md
 docs/AnalysisApi.md
 docs/AnalysisDistribution.md

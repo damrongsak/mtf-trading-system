@@ -137,6 +137,34 @@ paths:
                        items:
                          type: string
 
+  /api/v1/ai/agents:
+    get:
+      summary: List available AI Agents
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AgentList'
+
+  /api/v1/ai/agents/{id}:
+    get:
+      summary: Get AI Agent details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agent details
+          content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/APIResponse_Agent'
+
   /api/v1/plugins:
     get:
       summary: List all plugins
@@ -4261,6 +4289,45 @@ components:
           type: string
         data:
           $ref: '#/components/schemas/OpenInterestAnalysisResponse'
+
+    APIResponse_Agent:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          $ref: '#/components/schemas/Agent'
+
+    APIResponse_AgentList:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, busy]
+        capabilities:
+          type: array
+          items:
+             type: string
 
 
 

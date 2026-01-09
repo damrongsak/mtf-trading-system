@@ -16,8 +16,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-from app.routers import ingest
+from app.routers import ingest, agents
 app.include_router(ingest.router, prefix="/api/v1/ai/ingest", tags=["Ingest"])
+app.include_router(agents.router, prefix="/api/v1/ai", tags=["Agents"])
 
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent

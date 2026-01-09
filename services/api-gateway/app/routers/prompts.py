@@ -3,27 +3,27 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 from app.database import get_db
-from app.models.prompt import SystemPrompt, AuditLog
+from app.models.prompt import SystemPrompt, PromptAuditLog
 from app.models.user import User
 from app.schemas.prompt import (
     SystemPromptCreate, SystemPromptUpdate, SystemPromptResponse,
     RenderPromptRequest, RenderPromptResponse
 )
-from app.core.security import get_current_user
+from app.security import get_current_user
 from datetime import datetime
 import json
 
 router = APIRouter(prefix="/prompts", tags=["Prompts"])
 
 def log_audit(db: Session, user_id: UUID, action: str, resource_type: str, resource_id: UUID, changes: dict):
-    audit = AuditLog(
+    log = PromptAuditLog(
         user_id=user_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
         changes=changes
     )
-    db.add(audit)
+    db.add(log)
     # Commit should be handled by caller or auto-flush, but explicit add guarantees object exists
 
 @router.get("/", response_model=List[SystemPromptResponse])

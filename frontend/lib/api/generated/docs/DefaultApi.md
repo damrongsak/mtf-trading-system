@@ -9,6 +9,8 @@ All URIs are relative to *http://localhost*
 |[**apiV1AccountsAccountIdPut**](#apiv1accountsaccountidput) | **PUT** /api/v1/accounts/{account_id} | Update a broker account|
 |[**apiV1AccountsGet**](#apiv1accountsget) | **GET** /api/v1/accounts/ | List broker accounts|
 |[**apiV1AccountsPost**](#apiv1accountspost) | **POST** /api/v1/accounts/ | Add a new broker account|
+|[**apiV1AiAgentsGet**](#apiv1aiagentsget) | **GET** /api/v1/ai/agents | List available AI Agents|
+|[**apiV1AiAgentsIdGet**](#apiv1aiagentsidget) | **GET** /api/v1/ai/agents/{id} | Get AI Agent details|
 |[**apiV1AiBriefingGet**](#apiv1aibriefingget) | **GET** /api/v1/ai/briefing | Get latest daily briefing|
 |[**apiV1AiBriefingPost**](#apiv1aibriefingpost) | **POST** /api/v1/ai/briefing | Trigger generation of a new briefing|
 |[**apiV1AiChatSessionsGet**](#apiv1aichatsessionsget) | **GET** /api/v1/ai/chat/sessions | List chat sessions|
@@ -345,6 +347,99 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Account created |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiAgentsGet**
+> APIResponseAgentList apiV1AiAgentsGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+const { status, data } = await apiInstance.apiV1AiAgentsGet();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**APIResponseAgentList**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | List of agents |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiAgentsIdGet**
+> APIResponseAgent apiV1AiAgentsIdGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let id: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1AiAgentsIdGet(
+    id
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **id** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponseAgent**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Agent details |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

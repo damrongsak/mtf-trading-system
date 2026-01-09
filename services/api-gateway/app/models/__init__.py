@@ -1,3 +1,4 @@
+from .user import User
 from .user_fund import UserFund
 from .transaction import Transaction
 from .journal import JournalEntry

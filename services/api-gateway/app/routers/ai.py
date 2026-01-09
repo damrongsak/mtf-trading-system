@@ -12,6 +12,25 @@ router = APIRouter(
 
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 
+@router.get("/agents")
+async def list_agents():
+    """
+    Proxy list agents request to AI Analyst service.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{AI_SERVICE_URL}/api/v1/ai/agents",
+                timeout=5.0
+            )
+            response.raise_for_status()
+            # Wrap in APIResponse structure if not already
+            return success_response(data=response.json().get("data", []))
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+
 @router.post("/market-analysis", response_model=APIResponse[AnalysisResponse])
 async def analyze_market(req: MarketAnalysisRequest):
     """
