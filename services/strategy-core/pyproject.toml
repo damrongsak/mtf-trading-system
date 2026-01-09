@@ -2,26 +2,26 @@
 name = "strategy-core"
 version = "0.1.0"
 description = "Strategy Core Service for MTF Trading System"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
-    "pandas>=2.1.4",
-    "vectorbt[full]",
+    "pandas>=2.1.4,<2.2.0",
+    "vectorbt>=0.26.1",
     "pydantic>=2.5.3",
-    "numpy>=1.26.3",
+    "numpy>=1.26.3,<2.0.0",
     "sqlalchemy>=2.0.25",
     "psycopg2-binary>=2.9.9",
     "python-dotenv>=1.0.0",
     "httpx>=0.26.0",
     "v20>=3.0.25",
-    "pandas_ta>=0.3.14",
     "redis>=5.0.0",
     "ipython>=8.30.0",
     "anywidget>=0.9.0",
     "quantreo>=0.1.0",
     "pyportfolioopt>=1.5.5",
     "plotly>=5.18.0",
+    "python-telegram-bot>=20.0",
 ]
 
 [dependency-groups]

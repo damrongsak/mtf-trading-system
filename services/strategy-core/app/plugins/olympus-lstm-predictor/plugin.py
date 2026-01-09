@@ -9,6 +9,7 @@ class LSTMPredictorPlugin(BasePlugin):
     Example Alpha Plugin: LSTM Price Predictor.
     """
     def __init__(self, user_id, context, config=None):
+        config = config or {}
         super().__init__(user_id, context, config)
         self.metadata.update({
             "name": "Olympus LSTM Predictor",

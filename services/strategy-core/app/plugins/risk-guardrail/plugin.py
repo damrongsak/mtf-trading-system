@@ -25,6 +25,12 @@ class RiskGuardrailPlugin(BasePlugin):
     def register(self, hook_manager):
         # Filter: Modifies (or rejects) the signal before it's sent to execution
         hook_manager.register_filter('filter_signal', self.enforce_risk_limits)
+
+    def activate(self):
+        logger.info(f"🛡️ RiskGuardrail Activated")
+
+    def deactivate(self):
+        logger.info(f"🛡️ RiskGuardrail Deactivated")
         
     def enforce_risk_limits(self, signal: Dict[str, Any], context: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
         """
