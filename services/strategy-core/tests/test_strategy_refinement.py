@@ -9,7 +9,7 @@ client = TestClient(app)
 def test_rsi_calculation():
     # Simple uptrend
     close = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
-    response = client.post("/calculate/rsi", json={"close": close, "window": 14})
+    response = client.post("/api/v1/calculate/rsi", json={"close": close, "window": 14})
     assert response.status_code == 200
     data = response.json()
     assert len(data["values"]) == 15
@@ -42,7 +42,7 @@ def test_smc_enhanced():
         "volume": volume
     }
     
-    response = client.post("/calculate/smc", json=payload)
+    response = client.post("/api/v1/calculate/smc", json=payload)
     assert response.status_code == 200
     data = response.json()
     
@@ -58,7 +58,7 @@ def test_smc_enhanced():
 
 def test_macd_endpoint():
     close = [i for i in range(50)]
-    response = client.post("/calculate/macd", json={"close": close})
+    response = client.post("/api/v1/calculate/macd", json={"close": close})
     assert response.status_code == 200
     data = response.json()
     assert "macd" in data
@@ -68,7 +68,7 @@ def test_macd_endpoint():
 
 def test_bbands_endpoint():
     close = [10, 12, 11, 13, 12, 14, 13, 15, 14, 16, 15] * 5 # 55 points
-    response = client.post("/calculate/bbands", json={"close": close})
+    response = client.post("/api/v1/calculate/bbands", json={"close": close})
     assert response.status_code == 200
     data = response.json()
     assert "upper" in data

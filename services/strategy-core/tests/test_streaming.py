@@ -9,14 +9,27 @@ def mock_redis():
     with patch("app.streaming.subscriber.redis.from_url") as mock:
         # redis.from_url(url) -> client object (not awaitable usually, but in async redis it returns a client)
         # client.pubsub() -> pubsub object (not awaitable)
-        mock_client = MagicMock() # Redis client itself is synchronous in creation usually? 
-        # Actually redis.from_url returns a Redis client.
+        mock_client = MagicMock() 
         mock.return_value = mock_client
         
         mock_pubsub = AsyncMock()
+        # Ensure listen is a MagicMock (sync call returning iterator), NOT AsyncMock
+        # because _listen() does `async for msg in pubsub.listen()`
+        # If listen is AsyncMock, it returns a coroutine, which async for cannot iterate.
+        # The fixture provides a default, but tests calling _listen directly should override this
+        # with a specific async iterator for their test case.
+        mock_pubsub.listen = MagicMock(return_value=ExampleAsyncIterable())
+        
         mock_client.pubsub.return_value = mock_pubsub
         
         yield mock_client
+
+class ExampleAsyncIterable:
+    def __aiter__(self):
+        return self
+    async def __anext__(self):
+        # Stop immediately by default
+        raise StopAsyncIteration
 
 @pytest.mark.asyncio
 async def test_subscriber_connect(mock_redis):

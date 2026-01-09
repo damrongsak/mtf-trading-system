@@ -50,4 +50,4 @@ def test_fetch_data_from_db_calls_correct_sql(mock_db_engine):
         
         # Verify result is a dataframe
         assert not df.empty
-        assert 'timestamp' in df.columns
+        assert df.index.name == 'timestamp'

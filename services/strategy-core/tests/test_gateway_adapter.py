@@ -34,7 +34,11 @@ async def test_execute_signal_failure():
     mock_resp.status_code = 500
     mock_resp.text = "Internal Error"
     
-    with patch("httpx.AsyncClient.post", return_value=mock_resp):
+    # Mock httpx client
+    mock_post_fn = AsyncMock()
+    mock_post_fn.return_value = mock_resp
+    
+    with patch("httpx.AsyncClient.post", side_effect=mock_post_fn):
         client = APIGatewayClient()
         result = await client.execute_signal({})
         

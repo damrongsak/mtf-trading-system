@@ -4,66 +4,73 @@ from app.logic import check_macro_bias, check_trigger, SignalDirection
 
 def test_macro_bias_bullish():
     # Close > EMA200
+    # Use enough data points
     df = pd.DataFrame({
-        'close': [100.0] * 205
+        'close': [100.0] * 300
     })
-    # Make last few candles higher than EMA
-    df.iloc[-1, df.columns.get_loc('close')] = 110.0
+    # Make last completed candle higher than EMA
+    df.iloc[-2, df.columns.get_loc('close')] = 110.0
     
-    # EMA(200) of 100 is 100. Last close 110 > 100 -> Bullish
+    # EMA(200) of 100 is 100. Last completed close 110 > 100 -> Bullish
     bias = check_macro_bias(df)
     assert bias == SignalDirection.BULLISH
 
 def test_macro_bias_bearish():
     # Close < EMA200
     df = pd.DataFrame({
-        'close': [100.0] * 205
+        'close': [100.0] * 300
     })
-    # Make last few candles lower
-    df.iloc[-1, df.columns.get_loc('close')] = 90.0
+    # Make last completed candle lower
+    df.iloc[-2, df.columns.get_loc('close')] = 90.0
     
     bias = check_macro_bias(df)
     assert bias == SignalDirection.BEARISH
 
 def test_check_trigger_bullish():
-    # M15 Vector Candle: Strong Green Body > Wick
-    # Open=100, Close=110, High=110, Low=100 -> Body=10, Range=10, Rv=1.0
-    df = pd.DataFrame({
-        'open': [100.0, 100.0],
-        'close': [100.0, 110.0],
-        'high': [100.0, 110.0],
-        'low': [100.0, 100.0]
-    })
+    # Needs at least 32 rows
+    data = {
+        'open': [100.0] * 35,
+        'high': [105.0] * 35,
+        'low': [95.0] * 35,
+        'close': [100.0] * 35
+    }
+    df = pd.DataFrame(data)
     
-    # Needs 2 rows. Last completed is index 0? 
-    # Logic: df.iloc[-2]. We need at least 2 rows.
-    # Logic checks iloc[-2]. So we need to push a 'forming' candle at end?
-    # Logic: if len < 2 return False.
-    # Logic checks candle = df.iloc[-2].
+    # Index -2 is the one checked for trigger
+    # Open 100, Close 110, High 110, Low 100 -> Body 10, Range 10, Rv 1.0
+    df.iloc[-2, df.columns.get_loc('open')] = 100.0
+    df.iloc[-2, df.columns.get_loc('close')] = 110.0
+    df.iloc[-2, df.columns.get_loc('high')] = 110.0
+    df.iloc[-2, df.columns.get_loc('low')] = 100.0
     
-    # Let's provide 3 rows. The Trigger candle is index 1. Index 2 is forming.
-    df = pd.DataFrame({
-        'open': [100.0, 100.0, 110.0],
-        'close': [101.0, 110.0, 112.0],
-        'high': [102.0, 110.0, 113.0],
-        'low': [99.0, 100.0, 110.0]
-    })
-    # Index 1: Open 100, Close 110, High 110, Low 100.
-    # Body 10, Range 10. Rv = 1.0 > 0.7. Green.
+    # Add some volatility in previous candles so Parkinson Vol > 0.0005
+    # Parkinson uses High/Low
+    df.iloc[-5, df.columns.get_loc('high')] = 120.0
+    df.iloc[-5, df.columns.get_loc('low')] = 80.0
     
     triggered = check_trigger(df, SignalDirection.BULLISH)
     assert triggered == True
 
 def test_check_trigger_fail_rv():
-    # Weak candle (lots of wick)
+    data = {
+        'open': [100.0] * 35,
+        'high': [105.0] * 35,
+        'low': [95.0] * 35,
+        'close': [100.0] * 35
+    }
+    df = pd.DataFrame(data)
+    
+    # Index -2: Weak candle (lots of wick)
     # Open 100, Close 101, High 110, Low 90.
     # Body 1, Range 20. Rv = 0.05
-    df = pd.DataFrame({
-        'open': [100.0, 100.0, 110.0],
-        'close': [101.0, 101.0, 112.0],
-        'high': [102.0, 110.0, 113.0],
-        'low': [99.0, 90.0, 110.0]
-    })
+    df.iloc[-2, df.columns.get_loc('open')] = 100.0
+    df.iloc[-2, df.columns.get_loc('close')] = 101.0
+    df.iloc[-2, df.columns.get_loc('high')] = 110.0
+    df.iloc[-2, df.columns.get_loc('low')] = 90.0
+    
+    # Add volatility
+    df.iloc[-5, df.columns.get_loc('high')] = 120.0
+    df.iloc[-5, df.columns.get_loc('low')] = 80.0
     
     triggered = check_trigger(df, SignalDirection.BULLISH)
     assert triggered == False

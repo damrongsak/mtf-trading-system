@@ -1,72 +1,70 @@
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from app.fleet import FleetLoader
-from app.models.strategy import StrategyModel
+from unittest.mock import MagicMock, patch
+from app.fleet import FleetManager
+from app.models.strategy import Strategy
 from uuid import uuid4
+from sqlalchemy import select
 
 @pytest.mark.asyncio
-async def test_fleet_loader_loads_active_strategies():
-    # Setup Mocks
-    mock_engine = MagicMock()
-    mock_engine.start_strategy = AsyncMock(return_value={"status": "started"})
-    
-    mock_db_session = MagicMock()
+async def test_fleet_manager_loads_active_strategies():
+    # Setup
+    manager = FleetManager()
     
     # Create fake strategies
-    s1 = StrategyModel(
+    s1 = Strategy(
         id=uuid4(),
+        name="Test Strat",
         template_id="SMC_V1",
+        fund_id=uuid4(),
         broker_account_id=uuid4(),
         config_json={"symbol": "EUR_USD", "timeframe": "M15"},
+        risk_settings={},
         is_active=True
     )
-    # s2 is inactive, should be skipped
-    s2 = StrategyModel(
-        id=uuid4(),
-        template_id="MACD_V1",
-        broker_account_id=uuid4(),
-        config_json={"symbol": "GBP_USD"},
-        is_active=False 
-    )
     
-    # Mock DB query
-    # We mock the context manager 'get_db_context'
-    with patch("app.fleet.get_db_context") as mock_get_context:
-        mock_get_context.return_value.__enter__.return_value = mock_db_session
-        mock_db_session.query.return_value.filter.return_value.all.return_value = [s1] # returning only active since filter returns active
+    # Mock DB session and its methods
+    mock_db = MagicMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [s1]
+    mock_db.execute.return_value = mock_result
+    
+    with patch("app.fleet.SessionLocal", return_value=mock_db), \
+         patch("app.fleet.StrategyRegistry.get_strategy", return_value=lambda x: x):
         
-        loader = FleetLoader(mock_engine)
-        await loader.load_fleet()
+        await manager.load_fleet()
         
         # Verify
-        assert mock_engine.start_strategy.call_count == 1
-        args, kwargs = mock_engine.start_strategy.call_args
-        
-        assert args[0] == str(s1.id)
-        assert args[1]["template_id"] == "SMC_V1"
-        assert args[1]["symbol"] == "EUR_USD"
+        assert len(manager.active_strategies) == 1
+        assert str(s1.id) in manager.active_strategies
+        context = manager.active_strategies[str(s1.id)]
+        assert context["symbol"] == "EUR_USD"
+        # template_id is not in context but logic function is
+        assert context["logic"] is not None
 
 @pytest.mark.asyncio
-async def test_fleet_loader_handles_missing_config():
-    mock_engine = MagicMock()
-    mock_engine.start_strategy = AsyncMock()
-    mock_db_session = MagicMock()
+async def test_fleet_manager_handles_missing_template():
+    manager = FleetManager()
     
-    # Missing symbol in config
-    s1 = StrategyModel(
+    s1 = Strategy(
         id=uuid4(),
-        template_id="BROKEN",
+        name="Broken Strat",
+        template_id="NON_EXISTENT",
+        fund_id=uuid4(),
         broker_account_id=uuid4(),
-        config_json={"foo": "bar"}, # Missing symbol
+        config_json={"symbol": "EUR_USD"},
+        risk_settings={},
         is_active=True
     )
     
-    with patch("app.fleet.get_db_context") as mock_get_context:
-        mock_get_context.return_value.__enter__.return_value = mock_db_session
-        mock_db_session.query.return_value.filter.return_value.all.return_value = [s1]
+    mock_db = MagicMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [s1]
+    mock_db.execute.return_value = mock_result
+    
+    with patch("app.fleet.SessionLocal", return_value=mock_db), \
+         patch("app.fleet.StrategyRegistry.get_strategy", return_value=None):
         
-        loader = FleetLoader(mock_engine)
-        await loader.load_fleet()
+        await manager.load_fleet()
         
-        # Should not start
-        mock_engine.start_strategy.assert_not_called()
+        # Should not be added to active_strategies because template was not found
+        assert len(manager.active_strategies) == 0
