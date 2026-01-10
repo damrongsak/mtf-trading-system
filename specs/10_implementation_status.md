@@ -612,3 +612,11 @@
         - **Dashboard:** Integrated into Main Dashboard Grid.
         - **Client:** `aiApi.getDailyBriefing` method integration.
     - **Documentation:** API Spec and Walkthrough updated.
+
+### Phase 35: AI Market Observer Fixes
+- **Status:** ✅ Complete (This Commit)
+- **Features:**
+    - **API Gateway:** Wrapped `/agent/observer/run` response in `success_response` to match frontend schema.
+    - **AI Analyst:** Fixed `KeyError` in `GetMarketContext` tool (time vs timestamp) ensuring correct data fetching from Strategy Core.
+    - **Verification:** Validated with end-to-end reproduction script.
+

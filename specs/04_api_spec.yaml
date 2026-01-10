@@ -419,6 +419,42 @@ paths:
                 $ref: '#/components/schemas/APIResponse_Briefing'
 
 
+  /api/v1/ai/agent/observer/run:
+    post:
+      summary: Run Market Observer Agent
+      description: Trigger the AI Market Observer to analyze a specific request or symbol.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - input_text
+              properties:
+                input_text:
+                  type: string
+                  example: "Analyze XAU/USD"
+      responses:
+        '200':
+          description: Agent Report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      report:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+
   /ai/chat/sessions/message:
     post:
       summary: Chat with Strategy Advisor
