@@ -599,4 +599,16 @@
 - [x] **Prompt Editor UI**:
   - [x] Refactored `components/ai/PromptEditor.tsx` to use generated API client.
   - [x] Verified parameter mapping for `apiV1Prompts*` methods.
-
+### Phase 34: AI Daily Briefing & Frontend Integration
+- **Status:** ✅ Complete (2026-01-10)
+- **Features:**
+    - **Backend:**
+        - **DailyBriefingAgent:** Generates "Pre-Flight Checklist" using LangGraph.
+        - **Tools:** `GetAccountStatusTool` (Live/Mock Risk Metrics) and `GetEconomicCalendarTool`.
+        - **Auth:** Full Propagation of JWT Token from Gateway to Analyst.
+        - **Testing:** `MockAdapter` implemented in Execution Service for safe dry-runs.
+    - **Frontend:**
+        - **Widget:** `DailyBriefingWidget` with Markdown rendering.
+        - **Dashboard:** Integrated into Main Dashboard Grid.
+        - **Client:** `aiApi.getDailyBriefing` method integration.
+    - **Documentation:** API Spec and Walkthrough updated.

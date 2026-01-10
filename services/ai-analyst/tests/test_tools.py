@@ -86,11 +86,11 @@ async def test_economic_calendar_tool():
     
     # Test USD (should find mock events)
     result_usd = await tool._arun("USD")
-    assert "Upcoming Economic Events for USD" in result_usd
+    assert "HIGH IMPACT Economic Events for USD" in result_usd
     
     # Test XYZ (should find nothing)
     result_xyz = await tool._arun("XYZ")
-    assert "No high-impact events found for XYZ" in result_xyz
+    assert "No high-impact economic events found for XYZ" in result_xyz
 
 from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool
@@ -100,21 +100,36 @@ from app.tools.search import GoogleSearchTool
 async def test_account_status_tool(mock_aiohttp_session):
     tool = GetAccountStatusTool()
     
-    # Mock Success
+    # Mock Success with Complex Data (API Gateway format)
+    # Note: account.py expects 'open_positions' (snake_case)
     mock_resp = AsyncMock()
     mock_resp.status = 200
     mock_resp.json.return_value = {
-        "balance": 10000.0,
-        "equity": 10500.0,
-        "open_trades": [{"symbol": "XAU/USD", "pnl": 500}]
+        "status": "success",
+        "data": {
+            "balance": "10000.00 USDT",
+            "equity": "10500.50",
+            "marginAvailable": "10000.50", 
+            "open_positions": [
+                {"symbol": "XAU/USD", "pnl": 50.0, "risk_usd": 10.0},
+                {"symbol": "EUR/USD", "pnl": -20.0, "risk_usd": 10.0}
+            ]
+        }
     }
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
     
     result = await tool._arun()
-    assert "10000.0" in result
+    
+    # Verify Parsing
+    # Look for formatted currency strings as output by the tool
+    assert "$10,500.50" in result  # Equity (Float parsed & formatted)
+    assert "$10,000.00" in result  # Balance
+    assert "Active Positions: 2" in result # Should be 2 now with correct key
+    assert "XAU/USD: PnL $50.00" in result
     
     # Mock Failure
     mock_resp.status = 500
+    mock_resp.text.return_value = "Server Error"
     result = await tool._arun()
     assert "Error fetching account data" in result
 

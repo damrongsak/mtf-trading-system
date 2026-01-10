@@ -827,6 +827,20 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/OpenInterestCommon'
+  /api/v1/ai/briefing:
+    get:
+      summary: Get Daily Pre-Flight Briefing
+      description: Generates a comprehensive daily briefing including macro risk, portfolio health, market focus, and psychological weather.
+      tags:
+        - AI
+      responses:
+        '200':
+          description: Briefing generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_BriefingResponse'
+
   /api/v1/data/symbols/{symbol_id}:
     patch:
       summary: Update symbol status
@@ -2222,6 +2236,29 @@ components:
 
 
 
+
+    APIResponse_BriefingResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: '#/components/schemas/ResponseStatus'
+        data:
+          type: object
+          properties:
+            content:
+              type: string
+              description: Markdown formatted briefing content
+            timestamp:
+              type: string
+              format: date-time
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
 
     APIResponse_Success:
       type: object
