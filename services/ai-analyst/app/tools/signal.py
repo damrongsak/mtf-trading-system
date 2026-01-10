@@ -11,6 +11,7 @@ class GetTechnicalSignalsTool(BaseTool):
     name: str = "get_technical_signals"
     description: str = "Checks for active technical trading signals (SMC, Order Blocks) for a symbol."
     args_schema: Type[BaseModel] = SignalInput
+    auth_header: Optional[str] = None
 
     def _run(self, symbol: str):
         raise NotImplementedError("Use _arun instead")
@@ -19,14 +20,13 @@ class GetTechnicalSignalsTool(BaseTool):
         async with aiohttp.ClientSession() as session:
             try:
                 # Call API Gateway /signal/latest/{symbol}
-                # Handles internally: Data fetching -> Strategy Core Analysis -> Logic
                 url = f"{settings.API_GATEWAY_URL}/api/v1/signal/latest/{symbol}"
-                # URL encode symbol just in case, but usually requests handles it, or path param
-                # Requests/aiohttp might not auto-encode path params if manually constructed string.
-                # XAU/USD -> XAU%2FUSD or XAU_USD? API Gateway expects path. 
-                # signal.py uses {symbol:path} so slashes are allowed.
                 
-                async with session.get(url) as resp:
+                headers = {}
+                if self.auth_header:
+                    headers["Authorization"] = self.auth_header
+
+                async with session.get(url, headers=headers) as resp:
                      if resp.status == 200:
                          data = await resp.json()
                          signal_data = data.get("data", {})

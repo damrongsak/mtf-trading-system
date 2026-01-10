@@ -24,6 +24,9 @@ class BrokerFactory:
                 secret_key=credentials.get("secret_key"),
                 is_live=(credentials.get("environment") == "live")
             )
+        elif broker_name == "MOCK":
+            from app.adapters.mock_adapter import MockAdapter
+            return MockAdapter()
             
         else:
             raise ValueError(f"Unsupported broker: {broker_name}")

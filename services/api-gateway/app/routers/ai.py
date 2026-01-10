@@ -1,9 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
 from app.schemas.ai import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 import httpx
 import os
+
+from sqlalchemy.orm import Session, joinedload
+from app.database import get_db
+from app.models.chat import ChatSession, ChatMessage
+from app.models.user import User
+from app.security import get_current_user
 
 router = APIRouter(
     prefix="/api/v1/ai",
@@ -74,15 +81,20 @@ class AgentRunRequest(BaseModel):
     input_text: str
 
 @router.post("/agent/observer/run")
-async def run_market_observer(req: AgentRunRequest):
+async def run_market_observer(
+    req: AgentRunRequest,
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
+):
     """
-    Proxy agent run request to AI Analyst service.
+    Proxy agent run request to AI Analyst service with authentication.
     """
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/agent/observer/run", 
                 json=req.model_dump(),
+                headers={"Authorization": f"Bearer {token}"},
                 timeout=60.0 # Agents can be slow
             )
             response.raise_for_status()
@@ -93,7 +105,10 @@ async def run_market_observer(req: AgentRunRequest):
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.get("/briefing")
-async def get_daily_briefing():
+async def get_daily_briefing(
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
+):
     """
     Get the latest daily briefing from AI Analyst.
     """
@@ -102,6 +117,7 @@ async def get_daily_briefing():
             # We call the POST endpoint on AI Analyst to generate/fetch
             response = await client.post(
                 f"{AI_SERVICE_URL}/agent/briefing",
+                headers={"Authorization": f"Bearer {token}"},
                 timeout=60.0 
             )
             response.raise_for_status()
@@ -119,12 +135,7 @@ async def get_daily_briefing():
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 # --- AI Chat Integration ---
-from sqlalchemy.orm import Session, joinedload
-from app.database import get_db
-from app.models.chat import ChatSession, ChatMessage
-from app.models.user import User
-from app.security import get_current_user
-from fastapi import Depends
+
 from app.schemas.generated import (
     APIResponseChatSessionList, 
     APIResponseChatMessageList,

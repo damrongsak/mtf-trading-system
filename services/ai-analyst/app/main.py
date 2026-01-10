@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas.analysis import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.services.gemini import GeminiClient
@@ -69,7 +69,7 @@ except Exception as e:
 
 try:
     if rag_service:
-        strategy_advisor = StrategyAdvisorAgent(rag_service)
+        strategy_advisor = StrategyAdvisorAgent(rag_service, gemini_client)
 except Exception as e:
     print(f"Warning: Failed to initialize StrategyAdvisorAgent: {e}")
 
@@ -86,12 +86,12 @@ except Exception as e:
 # ... existing endpoints ...
 
 @app.post("/agent/observer/run")
-async def run_observer_agent(request: AgentRunRequest):
+async def run_observer_agent(request: AgentRunRequest, authorization: str = Header(None, alias="Authorization")):
     if not market_observer:
         raise HTTPException(status_code=503, detail="AI Agent unavailable")
     
     try:
-        report = await market_observer.run(request.input_text)
+        report = await market_observer.run(request.input_text, auth_header=authorization)
         return {"report": report, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
         print(f"Error executing agent: {str(e)}")
@@ -100,12 +100,12 @@ async def run_observer_agent(request: AgentRunRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/agent/briefing")
-async def run_daily_briefing():
+async def run_daily_briefing(authorization: str = Header(None, alias="Authorization")):
     if not daily_briefing:
         raise HTTPException(status_code=503, detail="Daily Briefing Agent unavailable")
     
     try:
-        report = await daily_briefing.run("Generate valid Daily Briefing.")
+        report = await daily_briefing.run("Generate valid Daily Briefing.", auth_header=authorization)
         return {"report": report, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
         print(f"Error executing agent: {str(e)}")

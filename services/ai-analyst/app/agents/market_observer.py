@@ -30,13 +30,28 @@ class MarketObserverAgent:
         # LangGraph React Agent
         self.graph = create_react_agent(self.llm, self.tools)
 
-    async def run(self, input_text: str = "Generate a market situation report for XAU/USD.") -> str:
+    async def run(self, input_text: str = "Generate a market situation report for XAU/USD.", auth_header: str = None) -> str:
         """
         Executes the agent with the given input.
         """
+        # Initialize tools with auth header if provided
+        # Note: GetAccountStatusTool might also need auth if api-gateway protects it or if it calls another secure service
+        # GetTechnicalSignalsTool definitely needs it.
+        
+        runtime_tools = [
+            GetMarketContextTool(),
+            GetTechnicalSignalsTool(auth_header=auth_header),
+            GetAccountStatusTool(), # Assuming internal execution service doesn't require user token, OR it needs one. Let's assume user token is better.
+            GetEconomicCalendarTool(),
+            GoogleSearchTool()
+        ]
+
+        # Re-create graph with authenticated tools
+        graph = create_react_agent(self.llm, runtime_tools)
+
         # LangGraph invoke returns a dict with 'messages'
         inputs = {"messages": [("user", input_text)]}
-        result = await self.graph.ainvoke(inputs)
+        result = await graph.ainvoke(inputs)
         # Extract last message content
         content = result["messages"][-1].content
         if isinstance(content, list):

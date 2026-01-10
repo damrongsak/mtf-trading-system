@@ -1,10 +1,11 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
-from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import settings
 from app.tools.journal import GetJournalEntriesTool
 from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.market import GetMarketContextTool
+from app.tools.account import GetAccountStatusTool
+from app.tools.calendar import GetEconomicCalendarTool
 
 class DailyBriefingAgent:
     def __init__(self):
@@ -14,40 +15,69 @@ class DailyBriefingAgent:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL_ID,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.2 # Slightly higher than 0.1 for more narrative
+            temperature=0.2 
         )
         
+        # Base tools for initialization (used by graph builder, though we rebuild in run)
         self.tools = [
             GetJournalEntriesTool(),
             GetTechnicalSignalsTool(),
-            GetMarketContextTool()
+            GetMarketContextTool(),
+            GetAccountStatusTool(),
+            GetEconomicCalendarTool()
         ]
         
-        # LangGraph React Agent
         self.graph = create_react_agent(self.llm, self.tools)
 
-    async def run(self, input_text: str = "Generate a daily trading briefing.") -> str:
+    async def run(self, input_text: str = "Generate a daily trading briefing.", auth_header: str = None) -> str:
         """
         Executes the agent with the given input.
         """
-        # Prompt Engineering for Briefing
+        # Initialize tools with auth header if provided
+        tools = [
+            GetJournalEntriesTool(auth_header=auth_header),
+            GetTechnicalSignalsTool(auth_header=auth_header),
+            GetMarketContextTool(),
+            GetAccountStatusTool(auth_header=auth_header),
+            GetEconomicCalendarTool(auth_header=auth_header)
+        ]
+        
+        # Create fresh Agent Graph with context-aware tools
+        graph = create_react_agent(self.llm, tools)
+
+        # Enhanced Prompt for Professional Briefing
         prompt = (
             f"{input_text}\n"
-            "You are a professional Quant Fund Manager Assistant.\n"
-            "Your task is to generate a 'Daily Briefing' for the Head Trader.\n"
-            "Steps:\n"
-            "1. Fetch the last 10 journal entries using 'get_journal_entries'.\n"
-            "2. Fetch active signals for 'XAU/USD' using 'get_technical_signals'.\n"
-            "3. Synthesize a report in Markdown with these sections:\n"
-            "   - ** Performance Snapshot**: Summary of recent wins/losses and Net PnL.\n"
-            "   - ** Key Trades**: Briefly mention 1-2 significant trades and the 'Emotion' recorded.\n"
-            "   - ** Market Outlook**: Based on active signals, what is the bias for XAU/USD?\n"
-            "   - ** Strategic Note**: A short advice based on the performance (e.g., 'Good discipline today' or 'Watch out for overtrading').\n"
-            "Keep it professional, concise, and motivating."
+            "You are a sophisticated Quant Fund Manager Assistant ('The Weaver').\n"
+            "Your goal is to prepare the Head Trader for the day by synthesizing specific data points into a 'Pre-Flight Checklist'.\n\n"
+            
+            "**Execution Protocol:**\n"
+            "1. **Macro Check**: Use `get_economic_calendar` to check for HIGH IMPACT news today for USD.\n"
+            "2. **Risk Reality**: Use `get_account_status` to assess current exposure and drawdown.\n"
+            "3. **Market Bias**: Use `get_technical_signals` for 'XAU/USD'.\n"
+            "4. **Psychology**: Use `get_journal_entries` to review recent 5 trades for emotional patterns (Tilt, Fear, Confidence).\n\n"
+            
+            "**Output Format (Markdown)**:\n"
+            "## 🌤️ Morning Call\n"
+            "- **Macro Risk**: [List High Impact events or 'Clear skies']. Warning if NFP/FOMC/CPI today.\n"
+            "- **Portfolio Health**: [Equity] | [Margin Used] | [Active Positions Count].\n\n"
+            
+            "## 🎯 Market Focus (XAU/USD)\n"
+            "- **Bias**: [Signal Direction]\n"
+            "- **Reason**: [Technicals]\n\n"
+            
+            "## 🧠 Psychological Weather\n"
+            "- **Trend**: Analyze the last few trades. Are they executing well or tilting? (e.g. 'Chasing losses' or 'Good patience').\n"
+            "- **Performance**: Net PnL of last 5 trades.\n\n"
+            
+            "## 🛡️ Strategic Orders\n"
+            "- Concise, bulleted advice based on the above mix. (e.g. 'Volatile news at 14:00 - No entries 15m before', 'You are near max daily drawdown, reduce risk by 50%').\n\n"
+            
+            "**Tone**: Professional, concise, data-driven, and slightly protective of capital."
         )
 
         inputs = {"messages": [("user", prompt)]}
-        result = await self.graph.ainvoke(inputs)
+        result = await graph.ainvoke(inputs)
         
         # Extract last message content (Reuse logic from MarketObserverAgent)
         content = result["messages"][-1].content

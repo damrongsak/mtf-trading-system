@@ -105,7 +105,8 @@ from app.routers import auth, strategy, execution, risk, data_source, backtest, 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(strategy.router, prefix="/api/v1/strategies", tags=["Strategies"])
-app.include_router(execution.router, prefix="/api/v1/execution", tags=["Execution"])
+# execution router already has /execution prefix
+app.include_router(execution.router, prefix="/api/v1", tags=["Execution"])
 app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk"])
 app.include_router(data_source.router, prefix="/api/v1/data-sources", tags=["Data Sources"])
 app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["Backtest"])

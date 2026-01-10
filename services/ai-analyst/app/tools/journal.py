@@ -11,6 +11,7 @@ class GetJournalEntriesTool(BaseTool):
     name: str = "get_journal_entries"
     description: str = "Fetches recent trading journal entries (trades, reflections) for the user."
     args_schema: Type[BaseModel] = JournalInput
+    auth_header: Optional[str] = None
 
     def _run(self, limit: int = 10):
         raise NotImplementedError("Use _arun instead")
@@ -22,11 +23,11 @@ class GetJournalEntriesTool(BaseTool):
                 url = f"{settings.API_GATEWAY_URL}/api/v1/journal/"
                 params = {"page": 1, "per_page": limit}
                 
-                # Note: Internal calls might need a service token or handle auth differently.
-                # Assuming internal network trust or mock for now.
-                # In prod, we'd pass headers={"Authorization": ...} if needed.
+                headers = {}
+                if self.auth_header:
+                    headers["Authorization"] = self.auth_header
                 
-                async with session.get(url, params=params) as resp:
+                async with session.get(url, params=params, headers=headers) as resp:
                      if resp.status == 200:
                          data = await resp.json()
                          entries = data.get("data", [])

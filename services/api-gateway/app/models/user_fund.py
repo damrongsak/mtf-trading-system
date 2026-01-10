@@ -27,6 +27,7 @@ class Fund(Base):
     strategy_type = Column(Enum("MTF_SMC_BASIC", "LONG_SHORT_EQUITY", "MACRO_TACTICAL", "MULTI_ASSET", name="strategy_type_enum"), default="MTF_SMC_BASIC", nullable=False)
     asset_classes = Column(JSONB, default=["FX"], nullable=False)
     max_risk_per_trade = Column(Numeric(10, 2), default=10.0, nullable=False)
+    risk_percentage = Column(Numeric(5, 4), default=0.01) # Default 1%
     default_lot_size = Column(Numeric(10, 2), default=0.01, nullable=False)
     max_drawdown_threshold = Column(Numeric(10, 2), nullable=True)
     max_portfolio_beta = Column(Numeric(5, 2), default=0.35, nullable=True)
