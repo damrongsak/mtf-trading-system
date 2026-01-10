@@ -13,8 +13,8 @@ export interface AIReportResponse {
 }
 
 export const runMarketObserver = async (instruction: string): Promise<AIReportResponse> => {
-    const response = await apiClient.post<APIResponse<AIReportResponse>>('/api/v1/ai/market-observer/run', {
-        instruction
+    const response = await apiClient.post<APIResponse<AIReportResponse>>('/api/v1/ai/agent/observer/run', {
+        input_text: instruction
     });
     return response.data.data!;
 };

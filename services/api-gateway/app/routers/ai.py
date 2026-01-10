@@ -98,7 +98,7 @@ async def run_market_observer(
                 timeout=60.0 # Agents can be slow
             )
             response.raise_for_status()
-            return response.json()
+            return success_response(data=response.json())
         except httpx.RequestError as exc:
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:

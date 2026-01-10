@@ -28,7 +28,7 @@ class GetMarketContextTool(BaseTool):
                          # Simplify data for LLM
                          candles = data.get("data", [])
                          summary = [
-                             f"Time: {c['time']}, Close: {c['close']}" for c in candles
+                             f"Time: {c['timestamp']}, Close: {c['close']}" for c in candles
                          ]
                          return f"Recent {symbol} Price History (H1): {summary}"
                      else:
