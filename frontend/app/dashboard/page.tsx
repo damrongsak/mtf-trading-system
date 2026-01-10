@@ -11,7 +11,7 @@ import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
 import { MarketWatchCard } from '@/components/dashboard/MarketWatchCard';
-import { DailyBriefingCard } from '@/components/dashboard/DailyBriefingCard';
+import { DailyBriefingWidget } from '@/components/ai/DailyBriefingWidget';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { getPreferences } from '@/lib/api/settings';
@@ -251,7 +251,7 @@ export default function DashboardPage() {
         
         {/* Righht Column: AI & Performance */}
         <div className="space-y-6">
-            <DailyBriefingCard />
+            <DailyBriefingWidget />
             <MarketWatchCard symbols={allSymbols} />
             <AIAnalystCard />
             
