@@ -3,6 +3,42 @@ info:
   title: MTF Trading API
   version: 0.1.0
 paths:
+  /api/v1/alpha/test:
+    post:
+      summary: Run detailed backtest for alpha formula
+      tags: [Alpha]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlphaRequest'
+      responses:
+        '200':
+          description: Alpha backtest results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Alpha'
+
+  /api/v1/alpha/preview:
+    post:
+      summary: Run lightweight preview for alpha formula
+      tags: [Alpha]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlphaRequest'
+      responses:
+        '200':
+          description: Alpha preview results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Alpha'
+  
   /api/v1/data-sources:
     get:
       summary: List all data sources
@@ -802,6 +838,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
+
+    AlphaRequest:
+      type: object
+      required:
+        - formula
+        - symbol
+      properties:
+        formula:
+          type: string
+          example: "rank(close / delay(close, 5))"
+        symbol:
+          type: string
+          example: "XAU_USD"
+        timeframe:
+          type: string
+          example: "H1"
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          
+    AlphaResponse:
+      type: object
+      properties:
+        signal:
+          type: array
+          items:
+            type: number
+            nullable: true
+        metrics:
+          type: object
+          additionalProperties: true
+        timestamps:
+          type: array
+          items:
+            type: string
+            format: date-time
+
+    APIResponse_Alpha:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/AlphaResponse'
+        error:
+          type: string
+          nullable: true
 
   /api/v1/analysis/calculate/smc:
     post:

@@ -57,6 +57,25 @@ class StrategyAdvisorAgent(OlympusWorkflow):
         
         Analyze the request and creating a step-by-step implementation plan.
         If the user provided a file (Chart/PDF), use it to extract logic.
+
+        IMPORTANT: If the user asks for a specific factor or signal formula, use the 'Alpha Engine' syntax:
+        - Format: Single line expression string.
+        - Supported Functions:
+            - rank(series): Cross-sectional rank (0.0 to 1.0)
+            - delay(series, n): Lag series by n periods
+            - ts_max(series, n): Rolling max over n periods
+            - ts_min(series, n): Rolling min over n periods
+            - ts_argmax(series, n): Index of max
+            - correlation(s1, s2, n): Rolling correlation
+            - sma(series, n): Simple Moving Average
+            - std(series, n): Rolling Std Dev
+            - log(series): Natural log
+            - sign(series): Sign of value (-1, 0, 1)
+        - Inputs: 'open', 'high', 'low', 'close', 'volume'
+        - Examples:
+            - Momentum: "rank(close / delay(close, 5))"
+            - Mean Reversion: "-1 * correlation(close, delay(close, 1), 5)"
+            - Breakout: "(close - ts_min(low, 20)) / (ts_max(high, 20) - ts_min(low, 20))"
         """
         multimodal_content.append(prompt_text)
 
