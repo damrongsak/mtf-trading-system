@@ -5,6 +5,8 @@ from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.calendar import GetEconomicCalendarTool
 from app.tools.search import GoogleSearchTool
 from app.tools.journal import GetJournalEntriesTool
+from app.tools.alpha_deployer import AlphaDeployerTool
+from app.tools.strategy_retriever import StrategyRetrieverTool
 
 def bootstrap_tools():
     """
@@ -24,5 +26,9 @@ def bootstrap_tools():
     
     # Journal Tools
     registry.register("get_journal_entries", GetJournalEntriesTool())
+    
+    # Strategy Tools
+    registry.register("deploy_alpha_strategy", AlphaDeployerTool())
+    registry.register("list_active_strategies", StrategyRetrieverTool())
     
     print("All standard tools registered.")
