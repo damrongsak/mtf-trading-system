@@ -1,6 +1,7 @@
-# MTF Olympus (v2.0)
+# MTF Olympus (v2.1)
 
-**Status:** In Development (Phase 6 - Portfolio Management & Transaction Tracking)  
+**Status:** ✅ Alpha Ecosystem Live (Phase 2 Completed)  
+**Next:** Phase 5 - Strategy Execution  
 **License:** [Apache 2.0](LICENSE)
 
 # Start with Why: The MTF Olympus Story
@@ -24,10 +25,10 @@ MTF Olympus is not a tool; it is an **Operating System**. Just as Windows or mac
 ### The 5 Pillars of the OS
 
 1.  **The Foundry (Creation)**: Standardized "Lego Blocks" for strategy creation. No coding required, just logic.
-2.  **The Proving Ground (Truth)**: Rigorous Walk-Forward Validation to prevent overfitting. Strategies must achieve a Robustness Score > 80.
-3.  **The Risk Citadel (Survival)**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
-4.  **The Execution Edge (Speed)**: Professional-grade routing to get the best price and liquidity analysis.
-5.  **The AI Coach (Discipline)**: Psychological intervention via **Mental Hand History** to detect "Tilt" and guide the user back to "A-Game".
+2.  **The Alpha Engine (Research)**: **[NEW]** AST-based expression engine (`rank`, `ts_max`) for designing statistical factors.
+3.  **The Proving Ground (Truth)**: Rigorous Walk-Forward Validation to prevent overfitting.
+4.  **The Risk Citadel (Survival)**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
+5.  **The AI Coach (Discipline)**: Psychological intervention via **Mental Hand History** to detect "Tilt".
 
 ---
 
@@ -47,12 +48,12 @@ The system is organized into a 5-layer stack:
 
 | Service | Tech Stack | Purpose |
 | :--- | :--- | :--- |
-| **Frontend** | Next.js 16 (React 19) | Modern dashboard for Foundry, Citadel, and AI Coach. |
+| **Frontend** | Next.js 16 (React 19) | Modern dashboard for Alpha Lab, Foundry, and AI Coach. |
 | **API Gateway** | Python (FastAPI) | Central entry point, Auth (JWT), and request routing. |
-| **Strategy Core** | Python (Vectorbt) | Implements Foundry and Proving Ground logic. |
+| **Strategy Core** | Python (Vectorbt) | Implements Alpha Engine (Athena) and Foundry logic. |
 | **Execution** | Python (FastAPI) | Implements Risk Citadel and Execution Edge. |
-| **AI Analyst** | Python (LangGraph) | Implements AI Coach (gemini-2.5-flash). |
-| **Data Pipeline** | Python (Redis) | L1 Probability Layer (Real-time & Historical Data). |
+| **AI Analyst** | Python (LangGraph) | Implements AI Coach (gemini-2.5-flash) & Strategy Advisor. |
+| **Data Pipeline** | Python (Redis) | L1 Probability Layer with Smart Latch (Atomic Consistency). |
 | **Database** | PostgreSQL 15 | Relational data + `pgvector` for RAG. |
 
 ---

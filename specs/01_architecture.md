@@ -65,12 +65,11 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.2. Strategy Core (`services/strategy-core`)
 - **Role**: The "Foundry" and "Proving Ground".
 - **Key Features**:
-    - **Core Metrics Engine**: Centralized, vectorized financial math library (Sharpe, Sortino, Alpha/Beta).
-    - **Benchmark Service**: Automated benchmarking against XAU/USD, BTC, SPY.
+    - **Alpha Engine (Athena)**: Secure AST-based expression engine for compiling research factors (`rank`, `delay`) into signals.
+    - **Backtesting Engine**: Centralized, vectorized financial math library (Vectorbt).
     - **Strategy Assembler**: Compiles JSON `StrategyConfig` into Python pipelines.
-    - **Unified Streaming**: Robust Redis Pub/Sub subscriber supporting pattern matching (`psubscribe`) for efficient real-time data ingestion.
+    - **Unified Streaming**: Robust Redis Pub/Sub subscriber supporting pattern matching (`psubscribe`).
     - **Walk-Forward Validator**: Automated Train/Test split engine to assign "Robustness Scores".
-    - **Marketplace**: Endpoints for searching and preventing "Lemon" strategies.
 
 ### 4.3. Execution Service (`services/execution`)
 - **Role**: The "Risk Citadel" and "Execution Edge".
@@ -82,25 +81,20 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.4. AI Analyst (`services/ai-analyst`)
 - **Role**: The "Performance Coach".
 - **Key Features**:
-    - **Universal Agent**: Configurable "Lego" agent factory (`UniversalAgent`) for dynamic role creation.
-    - **MCP Support**: Adapter for Model Context Protocol to plug external tools.
-    - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration (Supervisor Pattern).
-    - **Summarizer Agent**: Compresses conversation history to optimize Token Context (Semantic Memory).
-    - **Self-Awareness (Doc-RAG)**: Ingests and references system documentation to understand its own architecture.
-    - **Bring Your Own Key (BYOK)**: Supports user-provided Gemini API keys and models.
-    - **Multimodal Support**: Analysis of uploaded files (PDFs, Images) for strategy context.
-    - **Mental State Machine**: FSM tracking A-Game vs C-Game.
-    - **Coaching Agent**: Intervenes during tilt using Steenbarger's framework.
-    - **Quant Tools**: `calculate_efficient_frontier` (PyPortfolioOpt) and `analyze_market_regime` (Quantreo).
+    - **Universal Agent**: Configurable "Lego" agent factory (`UniversalAgent`).
+    - **Strategy Advisor**: "Co-pilot" aware of Alpha Engine syntax for creating factors logic.
+    - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration.
+    - **Self-Awareness (Doc-RAG)**: Ingests system documentation.
+    - **Psychological MRI**: Analyzes execution patterns for "Tilt".
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.
 - **Key Features**:
     - **Data Ingestion**: Scheduled fetching of OHLCV data from OANDA/Binance.
-    - **Historical Backfill**: High-throughput backfilling of historical data (formerly in API Gateway).
-    - **Tick Streamer**: Dedicated service (`tick-streamer`) for real-time market data streaming via Redis Pub/Sub.
-    - **Architecture**: Service-Repository Pattern (Clean Architecture) for decoupled logic and data access.
-    - **Data Sources**: DB-driven configuration (`DataSource` model) with active symbol filtering.
+    - **Smart Latch**: Atomic data consistency using Redis Streams (`market.data.stream` -> `market.alpha.stream`).
+    - **Feature Worker**: Real-time calculation of technical indicators (RSI, ATR) immediately after candle close.
+    - **Tick Streamer**: Dedicated service for real-time market data streaming.
+    - **Data Sources**: DB-driven configuration (`DataSource` model).
 
 
 

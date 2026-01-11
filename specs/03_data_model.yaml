@@ -1773,3 +1773,39 @@ redis_streams:
         nullable: true
         description: "Market status (e.g., tradeable)"
 
+
+  Feature:
+    description: "Computed Technical Indicators (Streaming / Smart Latch Payload)"
+    table_name: "redis:market.alpha.stream"
+    fields:
+      - name: symbol
+        type: string
+        required: true
+      - name: timeframe
+        type: string
+        required: true
+      - name: timestamp
+        type: datetime
+        required: true
+      - name: rsi_14
+        type: decimal
+        nullable: true
+        description: "Relative Strength Index (14 period)"
+      - name: atr_14
+        type: decimal
+        nullable: true
+        description: "Average True Range (14 period)"
+      - name: sma_20
+        type: decimal
+        nullable: true
+      - name: sma_50
+        type: decimal
+        nullable: true
+      - name: volatility
+        type: decimal
+        nullable: true
+        description: "Rolling 20-period standard deviation of returns"
+      - name: features_complete
+        type: boolean
+        default: true
+        description: "Flag indicating calculation success"

@@ -87,11 +87,11 @@ class ConnectionManager:
     async def _redis_listener(self):
         """Consumes messages from Redis and fans them out."""
         await self.redis.connect()
-        # Subscribe to all tick data
-        # Subscribe to all tick data using pattern matching
-        logger.info("StreamManager: Attempting to psubscribe to market_data:tick:*")
+        # Subscribe to ticks and features
+        logger.info("StreamManager: Attempting to psubscribe to market_data:tick:* and market.features.*")
         try:
             await self.redis.psubscribe("market_data:tick:*")
+            await self.redis.psubscribe("market.features.*")
             logger.info("StreamManager: PSubscribed successfully.")
         except Exception as e:
             logger.error(f"StreamManager: PSubscribe FAILED: {e}")
@@ -99,15 +99,23 @@ class ConnectionManager:
         async for msg in self.redis.listen():
             logger.debug(f"StreamManager received redis msg: {msg}")
             if msg["type"] == "pmessage": # pattern message
-                # channel is the specific channel (market_data:tick:EUR_USD)
-                # data is the payload
+                # channel examples: 
+                # "market_data:tick:EUR_USD"
+                # "market.features.EUR_USD"
+                
                 channel = msg["channel"]
                 data = msg["data"]
                 
-                # Extract symbol from channel: "market_data:tick:EUR_USD" -> "EUR_USD"
+                # Extract symbol logic
                 try:
-                    symbol = channel.split(":")[-1]
-                    await self.broadcast(symbol, data)
+                    symbol = None
+                    if "market_data:tick:" in channel:
+                        symbol = channel.split(":")[-1]
+                    elif "market.features." in channel:
+                        symbol = channel.split(".")[-1]
+                    
+                    if symbol:
+                        await self.broadcast(symbol, data)
                 except Exception as e:
                     logger.error(f"Error broadcasting message: {e}")
 

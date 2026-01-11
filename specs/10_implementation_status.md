@@ -377,6 +377,16 @@
     - **AI Analyst Tools:** Added `calculate_efficient_frontier` and `analyze_market_regime` tools.
     - **Backtest Engine:** Exposed advanced quant libraries to Custom Strategy Editor.
 
+## Phase 2: Alpha Ecosystem (v2.1)
+- **Status**: ✅ **Completed**
+- **Date**: 2026-01-11
+- **Features**:
+  - [x] **Alpha Engine**: `ExpressionEngine` with AST whitelisting (`rank`, `delay`, `ts_max`).
+  - [x] **Smart Latch**: Redis Stream based atomic data consistency.
+  - [x] **Feature Worker**: Real-time calculation of RSI, ATR, Volatility.
+  - [x] **Alpha Lab UI**: Monaco Editor + Sparkline Preview.
+  - [x] **Live Matrix**: WebSocket integration for real-time feature monitoring.
+  - [x] **AI Co-pilot**: Strategy Advisor prompt updated with Alpha syntax.
 
 ### **Phase 8: Professional Standards & ML Readiness (Completed)**
 - **Status:** ✅ Complete (2026-01-02)
