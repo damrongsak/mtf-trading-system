@@ -67,7 +67,7 @@ export function useLiveFeatures(instruments: string[] = ['XAU_USD', 'EUR_USD']) 
                     const msg = JSON.parse(event.data);
 
                     // Check event type from FeatureWorker
-                    if (msg.event_type === 'features_calculated' || msg.features_complete === 'true') {
+                    if (msg.event_type === 'features_calculated' || msg.features_complete === 'true' || msg.type === 'FEATURE') {
                         // The payload might be nested or flat depending on StreamManager broadcast.
                         // StreamManager broadcasts `msg["data"]`.
                         // FeatureWorker payload: { event_type, symbol, features: json_str, ... }

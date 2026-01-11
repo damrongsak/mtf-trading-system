@@ -187,6 +187,7 @@ class FeatureWorker:
             latest = df.iloc[-1]
             
             return {
+                "type": "FEATURE",
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "timestamp": latest['timestamp'], # Should match stream
