@@ -133,7 +133,7 @@ export default function MarketPage() {
   }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]);
 
   const updateIndicators = async () => {
-      console.log('[MarketPage] Updating Indicators. State:', { showEMA, showEMA50, showRSI, showATR, showMACD });
+
       const newInds: IndicatorData[] = [];
       const closes = candles.map(c => c.close);
       
@@ -152,13 +152,18 @@ export default function MarketPage() {
       if (showATR) await tryCalc(() => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), (res) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }));
       if (showMACD) {
            await tryCalc(() => calculateMACD({ close: closes }), (res) => {
-               newInds.push({ name: 'MACD', data: res.macd, color: '#06b6d4', priceScaleId: 'left' });
-               newInds.push({ name: 'Signal', data: res.signal, color: '#f472b6', priceScaleId: 'left' });
+               // Zip MACD components
+               const macdData = res.macd.map((v, i) => ({
+                   value: v,
+                   signal: res.signal[i],
+                   hist: res.hist[i]
+               }));
+               newInds.push({ name: 'MACD', data: macdData, color: '#06b6d4', priceScaleId: 'left' });
            });
       }
       if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
       
-      console.log('[MarketPage] Indicators Calculated:', newInds.map(i => i.name));
+      
       setChartIndicators(newInds);
   };
 
@@ -410,15 +415,47 @@ export default function MarketPage() {
                                             markers={smcMarkers}
                                             priceLines={smcPriceLines}
                                         />
-                                        {chartIndicators.filter(i => i.name.startsWith('RSI')).map(ind => (
-                                            <IndicatorChart 
-                                                key={ind.name}
-                                                type="RSI"
-                                                data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v || 0 }))}
-                                                height={100}
-                                                colors={{ lineColor: ind.color, textColor: '#525252' }}
-                                            />
-                                        ))}
+                                        {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
+                                            if (ind.name.startsWith('RSI')) {
+                                                return (
+                                                    <IndicatorChart 
+                                                        key={ind.name}
+                                                        type="RSI"
+                                                        data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
+                                                        height={100}
+                                                        colors={{ lineColor: ind.color, textColor: '#525252' }}
+                                                    />
+                                                );
+                                            }
+                                            if (ind.name.startsWith('ATR')) {
+                                                return (
+                                                    <IndicatorChart 
+                                                        key={ind.name}
+                                                        type="ATR"
+                                                        data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
+                                                        height={100}
+                                                        colors={{ lineColor: ind.color, textColor: '#525252' }}
+                                                    />
+                                                );
+                                            }
+                                            if (ind.name === 'MACD') {
+                                                return (
+                                                    <IndicatorChart 
+                                                        key={ind.name}
+                                                        type="MACD"
+                                                        data={ind.data.map((v: any, i) => ({ 
+                                                            time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, 
+                                                            value: v.value,
+                                                            signal: v.signal,
+                                                            hist: v.hist
+                                                        }))}
+                                                        height={150}
+                                                        colors={{ lineColor: '#2962FF', signalColor: '#FF6D00', histColor: '#26a69a', textColor: '#525252' }}
+                                                    />
+                                                );
+                                            }
+                                            return null;
+                                        })}
                                     </ChartContainer>
                                  ) : (
                                         <div className="flex items-center justify-center h-full text-gray-600 flex-col gap-3">

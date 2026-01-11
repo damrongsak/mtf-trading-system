@@ -13,7 +13,6 @@ import time
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/analysis",
     tags=["analysis"]
 )
 

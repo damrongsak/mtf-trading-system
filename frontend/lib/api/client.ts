@@ -63,7 +63,7 @@ apiClient.interceptors.response.use(
                         // Optionally redirect to login or trigger logout
                         if (typeof window !== 'undefined') {
                             // You could dispatch a logout event here
-                            console.warn('[API] Unauthorized - token may be expired');
+                            if (process.env.NODE_ENV === 'development') console.warn('[API] Unauthorized - token may be expired');
                         }
                         break;
                     case 403:

@@ -57,7 +57,7 @@ export function useLivePrices(instruments: string[] = []) {
 
             socket.onopen = () => {
                 if (isMounted) {
-                    console.log('Connected to Price Stream');
+                    if (process.env.NODE_ENV === 'development') console.log('Connected to Price Stream');
                     setConnected(true);
                 }
             };
@@ -89,7 +89,7 @@ export function useLivePrices(instruments: string[] = []) {
             socket.onclose = (event) => {
                 if (!isMounted) return;
 
-                console.log('Price Stream disconnected', event.reason);
+                if (process.env.NODE_ENV === 'development') console.log('Price Stream disconnected', event.reason);
                 setConnected(false);
                 ws.current = null;
 

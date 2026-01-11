@@ -7,7 +7,7 @@ import { Candle } from '@/lib/api/market';
 
 export interface IndicatorData {
   name: string;
-  data: (number | null)[];
+  data: (number | null | any)[];
   color: string;
   priceScaleId?: string;
 }

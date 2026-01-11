@@ -29,6 +29,5 @@ export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]
       count: params.count
     }
   });
-  console.log('FetchCandles Response:', response.data);
   return response.data.data;
 }
