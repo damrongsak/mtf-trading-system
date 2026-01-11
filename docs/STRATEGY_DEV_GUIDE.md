@@ -33,7 +33,11 @@ Use the Monaco Editor to type your logic using the supported syntax:
 ### 3. Test & Deploy
 1.  **Sparkline Preview**: Type to see instant shape verification.
 2.  **Backtest**: Click "Run Backtest" to see Sharpe/IC metrics.
-3.  **Save**: (Coming Soon) Promotes the formula to a registered Strategy.
+3.  **Deploy**:
+    *   **Generic**: Use the `ALPHA_ENGINE_V1` template.
+        *   Config: `{ "formula": "..." }`
+    *   **Hybrid**: Use the `HYBRID_ALPHA_V1` template.
+        *   Config: `{ "alpha_threshold": 0.8 }`
 
 ---
 
@@ -44,6 +48,14 @@ For logic that requires complex control flow (loops, external APIs) or specific 
 ### 1. Locate the Registry
 Open the file:
 `services/strategy-core/app/registry.py`
+
+### Strategy Templates Reference
+| Template ID | Description | Config Keys |
+| :--- | :--- | :--- |
+| `ALPHA_ENGINE_V1` | Generic Formula Execution | `formula`, `threshold_long`, `threshold_short` |
+| `HYBRID_ALPHA_V1` | Momentum + Order Block | `alpha_threshold` (Default: 0.8) |
+| `SMC_V1` | Standard Smart Money Concepts | N/A |
+| `MACD_CROSS_V1` | MACD Crossover | `fast`, `slow`, `signal` |
 
 ### 2. Define Your Logic
 Add a new `async` function that accepts `state` and `data_manager`.

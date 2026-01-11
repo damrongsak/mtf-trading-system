@@ -30,6 +30,7 @@ class ExpressionEngine:
             'ts_min': lambda x, n: x.rolling(n).min(),
             'sma': lambda x, n: x.rolling(n).mean(),
             'std': lambda x, n: x.rolling(n).std(),
+            'ts_rank': lambda x, n: x.rolling(n).rank(pct=True), # Added for hybrid strategy
             
             # Cross Sectional
             'rank': lambda x: x.rank(axis=1, pct=True),
@@ -45,18 +46,24 @@ class ExpressionEngine:
         """
         Parses formula and returns True if safe/valid, else raises SecurityException.
         """
+        if "__" in formula or "import" in formula:
+             raise SecurityException("Unsafe characters detected")
+
         try:
             tree = ast.parse(formula, mode='eval')
         except SyntaxError as e:
             raise SecurityException(f"Syntax Error: {e}")
 
+        # Complexity Check
+        if len(list(ast.walk(tree))) > 50:
+             raise SecurityException("Formula too complex (max nodes exceeded)")
+
         for node in ast.walk(tree):
             if isinstance(node, (ast.Expression, ast.Load, ast.Constant, 
-                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call)):
+                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call, ast.keyword)):
                 continue
             if isinstance(node, ast.Attribute):
-                # Disallow attributes unless strictly controlled (e.g. x.T)
-                # For Phase 1, disallow all attributes to prevent accessing __class__ etc.
+                # Strictly disallow attributes for now
                 raise SecurityException(f"Attribute access not allowed: {node}")
             
             raise SecurityException(f"Node type not allowed: {type(node).__name__}")

@@ -5,7 +5,8 @@ from typing import Optional, Dict
 import pandas as pd
 from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
 from app.indicators import calculate_ema, calculate_rsi, calculate_macd
-
+from app.engine.expression_engine import ExpressionEngine
+from app.smc import detect_order_blocks
 logger = logging.getLogger(__name__)
 
 # --- Template Functions ---
@@ -200,13 +201,177 @@ async def ema_rsi_strategy(state, data_manager):
         
     return None
 
-# --- Registry ---
+async def alpha_engine_strategy(state, data_manager):
+    """
+    ALPHA_ENGINE_V1: Generic Formula Execution.
+    Config:
+        - formula: "rsi(close, 14)"
+        - threshold_long: 30
+        - threshold_short: 70
+        - logic: "reversed" (optional, for mean reversion)
+    """
+    symbol = state.symbol
+    config = state.config_json if hasattr(state, 'config_json') else {}
+    formula = config.get('formula')
+    threshold_long = config.get('threshold_long')
+    threshold_short = config.get('threshold_short')
+    
+    if not formula:
+        return None
+        
+    df = data_manager.get_data(symbol)
+    if df.empty:
+        return None
+        
+    engine = ExpressionEngine()
+    try:
+        # Prepare Context
+        # Map columns to series
+        context = {col: df[col] for col in df.columns}
+        
+        # Evaluate
+        result_series = engine.evaluate(formula, context)
+        
+        if isinstance(result_series, (float, int)):
+            # If formula returns scalar
+            current_val = result_series
+        else:
+             # Get latest
+             current_val = result_series.iloc[-1]
+             
+        direction = None
+        reason = ""
+        
+        # Default Logic: Value < Long Threshold -> BUY (Oversold), Value > Short -> SELL (Overbought)
+        # Wait, usually "Signal > Threshold" is momentum. "Signal < Threshold" is mean reversion.
+        # Let's support both via config or assume Momentum:
+        # Momentum: Val > 0.8 -> Buy.
+        # Mean Reversion (RSI): Val < 30 -> Buy.
+        
+        # Let's use simple explicitly mapped logic:
+        # If threshold_long defined:
+        #   if threshold_long < 50 (Low value) -> Mean Reversion Buy (Val < Threshold)
+        #   if threshold_long > 50 (High value) -> Momentum Buy (Val > Threshold)
+        # Actually this is ambiguous. Let's look for explicit operator in config or simplify.
+        
+        # Simplified:
+        # threshold_long: Trigger Level for BUY
+        # condition_long: "gt" or "lt" (default "gt")
+        
+        cond_long = config.get('condition_long', 'gt')
+        cond_short = config.get('condition_short', 'lt')
+        
+        # Check Long
+        if threshold_long is not None:
+            hit = False
+            if cond_long == 'gt' and current_val > threshold_long: hit = True
+            elif cond_long == 'lt' and current_val < threshold_long: hit = True
+            
+            if hit:
+                direction = "BULLISH"
+                reason = f"Alpha ({formula}) {current_val:.2f} check {cond_long} {threshold_long}"
+
+        # Check Short
+        if threshold_short is not None and not direction:
+            hit = False
+            if cond_short == 'gt' and current_val > threshold_short: hit = True
+            elif cond_short == 'lt' and current_val < threshold_short: hit = True
+            
+            if hit:
+                direction = "BEARISH"
+                reason = f"Alpha ({formula}) {current_val:.2f} check {cond_short} {threshold_short}"
+                
+        if direction:
+            # Stop Loss? Simple ATR or %
+            # Use ATR(14)
+            atr_series = calculate_atr(df['high'], df['low'], df['close'], 14)
+            current_atr = atr_series.iloc[-1]
+            current_close = df['close'].iloc[-1]
+            
+            sl_price = current_close - (2.0 * current_atr) if direction == "BULLISH" else current_close + (2.0 * current_atr)
+            
+            return {
+                "direction": direction,
+                "stop_loss": sl_price,
+                "reason": reason,
+                "metadata": {"alpha_score": float(current_val)}
+            }
+            
+    except Exception as e:
+        logger.error(f"Alpha Engine Error {symbol}: {e}")
+        return None
+        
+    return None
+
+async def hybrid_alpha_strategy(state, data_manager):
+    """
+    HYBRID_ALPHA_V1: Setup (Alpha/Momentum) + Trigger (SMC/OrderBlock).
+    Spec: 12_ALPHA_001
+    """
+    symbol = state.symbol
+    config = state.config_json if hasattr(state, 'config_json') else {}
+    alpha_threshold = config.get('alpha_threshold', 0.8)
+    
+    # 1. Calculate Alpha Score (Momentum)
+    # Formula: rank(close / delay(close, 10))
+    # If single asset, use ts_rank
+    formula = "ts_rank(close / delay(close, 10), 20)" 
+    # Spec said "rank", but confirmed single-asset context requires ts_rank for meaningful 0-1 score.
+    
+    df = data_manager.get_data(symbol)
+    if df.empty or len(df) < 50: return None
+    
+    engine = ExpressionEngine()
+    try:
+        context = {col: df[col] for col in df.columns}
+        alpha_series = engine.evaluate(formula, context)
+        current_alpha = alpha_series.iloc[-1]
+        
+        if current_alpha < alpha_threshold:
+            return None # Filtered
+            
+        # 2. SMC Trigger
+        # Reuse existing implementation
+        obs = detect_order_blocks(df)
+        current_close = df['close'].iloc[-1]
+        
+        # Check for Unmitigated Bullish OB below price
+        valid_ob = None
+        for ob in obs:
+            if ob['type'] == 'bullish' and ob['mitigated'] == False:
+                 # Check if price is near (e.g. within 0.5% of OB top)
+                 if current_close > ob['top'] and (current_close - ob['top']) / current_close < 0.005: 
+                      valid_ob = ob
+                      break
+        
+        if valid_ob:
+             # Signal
+             sl_price = valid_ob['bottom'] # SL below OB
+             
+             return {
+                 "direction": "BULLISH",
+                 "stop_loss": sl_price,
+                 "reason": f"Hybrid: High Momentum ({current_alpha:.2f}) + Bouncing off OB",
+                 "metadata": {
+                     "alpha_score": float(current_alpha),
+                     "ob_index": valid_ob['index']
+                 }
+             }
+
+    except Exception as e:
+        logger.error(f"Hybrid Strategy Error {symbol}: {e}")
+        return None
+        
+    return None
+
 
 class StrategyRegistry:
     _strategies = {
         "SMC_V1": smc_v1_strategy,
         "MACD_CROSS_V1": macd_cross_strategy,
-        "EMA_RSI_V1": ema_rsi_strategy
+        "EMA_RSI_V1": ema_rsi_strategy,
+        "ALPHA_ENGINE_V1": alpha_engine_strategy,
+        "HYBRID_ALPHA_V1": hybrid_alpha_strategy
     }
     
     _metadata = {
@@ -228,6 +393,24 @@ class StrategyRegistry:
                 "rsi_period": 14,
                 "rsi_overbought": 70,
                 "rsi_oversold": 30
+            }
+        },
+        "ALPHA_ENGINE_V1": {
+            "name": "Athena Alpha Engine",
+            "description": "Generic Formula Execution",
+            "defaults": {
+                "formula": "rsi(close, 14)",
+                "threshold_long": 30,
+                "condition_long": "lt",
+                "threshold_short": 70,
+                "condition_short": "gt"
+            }
+        },
+        "HYBRID_ALPHA_V1": {
+            "name": "Hybrid (Momentum + SMC)",
+            "description": "Statistical Momentum Filter with Order Block Entry",
+            "defaults": {
+                "alpha_threshold": 0.8
             }
         }
     }
