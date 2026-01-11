@@ -2,9 +2,44 @@
 This guide explains how to add new trading logic to the **MTF Trading System**.
 
 ## Overview
-The system uses a **Plugin-based Architecture** for strategies. All trading logic resides in the `Strategy Core` service. To add a new algorithm, you simply implement a Python function and register it.
+There are two ways to build strategies in Olympus:
+1.  **Alpha Engine (Recommended)**: Write statistical factors using safe, concise mathematical formulas. Best for research and signals.
+2.  **Strategy Core Plugins (Advanced)**: Write raw Python asyncio functions. Best for complex execution logic or external dependencies.
 
-## Quick Start (Developer Flow)
+---
+
+## Method 1: The Alpha Engine (New)
+
+The **Alpha Engine** allows you to design factors without writing full Python modules. Logic is compiled safely by the `Athena` engine.
+
+### 1. Open the Alpha Lab
+Navigate to the [Alpha Lab](http://localhost:3000/alpha/lab) in your browser.
+
+### 2. Write Your Formula
+Use the Monaco Editor to type your logic using the supported syntax:
+
+**Syntax Reference:**
+*   `rank(x)`: Cross-sectional rank (0-1).
+*   `delay(x, n)`: Value of x, n periods ago.
+*   `ts_max(x, n)` / `ts_min(x, n)`: Rolling max/min.
+*   `sma(x, n)` / `std(x, n)`: Rolling mean/std.
+*   `correlation(x, y, n)`: Rolling correlation.
+
+**Examples:**
+*   **Mean Reversion:** `(close - sma(close, 20)) / std(close, 20)`
+*   **Momentum:** `rank(close / delay(close, 10))`
+*   **Breakout:** `close > ts_max(high, 20)`
+
+### 3. Test & Deploy
+1.  **Sparkline Preview**: Type to see instant shape verification.
+2.  **Backtest**: Click "Run Backtest" to see Sharpe/IC metrics.
+3.  **Save**: (Coming Soon) Promotes the formula to a registered Strategy.
+
+---
+
+## Method 2: Python Plugins (Advanced)
+
+For logic that requires complex control flow (loops, external APIs) or specific libraries (`pandas-ta`), use the Plugin system.
 
 ### 1. Locate the Registry
 Open the file:
@@ -26,93 +61,33 @@ async def my_custom_strategy(state, data_manager):
     if df.empty:
         return None
         
-    # 2. Calculate Indicators (using pandas_ta or vectorbt)
-    # Example: Simple Moving Average
+    # 2. Calculate Indicators
     close = df['close']
     sma = close.rolling(50).mean()
     
     # 3. Check Conditions
-    current_price = close.iloc[-1]
-    current_sma = sma.iloc[-1]
-    
-    direction = None
-    if current_price > current_sma:
-         direction = "BULLISH"
-    elif current_price < current_sma:
-         direction = "BEARISH"
-         
-    # 4. Return Signal (or None)
-    if direction:
-        return {
-            "direction": direction,
-            "stop_loss": current_sma,  # Required
-            "reason": f"Price crossed SMA: {direction}"
+    if close.iloc[-1] > sma.iloc[-1]:
+         return {
+            "direction": "BULLISH",
+            "stop_loss": sma.iloc[-1],
+            "reason": "Price > SMA"
         }
     return None
 ```
 
 ### 3. Register the Strategy
-Add your function to the `StrategyRegistry` class at the bottom of the file.
+Add your function to the `StrategyRegistry` class.
 
 ```python
 class StrategyRegistry:
     _strategies = {
         # ... existing ...
-        "MY_STRAT_V1": my_custom_strategy  # <--- Add this
-    }
-    
-    _metadata = {
-        # ... existing ...
-        "MY_STRAT_V1": {
-            "name": "My Custom Strategy",
-            "description": "Simple SMA Crossover",
-            "defaults": {
-                "period": 50
-            }
-        }
+        "MY_STRAT_V1": my_custom_strategy
     }
 ```
 
-### 4. Restart the Backend
-For the changes to take effect, you must restart the `strategy-core` service:
-
+### 4. Restart Strategy Core
 ```bash
 docker compose restart strategy-core
 ```
 
-### 5. Use it in the UI
-1. Go to **Dashboard** -> **strategies**.
-2. Click **Launch Strategy**.
-3. Select **My Custom Strategy** (MY_STRAT_V1) from the Template dropdown.
-
-## Advanced Usage
-
-### Using Multiple Timeframes
-You can resample data to get Higher Timeframe (HTF) context.
-
-```python
-# Create H1 bars from M15 data
-df_h1 = df_base.resample('1h').agg({
-    'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-}).dropna()
-```
-
-### Using Config Parameters
-Access user-defined settings via `state.config_json`:
-
-```python
-def my_strategy(state, data_manager):
-    config = state.config_json
-    rsi_period = config.get('rsi_period', 14) # Default to 14
-```
-
-### Stop Loss & Risk
-The system handles position sizing automatically based on the user's Risk Settings (e.g., Max Risk $10). Your strategy only needs to provide:
-1.  **Direction**: `BULLISH` or `BEARISH`
-2.  **Stop Loss Price**: Where the trade fails.
-
-The distance between Entry and Stop Loss determines the position size.
-
----
-**Need Help?**
-Check `services/strategy-core/app/indicators.py` for available helper functions like `calculate_rsi` and `calculate_atr`.
