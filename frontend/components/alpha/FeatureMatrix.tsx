@@ -6,6 +6,10 @@ import {
   getCoreRowModel,
   flexRender,
   createColumnHelper,
+  CellContext,
+  HeaderGroup,
+  Header,
+  Row,
 } from '@tanstack/react-table';
 import { Card } from '@/components/ui/card';
 import { useLiveFeatures } from '@/lib/hooks/useLiveFeatures';
@@ -25,11 +29,11 @@ const columnHelper = createColumnHelper<FeatureRow>();
 const columns = [
   columnHelper.accessor('symbol', {
     header: 'Symbol',
-    cell: (info: any) => <span className="font-bold text-slate-200">{info.getValue()}</span>,
+    cell: (info: CellContext<FeatureRow, string>) => <span className="font-bold text-slate-200">{info.getValue()}</span>,
   }),
   columnHelper.accessor('rsi_14', {
     header: 'RSI (14)',
-    cell: (info: any) => {
+    cell: (info: CellContext<FeatureRow, number | null>) => {
       const val = info.getValue();
       if (val === null) return <span className="text-slate-600">-</span>;
       const color = val > 70 ? 'text-red-400' : val < 30 ? 'text-green-400' : 'text-slate-300';
@@ -38,15 +42,15 @@ const columns = [
   }),
   columnHelper.accessor('sma_20', {
     header: 'SMA (20)',
-    cell: (info: any) => info.getValue()?.toFixed(4) ?? '-',
+    cell: (info: CellContext<FeatureRow, number | null>) => info.getValue()?.toFixed(4) ?? '-',
   }),
   columnHelper.accessor('atr_14', {
     header: 'ATR (14)',
-    cell: (info: any) => info.getValue()?.toFixed(4) ?? '-',
+    cell: (info: CellContext<FeatureRow, number | null>) => info.getValue()?.toFixed(4) ?? '-',
   }),
   columnHelper.accessor('last_updated', {
     header: 'Freshness',
-    cell: (info: any) => {
+    cell: (info: CellContext<FeatureRow, string>) => {
         // Calculate lag
         const lag = Date.now() - new Date(info.getValue()).getTime();
         let color = 'bg-green-500';
@@ -69,7 +73,6 @@ const FeatureMatrix = () => {
 
   useEffect(() => {
     // Transform features object to array for table
-    // Explicitly cast f to any for safety given the context or FeatureUpdate if we imported it
     const rows = Object.values(features).map((f: any) => ({
         symbol: f.symbol,
         rsi_14: f.rsi_14 ?? null,
@@ -103,9 +106,9 @@ const FeatureMatrix = () => {
       
       <table className="w-full text-sm text-left">
         <thead className="text-xs text-slate-500 uppercase bg-slate-950/50">
-          {table.getHeaderGroups().map((headerGroup: any) => (
+          {table.getHeaderGroups().map((headerGroup: HeaderGroup<FeatureRow>) => (
             <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header: any) => (
+              {headerGroup.headers.map((header: Header<FeatureRow, unknown>) => (
                 <th key={header.id} className="px-4 py-3">
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </th>
@@ -114,7 +117,7 @@ const FeatureMatrix = () => {
           ))}
         </thead>
         <tbody className="divide-y divide-slate-800">
-          {table.getRowModel().rows.map((row: any) => (
+          {table.getRowModel().rows.map((row: Row<FeatureRow>) => (
             <tr key={row.id} className="hover:bg-slate-800/50 transition-colors">
               {row.getVisibleCells().map((cell: any) => (
                 <td key={cell.id} className="px-4 py-3 font-mono">

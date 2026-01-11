@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { defaultApi } from '@/lib/api/client';
+import { createChatSession, sendChatMessage, SendMessageRequest, CreateChatSessionRequest } from '@/lib/api/alpha';
 import { APIResponseAgentList, Agent } from '@/lib/api/generated';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,25 @@ export function ChatInterface() {
   // Fetch agents on mount to populate selector (optional future feature)
   // For now we just default to market_observer or let backend handle routing
 
+  // Session State
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Initialize Session on Mount
+  useEffect(() => {
+    const initSession = async () => {
+        try {
+            const res = await createChatSession({ context_type: "general" });
+            if (res?.id) {
+                setSessionId(res.id);
+            }
+        } catch (e) {
+            console.error("Failed to init chat session", e);
+            toast.error("Failed to connect to AI Brain");
+        }
+    };
+    initSession();
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -35,6 +55,11 @@ export function ChatInterface() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+
+    if (!sessionId) {
+        toast.error("Initializing session...");
+        return;
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -48,49 +73,27 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
-        // We use the 'chat/sessions/{id}/messages' endpoint or similar.
-        // Since the current spec doesn't detail the full chat flow, we'll assume a direct chat endpoint
-        // or a session-based one.
-        // Based on previous files, there is POST /ai/chat/sessions/message or similiar in ai-analyst
-        // But in api-gateway we have POST /chat/sessions/{session_id}/messages
+        const payload: SendMessageRequest = {
+            content: userMsg.content,
+            // Capture snapshot if we had access to editor state
+            // For now, pass empty context
+        };
+
+        const aiData = await sendChatMessage(sessionId, payload);
         
-        // For this MVP, let's use a simplified approach if session management isn't fully ready
-        // Or create a session first.
-        
-        // Let's assume we need to create a session or use a static one for now.
-        // Checking api-gateway routers/ai.py: 
-        // @router.post("/chat/sessions/{session_id}/messages")
-        
-        // We'll generate a random session ID for this browser session
-        const sessionId = "00000000-0000-0000-0000-000000000000"; // Placeholder or generated
-        
-        // Actually, let's check what the API client supports.
-        // defaultApi.apiV1AiChatSessionsSessionIdMessagesPost(...)
-        
-        // Wait, the API spec I viewed had:
-        // /api/v1/ai/agents - GET
-        // /api/v1/ai/agents/{id} - GET
-        
-        // Attempting to use the existing chat endpoint if available.
-        // If not, we might need to rely on the agent run endpoint: /api/v1/ai/agent/observer/run
-        
-        // Let's try the observer run for now as a fallback if chat isn't verified
-        // OR simply display a "Chat not fully connected" message if endpoints are missing.
-        
-        // Mock response for UI demo if backend endpoint is complex:
-        setTimeout(() => {
+        if (aiData) {
             const aiMsg: Message = {
-                id: (Date.now() + 1).toString(),
+                id: aiData.id || Date.now().toString(),
                 role: 'assistant',
-                content: "I received your message: " + userMsg.content + ". (Backend integration pending full chat session support)",
-                timestamp: new Date()
+                content: aiData.content || "No response content",
+                timestamp: new Date(aiData.created_at || Date.now())
             };
             setMessages(prev => [...prev, aiMsg]);
-            setIsLoading(false);
-        }, 1000);
-
+        }
     } catch (error) {
-        toast.error("Failed to send message");
+        console.error("Chat error:", error);
+        toast.error("Failed to send message: " + (error as any).message);
+    } finally {
         setIsLoading(false);
     }
   };
@@ -100,7 +103,7 @@ export function ChatInterface() {
       <div className="p-4 border-b bg-muted/50 flex justify-between items-center">
         <div className="font-medium flex items-center gap-2">
             <Bot className="w-4 h-4" />
-            AI Chat
+            AI Chat {sessionId ? <span className="text-xs text-green-500">● Connected</span> : <span className="text-xs text-yellow-500">● Connecting...</span>}
         </div>
         {/* Agent selector could go here */}
       </div>
@@ -123,7 +126,7 @@ export function ChatInterface() {
                         </div>
                         <div className={`p-3 rounded-lg text-sm ${
                             msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted border'
-                        }`}>
+                        } whitespace-pre-wrap`}>
                             {msg.content}
                         </div>
                     </div>

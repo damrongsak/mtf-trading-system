@@ -1,6 +1,14 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiError } from './errors';
 
+export const handleApiError = (error: unknown): ApiError => {
+    if (error instanceof ApiError) return error;
+    if (axios.isAxiosError(error)) {
+        return new ApiError(error.message, error.response?.status, error.response?.data);
+    }
+    return new ApiError(error instanceof Error ? error.message : 'Unknown error');
+};
+
 // Create axios instance with default config
 const apiClient: AxiosInstance = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || '',

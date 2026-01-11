@@ -1,15 +1,14 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 // Define types locally or import from generated API if verified
-// For now, consistent with specs
 export interface AlphaResult {
     signal: number[];
     metrics: {
         sharpe?: number;
         ic?: number;
-        [key: string]: any;
+        [key: string]: string | number | boolean | undefined;
     };
     timestamps: string[];
 }
@@ -19,6 +18,7 @@ interface AlphaStore {
     formula: string;
     symbol: string;
     timeframe: string;
+    code: string; // Add missing property
     isRunning: boolean;
     result: AlphaResult | null;
     error: string | null;
@@ -27,6 +27,7 @@ interface AlphaStore {
     setFormula: (formula: string) => void;
     setSymbol: (symbol: string) => void;
     setTimeframe: (tf: string) => void;
+    setCode: (code: string) => void; // Add missing action
     runAlpha: (mode?: 'full' | 'preview') => Promise<void>;
 }
 
@@ -34,13 +35,15 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
     formula: 'rank(close / delay(close, 5))',
     symbol: 'XAU_USD',
     timeframe: 'H1',
+    code: 'rank(close / delay(close, 5))', // Initialize matches formula
     isRunning: false,
     result: null,
     error: null,
 
-    setFormula: (formula) => set({ formula }),
-    setSymbol: (symbol) => set({ symbol }),
-    setTimeframe: (timeframe) => set({ timeframe }),
+    setFormula: (formula: string) => set({ formula }),
+    setSymbol: (symbol: string) => set({ symbol }),
+    setTimeframe: (timeframe: string) => set({ timeframe }),
+    setCode: (code: string) => set({ code }),
 
     runAlpha: async (mode = 'full') => {
         const { formula, symbol, timeframe } = get();
@@ -79,9 +82,14 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
                 if (mode === 'full') toast.error(res.data.error || 'Simulation failed');
             }
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            const msg = err.response?.data?.detail || err.message;
+            let msg = 'Unknown error';
+            if (axios.isAxiosError(err)) {
+                msg = err.response?.data?.detail || err.message;
+            } else if (err instanceof Error) {
+                msg = err.message;
+            }
             set({ error: msg });
             if (mode === 'full') toast.error(msg);
         } finally {

@@ -6,10 +6,54 @@ import FeatureMatrix from '@/components/alpha/FeatureMatrix';
 import { useAlphaStore } from '@/lib/stores/useAlphaStore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Play, Rocket, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import { deployAlphaStrategy } from '@/lib/api/alpha';
 
 const AlphaLabPage = () => {
-    const { runAlpha, isRunning, result, error } = useAlphaStore();
+    const { runAlpha, isRunning, result, error, code, setCode } = useAlphaStore();
+    
+    // Deployment State
+    const [isDeployOpen, setIsDeployOpen] = useState(false);
+    const [isDeploying, setIsDeploying] = useState(false);
+    const [deployConfig, setDeployConfig] = useState({
+        name: '',
+        description: '',
+    });
+
+    const handleDeploy = async () => {
+        if (!deployConfig.name || !code) {
+            toast.error("Please enter a name and ensure strategy code is present.");
+            return;
+        }
+
+        setIsDeploying(true);
+        try {
+            await deployAlphaStrategy({
+                name: deployConfig.name,
+                template_id: "ALPHA_ENGINE_V1",
+                fund_id: "00000000-0000-0000-0000-000000000000", // Placeholder / Default Fund
+                broker_account_id: "00000000-0000-0000-0000-000000000000", // Placeholder
+                config_json: {
+                    formula: code, // Assuming 'code' in store is the formula string
+                    meta_description: deployConfig.description
+                },
+                risk_settings: {}
+            });
+            toast.success("Strategy Deployed Successfully!");
+            setIsDeployOpen(false);
+        } catch (e) {
+            console.error("Deploy failed", e);
+            toast.error("Failed to deploy strategy: " + (e as any).message);
+        } finally {
+            setIsDeploying(false);
+        }
+    };
 
     return (
         <div className="h-[calc(100vh-4rem)] p-4 gap-4 grid grid-cols-12 grid-rows-6">
@@ -19,14 +63,61 @@ const AlphaLabPage = () => {
                      <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Athena Alpha Lab</h1>
                      <p className="text-slate-400 text-sm">Design, Backtest, and Deploy Statistical Alpha</p>
                 </div>
-                <Button 
-                    onClick={() => runAlpha('full')} 
-                    disabled={isRunning}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6"
-                >
-                    <Play className="w-4 h-4 mr-2" />
-                    {isRunning ? 'Running...' : 'Run Backtest'}
-                </Button>
+                <div className="flex gap-2">
+                    <Dialog open={isDeployOpen} onOpenChange={setIsDeployOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="border-blue-500/50 text-blue-400 hover:bg-blue-900/20">
+                                <Rocket className="w-4 h-4 mr-2" />
+                                Deploy
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-slate-900 border-slate-800 text-slate-200">
+                            <DialogHeader>
+                                <DialogTitle>Deploy Alpha Strategy</DialogTitle>
+                                <DialogDescription>
+                                    Deploy this formula to the live trading engine.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="name" className="text-right">Name</Label>
+                                    <Input 
+                                        id="name" 
+                                        value={deployConfig.name} 
+                                        onChange={(e) => setDeployConfig({...deployConfig, name: e.target.value})}
+                                        className="col-span-3 bg-slate-950 border-slate-700" 
+                                        placeholder="e.g. Mumtaz Momentum"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="desc" className="text-right">Description</Label>
+                                    <Textarea 
+                                        id="desc" 
+                                        value={deployConfig.description} 
+                                        onChange={(e) => setDeployConfig({...deployConfig, description: e.target.value})}
+                                        className="col-span-3 bg-slate-950 border-slate-700" 
+                                        placeholder="Describe the strategy intent..."
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleDeploy} disabled={isDeploying} className="bg-purple-600 hover:bg-purple-500">
+                                    {isDeploying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Confirm Deployment
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Button 
+                        onClick={() => runAlpha('full')} 
+                        disabled={isRunning}
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6"
+                    >
+                        <Play className="w-4 h-4 mr-2" />
+                        {isRunning ? 'Running...' : 'Run Backtest'}
+                    </Button>
+                </div>
             </div>
 
             {/* Editor Area - Span 8, Rows 2-4 */}
@@ -52,10 +143,10 @@ const AlphaLabPage = () => {
                     
                     {result && !error && (
                          <div className="grid grid-cols-4 gap-4">
-                            <MetricCard label="Sharpe Ratio" value={result.metrics.sharpe?.toFixed(2) ?? '-'} color="text-blue-400" />
-                            <MetricCard label="Information Coeff (IC)" value={result.metrics.ic?.toFixed(3) ?? '-'} color="text-purple-400" />
-                            <MetricCard label="Turnover" value={result.metrics.turnover?.toFixed(2) ?? '-'} />
-                            <MetricCard label="Total Return" value={result.metrics.total_return ? `${(result.metrics.total_return * 100).toFixed(1)}%` : '-'} color="text-green-400" />
+                            <MetricCard label="Sharpe Ratio" value={(result.metrics.sharpe as number)?.toFixed(2) ?? '-'} color="text-blue-400" />
+                            <MetricCard label="Information Coeff (IC)" value={(result.metrics.ic as number)?.toFixed(3) ?? '-'} color="text-purple-400" />
+                            <MetricCard label="Turnover" value={(result.metrics.turnover as number)?.toFixed(2) ?? '-'} />
+                            <MetricCard label="Total Return" value={(result.metrics.total_return as number) ? `${((result.metrics.total_return as number) * 100).toFixed(1)}%` : '-'} color="text-green-400" />
                         
                             {/* Simple Sparkline Placeholder for signal series */}
                             <div className="col-span-4 mt-4 h-24 bg-slate-950/50 rounded flex items-center justify-center border border-slate-800 border-dashed">
