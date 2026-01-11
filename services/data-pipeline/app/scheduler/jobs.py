@@ -187,9 +187,26 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 
                                 channel = f"market_data:candle:{symbol_name}:{tf}"
                                 try:
+                                    # Legacy Pub/Sub
                                     await publisher.publish(channel, event_payload)
+                                    
+                                    # Smart Latch: Publish to Stream
+                                    stream_payload = {
+                                        "event_type": "candle_completed",
+                                        "symbol": symbol_name,
+                                        "timeframe": tf,
+                                        "timestamp": event_payload['timestamp'].isoformat() if hasattr(event_payload['timestamp'], 'isoformat') else str(event_payload['timestamp']),
+                                        "c_open": event_payload['open'],
+                                        "c_high": event_payload['high'],
+                                        "c_low": event_payload['low'],
+                                        "c_close": event_payload['close'],
+                                        "c_volume": event_payload['volume'],
+                                        "data": json.dumps(event_payload, default=str)
+                                    }
+                                    await publisher.xadd("market.data.stream", stream_payload)
+                                    
                                 except Exception as pub_err:
-                                    logger.error(f"Failed to publish event {channel}: {pub_err}")
+                                    logger.error(f"Failed to publish event {channel}/stream: {pub_err}")
                 
     except Exception as e:
         logger.error(f"Ingestion job failed: {e}")

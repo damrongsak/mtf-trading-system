@@ -29,6 +29,27 @@ class RedisPublisher:
         except Exception as e:
             logger.error(f"Failed to publish to {channel}: {e}")
 
+    async def xadd(self, stream_key: str, fields: dict, id="*"):
+        """Append a message to a stream."""
+        if not self.redis:
+            await self.connect()
+        try:
+             # Redis streams require dict values to be strings (usually) or bytes.
+             # We should ensure fields are serialized if they aren't simple strings/flat.
+             # But standard xadd takes a dict. We'll rely on redis-py to handle basic types,
+             # or convert non-primitives to JSON strings.
+             safe_fields = {}
+             for k, v in fields.items():
+                 if isinstance(v, (dict, list)):
+                     safe_fields[k] = json.dumps(v, default=str)
+                 else:
+                     safe_fields[k] = str(v)
+            
+             return await self.redis.xadd(stream_key, safe_fields, id=id)
+        except Exception as e:
+            logger.error(f"Failed to xadd to {stream_key}: {e}")
+            return None
+
     async def close(self):
         if self.redis:
             await self.redis.close()

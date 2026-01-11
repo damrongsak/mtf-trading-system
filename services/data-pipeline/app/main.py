@@ -28,11 +28,20 @@ async def start_scheduler():
     from app.streaming.manager import stream_manager
     await stream_manager.start()
 
+    # Start Feature Worker
+    from app.workers.feature_worker import FeatureWorker
+    global feature_worker
+    feature_worker = FeatureWorker()
+    await feature_worker.start()
+
 @app.on_event("shutdown")
 async def shutdown_scheduler():
     scheduler.shutdown()
     from app.streaming.manager import stream_manager
     await stream_manager.stop()
+    
+    if 'feature_worker' in globals():
+        await feature_worker.stop()
 
 @app.get("/health")
 def health_check():
