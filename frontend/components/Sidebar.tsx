@@ -51,6 +51,7 @@ const navCategories: NavCategory[] = [
     name: 'STRATEGY',
     icon: Target,
     items: [
+      { name: 'Alpha Lab', href: '/alpha/lab', icon: FlaskConical },
       { name: 'Library', href: '/strategies', icon: Target },
       { name: 'Editor', href: '/strategies/editor', icon: Terminal },
       { name: 'GRID Lab', href: '/simulation', icon: Atom },
@@ -70,6 +71,7 @@ const navCategories: NavCategory[] = [
     name: 'DATA',
     icon: Database,
     items: [
+      { name: 'Feature Matrix', href: '/data/features', icon: Database },
       { name: 'Open Interest', href: '/data/open-interest', icon: FileSpreadsheet },
     ],
   },

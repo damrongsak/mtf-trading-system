@@ -1,0 +1,98 @@
+import React, { useCallback, useRef } from 'react';
+import Editor, { OnMount } from '@monaco-editor/react';
+import { useAlphaStore } from '@/lib/stores/useAlphaStore';
+import { useDebouncedCallback } from 'use-debounce'; // Need to install or implement debounce
+
+// Simple debounce implementation if library missing
+function useDebounce(func: any, wait: number) {
+    const timeout = useRef<NodeJS.Timeout>(null);
+    return useCallback((...args: any[]) => {
+        if (timeout.current) clearTimeout(timeout.current);
+        timeout.current = setTimeout(() => {
+            func(...args);
+        }, wait);
+    }, [func, wait]);
+}
+
+const AlphaEditor = () => {
+    const { formula, setFormula, runAlpha } = useAlphaStore();
+    
+    // Debounced preview
+    const handlePreview = useDebounce(() => {
+        runAlpha('preview');
+    }, 500);
+
+    const handleEditorChange = (value: string | undefined) => {
+        if (value !== undefined) {
+            setFormula(value);
+            handlePreview();
+        }
+    };
+
+    const handleEditorDidMount: OnMount = (editor, monaco) => {
+        // Define Custom Theme
+        monaco.editor.defineTheme('olympus-dark', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                { token: 'keyword', foreground: 'C586C0' },
+                { token: 'identifier', foreground: '9CDCFE' },
+            ],
+            colors: {
+                'editor.background': '#0f172a00', // Transparent for glass effect
+            }
+        });
+        monaco.editor.setTheme('olympus-dark');
+
+        // Completion Provider
+        monaco.languages.registerCompletionItemProvider('python', {
+            provideCompletionItems: (model, position) => {
+                const suggestions = [
+                    {
+                        label: 'rank',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'rank(${1:series})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        detail: 'Cross-sectional Rank'
+                    },
+                    {
+                        label: 'delay',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'delay(${1:series}, ${2:period})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        detail: 'Time-series lag'
+                    },
+                    {
+                        label: 'close',
+                        kind: monaco.languages.CompletionItemKind.Variable,
+                        insertText: 'close',
+                        detail: 'Close Price'
+                    }
+                ];
+                return { suggestions: suggestions };
+            }
+        });
+    };
+
+    return (
+        <div className="h-full w-full border border-slate-800 rounded-lg overflow-hidden bg-slate-950/50 backdrop-blur-sm shadow-inner">
+            <Editor
+                height="100%"
+                defaultLanguage="python"
+                value={formula}
+                onChange={handleEditorChange}
+                onMount={handleEditorDidMount}
+                options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    padding: { top: 16, bottom: 16 },
+                }}
+            />
+        </div>
+    );
+};
+
+export default AlphaEditor;
