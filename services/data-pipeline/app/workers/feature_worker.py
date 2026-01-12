@@ -6,6 +6,7 @@ import numpy as np
 from app.streaming.publisher import RedisPublisher
 from app.database import SessionLocal
 from app.repositories.candle_repository import CandleRepository
+from app.repositories.market_repository import MarketRepository
 from app.models.market import MarketSymbol
 from sqlalchemy.orm import Session
 
@@ -119,22 +120,8 @@ class FeatureWorker:
     def _calculate_sync(self, symbol: str, timeframe: str):
         db = SessionLocal()
         try:
-            market_repo = MarketRepository(db) # We need to get ID first? 
-            # Actually CandleRepository needs market_symbol_id.
-            # Helper to get market_symbol_id from symbol name.
-            # MarketRepo has `get_any_by_symbol` or similar
-            # Wait, `MarketRepository(db).get_active_symbols` returns objects.
-            # Let's use `get_market_symbol` which takes (symbol, broker). 
-            # We don't know the broker from the stream... 
-            # But usually it's OANDA?
-            # Safe bet: Query MarketSymbol by symbol name (assuming unique across active brokers or picking first).
-            
-            # Hack: Get by symbol string. 
-            # We need a method in repo.
-            # Let's inspect MarketRepository content via view_file if needed?
-            # Or just query MarketSymbol directly.
-            
-            ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
+            market_repo = MarketRepository(db)
+            ms = market_repo.get_any_by_symbol(symbol)
             if not ms:
                 logger.warning(f"FeatureWorker: Symbol {symbol} not found in DB.")
                 return None
