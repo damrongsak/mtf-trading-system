@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner';
+import { apiClient } from '../api/client';
+import { ApiError } from '../api/errors';
 
 // Define types locally or import from generated API if verified
 export interface AlphaResult {
@@ -60,15 +61,8 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
         try {
             const endpoint = mode === 'preview' ? '/api/v1/alpha/preview' : '/api/v1/alpha/test';
 
-            // Use internal Next.js proxy or direct to API Gateway if configured
-            // Assuming Next.js proxies need setup or axios baseURL is set. 
-            // lib/api/client sets baseURL usually. Here we use axios directly or need client.
-            // Let's assume global axios or import configured client.
-            // Better: use relative path if Next rewrites to backend, or full URL.
-            // Standard practice here: use configured client.
-
-            // Temporary: direct call assuming proxy in next.config or relative
-            const res = await axios.post(endpoint, {
+            // Use apiClient to handle authentication automatically
+            const res = await apiClient.post(endpoint, {
                 formula,
                 symbol,
                 timeframe
@@ -85,11 +79,13 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
         } catch (err: unknown) {
             console.error(err);
             let msg = 'Unknown error';
-            if (axios.isAxiosError(err)) {
-                msg = err.response?.data?.detail || err.message;
+            
+            if (err instanceof ApiError) {
+                msg = err.message;
             } else if (err instanceof Error) {
                 msg = err.message;
             }
+            
             set({ error: msg });
             if (mode === 'full') toast.error(msg);
         } finally {
