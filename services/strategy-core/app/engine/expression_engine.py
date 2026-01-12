@@ -40,7 +40,7 @@ class ExpressionEngine:
             'ts_rank': lambda x, n: x.rolling(n).rank(pct=True), # Added for hybrid strategy
             
             # Cross Sectional
-            'rank': lambda x: x.rank(axis=1, pct=True),
+            'rank': lambda x: x.rank(axis=1, pct=True) if isinstance(x, pd.DataFrame) else x.rank(pct=True),
             
             # Math
             'log': np.log,
@@ -67,7 +67,8 @@ class ExpressionEngine:
 
         for node in ast.walk(tree):
             if isinstance(node, (ast.Expression, ast.Load, ast.Constant, 
-                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call, ast.keyword, ast.Compare, ast.cmpop)):
+                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call, ast.keyword, ast.Compare, ast.cmpop,
+                                 ast.operator, ast.unaryop)):
                 continue
             if isinstance(node, ast.Attribute):
                 # Strictly disallow attributes for now
