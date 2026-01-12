@@ -19,6 +19,13 @@ class ExpressionEngine:
             ast.Pow: operator.pow,
             ast.USub: operator.neg,
             ast.Mod: operator.mod,
+            # Comparisons
+            ast.Gt: operator.gt,
+            ast.Lt: operator.lt,
+            ast.GtE: operator.ge,
+            ast.LtE: operator.le,
+            ast.Eq: operator.eq,
+            ast.NotEq: operator.ne,
         }
         
         # DataFrame/Series operations
@@ -60,7 +67,7 @@ class ExpressionEngine:
 
         for node in ast.walk(tree):
             if isinstance(node, (ast.Expression, ast.Load, ast.Constant, 
-                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call, ast.keyword)):
+                                 ast.Name, ast.BinOp, ast.UnaryOp, ast.Call, ast.keyword, ast.Compare, ast.cmpop)):
                 continue
             if isinstance(node, ast.Attribute):
                 # Strictly disallow attributes for now
@@ -86,6 +93,19 @@ class ExpressionEngine:
             left = self._eval_node(node.left, context)
             right = self._eval_node(node.right, context)
             op = type(node.op)
+            if op not in self.allowed_operators:
+                raise SecurityException(f"Operator {op} not supported")
+            return self.allowed_operators[op](left, right)
+
+        elif isinstance(node, ast.Compare):
+            left = self._eval_node(node.left, context)
+            # Handle chained comparisons if needed, but for now simple x > y
+            if len(node.ops) != 1:
+                 raise SecurityException("Chained comparisons not supported")
+            
+            op = type(node.ops[0])
+            right = self._eval_node(node.comparators[0], context)
+            
             if op not in self.allowed_operators:
                 raise SecurityException(f"Operator {op} not supported")
             return self.allowed_operators[op](left, right)

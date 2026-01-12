@@ -8,8 +8,8 @@ import asyncio
 
 @pytest.mark.asyncio
 async def test_start_and_stop_strategy():
-    # Patch RedisSubscriber BEFORE instantiating engine
-    with patch("app.engine.RedisSubscriber") as MockSubscriber:
+    # Patch RedisSubscriber in CORE module
+    with patch("app.engine.core.RedisSubscriber") as MockSubscriber:
         mock_sub = MockSubscriber.return_value
         mock_sub.subscribe = AsyncMock()
         mock_sub.connect = AsyncMock()
@@ -33,7 +33,7 @@ async def test_execution_logic_auto():
     """
     Verify that AUTO mode calls execution_client.place_order when signal is present.
     """
-    with patch("app.engine.RedisSubscriber") as MockSubscriber:
+    with patch("app.engine.core.RedisSubscriber") as MockSubscriber:
         mock_sub = MockSubscriber.return_value
         mock_sub.subscribe = AsyncMock()
 
@@ -57,9 +57,9 @@ async def test_execution_logic_auto():
         })
         market_data_manager.set_data("EUR_USD", df)
 
-        with patch("app.engine.execution_client") as mock_client, \
+        with patch("app.engine.core.execution_client") as mock_client, \
              patch.object(engine, "_process_strategy_logic", new_callable=AsyncMock) as mock_logic, \
-             patch("app.engine.get_market_sentiment", new_callable=AsyncMock) as mock_sentiment:
+             patch("app.engine.core.get_market_sentiment", new_callable=AsyncMock) as mock_sentiment:
             
             mock_sentiment.return_value = {"score": 0.0, "reason": "Neutral"}
             
@@ -67,18 +67,13 @@ async def test_execution_logic_auto():
             tick = {"type": "PRICE", "instrument": "EUR_USD", "bid": "1.12", "ask": "1.12", "time": "2023-01-01T12:00:00Z"}
             
             # on_tick calls FleetManager.tick, which eventually calls _process_strategy_logic
-            # But in StrategyEngine, on_tick is handled.
             await engine.on_tick(tick)
-            
-            # Since we mocked _process_strategy_logic, we check if it was called (it might not be called directly by on_tick in current engine)
-            # Actually engine.on_tick calls FleetManager.get_instance().tick
-            # We should probably test _process_strategy_logic or _execute_signal directly if we want to avoid complex integration.
-            
-        with patch("app.engine.execution_client") as mock_client:
+             
+        with patch("app.engine.core.execution_client") as mock_client:
             mock_client.place_order = AsyncMock()
             # Test _execute_signal directly
             with patch("os.getenv", return_value="true"):
-                 await engine._execute_signal(strategy_id, state, {"action": "BUY", "direction": "BULLISH"})
+                 await engine._execute_signal(strategy_id, state, {"action": "BUY", "direction": "BULLISH", "stop_loss": 1.0})
                  mock_client.place_order.assert_called()
 
 @pytest.mark.asyncio
@@ -86,14 +81,14 @@ async def test_execution_logic_manual():
     """
     Verify that MANUAL mode does NOT call execution_client.place_order
     """
-    with patch("app.engine.RedisSubscriber") as MockSubscriber:
+    with patch("app.engine.core.RedisSubscriber") as MockSubscriber:
         engine = StrategyEngine()
         strategy_id = "manual_strat"
         config = {"symbol": "EUR_USD", "execution_mode": ExecutionMode.MANUAL}
         state = StrategyState(config)
         engine.active_strategies[strategy_id] = state
         
-        with patch("app.engine.execution_client") as mock_client:
+        with patch("app.engine.core.execution_client") as mock_client:
             mock_client.place_order = AsyncMock()
             
             # Force execution attempt

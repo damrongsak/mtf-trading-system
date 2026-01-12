@@ -46,7 +46,10 @@ class StrategyEngine:
         # Plugin Engine
         from app.plugins.plugin_engine import HookManager, PluginLoader
         self.hook_manager = HookManager()
-        self.loader = PluginLoader(self.hook_manager, plugin_dir=os.path.join(os.path.dirname(__file__), "plugins"))
+        # Adjusted path: core.py is in app/engine/, plugins is in app/plugins/
+        # So we need dirname(dirname(__file__)) to get to 'app/'
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        self.loader = PluginLoader(self.hook_manager, plugin_dir=os.path.join(base_dir, "plugins"))
         
         # System Hooks
         self.hook_manager.add_action("on_plugin_error", self.handle_plugin_error)
