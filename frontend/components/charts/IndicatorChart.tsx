@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries, HistogramSeries, Time } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
+import { cleanLineSeriesData, cleanHistogramData } from '@/lib/chartUtils';
 
 export interface SingleIndicatorData {
   time: Time;
@@ -105,7 +106,6 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     if (!chartRef.current) return;
 
     // Cleanup old series
-    // Cleanup old series
     seriesRef.current.forEach(s => {
         try {
             chartRef.current?.removeSeries(s);
@@ -121,7 +121,8 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
             lineWidth: 2,
         });
         
-        const lineData = data.map(d => ({ time: d.time, value: d.value }));
+        // Map null values to NaN to avoid crashes and properly render gaps
+        const lineData = cleanLineSeriesData(data);
         lineSeries.setData(lineData);
         seriesRef.current.push(lineSeries);
 
@@ -140,11 +141,10 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         const histSeries = chartRef.current.addSeries(HistogramSeries, {
             color: colors.histColor || '#26a69a',
         });
-        const histData = data.filter(d => d.hist !== undefined).map(d => ({ 
-            time: d.time, 
-            value: d.hist!, 
-            color: (d.hist! >= 0 ? (colors.histColor || '#26a69a') : '#ef5350') 
-        }));
+        
+        // Handle hist data with safe utility
+        const histData = cleanHistogramData(data, colors.histColor || '#26a69a', '#ef5350', 'time', 'hist');
+        
         histSeries.setData(histData);
         seriesRef.current.push(histSeries);
         
@@ -158,7 +158,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
             color: colors.lineColor || '#2962FF',
             lineWidth: 2,
         });
-        const macdData = data.map(d => ({ time: d.time, value: d.value }));
+        const macdData = cleanLineSeriesData(data, 'time', 'value');
         macdSeries.setData(macdData);
         seriesRef.current.push(macdSeries);
 
@@ -167,7 +167,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
             color: colors.signalColor || '#FF6D00',
             lineWidth: 2,
         });
-        const signalData = data.filter(d => d.signal !== undefined).map(d => ({ time: d.time, value: d.signal! }));
+        const signalData = cleanLineSeriesData(data, 'time', 'signal');
         signalSeries.setData(signalData);
         seriesRef.current.push(signalSeries);
     }

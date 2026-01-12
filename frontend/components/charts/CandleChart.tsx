@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineSeries, Time, CandlestickData, SeriesMarker, createSeriesMarkers, ISeriesMarkersPluginApi, IPriceLine, LineWidth } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
+import { cleanCandleData, cleanLineSeriesData } from '@/lib/chartUtils';
 
 export interface IndicatorData {
   name: string;
@@ -156,22 +157,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     if (!chartRef.current || !seriesRef.current) return;
 
     // Format Data
-    const formattedData = data
-      .map((item) => {
-        const time = new Date(item.timestamp).getTime() / 1000;
-        if (isNaN(time)) {
-             return null;
-        }
-        return {
-          time: time as Time,
-          open: Number(item.open),
-          high: Number(item.high),
-          low: Number(item.low),
-          close: Number(item.close),
-        };
-      })
-      .filter((item): item is CandlestickData<Time> => item !== null)
-      .sort((a, b) => (a.time as number) - (b.time as number));
+    const formattedData = cleanCandleData(data);
 
     // Dedup
     const uniqueData = Array.from(new Map(formattedData.map(item => [item.time, item])).values());
@@ -221,13 +207,11 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
                 priceLineVisible: false,
             });
 
-            const lineData = ind.data.map((val, i) => {
-                 if (val === null || i >= candleTimes.length) return null;
-                 return {
-                     time: candleTimes[i] as Time,
-                     value: val
-                 };
-            }).filter((item): item is {time: Time, value: number} => item !== null);
+            const rawLineData = ind.data.map((val, i) => ({
+                time: candleTimes[i],
+                value: val
+            }));
+            const lineData = cleanLineSeriesData(rawLineData);
 
             lineSeries.setData(lineData);
             indicatorSeriesRefs.current.set(ind.name, lineSeries);
