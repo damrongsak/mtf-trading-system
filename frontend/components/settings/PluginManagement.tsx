@@ -18,93 +18,145 @@ export function PluginManagement() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetchPlugins();
-    }, []);
+    
+    const [hooks, setHooks] = useState<{ actions: { tag: string; callbacks: string[] }[], filters: { tag: string; callbacks: string[] }[] } | null>(null);
+    const [showHooks, setShowHooks] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const fetchPlugins = async () => {
         try {
             setLoading(true);
             const data = await pluginsApi.list();
             setPlugins(data);
-        } catch {
-            console.error('Failed to fetch plugins:');
+        } catch (err) {
+            setError("Failed to fetch plugins");
         } finally {
             setLoading(false);
         }
     };
 
+    useEffect(() => {
+        fetchPlugins();
+    }, []);
+
     const handleToggle = async (plugin: Plugin) => {
-        // Optimistic update
-        const originalState = plugin.is_active;
-        setPlugins(plugins.map(p => p.id === plugin.id ? { ...p, is_active: !originalState } : p));
-        
         try {
-            if (!originalState) {
-                await pluginsApi.activate(plugin.id);
-            } else {
+            if (plugin.is_active) {
                 await pluginsApi.deactivate(plugin.id);
+            } else {
+                await pluginsApi.activate(plugin.id);
             }
-            setSuccess(`Plugin ${!originalState ? 'activated' : 'deactivated'} successfully`);
-        } catch {
-            setError(`Failed to ${!originalState ? 'activate' : 'deactivate'} plugin`);
-            console.error('Failed to toggle plugin');
-            // Revert
-            setPlugins(plugins.map(p => p.id === plugin.id ? { ...p, is_active: originalState } : p));
+            fetchPlugins();
+        } catch (err) {
+            setError("Toggle failed");
         }
     };
 
     const openConfig = (plugin: Plugin) => {
-        // Since list returns base_config_schema, and not current user config (unless we updated list endpoint),
-        // we might be showing schema or defaults. 
-        // In reality, we want to show the CURRENT user overrides.
-        // The list endpoint implementation I read merges user state: 
-        // But checking Backend router `list_plugins`: it returns `PluginResponse` which has `id, name...`.
-        // It does NOT include `config_overrides`.
-        // Ideally we should fetch current config. But for MVP, let's just initialize with empty object or schema hints.
-        // Or we should update the backend to Include current config.
-        // Given constraints, I'll initialize with `{}` and let user type overrides.
-        // Or if I had time I'd add `UserPlugin` data to list response.
-        // Let's assume we start with empty overrides.
-        
         setConfigPlugin(plugin);
-        setConfigJson('{\n  \n}'); 
+        setConfigJson(JSON.stringify(plugin.base_config_schema || {}, null, 2));
     };
 
     const handleSaveConfig = async () => {
         if (!configPlugin) return;
-
+        setSaving(true);
         try {
-            const parsed = JSON.parse(configJson);
-            setSaving(true);
-            await pluginsApi.updateConfig(configPlugin.id, { config_overrides: parsed });
+            const overrides = JSON.parse(configJson);
+            await pluginsApi.updateConfig(configPlugin.id, { config_overrides: overrides });
+            setSuccess("Configuration saved");
             setConfigPlugin(null);
-        } catch {
-            alert('Invalid JSON');
+            fetchPlugins();
+        } catch (err) {
+            setError("Invalid JSON or update failed");
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div>Loading plugins...</div>;
+    const handleSync = async () => {
+        try {
+            setLoading(true);
+            await pluginsApi.sync();
+            await fetchPlugins();
+            setSuccess("Plugins synced with file system");
+        } catch {
+            setError("Sync failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            await pluginsApi.upload(file);
+            await fetchPlugins();
+            setSuccess(`Plugin ${file.name} uploaded successfully`);
+        } catch {
+            setError("Upload failed");
+        } finally {
+            setLoading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleViewHooks = async () => {
+        try {
+            const data = await pluginsApi.getHooks();
+            setHooks(data);
+            setShowHooks(true);
+        } catch {
+            setError("Failed to fetch hooks");
+        }
+    };
+
+    if (loading && !plugins.length) return <div className="p-8 text-center text-slate-400">Loading plugins...</div>;
 
     return (
         <Card className="bg-[#1E293B] border-slate-700">
-            <CardHeader>
-                <CardTitle>Plugin Engine</CardTitle>
-                <CardDescription>Manage extensions for Alpha, Risk, and Execution.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Plugin Engine</CardTitle>
+                    <CardDescription>Manage extensions for Alpha, Risk, and Execution.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept=".zip" 
+                        onChange={handleFileChange} 
+                    />
+                    <Button variant="outline" size="sm" onClick={handleViewHooks}>
+                        View Hooks
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={handleSync}>
+                        Sync from Disk
+                    </Button>
+                    <Button size="sm" onClick={handleUploadClick} className="bg-blue-600 hover:bg-blue-700">
+                        Install Plugin
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="space-y-4">
                     {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm flex justify-between items-center">
                             {error}
+                            <button onClick={() => setError(null)} className="hover:text-white">✕</button>
                         </div>
                     )}
                     {success && (
-                        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md text-green-400 text-sm">
+                        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md text-green-400 text-sm flex justify-between items-center">
                             {success}
+                            <button onClick={() => setSuccess(null)} className="hover:text-white">✕</button>
                         </div>
                     )}
                     {plugins.map((plugin) => (
@@ -137,6 +189,7 @@ export function PluginManagement() {
                 </div>
             </CardContent>
 
+            {/* Config Dialog */}
             <Dialog open={!!configPlugin} onOpenChange={(open) => !open && setConfigPlugin(null)}>
                 <DialogContent className="bg-slate-900 border-slate-700 text-white">
                     <DialogHeader>
@@ -160,6 +213,68 @@ export function PluginManagement() {
                         <Button variant="ghost" onClick={() => setConfigPlugin(null)}>Cancel</Button>
                         <Button onClick={handleSaveConfig} disabled={saving}>Save Changes</Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Hooks Dialog */}
+            <Dialog open={showHooks} onOpenChange={setShowHooks}>
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>System Hook Registry</DialogTitle>
+                        <DialogDescription>
+                            Active Actions and Filters registered in the Strategy Core.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6 pt-4">
+                        <div>
+                            <h4 className="text-blue-400 font-semibold mb-2 flex items-center gap-2">
+                                ⚡ Actions (Events)
+                            </h4>
+                            {hooks?.actions && hooks.actions.length > 0 ? (
+                                <div className="space-y-3">
+                                    {hooks.actions.map((h: { tag: string; callbacks: string[] }) => (
+                                        <div key={h.tag} className="bg-slate-950 p-3 rounded border border-slate-800">
+                                            <div className="font-mono text-sm text-yellow-500 font-bold mb-1">{h.tag}</div>
+                                            <div className="pl-4 space-y-1">
+                                                {h.callbacks.map((cb: string, i: number) => (
+                                                    <div key={i} className="text-xs text-slate-400 font-mono">
+                                                        ↳ {cb}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-sm">No actions registered.</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <h4 className="text-purple-400 font-semibold mb-2 flex items-center gap-2">
+                                🛡️ Filters (Pipelines)
+                            </h4>
+                            {hooks?.filters && hooks.filters.length > 0 ? (
+                                <div className="space-y-3">
+                                    {hooks.filters.map((h: { tag: string; callbacks: string[] }) => (
+                                        <div key={h.tag} className="bg-slate-950 p-3 rounded border border-slate-800">
+                                            <div className="font-mono text-sm text-green-500 font-bold mb-1">{h.tag}</div>
+                                            <div className="pl-4 space-y-1">
+                                                {h.callbacks.map((cb: string, i: number) => (
+                                                    <div key={i} className="text-xs text-slate-400 font-mono">
+                                                        ↳ {cb}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-sm">No filters registered.</p>
+                            )}
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
 

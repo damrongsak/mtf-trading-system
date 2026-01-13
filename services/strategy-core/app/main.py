@@ -503,6 +503,9 @@ app.include_router(foundry_router, prefix="/api/v1")
 from app.engine.router import router as alpha_router
 app.include_router(alpha_router, prefix="/api/v1")
 
+from app.routers.plugins import router as plugins_internal_router
+app.include_router(plugins_internal_router)
+
 # Global Worker
 indicator_worker = None
 

@@ -139,21 +139,21 @@ export default function MarketPage() {
       
       if (closes.length === 0) return;
 
-      const tryCalc = async (fn: () => Promise<any>, pushFn: (res: any) => void) => {
+      const tryCalc = async <T,>(fn: () => Promise<T>, pushFn: (res: T) => void) => {
           try {
               const res = await fn();
               pushFn(res);
           } catch(e) { console.error("Indicator Calc Failed", e); }
       };
 
-      if (showEMA) await tryCalc(() => calculateEMA({ data: closes, span: 200 }), (res) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' }));
-      if (showEMA50) await tryCalc(() => calculateEMA({ data: closes, span: 50 }), (res) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }));
-      if (showRSI) await tryCalc(() => calculateRSI({ close: closes, window: 14 }), (res) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }));
-      if (showATR) await tryCalc(() => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), (res) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }));
+      if (showEMA) await tryCalc(() => calculateEMA({ data: closes, span: 200 }), (res: number[]) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' }));
+      if (showEMA50) await tryCalc(() => calculateEMA({ data: closes, span: 50 }), (res: number[]) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }));
+      if (showRSI) await tryCalc(() => calculateRSI({ close: closes, window: 14 }), (res: number[]) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }));
+      if (showATR) await tryCalc(() => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), (res: number[]) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }));
       if (showMACD) {
-           await tryCalc(() => calculateMACD({ close: closes }), (res) => {
+           await tryCalc(() => calculateMACD({ close: closes }), (res: { macd: number[], signal: number[], hist: number[] }) => {
                // Zip MACD components
-               const macdData = res.macd.map((v, i) => ({
+               const macdData = res.macd.map((v: number, i: number) => ({
                    value: v,
                    signal: res.signal[i],
                    hist: res.hist[i]
@@ -161,7 +161,7 @@ export default function MarketPage() {
                newInds.push({ name: 'MACD', data: macdData, color: '#06b6d4', priceScaleId: 'left' });
            });
       }
-      if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
+      if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res: { adx: number[] }) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
       
       
       setChartIndicators(newInds);
@@ -421,7 +421,7 @@ export default function MarketPage() {
                                                     <IndicatorChart 
                                                         key={ind.name}
                                                         type="RSI"
-                                                        data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
+                                                        data={ind.data.map((v: number, i: number) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
                                                         height={100}
                                                         colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
@@ -432,7 +432,7 @@ export default function MarketPage() {
                                                     <IndicatorChart 
                                                         key={ind.name}
                                                         type="ATR"
-                                                        data={ind.data.map((v, i) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
+                                                        data={ind.data.map((v: number, i: number) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
                                                         height={100}
                                                         colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
@@ -443,7 +443,7 @@ export default function MarketPage() {
                                                     <IndicatorChart 
                                                         key={ind.name}
                                                         type="MACD"
-                                                        data={ind.data.map((v: any, i) => ({ 
+                                                        data={ind.data.map((v: { value: number; signal: number; hist: number }, i: number) => ({ 
                                                             time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, 
                                                             value: v.value,
                                                             signal: v.signal,
@@ -505,8 +505,7 @@ export default function MarketPage() {
                         <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
                         <Panel 
                             id="account-panel"
-                            // @ts-ignore
-                            ref={accountPanelRef}
+                                                                    // @ts-expect-error - Complex generic component type mismatch                            ref={accountPanelRef}
                             defaultSize={30} 
                             minSize={4} 
                         >

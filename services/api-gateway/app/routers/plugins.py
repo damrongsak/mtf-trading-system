@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -134,3 +134,99 @@ def update_plugin_config(
     db.commit()
     
     return {"status": "updated", "config": config.config_overrides}
+
+# --- Management Endpoints (Proxy to Strategy Core) ---
+
+import httpx
+import os
+
+# Env var or config for strategy core URL
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
+
+@router.post("/upload")
+async def upload_plugin(file: UploadFile, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Upload a plugin zip file.
+    1. Proxies upload to Strategy Core.
+    2. Syncs DB to ensure plugin record exists.
+    """
+    # 1. Proxy to Strategy Core
+    async with httpx.AsyncClient() as client:
+        # Re-read file to stream? 
+        # UploadFile is a file-like object.
+        # We need to send it as multipart.
+        files = {'file': (file.filename, await file.read(), file.content_type)}
+        try:
+            resp = await client.post(f"{STRATEGY_CORE_URL}/internal/plugins/install", files=files)
+            resp.raise_for_status()
+            data = resp.json() # {"status": "installed", "id": "plugin-name"}
+            plugin_id = data.get("id")
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Strategy Core Upload Failed: {e}")
+
+    # 2. Sync DB (Create entry if missing)
+    # We don't have full metadata from strategy-core scan yet (unless we parse it there).
+    # For now, create a placeholder using the ID. The user can update details or we can fetch metadata later.
+    existing = db.query(Plugin).filter(Plugin.id == plugin_id).first()
+    if not existing:
+        new_plugin = Plugin(
+            id=plugin_id,
+            name=plugin_id.replace("-", " ").title(),
+            description="Uploaded via UI",
+            version="0.0.1",
+            author=current_user.email,
+            category=PluginCategory.UTILITY,
+            base_config_schema={}
+        )
+        db.add(new_plugin)
+        db.commit()
+    
+    return {"status": "installed", "id": plugin_id}
+
+@router.post("/sync")
+async def sync_plugins(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Scans Strategy Core for plugins and creates missing DB entries.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{STRATEGY_CORE_URL}/internal/plugins")
+            resp.raise_for_status()
+            plugin_ids = resp.json() # List[str]
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Strategy Core Sync Failed: {e}")
+
+    added = []
+    for pid in plugin_ids:
+        existing = db.query(Plugin).filter(Plugin.id == pid).first()
+        if not existing:
+            new_plugin = Plugin(
+                id=pid,
+                name=pid.replace("-", " ").title(),
+                description="Discovered via Sync",
+                version="0.0.1",
+                author="System",
+                category=PluginCategory.UTILITY,
+                base_config_schema={}
+            )
+            db.add(new_plugin)
+            added.append(pid)
+    
+    if added:
+        db.commit()
+        
+    return {"status": "synced", "added": added}
+
+@router.get("/hooks")
+async def inspect_system_hooks(current_user: User = Depends(get_current_user)):
+    """
+    Returns current active hooks from Strategy Core.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{STRATEGY_CORE_URL}/internal/plugins/hooks")
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Strategy Core Hook Inspection Failed: {e}")
+

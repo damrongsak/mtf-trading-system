@@ -21,5 +21,27 @@ export const pluginsApi = {
     // Update plugin configuration
     updateConfig: async (pluginId: string, config: PluginConfigUpdate): Promise<void> => {
         await apiClient.put(`/api/v1/plugins/${pluginId}/config`, config);
+    },
+
+    // Upload a plugin zip
+    upload: async (file: File): Promise<void> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        await apiClient.post('/api/v1/plugins/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+
+    // Sync plugins with strategy core
+    sync: async (): Promise<void> => {
+        await apiClient.post('/api/v1/plugins/sync');
+    },
+
+    // Get system hooks
+    getHooks: async (): Promise<any> => {
+        const response = await apiClient.get('/api/v1/plugins/hooks');
+        return response.data;
     }
 };

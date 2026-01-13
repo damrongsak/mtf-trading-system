@@ -28,6 +28,15 @@ def seed_plugin():
                 author="System",
                 category=PluginCategory.RISK,
                 base_config_schema={"max_risk_per_trade": "number", "blacklist": "array", "mode": "string"}
+            ),
+            Plugin(
+                id="example-plugin",
+                name="Example Plugin",
+                description="Demonstration of Actions (logging) and Filters (confidence check).",
+                version="0.1.0",
+                author="Antigravity",
+                category=PluginCategory.UTILITY,
+                base_config_schema={"min_confidence": "number"}
             )
         ]
     
