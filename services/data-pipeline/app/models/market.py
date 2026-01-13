@@ -22,7 +22,7 @@ class MarketSymbol(Base):
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     category_id = Column(Uuid(as_uuid=True), ForeignKey("market_categories.id"), nullable=False)
-    data_source_id = Column(Uuid(as_uuid=True), ForeignKey("data_sources.id"), nullable=True)
+    data_source_id = Column(Uuid(as_uuid=True), ForeignKey("data_sources.id", ondelete="CASCADE"), nullable=True)
     
     symbol = Column(String, nullable=False)
     display_name = Column(String, nullable=True)

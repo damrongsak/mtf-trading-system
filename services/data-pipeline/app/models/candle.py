@@ -16,7 +16,7 @@ class Candle(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Core Identification
-    market_symbol_id = Column(Uuid(as_uuid=True), ForeignKey("market_symbols.id"), nullable=False, index=True,
+    market_symbol_id = Column(Uuid(as_uuid=True), ForeignKey("market_symbols.id", ondelete="CASCADE"), nullable=False, index=True,
                              comment="Foreign Key to MarketSymbol (defines Symbol + DataSource)")
     
     timeframe = Column(String(10), nullable=False, index=True,

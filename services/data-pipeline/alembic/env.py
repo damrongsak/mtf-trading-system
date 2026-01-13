@@ -9,7 +9,7 @@ from alembic import context
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.database import Base, DATABASE_URL
-from app.models import candle # Import models to register them
+from app.models import candle, market, data_source # Import models to register them
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
@@ -21,11 +21,13 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
+    version_table = config.get_main_option("version_table", "alembic_version")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table=version_table
     )
 
     with context.begin_transaction():
@@ -40,8 +42,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        version_table = config.get_main_option("version_table", "alembic_version")
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, 
+            target_metadata=target_metadata,
+            version_table=version_table
         )
 
         with context.begin_transaction():
