@@ -56,6 +56,7 @@ async def create_data_source(
 
     new_source = DataSource(
         name=data.name,
+        provider=data.provider,
         type=data.type,
         config_json=data.config_json,
         is_active=data.is_active

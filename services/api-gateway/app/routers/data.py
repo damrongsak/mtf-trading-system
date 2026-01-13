@@ -320,6 +320,33 @@ async def get_active_symbols(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
+@router.post("/symbols", status_code=201)
+async def create_symbol(
+    payload: dict,
+):
+    """
+    Create/Register a symbol in the pipeline.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/symbols",
+                json=payload,
+                timeout=5.0
+            )
+            
+            if response.status_code != 201 and response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+            return response.json()
+            
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Creation failed: {str(e)}")
+
 @router.patch("/symbols/{symbol_id}")
 async def update_symbol_status(
     symbol_id: str,

@@ -36,3 +36,30 @@ class MarketRepository:
             MarketSymbol.data_source_id == datasource_id,
             MarketSymbol.is_active == True
         ).all()
+
+    def get_category_by_name(self, name: str):
+        from app.models.market import MarketCategory
+        return self.db.query(MarketCategory).filter(MarketCategory.name == name).first()
+
+    def create_category(self, name: str):
+        from app.models.market import MarketCategory
+        import uuid
+        cat = MarketCategory(id=uuid.uuid4(), name=name, is_active=True)
+        self.db.add(cat)
+        self.db.commit()
+        return cat
+
+    def create_symbol(self, symbol: str, category_id: UUID, data_source_id: UUID) -> MarketSymbol:
+        import uuid
+        new_symbol = MarketSymbol(
+            id=uuid.uuid4(),
+            symbol=symbol,
+            category_id=category_id,
+            data_source_id=data_source_id,
+            is_active=True,
+            display_name=symbol
+        )
+        self.db.add(new_symbol)
+        self.db.commit()
+        self.db.refresh(new_symbol)
+        return new_symbol

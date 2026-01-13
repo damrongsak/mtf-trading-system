@@ -212,6 +212,7 @@ export function DataSourcesSection() {
                     isOpen={!!manageSymbolsSource}
                     onClose={() => setManageSymbolsSource(null)}
                     brokerName={manageSymbolsSource.name}
+                    dataSourceId={manageSymbolsSource.id}
                 />
             )}
 

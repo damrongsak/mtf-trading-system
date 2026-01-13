@@ -67,6 +67,10 @@ class PaginationResponse(BaseModel):
 class MarketSymbolUpdate(BaseModel):
     is_active: bool
 
+class MarketSymbolCreate(BaseModel):
+    symbol: str
+    broker: str
+
 class MarketSymbolResponse(BaseModel):
     id: UUID
     symbol: str

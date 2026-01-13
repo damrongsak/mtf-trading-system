@@ -7,16 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getBrokerSymbols, updateSymbolStatus } from '@/lib/api/data-sources';
+import { getBrokerSymbols, updateSymbolStatus, fetchDataSourceSymbols, createSymbol } from '@/lib/api/data-sources';
 import { MarketSymbol } from "@/lib/api/types";
 
 interface SymbolManagementModalProps {
     isOpen: boolean;
     onClose: () => void;
     brokerName: string;
+    dataSourceId: string;
 }
 
-export function SymbolManagementModal({ isOpen, onClose, brokerName }: SymbolManagementModalProps) {
+export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceId }: SymbolManagementModalProps) {
     const [symbols, setSymbols] = useState<MarketSymbol[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,8 +34,37 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName }: SymbolMan
         try {
             setLoading(true);
             setError(null);
-            const data = await getBrokerSymbols(brokerName);
-            setSymbols(data);
+            
+            // 1. Fetch Active Symbols from DB
+            const activeSymbols = await getBrokerSymbols(brokerName);
+            
+            // 2. Fetch Available Symbols from Provider (may fail if not supported)
+            let availableSymbols: string[] = [];
+            try {
+                availableSymbols = await fetchDataSourceSymbols(dataSourceId);
+            } catch (e) {
+                console.warn("Failed to fetch provider symbols", e);
+            }
+
+            // 3. Merge
+            const activeMap = new Map(activeSymbols.map(s => [s.symbol, s]));
+            const merged: MarketSymbol[] = [...activeSymbols];
+
+            availableSymbols.forEach(sym => {
+                if (!activeMap.has(sym)) {
+                    merged.push({
+                        id: `TEMP_${sym}`,
+                        symbol: sym,
+                        is_active: false,
+                        data_source_id: dataSourceId
+                    } as MarketSymbol);
+                }
+            });
+
+            // Sort alphabetically
+            merged.sort((a, b) => a.symbol.localeCompare(b.symbol));
+            setSymbols(merged);
+
         } catch (err) {
             setError("Failed to load symbols");
         } finally {
@@ -43,13 +73,22 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName }: SymbolMan
     };
 
     const handleToggle = async (symbol: MarketSymbol) => {
-        // Optimistic update
         const originalState = symbol.is_active;
+        // Optimistic update
         setSymbols(prev => prev.map(s => s.id === symbol.id ? { ...s, is_active: !originalState } : s));
         
         try {
-            await updateSymbolStatus(symbol.id, !originalState);
-            setSuccessMessage(`Updated ${symbol.symbol}`);
+            if (symbol.id.startsWith("TEMP_")) {
+                // Create logic
+                const newSymbol = await createSymbol(brokerName, symbol.symbol);
+                // Update state with real ID
+                setSymbols(prev => prev.map(s => s.symbol === symbol.symbol ? newSymbol : s));
+                setSuccessMessage(`Activated ${symbol.symbol}`);
+            } else {
+                // Update logic
+                await updateSymbolStatus(symbol.id, !originalState);
+                setSuccessMessage(`Updated ${symbol.symbol}`);
+            }
             setTimeout(() => setSuccessMessage(null), 2000);
         } catch (err) {
             // Revert

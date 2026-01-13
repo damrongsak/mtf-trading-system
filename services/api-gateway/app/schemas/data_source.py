@@ -34,6 +34,7 @@ class DataSourceUpdate(BaseModel):
 
 class DataSourceResponse(DataSourceBase):
     id: uuid.UUID
+    provider: Optional[DataSourceProvider] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

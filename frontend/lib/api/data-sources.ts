@@ -51,3 +51,14 @@ export async function updateSymbolStatus(id: string, is_active: boolean): Promis
     const response = await apiClient.patch<MarketSymbol>(`/api/v1/data/symbols/${id}`, { is_active });
     return response.data;
 }
+
+export async function createSymbol(broker: string, symbol: string): Promise<MarketSymbol> {
+    const response = await apiClient.post<MarketSymbol>(`/api/v1/data/symbols`, { broker, symbol });
+    // Handle APIResponse wrapper if present - wait, check backend return
+    // Backend returns MarketSymbolResponse directly in data-pipeline routes, 
+    // but api-gateway proxy might wrap it?
+    // api-gateway proxy: return response.json(). 
+    // data-pipeline routes: return MarketSymbolResponse model.
+    // So it returns JSON object directly.
+    return response.data;
+}

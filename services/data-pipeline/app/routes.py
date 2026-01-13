@@ -20,6 +20,7 @@ from app.schemas import (
     BackfillResponse, 
     MarketSymbolResponse, 
     MarketSymbolUpdate,
+    MarketSymbolCreate,
     OpenInterestSnapshotResponse,
     OpenInterestRecordResponse,
     OpenInterestAnalysisResponse
@@ -188,6 +189,16 @@ def get_active_symbols(
     Used for batch analysis auto-discovery.
     """
     return MarketService.get_active_symbols(db, broker)
+
+@router.post("/symbols", response_model=MarketSymbolResponse, status_code=201)
+def create_symbol(
+    payload: MarketSymbolCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create or reactivate a market symbol for a broker.
+    """
+    return MarketService.create_symbol(db, payload.broker, payload.symbol)
 
 @router.post("/stream/refresh", status_code=200)
 async def refresh_streams():

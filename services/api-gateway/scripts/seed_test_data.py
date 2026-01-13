@@ -20,7 +20,8 @@ import random
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.database import SessionLocal
-from app.models.user_fund import User, Fund, UserFund, UserRole
+from app.models.user import User
+from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.trade import Trade, TradeStatus, TradeDirection
 from app.security import get_password_hash
