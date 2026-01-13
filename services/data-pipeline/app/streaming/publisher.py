@@ -29,7 +29,7 @@ class RedisPublisher:
         except Exception as e:
             logger.error(f"Failed to publish to {channel}: {e}")
 
-    async def xadd(self, stream_key: str, fields: dict, id="*"):
+    async def xadd(self, stream_key: str, fields: dict, id="*", maxlen: int = 10000):
         """Append a message to a stream."""
         if not self.redis:
             await self.connect()
@@ -45,7 +45,7 @@ class RedisPublisher:
                  else:
                      safe_fields[k] = str(v)
             
-             return await self.redis.xadd(stream_key, safe_fields, id=id)
+             return await self.redis.xadd(stream_key, safe_fields, id=id, maxlen=maxlen, approximate=True)
         except Exception as e:
             logger.error(f"Failed to xadd to {stream_key}: {e}")
             return None

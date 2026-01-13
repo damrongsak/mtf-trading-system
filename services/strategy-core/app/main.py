@@ -503,10 +503,19 @@ app.include_router(foundry_router, prefix="/api/v1")
 from app.engine.router import router as alpha_router
 app.include_router(alpha_router, prefix="/api/v1")
 
+# Global Worker
+indicator_worker = None
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
+
+    # Start Indicator Worker
+    from app.workers.indicator_worker import IndicatorWorker
+    global indicator_worker
+    indicator_worker = IndicatorWorker()
+    await indicator_worker.start()
     
     # Ensure LiveRunner (Tick Stream) is active
     await live_runner.start()
@@ -520,3 +529,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await live_runner.stop()
+    
+    global indicator_worker
+    if indicator_worker:
+        await indicator_worker.stop()
