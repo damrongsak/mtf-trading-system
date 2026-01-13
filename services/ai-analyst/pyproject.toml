@@ -20,6 +20,7 @@ dependencies = [
     "quantreo>=0.1.0",
     "redis>=5.0.0",
     "python-multipart>=0.0.21",
+    "watchfiles>=0.24.0",
 ]
 
 [dependency-groups]

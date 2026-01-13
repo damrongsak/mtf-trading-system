@@ -9,7 +9,6 @@ venv/
 .venv/
 ENV/
 *.env
-*.env.*
 *.sqlite3
 
 # Node.js
@@ -44,3 +43,4 @@ Thumbs.db
 temp/
 *log.txt
 .coverage
+infra/postgres_data/

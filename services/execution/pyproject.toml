@@ -16,6 +16,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.0",
     "pyportfolioopt>=1.5.5",
+    "watchfiles>=0.24.0",
 ]
 
 [dependency-groups]

@@ -28,7 +28,7 @@ services:
       - execution
     environment:
       - EXECUTION_SERVICE_URL=http://execution:8000
-      - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - DATA_PIPELINE_URL=http://data-pipeline:8000
       - STRATEGY_CORE_URL=http://strategy-core:8000
       - REDIS_URL=redis://redis:6379/0
@@ -67,7 +67,7 @@ services:
       # - postgres
       - execution # Just to ensure order, though not strictly dependent
     environment:
-      - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
     networks:
       - default
@@ -84,7 +84,7 @@ services:
       - redis
       - data-pipeline
     environment:
-      - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
       - STREAM_SYMBOLS=EUR_USD,USD_JPY,XAU_USD
     restart: unless-stopped
@@ -100,7 +100,7 @@ services:
     depends_on:
       - data-pipeline
     environment:
-      - DATABASE_URL=postgresql://trader:trader@postgresql:5432/mtf_db
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
     deploy:
       resources:
@@ -129,15 +129,18 @@ services:
       - default
       - external
 
-  # Already exists in localhost
-  # postgresql:
-  #   image: postgres:15
-  #   environment:
-  #     POSTGRES_USER: trader
-  #     POSTGRES_PASSWORD: trader
-  #     POSTGRES_DB: mtf_db
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
+  mtf-postgres:
+    image: postgres:15
+    container_name: mtf-postgres
+    environment:
+      POSTGRES_USER: trader
+      POSTGRES_PASSWORD: trader
+      POSTGRES_DB: mtf_db
+    volumes:
+      - ./infra/postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+      - external
 
   # Already exists in localhost
   # qdrant:
