@@ -50,6 +50,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = useState(false);
+  const [manualLots, setManualLots] = useState<string>('');
+  const [isManualLots, setIsManualLots] = useState(false);
 
   // --- State: Async ---
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,10 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const bid = currentPrice;
   const ask = currentPrice + spreadVal;
   const executePrice = direction === 'BULLISH' ? ask : bid;
+
+  const slDistPrice = Math.abs(executePrice - slPrice);
+  const calculatedLots = (slDistPrice > 0 && stopLossEnabled) ? (riskUsd / slDistPrice) / 100000 : 0;
+  const currentLots = isManualLots ? (parseFloat(manualLots) || 0) : calculatedLots;
 
   // --- Effects ---
 
@@ -85,6 +91,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
           setRiskUsd(parseFloat((balance * 0.01).toFixed(2)));
       }
   }, [isSmartSize, balance]);
+
+  // Sync Lots from Risk
+  useEffect(() => {
+    if (!isManualLots) {
+        setManualLots(calculatedLots > 0 ? calculatedLots.toFixed(2) : '0.01');
+    }
+  }, [calculatedLots, isManualLots]);
 
   // Sync Pips -> Price 
   useEffect(() => {
@@ -113,12 +126,14 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       try {
           if (!selectedAccountId) throw new Error("Select Broker");
           
+          const finalRisk = isManualLots ? (currentLots * 100000 * slDistPrice) : riskUsd;
+
           await placeSmartOrder({
                 broker_account_id: selectedAccountId,
                 symbol: symbol.replace('/', '_'),
                 direction: direction,
                 stop_loss: stopLossEnabled ? slPrice : 0,
-                risk_usd: riskUsd,
+                risk_usd: finalRisk,
                 generated_by: 'ProTerminal',
                 reason: 'Pro Panel'
           });
@@ -137,9 +152,6 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       setTakeProfitEnabled(true);
       setTpPips(slPips * ratio);
   };
-
-  const slDistPrice = Math.abs(executePrice - slPrice);
-  const estLots = (slDistPrice > 0 && stopLossEnabled) ? (riskUsd / slDistPrice) / 100000 : 0;
   
   return (
     <div className="h-full flex flex-col bg-[#111216] border-l border-black font-sans text-gray-300 select-none">
@@ -218,10 +230,35 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                      </div>
                      
                      <div className="grid grid-cols-2 gap-3">
-                         <div className="bg-[#1e2029] rounded border border-white/5 p-2.5">
-                             <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Lot Size</div>
-                             <div className="font-mono text-white text-base font-bold">
-                                 {estLots > 0 ? estLots.toFixed(2) : '0.00'} <span className="text-gray-500 text-[10px] font-normal">LOTS</span>
+                         <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group">
+                             <div className="text-[10px] text-gray-500 flex items-center justify-between gap-1 mb-1">
+                                 <span className="uppercase tracking-wider">Lot Size</span>
+                                 {isManualLots && (
+                                     <button 
+                                        onClick={() => setIsManualLots(false)}
+                                        className="text-blue-400 hover:text-blue-300"
+                                        title="Reset to Calculated"
+                                     >
+                                         <RefreshCw size={10} />
+                                     </button>
+                                 )}
+                             </div>
+                             <div className="flex items-center">
+                                 <input 
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={manualLots}
+                                    onChange={e => {
+                                        setIsManualLots(true);
+                                        setManualLots(e.target.value);
+                                    }}
+                                    className={cn(
+                                        "bg-transparent w-full font-mono text-base font-bold outline-none border-none p-0 focus:ring-0",
+                                        isManualLots ? "text-blue-400" : "text-white"
+                                    )}
+                                 />
+                                 <span className="text-gray-500 text-[10px] font-normal ml-1">LOTS</span>
                              </div>
                          </div>
                          
@@ -359,11 +396,11 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                          </div>
                           <div className="flex justify-between">
                              <span className="text-gray-500">Spread Cost</span>
-                             <span className="text-rose-400 font-mono font-medium">-${(estLots * 10 * spreadPips).toFixed(2)}</span>
+                             <span className="text-rose-400 font-mono font-medium">-${(currentLots * 10 * spreadPips).toFixed(2)}</span>
                          </div>
                           <div className="flex justify-between">
                              <span className="text-gray-500">Trade Value</span>
-                             <span className="text-gray-300 font-mono font-medium">${(estLots * 100000 * currentPrice).toLocaleString([], {maximumFractionDigits:0})}</span>
+                             <span className="text-gray-300 font-mono font-medium">${(currentLots * 100000 * currentPrice).toLocaleString([], {maximumFractionDigits:0})}</span>
                          </div>
                     </div>
                  </div>
@@ -389,7 +426,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                         <>
                             <span className="uppercase tracking-wide">{direction === 'BULLISH' ? 'BUY' : 'SELL'} {symbol.replace('_', '/')}</span>
                             <div className="text-xs opacity-75 font-normal font-mono">
-                               {estLots > 0 ? `${estLots.toFixed(2)}` : '0.01'} LOTS @ MARKET
+                               {currentLots > 0 ? `${currentLots.toFixed(2)}` : '0.01'} LOTS @ MARKET
                             </div>
                         </>
                     )}

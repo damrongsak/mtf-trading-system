@@ -66,7 +66,7 @@ export default function MarketPage() {
 
   // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
-  const { symbols: brokerSymbols } = useBrokerReference();
+  const { symbols: brokerSymbols, formatPrice } = useBrokerReference();
 
   // --- Effects: Initialization ---
   useEffect(() => {
@@ -111,6 +111,9 @@ export default function MarketPage() {
       
       const latest = prices[symbol];
       const price = latest.bid; 
+
+      // Update Title
+      document.title = `${formatPrice(symbol, price)} | ${symbol.replace('_', '/')}`;
 
       setCandles(prev => {
           if (prev.length === 0) return prev;
@@ -306,11 +309,11 @@ export default function MarketPage() {
                 {/* Price Stats */}
                 <div className="flex items-baseline gap-3">
                     <span className="text-xl font-mono font-medium text-white tracking-tight">
-                        {currentPrice.toFixed(symbol.includes('JPY') ? 3 : 5)}
+                        {formatPrice(symbol, currentPrice)}
                     </span>
                     <span className={cn("text-sm font-mono font-medium flex items-center", isUp ? "text-emerald-400" : "text-rose-400")}>
                         {isUp ? <TrendingUp size={14} className="mr-1" /> : <TrendingUp size={14} className="mr-1 rotate-180" />}
-                        {change.toFixed(5)} ({changePercent.toFixed(2)}%)
+                        {formatPrice(symbol, change)} ({changePercent.toFixed(2)}%)
                     </span>
                 </div>
             </div>
