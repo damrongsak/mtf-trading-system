@@ -39,6 +39,11 @@ export const cleanLineSeriesData = (data: any[], timeKey: string = 'time', value
                 time = new Date(d.timestamp).getTime() / 1000;
             }
 
+            // Check if time is valid
+            if (time === null || time === undefined || (typeof time === 'number' && isNaN(time))) {
+                return null;
+            }
+
             // Check if value is valid
             if (val === null || val === undefined || !Number.isFinite(val)) {
                 return null;
@@ -74,6 +79,11 @@ export const cleanHistogramData = (
             // Ensure time is valid
             if (typeof time !== 'number' && d.timestamp) {
                 time = new Date(d.timestamp).getTime() / 1000;
+            }
+
+            // Check if time is valid
+            if (time === null || time === undefined || (typeof time === 'number' && isNaN(time))) {
+                return null;
             }
 
             // Check validation (Strict checks)
