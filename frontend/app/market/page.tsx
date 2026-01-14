@@ -20,6 +20,7 @@ import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
+import { usePersistentState } from '@/lib/hooks/usePersistentState';
 
 // Dynamic Imports for Heavy Charts
 const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
@@ -33,21 +34,21 @@ const DEFAULT_TIMEFRAMES = ['M5', 'M15', 'H1', 'H4', 'D', 'W', 'M'];
 export default function MarketPage() {
   // --- State: Market Data ---
   const [candles, setCandles] = useState<Candle[]>([]);
-  const [symbol, setSymbol] = useState('XAU_USD');
-  const [timeframe, setTimeframe] = useState('H1');
+  const [symbol, setSymbol] = usePersistentState<string>('mtf_symbol', 'XAU_USD');
+  const [timeframe, setTimeframe] = usePersistentState<string>('mtf_timeframe', 'H1');
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>(DEFAULT_TIMEFRAMES);
   const [loading, setLoading] = useState(false);
 
 
   // --- State: Indicators ---
-  const [showEMA, setShowEMA] = useState(false);
-  const [showEMA50, setShowEMA50] = useState(true);
-  const [showRSI, setShowRSI] = useState(false);
-  const [showATR, setShowATR] = useState(true);
-  const [showMACD, setShowMACD] = useState(true);
-  const [showADX, setShowADX] = useState(false);
+  const [showEMA, setShowEMA] = usePersistentState<boolean>('mtf_show_ema', false);
+  const [showEMA50, setShowEMA50] = usePersistentState<boolean>('mtf_show_ema50', true);
+  const [showRSI, setShowRSI] = usePersistentState<boolean>('mtf_show_rsi', false);
+  const [showATR, setShowATR] = usePersistentState<boolean>('mtf_show_atr', true);
+  const [showMACD, setShowMACD] = usePersistentState<boolean>('mtf_show_macd', true);
+  const [showADX, setShowADX] = usePersistentState<boolean>('mtf_show_adx', false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
-  const [showSMC, setShowSMC] = useState(false);
+  const [showSMC, setShowSMC] = usePersistentState<boolean>('mtf_show_smc', false);
   const [smcData, setSmcData] = useState<SMCResponse | null>(null);
   const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
@@ -55,14 +56,14 @@ export default function MarketPage() {
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
-  const [showAccountPanel, setShowAccountPanel] = useState(true); // Default OPEN for Focus Mode
+  const [showAccountPanel, setShowAccountPanel] = usePersistentState<boolean>('mtf_show_account_panel', true);
   const [mounted, setMounted] = useState(false);
   
   const accountPanelRef = useRef<PanelImperativeHandle>(null);
 
   // --- State: Broker Accounts (Lifted State) ---
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = usePersistentState<string>('mtf_selected_account', '');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- Hooks ---
@@ -81,9 +82,13 @@ export default function MarketPage() {
     getBrokerAccounts().then(accs => {
         setAccounts(accs);
         if (accs.length > 0) {
-            // Smart Selection: Prefer OANDA for XAU_USD default, or just prefer OANDA generally for now as it's the primary
-            const preferred = accs.find(a => a.broker_name.toUpperCase().includes('OANDA'));
-            setSelectedAccountId(preferred ? preferred.id : accs[0].id);
+            // Check if persisted account is valid
+            const isValid = accs.find(a => a.id === selectedAccountId);
+            if (!isValid) {
+                // Smart Selection Fallback
+                const preferred = accs.find(a => a.broker_name.toUpperCase().includes('OANDA'));
+                setSelectedAccountId(preferred ? preferred.id : accs[0].id);
+            }
         }
     }).catch(err => console.error("Failed to load accounts", err));
 

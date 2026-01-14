@@ -206,6 +206,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
 
   // Legend State
   const [legendData, setLegendData] = React.useState<Map<string, number>>(new Map());
+  const prevLegendRef = useRef<Map<string, number>>(new Map());
 
   // Subscribe to Crosshair
   useEffect(() => {
@@ -280,7 +281,23 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
        } else {
            initialLegend.set(type, last.value);
        }
-       setLegendData(initialLegend);
+       
+       // Optimization: Only update state if values changed
+       let changed = false;
+       if (initialLegend.size !== prevLegendRef.current.size) changed = true;
+       else {
+           for (const [k, v] of initialLegend.entries()) {
+               if (prevLegendRef.current.get(k) !== v) {
+                   changed = true;
+                   break;
+               }
+           }
+       }
+
+       if (changed) {
+           prevLegendRef.current = initialLegend;
+           setLegendData(initialLegend);
+       }
     }
 
     return () => {

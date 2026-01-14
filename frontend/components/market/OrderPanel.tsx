@@ -6,6 +6,7 @@ import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calcu
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
+import { usePersistentState } from '@/lib/hooks/usePersistentState';
 
 interface OrderPanelProps {
   symbol: string;
@@ -34,26 +35,26 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
 
   // --- State: Order Core ---
   const [direction, setDirection] = useState<Direction>('BULLISH');
-  const [orderType, setOrderType] = useState('MARKET');
+  const [orderType, setOrderType] = usePersistentState<string>('mtf_order_type', 'MARKET');
   
   // --- State: Risk ---
-  const [riskUsd, setRiskUsd] = useState<number>(10.0);
+  const [riskUsd, setRiskUsd] = usePersistentState<number>('mtf_risk_usd', 10.0);
   const [balance, setBalance] = useState<number>(0);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
   // --- State: Protection ---
-  const [takeProfitEnabled, setTakeProfitEnabled] = useState(true);
-  const [stopLossEnabled, setStopLossEnabled] = useState(true);
+  const [takeProfitEnabled, setTakeProfitEnabled] = usePersistentState<boolean>('mtf_tp_enabled', true);
+  const [stopLossEnabled, setStopLossEnabled] = usePersistentState<boolean>('mtf_sl_enabled', true);
 
   
   const [slPrice, setSlPrice] = useState<number>(0);
-  const [slPips, setSlPips] = useState<number>(50); // 50 pips
+  const [slPips, setSlPips] = usePersistentState<number>('mtf_sl_pips', 50); // 50 pips
   const [tpPrice, setTpPrice] = useState<number>(0);
-  const [tpPips, setTpPips] = useState<number>(150); // Default 1:3 RR (50 * 3)
+  const [tpPips, setTpPips] = usePersistentState<number>('mtf_tp_pips', 150); // Default 1:3 RR (50 * 3)
   const [limitPrice, setLimitPrice] = useState<number>(0);
 
   // --- State: Smart Sizing ---
-  const [isSmartSize, setIsSmartSize] = useState(false);
+  const [isSmartSize, setIsSmartSize] = usePersistentState<boolean>('mtf_smart_size', false);
   const [manualLots, setManualLots] = useState<string>('');
   const [isManualLots, setIsManualLots] = useState(false);
 
