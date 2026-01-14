@@ -185,6 +185,24 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       }
   };
 
+  const handleLotChange = (valStr: string) => {
+      setManualLots(valStr);
+      setIsManualLots(true);
+      
+      const val = parseFloat(valStr);
+      if (!isNaN(val) && val > 0 && slDistPrice > 0) {
+          // Reverse calc Risk: Risk = Lots * Dist * 100000
+          // Ensure we don't divide by zero logic elsewhere
+          const newRisk = val * slDistPrice * 100000;
+          setRiskUsd(parseFloat(newRisk.toFixed(2)));
+      }
+  };
+
+  const handleRiskChange = (val: number) => {
+      setRiskUsd(val);
+      setIsManualLots(false); // Revert to auto-calculation based on Risk
+  };
+
   // --- Effect: Sync Chart Lines ---
   useEffect(() => {
       if (!onOrderLinesChange) return;
@@ -342,10 +360,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                     step="0.01"
                                     min="0.01"
                                     value={manualLots}
-                                    onChange={e => {
-                                        setIsManualLots(true);
-                                        setManualLots(e.target.value);
-                                    }}
+                                    onChange={e => handleLotChange(e.target.value)}
                                     className={cn(
                                         "bg-transparent w-full font-mono text-base font-bold outline-none border-none p-0 focus:ring-0",
                                         isManualLots ? "text-blue-400" : "text-white"
@@ -370,7 +385,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                     type="number"
                                     value={riskUsd}
                                     readOnly={isSmartSize}
-                                    onChange={e => !isSmartSize && setRiskUsd(parseFloat(e.target.value))}
+                                    onChange={e => !isSmartSize && handleRiskChange(parseFloat(e.target.value))}
                                     className={`bg-transparent w-full font-mono text-base font-bold outline-none border-none p-0 focus:ring-0 ${isSmartSize ? 'text-blue-400' : 'text-white'}`}
                                 />
                                 <DollarSign size={14} className="text-gray-500 ml-1" />
