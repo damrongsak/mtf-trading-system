@@ -50,6 +50,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [slPips, setSlPips] = useState<number>(50); // 50 pips
   const [tpPrice, setTpPrice] = useState<number>(0);
   const [tpPips, setTpPips] = useState<number>(150); // Default 1:3 RR (50 * 3)
+  const [limitPrice, setLimitPrice] = useState<number>(0);
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = useState(false);
@@ -69,7 +70,16 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   
   const bid = currentPrice;
   const ask = currentPrice + spreadVal;
-  const executePrice = direction === 'BULLISH' ? ask : bid;
+  const isPendingOrder = orderType !== 'MARKET';
+  
+  // Initialize Limit Price
+  useEffect(() => {
+      if (isPendingOrder && limitPrice === 0 && currentPrice > 0) {
+          setLimitPrice(currentPrice);
+      }
+  }, [isPendingOrder, currentPrice]);
+
+  const executePrice = isPendingOrder && limitPrice > 0 ? limitPrice : (direction === 'BULLISH' ? ask : bid);
 
   const slDistPrice = Math.abs(executePrice - slPrice);
   const calculatedLots = (slDistPrice > 0 && stopLossEnabled) ? (riskUsd / slDistPrice) / 100000 : 0;
@@ -156,6 +166,25 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       setTpPips(slPips * ratio);
   };
 
+  const handleSlPriceChange = (val: number) => {
+      setSlPrice(val);
+      if (val > 0 && pipVal > 0) {
+          const dist = Math.abs(executePrice - val);
+          const pips = dist / pipVal;
+          // Update pips (rounded to 1 decimal)
+          setSlPips(parseFloat(pips.toFixed(1)));
+      }
+  };
+
+  const handleTpPriceChange = (val: number) => {
+      setTpPrice(val);
+      if (val > 0 && pipVal > 0) {
+          const dist = Math.abs(executePrice - val);
+          const pips = dist / pipVal;
+          setTpPips(parseFloat(pips.toFixed(1)));
+      }
+  };
+
   // --- Effect: Sync Chart Lines ---
   useEffect(() => {
       if (!onOrderLinesChange) return;
@@ -185,9 +214,21 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
               axisLabelVisible: true
           });
       }
+
+      // Entry Price Line (Pending)
+      if (isPendingOrder && limitPrice > 0) {
+          lines.push({
+              price: limitPrice,
+              color: '#fbbf24', // Amber-400
+              title: 'ENTRY',
+              lineStyle: 2, // Dashed
+              lineWidth: 1,
+              axisLabelVisible: true
+          });
+      }
       
       onOrderLinesChange(lines);
-  }, [slPrice, tpPrice, stopLossEnabled, takeProfitEnabled, onOrderLinesChange]);
+  }, [slPrice, tpPrice, limitPrice, stopLossEnabled, takeProfitEnabled, isPendingOrder, onOrderLinesChange]);
   
   return (
     <div className="h-full flex flex-col bg-[#111216] border-l border-black font-sans text-gray-300 select-none">
@@ -256,6 +297,22 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
             
             {/* Top Section Wrapper */}
             <div className="space-y-6">
+                
+                {/* Entry Price (Pending Orders) */}
+                {isPendingOrder && (
+                    <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group animate-in fade-in slide-in-from-top-2">
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Entry Price</div>
+                        <div className="flex items-center">
+                            <input 
+                                type="number"
+                                value={limitPrice}
+                                onChange={e => setLimitPrice(parseFloat(e.target.value))}
+                                className="bg-transparent w-full font-mono text-base font-bold outline-none border-none p-0 focus:ring-0 text-amber-400"
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {/* 4. Volume / Risk */}
                 <div className="space-y-3">
                      <div className="flex justify-between items-end">
@@ -367,8 +424,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      <input 
                                          type="number" 
                                          value={tpPrice} 
-                                         disabled 
-                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
+                                         onChange={e => handleTpPriceChange(parseFloat(e.target.value))}
+                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5 outline-none focus:text-white transition-colors" 
                                      />
                                  </div>
                                   <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-blue-500/20">
@@ -402,8 +459,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      <input 
                                          type="number" 
                                          value={slPrice} 
-                                         disabled 
-                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5" 
+                                         onChange={e => handleSlPriceChange(parseFloat(e.target.value))}
+                                         className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5 outline-none focus:text-white transition-colors" 
                                      />
                                  </div>
                                   <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-rose-500/20">
