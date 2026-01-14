@@ -8,18 +8,45 @@ import uuid
 client = TestClient(app)
 
 # Mock DB Session
+from app.models import BrokerAccount, Fund
+
 def override_get_db():
     try:
         db = MagicMock()
-        # Mock BrokerAccount query
-        account = BrokerAccount(
-            id=uuid.UUID("12345678-1234-5678-1234-567812345678"),
+        
+        # 1. Mock Objects
+        mock_fund_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
+        mock_account_id = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        
+        mock_account = BrokerAccount(
+            id=mock_account_id,
             broker_name="OANDA",
             credentials={"api_key": "xyz", "account_id": "123"},
-            account_id="123" # Added based on model definition
+            account_id="123",
+            fund_id=mock_fund_id, # Link to Fund
+            supported_symbols=["AUD_USD", "XAU_USD"] # Whitelist for strict check
         )
-        # Ensure the mock returns this account
-        db.query.return_value.filter.return_value.first.return_value = account
+        
+        mock_fund = Fund(
+            id=mock_fund_id,
+            strategy_type="MACD", # Required
+            max_risk_per_trade=10.0,
+            risk_percentage=0.01,
+            asset_classes=["Forex"], # Required
+            default_lot_size=0.01   # Required
+        )
+        
+        # 2. Side Effect for db.query(Model)
+        def query_side_effect(model):
+            query_mock = MagicMock()
+            if model == BrokerAccount:
+                query_mock.filter.return_value.first.return_value = mock_account
+            elif model == Fund:
+                query_mock.filter.return_value.first.return_value = mock_fund
+            return query_mock
+            
+        db.query.side_effect = query_side_effect
+        
         yield db
     finally:
         pass
@@ -45,6 +72,10 @@ def test_place_smart_order_dynamic_risk(mock_factory):
             "time": "2024-01-01T12:00:00Z"
         }
     }
+    # Mock Summary for Risk Calc
+    mock_adapter.get_summary.return_value = {"NAV": "1000"}
+    # Mock Order Book
+    mock_adapter.get_order_book.return_value = {"asks": [], "bids": []}
 
     # 3. Request
     # We want Units = 10.
@@ -82,6 +113,8 @@ def test_place_smart_order_default_risk(mock_factory):
     # Test fallback to default $10 risk
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
+    mock_adapter.get_summary.return_value = {"NAV": "1000"}
+    mock_adapter.get_order_book.return_value = {"asks": [], "bids": []}
     mock_adapter.get_current_price.return_value = 0.7000
     mock_adapter.place_market_order.return_value = {"orderFillTransaction": {"id": "1", "units": "100", "price": "0.7", "instrument": "AUD_USD", "time": "T"}}
 
@@ -109,6 +142,7 @@ def test_place_smart_order_price_fail(mock_factory):
     
     # Mock Price Fetch Failure
     mock_adapter.get_current_price.side_effect = Exception("API Error")
+    mock_adapter.get_summary.return_value = {"NAV": "1000"}
 
     payload = {
         "broker_account_id": "12345678-1234-5678-1234-567812345678",

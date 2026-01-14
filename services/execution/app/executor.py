@@ -3,11 +3,18 @@
 
 from decimal import Decimal, ROUND_DOWN
 from pydantic import BaseModel, Field
+from typing import Optional
+from app.services.minimax_service import MinimaxService
 
 class ExecutionRequest(BaseModel):
     risk_usd: Decimal = Field(..., description="Maximum risk in USD")
     sl_distance_usd: Decimal = Field(..., description="Distance to SL in USD")
     min_lot: Decimal = Field(..., description="Minimum lot size")
+    
+    # Minimax Inputs (Optional for backward compatibility)
+    reward_usd: Optional[Decimal] = Field(None, description="Potential reward in USD")
+    confidence: float = Field(0.8, description="Signal confidence")
+    pain_threshold: float = Field(50.0, description="Pain threshold in USD")
 
 class ExecutionResult(BaseModel):
     can_execute: bool
@@ -43,6 +50,26 @@ def can_execute(req: ExecutionRequest) -> ExecutionResult:
             lot=lot,
             reason=f"Calculated lot {lot} is below minimum {req.min_lot}"
         )
+
+    # Minimax Check
+    if req.reward_usd is not None:
+        # Convert Decimals to float for MinimaxService (it uses floats)
+        risk_f = float(req.risk_usd)
+        reward_f = float(req.reward_usd)
+        
+        is_safe, regret, reason = MinimaxService.calculate_regret(
+            risk_usd=risk_f,
+            reward_usd=reward_f,
+            confidence=req.confidence,
+            pain_threshold=req.pain_threshold
+        )
+        
+        if not is_safe:
+             return ExecutionResult(
+                can_execute=False,
+                lot=lot,
+                reason=f"Minimax: {reason}"
+            )
 
     return ExecutionResult(
         can_execute=True,

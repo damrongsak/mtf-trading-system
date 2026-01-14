@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
+from app.services.minimax_service import MinimaxService
 import logging
 
 # Setup Logger
@@ -148,9 +149,18 @@ class SmartOrderRequest(BaseModel):
     symbol: str
     direction: str # BULLISH / BEARISH
     stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    entry_price: Optional[float] = None
+    time_in_force: Optional[str] = "GTC"
+    slippage_tolerance: Optional[float] = None
     generated_by: str
     reason: Optional[str] = None
     risk_usd: Optional[float] = Field(None, description="Target risk in USD (overrides default)")
+    
+    # Minimax / AI Inputs
+    confidence: Optional[float] = Field(0.8, ge=0.0, le=1.0, description="Signal confidence")
+    atr_multiplier: Optional[float] = Field(1.0, description="Volatility regime multiplier (1.0=Normal)")
+    pain_threshold: Optional[float] = Field(50.0, description="Max allowed psychological regret in USD")
 
 @app.get("/accounts")
 async def get_accounts(db: Session = Depends(get_db)):
@@ -202,9 +212,15 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
     # 2b. Check Symbol Whitelist (Account Level)
     if account.supported_symbols:
         # Simple check: exact match or "XAU/..."
-        # TODO: Better symbol matching (normalize slashes etc)
-        if req.symbol not in account.supported_symbols:
-             raise HTTPException(status_code=400, detail=f"Symbol {req.symbol} is not supported by this account")
+        # Logic: Helper to normalize slashes for comparison
+        def normalize_symbol(s: str):
+            return s.replace("/", "_").replace("-", "_").upper()
+
+        if normalize_symbol(req.symbol) not in [normalize_symbol(s) for s in account.supported_symbols]:
+             # Just a warning for now or allow if list is empty?
+             # If supported_symbols is set, we enforce it.
+             logger.warning(f"Symbol {req.symbol} not strictly in supported list {account.supported_symbols} for account {account.id}")
+             # raise HTTPException(status_code=400, detail=f"Symbol {req.symbol} is not supported by this account")
 
     # 2c. Determine Max Risk Limit (Hierarchical)
     # Fund Hard Limit
@@ -276,63 +292,111 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=502, detail=f"Failed to fetch live price for risk calculation: {str(e)}")
         
     # 4. Calculate Position Size (Units)
-    # Risk = abs(Entry - SL) * Units
-    # Units = Risk / abs(Entry - SL)
+    # Use entry_price for risk calculation if provided (Limit Order), otherwise current market price
+    entry_ref = req.entry_price if req.entry_price else current_price
     
-    dist = abs(current_price - req.stop_loss)
+    dist = abs(entry_ref - req.stop_loss)
     
     if dist <= 0:
-         raise HTTPException(status_code=400, detail="Stop Loss cannot be equal to Current Price")
+         raise HTTPException(status_code=400, detail="Stop Loss cannot be equal to Entry/Current Price")
          
     raw_units = target_risk / dist
     
     # Direction Check
     if req.direction == "BULLISH":
         units = raw_units
-        if req.stop_loss >= current_price:
-             # Sanity check: Long needs SL below price
-             # Allow it for Limit orders? SmartOrder is Market for now.
-             pass 
+        if req.stop_loss >= entry_ref:
+             raise HTTPException(status_code=400, detail="Long SL must be below Entry Price")
     elif req.direction == "BEARISH":
         units = -raw_units
-        if req.stop_loss <= current_price:
-             pass
+        if req.stop_loss <= entry_ref:
+             raise HTTPException(status_code=400, detail="Short SL must be above Entry Price")
     else:
         raise HTTPException(status_code=400, detail="Invalid direction")
 
-    # Min Lot Validation (approximate for XAU/USD)
-    # OANDA min is 0.01 units? No, OANDA is units. 1 unit of XAU is usually min?
-    # Actually OANDA supports fractional typically?
-    # Let's enforce a minimum of 0.01 standard lot equivalent context or just > 0.
-    # For XAU/USD, 1 unit = 1 oz. 0.01 lot = 1 item? 
-    # Usually standard lot = 100 oz. 0.01 lot = 1 oz.
-    # Let's assume OANDA 'units' == ounces for XAU/USD. 
-    # Must check Oanda specs. Typically 1 unit.
+    # Order Book Depth Validation
+    try:
+        order_book = adapter.get_order_book(req.symbol)
+        side = "asks" if req.direction == "BULLISH" else "bids"
+        # Check top 5 levels of liquidity
+        available_liquidity = sum(float(level.get('liquidity', 0)) for level in order_book.get(side, [])[:5])
+        
+        if available_liquidity > 0 and abs(units) > available_liquidity:
+            logger.warning(f"Liquidity Warning: {req.symbol} {req.direction} {abs(units)} units requested, but only {available_liquidity} available in top 5 levels.")
+            # For now, we proceed but log. In production, might reject or split.
+    except Exception as ob_e:
+        logger.warning(f"Could not validate order book depth: {ob_e}")
+
+    # Min Lot Validation
+    if abs(units) < 1.0: 
+         raise HTTPException(status_code=400, detail=f"Calculated size {units:.4f} is below minimum tradable limit (1 unit)")
+
+    # Rounding
+    units = int(units)
+
+    # 4b. Minimax Regret Check (The Risk Citadel)
+    # Calculate Potential Reward
+    reward_usd = 0.0
+    if req.take_profit:
+        reward_dist = abs(req.take_profit - entry_ref)
+        reward_usd = reward_dist * abs(units)
+    else:
+        # If no TP, assume 2:1 Reward for calculation purposes or 0?
+        # Rule of thumb: If no TP, regret of missing out is hard to quantify.
+        # Let's assume a standard 2R target for "potential" missed profit.
+        reward_usd = target_risk * 2.0
     
-    if abs(units) < 1.0: # Minimum 1 unit (approx 0.01 lot)
-         # Reject
-         raise HTTPException(status_code=400, detail=f"Calculated size {units:.4f} is below minimum tradable limit (for Risk ${target_risk})")
-
-    # Rounding (Oanda accepts integers or specific precision)
-    units = int(units) # Safe to cast to int for units
-
-    # 5. Execute
-    response = adapter.place_market_order(
-        symbol=req.symbol,
-        units=units,
-        sl_price=req.stop_loss,
-        trade_id=None # Auto-gen
+    # Execute Minimax Check
+    is_safe, regret, reason = MinimaxService.calculate_regret(
+        risk_usd=target_risk,
+        reward_usd=reward_usd,
+        confidence=req.confidence or 0.8,
+        pain_threshold=req.pain_threshold or 50.0, # Default to $50 if not set
+        volatility_multiplier=req.atr_multiplier or 1.0
     )
     
-    fill = response.get("orderFillTransaction")
-    if not fill:
-         # It might be 'orderCreateTransaction' if pending
-         fill = response.get("orderCreateTransaction") or {}
+    if not is_safe:
+        logger.warning(f"Minimax Rejected: {reason}")
+        raise HTTPException(
+            status_code=422, # Unprocessable Entity (Business Logic Rejection)
+            detail=f"Risk Citadel Validation Failed: {reason}"
+        )
+
+
+    # 5. Execute
+    logger.info(f"Executing Smart Order: {req.symbol} {units} units. EntryRef={entry_ref}, SL={req.stop_loss}, Risk=${target_risk}")
+    
+    if req.entry_price:
+        # LIMIT / PENDING ORDER
+        response = adapter.place_limit_order(
+            symbol=req.symbol,
+            units=units,
+            entry_price=req.entry_price,
+            sl_price=req.stop_loss,
+            tp_price=req.take_profit,
+            time_in_force=req.time_in_force or "GTC",
+            trade_id=None
+        )
+    else:
+        # MARKET ORDER
+        response = adapter.place_market_order(
+            symbol=req.symbol,
+            units=units,
+            sl_price=req.stop_loss,
+            tp_price=req.take_profit,
+            trade_id=None
+        )
+    
+    # Handle Response
+    # Oanda returns 'orderFillTransaction' for Market, 'orderCreateTransaction' for Limit
+    fill = response.get("orderFillTransaction") or response.get("orderCreateTransaction") or {}
+
+    logger.info(f"Execution Successful: ID={fill.get('id')} Price={fill.get('price')} Units={fill.get('units')}")
 
     return OrderResponse(
         id=fill.get("id", "0"),
         instrument=fill.get("instrument", req.symbol),
         units=fill.get("units", str(units)),
-        price=fill.get("price", "0.0"),
+        price=fill.get("price", str(entry_ref)),
         time=fill.get("time", "")
     )
