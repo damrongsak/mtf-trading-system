@@ -24,6 +24,12 @@ interface OrderPanelProps {
   setTpPrice: (val: number) => void;
   limitPrice: number;
   setLimitPrice: (val: number) => void;
+
+  // Lifted Modes
+  slMode: 'PIPS' | 'PRICE';
+  setSlMode: (mode: 'PIPS' | 'PRICE') => void;
+  tpMode: 'PIPS' | 'PRICE';
+  setTpMode: (mode: 'PIPS' | 'PRICE') => void;
 }
 
 type Direction = 'BULLISH' | 'BEARISH';
@@ -39,7 +45,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     onOrderLinesChange,
     slPrice, setSlPrice,
     tpPrice, setTpPrice,
-    limitPrice, setLimitPrice
+    limitPrice, setLimitPrice,
+    slMode, setSlMode,
+    tpMode, setTpMode
 }) => {
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
@@ -129,31 +137,117 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     }
   }, [calculatedLots, isManualLots]);
 
-  // --- Bi-Directional Sync: Price <-> Pips ---
+
+
+  // --- Handlers: Mode Switching & Updates ---
   
-  // 1. Price -> Pips (Reverse Sync for Dragging, Prop Updates, or Market Moves)
+  const handleSlPriceChange = (val: number) => {
+      setSlPrice(val);
+      setSlMode('PRICE'); // User is editing Price, so Price is Anchor
+  };
+
+  const handleTpPriceChange = (val: number) => {
+      setTpPrice(val);
+      setTpMode('PRICE');
+  };
+
+  const handleSlPipsChange = (val: number) => {
+      setSlPips(val);
+      setSlMode('PIPS'); // User is editing Pips, so Pips is Anchor
+  };
+
+  const handleTpPipsChange = (val: number) => {
+      setTpPips(val);
+      setTpMode('PIPS');
+  };
+
+  // --- Bi-Directional Sync Effects ---
+  
+  // 1. ANCHOR: PRICE (Mode = 'PRICE')
+  // If Price is Anchor, we update Pips when: Price Changes OR Market Moves
   useEffect(() => {
-      if (slPrice > 0 && pipVal > 0) {
+     if (slMode !== 'PRICE') return;
+     if (slPrice > 0 && pipVal > 0) {
           const dist = Math.abs(executePrice - slPrice);
           const pips = parseFloat((dist / pipVal).toFixed(1));
-          // Only update if difference is significant to avoid loop
-          if (Math.abs(pips - slPips) > 0.1) {
-              setSlPips(pips);
-          }
-      }
-  }, [slPrice, executePrice, pipVal]); 
+          if (Math.abs(pips - slPips) > 0.1) setSlPips(pips);
+     }
+  }, [slPrice, executePrice, pipVal, slMode]);
 
   useEffect(() => {
-      if (tpPrice > 0 && pipVal > 0) {
+     if (tpMode !== 'PRICE') return;
+     if (tpPrice > 0 && pipVal > 0) {
           const dist = Math.abs(executePrice - tpPrice);
           const pips = parseFloat((dist / pipVal).toFixed(1));
-          if (Math.abs(pips - tpPips) > 0.1) {
-              setTpPips(pips);
-          }
-      }
-  }, [tpPrice, executePrice, pipVal]);
+          if (Math.abs(pips - tpPips) > 0.1) setTpPips(pips);
+     }
+  }, [tpPrice, executePrice, pipVal, tpMode]);
 
-  // --- Handlers ---
+  // 2. ANCHOR: PIPS (Mode = 'PIPS')
+  // If Pips is Anchor, we update Price when: Pips Changes OR Market Moves
+  useEffect(() => {
+     if (slMode !== 'PIPS') return;
+     if (stopLossEnabled && slPips > 0 && pipVal > 0) {
+          const dist = slPips * pipVal;
+          const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
+          if (Math.abs(newSl - slPrice) > tickSize) {
+              setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
+          }
+     }
+  }, [slPips, executePrice, pipVal, direction, stopLossEnabled, slMode]);
+
+  useEffect(() => {
+     if (tpMode !== 'PIPS') return;
+     if (takeProfitEnabled && tpPips > 0 && pipVal > 0) {
+          const dist = tpPips * pipVal;
+          const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
+          if (Math.abs(newTp - tpPrice) > tickSize) {
+              setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
+          }
+     }
+  }, [tpPips, executePrice, pipVal, direction, takeProfitEnabled, tpMode]);
+
+  
+  // Ensure Dragging updates mode? 
+  // If slPrice changes and it wasn't our effect, we probably want to assume PRICE mode?
+  // But hard to detect "our effect". 
+  // For now, let's rely on onFocus / onChange handlers.
+  // Wait, if I drag the line chart, onOrderLinesChange -> page.tsx -> setSlPrice (Prop Update).
+  // We need to detect Prop Update.
+  // Actually, Effect 1 (PRICE mode) depends on slPrice.
+  // If I drag, slPrice updates. 
+  // If I was in PIPS mode: 
+  //    Effect 2 (PIPS mode) runs on tick. Resets Price. Conflict!
+  // So Dragging MUST switch to PRICE mode.
+  // Since we can't easily detect Drag source here, we should probably default "Price Change" implies Price Mode if the change didn't come from Pips?
+  // Let's add a `useEffect` to watch `slPrice` prop specifically?
+  // No, clean solution: Add `onLineDrag` prop to OrderPanel logic? No, its local.
+  // Users will have to click the "Price" input to lock it, or we accept that Dragging might fight Pips mode.
+  // Actually, if I drag a line, `slPrice` changes. 
+  // In `PIPS` mode, next tick resets it.
+  // This IS the bug. 
+  // I will add a "Lock" UI toggle to make it explicit.
+
+
+  const handleLotChange = (valStr: string) => {
+      setManualLots(valStr);
+      setIsManualLots(true);
+      
+      const val = parseFloat(valStr);
+      if (!isNaN(val) && val > 0 && slDistPrice > 0) {
+          // Reverse calc Risk: Risk = Lots * Dist * 100000
+          // Ensure we don't divide by zero logic elsewhere
+          const newRisk = val * slDistPrice * 100000;
+          setRiskUsd(parseFloat(newRisk.toFixed(2)));
+      }
+  };
+
+  const handleRiskChange = (val: number) => {
+      setRiskUsd(val);
+      setIsManualLots(false); // Revert to auto-calculation based on Risk
+  };
+
+  // --- Handlers: Execution ---
   const handleOrder = async () => {
       setLoading(true);
       setError(null);
@@ -161,7 +255,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       try {
           if (!selectedAccountId) throw new Error("Select Broker");
           
-          const finalRisk = isManualLots ? (currentLots * 100000 * slDistPrice) : riskUsd;
+          const finalRisk = isManualLots ? ((parseFloat(manualLots) || 0) * 100000 * slDistPrice) : riskUsd;
 
           await placeSmartOrder({
                 broker_account_id: selectedAccountId,
@@ -195,6 +289,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       
       const newTpPips = slPips * ratio;
       setTpPips(newTpPips);
+      setTpMode('PIPS'); // Set mode to PIPS
       
       // Update Price Immediately
       const dist = newTpPips * pipVal;
@@ -202,51 +297,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
   };
 
-  const handleSlPriceChange = (val: number) => {
-      setSlPrice(val);
-      // Pips will sync via Effect 1
-  };
 
-  const handleTpPriceChange = (val: number) => {
-      setTpPrice(val);
-      // Pips will sync via Effect 1
-  };
-
-  const handleSlPipsChange = (val: number) => {
-      setSlPips(val);
-      if (val > 0 && pipVal > 0) {
-          const dist = val * pipVal;
-          const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
-          setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
-      }
-  };
-
-  const handleTpPipsChange = (val: number) => {
-      setTpPips(val);
-      if (val > 0 && pipVal > 0) {
-          const dist = val * pipVal;
-          const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
-          setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
-      }
-  };
-
-  const handleLotChange = (valStr: string) => {
-      setManualLots(valStr);
-      setIsManualLots(true);
-      
-      const val = parseFloat(valStr);
-      if (!isNaN(val) && val > 0 && slDistPrice > 0) {
-          // Reverse calc Risk: Risk = Lots * Dist * 100000
-          // Ensure we don't divide by zero logic elsewhere
-          const newRisk = val * slDistPrice * 100000;
-          setRiskUsd(parseFloat(newRisk.toFixed(2)));
-      }
-  };
-
-  const handleRiskChange = (val: number) => {
-      setRiskUsd(val);
-      setIsManualLots(false); // Revert to auto-calculation based on Risk
-  };
 
   // --- Effect: Sync Chart Lines ---
   useEffect(() => {

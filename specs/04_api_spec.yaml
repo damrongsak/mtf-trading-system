@@ -2905,6 +2905,15 @@ components:
           type: string
         risk_usd:
           type: number
+        confidence:
+          type: number
+          default: 1.0
+        pain_threshold:
+          type: number
+          default: 10.0
+        atr_multiplier:
+          type: number
+          default: 1.0
 
     OrderResponse:
       type: object

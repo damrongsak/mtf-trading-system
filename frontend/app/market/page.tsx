@@ -58,6 +58,8 @@ export default function MarketPage() {
   const [slPrice, setSlPrice] = useState<number>(0);
   const [tpPrice, setTpPrice] = useState<number>(0);
   const [limitPrice, setLimitPrice] = useState<number>(0);
+  const [slMode, setSlMode] = useState<'PIPS' | 'PRICE'>('PIPS');
+  const [tpMode, setTpMode] = useState<'PIPS' | 'PRICE'>('PIPS');
 
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
@@ -78,8 +80,14 @@ export default function MarketPage() {
       // Let's rely on downstream components to format, but maybe round to 5 decimals to avoid floating point ugliness.
       const rounded = parseFloat(price.toFixed(5)); // Generic safe precision
       
-      if (title === 'SL') setSlPrice(rounded);
-      if (title === 'TP') setTpPrice(rounded);
+      if (title === 'SL') {
+          setSlPrice(rounded);
+          setSlMode('PRICE'); // Dragging implies Fixed Price intent
+      }
+      if (title === 'TP') {
+          setTpPrice(rounded);
+          setTpMode('PRICE'); // Dragging implies Fixed Price intent
+      }
       if (title === 'ENTRY') setLimitPrice(rounded);
   };
 
@@ -112,6 +120,7 @@ export default function MarketPage() {
     setMounted(true);
   }, []);
 
+
   // --- Effects: Data Loading ---
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -128,6 +137,22 @@ export default function MarketPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // --- Helpers ---
+  const getTimeframeSeconds = (tf: string): number => {
+    switch(tf) {
+        case 'M1': return 60;
+        case 'M5': return 300;
+        case 'M15': return 900;
+        case 'M30': return 1800;
+        case 'H1': return 3600;
+        case 'H4': return 14400;
+        case 'D': return 86400;
+        case 'W': return 604800;
+        case 'M': return 2592000;
+        default: return 3600;
+    }
+  };
+
   // --- Effects: Live Price Updates ---
   useEffect(() => {
       if (!prices[symbol] || prices[symbol].type !== 'PRICE') return;
@@ -140,23 +165,58 @@ export default function MarketPage() {
 
       setCandles(prev => {
           if (prev.length === 0) return prev;
+          
           const last = { ...prev[prev.length - 1] };
+          const tfSeconds = getTimeframeSeconds(timeframe);
           
-          last.close = price;
-          last.high = Math.max(last.high, price);
-          last.low = Math.min(last.low, price);
+          // Current time in seconds
+          const now = Math.floor(Date.now() / 1000);
           
-          const newCandles = [...prev];
-          newCandles[newCandles.length - 1] = last;
-          return newCandles;
+          // Last candle time in seconds (assuming timestamp is ISO string)
+          const lastTime = new Date(last.timestamp).getTime() / 1000;
+          
+          // Check if we need a new candle
+          // Logic: If (now - lastTime) >= tfSeconds, we *should* start a new one.
+          // BUT: Standard candles act on specific boundaries (e.g. 10:00, 10:05).
+          // Simplification: If now >= lastTime + tfSeconds -> New Candle
+          
+          // Better approach for standard boundaries:
+          // nextBoundary = Math.floor(now / tfSeconds) * tfSeconds;
+          // if (lastTime < nextBoundary) -> New Candle
+          
+          const nextBoundary = Math.floor(now / tfSeconds) * tfSeconds;
+          
+          if (lastTime < nextBoundary) {
+              // Create New Candle
+              const newCandle: Candle = {
+                  timestamp: new Date(nextBoundary * 1000).toISOString(),
+                  open: price,
+                  high: price,
+                  low: price,
+                  close: price,
+                  volume: 0
+              };
+              return [...prev, newCandle];
+          } else {
+              // Update Existing Candle
+              last.close = price;
+              last.high = Math.max(last.high, price);
+              last.low = Math.min(last.low, price);
+              
+              const newCandles = [...prev];
+              newCandles[newCandles.length - 1] = last;
+              return newCandles;
+          }
       });
-  }, [prices, symbol]);
+  }, [prices, symbol, timeframe]); // Added timeframe dependency
 
   // --- Effects: Indicators ---
   useEffect(() => {
     if (candles.length === 0) return;
     updateIndicators();
-  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]); 
+  // Dependency Change: candles.length instead of candles to avoid re-calc on every tick
 
   const updateIndicators = async () => {
 
@@ -281,8 +341,9 @@ export default function MarketPage() {
     };
     
     loadSMC();
-  }, [showSMC, candles.length, candles]); // Re-calc on data update or toggle
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSMC, candles.length, symbol, timeframe]); // Re-calc on data update (new candle only) or toggle
+  
   // --- Derived Data ---
   const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
   const prevClose = candles.length > 1 ? candles[candles.length - 2].close : currentPrice;
@@ -528,6 +589,10 @@ export default function MarketPage() {
                                 setTpPrice={setTpPrice}
                                 limitPrice={limitPrice}
                                 setLimitPrice={setLimitPrice}
+                                slMode={slMode}
+                                setSlMode={setSlMode}
+                                tpMode={tpMode}
+                                setTpMode={setTpMode}
                             />
                         </Panel>
 
