@@ -29,25 +29,27 @@ export const cleanCandleData = (data: any[]): CandlestickData<Time>[] => {
 };
 
 export const cleanLineSeriesData = (data: any[], timeKey: string = 'time', valueKey: string = 'value'): { time: Time, value: number }[] => {
-    return data.map(d => {
-        let val = d[valueKey];
-        // LineSeries SUPPORTS NaN for gaps, so we convert null/undefined to NaN
-        if (val === null || val === undefined || !Number.isFinite(val)) {
-            val = NaN;
-        }
+    return data
+        .map(d => {
+            const val = d[valueKey];
+            let time = d[timeKey];
 
-        let time = d[timeKey];
-        // Ensure time is valid
-        if (typeof time !== 'number' && d.timestamp) {
-            time = new Date(d.timestamp).getTime() / 1000;
-        }
+            // Ensure time is valid
+            if (typeof time !== 'number' && d.timestamp) {
+                time = new Date(d.timestamp).getTime() / 1000;
+            }
 
-        return {
-            time: time as Time,
-            value: val
-        };
-    });
-    // Note: We do NOT filter out NaNs here because LineSeries uses them for gaps
+            // Check if value is valid
+            if (val === null || val === undefined || !Number.isFinite(val)) {
+                return null;
+            }
+
+            return {
+                time: time as Time,
+                value: Number(val)
+            };
+        })
+        .filter((item): item is { time: Time, value: number } => item !== null);
 };
 
 export const cleanHistogramData = (

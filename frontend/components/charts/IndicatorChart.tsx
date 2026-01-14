@@ -179,5 +179,108 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, type, colors]);
 
-  return <div ref={chartContainerRef} className="w-full relative" style={{ height: height }} />;
+  // Legend State
+  const [legendData, setLegendData] = React.useState<Map<string, number>>(new Map());
+
+  // Subscribe to Crosshair
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current.length) return;
+
+    const updateLegend = (param: any) => {
+       const newLegend = new Map<string, number>();
+       
+       // Default to last visible data point if no crosshair
+       if (param.time === undefined) {
+           // We could try to show the last bar, but LWC API for "last bar" isn't direct in param.
+           // For simplicity, clear or keep last known? 
+           // Better UX: Show values of the last candle in data.
+           // However, accessing data directly from series is tricky without index.
+           // Let's settle for showing nothing or persisting last known state?
+           // Actually, let's just clear or show "n/a" implies no hover.
+           // But user wants "output".
+           // Strategy: If we have data, show the last item in data prop as default?
+           if (data.length > 0) {
+               const last = data[data.length - 1];
+               newLegend.set('Main', last.value);
+               if (last.signal !== undefined) newLegend.set('Signal', last.signal);
+               if (last.hist !== undefined) newLegend.set('Hist', last.hist);
+           }
+       } else {
+           // Iterate over all series
+           param.seriesData.forEach((value: any, series: ISeriesApi<any>) => {
+               // Identify series? map refs?
+               // We need to know which series corresponds to what label.
+               // We put them in seriesRef.current in order: [Main, (Hist?), (Signal?)]
+               // For RSI/ATR: [Main]
+               // For MACD: [Hist, Main, Signal] (Note implementation order: Hist, then Main, then Signal)
+               
+               let label = 'Value';
+               const sIdx = seriesRef.current.indexOf(series);
+               
+               if (type === 'MACD') {
+                   if (sIdx === 0) label = 'Hist';
+                   if (sIdx === 1) label = 'MACD';
+                   if (sIdx === 2) label = 'Signal';
+               } else {
+                   label = type;
+               }
+
+               // value is { time, value, ... } or just number depending on series type?
+               // LineSeries: value is number. Candlestick: object.
+               // Here we use Line/Hist, generally value is 'value' or the number.
+               // LWC 4.x: param.seriesData map values are the data items (objects)
+               let val: number | undefined;
+               
+               if (value?.value !== undefined) val = value.value;
+               else if (typeof value === 'number') val = value;
+
+               if (val !== undefined) {
+                   newLegend.set(label, val);
+               }
+           });
+       }
+       setLegendData(newLegend);
+    };
+
+    chartRef.current.subscribeCrosshairMove(updateLegend);
+    
+    // Initial populate
+    if (data.length > 0) {
+       const last = data[data.length - 1];
+       const initialLegend = new Map<string, number>();
+       if (type === 'MACD') {
+           if (last.hist !== undefined) initialLegend.set('Hist', last.hist); // Index 0
+           initialLegend.set('MACD', last.value); // Index 1
+           if (last.signal !== undefined) initialLegend.set('Signal', last.signal); // Index 2
+       } else {
+           initialLegend.set(type, last.value);
+       }
+       setLegendData(initialLegend);
+    }
+
+    return () => {
+        chartRef.current?.unsubscribeCrosshairMove(updateLegend);
+    };
+  }, [data, type]);
+
+  return (
+    <div ref={chartContainerRef} className="w-full relative" style={{ height: height }}>
+        <div className="absolute top-1 left-2 z-10 flex gap-4 text-xs font-mono pointer-events-none">
+            <span style={{ color: colors.textColor || '#9ca3af' }} className="font-bold">{type}</span>
+            {Array.from(legendData.entries()).map(([label, val]) => {
+                let color = colors.lineColor;
+                if (label === 'Signal') color = colors.signalColor;
+                if (label === 'Hist') color = colors.histColor;
+                if (type !== 'MACD') color = colors.lineColor; // RSI/ATR
+
+                return (
+                    <div key={label} className="flex items-center gap-1">
+                        <span style={{ color: color }}>{label}:</span>
+                        <span className="text-gray-200">{val.toFixed(2)}</span>
+                    </div>
+                );
+            })}
+        </div>
+    </div>
+  );
 };
