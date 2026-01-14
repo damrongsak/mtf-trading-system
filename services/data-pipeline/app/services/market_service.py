@@ -23,7 +23,7 @@ class MarketService:
         if not symbol:
             raise HTTPException(status_code=404, detail="Symbol not found")
             
-        updated_symbol = repo.update_status(symbol, update_data.is_active)
+        updated_symbol = repo.update(symbol, is_active=update_data.is_active, details=update_data.details)
         return updated_symbol
 
     @staticmethod

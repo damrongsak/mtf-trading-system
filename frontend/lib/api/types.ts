@@ -780,6 +780,7 @@ export interface MarketSymbol {
     display_name?: string;
     is_active: boolean;
     data_source_id?: string;
+    details?: Record<string, any>;
 }
 
 export type DataSourceType = 'api' | 'csv' | 'db' | 'websocket';

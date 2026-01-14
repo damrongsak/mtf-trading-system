@@ -409,7 +409,7 @@ export default function MarketPage() {
                                                 wickUpColor: '#3b82f6',
                                                 wickDownColor: '#ffffff',
                                             }}
-                                            rightOffset={15} 
+                                            rightOffset={25} 
                                             bid={prices[symbol]?.bid}
                                             ask={prices[symbol]?.ask}
                                             markers={smcMarkers}

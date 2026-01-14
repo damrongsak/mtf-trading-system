@@ -1,7 +1,6 @@
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Uuid
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 import uuid
 from app.database import Base
 
@@ -28,6 +27,7 @@ class MarketSymbol(Base):
     display_name = Column(String, nullable=True)
     order_index = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    details = Column(JSONB, nullable=True)
     
     category = relationship("MarketCategory", back_populates="items")
     data_source = relationship("DataSource")

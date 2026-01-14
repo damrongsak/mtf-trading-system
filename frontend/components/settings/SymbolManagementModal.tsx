@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getBrokerSymbols, updateSymbolStatus, fetchDataSourceSymbols, createSymbol } from '@/lib/api/data-sources';
+import { Loader2, Search, AlertCircle, CheckCircle2, Settings2, Save, X, RefreshCw } from "lucide-react";
+import { getBrokerSymbols, updateSymbol, fetchDataSourceSymbols, createSymbol, fetchSymbolDetails } from '@/lib/api/data-sources';
 import { MarketSymbol } from "@/lib/api/types";
 
 interface SymbolManagementModalProps {
@@ -23,6 +23,9 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [editingSymbolId, setEditingSymbolId] = useState<string | null>(null);
+    const [editDetails, setEditDetails] = useState<string>('');
+    const [loadingDetails, setLoadingDetails] = useState(false);
 
     useEffect(() => {
         if (isOpen && brokerName) {
@@ -56,7 +59,8 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
                         id: `TEMP_${sym}`,
                         symbol: sym,
                         is_active: false,
-                        data_source_id: dataSourceId
+                        data_source_id: dataSourceId,
+                        details: {}
                     } as MarketSymbol);
                 }
             });
@@ -86,7 +90,7 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
                 setSuccessMessage(`Activated ${symbol.symbol}`);
             } else {
                 // Update logic
-                await updateSymbolStatus(symbol.id, !originalState);
+                await updateSymbol(symbol.id, { is_active: !originalState });
                 setSuccessMessage(`Updated ${symbol.symbol}`);
             }
             setTimeout(() => setSuccessMessage(null), 2000);
@@ -97,6 +101,38 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
         }
     };
 
+    const startEditing = (symbol: MarketSymbol) => {
+        setEditingSymbolId(symbol.id);
+        setEditDetails(JSON.stringify(symbol.details || {}, null, 2));
+    };
+
+    const loadDetails = async (symbol: MarketSymbol) => {
+        try {
+            setLoadingDetails(true);
+            const details = await fetchSymbolDetails(symbol.symbol);
+            setEditDetails(JSON.stringify(details, null, 2));
+            setSuccessMessage("Details loaded from Broker");
+            setTimeout(() => setSuccessMessage(null), 2000);
+        } catch (err) {
+            setError("Failed to load details from Broker");
+        } finally {
+            setLoadingDetails(false);
+        }
+    };
+
+    const saveDetails = async (symbol: MarketSymbol) => {
+        try {
+            const parsedDetails = JSON.parse(editDetails);
+            await updateSymbol(symbol.id, { details: parsedDetails });
+            setSymbols(prev => prev.map(s => s.id === symbol.id ? { ...s, details: parsedDetails } : s));
+            setEditingSymbolId(null);
+            setSuccessMessage(`Saved details for ${symbol.symbol}`);
+            setTimeout(() => setSuccessMessage(null), 2000);
+        } catch (err) {
+            setError("Invalid JSON format");
+        }
+    };
+
     const filteredSymbols = symbols.filter(s => 
         s.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (s.display_name && s.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -104,11 +140,11 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Manage Symbols: {brokerName}</DialogTitle>
                     <DialogDescription>
-                        Enable or disable symbols for data collection and analysis.
+                        Enable symbols and configure instrument details (Pip Location, Margin, etc.).
                     </DialogDescription>
                 </DialogHeader>
 
@@ -147,22 +183,70 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
                         </div>
                     ) : (
                         filteredSymbols.map(symbol => (
-                            <div key={symbol.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-950/30 hover:bg-gray-900/50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium text-gray-200">{symbol.symbol}</span>
-                                        {symbol.display_name && (
-                                            <span className="text-xs text-gray-500">{symbol.display_name}</span>
-                                        )}
+                            <div key={symbol.id} className="flex flex-col p-3 rounded-lg border border-gray-800 bg-gray-950/30 hover:bg-gray-900/50 transition-colors gap-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-gray-200">{symbol.symbol}</span>
+                                            {symbol.display_name && (
+                                                <span className="text-xs text-gray-500">{symbol.display_name}</span>
+                                            )}
+                                        </div>
+                                        <Badge variant="outline" className={`text-[10px] ${symbol.is_active ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-gray-800 text-gray-500'}`}>
+                                            {symbol.is_active ? 'ACTIVE' : 'INACTIVE'}
+                                        </Badge>
                                     </div>
-                                    <Badge variant="outline" className={`text-[10px] ${symbol.is_active ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-gray-800 text-gray-500'}`}>
-                                        {symbol.is_active ? 'ACTIVE' : 'INACTIVE'}
-                                    </Badge>
+                                    <div className="flex items-center gap-3">
+                                        {symbol.is_active && !symbol.id.startsWith("TEMP_") && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-gray-400 hover:text-white"
+                                                onClick={() => startEditing(symbol)}
+                                            >
+                                                <Settings2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Switch
+                                            checked={symbol.is_active}
+                                            onCheckedChange={() => handleToggle(symbol)}
+                                        />
+                                    </div>
                                 </div>
-                                <Switch
-                                    checked={symbol.is_active}
-                                    onCheckedChange={() => handleToggle(symbol)}
-                                />
+
+                                {editingSymbolId === symbol.id && (
+                                    <div className="mt-2 p-3 bg-black/40 rounded border border-gray-800 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-gray-400">INSTRUMENT DETAILS (JSON)</span>
+                                            <div className="flex gap-2">
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline" 
+                                                    className="h-7 text-xs border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-300" 
+                                                    onClick={() => loadDetails(symbol)}
+                                                    disabled={loadingDetails}
+                                                >
+                                                    {loadingDetails ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                                                    Load from Broker
+                                                </Button>
+                                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingSymbolId(null)}>
+                                                    <X className="h-3 w-3 mr-1" /> Cancel
+                                                </Button>
+                                                <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => saveDetails(symbol)}>
+                                                    <Save className="h-3 w-3 mr-1" /> Save
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            className="w-full h-32 bg-gray-950 border border-gray-800 rounded p-2 text-xs font-mono text-blue-400 focus:outline-none focus:border-blue-500"
+                                            value={editDetails}
+                                            onChange={(e) => setEditDetails(e.target.value)}
+                                        />
+                                        <p className="text-[10px] text-gray-500">
+                                            Example: {"{"} "pipLocation": -4, "marginRate": "0.02" {"}"}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         ))
                     )}

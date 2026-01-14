@@ -3411,6 +3411,10 @@ components:
           format: uuid
         order_index:
           type: integer
+        details:
+          type: object
+          description: Flexible JSON object
+          nullable: true
 
     MarketSymbolCreate:
       type: object
@@ -4353,12 +4357,20 @@ components:
           type: string
           format: uuid
           nullable: true
+        details:
+          type: object
+          description: Flexible JSON object for instrument specifics
+          nullable: true
 
     MarketSymbolUpdate:
       type: object
       properties:
         is_active:
           type: boolean
+          nullable: true
+        details:
+          type: object
+          nullable: true
 
     StrategyChatRequest:
       type: object

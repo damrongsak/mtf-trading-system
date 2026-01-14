@@ -43,7 +43,7 @@ interface CandleChartProps {
   ask?: number;
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 15, bid, ask }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 25, bid, ask }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -76,6 +76,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       },
       rightPriceScale: {
          borderColor: 'rgba(255, 255, 255, 0.1)',
+         minimumWidth: 70,
       },
       crosshair: {
         mode: 1, // Magnet

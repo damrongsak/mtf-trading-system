@@ -21,6 +21,7 @@ export interface IndicatorChartProps {
   data: MultiIndicatorData[];
   type: 'RSI' | 'MACD' | 'ATR' | 'ADX';
   height?: number;
+  rightOffset?: number; // Added prop
   colors?: {
     lineColor?: string;
     signalColor?: string;
@@ -35,6 +36,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     data, 
     type, 
     height = 150, 
+    rightOffset = 25, // Default to 25
     colors = {},
     onChartReady 
 }) => {
@@ -65,9 +67,11 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         timeVisible: true,
         secondsVisible: false,
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        rightOffset: rightOffset, // Use prop
       },
       rightPriceScale: {
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        minimumWidth: 70,
         scaleMargins: {
             top: 0.1,
             bottom: 0.1,
@@ -139,6 +143,14 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         // Histogram
         const histSeries = chartRef.current.addSeries(HistogramSeries, {
             color: colors.histColor || '#26a69a',
+        });
+        histSeries.createPriceLine({
+             price: 0,
+             color: 'rgba(255, 255, 255, 0.2)',
+             lineWidth: 1,
+             lineStyle: 2, // Dashed
+             axisLabelVisible: false,
+             title: '',
         });
         seriesRef.current.push(histSeries);
         

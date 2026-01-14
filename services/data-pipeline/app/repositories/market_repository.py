@@ -23,8 +23,15 @@ class MarketRepository:
         """Get symbol by name (any broker)."""
         return self.db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
 
-    def update_status(self, symbol: MarketSymbol, is_active: bool) -> MarketSymbol:
-        symbol.is_active = is_active
+    def update(self, symbol: MarketSymbol, is_active: Optional[bool] = None, details: Optional[dict] = None) -> MarketSymbol:
+        if is_active is not None:
+            symbol.is_active = is_active
+        if details is not None:
+            # Merge details if they exist, or replace? Usually for 'details' we might want to merge.
+            # But for simplicity in a 'save' context, replacement is often expected unless partial update is specified.
+            # Let's do replacement for now as it's cleaner for a "Form Save".
+            symbol.details = details
+            
         self.db.commit()
         self.db.refresh(symbol)
         return symbol

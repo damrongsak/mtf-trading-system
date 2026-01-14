@@ -47,8 +47,8 @@ export async function getBrokerSymbols(broker: string): Promise<MarketSymbol[]> 
     return response.data;
 }
 
-export async function updateSymbolStatus(id: string, is_active: boolean): Promise<MarketSymbol> {
-    const response = await apiClient.patch<MarketSymbol>(`/api/v1/data/symbols/${id}`, { is_active });
+export async function updateSymbol(id: string, updates: { is_active?: boolean, details?: Record<string, any> }): Promise<MarketSymbol> {
+    const response = await apiClient.patch<MarketSymbol>(`/api/v1/data/symbols/${id}`, updates);
     return response.data;
 }
 
@@ -61,4 +61,9 @@ export async function createSymbol(broker: string, symbol: string): Promise<Mark
     // data-pipeline routes: return MarketSymbolResponse model.
     // So it returns JSON object directly.
     return response.data;
+}
+
+export async function fetchSymbolDetails(symbol: string): Promise<Record<string, any>> {
+    const response = await apiClient.get<APIResponse<Record<string, any>>>(`/api/v1/market/symbols/${symbol}/details`);
+    return response.data.data || {};
 }

@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
+import os
+import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
@@ -104,3 +106,65 @@ async def get_market_symbols(
         })
         
     return success_response(data=data)
+
+@router.get("/symbols/{symbol}/details")
+async def get_symbol_details(
+    symbol: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch up-to-date details for a specific symbol from OANDA (Global Config).
+    Updates the local DB cache and returns the details.
+    """
+    token = os.getenv("OANDA_API_TOKEN") or os.getenv("OANDA_API_KEY")
+    account_id = os.getenv("OANDA_ACCOUNT_ID")
+    env = os.getenv("OANDA_ENV", "practice")
+    
+    if not token or not account_id:
+        raise HTTPException(status_code=500, detail="OANDA configuration missing (Env vars)")
+
+    host = "api-fxtrade.oanda.com" if env == "live" else "api-fxpractice.oanda.com"
+    url = f"https://{host}/v3/accounts/{account_id}/instruments?instruments={symbol}"
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers, timeout=10.0)
+            
+            if response.status_code != 200:
+                try:
+                    detail = response.json().get("errorMessage", response.text)
+                except:
+                    detail = response.text
+                raise HTTPException(status_code=response.status_code, detail=f"OANDA Error: {detail}")
+                
+            data = response.json()
+            instruments = data.get("instruments", [])
+            
+            if not instruments:
+                raise HTTPException(status_code=404, detail="Symbol not found at Broker")
+                
+            details = instruments[0]
+            
+            # Update DB
+            from app.models.market import MarketSymbol
+            from app.models.data_source import DataSource
+            
+            ms = db.query(MarketSymbol).join(DataSource).filter(
+                MarketSymbol.symbol == symbol,
+                DataSource.name == "OANDA"
+            ).first()
+            
+            if ms:
+                ms.details = details
+                db.commit()
+                db.refresh(ms)
+                
+            return success_response(data=details)
+            
+        except httpx.RequestError as e:
+             raise HTTPException(status_code=503, detail=f"Broker Connection Failed: {str(e)}")

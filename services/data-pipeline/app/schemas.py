@@ -65,7 +65,8 @@ class PaginationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class MarketSymbolUpdate(BaseModel):
-    is_active: bool
+    is_active: Optional[bool] = None
+    details: Optional[dict] = None
 
 class MarketSymbolCreate(BaseModel):
     symbol: str
@@ -77,6 +78,7 @@ class MarketSymbolResponse(BaseModel):
     display_name: Optional[str]
     is_active: bool
     data_source_id: Optional[UUID]
+    details: Optional[dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 

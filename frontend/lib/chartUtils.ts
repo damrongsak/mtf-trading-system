@@ -60,31 +60,37 @@ export const cleanHistogramData = (
     valueKey: string = 'value'
 ): HistogramData<Time>[] => {
     return data
-        .filter(d => {
-            const val = d[valueKey];
-            const histVal = d['hist']; // Handle special case for MACD-like structures if passed directly?
-            // Actually, let's keep it generic.
-            // If the user passes raw objects, we need to know where the value is.
-            // Support both direct valueKey OR 'hist' property if valueKey finds nothing? 
-            // Better to be explicit in args.
-
-            // Check value
-            const checkVal = val !== undefined ? val : (d.hist !== undefined ? d.hist : undefined);
-
-            return checkVal !== null && checkVal !== undefined && isValidNumber(checkVal);
-        })
         .map(d => {
-            const val = d[valueKey] !== undefined ? d[valueKey] : d.hist;
+            // valueKey takes precedence
+            let val = d[valueKey];
+
+            // If explicit valueKey result is undefined, try 'hist' fallback
+            if (val === undefined) {
+                val = d['hist'];
+            }
+
             let time = d[timeKey];
+
             // Ensure time is valid
             if (typeof time !== 'number' && d.timestamp) {
                 time = new Date(d.timestamp).getTime() / 1000;
             }
 
+            // Check validation (Strict checks)
+            if (val === null || val === undefined) {
+                return null;
+            }
+
+            const numVal = Number(val);
+            if (!Number.isFinite(numVal)) {
+                return null;
+            }
+
             return {
                 time: time as Time,
-                value: val,
-                color: (val >= 0 ? colorPos : colorNeg)
+                value: numVal,
+                color: (numVal >= 0 ? colorPos : colorNeg)
             };
-        });
+        })
+        .filter((item): item is HistogramData<Time> => item !== null);
 };
