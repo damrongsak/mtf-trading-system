@@ -65,8 +65,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
       },
       timeScale: {
         timeVisible: true,

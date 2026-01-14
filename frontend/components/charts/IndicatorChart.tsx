@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries, HistogramSeries, Time } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries, AreaSeries, HistogramSeries, Time } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { cleanLineSeriesData, cleanHistogramData } from '@/lib/chartUtils';
 
@@ -58,8 +58,8 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
       width: chartContainerRef.current.clientWidth,
       height: height,
       grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
       },
       timeScale: {
         timeVisible: true,
@@ -101,7 +101,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update Data
+  // 1. Create Series (When type/color changes)
   useEffect(() => {
     if (!chartRef.current) return;
 
@@ -115,40 +115,34 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     });
     seriesRef.current = [];
 
+    // Create new series based on type
     if (type === 'RSI' || type === 'ATR' || type === 'ADX') {
-        const lineSeries = chartRef.current.addSeries(LineSeries, {
-            color: colors.lineColor || '#2962FF',
+        const areaSeries = chartRef.current.addSeries(AreaSeries, {
+            lineColor: colors.lineColor || '#2962FF',
+            topColor: (colors.lineColor || '#2962FF') + '66', // 40% opacity (hex approximation 66)
+            bottomColor: (colors.lineColor || '#2962FF') + '00', // 0% opacity
             lineWidth: 2,
         });
-        
-        // Map null values to NaN to avoid crashes and properly render gaps
-        const lineData = cleanLineSeriesData(data);
-        lineSeries.setData(lineData);
-        seriesRef.current.push(lineSeries);
+        seriesRef.current.push(areaSeries);
 
-        // Register Sync with this main series
+        // Register Sync
         if (registerChart && chartRef.current) {
-             unregisterSyncRef.current = registerChart(chartRef.current, lineSeries);
+             unregisterSyncRef.current = registerChart(chartRef.current, areaSeries);
         }
         
         // Add 70/30 lines for RSI
         if (type === 'RSI') {
-              lineSeries.createPriceLine({ price: 70, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
-              lineSeries.createPriceLine({ price: 30, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+              areaSeries.createPriceLine({ price: 70, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+              areaSeries.createPriceLine({ price: 30, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
         }
     } else if (type === 'MACD') {
         // Histogram
         const histSeries = chartRef.current.addSeries(HistogramSeries, {
             color: colors.histColor || '#26a69a',
         });
-        
-        // Handle hist data with safe utility
-        const histData = cleanHistogramData(data, colors.histColor || '#26a69a', '#ef5350', 'time', 'hist');
-        
-        histSeries.setData(histData);
         seriesRef.current.push(histSeries);
         
-        // Register Sync (Using histogram as reference)
+        // Register Sync
         if (registerChart && chartRef.current) {
              unregisterSyncRef.current = registerChart(chartRef.current, histSeries);
         }
@@ -158,8 +152,6 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
             color: colors.lineColor || '#2962FF',
             lineWidth: 2,
         });
-        const macdData = cleanLineSeriesData(data, 'time', 'value');
-        macdSeries.setData(macdData);
         seriesRef.current.push(macdSeries);
 
         // Signal Line
@@ -167,17 +159,38 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
             color: colors.signalColor || '#FF6D00',
             lineWidth: 2,
         });
-        const signalData = cleanLineSeriesData(data, 'time', 'signal');
-        signalSeries.setData(signalData);
         seriesRef.current.push(signalSeries);
     }
-    
-    if (data.length > 0) {
-        chartRef.current.timeScale().fitContent();
+  }, [type, colors.lineColor, colors.histColor, colors.signalColor]); // Re-create only if Structure/Style changes
+
+  // 2. Update Data (When data changes) and FitContent ONLY on mount/first load
+  const hasLoadedData = useRef(false);
+
+  useEffect(() => {
+    if (!chartRef.current || seriesRef.current.length === 0 || data.length === 0) return;
+
+    if (type === 'RSI' || type === 'ATR' || type === 'ADX') {
+        const lineData = cleanLineSeriesData(data);
+        // Assuming seriesRef.current[0] is the main line
+        seriesRef.current[0].setData(lineData);
+    } else if (type === 'MACD') {
+        // Order: [Hist, MACD, Signal]
+        const histData = cleanHistogramData(data, colors.histColor || '#26a69a', '#ef5350', 'time', 'hist');
+        const macdData = cleanLineSeriesData(data, 'time', 'value');
+        const signalData = cleanLineSeriesData(data, 'time', 'signal');
+
+        if (seriesRef.current[0]) seriesRef.current[0].setData(histData);
+        if (seriesRef.current[1]) seriesRef.current[1].setData(macdData);
+        if (seriesRef.current[2]) seriesRef.current[2].setData(signalData);
     }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, type, colors]);
+    // Only fit content on initial data load to prevent jumping
+    if (!hasLoadedData.current && data.length > 0) {
+        chartRef.current.timeScale().fitContent();
+        hasLoadedData.current = true;
+    }
+    
+  }, [data, type, colors]); // Data updates
 
   // Legend State
   const [legendData, setLegendData] = React.useState<Map<string, number>>(new Map());
