@@ -63,12 +63,12 @@ from contextlib import asynccontextmanager
 # ... (rest of imports)
 
 # Shared HTTP Client
-http_client = httpx.AsyncClient(timeout=30.0)
+http_client = httpx.AsyncClient(timeout=60.0)
 
 @router.on_event("startup")
 async def startup_event():
     global http_client
-    http_client = httpx.AsyncClient(timeout=30.0)
+    http_client = httpx.AsyncClient(timeout=60.0)
 
 @router.on_event("shutdown")
 async def shutdown_event():
