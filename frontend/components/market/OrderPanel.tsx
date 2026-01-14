@@ -39,14 +39,14 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [loadingBalance, setLoadingBalance] = useState(false);
 
   // --- State: Protection ---
-  const [takeProfitEnabled, setTakeProfitEnabled] = useState(false);
+  const [takeProfitEnabled, setTakeProfitEnabled] = useState(true);
   const [stopLossEnabled, setStopLossEnabled] = useState(true);
 
   
   const [slPrice, setSlPrice] = useState<number>(0);
   const [slPips, setSlPips] = useState<number>(500); // 50 pips
   const [tpPrice, setTpPrice] = useState<number>(0);
-  const [tpPips, setTpPips] = useState<number>(500);
+  const [tpPips, setTpPips] = useState<number>(1500); // Default 1:3 RR (500 * 3)
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = useState(false);
@@ -304,15 +304,23 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                             </div>
                             {/* R:R Buttons */}
                             <div className="flex gap-1">
-                                 {[1, 2, 3].map(r => (
-                                     <button 
-                                        key={r} 
-                                        onClick={() => applyRR(r)}
-                                        className="px-2 py-0.5 bg-[#2b2e3b] hover:bg-blue-600 hover:text-white rounded text-[10px] text-gray-400 transition-colors font-mono"
-                                    >
-                                        1:{r}
-                                     </button>
-                                 ))}
+                                 {[1, 2, 3].map(r => {
+                                     const isActive = Math.abs(tpPips - (slPips * r)) < 1; // Use small delta for float safety if any
+                                     return (
+                                         <button 
+                                            key={r} 
+                                            onClick={() => applyRR(r)}
+                                            className={cn(
+                                                "px-2 py-0.5 rounded text-[10px] transition-colors font-mono border",
+                                                isActive 
+                                                    ? "bg-blue-600 text-white border-blue-500 font-bold" 
+                                                    : "bg-[#2b2e3b] hover:bg-blue-600/30 text-gray-400 border-transparent hover:text-gray-200"
+                                            )}
+                                        >
+                                            1:{r}
+                                         </button>
+                                     );
+                                 })}
                             </div>
                         </div>
                         
