@@ -5,6 +5,7 @@ import { placeSmartOrder, ExecutionBrokerAccount, getAccountSummary } from '@/li
 import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
+import { ChartPriceLine } from '@/components/charts/CandleChart';
 
 interface OrderPanelProps {
   symbol: string;
@@ -13,6 +14,7 @@ interface OrderPanelProps {
   accounts: ExecutionBrokerAccount[];
   selectedAccountId: string;
   onAccountChange: (id: string) => void;
+  onOrderLinesChange?: (lines: ChartPriceLine[]) => void;
 }
 
 type Direction = 'BULLISH' | 'BEARISH';
@@ -24,7 +26,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     onOrderSuccess,
     accounts,
     selectedAccountId,
-    onAccountChange
+    onAccountChange,
+    onOrderLinesChange
 }) => {
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
@@ -44,9 +47,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
 
   
   const [slPrice, setSlPrice] = useState<number>(0);
-  const [slPips, setSlPips] = useState<number>(500); // 50 pips
+  const [slPips, setSlPips] = useState<number>(50); // 50 pips
   const [tpPrice, setTpPrice] = useState<number>(0);
-  const [tpPips, setTpPips] = useState<number>(1500); // Default 1:3 RR (500 * 3)
+  const [tpPips, setTpPips] = useState<number>(150); // Default 1:3 RR (50 * 3)
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = useState(false);
@@ -105,17 +108,17 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       // This is a simplified uni-directional sync for the UI "Pips Driven" mode
       
       if (slPips > 0) {
-          const dist = slPips * tickSize;
+          const dist = slPips * pipVal;
           const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
           setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
       }
       
       if (tpPips > 0) {
-          const dist = tpPips * tickSize;
+          const dist = tpPips * pipVal;
           const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
           setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
       }
-  }, [direction, currentPrice, slPips, tpPips, executePrice, instrument, tickSize]); 
+  }, [direction, currentPrice, slPips, tpPips, executePrice, instrument, pipVal]); 
 
 
   // --- Handlers ---
@@ -152,6 +155,39 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       setTakeProfitEnabled(true);
       setTpPips(slPips * ratio);
   };
+
+  // --- Effect: Sync Chart Lines ---
+  useEffect(() => {
+      if (!onOrderLinesChange) return;
+
+      const lines: ChartPriceLine[] = [];
+      
+      // Stop Loss Line
+      if (stopLossEnabled && slPrice > 0) {
+          lines.push({
+              price: slPrice,
+              color: '#ef4444', // Red
+              title: 'SL',
+              lineStyle: 2, // Dashed
+              lineWidth: 1,
+              axisLabelVisible: true
+          });
+      }
+      
+      // Take Profit Line
+      if (takeProfitEnabled && tpPrice > 0) {
+          lines.push({
+              price: tpPrice,
+              color: '#22c55e', // Green
+              title: 'TP',
+              lineStyle: 2, // Dashed
+              lineWidth: 1,
+              axisLabelVisible: true
+          });
+      }
+      
+      onOrderLinesChange(lines);
+  }, [slPrice, tpPrice, stopLossEnabled, takeProfitEnabled, onOrderLinesChange]);
   
   return (
     <div className="h-full flex flex-col bg-[#111216] border-l border-black font-sans text-gray-300 select-none">
@@ -336,11 +372,11 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      />
                                  </div>
                                   <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-blue-500/20">
-                                     <div className="text-[10px] text-blue-400 uppercase font-bold">Profit Ticks</div>
+                                     <div className="text-[10px] text-blue-400 uppercase font-bold">Profit Pips</div>
                                      <input 
                                          type="number" 
                                          value={tpPips} 
-                                         onChange={e => setTpPips(parseInt(e.target.value))}
+                                         onChange={e => setTpPips(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
                                  </div>
@@ -371,11 +407,11 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      />
                                  </div>
                                   <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-rose-500/20">
-                                     <div className="text-[10px] text-rose-400 uppercase font-bold">Risk Ticks</div>
+                                     <div className="text-[10px] text-rose-400 uppercase font-bold">Risk Pips</div>
                                      <input 
                                          type="number" 
                                          value={slPips} 
-                                         onChange={e => setSlPips(parseInt(e.target.value))}
+                                         onChange={e => setSlPips(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
                                  </div>

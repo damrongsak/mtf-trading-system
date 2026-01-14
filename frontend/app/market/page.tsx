@@ -51,6 +51,7 @@ export default function MarketPage() {
   const [smcData, setSmcData] = useState<SMCResponse | null>(null);
   const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
+  const [orderLines, setOrderLines] = useState<ChartPriceLine[]>([]);
   
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
@@ -416,7 +417,7 @@ export default function MarketPage() {
                                             bid={prices[symbol]?.bid}
                                             ask={prices[symbol]?.ask}
                                             markers={smcMarkers}
-                                            priceLines={smcPriceLines}
+                                            priceLines={[...smcPriceLines, ...orderLines]}
                                         />
                                         {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
                                             if (ind.name.startsWith('RSI')) {
@@ -496,6 +497,7 @@ export default function MarketPage() {
                                 accounts={accounts}
                                 selectedAccountId={selectedAccountId}
                                 onAccountChange={setSelectedAccountId}
+                                onOrderLinesChange={setOrderLines}
                             />
                         </Panel>
 
