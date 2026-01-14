@@ -10,8 +10,9 @@ class MarketRepository:
         self.db = db
 
     def get_active_symbols(self, broker: str) -> List[MarketSymbol]:
+        from sqlalchemy import or_
         return self.db.query(MarketSymbol).join(DataSource).filter(
-            DataSource.name == broker,
+            or_(DataSource.name == broker, DataSource.provider == broker),
             MarketSymbol.is_active == True
         ).order_by(MarketSymbol.symbol).all()
 

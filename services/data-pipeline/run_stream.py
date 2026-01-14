@@ -27,9 +27,14 @@ def fetch_supported_symbols():
         symbols = repo.get_active_symbols("OANDA")
         instrument_list = [s.symbol for s in symbols]
         logger.info(f"Loaded {len(instrument_list)} active symbols from DB: {instrument_list}")
+        
+        if not instrument_list:
+             logger.warning("No symbols found in DB, falling back to environment variables.")
+             raise ValueError("Empty symbol list from DB")
+
         return instrument_list
     except Exception as e:
-        logger.error(f"Failed to load symbols from DB: {e}")
+        logger.error(f"Failed to load symbols from DB (or empty): {e}")
         # Fallback to env or default
         symbols_env = os.getenv("STREAM_SYMBOLS", "EUR_USD,USD_JPY,XAU_USD")
         return [s.strip() for s in symbols_env.split(",") if s.strip()]
