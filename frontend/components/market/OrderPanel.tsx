@@ -16,6 +16,14 @@ interface OrderPanelProps {
   selectedAccountId: string;
   onAccountChange: (id: string) => void;
   onOrderLinesChange?: (lines: ChartPriceLine[]) => void;
+  
+  // Lifted State
+  slPrice: number;
+  setSlPrice: (val: number) => void;
+  tpPrice: number;
+  setTpPrice: (val: number) => void;
+  limitPrice: number;
+  setLimitPrice: (val: number) => void;
 }
 
 type Direction = 'BULLISH' | 'BEARISH';
@@ -28,7 +36,10 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     accounts,
     selectedAccountId,
     onAccountChange,
-    onOrderLinesChange
+    onOrderLinesChange,
+    slPrice, setSlPrice,
+    tpPrice, setTpPrice,
+    limitPrice, setLimitPrice
 }) => {
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
@@ -47,16 +58,21 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [stopLossEnabled, setStopLossEnabled] = usePersistentState<boolean>('mtf_sl_enabled', true);
 
   
-  const [slPrice, setSlPrice] = useState<number>(0);
+  // const [slPrice, setSlPrice] = useState<number>(0); // Lifted
   const [slPips, setSlPips] = usePersistentState<number>('mtf_sl_pips', 50); // 50 pips
-  const [tpPrice, setTpPrice] = useState<number>(0);
+  // const [tpPrice, setTpPrice] = useState<number>(0); // Lifted
   const [tpPips, setTpPips] = usePersistentState<number>('mtf_tp_pips', 150); // Default 1:3 RR (50 * 3)
-  const [limitPrice, setLimitPrice] = useState<number>(0);
+  // const [limitPrice, setLimitPrice] = useState<number>(0); // Lifted
 
   // --- State: Smart Sizing ---
   const [isSmartSize, setIsSmartSize] = usePersistentState<boolean>('mtf_smart_size', false);
   const [manualLots, setManualLots] = useState<string>('');
   const [isManualLots, setIsManualLots] = useState(false);
+
+  // --- State: Minimax (Risk Citadel) ---
+  const [confidence, setConfidence] = usePersistentState<number>('mtf_confidence', 0.85);
+  const [painThreshold, setPainThreshold] = usePersistentState<number>('mtf_pain_threshold', 50.0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // --- State: Async ---
   const [loading, setLoading] = useState(false);
@@ -113,24 +129,29 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     }
   }, [calculatedLots, isManualLots]);
 
-  // Sync Pips -> Price 
+  // --- Bi-Directional Sync: Price <-> Pips ---
+  
+  // 1. Price -> Pips (Reverse Sync for Dragging, Prop Updates, or Market Moves)
   useEffect(() => {
-      // Avoid infinite loops by checking mostly only when pips change or direction/price changes
-      // This is a simplified uni-directional sync for the UI "Pips Driven" mode
-      
-      if (slPips > 0) {
-          const dist = slPips * pipVal;
-          const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
-          setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
+      if (slPrice > 0 && pipVal > 0) {
+          const dist = Math.abs(executePrice - slPrice);
+          const pips = parseFloat((dist / pipVal).toFixed(1));
+          // Only update if difference is significant to avoid loop
+          if (Math.abs(pips - slPips) > 0.1) {
+              setSlPips(pips);
+          }
       }
-      
-      if (tpPips > 0) {
-          const dist = tpPips * pipVal;
-          const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
-          setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
-      }
-  }, [direction, currentPrice, slPips, tpPips, executePrice, instrument, pipVal]); 
+  }, [slPrice, executePrice, pipVal]); 
 
+  useEffect(() => {
+      if (tpPrice > 0 && pipVal > 0) {
+          const dist = Math.abs(executePrice - tpPrice);
+          const pips = parseFloat((dist / pipVal).toFixed(1));
+          if (Math.abs(pips - tpPips) > 0.1) {
+              setTpPips(pips);
+          }
+      }
+  }, [tpPrice, executePrice, pipVal]);
 
   // --- Handlers ---
   const handleOrder = async () => {
@@ -146,10 +167,17 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 broker_account_id: selectedAccountId,
                 symbol: symbol.replace('/', '_'),
                 direction: direction,
+                entry_price: isPendingOrder ? limitPrice : undefined,
                 stop_loss: stopLossEnabled ? slPrice : 0,
+                take_profit: takeProfitEnabled ? tpPrice : 0,
                 risk_usd: finalRisk,
+                time_in_force: 'GTC', // Default to Good-Til-Cancelled
+                slippage_tolerance: 0.0001, // 1 pip default tolerance
                 generated_by: 'ProTerminal',
-                reason: 'Pro Panel'
+                reason: 'Pro Panel',
+                confidence: confidence,
+                pain_threshold: painThreshold,
+                atr_multiplier: 1.0
           });
 
           setSuccessMsg("Order Placed");
@@ -164,25 +192,41 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const applyRR = (ratio: number) => {
       if (slPips <= 0) return;
       setTakeProfitEnabled(true);
-      setTpPips(slPips * ratio);
+      
+      const newTpPips = slPips * ratio;
+      setTpPips(newTpPips);
+      
+      // Update Price Immediately
+      const dist = newTpPips * pipVal;
+      const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
+      setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
   };
 
   const handleSlPriceChange = (val: number) => {
       setSlPrice(val);
-      if (val > 0 && pipVal > 0) {
-          const dist = Math.abs(executePrice - val);
-          const pips = dist / pipVal;
-          // Update pips (rounded to 1 decimal)
-          setSlPips(parseFloat(pips.toFixed(1)));
-      }
+      // Pips will sync via Effect 1
   };
 
   const handleTpPriceChange = (val: number) => {
       setTpPrice(val);
+      // Pips will sync via Effect 1
+  };
+
+  const handleSlPipsChange = (val: number) => {
+      setSlPips(val);
       if (val > 0 && pipVal > 0) {
-          const dist = Math.abs(executePrice - val);
-          const pips = dist / pipVal;
-          setTpPips(parseFloat(pips.toFixed(1)));
+          const dist = val * pipVal;
+          const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
+          setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
+      }
+  };
+
+  const handleTpPipsChange = (val: number) => {
+      setTpPips(val);
+      if (val > 0 && pipVal > 0) {
+          const dist = val * pipVal;
+          const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
+          setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
       }
   };
 
@@ -449,7 +493,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      <input 
                                          type="number" 
                                          value={tpPips} 
-                                         onChange={e => setTpPips(parseFloat(e.target.value))}
+                                         onChange={e => handleTpPipsChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
                                  </div>
@@ -484,7 +528,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                      <input 
                                          type="number" 
                                          value={slPips} 
-                                         onChange={e => setSlPips(parseFloat(e.target.value))}
+                                         onChange={e => handleSlPipsChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
                                  </div>
@@ -494,7 +538,54 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 </div>
             </div>
 
-            {/* 6. Position Math (Natural Flow) */}
+            {/* 6. Minimax / Risk Citadel (Advanced) */}
+            <div className="border border-white/5 rounded bg-[#16171d] overflow-hidden">
+                <button 
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex items-center justify-between p-3 text-xs font-bold text-gray-400 hover:text-white transition-colors bg-[#1e2029]"
+                >
+                    <span className="flex items-center gap-2"><Target size={12} /> Risk Citadel (AI)</span>
+                    <Settings2 size={12} />
+                </button>
+                
+                {showAdvanced && (
+                    <div className="p-3 space-y-3 animate-in fade-in slide-in-from-top-1">
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-gray-500 uppercase">
+                                <span>Confidence</span>
+                                <span>{(confidence * 100).toFixed(0)}%</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="0.1" 
+                                max="1.0" 
+                                step="0.05"
+                                value={confidence}
+                                onChange={e => setConfidence(parseFloat(e.target.value))}
+                                className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-gray-500 uppercase">
+                                <span>Pain Threshold</span>
+                                <span>${painThreshold}</span>
+                            </div>
+                             <div className="flex items-center bg-[#0b0c10] border border-white/10 rounded px-2">
+                                <span className="text-gray-500 text-xs">$</span>
+                                <input 
+                                    type="number" 
+                                    value={painThreshold}
+                                    onChange={e => setPainThreshold(parseFloat(e.target.value))}
+                                    className="bg-transparent w-full text-xs font-mono text-white p-1 outline-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* 7. Position Math (Natural Flow) */}
              <div className="space-y-4 pt-4">
                  <div className="bg-[#16171d] rounded p-3 space-y-2 border border-white/5">
                     <div className="flex items-center gap-2 pb-2 border-b border-white/5 mb-1">

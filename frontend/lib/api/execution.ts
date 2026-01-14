@@ -112,9 +112,17 @@ export interface SmartOrderRequest {
     symbol: string;
     direction: 'BULLISH' | 'BEARISH';
     stop_loss?: number;
+    take_profit?: number;
+    entry_price?: number; // For Limit/Stop orders
+    time_in_force?: 'GTC' | 'GTD' | 'GFD' | 'FOK' | 'IOC';
+    slippage_tolerance?: number; // e.g. 0.0001 (price dist) or percent
     generated_by: string;
     reason?: string;
     risk_usd?: number;
+    // Minimax / AI Inputs
+    confidence?: number;
+    atr_multiplier?: number;
+    pain_threshold?: number;
 }
 
 
