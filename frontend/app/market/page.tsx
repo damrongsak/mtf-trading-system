@@ -54,6 +54,11 @@ export default function MarketPage() {
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
   const [orderLines, setOrderLines] = useState<ChartPriceLine[]>([]);
   
+  // --- Lifted Order State ---
+  const [slPrice, setSlPrice] = useState<number>(0);
+  const [tpPrice, setTpPrice] = useState<number>(0);
+  const [limitPrice, setLimitPrice] = useState<number>(0);
+
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
   const [showAccountPanel, setShowAccountPanel] = usePersistentState<boolean>('mtf_show_account_panel', true);
@@ -65,6 +70,18 @@ export default function MarketPage() {
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = usePersistentState<string>('mtf_selected_account', '');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // --- Handlers ---
+  const handleLineDrag = (title: string, price: number) => {
+      // Round to precision? formatPrice usually handles display, but state should be precise?
+      // Or round to tick size?
+      // Let's rely on downstream components to format, but maybe round to 5 decimals to avoid floating point ugliness.
+      const rounded = parseFloat(price.toFixed(5)); // Generic safe precision
+      
+      if (title === 'SL') setSlPrice(rounded);
+      if (title === 'TP') setTpPrice(rounded);
+      if (title === 'ENTRY') setLimitPrice(rounded);
+  };
 
   // --- Hooks ---
   const { prices, connected } = useLivePrices([symbol]);
@@ -423,6 +440,7 @@ export default function MarketPage() {
                                             ask={prices[symbol]?.ask}
                                             markers={smcMarkers}
                                             priceLines={[...smcPriceLines, ...orderLines]}
+                                            onLineDrag={handleLineDrag}
                                         />
                                         {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
                                             if (ind.name.startsWith('RSI')) {
@@ -503,6 +521,13 @@ export default function MarketPage() {
                                 selectedAccountId={selectedAccountId}
                                 onAccountChange={setSelectedAccountId}
                                 onOrderLinesChange={setOrderLines}
+                                // Lifted State
+                                slPrice={slPrice}
+                                setSlPrice={setSlPrice}
+                                tpPrice={tpPrice}
+                                setTpPrice={setTpPrice}
+                                limitPrice={limitPrice}
+                                setLimitPrice={setLimitPrice}
                             />
                         </Panel>
 

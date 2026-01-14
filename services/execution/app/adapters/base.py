@@ -26,6 +26,20 @@ class BrokerAdapter(ABC):
         pass
 
     @abstractmethod
+    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+                          sl_price: Optional[float] = None, 
+                          tp_price: Optional[float] = None, 
+                          time_in_force: str = "GTC",
+                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+        """Place a limit order."""
+        pass
+
+    @abstractmethod
+    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+        """Fetch order book snapshot."""
+        pass
+
+    @abstractmethod
     def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         """Close an existing trade."""
         pass

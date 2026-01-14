@@ -50,6 +50,29 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
+    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+                          sl_price: Optional[float] = None, 
+                          tp_price: Optional[float] = None, 
+                          time_in_force: str = "GTC",
+                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+        mock_id = str(uuid.uuid4())
+        return {
+            "orderCreateTransaction": {
+                "id": mock_id,
+                "instrument": symbol,
+                "units": str(units),
+                "price": str(entry_price),
+                "time": datetime.utcnow().isoformat(),
+                "timeInForce": time_in_force
+            }
+        }
+
+    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+        return {
+            "bids": [{"price": str(self.get_current_price(symbol)-0.1), "liquidity": "1000000"}],
+            "asks": [{"price": str(self.get_current_price(symbol)+0.1), "liquidity": "1000000"}]
+        }
+
     def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         return {
             "tradeCloseTransaction": {

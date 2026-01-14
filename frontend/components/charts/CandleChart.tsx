@@ -41,17 +41,117 @@ interface CandleChartProps {
   rightOffset?: number;
   bid?: number;
   ask?: number;
+  onLineDrag?: (title: string, price: number) => void;
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 25, bid, ask }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 25, bid, ask, onLineDrag }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const indicatorSeriesRefs = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const draggingLineRef = useRef<string | null>(null);
+  const rafRef = useRef<number | null>(null);
   
   // Use Sync Context
   const registerChart = useChartSync();
+
+  // Mouse Handlers for Dragging
+  useEffect(() => {
+      const container = chartContainerRef.current;
+      if (!container || !onLineDrag) return;
+
+      const handleMouseDown = (e: MouseEvent) => {
+          if (!seriesRef.current) return;
+          
+          const rect = container.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+          
+          let bestLine: string | null = null;
+          let bestDist = 10; 
+
+          priceLines.forEach(line => {
+              if (!line.title) return; 
+              const lineY = seriesRef.current?.priceToCoordinate(line.price);
+              if (lineY === null || lineY === undefined) return;
+              
+              const dist = Math.abs(lineY - y);
+              if (dist < bestDist) {
+                  bestDist = dist;
+                  bestLine = line.title;
+              }
+          });
+
+          if (bestLine) {
+              draggingLineRef.current = bestLine;
+              container.style.cursor = 'ns-resize';
+              e.preventDefault();
+          }
+      };
+
+      const handleMouseMove = (e: MouseEvent) => {
+          if (!seriesRef.current) return;
+          const rect = container.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+
+          if (draggingLineRef.current) {
+              // Dragging with RAF for smoothness
+              if (rafRef.current) return;
+
+              rafRef.current = requestAnimationFrame(() => {
+                  const newPrice = seriesRef.current?.coordinateToPrice(y);
+                  // Boundary Constraint: Price must be positive
+                  if (newPrice !== null && newPrice !== undefined && newPrice > 0) {
+                      onLineDrag(draggingLineRef.current!, newPrice);
+                  }
+                  rafRef.current = null;
+              });
+          } else {
+              // Hover detection
+              let hoverLine = false;
+              priceLines.forEach(line => {
+                  if (!line.title) return;
+                  const lineY = seriesRef.current?.priceToCoordinate(line.price);
+                  if (lineY !== null && lineY !== undefined && Math.abs(lineY - y) < 10) {
+                      hoverLine = true;
+                  }
+              });
+              
+              container.style.cursor = hoverLine ? 'ns-resize' : '';
+          }
+      };
+
+      const handleMouseUp = () => {
+          if (draggingLineRef.current) {
+              draggingLineRef.current = null;
+              container.style.cursor = '';
+              if (rafRef.current) {
+                  cancelAnimationFrame(rafRef.current);
+                  rafRef.current = null;
+              }
+          }
+      };
+      
+      const handleMouseLeave = () => {
+           if (draggingLineRef.current) {
+               draggingLineRef.current = null;
+               container.style.cursor = '';
+           }
+      };
+
+      container.addEventListener('mousedown', handleMouseDown);
+      window.addEventListener('mousemove', handleMouseMove); 
+      window.addEventListener('mouseup', handleMouseUp);
+      container.addEventListener('mouseleave', handleMouseLeave);
+
+      return () => {
+          container.removeEventListener('mousedown', handleMouseDown);
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+          container.removeEventListener('mouseleave', handleMouseLeave);
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      };
+  }, [priceLines, onLineDrag]);
 
   // 1. Initialize Chart (Once)
   useEffect(() => {

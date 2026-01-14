@@ -3,6 +3,7 @@ import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.accounts as accounts
 import oandapyV20.endpoints.pricing as pricing
+import oandapyV20.endpoints.instruments as instruments
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
@@ -76,6 +77,64 @@ class OandaOrderAdapter(BrokerAdapter):
             return r.response
         except Exception as e:
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
+            raise e
+
+    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+                          sl_price: Optional[float] = None, 
+                          tp_price: Optional[float] = None, 
+                          time_in_force: str = "GTC",
+                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Place a Limit Order with optional SL/TP.
+        """
+        order_body = {
+            "order": {
+                "type": "LIMIT",
+                "instrument": symbol,
+                "units": str(units),
+                "price": str(entry_price),
+                "timeInForce": time_in_force,
+                "positionFill": "DEFAULT"
+            }
+        }
+
+        if sl_price:
+            order_body["order"]["stopLossOnFill"] = {
+                "price": str(sl_price),
+                "timeInForce": "GTC"
+            }
+        
+        if tp_price:
+            order_body["order"]["takeProfitOnFill"] = {
+                "price": str(tp_price),
+                "timeInForce": "GTC"
+            }
+
+        if trade_id:
+            order_body["order"]["clientExtensions"] = {
+                "id": trade_id,
+                "tag": "MTF_LIMIT",
+                "comment": "Limit Order via MTF"
+            }
+
+        try:
+            r = orders.OrderCreate(accountID=self.account_id, data=order_body)
+            self.client.request(r)
+            return r.response
+        except Exception as e:
+            logger.error(f"Failed to place OANDA limit order for {symbol}: {e}")
+            raise e
+
+    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch order book snapshot from Oanda.
+        """
+        try:
+            r = instruments.InstrumentOrderBook(instrument=symbol)
+            self.client.request(r)
+            return r.response.get("orderBook", {})
+        except Exception as e:
+            logger.error(f"Failed to fetch OANDA order book for {symbol}: {e}")
             raise e
 
     def get_open_trades(self) -> List[Dict[str, Any]]:
