@@ -86,7 +86,7 @@ export default function MarketPage() {
       try {
           const mode = showAccountPanel ? 'expanded' : 'collapsed';
           // Main Layout
-          const savedMain = localStorage.getItem(`mtf_layout_main_v2_${mode}`);
+          const savedMain = localStorage.getItem(`mtf_layout_main_v3_${mode}`);
           if (savedMain) {
               setMainLayout(JSON.parse(savedMain));
           } else {
@@ -98,11 +98,11 @@ export default function MarketPage() {
           }
 
           // Order Layout
-          const savedOrder = localStorage.getItem('mtf_layout_order_v2');
+          const savedOrder = localStorage.getItem('mtf_layout_order_v3');
           if (savedOrder) {
               setOrderLayout(JSON.parse(savedOrder));
           } else {
-              setOrderLayout({ 'chart-panel': 75, 'order-panel': 25 });
+              setOrderLayout({ 'chart-panel': 50, 'order-panel': 50 });
           }
       } catch (e) { console.error("Layout load failed", e); }
       setLayoutLoaded(true);
@@ -111,11 +111,11 @@ export default function MarketPage() {
   // Save Handlers (Debounced/Direct to storage)
   const handleMainLayoutChange = (layout: any) => {
       const mode = showAccountPanel ? 'expanded' : 'collapsed';
-      localStorage.setItem(`mtf_layout_main_v2_${mode}`, JSON.stringify(layout));
+      localStorage.setItem(`mtf_layout_main_v3_${mode}`, JSON.stringify(layout));
   };
 
   const handleOrderLayoutChange = (layout: any) => {
-      localStorage.setItem('mtf_layout_order_v2', JSON.stringify(layout));
+      localStorage.setItem('mtf_layout_order_v3', JSON.stringify(layout));
   };
 
   const { prices, connected } = useLivePrices([symbol]);
@@ -514,7 +514,7 @@ export default function MarketPage() {
                         >
                             
                             {/* Left: Chart */}
-                            <Panel id="chart-panel" defaultSize={orderLayout?.['chart-panel'] ?? 75} minSize={50} className="relative">
+                            <Panel id="chart-panel" defaultSize={orderLayout?.['chart-panel'] ?? 50} minSize={10} className="relative">
                              {/* Toolbar (Moved inside Chart Panel) */}
                             <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -656,10 +656,12 @@ export default function MarketPage() {
                             </div>
                         </Panel>
 
-                        <PanelResizeHandle className="relative z-50 w-1.5 bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize active:bg-blue-500/40" />
+                        <PanelResizeHandle className="relative z-50 w-3 flex justify-center items-center bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize active:bg-blue-500/40">
+                            <div className="w-px h-8 bg-white/20 rounded-full" />
+                        </PanelResizeHandle>
 
                         {/* Right: Order Panel */}
-                        <Panel id="order-panel" defaultSize={orderLayout?.['order-panel'] ?? 25} minSize={20} maxSize={50} className="bg-gray-950">
+                        <Panel id="order-panel" defaultSize={orderLayout?.['order-panel'] ?? 50} minSize={10} maxSize={90} className="bg-gray-950">
                             <OrderPanel 
                                 symbol={symbol} 
                                 currentPrice={currentPrice} 
