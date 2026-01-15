@@ -386,7 +386,10 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
         {/* 2. Bid/Ask Banner */}
         <div className="flex h-20 relative border-b border-black">
              <div 
-                onClick={() => setDirection('BEARISH')}
+                onClick={() => {
+                    setDirection('BEARISH');
+                    setLimitPrice(bid);
+                }}
                 className={cn(
                     "flex-1 flex flex-col items-center justify-center cursor-pointer transition-colors relative z-10",
                     direction === 'BEARISH' ? "bg-[#2b1216]" : "bg-[#16171d] hover:bg-[#1a1b22]"
@@ -401,7 +404,10 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
              </div>
 
              <div 
-                onClick={() => setDirection('BULLISH')}
+                onClick={() => {
+                    setDirection('BULLISH');
+                    setLimitPrice(ask);
+                }}
                 className={cn(
                     "flex-1 flex flex-col items-center justify-center cursor-pointer transition-colors relative z-10",
                     direction === 'BULLISH' ? "bg-[#0c1f36]" : "bg-[#16171d] hover:bg-[#1a1b22]"

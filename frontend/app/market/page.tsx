@@ -77,8 +77,8 @@ export default function MarketPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- State: Layout Persistence (Manual) ---
-  const [mainLayout, setMainLayout] = useState<any>(null); 
-  const [orderLayout, setOrderLayout] = useState<any>(null);
+  const [mainLayout, setMainLayout] = useState<number[] | null>(null);
+  const [orderLayout, setOrderLayout] = useState<number[] | null>(null);
   const [layoutLoaded, setLayoutLoaded] = useState(false);
 
   // Load Layouts
@@ -92,8 +92,9 @@ export default function MarketPage() {
           } else {
              // Defaults
              setMainLayout(showAccountPanel 
-                ? { 'top-panel': 70, 'account-panel': 30 } 
-                : { 'top-panel': 100, 'account-panel': 0 }
+                // Top, Account
+                ? [70, 30] 
+                : [100, 0]
              );
           }
 
@@ -102,21 +103,31 @@ export default function MarketPage() {
           if (savedOrder) {
               setOrderLayout(JSON.parse(savedOrder));
           } else {
-              setOrderLayout({ 'chart-panel': 50, 'order-panel': 50 });
+              // Chart, Order
+              setOrderLayout([75, 25]);
           }
       } catch (e) { console.error("Layout load failed", e); }
       setLayoutLoaded(true);
   }, [showAccountPanel]);
-
-  // Save Handlers (Debounced/Direct to storage)
-  const handleMainLayoutChange = (layout: any) => {
+  // Note: We don't depend on layoutLoaded for mounting anymore if we want immediate render, 
+  // but for layout stability we should wait or render default.
+  
+  // Save Handlers
+  const handleMainLayoutChange = (sizes: number[]) => {
       const mode = showAccountPanel ? 'expanded' : 'collapsed';
-      localStorage.setItem(`mtf_layout_main_v3_${mode}`, JSON.stringify(layout));
+      setMainLayout(sizes);
+      localStorage.setItem(`mtf_layout_main_v3_${mode}`, JSON.stringify(sizes));
   };
 
-  const handleOrderLayoutChange = (layout: any) => {
-      localStorage.setItem('mtf_layout_order_v3', JSON.stringify(layout));
+  const handleOrderLayoutChange = (sizes: number[]) => {
+      setOrderLayout(sizes);
+      localStorage.setItem('mtf_layout_order_v3', JSON.stringify(sizes));
   };
+
+  // Prevent flash of unstyled content (FOUC) / layout jump by waiting for mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { prices, connected } = useLivePrices([symbol]);
   const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
@@ -480,8 +491,14 @@ export default function MarketPage() {
 
             <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
                 <button 
-                    onClick={() => setShowAccountPanel(!showAccountPanel)} 
-                    className={cn("p-1.5 rounded hover:bg-white/10 transition-colors", showAccountPanel && "text-blue-400 bg-blue-500/10")}
+                    onClick={() => {
+                        const panel = accountPanelRef.current;
+                        if (panel) {
+                            const size = panel.getSize();
+                            panel.resize(size < 10 ? 30 : 4);
+                        }
+                    }} 
+                    className={cn("p-1.5 rounded hover:bg-white/10 transition-colors", "text-blue-400 bg-blue-500/10")}
                     title="Toggle Account Panel"
                 >
                     <LayoutTemplate size={18} />
@@ -502,19 +519,19 @@ export default function MarketPage() {
                     key={showAccountPanel ? 'expanded' : 'collapsed'} 
                     orientation="vertical" 
                     className="h-full w-full"
-                    onLayoutChange={handleMainLayoutChange}
+                    onLayout={handleMainLayoutChange}
                 >
                     
                     {/* Top Area: Chart & Execution */}
-                    <Panel id="top-panel" defaultSize={mainLayout?.['top-panel'] ?? 70} minSize={20}>
+                    <Panel id="top-panel" defaultSize={mainLayout?.[0] ?? 70} minSize={15}>
                         <PanelGroup 
                             orientation="horizontal" 
                             className="h-full w-full"
-                            onLayoutChange={handleOrderLayoutChange}
+                            onLayout={handleOrderLayoutChange}
                         >
                             
                             {/* Left: Chart */}
-                            <Panel id="chart-panel" defaultSize={orderLayout?.['chart-panel'] ?? 50} minSize={10} className="relative">
+                            <Panel id="chart-panel" defaultSize={orderLayout?.[0] ?? 75} minSize={15} className="relative">
                              {/* Toolbar (Moved inside Chart Panel) */}
                             <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -574,6 +591,7 @@ export default function MarketPage() {
                                         <CandleChart 
                                             data={candles} 
                                             indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} 
+                                            // @ts-expect-error - Color types definition mismatch in simple-react-chart
                                             colors={{
                                                 backgroundColor: 'transparent',
                                                 textColor: '#525252',
@@ -597,6 +615,7 @@ export default function MarketPage() {
                                                         type="RSI"
                                                         data={ind.data.map((v: number, i: number) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
                                                         height={100}
+                                                        // @ts-expect-error - Color types
                                                         colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
                                                 );
@@ -624,6 +643,7 @@ export default function MarketPage() {
                                                             hist: v.hist
                                                         }))}
                                                         height={150}
+                                                        // @ts-expect-error - Color types
                                                         colors={{ lineColor: '#2962FF', signalColor: '#FF6D00', histColor: '#26a69a', textColor: '#525252' }}
                                                     />
                                                 );
@@ -656,12 +676,13 @@ export default function MarketPage() {
                             </div>
                         </Panel>
 
-                        <PanelResizeHandle className="relative z-50 w-3 flex justify-center items-center bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize active:bg-blue-500/40">
-                            <div className="w-px h-8 bg-white/20 rounded-full" />
+                        <PanelResizeHandle className="relative z-50 group flex justify-center items-center bg-transparent w-4 -ml-2 hover:cursor-col-resize focus:outline-none">
+                            <div className="w-px h-full bg-white/5 group-hover:bg-blue-500/50 transition-colors" />
+                            <div className="absolute w-1 h-8 bg-white/10 rounded-full group-hover:bg-blue-500 transition-colors" />
                         </PanelResizeHandle>
 
                         {/* Right: Order Panel */}
-                        <Panel id="order-panel" defaultSize={orderLayout?.['order-panel'] ?? 50} minSize={10} maxSize={90} className="bg-gray-950">
+                        <Panel id="order-panel" defaultSize={orderLayout?.[1] ?? 25} minSize={20} className="bg-gray-950">
                             <OrderPanel 
                                 symbol={symbol} 
                                 currentPrice={currentPrice} 
@@ -688,41 +709,36 @@ export default function MarketPage() {
                 </Panel>
 
                 {/* Bottom Area: Account Panel */}
-                {showAccountPanel && (
-                    <>
-                        <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
-                        <Panel 
-                            id="account-panel"
-                                                                    // @ts-expect-error - Complex generic component type mismatch                            ref={accountPanelRef}
-                            defaultSize={mainLayout?.['account-panel'] ?? 30} 
-                            minSize={4} 
-                        >
-                             <div className="h-full flex flex-col relative">
-                                {/* Reset Button Overlay (Top Right of Account Panel) */}
-                                <div className="absolute top-2 right-2 z-50">
-                                    <button 
-                                        onClick={() => {
-                                            if (confirm('Reset custom layout to default 50:50?')) {
-                                                localStorage.removeItem('mtf_layout_main_v3_expanded');
-                                                localStorage.removeItem('mtf_layout_main_v3_collapsed');
-                                                localStorage.removeItem('mtf_layout_order_v3');
-                                                window.location.reload();
-                                            }
-                                        }}
-                                        className="text-[10px] bg-red-900/20 text-red-400 border border-red-500/20 px-2 py-1 rounded hover:bg-red-500/20 transition-colors"
-                                    >
-                                        Reset Layout
-                                    </button>
-                                </div>
-
-                                <AccountPanel 
-                                    onSelectAccount={setSelectedAccountId}
-                                    selectedAccountId={selectedAccountId}
-                                />
-                             </div>
-                        </Panel>
-                    </>
-                )}
+                <PanelResizeHandle className="relative z-50 group flex justify-center items-center bg-transparent h-4 -mt-2 hover:cursor-row-resize focus:outline-none">
+                    <div className="h-px w-full bg-white/5 group-hover:bg-blue-500/50 transition-colors" />
+                    <div className="absolute h-1 w-16 bg-white/10 rounded-full group-hover:bg-blue-500 transition-colors" />
+                </PanelResizeHandle>
+                <Panel 
+                    id="account-panel"
+                    ref={accountPanelRef}
+                    defaultSize={mainLayout?.[1] ?? 30} 
+                    minSize={4} 
+                    collapsible={true}
+                    onCollapse={() => {
+                        // Optional: Handle collapse state if needed
+                    }}
+                >
+                        <AccountPanel 
+                        accountId={selectedAccountId}
+                        refreshTrigger={refreshTrigger}
+                        onMinimize={() => {
+                            const panel = accountPanelRef.current;
+                            panel?.resize(4);
+                        }}
+                        onMaximize={() => {
+                            const panel = accountPanelRef.current;
+                            if (panel) {
+                                const size = panel.getSize();
+                                panel.resize(size > 50 ? 30 : 80);
+                            }
+                        }}
+                    />
+                </Panel>
             </PanelGroup>
             ) : (
                 <div className="h-full w-full bg-black animate-pulse" />
