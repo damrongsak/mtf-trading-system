@@ -61,8 +61,8 @@ export default function MarketPage() {
   const [slPrice, setSlPrice] = useState<number>(0);
   const [tpPrice, setTpPrice] = useState<number>(0);
   const [limitPrice, setLimitPrice] = useState<number>(0);
-  const [slMode, setSlMode] = useState<'PIPS' | 'PRICE'>('PIPS');
-  const [tpMode, setTpMode] = useState<'PIPS' | 'PRICE'>('PIPS');
+  const [slMode, setSlMode] = usePersistentState<'PIPS' | 'PRICE'>('mtf_sl_mode', 'PIPS');
+  const [tpMode, setTpMode] = usePersistentState<'PIPS' | 'PRICE'>('mtf_tp_mode', 'PIPS');
 
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look

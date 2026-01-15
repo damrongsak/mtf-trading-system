@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { placeSmartOrder, ExecutionBrokerAccount, getAccountSummary } from '@/lib/api/execution';
-import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw } from 'lucide-react';
+import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw, Lock } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
@@ -88,7 +88,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // --- Helpers: Math ---
-  const pipVal = instrument?.details?.pipLocation ? Math.pow(10, instrument.details.pipLocation) : 0.01;
+  const pipVal = (instrument?.details?.pipLocation !== undefined && instrument?.details?.pipLocation !== null) 
+    ? Math.pow(10, instrument.details.pipLocation) 
+    : 0.01;
   const tickSize = instrument?.details?.displayPrecision ? Math.pow(10, -instrument.details.displayPrecision) : 0.00001;
   const spreadPips = 1.2; 
   const spreadVal = spreadPips * pipVal;
@@ -530,20 +532,28 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                         
                         {takeProfitEnabled && (
                             <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                 <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
-                                     <div className="text-[10px] text-gray-500 uppercase">Target Price</div>
+                                 <div className={cn("bg-[#1e2029] border border-white/5 rounded px-3 py-2 transition-all", tpMode === 'PRICE' && "ring-1 ring-blue-500/50 bg-blue-500/5")}>
+                                     <div className="text-[10px] text-gray-500 uppercase flex justify-between">
+                                         Target Price
+                                         {tpMode === 'PRICE' && <Lock size={10} className="text-blue-400" />}
+                                     </div>
                                      <input 
                                          type="number" 
                                          value={tpPrice} 
+                                         onFocus={() => setTpMode('PRICE')}
                                          onChange={e => handleTpPriceChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5 outline-none focus:text-white transition-colors" 
                                      />
                                  </div>
-                                  <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-blue-500/20">
-                                     <div className="text-[10px] text-blue-400 uppercase font-bold">Profit Pips</div>
+                                  <div className={cn("bg-[#1e2029] border border-white/5 rounded px-3 py-2 transition-all", tpMode === 'PIPS' && "ring-1 ring-blue-500/50 bg-blue-500/5")}>
+                                     <div className="text-[10px] text-blue-400 uppercase font-bold flex justify-between">
+                                         Profit Pips
+                                         {tpMode === 'PIPS' && <Lock size={10} />}
+                                     </div>
                                      <input 
                                          type="number" 
                                          value={tpPips} 
+                                         onFocus={() => setTpMode('PIPS')}
                                          onChange={e => handleTpPipsChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
@@ -565,20 +575,28 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                         </div>
                         {stopLossEnabled && (
                             <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                 <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2">
-                                     <div className="text-[10px] text-gray-500 uppercase">Stop Price</div>
+                                 <div className={cn("bg-[#1e2029] border border-white/5 rounded px-3 py-2 transition-all", slMode === 'PRICE' && "ring-1 ring-rose-500/50 bg-rose-500/5")}>
+                                     <div className="text-[10px] text-gray-500 uppercase flex justify-between">
+                                         Stop Price
+                                         {slMode === 'PRICE' && <Lock size={10} className="text-rose-400" />}
+                                     </div>
                                      <input 
                                          type="number" 
                                          value={slPrice} 
+                                         onFocus={() => setSlMode('PRICE')}
                                          onChange={e => handleSlPriceChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-gray-400 mt-0.5 outline-none focus:text-white transition-colors" 
                                      />
                                  </div>
-                                  <div className="bg-[#1e2029] border border-white/5 rounded px-3 py-2 ring-1 ring-rose-500/20">
-                                     <div className="text-[10px] text-rose-400 uppercase font-bold">Risk Pips</div>
+                                  <div className={cn("bg-[#1e2029] border border-white/5 rounded px-3 py-2 transition-all", slMode === 'PIPS' && "ring-1 ring-rose-500/50 bg-rose-500/5")}>
+                                     <div className="text-[10px] text-rose-400 uppercase font-bold flex justify-between">
+                                         Risk Pips
+                                         {slMode === 'PIPS' && <Lock size={10} />}
+                                     </div>
                                      <input 
                                          type="number" 
                                          value={slPips} 
+                                         onFocus={() => setSlMode('PIPS')}
                                          onChange={e => handleSlPipsChange(parseFloat(e.target.value))}
                                          className="bg-transparent w-full text-sm font-mono text-white outline-none mt-0.5 font-bold" 
                                      />
