@@ -147,36 +147,30 @@ class IndicatorWorker:
             df = df.sort_values("timestamp").reset_index(drop=True)
             
             # Calculations
+            # Using centralized logic from app.indicators
+            
             # 1. RSI (14)
-            # Re-implementing manually or using app.indicators
-            # app.indicators uses vectorbt which might be heavy for single row updates? 
-            # Actually vectorbt is fast.
-            # But here we have a small DF (200 rows).
+            try:
+                df['rsi_14'] = calculate_rsi(df['close'], window=14)
+            except Exception as e:
+                logger.debug(f"RSI calc failed: {e}")
+                df['rsi_14'] = None
             
-            # Use pandas-ta or simple pandas based specific logic from original feature_worker
-            # to replicate exact behavior first.
-            
-            # Original Logic:
-            # RSI 14
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['rsi_14'] = 100 - (100 / (1 + rs))
-            
-            # SMA
+            # 2. SMA (Simple Moving Average)
+            # Not in app.indicators as dedicated function, but trivial with pandas
+            # Or we could have added it to indicators.py. For now, pandas direct is fine, or uses EMA.
+            # Original worker used rolling mean.
             df['sma_20'] = df['close'].rolling(window=20).mean()
             df['sma_50'] = df['close'].rolling(window=50).mean()
             
-            # ATR 14
-            high_low = df['high'] - df['low']
-            high_close = np.abs(df['high'] - df['close'].shift())
-            low_close = np.abs(df['low'] - df['close'].shift())
-            ranges = pd.concat([high_low, high_close, low_close], axis=1)
-            true_range = np.max(ranges, axis=1)
-            df['atr_14'] = true_range.rolling(window=14).mean()
+            # 3. ATR (14)
+            try:
+                df['atr_14'] = calculate_atr(df['high'], df['low'], df['close'], window=14)
+            except Exception as e:
+                logger.debug(f"ATR calc failed: {e}")
+                df['atr_14'] = None
             
-            # Volatility
+            # 4. Volatility (20)
             df['volatility'] = df['close'].pct_change().rolling(window=20).std()
 
             latest = df.iloc[-1]
