@@ -54,7 +54,7 @@ def test_alpha_preview_success(client, mock_db_session, mock_fetch_data, mock_re
     mock_fetch_data.return_value = create_mock_df(150)
     
     payload = {
-        "formula": "close > open", # Simple formula
+        "formula": "(close > open) * 1.0", # Force float to avoid numpy bool serialization issues
         "symbol": "EUR_USD",
         "timeframe": "H1"
     }

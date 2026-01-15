@@ -56,10 +56,13 @@ async def test_hybrid_success():
     
     # Index 99: Price comes back to 99.0 (Inside OB 98-100)
     open_p[99] = 100.0
-    close_p[99] = 99.0
+    close_p[99] = 100.1 # Bounce off Top (100.0) -> Valid Trigger
+    
+    volume_p = np.full(100, 1000)
+    volume_p[51] = 2000 # Spike for OB confirmation
     
     df = pd.DataFrame({
-        "open": open_p, "high": high_p, "low": low_p, "close": close_p, "volume": 1000
+        "open": open_p, "high": high_p, "low": low_p, "close": close_p, "volume": volume_p
     }, index=dates)
     
     dm = MagicMock()
