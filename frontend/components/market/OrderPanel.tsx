@@ -58,6 +58,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   
   // --- State: Risk ---
   const [riskUsd, setRiskUsd] = usePersistentState<number>('mtf_risk_usd', 10.0);
+  const [riskPercent, setRiskPercent] = usePersistentState<number>('mtf_risk_percent', 1.0);
   const [balance, setBalance] = useState<number>(0);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
@@ -128,9 +129,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   // Smart Sizing Logic
   useEffect(() => {
       if (isSmartSize && balance > 0) {
-          setRiskUsd(parseFloat((balance * 0.01).toFixed(2)));
+          setRiskUsd(parseFloat((balance * (riskPercent / 100)).toFixed(2)));
       }
-  }, [isSmartSize, balance]);
+  }, [isSmartSize, balance, riskPercent]);
 
   // Sync Lots from Risk
   useEffect(() => {
@@ -247,6 +248,12 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const handleRiskChange = (val: number) => {
       setRiskUsd(val);
       setIsManualLots(false); // Revert to auto-calculation based on Risk
+      
+      // Reverse calculate percent if balance exists
+      if (balance > 0) {
+          const pct = (val / balance) * 100;
+          setRiskPercent(parseFloat(pct.toFixed(2)));
+      }
   };
 
   // --- Handlers: Execution ---
@@ -471,11 +478,40 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                          <div className="bg-[#1e2029] rounded border border-white/5 p-2.5 relative group">
                              <div className="text-[10px] text-blue-400 flex items-center justify-between gap-1 mb-1">
                                  <span className="cursor-pointer uppercase tracking-wider flex items-center gap-1">Risk Amount (USD) <ChevronDown size={10} /></span>
-                                 <div 
-                                    onClick={() => setIsSmartSize(!isSmartSize)}
-                                    className={`cursor-pointer px-1.5 py-0.5 rounded text-[9px] font-bold border ${isSmartSize ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-800 text-gray-500 border-gray-700'}`}
-                                 >
-                                    1% {isSmartSize ? 'ON' : 'OFF'}
+                                 <div className="flex items-center gap-1">
+                                 <div className="flex items-center gap-1">
+                                    <div className="flex items-center bg-gray-800 rounded px-1 border border-blue-500/30 w-12">
+                                        <input 
+                                            type="number" 
+                                            min="0.1"
+                                            max="100"
+                                            step="0.1"
+                                            value={riskPercent}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                const newPct = parseFloat(val);
+                                                setRiskPercent(isNaN(newPct) ? 0 : newPct);
+                                                
+                                                // Calculator Logic (Manual Mode)
+                                                if (!isSmartSize) {
+                                                    // Allow 0 balance to result in 0 Risk (responsive UI)
+                                                    const bal = balance || 0; 
+                                                    const risk = isNaN(newPct) ? 0 : (bal * (newPct / 100));
+                                                    setRiskUsd(parseFloat(risk.toFixed(2)));
+                                                }
+                                            }}
+                                            className="w-full bg-transparent text-[9px] font-bold text-blue-400 outline-none text-right"
+                                        />
+                                        <span className="text-[9px] text-blue-500 ml-0.5">%</span>
+                                    </div>
+                                    <div 
+                                        onClick={() => setIsSmartSize(!isSmartSize)}
+                                        className={`cursor-pointer px-1.5 py-0.5 rounded text-[9px] font-bold border ${isSmartSize ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300'}`}
+                                        title={isSmartSize ? "Smart Mode: Risk auto-updates with Balance" : "Manual Mode: Risk is fixed USD"}
+                                    >
+                                        {isSmartSize ? 'AUTO' : 'MANUAL'}
+                                    </div>
+                                 </div>
                                  </div>
                              </div>
                              <div className="flex items-center">
