@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { placeSmartOrder, ExecutionBrokerAccount, getAccountSummary } from '@/lib/api/execution';
-import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw, Lock } from 'lucide-react';
+import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw, Lock, Maximize2, ChevronRight } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
@@ -30,9 +30,10 @@ interface OrderPanelProps {
   setSlMode: (mode: 'PIPS' | 'PRICE') => void;
   tpMode: 'PIPS' | 'PRICE';
   setTpMode: (mode: 'PIPS' | 'PRICE') => void;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
 }
 
-type Direction = 'BULLISH' | 'BEARISH';
 type Direction = 'BULLISH' | 'BEARISH';
 // const LEVERAGE_DISPLAY = "1000:1"; // Removed in favor of dynamic calc 
 
@@ -48,7 +49,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     tpPrice, setTpPrice,
     limitPrice, setLimitPrice,
     slMode, setSlMode,
-    tpMode, setTpMode
+    tpMode, setTpMode,
+    onMinimize,
+    onMaximize
 }) => {
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
@@ -380,6 +383,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 >
                     {accounts.map(a => <option key={a.id} value={a.id}>{a.broker_name}</option>)}
                 </select>
+                <div className="w-px h-4 bg-white/10 mx-2" />
+                <button onClick={onMinimize} className="text-gray-500 hover:text-white transition-colors" title="Minimize">
+                    <ChevronRight size={14} />
+                </button>
+                <button onClick={onMaximize} className="text-gray-500 hover:text-white transition-colors ml-2" title="Maximize">
+                    <Maximize2 size={14} />
+                </button>
             </div>
         </div>
 

@@ -70,6 +70,7 @@ export default function MarketPage() {
   const [mounted, setMounted] = useState(false);
   
   const accountPanelRef = useRef<PanelImperativeHandle>(null);
+  const orderPanelRef = useRef<PanelImperativeHandle>(null);
 
   // --- State: Broker Accounts (Lifted State) ---
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
@@ -495,7 +496,9 @@ export default function MarketPage() {
                         const panel = accountPanelRef.current;
                         if (panel) {
                             const size = panel.getSize();
-                            panel.resize(size < 10 ? 30 : 4);
+                            // @ts-expect-error - getSize returns object in new version
+                            const currentSize = typeof size === 'number' ? size : size.asPercentage;
+                            panel.resize(currentSize < 10 ? "30" : "4");
                         }
                     }} 
                     className={cn("p-1.5 rounded hover:bg-white/10 transition-colors", "text-blue-400 bg-blue-500/10")}
@@ -682,7 +685,15 @@ export default function MarketPage() {
                         </PanelResizeHandle>
 
                         {/* Right: Order Panel */}
-                        <Panel id="order-panel" defaultSize={orderLayout?.[1] ?? 25} minSize={20} className="bg-gray-950">
+                        <Panel 
+                            id="order-panel" 
+                            ref={(node) => {
+                                if (node) orderPanelRef.current = node;
+                            }}
+                            defaultSize={orderLayout?.[1] ?? 25} 
+                            minSize={4} 
+                            className="bg-gray-950"
+                        >
                             <OrderPanel 
                                 symbol={symbol} 
                                 currentPrice={currentPrice} 
@@ -702,6 +713,21 @@ export default function MarketPage() {
                                 setSlMode={setSlMode}
                                 tpMode={tpMode}
                                 setTpMode={setTpMode}
+                                onMinimize={() => {
+                                    const panel = orderPanelRef.current;
+                                    if (panel) {
+                                        panel.resize("4");
+                                    }
+                                }}
+                                onMaximize={() => {
+                                    const panel = orderPanelRef.current;
+                                    if (panel) {
+                                        const size = panel.getSize();
+                                        // @ts-expect-error - getSize returns object in new version
+                                        const currentSize = typeof size === 'number' ? size : size.asPercentage;
+                                        panel.resize(currentSize < 10 ? "25" : (currentSize > 30 ? "25" : "40"));
+                                    }
+                                }}
                             />
                         </Panel>
 
@@ -734,7 +760,9 @@ export default function MarketPage() {
                             const panel = accountPanelRef.current;
                             if (panel) {
                                 const size = panel.getSize();
-                                panel.resize(size > 50 ? 30 : 80);
+                                // @ts-expect-error - getSize returns object in new version
+                                const currentSize = typeof size === 'number' ? size : size.asPercentage;
+                                panel.resize(currentSize < 10 ? "25" : (currentSize > 30 ? "25" : "40"));
                             }
                         }}
                     />
