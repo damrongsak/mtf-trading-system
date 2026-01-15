@@ -20,7 +20,7 @@ import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
-import { Panel, Group as PanelGroup, PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 import { usePersistentState } from '@/lib/hooks/usePersistentState';
@@ -77,35 +77,45 @@ export default function MarketPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- State: Layout Persistence (Manual) ---
-  // We manually manage this because the installed library version has issues with autoSaveId
-  const [mainLayout, setMainLayout] = useState<number[]>([70, 30]); // Top / Bottom
-  const [orderLayout, setOrderLayout] = useState<number[]>([75, 25]); // Chart / Order
+  const [mainLayout, setMainLayout] = useState<any>(null); 
+  const [orderLayout, setOrderLayout] = useState<any>(null);
   const [layoutLoaded, setLayoutLoaded] = useState(false);
 
   // Load Layouts
   useEffect(() => {
       try {
-          // Main Layout (Top/Bottom)
-          const savedMain = localStorage.getItem(`mtf_layout_main_${showAccountPanel ? 'expanded' : 'collapsed'}`);
-          if (savedMain) setMainLayout(JSON.parse(savedMain));
-          else setMainLayout(showAccountPanel ? [70, 30] : [100, 0]);
+          const mode = showAccountPanel ? 'expanded' : 'collapsed';
+          // Main Layout
+          const savedMain = localStorage.getItem(`mtf_layout_main_v2_${mode}`);
+          if (savedMain) {
+              setMainLayout(JSON.parse(savedMain));
+          } else {
+             // Defaults
+             setMainLayout(showAccountPanel 
+                ? { 'top-panel': 70, 'account-panel': 30 } 
+                : { 'top-panel': 100, 'account-panel': 0 }
+             );
+          }
 
-          // Order Layout (Chart/Order)
-          const savedOrder = localStorage.getItem('mtf_layout_order');
-          if (savedOrder) setOrderLayout(JSON.parse(savedOrder));
+          // Order Layout
+          const savedOrder = localStorage.getItem('mtf_layout_order_v2');
+          if (savedOrder) {
+              setOrderLayout(JSON.parse(savedOrder));
+          } else {
+              setOrderLayout({ 'chart-panel': 75, 'order-panel': 25 });
+          }
       } catch (e) { console.error("Layout load failed", e); }
       setLayoutLoaded(true);
   }, [showAccountPanel]);
 
-  // Save Handlers
-  const handleMainLayoutChange = (sizes: number[]) => {
-      setMainLayout(sizes);
-      localStorage.setItem(`mtf_layout_main_${showAccountPanel ? 'expanded' : 'collapsed'}`, JSON.stringify(sizes));
+  // Save Handlers (Debounced/Direct to storage)
+  const handleMainLayoutChange = (layout: any) => {
+      const mode = showAccountPanel ? 'expanded' : 'collapsed';
+      localStorage.setItem(`mtf_layout_main_v2_${mode}`, JSON.stringify(layout));
   };
 
-  const handleOrderLayoutChange = (sizes: number[]) => {
-      setOrderLayout(sizes);
-      localStorage.setItem('mtf_layout_order', JSON.stringify(sizes));
+  const handleOrderLayoutChange = (layout: any) => {
+      localStorage.setItem('mtf_layout_order_v2', JSON.stringify(layout));
   };
 
   const { prices, connected } = useLivePrices([symbol]);
@@ -492,19 +502,19 @@ export default function MarketPage() {
                     key={showAccountPanel ? 'expanded' : 'collapsed'} 
                     orientation="vertical" 
                     className="h-full w-full"
-                    onLayout={handleMainLayoutChange}
+                    onLayoutChange={handleMainLayoutChange}
                 >
                     
                     {/* Top Area: Chart & Execution */}
-                    <Panel defaultSize={mainLayout[0]} minSize={20}>
+                    <Panel id="top-panel" defaultSize={mainLayout?.['top-panel'] ?? 70} minSize={20}>
                         <PanelGroup 
                             orientation="horizontal" 
                             className="h-full w-full"
-                            onLayout={handleOrderLayoutChange}
+                            onLayoutChange={handleOrderLayoutChange}
                         >
                             
                             {/* Left: Chart */}
-                            <Panel defaultSize={orderLayout[0]} minSize={50} className="relative">
+                            <Panel id="chart-panel" defaultSize={orderLayout?.['chart-panel'] ?? 75} minSize={50} className="relative">
                              {/* Toolbar (Moved inside Chart Panel) */}
                             <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -646,10 +656,10 @@ export default function MarketPage() {
                             </div>
                         </Panel>
 
-                            <PanelResizeHandle className="w-1.5 bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize" />
+                        <PanelResizeHandle className="relative z-50 w-1.5 bg-black border-l border-r border-white/5 hover:bg-blue-500/20 transition-colors cursor-col-resize active:bg-blue-500/40" />
 
-                            {/* Right: Order Panel */}
-                            <Panel defaultSize={orderLayout[1]} minSize={20} maxSize={50} className="bg-gray-950">
+                        {/* Right: Order Panel */}
+                        <Panel id="order-panel" defaultSize={orderLayout?.['order-panel'] ?? 25} minSize={20} maxSize={50} className="bg-gray-950">
                             <OrderPanel 
                                 symbol={symbol} 
                                 currentPrice={currentPrice} 
@@ -680,9 +690,9 @@ export default function MarketPage() {
                     <>
                         <PanelResizeHandle className="h-1.5 bg-black border-t border-b border-white/5 hover:bg-blue-500/20 transition-colors cursor-row-resize" />
                         <Panel 
-                            // id="account-panel"
+                            id="account-panel"
                                                                     // @ts-expect-error - Complex generic component type mismatch                            ref={accountPanelRef}
-                            defaultSize={mainLayout[1]} 
+                            defaultSize={mainLayout?.['account-panel'] ?? 30} 
                             minSize={4} 
                         >
                              <AccountPanel 
