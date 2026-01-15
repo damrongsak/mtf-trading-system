@@ -509,7 +509,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                                         className={`cursor-pointer px-1.5 py-0.5 rounded text-[9px] font-bold border ${isSmartSize ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-300'}`}
                                         title={isSmartSize ? "Smart Mode: Risk auto-updates with Balance" : "Manual Mode: Risk is fixed USD"}
                                     >
-                                        {isSmartSize ? 'AUTO' : 'MANUAL'}
+                                        {isSmartSize ? 'A' : 'M'}
                                     </div>
                                  </div>
                                  </div>
