@@ -10,7 +10,7 @@ from app.indicators import (
     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
 )
 from app.backtest import run_historical_backtest
-from app.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps, detect_structure, calculate_auto_fibs
+from app.indicators.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps, detect_structure, calculate_auto_fibs
 from app.simulation import run_grid_simulation_logic
 from app.analysis.optimization import run_grid_search
 from app.analysis.monte_carlo import run_monte_carlo

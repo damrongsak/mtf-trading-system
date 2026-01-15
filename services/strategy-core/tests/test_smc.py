@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from app.smc import detect_order_blocks, detect_fvg
+from app.indicators.smc import detect_order_blocks, detect_fvg
 
 def test_detect_bullish_ob():
     # Create a scenario for Bullish OB
@@ -104,7 +104,7 @@ def test_detect_bearish_fvg():
     assert fvgs[0]['bottom'] == 9
 
 def test_detect_structure():
-    from app.smc import detect_structure
+    from app.indicators.smc import detect_structure
     
     # Create a simple swing high pattern
     # 0: 10
@@ -155,7 +155,7 @@ def test_detect_structure():
     assert labels[0]['price'] == 15
 
 def test_auto_fibs():
-    from app.smc import calculate_auto_fibs
+    from app.indicators.smc import calculate_auto_fibs
     
     # Create a massive Move Up
     # 0: 100
@@ -181,7 +181,7 @@ def test_auto_fibs():
     assert fibs['0.5'] > 100
 
 def test_detect_liquidity_sweeps():
-    from app.smc import detect_liquidity_sweeps
+    from app.indicators.smc import detect_liquidity_sweeps
     
     # Create sweep scenario
     # Window=5
@@ -206,7 +206,7 @@ def test_detect_liquidity_sweeps():
     assert 'bullish_sweep' in types
 
 def test_detect_ob_with_volume():
-    from app.smc import detect_order_blocks
+    from app.indicators.smc import detect_order_blocks
     
     # Bullish OB with Volume
     # i=20 (needs > 20 for volume check)

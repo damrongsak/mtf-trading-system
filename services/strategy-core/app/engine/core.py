@@ -11,7 +11,7 @@ from app.schemas import ExecutionMode
 # # from app.adapters.oanda_history import OandaHistoryAdapter
 from app.indicators import calculate_ema, calculate_atr, calculate_rsi
 from app.indicators import calculate_ema, calculate_atr, calculate_rsi
-from app.smc import detect_order_blocks
+from app.indicators.smc import detect_order_blocks
 from app.adapters.ai_analyst import get_market_sentiment
 from app.database import SessionLocal
 from app.models.signal_log import SignalLog

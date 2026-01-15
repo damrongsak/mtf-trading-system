@@ -6,7 +6,7 @@ import pandas as pd
 from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
 from app.indicators import calculate_ema, calculate_rsi, calculate_macd
 from app.engine.expression_engine import ExpressionEngine
-from app.smc import detect_order_blocks
+from app.indicators.smc import detect_order_blocks
 logger = logging.getLogger(__name__)
 
 # --- Template Functions ---

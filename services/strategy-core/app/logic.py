@@ -3,7 +3,7 @@ import numpy as np
 from enum import Enum
 from typing import Optional, Dict, Any, Tuple
 from app.indicators import calculate_ema, calculate_atr
-from app.smc import detect_order_blocks, detect_fvg
+from app.indicators.smc import detect_order_blocks, detect_fvg
 from app.features.quant_features import QuantreoFeatures
 
 class SignalDirection(str, Enum):

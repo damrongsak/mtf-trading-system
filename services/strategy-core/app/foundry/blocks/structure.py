@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import pandas as pd
 from app.foundry.base import LogicBlock, BlockType, SignalState
-from app.smc import detect_order_blocks
+from app.indicators.smc import detect_order_blocks
 
 class StructureSMCOrderBlock(LogicBlock):
     def __init__(self, name: str, parameters: Dict[str, Any] = None):
