@@ -754,7 +754,9 @@ export default function MarketPage() {
                         refreshTrigger={refreshTrigger}
                         onMinimize={() => {
                             const panel = accountPanelRef.current;
-                            panel?.resize(4);
+                            if (panel) {
+                                panel.resize("4");
+                            }
                         }}
                         onMaximize={() => {
                             const panel = accountPanelRef.current;
