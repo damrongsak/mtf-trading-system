@@ -33,7 +33,8 @@ interface OrderPanelProps {
 }
 
 type Direction = 'BULLISH' | 'BEARISH';
-const LEVERAGE_DISPLAY = "1000:1"; 
+type Direction = 'BULLISH' | 'BEARISH';
+// const LEVERAGE_DISPLAY = "1000:1"; // Removed in favor of dynamic calc 
 
 export const OrderPanel: React.FC<OrderPanelProps> = ({ 
     symbol, 
@@ -89,12 +90,18 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // --- Helpers: Math ---
+  // --- Helpers: Math ---
   const pipVal = (instrument?.details?.pipLocation !== undefined && instrument?.details?.pipLocation !== null) 
     ? Math.pow(10, instrument.details.pipLocation) 
     : 0.01;
   const tickSize = instrument?.details?.displayPrecision ? Math.pow(10, -instrument.details.displayPrecision) : 0.00001;
   const spreadPips = 1.2; 
   const spreadVal = spreadPips * pipVal;
+
+  // Calculate Leverage from Margin Rate (e.g. 0.01 = 100:1)
+  const marginRate = instrument?.details?.marginRate ? parseFloat(instrument.details.marginRate) : 0.01;
+  const effectiveLeverage = marginRate > 0 ? Math.round(1 / marginRate) : 100;
+  const LEVERAGE_DISPLAY = `${effectiveLeverage}:1`;
   
   const bid = currentPrice;
   const ask = currentPrice + spreadVal;
@@ -109,8 +116,13 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
 
   const executePrice = isPendingOrder && limitPrice > 0 ? limitPrice : (direction === 'BULLISH' ? ask : bid);
 
+  // Determine Contract Size (Standard Forex = 100,000, XAU/USD = 100)
+  // TODO: Fetch this from Broker Info if available
+  const isGold = symbol.includes('XAU') || symbol.includes('GOLD');
+  const contractSize = isGold ? 100 : 100000;
+
   const slDistPrice = Math.abs(executePrice - slPrice);
-  const calculatedLots = (slDistPrice > 0 && stopLossEnabled) ? (riskUsd / slDistPrice) / 100000 : 0;
+  const calculatedLots = (slDistPrice > 0 && stopLossEnabled) ? (riskUsd / slDistPrice) / contractSize : 0;
   const currentLots = isManualLots ? (parseFloat(manualLots) || 0) : calculatedLots;
 
   // --- Effects ---
@@ -129,7 +141,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   // Smart Sizing Logic
   useEffect(() => {
       if (isSmartSize && balance > 0) {
-          setRiskUsd(parseFloat((balance * (riskPercent / 100)).toFixed(2)));
+          const calculated = balance * (riskPercent / 100);
+          setRiskUsd(Math.max(1, parseFloat(calculated.toFixed(2))));
       }
   }, [isSmartSize, balance, riskPercent]);
 
@@ -517,6 +530,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                              <div className="flex items-center">
                                 <input 
                                     type="number"
+                                    min={1}
                                     value={riskUsd}
                                     readOnly={isSmartSize}
                                     onChange={e => !isSmartSize && handleRiskChange(parseFloat(e.target.value))}
