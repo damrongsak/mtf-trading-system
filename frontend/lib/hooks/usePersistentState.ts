@@ -8,30 +8,37 @@ import { useState, useEffect } from 'react';
  * @returns [value, setValue] tuple similar to useState
  */
 export function usePersistentState<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Initialize state function to read from localStorage only on client-side mount
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
+  // Always initialize with default value to ensure server/client match during hydration
+  const [state, setState] = useState<T>(initialValue);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Effect to read from localStorage only on client-side mount
+  // This ensures the first render matches the server (initialValue)
+  useEffect(() => {
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (item) {
+        setState(JSON.parse(item));
+      }
     } catch (error) {
       console.warn(`Error reading localStorage key "${key}":`, error);
-      return initialValue;
+    } finally {
+      setIsHydrated(true);
     }
-  });
+  }, [key]);
 
   // Effect to update localStorage whenever state changes
+  // Only write AFTER we have successfully hydrated (read) from storage
+  // to avoid overwriting existing data with the default initialValue
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isHydrated) {
       try {
         window.localStorage.setItem(key, JSON.stringify(state));
       } catch (error) {
         console.warn(`Error writing localStorage key "${key}":`, error);
       }
     }
-  }, [key, state]);
+  }, [key, state, isHydrated]);
 
   return [state, setState];
 }
