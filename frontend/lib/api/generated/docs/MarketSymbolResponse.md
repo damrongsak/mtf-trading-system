@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **display_name** | **string** |  | [optional] [default to undefined]
 **is_active** | **boolean** |  | [optional] [default to undefined]
 **data_source_id** | **string** |  | [optional] [default to undefined]
+**details** | **object** | Flexible JSON object for instrument specifics | [optional] [default to undefined]
 
 ## Example
 
@@ -22,6 +23,7 @@ const instance: MarketSymbolResponse = {
     display_name,
     is_active,
     data_source_id,
+    details,
 };
 ```
 

@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AccountsAccountIdPut**](#apiv1accountsaccountidput) | **PUT** /api/v1/accounts/{account_id} | Update a broker account|
 |[**apiV1AccountsGet**](#apiv1accountsget) | **GET** /api/v1/accounts/ | List broker accounts|
 |[**apiV1AccountsPost**](#apiv1accountspost) | **POST** /api/v1/accounts/ | Add a new broker account|
+|[**apiV1AiAgentObserverRunPost**](#apiv1aiagentobserverrunpost) | **POST** /api/v1/ai/agent/observer/run | Run Market Observer Agent|
 |[**apiV1AiAgentsGet**](#apiv1aiagentsget) | **GET** /api/v1/ai/agents | List available AI Agents|
 |[**apiV1AiAgentsIdGet**](#apiv1aiagentsidget) | **GET** /api/v1/ai/agents/{id} | Get AI Agent details|
 |[**apiV1AiBriefingGet**](#apiv1aibriefingget) | **GET** /api/v1/ai/briefing | Get latest daily briefing|
@@ -347,6 +348,58 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Account created |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiAgentObserverRunPost**
+> ApiV1AiAgentObserverRunPost200Response apiV1AiAgentObserverRunPost(apiV1AiAgentObserverRunPostRequest)
+
+Trigger the AI Market Observer to analyze a specific request or symbol.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    ApiV1AiAgentObserverRunPostRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let apiV1AiAgentObserverRunPostRequest: ApiV1AiAgentObserverRunPostRequest; //
+
+const { status, data } = await apiInstance.apiV1AiAgentObserverRunPost(
+    apiV1AiAgentObserverRunPostRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **apiV1AiAgentObserverRunPostRequest** | **ApiV1AiAgentObserverRunPostRequest**|  | |
+
+
+### Return type
+
+**ApiV1AiAgentObserverRunPost200Response**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Agent Report |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

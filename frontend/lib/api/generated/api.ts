@@ -44,6 +44,11 @@ export interface APIResponseAgentList {
     'status'?: string;
     'data'?: Array<Agent>;
 }
+export interface APIResponseAlpha {
+    'status'?: string;
+    'data'?: AlphaResponse;
+    'error'?: string | null;
+}
 export interface APIResponseBacktestResponse {
     'status': ResponseStatus;
     'data'?: BacktestResponse;
@@ -75,6 +80,21 @@ export interface APIResponseBalanceResponseData {
 export interface APIResponseBriefing {
     'status'?: string;
     'data'?: Briefing;
+}
+export interface APIResponseBriefingResponse {
+    'status': ResponseStatus;
+    'data'?: APIResponseBriefingResponseData;
+    'message'?: string;
+    'timestamp': string;
+}
+
+
+export interface APIResponseBriefingResponseData {
+    /**
+     * Markdown formatted briefing content
+     */
+    'content'?: string;
+    'timestamp'?: string;
 }
 export interface APIResponseBrokerAccount {
     'status'?: string;
@@ -280,6 +300,17 @@ export interface APIResponseWalkForwardResponse {
     'status'?: string;
     'data'?: WalkForwardResponse;
 }
+export interface AdxRequest {
+    'high': Array<number>;
+    'low': Array<number>;
+    'close': Array<number>;
+    'length'?: number;
+}
+export interface AdxResponse {
+    'adx'?: Array<number | null>;
+    'dmp'?: Array<number | null>;
+    'dmn'?: Array<number | null>;
+}
 export interface Agent {
     'id'?: string;
     'name'?: string;
@@ -300,6 +331,18 @@ export type AgentStatusEnum = typeof AgentStatusEnum[keyof typeof AgentStatusEnu
 export interface AiChatSessionsMessagePost200Response {
     'response'?: string;
     'timestamp'?: string;
+}
+export interface AlphaRequest {
+    'formula': string;
+    'symbol': string;
+    'timeframe'?: string;
+    'start_date'?: string;
+    'end_date'?: string;
+}
+export interface AlphaResponse {
+    'signal'?: Array<number | null>;
+    'metrics'?: { [key: string]: any; };
+    'timestamps'?: Array<string>;
 }
 export interface AnalysisDistribution {
     'strike'?: number;
@@ -328,6 +371,17 @@ export interface AnalysisSummary {
     'pcr'?: number;
     'max_call_strike'?: number;
     'max_put_strike'?: number;
+}
+export interface ApiV1AiAgentObserverRunPost200Response {
+    'status'?: string;
+    'data'?: ApiV1AiAgentObserverRunPost200ResponseData;
+}
+export interface ApiV1AiAgentObserverRunPost200ResponseData {
+    'report'?: string;
+    'timestamp'?: string;
+}
+export interface ApiV1AiAgentObserverRunPostRequest {
+    'input_text': string;
 }
 export interface ApiV1AiIngestUploadPost200Response {
     'filename'?: string;
@@ -404,6 +458,12 @@ export const ApiV1SignalCheckPostRequestDirectionEnum = {
 
 export type ApiV1SignalCheckPostRequestDirectionEnum = typeof ApiV1SignalCheckPostRequestDirectionEnum[keyof typeof ApiV1SignalCheckPostRequestDirectionEnum];
 
+export interface AtrRequest {
+    'high': Array<number>;
+    'low': Array<number>;
+    'close': Array<number>;
+    'window'?: number;
+}
 export interface AuthTokens {
     'access_token': string;
     'refresh_token'?: string;
@@ -623,6 +683,10 @@ export interface DeploymentCreate {
     'is_live'?: boolean;
     'config_snapshot': object;
 }
+export interface EmaRequest {
+    'data': Array<number>;
+    'span'?: number;
+}
 
 export const ErrorCode = {
     Auth1001: 'AUTH_1001',
@@ -727,6 +791,9 @@ export const FundUpdateStrategyTypeEnum = {
 
 export type FundUpdateStrategyTypeEnum = typeof FundUpdateStrategyTypeEnum[keyof typeof FundUpdateStrategyTypeEnum];
 
+export interface IndicatorResponse {
+    'values'?: Array<number | null>;
+}
 export interface JournalEntryCreate {
     'symbol': string;
     'direction': JournalEntryCreateDirectionEnum;
@@ -814,6 +881,17 @@ export const JournalEntryResponseGameLevelEnum = {
 
 export type JournalEntryResponseGameLevelEnum = typeof JournalEntryResponseGameLevelEnum[keyof typeof JournalEntryResponseGameLevelEnum];
 
+export interface MacdRequest {
+    'close': Array<number>;
+    'fast'?: number;
+    'slow'?: number;
+    'signal'?: number;
+}
+export interface MacdResponse {
+    'macd'?: Array<number | null>;
+    'signal'?: Array<number | null>;
+    'hist'?: Array<number | null>;
+}
 export interface MarketCategory {
     'id': string;
     'name': string;
@@ -830,6 +908,10 @@ export interface MarketSymbol {
     'display_name'?: string;
     'category_id': string;
     'order_index': number;
+    /**
+     * Flexible JSON object
+     */
+    'details'?: object | null;
 }
 export interface MarketSymbolCreate {
     'symbol': string;
@@ -842,9 +924,14 @@ export interface MarketSymbolResponse {
     'display_name'?: string | null;
     'is_active'?: boolean;
     'data_source_id'?: string | null;
+    /**
+     * Flexible JSON object for instrument specifics
+     */
+    'details'?: object | null;
 }
 export interface MarketSymbolUpdate {
-    'is_active'?: boolean;
+    'is_active'?: boolean | null;
+    'details'?: object | null;
 }
 export interface MentalHandHistoryCreate {
     'journal_entry_id': string;
@@ -1002,6 +1089,10 @@ export interface RiskCheckResponse {
     'lot'?: number;
     'reason'?: string;
 }
+export interface RsiRequest {
+    'close': Array<number>;
+    'window'?: number;
+}
 export interface SMCFVG {
     'type'?: SMCFVGTypeEnum;
     'index'?: number;
@@ -1154,6 +1245,9 @@ export interface SmartOrderRequest {
     'generated_by': string;
     'reason'?: string;
     'risk_usd'?: number;
+    'confidence'?: number;
+    'pain_threshold'?: number;
+    'atr_multiplier'?: number;
 }
 
 export const SmartOrderRequestDirectionEnum = {
@@ -1380,6 +1474,193 @@ export interface WalkForwardResponse {
 }
 
 /**
+ * AlphaApi - axios parameter creator
+ */
+export const AlphaApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Run lightweight preview for alpha formula
+         * @param {AlphaRequest} alphaRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AlphaPreviewPost: async (alphaRequest: AlphaRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'alphaRequest' is not null or undefined
+            assertParamExists('apiV1AlphaPreviewPost', 'alphaRequest', alphaRequest)
+            const localVarPath = `/api/v1/alpha/preview`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(alphaRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Run detailed backtest for alpha formula
+         * @param {AlphaRequest} alphaRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AlphaTestPost: async (alphaRequest: AlphaRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'alphaRequest' is not null or undefined
+            assertParamExists('apiV1AlphaTestPost', 'alphaRequest', alphaRequest)
+            const localVarPath = `/api/v1/alpha/test`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(alphaRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * AlphaApi - functional programming interface
+ */
+export const AlphaApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = AlphaApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Run lightweight preview for alpha formula
+         * @param {AlphaRequest} alphaRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AlphaPreviewPost(alphaRequest: AlphaRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAlpha>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AlphaPreviewPost(alphaRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AlphaApi.apiV1AlphaPreviewPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Run detailed backtest for alpha formula
+         * @param {AlphaRequest} alphaRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AlphaTestPost(alphaRequest: AlphaRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAlpha>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AlphaTestPost(alphaRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AlphaApi.apiV1AlphaTestPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * AlphaApi - factory interface
+ */
+export const AlphaApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = AlphaApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Run lightweight preview for alpha formula
+         * @param {AlphaApiApiV1AlphaPreviewPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AlphaPreviewPost(requestParameters: AlphaApiApiV1AlphaPreviewPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAlpha> {
+            return localVarFp.apiV1AlphaPreviewPost(requestParameters.alphaRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Run detailed backtest for alpha formula
+         * @param {AlphaApiApiV1AlphaTestPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AlphaTestPost(requestParameters: AlphaApiApiV1AlphaTestPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAlpha> {
+            return localVarFp.apiV1AlphaTestPost(requestParameters.alphaRequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1AlphaPreviewPost operation in AlphaApi.
+ */
+export interface AlphaApiApiV1AlphaPreviewPostRequest {
+    readonly alphaRequest: AlphaRequest
+}
+
+/**
+ * Request parameters for apiV1AlphaTestPost operation in AlphaApi.
+ */
+export interface AlphaApiApiV1AlphaTestPostRequest {
+    readonly alphaRequest: AlphaRequest
+}
+
+/**
+ * AlphaApi - object-oriented interface
+ */
+export class AlphaApi extends BaseAPI {
+    /**
+     * 
+     * @summary Run lightweight preview for alpha formula
+     * @param {AlphaApiApiV1AlphaPreviewPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AlphaPreviewPost(requestParameters: AlphaApiApiV1AlphaPreviewPostRequest, options?: RawAxiosRequestConfig) {
+        return AlphaApiFp(this.configuration).apiV1AlphaPreviewPost(requestParameters.alphaRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Run detailed backtest for alpha formula
+     * @param {AlphaApiApiV1AlphaTestPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AlphaTestPost(requestParameters: AlphaApiApiV1AlphaTestPostRequest, options?: RawAxiosRequestConfig) {
+        return AlphaApiFp(this.configuration).apiV1AlphaTestPost(requestParameters.alphaRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * AnalysisApi - axios parameter creator
  */
 export const AnalysisApiAxiosParamCreator = function (configuration?: Configuration) {
@@ -1419,6 +1700,176 @@ export const AnalysisApiAxiosParamCreator = function (configuration?: Configurat
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary Calculate ADX
+         * @param {AdxRequest} [adxRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateAdxPost: async (adxRequest?: AdxRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/calculate/adx`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(adxRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Calculate ATR
+         * @param {AtrRequest} [atrRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateAtrPost: async (atrRequest?: AtrRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/calculate/atr`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(atrRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Calculate EMA
+         * @param {EmaRequest} [emaRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateEmaPost: async (emaRequest?: EmaRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/calculate/ema`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(emaRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Calculate MACD
+         * @param {MacdRequest} [macdRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateMacdPost: async (macdRequest?: MacdRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/calculate/macd`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(macdRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Calculate RSI
+         * @param {RsiRequest} [rsiRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateRsiPost: async (rsiRequest?: RsiRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/calculate/rsi`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(rsiRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -1441,6 +1892,71 @@ export const AnalysisApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['AnalysisApi.analysisDriftPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * 
+         * @summary Calculate ADX
+         * @param {AdxRequest} [adxRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisCalculateAdxPost(adxRequest?: AdxRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdxResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisCalculateAdxPost(adxRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateAdxPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Calculate ATR
+         * @param {AtrRequest} [atrRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisCalculateAtrPost(atrRequest?: AtrRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<IndicatorResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisCalculateAtrPost(atrRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateAtrPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Calculate EMA
+         * @param {EmaRequest} [emaRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisCalculateEmaPost(emaRequest?: EmaRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<IndicatorResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisCalculateEmaPost(emaRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateEmaPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Calculate MACD
+         * @param {MacdRequest} [macdRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisCalculateMacdPost(macdRequest?: MacdRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MacdResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisCalculateMacdPost(macdRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateMacdPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Calculate RSI
+         * @param {RsiRequest} [rsiRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisCalculateRsiPost(rsiRequest?: RsiRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<IndicatorResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisCalculateRsiPost(rsiRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateRsiPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -1460,6 +1976,56 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
         analysisDriftPost(requestParameters: AnalysisApiAnalysisDriftPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AnalysisDriftPost200Response> {
             return localVarFp.analysisDriftPost(requestParameters.windowHours, options).then((request) => request(axios, basePath));
         },
+        /**
+         * 
+         * @summary Calculate ADX
+         * @param {AnalysisApiApiV1AnalysisCalculateAdxPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateAdxPost(requestParameters: AnalysisApiApiV1AnalysisCalculateAdxPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AdxResponse> {
+            return localVarFp.apiV1AnalysisCalculateAdxPost(requestParameters.adxRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Calculate ATR
+         * @param {AnalysisApiApiV1AnalysisCalculateAtrPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateAtrPost(requestParameters: AnalysisApiApiV1AnalysisCalculateAtrPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<IndicatorResponse> {
+            return localVarFp.apiV1AnalysisCalculateAtrPost(requestParameters.atrRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Calculate EMA
+         * @param {AnalysisApiApiV1AnalysisCalculateEmaPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateEmaPost(requestParameters: AnalysisApiApiV1AnalysisCalculateEmaPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<IndicatorResponse> {
+            return localVarFp.apiV1AnalysisCalculateEmaPost(requestParameters.emaRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Calculate MACD
+         * @param {AnalysisApiApiV1AnalysisCalculateMacdPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateMacdPost(requestParameters: AnalysisApiApiV1AnalysisCalculateMacdPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<MacdResponse> {
+            return localVarFp.apiV1AnalysisCalculateMacdPost(requestParameters.macdRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Calculate RSI
+         * @param {AnalysisApiApiV1AnalysisCalculateRsiPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisCalculateRsiPost(requestParameters: AnalysisApiApiV1AnalysisCalculateRsiPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<IndicatorResponse> {
+            return localVarFp.apiV1AnalysisCalculateRsiPost(requestParameters.rsiRequest, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -1468,6 +2034,41 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
  */
 export interface AnalysisApiAnalysisDriftPostRequest {
     readonly windowHours?: number
+}
+
+/**
+ * Request parameters for apiV1AnalysisCalculateAdxPost operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisCalculateAdxPostRequest {
+    readonly adxRequest?: AdxRequest
+}
+
+/**
+ * Request parameters for apiV1AnalysisCalculateAtrPost operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisCalculateAtrPostRequest {
+    readonly atrRequest?: AtrRequest
+}
+
+/**
+ * Request parameters for apiV1AnalysisCalculateEmaPost operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisCalculateEmaPostRequest {
+    readonly emaRequest?: EmaRequest
+}
+
+/**
+ * Request parameters for apiV1AnalysisCalculateMacdPost operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisCalculateMacdPostRequest {
+    readonly macdRequest?: MacdRequest
+}
+
+/**
+ * Request parameters for apiV1AnalysisCalculateRsiPost operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisCalculateRsiPostRequest {
+    readonly rsiRequest?: RsiRequest
 }
 
 /**
@@ -1483,6 +2084,61 @@ export class AnalysisApi extends BaseAPI {
      */
     public analysisDriftPost(requestParameters: AnalysisApiAnalysisDriftPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).analysisDriftPost(requestParameters.windowHours, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Calculate ADX
+     * @param {AnalysisApiApiV1AnalysisCalculateAdxPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisCalculateAdxPost(requestParameters: AnalysisApiApiV1AnalysisCalculateAdxPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateAdxPost(requestParameters.adxRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Calculate ATR
+     * @param {AnalysisApiApiV1AnalysisCalculateAtrPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisCalculateAtrPost(requestParameters: AnalysisApiApiV1AnalysisCalculateAtrPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateAtrPost(requestParameters.atrRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Calculate EMA
+     * @param {AnalysisApiApiV1AnalysisCalculateEmaPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisCalculateEmaPost(requestParameters: AnalysisApiApiV1AnalysisCalculateEmaPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateEmaPost(requestParameters.emaRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Calculate MACD
+     * @param {AnalysisApiApiV1AnalysisCalculateMacdPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisCalculateMacdPost(requestParameters: AnalysisApiApiV1AnalysisCalculateMacdPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateMacdPost(requestParameters.macdRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Calculate RSI
+     * @param {AnalysisApiApiV1AnalysisCalculateRsiPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisCalculateRsiPost(requestParameters: AnalysisApiApiV1AnalysisCalculateRsiPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateRsiPost(requestParameters.rsiRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -1661,6 +2317,42 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(brokerAccountCreate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Trigger the AI Market Observer to analyze a specific request or symbol.
+         * @summary Run Market Observer Agent
+         * @param {ApiV1AiAgentObserverRunPostRequest} apiV1AiAgentObserverRunPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentObserverRunPost: async (apiV1AiAgentObserverRunPostRequest: ApiV1AiAgentObserverRunPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1AiAgentObserverRunPostRequest' is not null or undefined
+            assertParamExists('apiV1AiAgentObserverRunPost', 'apiV1AiAgentObserverRunPostRequest', apiV1AiAgentObserverRunPostRequest)
+            const localVarPath = `/api/v1/ai/agent/observer/run`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1AiAgentObserverRunPostRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -5036,6 +5728,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Trigger the AI Market Observer to analyze a specific request or symbol.
+         * @summary Run Market Observer Agent
+         * @param {ApiV1AiAgentObserverRunPostRequest} apiV1AiAgentObserverRunPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiAgentObserverRunPost(apiV1AiAgentObserverRunPostRequest: ApiV1AiAgentObserverRunPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1AiAgentObserverRunPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiAgentObserverRunPost(apiV1AiAgentObserverRunPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiAgentObserverRunPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary List available AI Agents
          * @param {*} [options] Override http request option.
@@ -6276,6 +6981,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.apiV1AccountsPost(requestParameters.brokerAccountCreate, options).then((request) => request(axios, basePath));
         },
         /**
+         * Trigger the AI Market Observer to analyze a specific request or symbol.
+         * @summary Run Market Observer Agent
+         * @param {DefaultApiApiV1AiAgentObserverRunPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAgentObserverRunPost(requestParameters: DefaultApiApiV1AiAgentObserverRunPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1AiAgentObserverRunPost200Response> {
+            return localVarFp.apiV1AiAgentObserverRunPost(requestParameters.apiV1AiAgentObserverRunPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary List available AI Agents
          * @param {*} [options] Override http request option.
@@ -7185,6 +7900,13 @@ export interface DefaultApiApiV1AccountsPostRequest {
 }
 
 /**
+ * Request parameters for apiV1AiAgentObserverRunPost operation in DefaultApi.
+ */
+export interface DefaultApiApiV1AiAgentObserverRunPostRequest {
+    readonly apiV1AiAgentObserverRunPostRequest: ApiV1AiAgentObserverRunPostRequest
+}
+
+/**
  * Request parameters for apiV1AiAgentsIdGet operation in DefaultApi.
  */
 export interface DefaultApiApiV1AiAgentsIdGetRequest {
@@ -7879,6 +8601,17 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1AccountsPost(requestParameters: DefaultApiApiV1AccountsPostRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1AccountsPost(requestParameters.brokerAccountCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Trigger the AI Market Observer to analyze a specific request or symbol.
+     * @summary Run Market Observer Agent
+     * @param {DefaultApiApiV1AiAgentObserverRunPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiAgentObserverRunPost(requestParameters: DefaultApiApiV1AiAgentObserverRunPostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1AiAgentObserverRunPost(requestParameters.apiV1AiAgentObserverRunPostRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

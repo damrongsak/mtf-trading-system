@@ -1,21 +1,21 @@
-# MarketSymbolUpdate
+# RsiRequest
 
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**is_active** | **boolean** |  | [optional] [default to undefined]
-**details** | **object** |  | [optional] [default to undefined]
+**close** | **Array&lt;number&gt;** |  | [default to undefined]
+**window** | **number** |  | [optional] [default to 14]
 
 ## Example
 
 ```typescript
-import { MarketSymbolUpdate } from './api';
+import { RsiRequest } from './api';
 
-const instance: MarketSymbolUpdate = {
-    is_active,
-    details,
+const instance: RsiRequest = {
+    close,
+    window,
 };
 ```
 

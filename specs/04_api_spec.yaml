@@ -839,55 +839,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
 
-    AlphaRequest:
-      type: object
-      required:
-        - formula
-        - symbol
-      properties:
-        formula:
-          type: string
-          example: "rank(close / delay(close, 5))"
-        symbol:
-          type: string
-          example: "XAU_USD"
-        timeframe:
-          type: string
-          example: "H1"
-        start_date:
-          type: string
-          format: date-time
-        end_date:
-          type: string
-          format: date-time
-          
-    AlphaResponse:
-      type: object
-      properties:
-        signal:
-          type: array
-          items:
-            type: number
-            nullable: true
-        metrics:
-          type: object
-          additionalProperties: true
-        timestamps:
-          type: array
-          items:
-            type: string
-            format: date-time
 
-    APIResponse_Alpha:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/AlphaResponse'
-        error:
-          type: string
-          nullable: true
 
   /api/v1/analysis/calculate/smc:
     post:
@@ -907,6 +859,91 @@ paths:
               schema:
                 $ref: '#/components/schemas/SMCResponse'
 
+
+  /api/v1/analysis/calculate/ema:
+    post:
+      summary: Calculate EMA
+      tags: [Analysis]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmaRequest'
+      responses:
+        '200':
+          description: EMA Calculation Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorResponse'
+
+  /api/v1/analysis/calculate/rsi:
+    post:
+      summary: Calculate RSI
+      tags: [Analysis]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RsiRequest'
+      responses:
+        '200':
+          description: RSI Calculation Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorResponse'
+
+  /api/v1/analysis/calculate/atr:
+    post:
+      summary: Calculate ATR
+      tags: [Analysis]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtrRequest'
+      responses:
+        '200':
+          description: ATR Calculation Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicatorResponse'
+
+  /api/v1/analysis/calculate/macd:
+    post:
+      summary: Calculate MACD
+      tags: [Analysis]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MacdRequest'
+      responses:
+        '200':
+          description: MACD Calculation Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MacdResponse'
+
+  /api/v1/analysis/calculate/adx:
+    post:
+      summary: Calculate ADX
+      tags: [Analysis]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdxRequest'
+      responses:
+        '200':
+          description: ADX Calculation Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdxResponse'
   /api/v1/data/open-interest/details:
     get:
       summary: Get Open Interest Details
@@ -949,19 +986,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/OpenInterestCommon'
-  /api/v1/ai/briefing:
-    get:
-      summary: Get Daily Pre-Flight Briefing
-      description: Generates a comprehensive daily briefing including macro risk, portfolio health, market focus, and psychological weather.
-      tags:
-        - AI
-      responses:
-        '200':
-          description: Briefing generated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIResponse_BriefingResponse'
 
   /api/v1/data/symbols/{symbol_id}:
     patch:
@@ -2025,6 +2049,57 @@ paths:
 
 components:
   schemas:
+    # --- Alpha Engine ---
+    AlphaRequest:
+      type: object
+      required:
+        - formula
+        - symbol
+      properties:
+        formula:
+          type: string
+          example: "rank(close / delay(close, 5))"
+        symbol:
+          type: string
+          example: "XAU_USD"
+        timeframe:
+          type: string
+          example: "H1"
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          
+    AlphaResponse:
+      type: object
+      properties:
+        signal:
+          type: array
+          items:
+            type: number
+            nullable: true
+        metrics:
+          type: object
+          additionalProperties: true
+        timestamps:
+          type: array
+          items:
+            type: string
+            format: date-time
+
+    APIResponse_Alpha:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/AlphaResponse'
+        error:
+          type: string
+          nullable: true
+
     # --- Standard Response Wrappers ---
     ResponseStatus:
       type: string
@@ -4322,6 +4397,68 @@ components:
             type: object
             additionalProperties:
               type: number
+
+    EmaRequest:
+      type: object
+      required: [data]
+      properties:
+        data: {type: array, items: {type: number}}
+        span: {type: integer, default: 14}
+    
+    RsiRequest:
+      type: object
+      required: [close]
+      properties:
+        close: {type: array, items: {type: number}}
+        window: {type: integer, default: 14}
+
+    AtrRequest:
+      type: object
+      required: [high, low, close]
+      properties:
+        high: {type: array, items: {type: number}}
+        low: {type: array, items: {type: number}}
+        close: {type: array, items: {type: number}}
+        window: {type: integer, default: 14}
+
+    MacdRequest:
+      type: object
+      required: [close]
+      properties:
+        close: {type: array, items: {type: number}}
+        fast: {type: integer, default: 12}
+        slow: {type: integer, default: 26}
+        signal: {type: integer, default: 9}
+    
+    AdxRequest:
+      type: object
+      required: [high, low, close]
+      properties:
+        high: {type: array, items: {type: number}}
+        low: {type: array, items: {type: number}}
+        close: {type: array, items: {type: number}}
+        length: {type: integer, default: 14}
+
+    IndicatorResponse:
+      type: object
+      properties:
+        values: 
+          type: array
+          items: {type: number, nullable: true}
+
+    MacdResponse:
+      type: object
+      properties:
+        macd: {type: array, items: {type: number, nullable: true}}
+        signal: {type: array, items: {type: number, nullable: true}}
+        hist: {type: array, items: {type: number, nullable: true}}
+
+    AdxResponse:
+      type: object
+      properties:
+        adx: {type: array, items: {type: number, nullable: true}}
+        dmp: {type: array, items: {type: number, nullable: true}}
+        dmn: {type: array, items: {type: number, nullable: true}}
 
 
 

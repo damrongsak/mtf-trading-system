@@ -12,6 +12,9 @@ Name | Type | Description | Notes
 **generated_by** | **string** |  | [default to undefined]
 **reason** | **string** |  | [optional] [default to undefined]
 **risk_usd** | **number** |  | [optional] [default to undefined]
+**confidence** | **number** |  | [optional] [default to 1.0]
+**pain_threshold** | **number** |  | [optional] [default to 10.0]
+**atr_multiplier** | **number** |  | [optional] [default to 1.0]
 
 ## Example
 
@@ -26,6 +29,9 @@ const instance: SmartOrderRequest = {
     generated_by,
     reason,
     risk_usd,
+    confidence,
+    pain_threshold,
+    atr_multiplier,
 };
 ```
 

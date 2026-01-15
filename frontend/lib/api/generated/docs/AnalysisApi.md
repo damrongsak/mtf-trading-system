@@ -5,6 +5,11 @@ All URIs are relative to *http://localhost*
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
 |[**analysisDriftPost**](#analysisdriftpost) | **POST** /analysis/drift | Analyze System Drift|
+|[**apiV1AnalysisCalculateAdxPost**](#apiv1analysiscalculateadxpost) | **POST** /api/v1/analysis/calculate/adx | Calculate ADX|
+|[**apiV1AnalysisCalculateAtrPost**](#apiv1analysiscalculateatrpost) | **POST** /api/v1/analysis/calculate/atr | Calculate ATR|
+|[**apiV1AnalysisCalculateEmaPost**](#apiv1analysiscalculateemapost) | **POST** /api/v1/analysis/calculate/ema | Calculate EMA|
+|[**apiV1AnalysisCalculateMacdPost**](#apiv1analysiscalculatemacdpost) | **POST** /api/v1/analysis/calculate/macd | Calculate MACD|
+|[**apiV1AnalysisCalculateRsiPost**](#apiv1analysiscalculatersipost) | **POST** /api/v1/analysis/calculate/rsi | Calculate RSI|
 
 # **analysisDriftPost**
 > AnalysisDriftPost200Response analysisDriftPost()
@@ -54,6 +59,261 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Drift Analysis Report |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisCalculateAdxPost**
+> AdxResponse apiV1AnalysisCalculateAdxPost()
+
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration,
+    AdxRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let adxRequest: AdxRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AnalysisCalculateAdxPost(
+    adxRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **adxRequest** | **AdxRequest**|  | |
+
+
+### Return type
+
+**AdxResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | ADX Calculation Result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisCalculateAtrPost**
+> IndicatorResponse apiV1AnalysisCalculateAtrPost()
+
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration,
+    AtrRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let atrRequest: AtrRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AnalysisCalculateAtrPost(
+    atrRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **atrRequest** | **AtrRequest**|  | |
+
+
+### Return type
+
+**IndicatorResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | ATR Calculation Result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisCalculateEmaPost**
+> IndicatorResponse apiV1AnalysisCalculateEmaPost()
+
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration,
+    EmaRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let emaRequest: EmaRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AnalysisCalculateEmaPost(
+    emaRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **emaRequest** | **EmaRequest**|  | |
+
+
+### Return type
+
+**IndicatorResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | EMA Calculation Result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisCalculateMacdPost**
+> MacdResponse apiV1AnalysisCalculateMacdPost()
+
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration,
+    MacdRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let macdRequest: MacdRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AnalysisCalculateMacdPost(
+    macdRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **macdRequest** | **MacdRequest**|  | |
+
+
+### Return type
+
+**MacdResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | MACD Calculation Result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisCalculateRsiPost**
+> IndicatorResponse apiV1AnalysisCalculateRsiPost()
+
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration,
+    RsiRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let rsiRequest: RsiRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AnalysisCalculateRsiPost(
+    rsiRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **rsiRequest** | **RsiRequest**|  | |
+
+
+### Return type
+
+**IndicatorResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | RSI Calculation Result |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

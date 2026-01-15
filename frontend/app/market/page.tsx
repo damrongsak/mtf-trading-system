@@ -7,7 +7,10 @@ import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
 import { getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { fetchSystemConfig } from '@/lib/api/system';
-import { calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX, calculateSMC, SMCResponse, SMCStructureLabel, SMCOrderBlock } from '@/lib/api/analysis';
+import { 
+    calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX, calculateSMC, 
+    SMCResponse, SMCStructureLabel, SMCOrderBlock 
+} from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
 import { SeriesMarker } from 'lightweight-charts';
@@ -73,12 +76,15 @@ export default function MarketPage() {
   const [selectedAccountId, setSelectedAccountId] = usePersistentState<string>('mtf_selected_account', '');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // --- Hooks ---
+  const { prices, connected } = useLivePrices([symbol]);
+  const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
+
   // --- Handlers ---
   const handleLineDrag = (title: string, price: number) => {
-      // Round to precision? formatPrice usually handles display, but state should be precise?
-      // Or round to tick size?
-      // Let's rely on downstream components to format, but maybe round to 5 decimals to avoid floating point ugliness.
-      const rounded = parseFloat(price.toFixed(5)); // Generic safe precision
+      const instrument = getInstrument(symbol);
+      const precision = instrument?.details?.displayPrecision ?? 5;
+      const rounded = parseFloat(price.toFixed(precision));
       
       if (title === 'SL') {
           setSlPrice(rounded);
@@ -90,10 +96,6 @@ export default function MarketPage() {
       }
       if (title === 'ENTRY') setLimitPrice(rounded);
   };
-
-  // --- Hooks ---
-  const { prices, connected } = useLivePrices([symbol]);
-  const { symbols: brokerSymbols, formatPrice } = useBrokerReference();
 
   // --- Effects: Initialization ---
   useEffect(() => {
@@ -175,15 +177,6 @@ export default function MarketPage() {
           // Last candle time in seconds (assuming timestamp is ISO string)
           const lastTime = new Date(last.timestamp).getTime() / 1000;
           
-          // Check if we need a new candle
-          // Logic: If (now - lastTime) >= tfSeconds, we *should* start a new one.
-          // BUT: Standard candles act on specific boundaries (e.g. 10:00, 10:05).
-          // Simplification: If now >= lastTime + tfSeconds -> New Candle
-          
-          // Better approach for standard boundaries:
-          // nextBoundary = Math.floor(now / tfSeconds) * tfSeconds;
-          // if (lastTime < nextBoundary) -> New Candle
-          
           const nextBoundary = Math.floor(now / tfSeconds) * tfSeconds;
           
           if (lastTime < nextBoundary) {
@@ -220,10 +213,11 @@ export default function MarketPage() {
 
   const updateIndicators = async () => {
 
-      const newInds: IndicatorData[] = [];
       const closes = candles.map(c => c.close);
-      
       if (closes.length === 0) return;
+
+      const newInds: IndicatorData[] = [];
+      const promises: Promise<void>[] = [];
 
       const tryCalc = async <T,>(fn: () => Promise<T>, pushFn: (res: T) => void) => {
           try {
@@ -232,24 +226,60 @@ export default function MarketPage() {
           } catch(e) { console.error("Indicator Calc Failed", e); }
       };
 
-      if (showEMA) await tryCalc(() => calculateEMA({ data: closes, span: 200 }), (res: number[]) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' }));
-      if (showEMA50) await tryCalc(() => calculateEMA({ data: closes, span: 50 }), (res: number[]) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' }));
-      if (showRSI) await tryCalc(() => calculateRSI({ close: closes, window: 14 }), (res: number[]) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' }));
-      if (showATR) await tryCalc(() => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), (res: number[]) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' }));
-      if (showMACD) {
-           await tryCalc(() => calculateMACD({ close: closes }), (res: { macd: number[], signal: number[], hist: number[] }) => {
-               // Zip MACD components
-               const macdData = res.macd.map((v: number, i: number) => ({
-                   value: v,
-                   signal: res.signal[i],
-                   hist: res.hist[i]
-               }));
-               newInds.push({ name: 'MACD', data: macdData, color: '#06b6d4', priceScaleId: 'left' });
-           });
+      // Queue all enabled indicators for parallel execution
+      if (showEMA) {
+          promises.push(tryCalc(
+              () => calculateEMA({ data: closes, span: 200 }), 
+              (res: number[]) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' })
+          ));
       }
-      if (showADX) await tryCalc(() => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), (res: { adx: number[] }) => newInds.push({ name: 'ADX', data: res.adx, color: '#eab308', priceScaleId: 'left' }));
+      if (showEMA50) {
+          promises.push(tryCalc(
+              () => calculateEMA({ data: closes, span: 50 }), 
+              (res: number[]) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' })
+          ));
+      }
+      if (showRSI) {
+          promises.push(tryCalc(
+              () => calculateRSI({ close: closes, window: 14 }), 
+              (res: number[]) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' })
+          ));
+      }
+      if (showATR) {
+          promises.push(tryCalc(
+              () => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), 
+              (res: number[]) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' })
+          ));
+      }
+      if (showMACD) {
+           promises.push(tryCalc(
+               () => calculateMACD({ close: closes }), 
+               (res) => {
+                   // Zip MACD components; generated type properties might be undefined
+                   if (!res.macd || !res.signal || !res.hist) return;
+
+                   const macdData = res.macd.map((v: number | null | undefined, i: number) => ({
+                       value: v ?? 0,
+                       signal: res.signal?.[i] ?? 0,
+                       hist: res.hist?.[i] ?? 0
+                   }));
+                   newInds.push({ name: 'MACD', data: macdData, color: '#06b6d4', priceScaleId: 'left' });
+               }
+           ));
+      }
+      if (showADX) {
+          promises.push(tryCalc(
+              () => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), 
+              (res) => {
+                  if (!res.adx) return;
+                  // Handle nullable numbers in response by defaulting to 0 or filtering
+                  const safeAdx = res.adx.map(v => v ?? 0);
+                  newInds.push({ name: 'ADX', data: safeAdx, color: '#eab308', priceScaleId: 'left' });
+              }
+           ));
+      }
       
-      
+      await Promise.all(promises);
       setChartIndicators(newInds);
   };
 
@@ -281,6 +311,9 @@ export default function MarketPage() {
              // Structure Labels
              if (res.structure && res.structure.labels) {
                  res.structure.labels.forEach((l: SMCStructureLabel) => {
+                     // Generated type puts optional on everything, so safe check
+                     if (l.index === undefined || l.text === undefined) return;
+
                      const candle = candles[l.index];
                      if (candle) {
                          newMarkers.push({
@@ -289,7 +322,7 @@ export default function MarketPage() {
                              shape: 'arrowDown', // Placeholder, LWC only supports limited shapes
                              text: l.text,
                              color: l.text.endsWith('H') ? '#ef4444' : '#22c55e',
-                         });
+                          });
                      }
                  });
              }
@@ -297,6 +330,8 @@ export default function MarketPage() {
              // Order Blocks
              if (res.order_blocks) {
                  res.order_blocks.forEach((ob: SMCOrderBlock) => {
+                     if (ob.top === undefined || ob.bottom === undefined || ob.type === undefined) return;
+
                      newPriceLines.push({
                          price: ob.top,
                          color: ob.type === 'bullish' ? '#22c55e' : '#ef4444',

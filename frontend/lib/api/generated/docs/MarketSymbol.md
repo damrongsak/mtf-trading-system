@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **display_name** | **string** |  | [optional] [default to undefined]
 **category_id** | **string** |  | [default to undefined]
 **order_index** | **number** |  | [default to undefined]
+**details** | **object** | Flexible JSON object | [optional] [default to undefined]
 
 ## Example
 
@@ -22,6 +23,7 @@ const instance: MarketSymbol = {
     display_name,
     category_id,
     order_index,
+    details,
 };
 ```
 

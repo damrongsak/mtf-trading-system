@@ -1,21 +1,19 @@
-# MarketSymbolUpdate
+# IndicatorResponse
 
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**is_active** | **boolean** |  | [optional] [default to undefined]
-**details** | **object** |  | [optional] [default to undefined]
+**values** | **Array&lt;number | null&gt;** |  | [optional] [default to undefined]
 
 ## Example
 
 ```typescript
-import { MarketSymbolUpdate } from './api';
+import { IndicatorResponse } from './api';
 
-const instance: MarketSymbolUpdate = {
-    is_active,
-    details,
+const instance: IndicatorResponse = {
+    values,
 };
 ```
 
