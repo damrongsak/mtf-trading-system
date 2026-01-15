@@ -1,15 +1,50 @@
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TypedDict, Optional
 
-def detect_order_blocks(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
+# --- Type Definitions ---
+
+class SMCOrderBlock(TypedDict):
+    type: str  # 'bullish' | 'bearish'
+    index: int
+    top: float
+    bottom: float
+    mitigated: bool
+    strength: str  # 'strong' | 'weak'
+
+class SMCFVG(TypedDict):
+    type: str  # 'bullish' | 'bearish'
+    index: int
+    top: float
+    bottom: float
+    mitigated: bool
+
+class SMCSweep(TypedDict):
+    type: str  # 'bullish_sweep' | 'bearish_sweep'
+    index: int
+    level: float
+    description: str
+
+class SMCStructureLabel(TypedDict):
+    index: int
+    text: str
+    price: float
+
+class SMCStructure(TypedDict):
+    pivots: List[Dict[str, Any]] # Keeping pivots partly loose as internal use mainly
+    labels: List[SMCStructureLabel]
+    events: List[Dict[str, Any]]
+
+# --- Detection Logic ---
+
+def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
     """
     Detect Order Blocks (OB).
     Bullish OB: Last down candle before a strong up move (impulsive move).
     Bearish OB: Last up candle before a strong down move (impulsive move).
     Enhanced: Checks for volume spike and displacement.
     """
-    obs = []
+    obs: List[SMCOrderBlock] = []
     
     # Ensure we have necessary columns
     required_columns = ['open', 'high', 'low', 'close']
@@ -80,13 +115,13 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
                 
     return obs
 
-def detect_fvg(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
+def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
     """
     Detect Fair Value Gaps (FVG).
     Bullish FVG: Low[i-2] > High[i]
     Bearish FVG: High[i-2] < Low[i]
     """
-    fvgs = []
+    fvgs: List[SMCFVG] = []
     
     for i in range(2, len(ohlc)):
         high_1 = ohlc['high'].iloc[i-2]
@@ -117,12 +152,12 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
             
     return fvgs
 
-def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
+def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
     """
     Detect Liquidity Sweeps (Turtle Soup).
     Price sweeps a recent High/Low (taking liquidity) but closes back inside the range.
     """
-    sweeps = []
+    sweeps: List[SMCSweep] = []
     window = 5 # Look back 5 bars for a swing point
     
     for i in range(window, len(ohlc)):
@@ -154,18 +189,18 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[Dict[str, Any]]:
             
     return sweeps
 
-def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> Dict[str, Any]:
+def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
     """
     Detect Market Structure (Pivots, HH/LL, BoS, CHoCH).
     Matches Mxwll's logic of using a rolling window to find fractals.
     """
     if len(ohlc) < window * 2:
-        return {"pivots": [], "labels": [], "events": []}
+        return SMCStructure(pivots=[], labels=[], events=[])
 
     highs = ohlc['high'].values
     lows = ohlc['low'].values
     
-    structure = {
+    structure: SMCStructure = {
         "pivots": [],
         "labels": [],
         "events": []
