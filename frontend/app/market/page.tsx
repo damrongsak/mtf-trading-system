@@ -697,12 +697,29 @@ export default function MarketPage() {
                             defaultSize={mainLayout?.['account-panel'] ?? 30} 
                             minSize={4} 
                         >
-                             <AccountPanel 
-                                accountId={selectedAccountId}
-                                refreshTrigger={refreshTrigger}
-                                onMaximize={() => accountPanelRef.current?.resize("30")}
-                                onMinimize={() => accountPanelRef.current?.resize("5")}
-                            />
+                             <div className="h-full flex flex-col relative">
+                                {/* Reset Button Overlay (Top Right of Account Panel) */}
+                                <div className="absolute top-2 right-2 z-50">
+                                    <button 
+                                        onClick={() => {
+                                            if (confirm('Reset custom layout to default 50:50?')) {
+                                                localStorage.removeItem('mtf_layout_main_v3_expanded');
+                                                localStorage.removeItem('mtf_layout_main_v3_collapsed');
+                                                localStorage.removeItem('mtf_layout_order_v3');
+                                                window.location.reload();
+                                            }
+                                        }}
+                                        className="text-[10px] bg-red-900/20 text-red-400 border border-red-500/20 px-2 py-1 rounded hover:bg-red-500/20 transition-colors"
+                                    >
+                                        Reset Layout
+                                    </button>
+                                </div>
+
+                                <AccountPanel 
+                                    onSelectAccount={setSelectedAccountId}
+                                    selectedAccountId={selectedAccountId}
+                                />
+                             </div>
                         </Panel>
                     </>
                 )}
