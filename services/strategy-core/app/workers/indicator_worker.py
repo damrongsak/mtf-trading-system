@@ -2,6 +2,8 @@ import asyncio
 import logging
 import json
 import os
+import socket
+from typing import Optional, Dict, Any
 import pandas as pd
 import numpy as np
 import redis.asyncio as redis
@@ -23,7 +25,7 @@ class IndicatorWorker:
         self.batch_size = 10
         self.stream_key = "market.data.stream"
         self.group_name = "indicator_group"
-        self.consumer_name = "worker_1" # In prod, unique ID (e.g. hostname)
+        self.consumer_name = os.getenv("HOSTNAME", socket.gethostname())
 
     async def start(self):
         self.running = True
@@ -31,6 +33,10 @@ class IndicatorWorker:
         logger.info(f"IndicatorWorker connected to Redis at {self.redis_url}")
         
         # Create Consumer Group
+        await self._ensure_group_exists()
+        asyncio.create_task(self._consume_loop())
+
+    async def _ensure_group_exists(self):
         try:
             # Use "$" to only process new events if restarting, 
             # or "0" to replay all history. "$" is safer for avoiding storms on restart.
@@ -41,8 +47,6 @@ class IndicatorWorker:
                 logger.info(f"Consumer group {self.group_name} already exists.")
             else:
                 logger.error(f"Group create error: {e}")
-
-        asyncio.create_task(self._consume_loop())
 
     async def stop(self):
         self.running = False
@@ -72,10 +76,15 @@ class IndicatorWorker:
                         await self.redis.xack(self.stream_key, self.group_name, message_id)
 
             except Exception as e:
-                logger.error(f"IndicatorWorker loop/consumption error: {e}")
+                if "NOGROUP" in str(e):
+                    logger.warning(f"Consumer group missing (NOGROUP). Attempting to recreate...")
+                    await self._ensure_group_exists()
+                else:
+                    logger.error(f"IndicatorWorker loop/consumption error: {e}")
+                
                 await asyncio.sleep(5)
 
-    async def process_message(self, message_id, fields):
+    async def process_message(self, message_id: str, fields: Dict[str, Any]):
         try:
             event_type = fields.get("event_type")
             if event_type != "candle_completed":
@@ -113,7 +122,7 @@ class IndicatorWorker:
         except Exception as e:
             logger.error(f"Error processing message {message_id}: {e}")
 
-    def _calculate_sync(self, symbol: str, timeframe: str):
+    def _calculate_sync(self, symbol: str, timeframe: str) -> Optional[Dict[str, Any]]:
         db = SessionLocal()
         try:
             # Resolve Symbol ID

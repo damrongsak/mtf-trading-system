@@ -193,9 +193,9 @@ def get_macd(req: MACDRequest):
             return values
             
         return MACDResponse(
-            macd=clean_series(macd_res.macd),
-            signal=clean_series(macd_res.signal),
-            hist=clean_series(macd_res.hist)
+            macd=clean_series(macd_res['macd']),
+            signal=clean_series(macd_res['signal']),
+            hist=clean_series(macd_res['hist'])
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
