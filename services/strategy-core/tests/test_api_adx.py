@@ -1,12 +1,33 @@
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
 import pandas as pd
 import numpy as np
 from app.main import app
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    # Mock startup components to prevent background workers from starting
+    # Patch the CLASS "IndicatorWorker" so that when instantiated it yields a mock
+    with patch("app.workers.indicator_worker.IndicatorWorker") as MockIndicatorWorker, \
+         patch("app.main.strategy_engine.start", new_callable=MagicMock) as mock_se_start, \
+         patch("app.main.live_runner.start", new_callable=MagicMock) as mock_lr_start, \
+         patch("app.fleet.FleetManager.load_fleet", new_callable=MagicMock) as mock_fleet:
+        
+        from unittest.mock import AsyncMock
+        
+        mock_worker_instance = MockIndicatorWorker.return_value
+        mock_worker_instance.start = AsyncMock()
+        mock_worker_instance.stop = AsyncMock()
+        
+        mock_se_start.side_effect = AsyncMock()
+        mock_lr_start.side_effect = AsyncMock()
+        mock_fleet.side_effect = AsyncMock()
 
-def test_get_adx_endpoint():
+        with TestClient(app) as c:
+            yield c
+
+def test_get_adx_endpoint(client):
     # 1. Create synthetic OHLC data
     # ADX requires High, Low, Close. 
     # We'll create a small trend to ensure ADX isn't 0 everywhere, though random is fine for schema check.
@@ -53,7 +74,7 @@ def test_get_adx_endpoint():
     # Basic logic check: ADX should be positive
     assert data["adx"][last_idx] >= 0
 
-def test_get_adx_endpoint_insufficient_data():
+def test_get_adx_endpoint_insufficient_data(client):
     # Test with too few data points
     payload = {
         "high": [10, 11],

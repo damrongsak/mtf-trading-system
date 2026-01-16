@@ -23,6 +23,7 @@ dependencies = [
     "plotly>=5.18.0",
     "python-telegram-bot>=20.0",
     "python-multipart>=0.0.21",
+    "numba>=0.59.1,<0.60.0",
 ]
 
 [dependency-groups]

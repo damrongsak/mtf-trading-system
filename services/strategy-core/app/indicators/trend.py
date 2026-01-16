@@ -12,7 +12,7 @@ def calculate_ema(close: pd.Series, span: int) -> pd.Series:
 
 # --- Numba Compiled ADX Calculation Logic (VectorBT) ---
 
-@njit(cache=True)
+@njit(cache=False)
 def get_tr_nb(high, low, close):
     """Calculate True Range."""
     tr = np.zeros_like(close)
@@ -29,7 +29,7 @@ def get_tr_nb(high, low, close):
             tr[i, c] = max(val1, max(val2, val3))
     return tr
 
-@njit(cache=True)
+@njit(cache=False)
 def get_dm_nb(high, low):
     """Calculate +DM and -DM."""
     rows, cols = high.shape
@@ -45,43 +45,36 @@ def get_dm_nb(high, low):
                 minus_dm[i, c] = down_move
     return plus_dm, minus_dm
 
-@njit(cache=True)
+@njit(cache=False)
 def wilders_nodes_nb(a, length):
-    """Wilder's Smoothing (alpha=1/length)."""
+    """Wilder's Smoothing (alpha=1/length) with lazy initialization."""
     rows, cols = a.shape
     out = np.full_like(a, np.nan)
     alpha = 1.0 / length
+    
     for c in range(cols):
         run_sum = 0.0
-        nan_count = 0
-        for i in range(length):
-            if not np.isnan(a[i, c]):
-                run_sum += a[i, c]
-            else:
-                nan_count += 1
+        valid_count = 0
+        initialized = False
         
-        # Simple Mean Initialization
-        if nan_count == 0:
-             out[length-1, c] = run_sum / length 
-        
-        for i in range(length, rows):
-            prev = out[i-1, c]
+        for i in range(rows):
             curr = a[i, c]
-            if np.isnan(prev):
-                 if i == length-1 and nan_count == 0: pass # Handled above
-                 elif i >= length and not np.isnan(curr):
-                     # Try lazy init if simple mean failed? 
-                     # For standard wilder, we need strict N periods.
-                     pass 
+            if np.isnan(curr):
+                continue
+            
+            if not initialized:
+                run_sum += curr
+                valid_count += 1
+                if valid_count == length:
+                    out[i, c] = run_sum / length
+                    initialized = True
             else:
-                 if not np.isnan(curr):
-                     out[i, c] = prev + alpha * (curr - prev)
-                 else:
-                     out[i, c] = prev # Carrier forward? Or Nan? Standard is usually break.
+                prev = out[i-1, c]
+                out[i, c] = prev + alpha * (curr - prev)
                      
     return out
 
-@njit(cache=True)
+@njit(cache=False)
 def adx_apply_nb(high, low, close, length):
     """Main ADX Calculation function for IndicatorFactory."""
     tr = get_tr_nb(high, low, close)

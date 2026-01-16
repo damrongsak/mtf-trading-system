@@ -102,6 +102,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
+      - NUMBA_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
     deploy:
       resources:
         limits:
