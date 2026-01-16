@@ -4,6 +4,9 @@ import numpy as np
 from app.market_data import SharedMarketDataManager
 from typing import Dict, Any, Optional
 
+import vectorbt as vbt
+from app import indicators
+
 logger = logging.getLogger(__name__)
 
 class DynamicBotExecutor:
@@ -33,16 +36,11 @@ class DynamicBotExecutor:
             # 2. Prepare Sandbox Context
             # We strictly limit what's available
             
-            # Helper indicators
-            try:
-                import pandas_ta as ta
-            except ImportError:
-                ta = None
-            
             local_scope = {
                 "pd": pd,
                 "np": np,
-                "ta": ta,
+                "vbt": vbt,
+                "indicators": indicators,
             }
             
             # Execute the module definition
