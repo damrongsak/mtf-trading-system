@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from app.registry import hybrid_alpha_strategy
+from app.strategies.hybrid_alpha_v1.strategy import strategy as hybrid_alpha_strategy
 
 @pytest.mark.asyncio
 async def test_hybrid_alpha_low_score():

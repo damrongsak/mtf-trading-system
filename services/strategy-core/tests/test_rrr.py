@@ -71,7 +71,7 @@ def test_check_rrr():
 
 @pytest.mark.asyncio
 async def test_smc_v1_strategy_rrr_integration():
-    from app.registry import smc_v1_strategy
+    from app.strategies.smc_v1.strategy import strategy as smc_v1_strategy
     
     state = MagicMock()
     state.symbol = "XAUUSD"
