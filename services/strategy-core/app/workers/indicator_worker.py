@@ -26,6 +26,8 @@ class IndicatorWorker:
         self.stream_key = "market.data.stream"
         self.group_name = "indicator_group"
         self.consumer_name = os.getenv("HOSTNAME", socket.gethostname())
+        self.symbol_cache: Dict[str, Any] = {} # symbol -> market_symbol_id
+        self.cache_refresh_interval = 300 # 5 minutes
 
     async def start(self):
         self.running = True
@@ -34,6 +36,11 @@ class IndicatorWorker:
         
         # Create Consumer Group
         await self._ensure_group_exists()
+        
+        # Initial Cache Load
+        await self._refresh_cache()
+        asyncio.create_task(self._cache_maintenance_loop())
+        
         asyncio.create_task(self._consume_loop())
 
     async def _ensure_group_exists(self):
@@ -47,6 +54,33 @@ class IndicatorWorker:
                 logger.info(f"Consumer group {self.group_name} already exists.")
             else:
                 logger.error(f"Group create error: {e}")
+
+    async def _refresh_cache(self):
+        """Loads all active MarketSymbols into memory."""
+        logger.info("Refreshing symbol cache...")
+        try:
+            db = SessionLocal()
+            try:
+                # Query only ACTIVE symbols
+                # We need the symbol string and the ID
+                symbols = db.query(MarketSymbol).filter(MarketSymbol.is_active == True).all()
+                
+                new_cache = {}
+                for s in symbols:
+                    new_cache[s.symbol] = s.id
+                
+                self.symbol_cache = new_cache
+                logger.info(f"Loaded {len(self.symbol_cache)} active symbols into cache.")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Failed to refresh symbol cache: {e}")
+
+    async def _cache_maintenance_loop(self):
+        """Periodically refreshes the cache."""
+        while self.running:
+            await asyncio.sleep(self.cache_refresh_interval)
+            await self._refresh_cache()
 
     async def stop(self):
         self.running = False
@@ -93,9 +127,17 @@ class IndicatorWorker:
             symbol = fields.get("symbol")
             timeframe = fields.get("timeframe")
             
+            # 1. Check Cache
+            if symbol not in self.symbol_cache:
+                # debug log only to avoid spamming if lots of disabled symbols exist
+                # logger.debug(f"Skipping {symbol} (not in active cache)")
+                return
+
+            market_symbol_id = self.symbol_cache[symbol]
+            
             # Fetch history and calculate
             # Run in thread pool to avoid blocking async loop
-            features = await asyncio.to_thread(self._calculate_sync, symbol, timeframe)
+            features = await asyncio.to_thread(self._calculate_sync, market_symbol_id, symbol, timeframe)
             
             if features:
                 # Publish to Alpha Stream
@@ -122,16 +164,10 @@ class IndicatorWorker:
         except Exception as e:
             logger.error(f"Error processing message {message_id}: {e}")
 
-    def _calculate_sync(self, symbol: str, timeframe: str) -> Optional[Dict[str, Any]]:
+    def _calculate_sync(self, market_symbol_id: Any, symbol: str, timeframe: str) -> Optional[Dict[str, Any]]:
         db = SessionLocal()
         try:
-            # Resolve Symbol ID
-            # Assuming we prioritize OANDA or generic
-            # Efficient symbol lookup
-            ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
-            if not ms:
-                 logger.warning(f"Symbol {symbol} not found in DB.")
-                 return None
+            # Symbol ID is passed directly, no need to lookup
             
             # Fetch Candles (Last 200)
             # Using raw SQL for speed/simplicity as in backtest.py
@@ -145,7 +181,7 @@ class IndicatorWorker:
             """)
             
             df = pd.read_sql(query, db.bind, params={
-                "market_symbol_id": ms.id,
+                "market_symbol_id": market_symbol_id,
                 "timeframe": timeframe
             })
             
