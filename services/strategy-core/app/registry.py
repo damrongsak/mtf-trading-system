@@ -4,9 +4,9 @@ import logging
 from typing import Optional, Dict
 import pandas as pd
 from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
-from app.indicators import calculate_ema, calculate_rsi, calculate_macd
 from app.engine.expression_engine import ExpressionEngine
 from app.indicators.smc import detect_order_blocks
+from app.strategies.volatility_breakout.strategy import strategy as volatility_breakout_strategy
 logger = logging.getLogger(__name__)
 
 # --- Template Functions ---
@@ -371,7 +371,8 @@ class StrategyRegistry:
         "MACD_CROSS_V1": macd_cross_strategy,
         "EMA_RSI_V1": ema_rsi_strategy,
         "ALPHA_ENGINE_V1": alpha_engine_strategy,
-        "HYBRID_ALPHA_V1": hybrid_alpha_strategy
+        "HYBRID_ALPHA_V1": hybrid_alpha_strategy,
+        "STRAT_VOL_BREAKOUT_V1": volatility_breakout_strategy
     }
     
     _metadata = {
@@ -411,6 +412,16 @@ class StrategyRegistry:
             "description": "Statistical Momentum Filter with Order Block Entry",
             "defaults": {
                 "alpha_threshold": 0.8
+            }
+        },
+        "STRAT_VOL_BREAKOUT_V1": {
+            "name": "Volatility Breakout V1",
+            "description": "Compression Breakout Strategy with AI Metadata",
+            "defaults": {
+                "atr_period": 14,
+                "atr_smooth_period": 20,
+                "adr_period": 20,
+                "keltner_mult": 2.0
             }
         }
     }

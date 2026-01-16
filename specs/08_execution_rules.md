@@ -36,6 +36,24 @@ Strategies are assembled from these standardized, reusable blocks.
     * **Logic**: 15m Candle with `Body/Range > 0.70` (SMC Impulse).
     * **State**: TRIGGER if confirmed close.
 
+### 2.4 Volatility Blocks (New)
+* Used to identify compression and expansion regimes.
+* **BLOCK_VOL_COMPRESSION**:
+    * **Logic**: `ATR(14) < SMA(ATR(14), 20)` OR `Current_Daily_Range < ADR(20)`.
+    * **State**: COMPRESSION if true.
+* **BLOCK_VOL_BREAKOUT**:
+    * **Logic**: Price Close > Upper Keltner Channel OR < Lower Keltner Channel.
+    * **State**: BREAKOUT_UP / BREAKOUT_DOWN.
+
+## 2.5 Strategy Compositions
+
+### STRAT_VOL_BREAKOUT_V1
+A pure volatility expansion strategy.
+1.  **Context**: Market is in `BLOCK_VOL_COMPRESSION`.
+2.  **Trigger**: `BLOCK_VOL_BREAKOUT` confirmed.
+3.  **Risk**: Stop Loss at `2.0 * ATR` from entry. Target at `1.0 * ADR`.
+4.  **AI Metadata**: Must report `compression_ratio`, `regime`, `volatility_metrics`.
+
 ---
 
 ## 3. Layer 4: Risk Citadel (The Rules)
