@@ -4,6 +4,12 @@ from app.logic import check_macro_bias, check_setup_zone, check_trigger, calcula
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "Smart Money Concepts V1",
+    "description": "MTF Analysis with Order Blocks and FVGs",
+    "defaults": {}
+}
+
 async def strategy(state, data_manager):
     """
     SMC V1: Macro Bias (H4) + Setup Zone (H1) + Trigger (M15)

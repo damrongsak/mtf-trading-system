@@ -5,6 +5,18 @@ from app.indicators import calculate_atr
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "Athena Alpha Engine",
+    "description": "Generic Formula Execution",
+    "defaults": {
+        "formula": "rsi(close, 14)",
+        "threshold_long": 30,
+        "condition_long": "lt",
+        "threshold_short": 70,
+        "condition_short": "gt"
+    }
+}
+
 async def strategy(state, data_manager):
     """
     ALPHA_ENGINE_V1: Generic Formula Execution.

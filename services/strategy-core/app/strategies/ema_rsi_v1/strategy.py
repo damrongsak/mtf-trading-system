@@ -4,6 +4,17 @@ from app.indicators import calculate_ema, calculate_rsi
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "Bias Buy/Sell (EMA + RSI)",
+    "description": "Trend Following (EMA200) with Counter-Trend Entry (RSI)",
+    "defaults": {
+        "ema_period": 200,
+        "rsi_period": 14,
+        "rsi_overbought": 70,
+        "rsi_oversold": 30
+    }
+}
+
 async def strategy(state, data_manager):
     """
     EMA (200) + RSI (14) Strategy

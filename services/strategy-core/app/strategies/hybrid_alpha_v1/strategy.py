@@ -5,6 +5,14 @@ from app.indicators.smc import detect_order_blocks
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "Hybrid (Momentum + SMC)",
+    "description": "Statistical Momentum Filter with Order Block Entry",
+    "defaults": {
+        "alpha_threshold": 0.8
+    }
+}
+
 async def strategy(state, data_manager):
     """
     HYBRID_ALPHA_V1: Setup (Alpha/Momentum) + Trigger (SMC/OrderBlock).

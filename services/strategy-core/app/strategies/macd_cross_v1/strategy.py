@@ -4,6 +4,12 @@ from app.indicators import calculate_macd
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "MACD Crossover",
+    "description": "Standard Momentum Strategy",
+    "defaults": {}
+}
+
 async def strategy(state, data_manager):
     """
     Simple MACD Crossover

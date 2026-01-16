@@ -12,22 +12,26 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
 
 ## Process
 
-1.  **Define Strategy Metadata**
-    *   Open `services/strategy-core/app/registry.py`.
-    *   Add a new entry to `StrategyRegistry._metadata`.
-    *   Define `defaults` (parameters like `rsi_period`, `window`).
+## Process
 
-2.  **Create Strategy Directory**
+1.  **Create Strategy Directory**
     *   Create a new directory: `services/strategy-core/app/strategies/<strategy_name>/`.
     *   Create `__init__.py` inside.
 
-3.  **Implement Strategy Logic**
+2.  **Implement Strategy Logic & Metadata**
     *   Create `services/strategy-core/app/strategies/<strategy_name>/strategy.py`.
+    *   **Define `METADATA`** at the module level:
+        ```python
+        METADATA = {
+            "name": "Strategy Name",
+            "description": "Short description",
+            "defaults": { "param": "value" }
+        }
+        ```
     *   Define the async function `async def strategy(state, data_manager):`.
-    *   **MUST** return a dict with keys: `direction` ("BULLISH"/"BEARISH"), `stop_loss`, `reason`, and **`metadata`**.
-    *   **MUST** populate `metadata` with structured data.
+    *   **MUST** return a dict with keys: `direction` ("LONG"/"SHORT"), `stop_loss`, `reason`, and **`metadata`**.
 
-4.  **Create Documentation (README.md)**
+3.  **Create Documentation (README.md)**
     *   Create `services/strategy-core/app/strategies/<strategy_name>/README.md`.
     *   **Content MUST include:**
         *   `# Strategy Name`
@@ -36,12 +40,7 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
         *   `## Parameters`: List of config keys and defaults.
         *   `## AI Metadata`: Schema of the `metadata` field for AI Agents.
 
-5.  **Register the Strategy**
-    *   Import the function in `services/strategy-core/app/registry.py`:
-        `from app.strategies.<strategy_name>.strategy import strategy as <name>_strategy`
-    *   Add to `StrategyRegistry._strategies`.
-
-6.  **Add a Unit Test**
+4.  **Add a Unit Test**
     *   Create a new test file: `services/strategy-core/tests/test_strategy_<name>.py`.
     *   Mock `data_manager` and `state`.
     *   Assert that the strategy returns the expected signal and **valid metadata**.
@@ -49,10 +48,17 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
         ```bash
         docker compose exec strategy-core uv run pytest services/strategy-core/tests/test_strategy_<name>.py
         ```
+    *   **(Optional)** Verify discovery by running `test_registry_discovery.py` if available.
 
 ## Code Template
 ```python
-async def my_strategy(state, data_manager):
+METADATA = {
+    "name": "My Strategy",
+    "description": "Description...",
+    "defaults": { "period": 14 }
+}
+
+async def strategy(state, data_manager):
     symbol = state.symbol
     config = state.config_json
     
@@ -67,13 +73,15 @@ async def my_strategy(state, data_manager):
     # ...
 
     return {
-        "direction": "BULLISH",
+        "direction": "LONG", # or "SHORT"
         "stop_loss": 100.0,
+        "take_profit": 110.0,
         "reason": "Test Signal",
         "metadata": {
-            "signal_timestamp": str(df.index[-1]), # Explicit candle time
+            "strategy_name": METADATA["name"],
+            "description": METADATA["description"],
+            "signal_timestamp": str(df.index[-1]),
             "rsi_val": 25.5,
-            "ema_trend": "UP",
             "confidence": 0.85
         }
     }

@@ -7,6 +7,17 @@ from app.indicators import calculate_ema
 
 logger = logging.getLogger(__name__)
 
+METADATA = {
+    "name": "Volatility Breakout V1",
+    "description": "Compression Breakout Strategy with AI Metadata",
+    "defaults": {
+        "atr_period": 14,
+        "atr_smooth_period": 20,
+        "adr_period": 20,
+        "keltner_mult": 2.0
+    }
+}
+
 async def strategy(state, data_manager):
     """
     STRAT_VOL_BREAKOUT_V1: Volatility Compression Breakout Strategy
