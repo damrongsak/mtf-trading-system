@@ -50,6 +50,13 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
         ```
     *   **(Optional)** Verify discovery by running `test_registry_discovery.py` if available.
 
+5.  **Sync with Database (Frontend Visibility)**
+    To make the strategy appear in the Frontend Editor ("Saved Strategies"), run the seed script:
+    ```bash
+    docker compose exec api-gateway uv run python scripts/seed_strategies.py
+    ```
+
+
 ## Code Template
 ```python
 METADATA = {
