@@ -325,9 +325,14 @@ export default function MarketPage() {
               () => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), 
               (res) => {
                   if (!res.adx) return;
-                  // Handle nullable numbers in response by defaulting to 0 or filtering
-                  const safeAdx = res.adx.map(v => v ?? 0);
-                  newInds.push({ name: 'ADX', data: safeAdx, color: '#eab308', priceScaleId: 'left' });
+                  
+                  // Zip ADX components
+                  const adxData = res.adx.map((v: number | null, i: number) => ({
+                      value: v ?? 0,
+                      dmp: res.dmp?.[i] ?? 0,
+                      dmn: res.dmn?.[i] ?? 0
+                  }));
+                  newInds.push({ name: 'ADX', data: adxData, color: '#eab308', priceScaleId: 'left' });
               }
            ));
       }
@@ -563,6 +568,7 @@ export default function MarketPage() {
                                 <div className="flex items-center gap-4 ml-4">
                                     <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
                                         {[
+                                            { id: 'ADX', label: 'ADX', state: showADX, set: setShowADX },
                                             { id: 'EMA', label: 'EMA', state: showEMA, set: setShowEMA },
                                             { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
                                             { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
@@ -648,6 +654,23 @@ export default function MarketPage() {
                                                         height={150}
                                                         // @ts-expect-error - Color types
                                                         colors={{ lineColor: '#2962FF', signalColor: '#FF6D00', histColor: '#26a69a', textColor: '#525252' }}
+                                                    />
+                                                );
+                                            }
+                                            if (ind.name.startsWith('ADX')) {
+                                                return (
+                                                    <IndicatorChart 
+                                                        key={ind.name}
+                                                        type="ADX"
+                                                        data={ind.data.map((v: { value: number; dmp: number; dmn: number }, i: number) => ({ 
+                                                            time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, 
+                                                            value: v.value,
+                                                            dmp: v.dmp,
+                                                            dmn: v.dmn
+                                                        }))}
+                                                        height={100}
+                                                        // @ts-expect-error - Color types
+                                                        colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
                                                 );
                                             }
@@ -742,7 +765,7 @@ export default function MarketPage() {
                 <Panel 
                     id="account-panel"
                     ref={accountPanelRef}
-                    defaultSize={mainLayout?.[1] ?? 30} 
+                    defaultSize={mainLayout?.[1] ?? 10} 
                     minSize={4} 
                     collapsible={true}
                     onCollapse={() => {

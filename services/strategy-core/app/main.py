@@ -247,15 +247,12 @@ def get_adx(req: ADXRequest):
         if adx_df is None or adx_df.empty:
              return ADXResponse(adx=[], dmp=[], dmn=[])
              
-        # Columns are dynamic like ADX_14, DMP_14. We grab by index or flexible naming.
-        # pandas-ta output order: ADX, DMP, DMN usually.
-        # But safest is to find cols starting with ADX, DMP, DMN
-        cols = adx_df.columns
-        adx_col = next((c for c in cols if c.startswith('ADX')), None)
-        dmp_col = next((c for c in cols if c.startswith('DMP')), None)
-        dmn_col = next((c for c in cols if c.startswith('DMN')), None)
+        # Columns are already normalized to lower case in calculate_adx
+        # adx, dmp, dmn
         
         def clean(s):
+            # Ensure safe numeric type
+            s = pd.to_numeric(s, errors='coerce')
             values = []
             for val in s:
                  if pd.isna(val) or np.isinf(val):
@@ -265,9 +262,9 @@ def get_adx(req: ADXRequest):
             return values
 
         return ADXResponse(
-            adx=clean(adx_df[adx_col]) if adx_col else [],
-            dmp=clean(adx_df[dmp_col]) if dmp_col else [],
-            dmn=clean(adx_df[dmn_col]) if dmn_col else []
+            adx=clean(adx_df['adx']) if 'adx' in adx_df else [],
+            dmp=clean(adx_df['dmp']) if 'dmp' in adx_df else [],
+            dmn=clean(adx_df['dmn']) if 'dmn' in adx_df else []
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,9 +12,11 @@ export interface SingleIndicatorData {
 
 export interface MultiIndicatorData {
   time: Time;
-  value: number; // For main line (e.g. MACD)
+  value: number; // For main line (e.g. MACD/ADX)
   signal?: number; // For signal line
   hist?: number; // For histogram
+  dmp?: number; // ADX DI+
+  dmn?: number; // ADX DI-
 }
 
 export interface IndicatorChartProps {
@@ -120,7 +122,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
     seriesRef.current = [];
 
     // Create new series based on type
-    if (type === 'RSI' || type === 'ATR' || type === 'ADX') {
+    if (type === 'RSI' || type === 'ATR') {
         const areaSeries = chartRef.current.addSeries(AreaSeries, {
             lineColor: colors.lineColor || '#2962FF',
             topColor: (colors.lineColor || '#2962FF') + '66', // 40% opacity (hex approximation 66)
@@ -139,6 +141,33 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
               areaSeries.createPriceLine({ price: 70, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
               areaSeries.createPriceLine({ price: 30, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
         }
+    } else if (type === 'ADX') {
+         // ADX Main
+         const adxSeries = chartRef.current.addSeries(LineSeries, {
+             color: colors.lineColor || '#eab308',
+             lineWidth: 2,
+         });
+         seriesRef.current.push(adxSeries);
+         // Register Sync
+         if (registerChart && chartRef.current) unregisterSyncRef.current = registerChart(chartRef.current, adxSeries);
+
+         // DI+ (Green)
+         const dmpSeries = chartRef.current.addSeries(LineSeries, {
+             color: '#22c55e',
+             lineWidth: 1,
+         });
+         seriesRef.current.push(dmpSeries);
+
+         // DI- (Red)
+         const dmnSeries = chartRef.current.addSeries(LineSeries, {
+             color: '#ef4444',
+             lineWidth: 1,
+         });
+         seriesRef.current.push(dmnSeries);
+         
+         // Level 25
+         adxSeries.createPriceLine({ price: 25, color: 'rgba(255,255,255,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+
     } else if (type === 'MACD') {
         // Histogram
         const histSeries = chartRef.current.addSeries(HistogramSeries, {
@@ -181,7 +210,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
   useEffect(() => {
     if (!chartRef.current || seriesRef.current.length === 0 || data.length === 0) return;
 
-    if (type === 'RSI' || type === 'ATR' || type === 'ADX') {
+    if (type === 'RSI' || type === 'ATR') {
         const lineData = cleanLineSeriesData(data);
         // Assuming seriesRef.current[0] is the main line
         seriesRef.current[0].setData(lineData);
@@ -194,6 +223,14 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         if (seriesRef.current[0]) seriesRef.current[0].setData(histData);
         if (seriesRef.current[1]) seriesRef.current[1].setData(macdData);
         if (seriesRef.current[2]) seriesRef.current[2].setData(signalData);
+    } else if (type === 'ADX') {
+        const adxData = cleanLineSeriesData(data, 'time', 'value');
+        const dmpData = cleanLineSeriesData(data, 'time', 'dmp');
+        const dmnData = cleanLineSeriesData(data, 'time', 'dmn');
+
+        if (seriesRef.current[0]) seriesRef.current[0].setData(adxData);
+        if (seriesRef.current[1]) seriesRef.current[1].setData(dmpData);
+        if (seriesRef.current[2]) seriesRef.current[2].setData(dmnData);
     }
 
     // Only fit content on initial data load to prevent jumping
@@ -227,9 +264,17 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
            // Strategy: If we have data, show the last item in data prop as default?
            if (data.length > 0) {
                const last = data[data.length - 1];
-               newLegend.set('Main', last.value);
-               if (last.signal !== undefined) newLegend.set('Signal', last.signal);
-               if (last.hist !== undefined) newLegend.set('Hist', last.hist);
+               if (type === 'ADX') {
+                    newLegend.set('ADX', last.value);
+                    if (last.dmp !== undefined) newLegend.set('DI+', last.dmp);
+                    if (last.dmn !== undefined) newLegend.set('DI-', last.dmn);
+               } else if (type === 'MACD') {
+                   newLegend.set('MACD', last.value);
+                   if (last.signal !== undefined) newLegend.set('Signal', last.signal);
+                   if (last.hist !== undefined) newLegend.set('Hist', last.hist);
+               } else {
+                   newLegend.set(type, last.value);
+               }
            }
        } else {
            // Iterate over all series
@@ -247,6 +292,10 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
                    if (sIdx === 0) label = 'Hist';
                    if (sIdx === 1) label = 'MACD';
                    if (sIdx === 2) label = 'Signal';
+               } else if (type === 'ADX') {
+                   if (sIdx === 0) label = 'ADX';
+                   if (sIdx === 1) label = 'DI+';
+                   if (sIdx === 2) label = 'DI-';
                } else {
                    label = type;
                }
@@ -278,6 +327,10 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
            if (last.hist !== undefined) initialLegend.set('Hist', last.hist); // Index 0
            initialLegend.set('MACD', last.value); // Index 1
            if (last.signal !== undefined) initialLegend.set('Signal', last.signal); // Index 2
+       } else if (type === 'ADX') {
+            initialLegend.set('ADX', last.value);
+            if (last.dmp !== undefined) initialLegend.set('DI+', last.dmp);
+            if (last.dmn !== undefined) initialLegend.set('DI-', last.dmn);
        } else {
            initialLegend.set(type, last.value);
        }
@@ -313,7 +366,11 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
                 let color = colors.lineColor;
                 if (label === 'Signal') color = colors.signalColor;
                 if (label === 'Hist') color = colors.histColor;
-                if (type !== 'MACD') color = colors.lineColor; // RSI/ATR
+                if (type === 'ADX') {
+                    if (label === 'ADX') color = colors.lineColor;
+                    if (label === 'DI+') color = '#22c55e';
+                    if (label === 'DI-') color = '#ef4444';
+                } else if (type !== 'MACD') color = colors.lineColor; // RSI/ATR
 
                 return (
                     <div key={label} className="flex items-center gap-1">
