@@ -15,7 +15,35 @@ def worker():
     w = IndicatorWorker()
     w.redis = AsyncMock()
     # Mock calculate sync to avoid true DB calls
-    w._calculate_sync = MagicMock(return_value={"rsi": 50})
+    w._calculate_sync = MagicMock(return_value={
+        "type": "FEATURE",
+        "symbol": "EUR_USD",
+        "timeframe": "15m",
+        "timestamp": "2023-01-01",
+        "close": 1.1000,
+        "high": 1.1050,
+        "low": 1.0950,
+        "rsi_14": 55.5,
+        "macd": 0.002,
+        "macd_signal": 0.001,
+        "macd_hist": 0.001,
+        "bb_upper": 1.1100,
+        "bb_middle": 1.1000,
+        "bb_lower": 1.0900,
+        "adx": 25.0,
+        "di_plus": 30.0,
+        "di_minus": 15.0,
+        "high_20": 1.1200,
+        "low_20": 1.0800,
+        "swing_high": 1.1150,
+        "swing_low": 1.0850,
+        "smc": {
+            "order_blocks": [{"type": "bullish", "top": 1.12}],
+            "fvgs": [],
+            "liquidity_sweeps": [],
+            "structure": {"labels": []}
+        }
+    })
     return w
 
 @pytest.mark.asyncio
