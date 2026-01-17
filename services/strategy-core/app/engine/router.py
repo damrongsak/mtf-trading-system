@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import pandas as pd
 import numpy as np
+import traceback
 
 from app.engine.expression_engine import ExpressionEngine, SecurityException
 from app.backtest import fetch_data_from_db
@@ -97,8 +98,8 @@ def _run_alpha(req: AlphaRequest, mode: str):
         # Simplified for preview
         metrics = {}
         
-        # Replace NaN
-        result_clean = result_series.replace([np.inf, -np.inf], np.nan).fillna(0)
+        # Replace NaN and ensure float (handles boolean signals from logic ops)
+        result_clean = result_series.replace([np.inf, -np.inf], np.nan).fillna(0).astype(float)
         
         # Calculate Returns
         # Simple strategy: If signal > 0 buy, else flat.
@@ -125,6 +126,10 @@ def _run_alpha(req: AlphaRequest, mode: str):
             metrics=metrics,
             timestamps=timestamps
         )
+            
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Logic Error: {str(e)}")
 
     finally:
         db.close()
