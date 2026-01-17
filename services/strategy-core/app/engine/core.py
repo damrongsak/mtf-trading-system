@@ -197,10 +197,12 @@ class StrategyEngine:
                 
             # Extract Price (using mid price)
             price = (float(data["bid"]) + float(data["ask"])) / 2
+            bid = float(data["bid"])
+            ask = float(data["ask"])
             timestamp = pd.to_datetime(data["time"])
             
             # 1. Update Manager
-            market_data_manager.update_tick(symbol, price, timestamp) 
+            market_data_manager.update_tick(symbol, price, timestamp, bid=bid, ask=ask) 
             
             # 2. Tick Fleet
             from app.fleet import FleetManager

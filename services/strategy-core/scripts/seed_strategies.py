@@ -85,6 +85,7 @@ def seed_strategies():
                     new_strat = SavedStrategy(
                         user_id=user_id,
                         name=name,
+                        code=content,
                         is_public=True, # Make them public/system templates
                         parameters={}
                     )

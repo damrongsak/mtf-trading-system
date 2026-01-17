@@ -513,6 +513,16 @@ entities:
         default: true
         description: "Whether the candle is closed/complete"
       # MTF Indicators (Computed, Non-Look-Ahead)
+      - name: delta
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+        description: "Net Buy Volume - Net Sell Volume"
+      - name: footprint
+        type: jsonb
+        nullable: true
+        description: "Intra-candle volume data (Price Ladder with Bid/Ask volume)"
       - name: ema_9_4h
         type: decimal
         precision: 18

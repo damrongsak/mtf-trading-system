@@ -91,26 +91,33 @@ class StrategyRegistry:
                                 # To get 1 year for a VBT strategy, we need to fetch from DB.
                                 # But wrapper runs inside 'strategy-core' service, so we can access DB.
                                 
-                                from app.backtest import fetch_data_from_db
-                                from app.database import SessionLocal
-                                from app.models.market import MarketSymbol
-                                from app.models.data_source import DataSource
+                                df = pd.DataFrame()
                                 
-                                # Resolve ID
-                                db = SessionLocal()
-                                try:
-                                    ms = db.query(MarketSymbol).filter(
-                                        (MarketSymbol.symbol == state.symbol) | (MarketSymbol.symbol == state.symbol.replace("/", "_"))
-                                    ).first()
-                                    if not ms:
-                                        logger.error(f"MarketSymbol not found for {state.symbol}")
-                                        return None
-                                    market_symbol_id = ms.id
-                                finally:
-                                    db.close()
+                                # 1a. Try Live Data Manager first (Priority for Real-Time)
+                                if data_manager:
+                                    # data_manager might be SharedMarketDataManager or similar
+                                    if hasattr(data_manager, "get_data"):
+                                        df = data_manager.get_data(state.symbol)
                                 
-                                # Fetch
-                                df = fetch_data_from_db(market_symbol_id, state.timeframe, start_date, end_date)
+                                # 1b. Fallback/Supplement with DB if empty or insufficient (Simplification: Use DB if Live empty)
+                                if df.empty:
+                                    from app.backtest import fetch_data_from_db
+                                    from app.database import SessionLocal
+                                    from app.models.market import MarketSymbol
+                                    from app.models.data_source import DataSource
+                                    
+                                    # Resolve ID
+                                    db = SessionLocal()
+                                    try:
+                                        ms = db.query(MarketSymbol).filter(
+                                            (MarketSymbol.symbol == state.symbol) | (MarketSymbol.symbol == state.symbol.replace("/", "_"))
+                                        ).first()
+                                        if ms:
+                                            market_symbol_id = ms.id
+                                            # Fetch
+                                            df = fetch_data_from_db(market_symbol_id, state.timeframe, start_date, end_date)
+                                    finally:
+                                        db.close()
                                 
                                 if df.empty:
                                     logger.warning(f"No data for {state.symbol} in wrapper.")
@@ -164,10 +171,10 @@ class StrategyRegistry:
                                 logger.error(f"Error in strategy wrapper for {item}: {e}")
                                 return None
 
-                        cls._strategies[strategy_id] = wrapper
+                        cls._strategies[item] = wrapper
 
-                    cls._metadata[strategy_id] = metadata
-                    logger.info(f"Registered strategy: {strategy_id}")
+                    cls._metadata[item] = metadata
+                    logger.info(f"Registered strategy: {item}")
                         
                 except Exception as e:
                     logger.error(f"Failed to load strategy {item}: {e}")
