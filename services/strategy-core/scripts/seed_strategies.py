@@ -76,7 +76,7 @@ def seed_strategies():
                 if existing:
                     print(f"Updating strategy: {name}")
                     existing.code = content
-                    existing.description = description
+                    existing.code = content
                     # Merge parameters if needed, or just keep existing. 
                     # For a reset, we might want to update.
                     # existing.parameters = {} 
@@ -85,8 +85,6 @@ def seed_strategies():
                     new_strat = SavedStrategy(
                         user_id=user_id,
                         name=name,
-                        description=description,
-                        code=content,
                         is_public=True, # Make them public/system templates
                         parameters={}
                     )
