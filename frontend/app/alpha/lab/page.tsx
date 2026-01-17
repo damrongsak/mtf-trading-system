@@ -18,8 +18,45 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { deployAlphaStrategy } from '@/lib/api/alpha';
 
+const STRATEGY_EXAMPLES = [
+    {
+        name: "Trend Awareness (ADX)",
+        code: `# Trend Following Strategy
+# Buy when:
+# 1. Trend is Strong (ADX > 25)
+# 2. Bulls are in control (DI+ > DI-)
+# Note: Use & for 'AND', | for 'OR' (Bitwise logic for Series)
+
+(adx(high, low, close, 14) > 25) & (di_plus(high, low, close, 14) > di_minus(high, low, close, 14))`
+    },
+    {
+        name: "Momentum Breakout",
+        code: `# Momentum Breakout
+# Buy when Close breaks above the 20-period High (Donchian Channel)
+# We compare Close to the *previous* 20-period High
+
+close > ts_max(delay(high, 1), 20)`
+    },
+    {
+        name: "Mean Reversion (RSI Proxy)",
+        code: `# Mean Reversion (Deep Pullback)
+# Buy when price drops significantly relative to recent range
+# (Close < Low of last 5 days)
+
+close < ts_min(low, 5)`
+    },
+    {
+        name: "Relative Value (Rank)",
+        code: `# Cross-Sectional Value
+# Buy when this asset is in the bottom 10% of the universe
+# (Requires multiple assets in context)
+
+rank(close) < 0.10`
+    }
+];
+
 const AlphaLabPage = () => {
-    const { runAlpha, isRunning, result, error, code, symbol, setSymbol, timeframe, setTimeframe, startDate, setStartDate, endDate, setEndDate } = useAlphaStore();
+    const { runAlpha, isRunning, result, error, code, setFormula, symbol, setSymbol, timeframe, setTimeframe, startDate, setStartDate, endDate, setEndDate } = useAlphaStore();
     
     // Deployment State
     const [isDeployOpen, setIsDeployOpen] = useState(false);
@@ -28,6 +65,14 @@ const AlphaLabPage = () => {
         name: '',
         description: '',
     });
+
+    const handleLoadExample = (exampleName: string) => {
+        const example = STRATEGY_EXAMPLES.find(e => e.name === exampleName);
+        if (example) {
+            setFormula(example.code);
+            toast.info(`Loaded example: ${exampleName}`);
+        }
+    };
 
     const handleDeploy = async () => {
         if (!deployConfig.name || !code) {
@@ -112,6 +157,20 @@ const AlphaLabPage = () => {
                                 placeholder="End Date"
                              />
                         </div>
+
+                         {/* Load Example Dropdown */}
+                         <Select onValueChange={handleLoadExample}>
+                            <SelectTrigger className="w-[160px] border-slate-700 bg-slate-950 text-emerald-400 border-dashed">
+                                <SelectValue placeholder="Load Example..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800">
+                                {STRATEGY_EXAMPLES.map((ex) => (
+                                    <SelectItem key={ex.name} value={ex.name}>
+                                        {ex.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="h-8 w-[1px] bg-slate-800 mx-2" />

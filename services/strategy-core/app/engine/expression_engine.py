@@ -27,6 +27,9 @@ class ExpressionEngine:
             ast.LtE: operator.le,
             ast.Eq: operator.eq,
             ast.NotEq: operator.ne,
+            # Logical (Bitwise for Pandas)
+            ast.BitAnd: operator.and_,
+            ast.BitOr: operator.or_,
         }
         
         # DataFrame/Series operations
