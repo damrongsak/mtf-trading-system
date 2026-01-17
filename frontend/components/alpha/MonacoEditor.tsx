@@ -1,24 +1,13 @@
-import React, { useCallback, useRef } from 'react';
+import React from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { useAlphaStore } from '@/lib/stores/useAlphaStore';
-import { useDebouncedCallback } from 'use-debounce'; // Need to install or implement debounce
-
-// Simple debounce implementation if library missing
-function useDebounce<T extends (...args: unknown[]) => void>(func: T, wait: number) {
-    const timeout = useRef<NodeJS.Timeout | null>(null);
-    return useCallback((...args: unknown[]) => {
-        if (timeout.current) clearTimeout(timeout.current);
-        timeout.current = setTimeout(() => {
-            func(...args);
-        }, wait);
-    }, [func, wait]);
-}
+import { useDebouncedCallback } from 'use-debounce';
 
 const AlphaEditor = () => {
     const { formula, setFormula, runAlpha } = useAlphaStore();
     
     // Debounced preview
-    const handlePreview = useDebounce(() => {
+    const handlePreview = useDebouncedCallback(() => {
         runAlpha('preview');
     }, 500);
 
@@ -47,7 +36,7 @@ const AlphaEditor = () => {
         // Completion Provider
         monaco.languages.registerCompletionItemProvider('python', {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            provideCompletionItems: (model: any, position: any) => {
+            provideCompletionItems: (_model: any, _position: any) => {
                 const suggestions = [
                     {
                         label: 'rank',
