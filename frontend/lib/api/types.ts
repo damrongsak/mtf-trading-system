@@ -229,6 +229,15 @@ export interface Signal {
     broker?: string;
     strategy_name?: string;
     rrr?: number;
+    status?: SignalStatus;
+    id?: string;
+}
+
+export enum SignalStatus {
+    CREATED = "CREATED",
+    PENDING_APPROVAL = "PENDING_APPROVAL",
+    EXECUTED = "EXECUTED",
+    REJECTED = "REJECTED"
 }
 
 // ========================================
@@ -259,6 +268,7 @@ export interface RecentSignal {
     tp_price?: number;
     reason?: string;
     broker?: string;
+    status?: string;
 }
 
 // ========================================

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { SignalCard } from '@/components/SignalCard';
+import { PendingSignalsList } from '@/components/signals/PendingSignalsList';
 import { SkippedTradesTable } from '@/components/analysis/SkippedTradesTable';
 
 import { getRecentSignals } from '@/lib/api/dashboard';
@@ -39,6 +40,8 @@ export default function SignalsPage() {
             Real-time trading opportunities detected by AI and MTF analysis.
           </p>
         </header>
+
+        <PendingSignalsList />
 
         {loading ? (
           <div className="flex justify-center items-center h-64">

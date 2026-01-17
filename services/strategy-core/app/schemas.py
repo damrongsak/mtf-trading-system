@@ -7,6 +7,7 @@ class ExecutionMode(str, Enum):
     MANUAL = "MANUAL"
     SEMIAUTO = "SEMIAUTO"
     AUTO = "AUTO"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
 
 class IndicatorRequest(BaseModel):
     data: List[float]

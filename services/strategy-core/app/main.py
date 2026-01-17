@@ -506,6 +506,9 @@ app.include_router(plugins_internal_router)
 from app.routers.strategies import router as strategies_router
 app.include_router(strategies_router, prefix="/api/v1")
 
+from app.routers.execution_flow import router as execution_flow_router
+app.include_router(execution_flow_router, prefix="/api/v1")
+
 # Global Worker
 indicator_worker = None
 

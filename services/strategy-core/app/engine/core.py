@@ -333,7 +333,8 @@ class StrategyEngine:
                 reason=signal.get('reason'),
                 meta_data=signal.get('meta_data', {}),
                 sentiment_score=sentiment_data.get("score") if sentiment_data else None,
-                sentiment_reason=sentiment_data.get("reason") if sentiment_data else None
+                sentiment_reason=sentiment_data.get("reason") if sentiment_data else None,
+                status="PENDING_APPROVAL" if state.mode == ExecutionMode.PENDING_APPROVAL else "CREATED"
             )
             # Mark if blocked in metadata
             if is_sentiment_blocked:
@@ -348,6 +349,10 @@ class StrategyEngine:
 
         if is_sentiment_blocked:
             return # Stop execution
+
+        if state.mode == ExecutionMode.PENDING_APPROVAL:
+            logger.info(f"Signal for {strategy_id} set to PENDING_APPROVAL. Waiting for user action.")
+            return
 
         if state.mode == ExecutionMode.AUTO:
             try:
@@ -392,6 +397,18 @@ class StrategyEngine:
                 
                 response = await execution_client.place_order(order_payload)
                 logger.info(f"Executed AUTO order for {strategy_id}: {response}")
+
+                # Update SignalLog to EXECUTED
+                try:
+                    db_update = SessionLocal()
+                    sig_to_update = db_update.query(SignalLog).filter(SignalLog.id == new_signal.id).first()
+                    if sig_to_update:
+                        sig_to_update.status = "EXECUTED"
+                        # sig_to_update.execution_id = response.get("id") # If response has ID
+                        db_update.commit()
+                    db_update.close()
+                except Exception as update_ex:
+                    logger.error(f"Failed to update signal status to EXECUTED: {update_ex}")
                     
             except Exception as e:
                 logger.error(f"Execution failed: {e}")

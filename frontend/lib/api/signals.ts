@@ -1,5 +1,6 @@
+
 import { apiClient } from './client';
-import { APIResponse, Signal } from './types';
+import { APIResponse, Signal, RecentSignal } from './types';
 
 /**
  * Get the latest signal for a symbol
@@ -30,9 +31,26 @@ export async function getBatchSignals(broker: string = "OANDA"): Promise<Signal[
 /**
  * Get detected signals history from database
  */
-export async function getDetectedSignals(limit: number = 20): Promise<Signal[]> {
+export async function getDetectedSignals(limit: number = 20, status?: string): Promise<Signal[]> {
+    const params: any = { limit };
+    if (status) params.status = status;
+
     const response = await apiClient.get<APIResponse<Signal[]>>('/api/v1/signal/detected', {
-        params: { limit }
+        params
     });
     return response.data.data || [];
+}
+
+/**
+ * Approve a pending signal
+ */
+export async function approveSignal(signalId: string): Promise<void> {
+    await apiClient.post(`/api/v1/signals/${signalId}/approve`);
+}
+
+/**
+ * Reject a pending signal
+ */
+export async function rejectSignal(signalId: string): Promise<void> {
+    await apiClient.post(`/api/v1/signals/${signalId}/reject`);
 }

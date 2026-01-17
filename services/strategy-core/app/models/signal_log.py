@@ -18,6 +18,10 @@ class SignalLog(Base):
     timeframe = Column(String, default="H1")
     direction = Column(String, nullable=False) # BULLISH, BEARISH, NEUTRAL
     
+    # Execution Flow
+    status = Column(String, default="CREATED") # CREATED, PENDING_APPROVAL, EXECUTED, REJECTED
+    execution_id = Column(String, nullable=True) # ID from Execution Service
+    
     strategy_name = Column(String, nullable=True) # "SMC Scanner" or "Deployment-123"
     deployment_id = Column(UUID(as_uuid=True), index=True, nullable=True)
     
