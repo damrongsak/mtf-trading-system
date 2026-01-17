@@ -44,20 +44,11 @@ async def test_volatility_breakout_long():
     
     df = pd.DataFrame({'open': close, 'high': high, 'low': low, 'close': close})
     
-    # 2. Mock State & DataManager
-    class MockState:
-        def __init__(self, symbol, config):
-            self.symbol = symbol
-            self.config_json = config
-            self.timeframe = "D1" # optional if needed
-            
-    state = MockState("TEST", {"keltner_mult": 2.0})
+    # 2. Config
+    params = {"keltner_mult": 2.0}
     
-    data_manager = MagicMock()
-    data_manager.get_data.return_value = df
-    
-    # 3. Run
-    signal = await volatility_breakout_strategy(state, data_manager)
+    # 3. Run (Sync)
+    entries, exits, signal = volatility_breakout_strategy(df, params)
     
     # 4. Assert
     assert signal is not None
@@ -71,6 +62,11 @@ async def test_volatility_breakout_long():
     # Check AI metadata
     assert "atr_14" in signal['metadata']['volatility']
     assert "technical" in signal['metadata']
+    
+    # Check Series
+    assert entries is not None
+    assert isinstance(entries, pd.Series)
+    assert entries.iloc[-1] == True
 
 @pytest.mark.asyncio
 async def test_volatility_no_breakout():
@@ -84,16 +80,11 @@ async def test_volatility_no_breakout():
     
     df = pd.DataFrame({'open': close, 'high': high, 'low': low, 'close': close})
     
-    class MockState:
-        def __init__(self, symbol, config):
-            self.symbol = symbol
-            self.config_json = config
-            
-    state = MockState("TEST", {})
+    params = {}
     
-    data_manager = MagicMock()
-    data_manager.get_data.return_value = df
-    
-    signal = await volatility_breakout_strategy(state, data_manager)
+    entries, exits, signal = volatility_breakout_strategy(df, params)
     
     assert signal is None
+    # Entries should be all false (or None)
+    if entries is not None:
+        assert not entries.iloc[-1]

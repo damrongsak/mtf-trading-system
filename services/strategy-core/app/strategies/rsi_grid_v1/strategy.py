@@ -15,63 +15,43 @@ METADATA = {
     }
 }
 
-async def strategy(state, data_manager):
+
+def strategy(data, params=None):
     """
     MTF-RSI-Grid V1: Dynamic Parameter Selection Strategy.
-    Uses VectorBT to test multiple RSI windows and thresholds in real-time.
     """
-    symbol = state.symbol
-    timeframe = state.timeframe
+    if params is None:
+        params = {}
+        
+    config = METADATA["defaults"].copy()
+    config.update(params)
     
     # 1. Get Data
-    df_base = data_manager.get_data(symbol)
-    if df_base.empty or len(df_base) < 100:
-        return None
+    if data.empty or len(data) < 100:
+        return None, None, None
         
-    close = df_base['close']
+    close = data['close']
     
-    # 2. Configuration Grid
-    # We test a grid of RSI windows
-    windows = [5, 9, 14, 21, 50]
-    
-    # Thresholds could also be a grid, but let's stick to standard 30/70 for simplicity 
-    # or simple dynamic bands to keep dimension 2D (time x window) instead of 3D.
+    # 2. Config
+    windows = config.get('windows', [5, 9, 14, 21, 50])
+    lookback = int(config.get('lookback', 100))
     oversold_iso = 30
     overbought_iso = 70
     
-    # 3. VectorBT Calculation (Broadcasting)
-    # This runs RSI for ALL windows at once
-    # Result shape: (Rows, len(windows))
     try:
+        # 3. VectorBT Calculation
         rsi = vbt.RSI.run(close, window=windows).rsi
-    except Exception as e:
-        logger.error(f"VBT RSI Grid calculation failed: {e}")
-        return None
         
-    # 4. Generate Signals (Hypothetical)
-    entries = rsi < oversold_iso
-    exits = rsi > overbought_iso
-    
-    # 5. Determine Best Parameter Set (Lookback Selection)
-    # We want to know which 'window' performed best recently (e.g. last 100 candles)
-    # We can simulate a portfolio for the lookback period
-    lookback = 100
-    if len(close) < lookback:
-        lookback = len(close)
+        # 4. Generate Signals
+        entries_grid = rsi < oversold_iso
+        exits_grid = rsi > overbought_iso
         
-    # Slice the last 'lookback' period for simulation
-    # Note: VBT handles slicing efficiently
-    # We simulate 'from_signals'
-    # fees=0.0 to focus on raw signal quality
-    
-    try:
-        # We need to run simulation on the recent slice to see which param set is 'hot'
-        # A simple approximation is "Total Return" of the signal trail
-        # Or even simpler: Win Rate of recent signals.
-        # Let's use Portfolio for robustness.
-        
-        sim_entries = entries.iloc[-lookback:]
-        sim_exits = exits.iloc[-lookback:]
+        # 5. Lookback Selection
+        if len(close) < lookback:
+            lookback = len(close)
+            
+        sim_entries = entries_grid.iloc[-lookback:]
+        sim_exits = exits_grid.iloc[-lookback:]
         sim_price = close.iloc[-lookback:]
         
         pf = vbt.Portfolio.from_signals(
@@ -79,36 +59,39 @@ async def strategy(state, data_manager):
             sim_entries, 
             sim_exits, 
             fees=0.0,
-            freq='1m' # Dummy freq
+            freq='1m'
         )
         
-        # Get Total Return per Window
-        # This returns a Series indexed by Window
         perf = pf.total_return()
-        
-        # Find the winner
         best_window = perf.idxmax()
         grid_score = perf.max()
         
-        # If best return is negative, maybe we shouldn't trade at all?
-        # For this V1, we take the best relative performer.
-        
     except Exception as e:
         logger.warning(f"Optimization step failed: {e}")
-        # Fallback to standard 14
         best_window = 14
         grid_score = 0.0
+        # Re-calc fallback if VBT failed completely? 
+        # Assuming rsi was calculated or we fallback
+        if 'rsi' not in locals():
+             rsi = vbt.RSI.run(close, window=14).rsi
+             entries_grid = rsi < 30
+             exits_grid = rsi > 70
+             best_window = 14
 
-    # 6. Check Current Signal for the Winner
-    # We look at the LAST row of the Winner's column
-    # rsi is a DataFrame where columns are windows
-    
-    current_rsi_val = rsi[best_window].iloc[-1]
-    is_long = entries[best_window].iloc[-1]
-    is_short = exits[best_window].iloc[-1] # RSI Mean Reversion: 'Exit' acts as Short Entry in reversal strategies?
-    # standard RSI is Long Only (Oversold=Buy). 
-    # But usually > 70 can be Short.
-    # Let's define Direction based on thresholds.
+    # 6. Select "Winner" Signals for Return
+    if isinstance(best_window, int) and best_window in rsi.columns:
+         final_entries = entries_grid[best_window]
+         final_exits = exits_grid[best_window]
+         current_rsi_val = rsi[best_window].iloc[-1]
+    else:
+         # Fallback if indices are weird
+         final_entries = entries_grid.iloc[:, 0]
+         final_exits = exits_grid.iloc[:, 0]
+         current_rsi_val = rsi.iloc[-1, 0]
+
+    # 7. Live Check
+    is_long = final_entries.iloc[-1]
+    is_short = final_exits.iloc[-1]
     
     direction = None
     reason = None
@@ -117,49 +100,35 @@ async def strategy(state, data_manager):
         direction = SignalDirection.LONG
         reason = f"RSI({best_window}) < {oversold_iso}"
     elif is_short:
-        # If we treat > 70 as Short
         direction = SignalDirection.SHORT
         reason = f"RSI({best_window}) > {overbought_iso}"
         
-    if not direction:
-        return None
+    signal_dict = None
+    if direction:
+        stop_loss = calculate_stop_loss(data, direction)
+        entry_price = close.iloc[-1]
         
-    # 7. Risk Management (ATR Based)
-    # Calculate ATR for SL using standard 14 regardless of RSI window
-    # or match the window? Standard 14 is safer for ATR.
-    
-    # We need ATR logic. 
-    # Let's assume we use a standard 1.5x ATR SL
-    
-    # Import locally to avoid circular if needed, or use logic util
-    # We don't have ATR in 'data_manager' directly usually, need calculation.
-    # Let's use simple logic helper if available, or calc generic
-    # For now, simple % based fallback if ATR not handy, 
-    # BUT we should use `calculate_stop_loss` if possible.
-    
-    stop_loss = calculate_stop_loss(df_base, direction)
-    entry_price = close.iloc[-1]
-    
-    # Simple 1:2 RR
-    dist = abs(entry_price - stop_loss)
-    if direction == SignalDirection.LONG:
-        take_profit = entry_price + (dist * 2)
-    else:
-        take_profit = entry_price - (dist * 2)
-        
-    return {
-        "direction": direction.value,
-        "stop_loss": stop_loss,
-        "take_profit": take_profit,
-        "target_price": take_profit,
-        "rrr": 2.0,
-        "reason": f"MTF-RSI-Grid: {reason} (Best Window: {best_window}, Score: {grid_score:.4f})",
-        "metadata": {
-            "strategy_name": "MTF-RSI-Grid",
-            "description": "Dynamic RSI Optimization (Best Fit)",
-            "signal_timestamp": str(df_base.index[-1]),
-            "selected_window": int(best_window),
-            "selected_threshold": oversold_iso if direction == SignalDirection.LONG else overbought_iso,
-            "grid_score": float(grid_score)
+        dist = abs(entry_price - stop_loss)
+        if direction == SignalDirection.LONG:
+            take_profit = entry_price + (dist * 2)
+        else:
+            take_profit = entry_price - (dist * 2)
+            
+        signal_dict = {
+            "direction": direction.value,
+            "stop_loss": stop_loss,
+            "take_profit": take_profit,
+            "target_price": take_profit,
+            "rrr": 2.0,
+            "reason": f"MTF-RSI-Grid: {reason} (Best Window: {best_window}, Score: {grid_score:.4f})",
+            "metadata": {
+                "strategy_name": "MTF-RSI-Grid",
+                "description": "Dynamic RSI Optimization (Best Fit)",
+                "signal_timestamp": str(data.index[-1]),
+                "selected_window": int(best_window),
+                "selected_threshold": oversold_iso if direction == SignalDirection.LONG else overbought_iso,
+                "grid_score": float(grid_score)
+            }
         }
-    }
+        
+    return final_entries, final_exits, signal_dict

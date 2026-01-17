@@ -6,7 +6,7 @@ import importlib
 from typing import Optional, Dict, Any
 import pandas as pd
 from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
-from app.engine.expression_engine import ExpressionEngine
+
 from app.indicators.smc import detect_order_blocks
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,7 @@ class StrategyRegistry:
     _strategies: Dict[str, Any] = {}
     _metadata: Dict[str, Dict] = {}
     _loaded = False
+    _executor = None # ThreadPoolExecutor
 
     @classmethod
     def load_strategies(cls):
@@ -22,6 +23,12 @@ class StrategyRegistry:
         Dynamically discovers and registers strategies from the 'strategies' directory.
         Looks for 'strategy.py' in each subdirectory.
         """
+        if not cls._executor:
+            # Initialize Executor (CPU * 2 is a common default for mixed I/O-CPU)
+            import concurrent.futures
+            # max_workers=None defaults to num_cpus + 4 in Python 3.8+
+            cls._executor = concurrent.futures.ThreadPoolExecutor()
+
         strategies_dir = os.path.join(os.path.dirname(__file__), "strategies")
         
         if not os.path.exists(strategies_dir):
@@ -117,7 +124,16 @@ class StrategyRegistry:
                                 params = metadata.get("defaults", {})
                                 
                                 # Call
-                                result = original_func(df, params=params)
+                                # Call (Offload to Thread)
+                                # We use functools.partial to pass args
+                                import functools
+                                
+                                loop = asyncio.get_running_loop()
+                                # result = original_func(df, params=params) 
+                                result = await loop.run_in_executor(
+                                    cls._executor, 
+                                    functools.partial(original_func, df, params=params)
+                                )
                                 
                                 # 3. Extract Signal
                                 entries, exits = None, None
@@ -236,7 +252,8 @@ class StrategyRegistry:
                 "check_setup_zone": check_setup_zone,
                 "check_trigger": check_trigger,
                 "calculate_stop_loss": calculate_stop_loss,
-                "calculate_ema": calculate_ema, # Assumes logic imports these? logic.py doesn't export them directly usually
+                # "calculate_ema": calculate_ema, # Removed due to missing import
+                "SignalDirection": SignalDirection,
                 # Fix: Need to import these calculate_* if they are needed.
                 # But for now, let's keep list clean.
                 "SignalDirection": SignalDirection,

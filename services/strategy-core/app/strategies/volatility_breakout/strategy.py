@@ -18,96 +18,79 @@ METADATA = {
     }
 }
 
-async def strategy(state, data_manager):
+
+def strategy(data, params=None):
     """
-    STRAT_VOL_BREAKOUT_V1: Volatility Compression Breakout Strategy
-    
-    Logic:
-    1. Identify Compression: 
-       - Current ATR(14) < SMA(ATR(14), 20) 
-       - OR Current Daily Range < ADR(20)
-    2. Identify Breakout:
-       - Price closes outside Keltner Channels (EMA +/- 2*ATR)
-    3. Signal:
-       - Buy if Close > Upper Channel
-       - Sell if Close < Lower Channel
-    4. AI Context:
-       - Metadata includes compression ratios and regimes.
+    Unified Strategy: Volatility Compression Breakout
     """
-    symbol = state.symbol
-    config = state.config_json if hasattr(state, 'config_json') else {}
+    if params is None:
+        params = {}
+        
+    config = METADATA["defaults"].copy()
+    config.update(params)
     
     # Parameters
-    atr_period = config.get('atr_period', 14)
-    atr_smooth_period = config.get('atr_smooth_period', 20)
-    adr_period = config.get('adr_period', 20)
-    keltner_mult = config.get('keltner_mult', 2.0)
+    atr_period = int(config.get('atr_period', 14))
+    atr_smooth_period = int(config.get('atr_smooth_period', 20))
+    adr_period = int(config.get('adr_period', 20))
+    keltner_mult = float(config.get('keltner_mult', 2.0))
     
-    # 1. Get Data
-    df = data_manager.get_data(symbol)
-    if df.empty or len(df) < max(atr_period, adr_period) + 20:
-        return None
+    if data.empty or len(data) < max(atr_period, adr_period) + 20:
+        return None, None, None
         
     try:
-        high = df['high']
-        low = df['low']
-        close = df['close']
+        high = data['high']
+        low = data['low']
+        close = data['close']
         
-        # 2. Indicators
+        # 1. Indicators
         atr = calculate_atr(high, low, close, window=atr_period)
         atr_sma = atr.rolling(window=atr_smooth_period).mean()
         
         adr = calculate_adr(high, low, window=adr_period)
+        emax = calculate_ema(close, span=20) # Keltner Center
         
-        ema = calculate_ema(close, span=20) # Keltner Center
+        # 2. Vectorized Logic
+        # Compression: Current Vol (ATR) < Average Vol (ATR SMA)
+        compression = (atr < atr_sma)
         
+        # "Was in Compression" = Previous bar was compressed
+        was_compression = compression.shift(1)
+        
+        # Keltner Channels
+        upper_channel = emax + (keltner_mult * atr)
+        lower_channel = emax - (keltner_mult * atr)
+        
+        # Breakout
+        breakout_up = close > upper_channel
+        breakout_down = close < lower_channel
+        
+        # Signal = Was in Compression AND Breaking out now
+        # Note: We trigger on the FIRST bar of breakout
+        entries = was_compression & breakout_up
+        exits = was_compression & breakout_down
+        
+        # 3. Live Context (Last Candle)
+        current_close = close.iloc[-1]
+        curr_upper = upper_channel.iloc[-1]
+        curr_lower = lower_channel.iloc[-1]
         current_atr = atr.iloc[-1]
         current_atr_sma = atr_sma.iloc[-1]
         current_adr = adr.iloc[-1]
         
-        # Current daily range (Need to estimate if intraday, or use previous day)
-        # For simplicity, using (High - Low) of current bar as proxy for "volatility now" vs daily avg?
-        # No, the spec says "Period of low volatility". 
-        # Let's use the ATR Ratio.
-        
         compression_ratio = current_atr / current_atr_sma if current_atr_sma > 0 else 1.0
         
-        # Check Compression (Regime)
-        is_compression = compression_ratio < 1.0
-        
-        # Keltner Channels
-        upper_channel = ema + (keltner_mult * atr)
-        lower_channel = ema - (keltner_mult * atr)
-        
-        current_close = close.iloc[-1]
-        prev_close = close.iloc[-2]
-        
-        curr_upper = upper_channel.iloc[-1]
-        curr_lower = lower_channel.iloc[-1]
-        
-        # 3. Logic: Breakout from Compression
         direction = None
         reason = ""
         
-        # We want to have BEEN in compression, and now BREAKING OUT.
-        # Or simply: Logic is "Breakout", and we tag metadata with regim?
-        # Spec says: "Context: Market is in BLOCK_VOL_COMPRESSION".
-        # So we trigger ONLY if we observe compression recently.
-        # Let's check if we were in compression 1 bar ago.
+        if entries.iloc[-1]:
+            direction = "BULLISH"
+            reason = f"Volatility Breakout Up (Close {current_close:.2f} > Upper {curr_upper:.2f})"
+        elif exits.iloc[-1]:
+            direction = "BEARISH"
+            reason = f"Volatility Breakout Down (Close {current_close:.2f} < Lower {curr_lower:.2f})"
         
-        prev_atr = atr.iloc[-2]
-        prev_atr_sma = atr_sma.iloc[-2]
-        was_compression = prev_atr < prev_atr_sma
-        
-        if was_compression:
-            # Check Breakout
-            if current_close > curr_upper:
-                direction = "BULLISH"
-                reason = f"Volatility Breakout Up (Close {current_close:.2f} > Upper {curr_upper:.2f})"
-            elif current_close < curr_lower:
-                direction = "BEARISH"
-                reason = f"Volatility Breakout Down (Close {current_close:.2f} < Lower {curr_lower:.2f})"
-        
+        signal_dict = None
         if direction:
             # Stop Loss: 2 * ATR
             sl_dist = 2.0 * current_atr
@@ -119,7 +102,7 @@ async def strategy(state, data_manager):
             
             # AI Metadata
             metadata = {
-                "signal_timestamp": str(df.index[-1]), # Explicit candle time
+                "signal_timestamp": str(data.index[-1]),
                 "volatility": {
                     "atr_14": float(current_atr),
                     "adr_20": float(current_adr),
@@ -133,7 +116,7 @@ async def strategy(state, data_manager):
                 }
             }
             
-            return {
+            signal_dict = {
                 "direction": direction,
                 "stop_loss": stop_loss,
                 "target_price": target_price,
@@ -141,8 +124,8 @@ async def strategy(state, data_manager):
                 "metadata": metadata
             }
             
+        return entries, exits, signal_dict
+            
     except Exception as e:
-        logger.error(f"Error in Volatility Breakout Strategy {symbol}: {e}")
-        return None
-        
-    return None
+        logger.error(f"Error in Volatility Breakout Strategy: {e}")
+        return None, None, None

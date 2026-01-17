@@ -10,62 +10,88 @@ METADATA = {
     "defaults": {}
 }
 
-async def strategy(state, data_manager):
+
+def strategy(data, params=None):
     """
     SMC V1: Macro Bias (H4) + Setup Zone (H1) + Trigger (M15)
     """
-    symbol = state.symbol
-    timeframe = state.timeframe # e.g. M15
-    
-    # 1. Get Data
-    df_base = data_manager.get_data(symbol)
-    
-    if df_base.empty or len(df_base) < 100:
-        return None
-
-    # Resampling Logic
-    try:
-        df_h1 = df_base.set_index('timestamp').resample('1h').agg({
-            'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-        }).dropna().reset_index()
+    if params is None:
+        params = {}
         
-        df_h4 = df_base.set_index('timestamp').resample('4h').agg({
+    # 1. Get Data
+    if data.empty or len(data) < 100:
+        return None, None, None
+
+    # Resampling Logic (Sync)
+    try:
+        # data index must be datetime
+        if not isinstance(data.index, pd.DatetimeIndex):
+             # Try to convert if possible or return
+             df_base = data.copy()
+             df_base['timestamp'] = pd.to_datetime(df_base['timestamp']) if 'timestamp' in df_base.columns else pd.to_datetime(df_base.index)
+             df_base = df_base.set_index('timestamp')
+        else:
+             df_base = data
+             
+        df_h1 = df_base.resample('1h').agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-        }).dropna().reset_index()
+        }).dropna()
+        
+        df_h4 = df_base.resample('4h').agg({
+            'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
+        }).dropna()
+        
     except Exception as e:
-        logger.warning(f"Resampling failed for {symbol}: {e}")
-        return None
+        logger.warning(f"Resampling failed: {e}")
+        return None, None, None
 
-    # Logic
+    # Logic (Scalar/Live mostly)
+    # We construct empty series for entries/exits
+    entries = pd.Series(False, index=data.index)
+    exits = pd.Series(False, index=data.index)
+    
+    direction = None
+    reason = ""
+    signal_dict = None
+    
+    # Run Checks for Latest Candle
     bias = check_macro_bias(df_h4)
-    if bias == SignalDirection.NEUTRAL:
-        return None
-
-    if not check_setup_zone(df_h1, bias):
-        return None
-
-    if not check_trigger(df_base, bias):
-        return None
-
-    stop_loss = calculate_stop_loss(df_base, bias)
     
-    # --- RRR Filter ---
-    entry_price = df_base['close'].iloc[-1]
-    target_price = calculate_target_price(df_h1, bias, entry_price, stop_loss)
-    
-    if not check_rrr(entry_price, stop_loss, target_price):
-         logger.info(f"Signal filtered by RRR: Entry={entry_price}, SL={stop_loss}, TP={target_price}")
-         return None
+    if bias != SignalDirection.NEUTRAL:
+        in_zone = check_setup_zone(df_h1, bias)
+        triggered = check_trigger(df_base, bias)
+        
+        if in_zone and triggered:
+            # Calculate Risk
+            stop_loss = calculate_stop_loss(df_base, bias)
+            entry_price = df_base['close'].iloc[-1]
+            target_price = calculate_target_price(df_h1, bias, entry_price, stop_loss)
+            
+            # RRR Check
+            if check_rrr(entry_price, stop_loss, target_price):
+                 direction = bias.value
+                 sl_val = stop_loss
+                 tp_val = target_price
+                 
+                 # Set Series
+                 if bias == SignalDirection.LONG:
+                     entries.iloc[-1] = True
+                 elif bias == SignalDirection.SHORT:
+                     exits.iloc[-1] = True # Mapping Short to Exits
+                     
+                 signal_dict = {
+                    "direction": direction,
+                    "stop_loss": sl_val,
+                    "take_profit": tp_val,
+                    "target_price": tp_val,
+                    "rrr": abs(tp_val - entry_price) / abs(entry_price - sl_val),
+                    "reason": f"SMC Entry: {bias.value} Bias + OB + Trigger",
+                    "metadata": {
+                        "signal_timestamp": str(data.index[-1]),
+                        "bias": bias.value
+                    }
+                }
+            else:
+                 logger.info(f"Signal filtered by RRR: Entry={entry_price}, SL={stop_loss}, TP={target_price}")
 
-    return {
-        "direction": bias.value,
-        "stop_loss": stop_loss,
-        "take_profit": target_price,
-        "target_price": target_price,
-        "rrr": abs(target_price - entry_price) / abs(entry_price - stop_loss),
-        "reason": f"SMC Entry: {bias.value} Bias + OB + Trigger",
-        "metadata": {
-            "signal_timestamp": str(df_base['timestamp'].iloc[-1]) if 'timestamp' in df_base.columns else str(df_base.index[-1]),
-            "bias": bias.value
-        }
-    }
+    return entries, exits, signal_dict
