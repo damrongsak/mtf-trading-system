@@ -11,11 +11,7 @@ from sqlalchemy import text
 from app.database import SessionLocal, engine
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
-from app.indicators import (
-    calculate_rsi, calculate_atr, calculate_macd, calculate_bbands, 
-    calculate_ema, calculate_adx, detect_structure,
-    detect_order_blocks, detect_fvg, detect_liquidity_sweeps
-)
+from app.processing.feature_extractor import FeatureExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +26,7 @@ class IndicatorWorker:
         self.consumer_name = os.getenv("HOSTNAME", socket.gethostname())
         self.symbol_cache: Dict[str, Any] = {} # symbol -> market_symbol_id
         self.cache_refresh_interval = 300 # 5 minutes
+        self.extractor = FeatureExtractor()
 
     async def start(self):
         self.running = True
@@ -193,146 +190,8 @@ class IndicatorWorker:
             # Sort ASC for calculation
             df = df.sort_values("timestamp").reset_index(drop=True)
             
-            # Calculations
-            # Using centralized logic from app.indicators
-            
-            # 1. RSI (14)
-            try:
-                df['rsi_14'] = calculate_rsi(df['close'], window=14)
-            except Exception as e:
-                logger.debug(f"RSI calc failed: {e}")
-                df['rsi_14'] = None
-            
-            # 2. SMA/EMA
-            # Using EMAs as per standard
-            df['ema_9'] = calculate_ema(df['close'], span=9)
-            df['ema_20'] = calculate_ema(df['close'], span=20)
-            df['ema_50'] = calculate_ema(df['close'], span=50)
-            df['ema_200'] = calculate_ema(df['close'], span=200)
-
-            # 3. ATR (14)
-            try:
-                df['atr_14'] = calculate_atr(df['high'], df['low'], df['close'], window=14)
-            except Exception as e:
-                logger.debug(f"ATR calc failed: {e}")
-                df['atr_14'] = None
-            
-            # 4. Volatility (20) - SMA based std dev
-            df['volatility'] = df['close'].pct_change().rolling(window=20).std()
-
-            # 5. MACD (12, 26, 9)
-            try:
-                macd_res = calculate_macd(df['close'], fast=12, slow=26, signal=9)
-                df['macd'] = macd_res['macd']
-                df['macd_signal'] = macd_res['signal']
-                df['macd_hist'] = macd_res['hist']
-            except Exception as e:
-                logger.debug(f"MACD calc failed: {e}") 
-                
-            # 6. Bollinger Bands (20, 2.0)
-            try:
-                bb_res = calculate_bbands(df['close'], window=20, alpha=2.0)
-                df['bb_upper'] = bb_res.upper
-                df['bb_middle'] = bb_res.middle
-                df['bb_lower'] = bb_res.lower
-            except Exception as e:
-                logger.debug(f"BB calc failed: {e}")
-
-            # 7. ADX (14)
-            try:
-                adx_res = calculate_adx(df['high'], df['low'], df['close'], length=14)
-                if adx_res is not None:
-                     df['adx'] = adx_res['adx']
-                     df['dmp'] = adx_res['dmp'] # DI+
-                     df['dmn'] = adx_res['dmn'] # DI-
-            except Exception as e:
-                logger.debug(f"ADX calc failed: {e}")
-
-            # 8. High/Low Logic
-            # Rolling 20 High/Low (Donchian-like)
-            df['high_20'] = df['high'].rolling(window=20).max()
-            df['low_20'] = df['low'].rolling(window=20).min()
-
-            # 9. SMC Structure (Swing High/Low)
-            swing_high = None
-            swing_low = None
-            smc_data = {}
-            
-            try:
-                # Calculate full structure
-                structure = detect_structure(df, window=5) 
-                
-                # Get last confirmed labels for simple Swing metrics
-                if structure['labels']:
-                    highs = [x for x in structure['labels'] if x['text'] in ['H', 'HH', 'LH']]
-                    lows = [x for x in structure['labels'] if x['text'] in ['L', 'LL', 'HL']]
-                    
-                    if highs:
-                        swing_high = highs[-1]['price']
-                    if lows:
-                        swing_low = lows[-1]['price']
-                        
-                # Package full objects
-                smc_data = {
-                    "structure": structure,
-                    "order_blocks": detect_order_blocks(df),
-                    "fvgs": detect_fvg(df),
-                    "liquidity_sweeps": detect_liquidity_sweeps(df)
-                }
-
-            except Exception as e:
-                logger.debug(f"SMC Structure calc failed: {e}")
-                smc_data = {"error": str(e)}
-
-            latest = df.iloc[-1]
-            
-            def safe_float(val):
-                if pd.isna(val) or np.isinf(val):
-                    return None
-                return float(val)
-
-            return {
-                "type": "FEATURE",
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "timestamp": latest['timestamp'],
-                "close": float(latest['close']),
-                "high": float(latest['high']),
-                "low": float(latest['low']),
-                
-                # Indicators
-                "rsi_14": safe_float(latest.get('rsi_14')),
-                "atr_14": safe_float(latest.get('atr_14')),
-                "ema_9": safe_float(latest.get('ema_9')),
-                "ema_20": safe_float(latest.get('ema_20')),
-                "ema_50": safe_float(latest.get('ema_50')),
-                "ema_200": safe_float(latest.get('ema_200')),
-                "volatility": safe_float(latest.get('volatility')),
-                
-                # MACD
-                "macd": safe_float(latest.get('macd')),
-                "macd_signal": safe_float(latest.get('macd_signal')),
-                "macd_hist": safe_float(latest.get('macd_hist')),
-                
-                # BBands
-                "bb_upper": safe_float(latest.get('bb_upper')),
-                "bb_middle": safe_float(latest.get('bb_middle')),
-                "bb_lower": safe_float(latest.get('bb_lower')),
-                
-                # ADX
-                "adx": safe_float(latest.get('adx')),
-                "di_plus": safe_float(latest.get('dmp')),
-                "di_minus": safe_float(latest.get('dmn')),
-                
-                # High/Low
-                "high_20": safe_float(latest.get('high_20')),
-                "low_20": safe_float(latest.get('low_20')),
-                "swing_high": swing_high,
-                "swing_low": swing_low,
-                
-                # Full SMC Objects
-                "smc": smc_data
-            }
+            # Extract Features
+            return self.extractor.extract_from_dataframe(df, symbol, timeframe)
 
         except Exception as e:
             logger.error(f"Calculation error for {symbol}: {e}")
