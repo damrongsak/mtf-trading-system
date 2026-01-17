@@ -63,6 +63,7 @@ export default function ConfigureStrategyPage() {
     const [brokerAccountId, setBrokerAccountId] = useState('');
     const [fundId, setFundId] = useState('00000000-0000-0000-0000-000000000000'); // Default Fund? Needs valid UUID.
     // Fetch funds?
+    const [executionMode, setExecutionMode] = useState<string>('MANUAL');
     
     const [configJson, setConfigJson] = useState<Record<string, unknown>>({});
     const [riskSettings, setRiskSettings] = useState<Record<string, unknown>>({});
@@ -122,7 +123,10 @@ export default function ConfigureStrategyPage() {
                 template_id: templateId,
                 fund_id: fundId, // Make sure this is valid in your DB!
                 broker_account_id: brokerAccountId,
-                config_json: configJson,
+                config_json: {
+                    ...configJson,
+                    execution_mode: executionMode
+                },
                 risk_settings: riskSettings
             };
             
@@ -188,6 +192,20 @@ export default function ConfigureStrategyPage() {
                                 required 
                             />
                              <p className="text-xs text-gray-500">Required for associating strategy with a fund.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                             <label className="text-sm font-medium text-gray-400">Execution Mode</label>
+                             <select
+                                value={executionMode}
+                                onChange={e => setExecutionMode(e.target.value)}
+                                className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-white focus:outline-none focus:border-accent-blue"
+                             >
+                                <option value="MANUAL">MANUAL (Log Only)</option>
+                                <option value="PENDING_APPROVAL">PENDING APPROVAL (Semi-Auto)</option>
+                                <option value="AUTO">AUTO (Full Execution)</option>
+                             </select>
+                             <p className="text-xs text-gray-500">Controls how signals are verified and executed.</p>
                         </div>
                     </div>
                 </div>
