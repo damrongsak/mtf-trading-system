@@ -221,7 +221,16 @@ class StrategyEngine:
 
         # Execute Logic
         try:
-            signal = await logic_fn(state, market_data_manager)
+            result = await logic_fn(state, market_data_manager)
+            
+            signal = None
+            if isinstance(result, tuple) and len(result) >= 3:
+                 # Support for (entries, exits, signal_dict)
+                 # We only care about the signal dict for live execution (index 2)
+                 signal = result[2]
+            elif isinstance(result, dict):
+                 signal = result
+
             if signal:
                 await self._execute_signal(strategy_id, state, signal)
         except Exception as e:

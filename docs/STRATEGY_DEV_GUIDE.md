@@ -41,65 +41,100 @@ Use the Monaco Editor to type your logic using the supported syntax:
 
 ---
 
-## Method 2: Python Plugins (Advanced)
+## Method 2: Standard Strategy Workflow (Unified)
+This is the recommended workflow for production-grade strategies. It combines the speed of the **Visual Editor** with the power of **File-Based Plugins**.
 
-For logic that requires complex control flow (loops, external APIs) or specific libraries (`pandas-ta`), use the Plugin system.
+### Phase 1: Prototype in Visual Editor (Method 3)
+Start by prototyping your logic in the interactive editor.
 
-### 1. Locate the Registry
-Open the file:
-`services/strategy-core/app/registry.py`
+1.  **Access**: [http://localhost:3000/strategies/editor](http://localhost:3000/strategies/editor).
+2.  **Code Logic**: Write a standard `def strategy(data, params)` function using VectorBT.
+    ```python
+    import vectorbt as vbt
+    def strategy(data, params=None):
+        if params is None: params = {}
+        close = data['close']
+        sma = vbt.MA.run(close, int(params.get('period', 20)))
+        return sma.ma_crossed_above(close), sma.ma_crossed_below(close)
+    ```
+3.  **Verify**: Run backtests and optimizations until satisfied.
+4.  **Save**: Click the "Save" icon to keep a copy in the library.
 
-### Strategy Templates Reference
-| Template ID | Description | Config Keys |
-| :--- | :--- | :--- |
-| `ALPHA_ENGINE_V1` | Generic Formula Execution | `formula`, `threshold_long`, `threshold_short` |
-| `HYBRID_ALPHA_V1` | Momentum + Order Block | `alpha_threshold` (Default: 0.8) |
-| `SMC_V1` | Standard Smart Money Concepts | N/A |
-| `MACD_CROSS_V1` | MACD Crossover | `fast`, `slow`, `signal` |
+### Phase 2: Create Production Plugin (Method 2)
+Once your logic is proven, migrate it to the codebase for deployment.
 
-### 2. Define Your Logic
-Add a new `async` function that accepts `state` and `data_manager`.
+1.  **Create Directory**: `services/strategy-core/app/strategies/<my_strategy_v1>/`
+2.  **Create File**: `services/strategy-core/app/strategies/<my_strategy_v1>/strategy.py`
+## 2. The Standard Method (Unified Interface)
 
-**Template:**
-```python
-async def my_custom_strategy(state, data_manager):
-    """
-    My Custom Strategy Description
-    """
-    symbol = state.symbol
-    
-    # 1. Fetch Data
-    df = data_manager.get_data(symbol)
-    if df.empty:
-        return None
-        
-    # 2. Calculate Indicators
-    close = df['close']
-    sma = close.rolling(50).mean()
-    
-    # 3. Check Conditions
-    if close.iloc[-1] > sma.iloc[-1]:
-         return {
-            "direction": "BULLISH",
-            "stop_loss": sma.iloc[-1],
-            "reason": "Price > SMA"
-        }
-    return None
-```
+We now use a **Single Function** architecture. You write one synchronous, vectorized function, and the system handles the rest:
+- **Editor/Backtest**: Runs your function directly against historical data.
+- **Live Execution**: The engine **automatically wraps** your function, fetches 1 year of historical data, and extracts the latest signal for real-time trading.
 
-### 3. Register the Strategy
-Add your function to the `StrategyRegistry` class.
+### Step 1: Write the Strategy
+Create a `strategy.py` file (or use the Editor) with this exact signature:
 
 ```python
-class StrategyRegistry:
-    _strategies = {
-        # ... existing ...
-        "MY_STRAT_V1": my_custom_strategy
+import vectorbt as vbt
+import pandas as pd
+import numpy as np
+
+# Metadata for the Registry
+METADATA = {
+    "name": "Moving Average Cross V2",
+    "description": "Standardized MA Crossover Strategy",
+    "defaults": {
+        "period": 14,
+        "slow_period": 30
     }
+}
+
+def strategy(data, params=None):
+    """
+    Unified Strategy Function
+    Args:
+        data: pd.DataFrame (ohlcv)
+        params: dict of parameters
+    Returns:
+        entries, exits, signal_dict
+    """
+    if params is None: params = {}
+    period = int(params.get("period", 14))
+    slow_period = int(params.get("slow_period", 30))
+    
+    close = data['close']
+    
+    # 1. Calculate Indicators (Vectorized)
+    fast_ma = vbt.MA.run(close, period)
+    slow_ma = vbt.MA.run(close, slow_period)
+    
+    # 2. Generate Signals (Series)
+    entries = fast_ma.ma_crossed_above(slow_ma)
+    exits = fast_ma.ma_crossed_below(slow_ma)
+    
+    # 3. Return Protocol: (Entries, Exits, Signal_Dict)
+    # The Engine automatically extracts the LATEST signal for Live Trading.
+    latest_signal = {
+        "direction": "BULLISH" if entries.iloc[-1] else "BEARISH",
+        "stop_loss": float(slow_ma.ma.iloc[-1]), # Example SL logic
+        "reason": "MA Crossover",
+        "metadata": {
+            "strategy_name": METADATA["name"],
+            "fast_ma": float(fast_ma.ma.iloc[-1]),
+            "slow_ma": float(slow_ma.ma.iloc[-1]),
+            "confidence": 0.85
+        }
+    }
+    
+    return entries, exits, latest_signal
 ```
 
-### 4. Restart Strategy Core
-```bash
-docker compose restart strategy-core
-```
-
+### Step 2: Deployment
+1.  **Save File**: Place in `services/strategy-core/app/strategies/<your_strategy>/strategy.py`.
+2.  **Hot Reload**:
+    ```bash
+    curl -X POST http://localhost:8000/api/v1/strategies/reload
+    ```
+3.  **Done!**
+    - **Backtest**: Go to Frontend -> Backtest -> Select "Moving Average Cross V2". It works instantly.
+    - **Live**: Go to Frontend -> Bot -> Deploy "Moving Average Cross V2". The engine auto-wraps it.

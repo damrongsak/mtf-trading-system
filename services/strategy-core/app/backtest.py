@@ -5,7 +5,17 @@ import numpy as np
 from sqlalchemy import text
 from app.database import engine
 from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, EquityPoint, StrategyBacktestRequest
-from app.strategy import get_strategy
+from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, EquityPoint, StrategyBacktestRequest
+from app.strategy import get_strategy # Keep for built-ins
+from app.registry import StrategyRegistry # Access new registry methods
+
+def get_strategy_sync(name: str):
+    # Adapter to try Registry first, then built-in
+    s = StrategyRegistry.get_strategy_sync(name)
+    if s: return s
+    # Try built-in
+    return get_strategy(name)
+
 from uuid import uuid4
 import ast
 import multiprocessing
@@ -371,7 +381,12 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     
     # 2. Strategy Logic
     strategy_name = req.strategy_params.get("name", "ma_crossover")
-    strategy_func = get_strategy(strategy_name)
+    
+    # Try to get Sync Version (Plugin) first
+    strategy_func = get_strategy_sync(strategy_name)
+    if not strategy_func:
+        # Fallback to standard (maybe it's a built-in like ma_crossover in app/strategy.py, which is sync)
+        strategy_func = get_strategy(strategy_name)
     
     if not strategy_func:
         print(f"ERROR: Strategy '{strategy_name}' not found. Defaulting to ma_crossover.")

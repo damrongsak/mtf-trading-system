@@ -11,9 +11,6 @@ description: |
 Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
 
 ## Process
-
-## Process
-
 1.  **Create Strategy Directory**
     *   Create a new directory: `services/strategy-core/app/strategies/<strategy_name>/`.
     *   Create `__init__.py` inside.
@@ -28,8 +25,8 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
             "defaults": { "param": "value" }
         }
         ```
-    *   Define the async function `async def strategy(state, data_manager):`.
-    *   **MUST** return a dict with keys: `direction` ("LONG"/"SHORT"), `stop_loss`, `reason`, and **`metadata`**.
+    *   Define the async function `async def strategy(state, params):` (Sync/Vectorized).
+    *   **MUST** return `return entries, exits, signal_dict`.
 
 3.  **Create Documentation (README.md)**
     *   Create `services/strategy-core/app/strategies/<strategy_name>/README.md`.
@@ -52,38 +49,52 @@ Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
 
 5.  **Sync with Database (Frontend Visibility)**
     To make the strategy appear in the Frontend Editor ("Saved Strategies"), run the seed script:
-    ```bash
-    docker compose exec api-gateway uv run python scripts/seed_strategies.py
-    ```
+        ```bash
+        curl -X POST http://localhost:8000/api/v1/strategies/reload
+        ```
+
+6.  **Verify**:
+    *   **Backtest**: Check Frontend -> Strategy Editor (Select Strategy).
+    *   **Live**: Check Frontend -> Bot.
 
 
 ## Code Template
 ```python
+import vectorbt as vbt
+import pandas as pd
+
 METADATA = {
     "name": "My Strategy",
     "description": "Description...",
     "defaults": { "period": 14 }
 }
 
-async def strategy(state, data_manager):
-    symbol = state.symbol
-    config = state.config_json
+def strategy(data, params=None):
+    """
+    Unified Strategy Function (Sync/Vectorized)
+    Args:
+        data: pd.DataFrame (ohlcv)
+        params: dict of parameters
+    Returns:
+        entries, exits, signal_dict
+    """
+    if params is None: params = {}
+    period = int(params.get("period", METADATA["defaults"]["period"]))
     
-    # 1. Get Data
-    df = data_manager.get_data(symbol)
-    if df.empty: return None
-
-    # 2. Indicators
-    # ... use vectorbt or pandas ...
-
-    # 3. Logic
-    # ...
-
-    return {
-        "direction": "LONG", # or "SHORT"
-        "stop_loss": 100.0,
-        "take_profit": 110.0,
-        "reason": "Test Signal",
+    close = data['close']
+    
+    # 1. Calculate Indicators
+    sma = vbt.MA.run(close, period)
+    
+    # 2. Generate Signals
+    entries = sma.ma_crossed_above(close)
+    exits = sma.ma_crossed_below(close)
+    
+    # 3. Return Protocol
+    latest_signal = {
+        "direction": "BULLISH" if entries.iloc[-1] else "BEARISH",
+        "stop_loss": float(sma.ma.iloc[-1]),
+        "reason": "MA Cross",
         "metadata": {
             "strategy_name": METADATA["name"],
             "description": METADATA["description"],
@@ -92,4 +103,6 @@ async def strategy(state, data_manager):
             "confidence": 0.85
         }
     }
+    
+    return entries, exits, latest_signal
 ```
