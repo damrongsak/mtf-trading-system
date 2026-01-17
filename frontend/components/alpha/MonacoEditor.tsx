@@ -68,6 +68,27 @@ const AlphaEditor = () => {
                         kind: monaco.languages.CompletionItemKind.Variable,
                         insertText: 'close',
                         detail: 'Close Price'
+                    },
+                    {
+                        label: 'adx',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'adx(high, low, close, ${1:14})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        detail: 'Trend Strength (ADX)'
+                    },
+                    {
+                        label: 'di_plus',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'di_plus(high, low, close, ${1:14})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        detail: 'Directional Indicator (+)'
+                    },
+                    {
+                        label: 'di_minus',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'di_minus(high, low, close, ${1:14})',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        detail: 'Directional Indicator (-)'
                     }
                 ];
                 return { suggestions: suggestions };

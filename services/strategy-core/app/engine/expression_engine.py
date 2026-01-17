@@ -3,6 +3,7 @@ import operator
 import pandas as pd
 import numpy as np
 import logging
+from app.indicators.trend import calculate_adx
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,11 @@ class ExpressionEngine:
             'sqrt': np.sqrt,
             'abs': np.abs,
             'sign': np.sign,
+            
+            # Trend / ADX
+            'adx': lambda h, l, c, n: calculate_adx(h, l, c, n)['adx'],
+            'di_plus': lambda h, l, c, n: calculate_adx(h, l, c, n)['dmp'],
+            'di_minus': lambda h, l, c, n: calculate_adx(h, l, c, n)['dmn'],
         }
 
     def validate(self, formula: str):

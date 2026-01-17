@@ -45,6 +45,10 @@ class StrategyAdvisorAgent(OlympusWorkflow):
         
         if "ACTION: DEPLOY" in last_plan:
             state = await self.deploy_strategy(state)
+        elif "ACTION: REPORT" in last_plan:
+            # Plan itself is the response
+            clean_plan = last_plan.replace("ACTION: REPORT", "").strip()
+            state["final_response"] = clean_plan
         else:
             # Default to Code Gen (Backtest/Research)
             state = await self.generate_code(state, doc_text)
@@ -79,9 +83,21 @@ class StrategyAdvisorAgent(OlympusWorkflow):
         Check if the request duplicates an existing one. If so, mention it.
 
         # Tools & Actions
-        You have two capabilities:
+        You have three capabilities:
         1. GENERATE CODE: For backtesting in vectorbt (Python).
         2. DEPLOY STRATEGY: For launching a live Alpha Engine strategy.
+        3. GENERATE REPORT: For investment planning, risk consultation, or general advice.
+
+        If the user asks for a "Plan", "Advice", "Portfolio allocation", or "Risk management" (e.g., "I have $10,000"):
+        - Act as a Wealth Manager & Senior Quant.
+        - Analyze the user's capital, goals, and preferred strategies (Trend, SMC, ADX).
+        - Propose a concrete plan including:
+            - Risk per trade (e.g., 1-2% of Account).
+            - Max Drawdown limits.
+            - Compounding strategy.
+            - Strategy mix suggestion.
+        - Output the line "ACTION: REPORT" at the end.
+        - The content of your plan prior to "ACTION: REPORT" will be returned to the user as the final response.
 
         If the user explicitly asks to "Deploy", "Start", "Trade", or "Launch" a strategy:
         - Output the line "ACTION: DEPLOY" at the end of your plan.
@@ -110,9 +126,13 @@ class StrategyAdvisorAgent(OlympusWorkflow):
             - std(series, n): Rolling Std Dev
             - log(series): Natural log
             - sign(series): Sign of value (-1, 0, 1)
+            - adx(high, low, close, n): Average Directional Index
+            - di_plus(high, low, close, n): Plus Directional Indicator
+            - di_minus(high, low, close, n): Minus Directional Indicator
         - Inputs: 'open', 'high', 'low', 'close', 'volume'
         - Examples:
             - Momentum: "rank(close / delay(close, 5))"
+            - ADX Filter: "adx(high, low, close, 14)"
             - Mean Reversion: "-1 * correlation(close, delay(close, 1), 5)"
             - Breakout: "(close - ts_min(low, 20)) / (ts_max(high, 20) - ts_min(low, 20))"
         """
