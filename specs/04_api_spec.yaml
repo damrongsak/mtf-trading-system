@@ -643,6 +643,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_SignalList'
 
+  /api/v1/signals/{id}/approve:
+    post:
+      summary: Approve a pending signal
+      description: Manually trigger execution for a signal in PENDING_APPROVAL state.
+      tags: [Execution]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signal approved and executed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "executed"
+                  execution_response:
+                    type: object
+
+  /api/v1/signals/{id}/reject:
+    post:
+      summary: Reject a pending signal
+      description: Mark a PENDING_APPROVAL signal as REJECTED.
+      tags: [Execution]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signal rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "rejected"
+
   /api/v1/internal/signals:
     post:
       summary: Report a signal from an internal service

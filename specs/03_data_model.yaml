@@ -1560,6 +1560,15 @@ validation_rules:
         type: text
         nullable: true
         description: "Explanation of the sentiment score"
+      - name: status
+        type: enum
+        enum_values: ["CREATED", "PENDING_APPROVAL", "EXECUTED", "REJECTED", "EXPIRED"]
+        default: "CREATED"
+        required: true
+      - name: execution_id
+        type: string
+        nullable: true
+        description: "ID of the executed trade order"
 
   Plugin:
     description: "Registry of available system plugins"
