@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.streaming.adapters.oanda import OandaStreamer
+from app.streaming.adapters.ctrader import CTraderStreamer
 from app.streaming.publisher import RedisPublisher
 from app.repositories.market_repository import MarketRepository
 import logging
@@ -35,7 +36,8 @@ class StreamManager:
 
                 if ds.provider == 'OANDA':
                     self._start_oanda(ds.config_json, symbol_list)
-                # Add other adapters here (e.g. Binance)
+                elif ds.provider == 'CTRADER':
+                    self._start_ctrader(ds.config_json, symbol_list)
                 
         except Exception as e:
             logger.error(f"Failed to load data sources: {e}")
@@ -44,10 +46,13 @@ class StreamManager:
 
     def _start_oanda(self, config: dict, instruments: list):
         adapter = OandaStreamer(config, self._publish_callback)
-        
-        # OANDA v20 expects underscores
         self.adapters['oanda'] = adapter
-        
+        import asyncio
+        asyncio.create_task(adapter.start(instruments))
+
+    def _start_ctrader(self, config: dict, instruments: list):
+        adapter = CTraderStreamer(config, self._publish_callback)
+        self.adapters['ctrader'] = adapter
         import asyncio
         asyncio.create_task(adapter.start(instruments))
 

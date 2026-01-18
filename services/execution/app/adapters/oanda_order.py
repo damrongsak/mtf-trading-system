@@ -15,7 +15,7 @@ class OandaOrderAdapter(BrokerAdapter):
         self.client = API(access_token=api_key, environment=environment)
         self.account_id = account_id
 
-    def get_account_summary(self) -> Dict[str, Any]:
+    async def get_account_summary(self) -> Dict[str, Any]:
         """Fetch account balance, margin, and summary metrics from OANDA."""
         try:
             r = accounts.AccountSummary(accountID=self.account_id)
@@ -32,7 +32,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"OANDA Account Summary Error: {e}")
             raise e
 
-    def place_market_order(self, symbol: str, units: float, 
+    async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None) -> Dict[str, Any]:
@@ -79,7 +79,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
             raise e
 
-    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
@@ -125,7 +125,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to place OANDA limit order for {symbol}: {e}")
             raise e
 
-    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+    async def get_order_book(self, symbol: str) -> Dict[str, Any]:
         """
         Fetch order book snapshot from Oanda.
         """
@@ -137,7 +137,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to fetch OANDA order book for {symbol}: {e}")
             raise e
 
-    def get_open_trades(self) -> List[Dict[str, Any]]:
+    async def get_open_trades(self) -> List[Dict[str, Any]]:
         """
         Fetch all open trades from Oanda.
         """
@@ -149,7 +149,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to fetch open OANDA trades: {e}")
             raise e
 
-    def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
+    async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         """
         Close an existing trade on OANDA.
         """
@@ -168,7 +168,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to close OANDA trade {broker_trade_id}: {e}")
             raise e
 
-    def get_current_price(self, symbol: str) -> float:
+    async def get_current_price(self, symbol: str) -> float:
         """
         Fetch the current market price (midpoint) for a symbol.
         """

@@ -24,6 +24,15 @@ class BrokerFactory:
                 secret_key=credentials.get("secret_key"),
                 is_live=(credentials.get("environment") == "live")
             )
+        elif broker_name == "CTRADER":
+            from app.adapters.ctrader import CTraderOrderAdapter
+            # Map credentials: schema in DB has: app_id, secret, account_id, token
+            return CTraderOrderAdapter(
+                client_id=credentials.get("app_id"),
+                client_secret=credentials.get("secret"),
+                account_id=credentials.get("account_id"),
+                token=credentials.get("token")
+            )
         elif broker_name == "MOCK":
             from app.adapters.mock_adapter import MockAdapter
             return MockAdapter()

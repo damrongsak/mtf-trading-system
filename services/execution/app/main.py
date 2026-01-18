@@ -76,7 +76,7 @@ async def check_risk(req: ExecutionRequest):
 async def get_account_summary(req: AccountSummaryRequest):
     try:
         adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
-        data = adapter.get_account_summary()
+        data = await adapter.get_account_summary()
         return AccountSummaryResponse(**data)
     except Exception as e:
         logger.error(f"Account Summary Error: {e}", exc_info=True)
@@ -86,7 +86,7 @@ async def get_account_summary(req: AccountSummaryRequest):
 async def place_order(req: OrderRequest):
     try:
         adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
-        response = adapter.place_market_order(
+        response = await adapter.place_market_order(
             symbol=req.symbol,
             units=req.units,
             sl_price=req.sl_price,
@@ -116,7 +116,7 @@ async def place_order(req: OrderRequest):
 async def get_open_trades(req: GetTradesRequest):
     try:
         adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
-        trades = adapter.get_open_trades()
+        trades = await adapter.get_open_trades()
         return {"status": "success", "data": trades}
     except Exception as e:
         logger.error(f"Get Open Trades Error: {e}", exc_info=True)
@@ -126,7 +126,7 @@ async def get_open_trades(req: GetTradesRequest):
 async def close_trade(req: CloseTradeRequest):
     try:
         adapter = BrokerFactory.get_adapter(req.broker.broker_name, req.broker.credentials)
-        result = adapter.close_trade(req.broker_trade_id, req.units)
+        result = await adapter.close_trade(req.broker_trade_id, req.units)
         return {"status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -245,7 +245,7 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
         try:
              # Fetch Account NAV
              # We reuse the adapter we already instantiated
-             summary = adapter.get_summary() # Should return dict with 'NAV' or 'balance' or 'marginAvailable'
+             summary = await adapter.get_account_summary() # Should return dict with 'NAV' or 'balance' or 'marginAvailable'
              # Oanda summary has 'NAV' (Net Asset Value)
              nav_str = summary.get('NAV')
              if nav_str:
@@ -287,7 +287,7 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
     
     # 3. Fetch Real-time Price
     try:
-        current_price = adapter.get_current_price(req.symbol)
+        current_price = await adapter.get_current_price(req.symbol)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch live price for risk calculation: {str(e)}")
         
@@ -316,7 +316,7 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
 
     # Order Book Depth Validation
     try:
-        order_book = adapter.get_order_book(req.symbol)
+        order_book = await adapter.get_order_book(req.symbol)
         side = "asks" if req.direction == "BULLISH" else "bids"
         # Check top 5 levels of liquidity
         available_liquidity = sum(float(level.get('liquidity', 0)) for level in order_book.get(side, [])[:5])
@@ -368,7 +368,7 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
     
     if req.entry_price:
         # LIMIT / PENDING ORDER
-        response = adapter.place_limit_order(
+        response = await adapter.place_limit_order(
             symbol=req.symbol,
             units=units,
             entry_price=req.entry_price,
@@ -379,7 +379,7 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
         )
     else:
         # MARKET ORDER
-        response = adapter.place_market_order(
+        response = await adapter.place_market_order(
             symbol=req.symbol,
             units=units,
             sl_price=req.stop_loss,

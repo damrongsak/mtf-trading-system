@@ -12,7 +12,7 @@ class MockAdapter(BrokerAdapter):
         self.equity = 100000.0
         self.margin = 0.0
 
-    def get_account_summary(self) -> Dict[str, Any]:
+    async def get_account_summary(self) -> Dict[str, Any]:
         return {
             "balance": str(self.balance),
             "NAV": str(self.equity),
@@ -25,10 +25,10 @@ class MockAdapter(BrokerAdapter):
             "currency": "USD" 
         }
 
-    def get_open_trades(self) -> List[Dict[str, Any]]:
+    async def get_open_trades(self) -> List[Dict[str, Any]]:
         return []
 
-    def place_market_order(self, symbol: str, units: float, 
+    async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None) -> Dict[str, Any]:
@@ -50,7 +50,7 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
-    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
@@ -67,13 +67,13 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
-    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+    async def get_order_book(self, symbol: str) -> Dict[str, Any]:
         return {
             "bids": [{"price": str(self.get_current_price(symbol)-0.1), "liquidity": "1000000"}],
             "asks": [{"price": str(self.get_current_price(symbol)+0.1), "liquidity": "1000000"}]
         }
 
-    def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
+    async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         return {
             "tradeCloseTransaction": {
                 "tradeID": broker_trade_id,
@@ -83,7 +83,7 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
-    def get_current_price(self, symbol: str) -> float:
+    async def get_current_price(self, symbol: str) -> float:
         # Static prices for testing
         if "XAU" in symbol:
             return 2650.00

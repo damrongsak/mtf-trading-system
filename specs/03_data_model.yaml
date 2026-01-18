@@ -427,7 +427,7 @@ entities:
         primary_key: true
       - name: provider
         type: enum
-        enum_values: ["OANDA", "BINANCE"]
+        enum_values: ["OANDA", "BINANCE", "CTRADER"]
         required: true
         description: "Provider Implementation (e.g., OANDA, BINANCE)"
       - name: name
@@ -585,7 +585,7 @@ entities:
         type: string
         required: true
         max_length: 50
-        description: "Broker identifier (e.g., OANDA, BINANCE)"
+        description: "Broker identifier (e.g., OANDA, BINANCE, CTRADER)"
       - name: account_name
         type: string
         required: true
@@ -599,7 +599,7 @@ entities:
       - name: credentials_encrypted
         type: jsonb
         required: true
-        description: "Encrypted API keys and secrets. OANDA: {api_key, account_id}, BINANCE: {api_key, secret_key}"
+        description: "Encrypted API keys and secrets. OANDA: {api_key, account_id}, BINANCE: {api_key, secret_key}, CTRADER: {app_id, secret, account_id, token}"
       - name: is_active
         type: boolean
         default: true

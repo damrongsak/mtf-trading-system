@@ -1,0 +1,232 @@
+import asyncio
+import logging
+import struct
+import time
+from typing import Optional, Dict
+from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage, ProtoHeartbeatEvent
+from ctrader_open_api.messages.OpenApiMessages_pb2 import *
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
+
+logger = logging.getLogger(__name__)
+
+class AsyncCTraderClient:
+    def __init__(self, host: str, port: int, ssl: bool = True):
+        self.host = host
+        self.port = port
+        self.ssl = ssl
+        self.reader: Optional[asyncio.StreamReader] = None
+        self.writer: Optional[asyncio.StreamWriter] = None
+        self._connected = False
+        self._response_futures: Dict[str, asyncio.Future] = {}
+        self._reader_task: Optional[asyncio.Task] = None
+        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._message_handler = None
+
+    def set_message_handler(self, handler):
+        """Set a callback for unsolicited messages (e.g. Spot Events)"""
+        self._message_handler = handler
+
+    async def connect(self):
+        if self._connected:
+            return
+
+        logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
+        try:
+            self.reader, self.writer = await asyncio.open_connection(
+                self.host, self.port, ssl=self.ssl
+            )
+            self._connected = True
+            logger.info("Connected to cTrader.")
+            
+            # Start reader loop
+            self._reader_task = asyncio.create_task(self._read_loop())
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        except Exception as e:
+            logger.error(f"Failed to connect to cTrader: {e}")
+            raise
+
+    async def disconnect(self):
+        self._connected = False
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+        if self._reader_task:
+            self._reader_task.cancel()
+            
+        if self.writer:
+            self.writer.close()
+            try:
+                await self.writer.wait_closed()
+            except Exception:
+                pass
+        self.writer = None
+        self.reader = None
+        logger.info("Disconnected from cTrader.")
+
+    async def _read_loop(self):
+        try:
+            while self._connected:
+                # Read 4 bytes length (Big Endian Int32)
+                length_bytes = await self.reader.readexactly(4)
+                length = struct.unpack(">I", length_bytes)[0]
+                
+                # Check for sane length
+                if length > 10_000_000:
+                    logger.warning(f"Message too large: {length} bytes")
+                    await self.reader.readexactly(length) # Drain?
+                    continue
+
+                if length > 0:
+                    data = await self.reader.readexactly(length)
+                    await self._process_message(data)
+                    
+        except asyncio.IncompleteReadError:
+            logger.warning("Connection closed by peer (IncompleteRead).")
+            self._connected = False
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in read loop: {e}")
+            self._connected = False
+
+    async def _process_message(self, data: bytes):
+        try:
+            msg = ProtoMessage()
+            msg.ParseFromString(data)
+            
+            client_msg_id = msg.clientMsgId
+            
+            # Handle Heartbeat response (PayloadType 51 is Heartbeat Event)
+            if msg.payloadType == 51: # ProtoHeartbeatEvent().payloadType
+                # logger.debug("Heartbeat received")
+                return
+
+            # Resolve Future if pending
+            if client_msg_id and client_msg_id in self._response_futures:
+                fut = self._response_futures.pop(client_msg_id)
+                if not fut.done():
+                    fut.set_result(msg)
+            else:
+                # Handle unsolicited messages
+                if self._message_handler:
+                    try:
+                        self._message_handler(msg)
+                    except Exception as he:
+                        logger.error(f"Message handler error: {he}")
+                        # If handler is async, we should await it?
+                        # Since we are in an async function _process_message, we can.
+                        # But self._message_handler might be sync or async.
+                        # Let's support async check.
+                        if asyncio.iscoroutinefunction(self._message_handler):
+                            asyncio.create_task(self._message_handler(msg)) # Fire and forget
+
+                
+        except Exception as e:
+            logger.error(f"Failed to process message: {e}")
+
+    async def _heartbeat_loop(self):
+        while self._connected:
+            try:
+                await asyncio.sleep(10)
+                await self.send_heartbeat()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Heartbeat error: {e}")
+                self._connected = False
+                break
+
+    async def send_heartbeat(self):
+        msg = ProtoHeartbeatEvent()
+        # Wrap in ProtoMessage
+        wrapper = ProtoMessage(
+            payloadType=msg.payloadType,
+            payload=msg.SerializeToString()
+        )
+        await self._send_proto_message(wrapper)
+
+    async def send(self, payload_obj, client_msg_id: str = None) -> ProtoMessage:
+        """
+        Send a Protobuf payload and wait for response.
+        """
+        if not self._connected:
+            raise ConnectionError("Not connected")
+
+        if not client_msg_id:
+            client_msg_id = str(int(time.time() * 1000000))
+
+        # Wrap payload
+        wrapper = ProtoMessage(
+            payloadType=payload_obj.payloadType,
+            payload=payload_obj.SerializeToString(),
+            clientMsgId=client_msg_id
+        )
+        
+        # Create Future
+        fut = asyncio.get_running_loop().create_future()
+        self._response_futures[client_msg_id] = fut
+        
+        # Send
+        await self._send_proto_message(wrapper)
+        
+        # Wait
+        return await fut
+
+    async def _send_proto_message(self, msg: ProtoMessage):
+        data = msg.SerializeToString()
+        length = len(data)
+        header = struct.pack(">I", length)
+        
+        self.writer.write(header + data)
+        await self.writer.drain()
+
+    async def authorize_app(self, client_id: str, client_secret: str):
+        req = ProtoOAApplicationAuthReq()
+        req.clientId = client_id
+        req.clientSecret = client_secret
+        
+        resp_msg = await self.send(req)
+        
+        # Extract response
+        if resp_msg.payloadType == ProtoOAApplicationAuthRes().payloadType:
+            return True
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+            error = ProtoOAErrorRes()
+            error.ParseFromString(resp_msg.payload)
+            raise Exception(f"App Auth Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+             
+    async def authorize_account(self, account_id: int, token: str):
+        req = ProtoOAAccountAuthReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.accessToken = token
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAAccountAuthRes().payloadType:
+            return True
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+            error = ProtoOAErrorRes()
+            error.ParseFromString(resp_msg.payload)
+            raise Exception(f"Account Auth Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_symbols_list(self, account_id: int):
+        req = ProtoOASymbolsListReq()
+        req.ctidTraderAccountId = int(account_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOASymbolsListRes().payloadType:
+            res = ProtoOASymbolsListRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.symbol 
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Symbols Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+

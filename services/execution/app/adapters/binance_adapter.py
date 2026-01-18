@@ -24,7 +24,7 @@ class BinanceAdapter(BrokerAdapter):
         ).hexdigest()
         return signature
 
-    def get_account_summary(self) -> Dict[str, Any]:
+    async def get_account_summary(self) -> Dict[str, Any]:
         """
         Fetch account summary including NAV and margin availability.
         Note: Calculating exact NAV requires ticker prices for all assets.
@@ -37,8 +37,8 @@ class BinanceAdapter(BrokerAdapter):
         headers = {"X-MBX-APIKEY": self.api_key}
         
         try:
-            with httpx.Client(base_url=self.base_url, timeout=10.0) as client:
-                resp = client.get(endpoint, headers=headers, params=params)
+            async with httpx.AsyncClient(base_url=self.base_url, timeout=10.0) as client:
+                resp = await client.get(endpoint, headers=headers, params=params)
                 
                 if resp.status_code != 200:
                     logger.error(f"Binance API Error: {resp.text}")
@@ -79,27 +79,27 @@ class BinanceAdapter(BrokerAdapter):
                 "openPositionCount": 0
             }
 
-    def get_open_trades(self) -> List[Dict[str, Any]]:
+    async def get_open_trades(self) -> List[Dict[str, Any]]:
         # Placeholder
         return []
 
-    def place_market_order(self, symbol: str, units: float, sl_price: Optional[float] = None, tp_price: Optional[float] = None, trade_id: Optional[str] = None) -> Dict[str, Any]:
+    async def place_market_order(self, symbol: str, units: float, sl_price: Optional[float] = None, tp_price: Optional[float] = None, trade_id: Optional[str] = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Execution not yet implemented")
 
-    def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Limit Order not yet implemented")
 
-    def get_order_book(self, symbol: str) -> Dict[str, Any]:
+    async def get_order_book(self, symbol: str) -> Dict[str, Any]:
         # Placeholder
         return {"bids": [], "asks": []}
 
-    def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
+    async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Execution not yet implemented")
 
-    def get_current_price(self, symbol: str) -> float:
+    async def get_current_price(self, symbol: str) -> float:
         # Placeholder
         return 0.0
