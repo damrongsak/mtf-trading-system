@@ -17,6 +17,10 @@ import hashlib
 import time
 from app.models.market import MarketCategory, MarketSymbol
 from app.models.data_source import DataSource
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/accounts",
@@ -424,8 +428,102 @@ async def fetch_account_symbols(
     if not user_fund:
          raise HTTPException(status_code=403, detail="Not authorized")
          
-    if account.broker_name != "OANDA" and account.broker_name != "BINANCE":
+    if account.broker_name != "OANDA" and account.broker_name != "BINANCE" and account.broker_name != "CTRADER":
         return success_response(data=[], message="Fetching symbols not supported for this broker yet")
+
+    # Proxy to Data Pipeline for cTrader
+    if account.broker_name == "CTRADER":
+        try:
+            creds = decrypt_data(account.credentials_encrypted)
+            
+            # Prepare config for Data Pipeline Discovery
+            # ensure keys match what AsyncCTraderClient expects in data-pipeline
+            discovery_payload = {
+                "provider": "CTRADER",
+                "config": {
+                    "host": "live.ctraderapi.com" if account.is_live else "demo.ctraderapi.com",
+                    "port": 5035,
+                    "client_id": creds.get("client_id"),
+                    "client_secret": creds.get("client_secret"),
+                    "account_id": creds.get("account_id"),
+                    "token": creds.get("token")
+                }
+            }
+            
+            DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
+            
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{DATA_SERVICE_URL}/api/v1/discovery/symbols",
+                    json=discovery_payload,
+                    timeout=20.0
+                )
+                
+                if resp.status_code != 200:
+                    raise ValueError(f"Data Pipeline Error: {resp.text}")
+                    
+                raw_symbols = resp.json()
+                
+                # Sync Logic (Similar to other brokers)
+                # 1. Ensure DataSource
+                data_source = db.query(DataSource).filter(DataSource.name == "CTRADER").first()
+                if not data_source:
+                     data_source = DataSource(name="CTRADER", type="api", config_json={})
+                     db.add(data_source)
+                     db.flush()
+                     
+                # 2. Ensure Categories
+                # cTrader symbols (Forex, Metals) vs Crypto. Harder to categorize by name alone.
+                # We'll default to 'Forex' or 'Other' for now or try simple heuristic
+                categories = {c.name: c for c in db.query(MarketCategory).all()}
+                
+                # 3. Bulk Save
+                synced_count = 0
+                symbol_list = []
+                
+                existing_syms = {s.symbol: s for s in db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all()}
+                
+                for name in raw_symbols:
+                    symbol_list.append(name)
+                    
+                    # Simple Categorization
+                    cat_name = "Other"
+                    if "/" in name or len(name) == 6 or "USD" in name or "EUR" in name:
+                         cat_name = "Forex"
+                    if "XAU" in name or "XAG" in name:
+                         cat_name = "Metals"
+                    if "BTC" in name or "ETH" in name:
+                         cat_name = "Crypto"
+                         
+                    cat_obj = categories.get(cat_name, float('inf')) 
+                    if cat_obj == float('inf'):
+                        # Create if missing or map to Other
+                        if "Other" in categories:
+                            cat_obj = categories["Other"]
+                        else:
+                            # Fallback if DB empty
+                            continue 
+                            
+                    if name not in existing_syms:
+                        new_sym = MarketSymbol(
+                            category_id=cat_obj.id,
+                            data_source_id=data_source.id,
+                            symbol=name,
+                            display_name=name,
+                            order_index=999
+                        )
+                        db.add(new_sym)
+                        synced_count += 1
+                    else:
+                        # Reactivate if inactive?
+                        pass
+                
+                db.commit()
+                return success_response(data=symbol_list, message=f"Fetched {len(symbol_list)} symbols (New: {synced_count})")
+
+        except Exception as e:
+            logger.error(f"cTrader fetch failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     # 1. Try fetching from Local DB - DISABLED for explicit fetch
     # This logic was flawed (hardcoded OANDA) and prevented updates.

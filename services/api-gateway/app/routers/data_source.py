@@ -10,7 +10,6 @@ from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from app.security import get_current_user
 from fastapi import BackgroundTasks
-from app.routers.broker_account import fetch_binance_instruments
 from app.database import SessionLocal
 
 router = APIRouter(
@@ -181,55 +180,27 @@ async def get_source_symbols(
         raise HTTPException(status_code=404, detail="Data Source not found")
         
     try:
-        if source.provider == "OANDA":
-             # Use the service we created to fetch symbols?
-             # Or just raw client. The service doesn't have list_symbols yet.
-             # Let's instantiate service and use client from it?
-             # Or add list_symbols to service.
-             
-             # Quick fix: direct client usage or expand service.
-             # Expanding service is cleaner.
-             # For now, let's just return a static list if service expansion is too much, 
-             # OR try to reuse what we have.
-             # Let's do a quick inline fetch using the config
-            config = source.config_json
-            from oandapyV20 import API
-            import oandapyV20.endpoints.accounts as accounts
-            
-            hostname = config.get("hostname", "api-fxtrade.oanda.com")
-            token = config.get("token")
-            env = "practice" if "practice" in hostname else "live"
-            
-            client = API(access_token=token, environment=env)
-            account_id = config.get("account_id")
-            
-            # Use AccountInstruments endpoint
-            r = accounts.AccountInstruments(accountID=account_id)
-            client.request(r)
-            
-            instruments = r.response.get("instruments", [])
-            # Format: {symbol: "EUR_USD", ...}
-            # Return list of strings
-            symbols = [i['name'] for i in instruments]
-            return success_response(data=symbols)
+        # Proxy to Data Pipeline for generic/external discovery
+        DATA_PIPELINE_URL = "http://data-pipeline:8000/api/v1/discovery/symbols"
+        
+        payload = {
+            "provider": source.provider,
+            "config": source.config_json
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                # Increased timeout for external calls
+                resp = await client.post(DATA_PIPELINE_URL, json=payload, timeout=20.0)
+                resp.raise_for_status()
+                return success_response(data=resp.json())
+            except Exception as e:
+                # Start of cleanup for fallback or just return empty list?
+                # For discovery, failing is better than silently returning empty to indicate config error.
+                raise HTTPException(status_code=502, detail=f"Failed to fetch symbols from Data Pipeline: {str(e)}")
 
-        elif source.provider == "BINANCE":
-             # Reuse helper from broker_account
-             # Check credentials
-             api_key = source.config_json.get("api_key")
-             secret_key = source.config_json.get("secret_key")
-             # is_live logic?
-             is_live = not source.config_json.get("testnet", False)
-             
-             if not api_key:
-                  return success_response(data=[])
 
-             raw_symbols = await fetch_binance_instruments(api_key, secret_key, is_live)
-             symbols = [s['symbol'] for s in raw_symbols if s['status'] == 'TRADING']
-             return success_response(data=symbols)
-             
-        else:
-            return success_response(data=[])
+
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

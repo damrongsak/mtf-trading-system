@@ -23,7 +23,8 @@ from app.schemas import (
     MarketSymbolCreate,
     OpenInterestSnapshotResponse,
     OpenInterestRecordResponse,
-    OpenInterestAnalysisResponse
+    OpenInterestAnalysisResponse,
+    SymbolDiscoveryRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -219,3 +220,89 @@ def update_symbol_status(
     Update symbol status (is_active).
     """
     return MarketService.update_status(db, symbol_id, update_data)
+
+@router.post("/discovery/symbols", response_model=List[str])
+async def discover_symbols(
+    request: SymbolDiscoveryRequest,
+):
+    """
+    Fetch available symbols from an external provider (discovery mode).
+    """
+    if request.provider == "CTRADER":
+        from app.adapters.ctrader_client import AsyncCTraderClient
+        
+        config = request.config
+        host = config.get("host", "demo.ctraderapi.com")
+        port = int(config.get("port", 5035))
+        client_id = config.get("client_id")
+        client_secret = config.get("client_secret")
+        account_id = config.get("account_id")
+        token = config.get("token")
+        
+        if not all([client_id, client_secret, account_id, token]):
+             return []
+             
+        client = AsyncCTraderClient(host, port, ssl=True)
+        try:
+            await client.connect()
+            await client.authorize_app(client_id, client_secret)
+            await client.authorize_account(int(account_id), token)
+            
+            symbols_list = await client.get_symbols_list(int(account_id))
+            return [s.symbolName for s in symbols_list]
+            
+        except Exception as e:
+            logger.error(f"Failed to discover cTrader symbols: {e}")
+            raise HTTPException(status_code=502, detail=f"Provider Error: {str(e)}")
+        finally:
+             if client._connected:
+                 await client.disconnect()
+
+    elif request.provider == "OANDA":
+        import oandapyV20
+        from oandapyV20 import API
+        import oandapyV20.endpoints.accounts as accounts
+        
+        config = request.config
+        token = config.get("token")
+        account_id = config.get("account_id")
+        hostname = config.get("hostname", "api-fxtrade.oanda.com")
+        env = "practice" if "practice" in hostname else "live"
+        
+        if not token or not account_id:
+            return []
+            
+        try:
+            client = API(access_token=token, environment=env)
+            r = accounts.AccountInstruments(accountID=account_id)
+            client.request(r)
+            instruments = r.response.get("instruments", [])
+            return [i['name'] for i in instruments]
+        except Exception as e:
+            logger.error(f"Failed to discover OANDA symbols: {e}")
+            raise HTTPException(status_code=502, detail=f"Provider Error: {str(e)}")
+
+    elif request.provider == "BINANCE":
+        import httpx
+        
+        config = request.config
+        api_key = config.get("api_key")
+        testnet = config.get("testnet", False)
+        
+        base_url = "https://api.binance.com" if not testnet else "https://testnet.binance.vision"
+        url = f"{base_url}/api/v3/exchangeInfo"
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                # API Key optional for exchangeInfo but good if strictly limited
+                headers = {"X-MBX-APIKEY": api_key} if api_key else {}
+                resp = await client.get(url, headers=headers, timeout=10.0)
+                resp.raise_for_status()
+                data = resp.json()
+                symbols = data.get("symbols", [])
+                return [s['symbol'] for s in symbols if s['status'] == 'TRADING']
+        except Exception as e:
+            logger.error(f"Failed to discover Binance symbols: {e}")
+            raise HTTPException(status_code=502, detail=f"Provider Error: {str(e)}")
+            
+    return []

@@ -40,6 +40,24 @@ const TEMPLATES = {
         secret_key: "YOUR_TESTNET_SECRET_KEY",
         testnet: true,
         stream_url: "wss://testnet.binance.vision/ws"
+    },
+    CTRADER_LIVE: {
+        host: "live.ctraderapi.com",
+        port: 5035,
+        client_id: "YOUR_APP_ID",
+        client_secret: "YOUR_SECRET",
+        account_id: "YOUR_ACCOUNT_ID",
+        token: "YOUR_ACCESS_TOKEN",
+        refresh_token: "YOUR_REFRESH_TOKEN"
+    },
+    CTRADER_DEMO: {
+        host: "demo.ctraderapi.com",
+        port: 5035,
+        client_id: "YOUR_APP_ID",
+        client_secret: "YOUR_SECRET",
+        account_id: "YOUR_ACCOUNT_ID",
+        token: "YOUR_ACCESS_TOKEN",
+        refresh_token: "YOUR_REFRESH_TOKEN"
     }
 };
 
@@ -81,6 +99,11 @@ export function DataSourcesSection() {
         // Check for Binance keys
         if ('api_key' in config && 'secret_key' in config && 'stream_url' in config) {
             return config.testnet ? 'BINANCE_TESTNET' : 'BINANCE_LIVE';
+        }
+
+        // Check for cTrader keys
+        if ('client_id' in config && 'client_secret' in config) {
+            return (config.host as string)?.includes('demo') ? 'CTRADER_DEMO' : 'CTRADER_LIVE';
         }
         
         return undefined;
@@ -237,6 +260,7 @@ export function DataSourcesSection() {
                                             <SelectContent>
                                                 <SelectItem value="OANDA">OANDA</SelectItem>
                                                 <SelectItem value="BINANCE">Binance</SelectItem>
+                                                <SelectItem value="CTRADER">cTrader</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -289,6 +313,8 @@ export function DataSourcesSection() {
                                                 <SelectItem value="OANDA_DEMO">OANDA Demo</SelectItem>
                                                 <SelectItem value="BINANCE_LIVE">Binance Live</SelectItem>
                                                 <SelectItem value="BINANCE_TESTNET">Binance Testnet</SelectItem>
+                                                <SelectItem value="CTRADER_LIVE">cTrader Live</SelectItem>
+                                                <SelectItem value="CTRADER_DEMO">cTrader Demo</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>

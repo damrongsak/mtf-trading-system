@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
+import { getDataSources } from '@/lib/api/data-sources';
 import { BrokerAccount, BrokerAccountCreate } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { TagsInput } from "@/components/ui/tags-input";
@@ -38,6 +39,10 @@ import { TagsInput } from "@/components/ui/tags-input";
     const [accountNumber, setAccountNumber] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [secretKey, setSecretKey] = useState('');
+    // cTrader specific
+    const [accessToken, setAccessToken] = useState('');
+    const [refreshToken, setRefreshToken] = useState('');
+    
     const [supportedSymbolsInput, setSupportedSymbolsInput] = useState('');
     const [riskSettingsInput, setRiskSettingsInput] = useState('');
     const [isLive, setIsLive] = useState(false);
@@ -47,6 +52,28 @@ import { TagsInput } from "@/components/ui/tags-input";
     const [editingAccount, setEditingAccount] = useState<BrokerAccount | null>(null);
     const [editSymbols, setEditSymbols] = useState<string[]>([]);
     const [isFetchingSymbols, setIsFetchingSymbols] = useState(false);
+    
+    // Dynamic Brokers
+    const [availableBrokers, setAvailableBrokers] = useState<string[]>(['OANDA', 'BINANCE']);
+
+    const fetchBrokers = useCallback(async () => {
+         try {
+             // Fetch Data Sources to get available providers
+             const sources = await getDataSources();
+             const providers = Array.from(new Set(sources.map(s => s.provider)));
+             // Ensure OANDA/BINANCE are always options if desired, or strictly from sources
+             // Merging with defaults to ensure basic options exist
+             const defaults = ['OANDA', 'BINANCE'];
+             const combined = Array.from(new Set([...defaults, ...providers]));
+             setAvailableBrokers(combined);
+         } catch (err) {
+             console.error("Failed to fetch data sources for broker list", err);
+         }
+    }, []);
+
+    useEffect(() => {
+        fetchBrokers();
+    }, [fetchBrokers]);
 
     const fetchAccounts = useCallback(async () => {
         try {
@@ -105,9 +132,29 @@ import { TagsInput } from "@/components/ui/tags-input";
 
             // Prepare Payload
             const cleanAccountNumber = accountNumber.trim();
-            const cleanApiKey = apiKey.trim();
-            const cleanSecretKey = secretKey.trim();
             const cleanAccountName = accountName.trim();
+
+            let credentials: Record<string, unknown> = {
+                account_id: cleanAccountNumber, 
+                environment: isLive ? 'live' : 'practice'
+            };
+
+            if (brokerName === 'CTRADER') {
+                 credentials = {
+                     ...credentials,
+                     client_id: apiKey.trim(), // Use apiKey input for Client ID
+                     client_secret: secretKey.trim(), // Use secretKey input for Client Secret
+                     token: accessToken.trim(),
+                     refresh_token: refreshToken.trim()
+                 };
+            } else {
+                // OANDA / BINANCE map
+                credentials = {
+                    ...credentials,
+                    api_key: apiKey.trim(),
+                    secret_key: brokerName === 'BINANCE' ? secretKey.trim() : undefined,
+                };
+            }
 
             const payload = {
                 fund_id: fundId || undefined,
@@ -115,12 +162,7 @@ import { TagsInput } from "@/components/ui/tags-input";
                 account_name: cleanAccountName,
                 account_number: cleanAccountNumber,
                 is_live: isLive,
-                credentials: {
-                    api_key: cleanApiKey,
-                    secret_key: brokerName === 'BINANCE' ? cleanSecretKey : undefined,
-                    account_id: cleanAccountNumber, // Use accountNumber for OANDA ID
-                    environment: isLive ? 'live' : 'practice'
-                },
+                credentials,
                 supported_symbols: supportedSymbols,
                 risk_settings: riskSettings
             };
@@ -149,6 +191,8 @@ import { TagsInput } from "@/components/ui/tags-input";
             setAccountNumber('');
             setApiKey('');
             setSecretKey('');
+            setAccessToken('');
+            setRefreshToken('');
             setSupportedSymbolsInput('');
             setRiskSettingsInput('');
         } catch (err) {
@@ -323,8 +367,9 @@ import { TagsInput } from "@/components/ui/tags-input";
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="OANDA">OANDA</SelectItem>
-                                            <SelectItem value="BINANCE">Binance</SelectItem>
+                                            {availableBrokers.map(broker => (
+                                                <SelectItem key={broker} value={broker}>{broker}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -368,6 +413,51 @@ import { TagsInput } from "@/components/ui/tags-input";
                                         />
                                     </div>
                                 )}
+                                {brokerName === 'CTRADER' && (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>App Client ID</Label>
+                                                <Input 
+                                                    placeholder="From Open API" 
+                                                    value={apiKey} // Reuse apiKey state
+                                                    onChange={(e) => setApiKey(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>App Client Secret</Label>
+                                                <Input 
+                                                    type="password"
+                                                    placeholder="From Open API" 
+                                                    value={secretKey} // Reuse secretKey state
+                                                    onChange={(e) => setSecretKey(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                             <Label>Access Token (User)</Label>
+                                             <Input 
+                                                 type="password"
+                                                 placeholder="cTrader Access Token"
+                                                 value={accessToken}
+                                                 onChange={(e) => setAccessToken(e.target.value)}
+                                                 required
+                                             />
+                                        </div>
+                                        <div className="space-y-2">
+                                             <Label>Refresh Token (Optional)</Label>
+                                             <Input 
+                                                 type="password"
+                                                 placeholder="cTrader Refresh Token"
+                                                 value={refreshToken}
+                                                 onChange={(e) => setRefreshToken(e.target.value)}
+                                             />
+                                        </div>
+                                    </>
+                                )}
+
                             </div>
                             <div className="flex items-center gap-2">
                                 <input 

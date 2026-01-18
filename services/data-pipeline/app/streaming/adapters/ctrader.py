@@ -3,7 +3,8 @@ import logging
 from typing import List, Callable, Awaitable
 from app.streaming.adapters.base import StreamAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoOAPayloadType
+from datetime import datetime
+# from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoOAPayloadType
 from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsReq, ProtoOASpotEvent
 
 logger = logging.getLogger(__name__)

@@ -794,7 +794,7 @@ export interface MarketSymbol {
 }
 
 export type DataSourceType = 'api' | 'csv' | 'db' | 'websocket';
-export type DataSourceProvider = 'OANDA' | 'BINANCE';
+export type DataSourceProvider = 'OANDA' | 'BINANCE' | 'CTRADER';
 
 export interface DataSource {
     id: string;

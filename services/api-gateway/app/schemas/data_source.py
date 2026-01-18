@@ -14,6 +14,7 @@ class DataSourceType(str, Enum):
 class DataSourceProvider(str, Enum):
     OANDA = "OANDA"
     BINANCE = "BINANCE"
+    CTRADER = "CTRADER"
 
 class DataSourceBase(BaseModel):
     name: str = Field(..., description="User-defined alias")

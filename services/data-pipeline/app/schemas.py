@@ -118,3 +118,7 @@ class AnalysisDistribution(BaseModel):
 class OpenInterestAnalysisResponse(BaseModel):
     summary: AnalysisSummary
     distribution: List[AnalysisDistribution]
+
+class SymbolDiscoveryRequest(BaseModel):
+    provider: str
+    config: dict
