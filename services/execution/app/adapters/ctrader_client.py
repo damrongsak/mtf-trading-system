@@ -229,4 +229,24 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def refresh_token(self, refresh_token: str):
+        """
+        Refresh the access token using the refresh token.
+        Returns: Tuple(new_access_token, new_refresh_token, expires_in, refresh_expires_in)
+        """
+        req = ProtoOARefreshTokenReq()
+        req.refreshToken = refresh_token
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOARefreshTokenRes().payloadType:
+            res = ProtoOARefreshTokenRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.accessToken, res.refreshToken, res.expiresIn, res.reauthorizationTokenExpiresIn
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Refresh Token Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
