@@ -528,14 +528,7 @@ async def fetch_account_symbols(
     # 1. Try fetching from Local DB - DISABLED for explicit fetch
     # This logic was flawed (hardcoded OANDA) and prevented updates.
     # explicit 'fetch-symbols' action should always hit the broker.
-    # data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
-    # if data_source:
-    #     local_symbols = db.query(MarketSymbol).filter(MarketSymbol.data_source_id == data_source.id).all()
-    #     if local_symbols:
-    #          return success_response(
-    #              data=[s.symbol for s in local_symbols], 
-    #              message=f"Returned {len(local_symbols)} cached symbols"
-    #          )
+    # If we want to return local symbols, we should use a different endpoint or param.
 
     # 2. Cold Start: Fetch from Broker & Sync to DB
     try:
@@ -684,4 +677,82 @@ async def fetch_account_symbols(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{account_id}/refresh-token")
+async def refresh_account_token(
+    account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Refresh Access Token using stored Refresh Token (cTrader).
+    """
+    account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
+    
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Check permission logic (consistent with update_account)
+    user_fund = db.query(UserFund).filter(
+        UserFund.user_id == current_user.id,
+        UserFund.fund_id == account.fund_id
+    ).first()
+    
+    if not user_fund:
+         raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if account.broker_name != "CTRADER":
+        raise HTTPException(status_code=400, detail="Only cTrader supports manual token refresh")
+        
+    try:
+        creds = decrypt_data(account.credentials_encrypted)
+        refresh_token = creds.get("refresh_token")
+        
+        if not refresh_token:
+            raise HTTPException(status_code=400, detail="No refresh token found")
+            
+        payload = {
+            "provider": "CTRADER",
+            "config": {
+                 "host": "live.ctraderapi.com" if account.is_live else "demo.ctraderapi.com",
+                 "port": 5035,
+                 "client_id": creds.get("client_id"),
+                 "client_secret": creds.get("client_secret"),
+                 "refresh_token": refresh_token
+            }
+        }
+        
+        # Ensure httpx is imported? It is used throughout.
+        # Ensure os is imported.
+        DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
+            
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/discovery/refresh-token",
+                json=payload,
+                timeout=20.0
+            )
+            
+            if resp.status_code != 200:
+                raise ValueError(f"Data Pipeline Error: {resp.text}")
+                
+            data = resp.json()
+            new_access_token = data.get("access_token")
+            new_refresh_token = data.get("refresh_token")
+            expires_in = data.get("expires_in", 2592000) # Default 30 days if missing
+            
+            # Update DB
+            creds["token"] = new_access_token
+            creds["refresh_token"] = new_refresh_token
+            # Store absolute expiry time (now + seconds)
+            creds["expires_at"] = int(time.time()) + int(expires_in)
+            
+            account.credentials_encrypted = encrypt_data(creds)
+            db.commit()
+            
+            return success_response(message="Token refreshed successfully")
+            
+    except Exception as e:
+        logger.error(f"Refresh failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -134,6 +134,8 @@ services:
   mtf-postgres:
     image: postgres:15
     container_name: mtf-postgres
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: trader
       POSTGRES_PASSWORD: trader

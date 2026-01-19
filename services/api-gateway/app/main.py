@@ -19,6 +19,13 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     await stream_manager.start()
+    
+    # Start Scheduler
+    try:
+        from app.scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        print(f"Failed to start scheduler: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

@@ -44,3 +44,7 @@ export const fetchBrokerSymbols = async (id: string): Promise<string[]> => {
     }
     return [];
 };
+
+export const refreshBrokerToken = async (id: string): Promise<void> => {
+    await apiClient.post(`/api/v1/accounts/${id}/refresh-token`);
+};

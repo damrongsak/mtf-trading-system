@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw, CheckCheck, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
 import { getDataSources } from '@/lib/api/data-sources';
@@ -51,6 +51,9 @@ import { TagsInput } from "@/components/ui/tags-input";
     // Edit State
     const [editingAccount, setEditingAccount] = useState<BrokerAccount | null>(null);
     const [editSymbols, setEditSymbols] = useState<string[]>([]);
+    const [editAccessToken, setEditAccessToken] = useState('');
+    const [editRefreshToken, setEditRefreshToken] = useState('');
+    const [lastFetchedSymbols, setLastFetchedSymbols] = useState<string[]>([]);
     const [isFetchingSymbols, setIsFetchingSymbols] = useState(false);
     
     // Dynamic Brokers
@@ -228,12 +231,41 @@ import { TagsInput } from "@/components/ui/tags-input";
         setIsFetchingSymbols(true);
         try {
             const symbols = await fetchBrokerSymbols(accountId);
+            setLastFetchedSymbols(symbols);
             setEditSymbols(prev => Array.from(new Set([...prev, ...symbols])));
             setSuccess(`Fetched ${symbols.length} symbols from broker`);
+            return symbols;
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to fetch symbols");
+            return [];
         } finally {
             setIsFetchingSymbols(false);
+        }
+    };
+
+    const handleSelectAll = async () => {
+        if (!editingAccount) return;
+        
+        if (lastFetchedSymbols.length > 0) {
+            setEditSymbols(prev => Array.from(new Set([...prev, ...lastFetchedSymbols])));
+        } else {
+            // Auto-fetch if cache is empty
+            await handleFetchSymbols(editingAccount.id);
+        }
+    };
+
+    const handleRefreshToken = async () => {
+        if (!editingAccount) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            const { refreshBrokerToken } = await import('@/lib/api/accounts');
+            await refreshBrokerToken(editingAccount.id);
+            setSuccess("Token refreshed successfully");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to refresh token");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -242,12 +274,28 @@ import { TagsInput } from "@/components/ui/tags-input";
         setSubmitting(true);
         setError(null);
         try {
-            await updateAccount(editingAccount.id, {
+            const updates: any = {
                 account_name: editingAccount.account_name,
                 supported_symbols: editSymbols
-            });
+            };
+
+            // Include credentials if updated
+            if (editingAccount.broker_name === 'CTRADER' && (editAccessToken || editRefreshToken)) {
+                updates.credentials = {
+                    ...editingAccount.credentials, // merge with existing if needed, but backend might replace. 
+                    // ideally we patch specific keys. BrokerAccountUpdate expects a dict.
+                    // If we send partial credentials, the backend logic for update needs to handle merge or we send full.
+                    // For now, let's assume we send what we want to update.
+                    token: editAccessToken || undefined,
+                    refresh_token: editRefreshToken || undefined
+                };
+            }
+
+            await updateAccount(editingAccount.id, updates);
             await fetchAccounts();
             setEditingAccount(null);
+            setEditAccessToken('');
+            setEditRefreshToken('');
             setSuccess("Account updated successfully");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update account");
@@ -307,6 +355,27 @@ import { TagsInput } from "@/components/ui/tags-input";
                                         {isFetchingSymbols ? <Loader2 className="h-3 w-3 animate-spin mr-1"/> : <RefreshCw className="h-3 w-3 mr-1"/>}
                                         Fetch from Broker
                                     </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleSelectAll}
+                                        disabled={isFetchingSymbols}
+                                        className="text-xs"
+                                        title="Add all available symbols (fetches if needed)"
+                                    >
+                                        <CheckCheck className="h-3 w-3 mr-1" />
+                                        Select All
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setEditSymbols([])}
+                                        disabled={editSymbols.length === 0}
+                                        className="text-xs text-red-400 hover:text-red-300 border-red-900/50 hover:bg-red-950"
+                                    >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Clear All
+                                    </Button>
                                 </div>
                                 <TagsInput 
                                     value={editSymbols}
@@ -318,6 +387,42 @@ import { TagsInput } from "@/components/ui/tags-input";
                                     Add symbols this account is allowed to trade. fetch from broker to auto-populate.
                                 </p>
                             </div>
+
+                            {editingAccount.broker_name === 'CTRADER' && (
+                                <div className="pt-4 border-t border-gray-800 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-sm font-medium text-gray-400">Update Credentials</h4>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRefreshToken}
+                                            disabled={submitting}
+                                            className="text-xs h-7"
+                                        >
+                                            <RefreshCw className={`h-3 w-3 mr-1 ${submitting ? 'animate-spin' : ''}`} />
+                                            Refresh Token
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>New Access Token (Optional)</Label>
+                                        <Input
+                                            type="password"
+                                            placeholder="Paste new token to update"
+                                            value={editAccessToken}
+                                            onChange={(e) => setEditAccessToken(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>New Refresh Token (Optional)</Label>
+                                        <Input
+                                            type="password"
+                                            placeholder="Paste new refresh token"
+                                            value={editRefreshToken}
+                                            onChange={(e) => setEditRefreshToken(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex justify-end gap-2 mt-6">
@@ -541,6 +646,8 @@ import { TagsInput } from "@/components/ui/tags-input";
                                             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => {
                                                 setEditingAccount(acc);
                                                 setEditSymbols(acc.supported_symbols || []);
+                                                setEditAccessToken('');
+                                                setEditRefreshToken('');
                                             }}>
                                                 <Edit2 className="h-4 w-4" />
                                             </Button>

@@ -306,3 +306,55 @@ async def discover_symbols(
             raise HTTPException(status_code=502, detail=f"Provider Error: {str(e)}")
             
     return []
+
+@router.post("/discovery/refresh-token")
+async def refresh_ctrader_token(
+    payload: dict,
+):
+    """
+    Refresh cTrader Access Token using Refresh Token.
+    Returns: {"access_token": "...", "refresh_token": "..."}
+    """
+    provider = payload.get("provider")
+    if provider != "CTRADER":
+        raise HTTPException(status_code=400, detail="Only CTRADER supported for now")
+        
+    config = payload.get("config", {})
+    refresh_token = config.get("refresh_token")
+    host = config.get("host", "demo.ctraderapi.com")
+    port = int(config.get("port", 5035))
+    
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="refresh_token is required")
+        
+    from app.adapters.ctrader_client import AsyncCTraderClient
+    client = AsyncCTraderClient(host, port, ssl=True)
+    
+    try:
+        await client.connect()
+        # Refresh Token usually doesn't require auth to use? 
+        # Actually it might need App Auth first? 
+        # ProtoOARefreshTokenReq doesn't mention Auth. 
+        # But usually we need App Auth to do anything.
+        # Let's check args allowed. 
+        # If client_id/secret provided, we do app auth.
+        client_id = config.get("client_id")
+        client_secret = config.get("client_secret")
+        
+        if client_id and client_secret:
+             await client.authorize_app(client_id, client_secret)
+             
+        new_token, new_refresh, expires_in, _ = await client.refresh_token(refresh_token)
+        
+        return {
+            "access_token": new_token,
+            "refresh_token": new_refresh,
+            "expires_in": expires_in
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to refresh cTrader token: {e}")
+        raise HTTPException(status_code=502, detail=f"Refresh Failed: {str(e)}")
+    finally:
+         if client._connected:
+             await client.disconnect()
