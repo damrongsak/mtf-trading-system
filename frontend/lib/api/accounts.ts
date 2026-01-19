@@ -48,3 +48,10 @@ export const fetchBrokerSymbols = async (id: string): Promise<string[]> => {
 export const refreshBrokerToken = async (id: string): Promise<void> => {
     await apiClient.post(`/api/v1/accounts/${id}/refresh-token`);
 };
+
+export const testAccountConnection = async (id: string): Promise<any> => {
+    const response = await apiClient.get<APIResponse<any>>(`/api/v1/execution/account/summary`, {
+        params: { account_id: id }
+    });
+    return response.data;
+};

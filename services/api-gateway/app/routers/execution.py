@@ -29,6 +29,11 @@ router = APIRouter(
 def _get_broker_config(account: BrokerAccount) -> Dict[str, Any]:
     """Helper to decrypt credentials and format config for execution service."""
     creds = decrypt_data(account.credentials_encrypted)
+    
+    # Inject Host for cTrader based on is_live
+    if account.broker_name.upper() == "CTRADER":
+        creds["host"] = "live.ctraderapi.com" if account.is_live else "demo.ctraderapi.com"
+        
     return {
         "broker_name": account.broker_name,
         "credentials": creds

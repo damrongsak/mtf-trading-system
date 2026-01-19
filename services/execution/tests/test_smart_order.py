@@ -9,10 +9,12 @@ client = TestClient(app)
 
 # Mock DB Session
 from app.models import BrokerAccount, Fund
+from unittest.mock import AsyncMock
 
-def override_get_db():
+async def override_get_db():
     try:
         db = MagicMock()
+        db.execute = AsyncMock()
         
         # 1. Mock Objects
         mock_fund_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -36,16 +38,29 @@ def override_get_db():
             default_lot_size=0.01   # Required
         )
         
-        # 2. Side Effect for db.query(Model)
-        def query_side_effect(model):
-            query_mock = MagicMock()
-            if model == BrokerAccount:
-                query_mock.filter.return_value.first.return_value = mock_account
-            elif model == Fund:
-                query_mock.filter.return_value.first.return_value = mock_fund
-            return query_mock
+        # 2. Side Effect for db.execute(select(...))
+        # This is tricky because select() returns a complex object.
+        # We assume the query structure.
+        
+        def execute_side_effect(statement):
+            # Inspect string representation or compiled structure of statement
+            stmt_str = str(statement)
             
-        db.query.side_effect = query_side_effect
+            mock_result = MagicMock()
+            
+            if "broker_account" in stmt_str:
+                mock_result.scalars.return_value.first.return_value = mock_account
+                mock_result.scalars.return_value.all.return_value = [mock_account]
+            elif "fund" in stmt_str:
+                mock_result.scalars.return_value.first.return_value = mock_fund
+                mock_result.scalars.return_value.all.return_value = [mock_fund]
+            else:
+                mock_result.scalars.return_value.first.return_value = None
+                mock_result.scalars.return_value.all.return_value = []
+                
+            return mock_result
+            
+        db.execute.side_effect = execute_side_effect
         
         yield db
     finally:

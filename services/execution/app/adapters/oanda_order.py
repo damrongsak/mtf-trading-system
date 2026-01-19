@@ -7,6 +7,7 @@ import oandapyV20.endpoints.instruments as instruments
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
+from fastapi.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,8 @@ class OandaOrderAdapter(BrokerAdapter):
         """Fetch account balance, margin, and summary metrics from OANDA."""
         try:
             r = accounts.AccountSummary(accountID=self.account_id)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             acc = r.response.get("account", {})
             return {
                 "balance": acc.get("balance", "0"),
@@ -73,7 +75,8 @@ class OandaOrderAdapter(BrokerAdapter):
 
         try:
             r = orders.OrderCreate(accountID=self.account_id, data=order_body)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             return r.response
         except Exception as e:
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
@@ -119,7 +122,8 @@ class OandaOrderAdapter(BrokerAdapter):
 
         try:
             r = orders.OrderCreate(accountID=self.account_id, data=order_body)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             return r.response
         except Exception as e:
             logger.error(f"Failed to place OANDA limit order for {symbol}: {e}")
@@ -131,7 +135,8 @@ class OandaOrderAdapter(BrokerAdapter):
         """
         try:
             r = instruments.InstrumentOrderBook(instrument=symbol)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             return r.response.get("orderBook", {})
         except Exception as e:
             logger.error(f"Failed to fetch OANDA order book for {symbol}: {e}")
@@ -143,7 +148,8 @@ class OandaOrderAdapter(BrokerAdapter):
         """
         try:
             r = trades.TradesList(accountID=self.account_id, params={"state": "OPEN"})
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             return r.response.get("trades", [])
         except Exception as e:
             logger.error(f"Failed to fetch open OANDA trades: {e}")
@@ -162,7 +168,8 @@ class OandaOrderAdapter(BrokerAdapter):
                 data["units"] = "ALL"
 
             r = trades.TradeClose(accountID=self.account_id, tradeID=broker_trade_id, data=data)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             return r.response
         except Exception as e:
             logger.error(f"Failed to close OANDA trade {broker_trade_id}: {e}")
@@ -175,7 +182,8 @@ class OandaOrderAdapter(BrokerAdapter):
         try:
             params = {"instruments": symbol}
             r = pricing.PricingInfo(accountID=self.account_id, params=params)
-            self.client.request(r)
+            # Run blocking call in threadpool
+            await run_in_threadpool(self.client.request, r)
             
             prices = r.response.get("prices", [])
             if not prices:
@@ -190,5 +198,6 @@ class OandaOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"Failed to fetch price for {symbol}: {e}")
             raise e
+
 
 

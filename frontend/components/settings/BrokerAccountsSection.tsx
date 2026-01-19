@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw, CheckCheck, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols } from '@/lib/api/accounts';
+import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols, testAccountConnection } from '@/lib/api/accounts';
 import { getDataSources } from '@/lib/api/data-sources';
 import { BrokerAccount, BrokerAccountCreate } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
@@ -269,12 +269,42 @@ import { TagsInput } from "@/components/ui/tags-input";
         }
     };
 
+    const handleTestConnection = async (accountId: string, accountName: string) => {
+        // If already loading something else, maybe prevent?
+        if (loading) return;
+        
+        // We use a local loading state or just modify button/UI feedback
+        // For simplicity, let's use the global loading or a toast (if we had one)
+        // Or better, set 'testingId' state
+        
+        // Using global handlers for now to show banner
+        setSuccess(null);
+        setError(null);
+        
+        try {
+            // Show optimistic loading
+            const btn = document.getElementById(`test-btn-${accountId}`);
+            if (btn) btn.innerHTML = '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            
+            await testAccountConnection(accountId);
+            setSuccess(`Successfully connected to ${accountName}`);
+        } catch (err) {
+            console.error(err);
+            setError(`Connection Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
+        } finally {
+             // Reset icon
+             const btn = document.getElementById(`test-btn-${accountId}`);
+             if (btn) btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>'; // Wi-Fi/Signal icon
+        }
+    };
+
     const handleUpdate = async () => {
         if (!editingAccount) return;
         setSubmitting(true);
         setError(null);
         try {
-            const updates: any = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const updates: Record<string, any> = {
                 account_name: editingAccount.account_name,
                 supported_symbols: editSymbols
             };
@@ -627,8 +657,8 @@ import { TagsInput } from "@/components/ui/tags-input";
                                                     try {
                                                         await updateAccount(acc.id, { is_active: chk });
                                                         // Optimistic update or refetch
-                                                        setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, is_active: chk } : a));
-                                                    } catch (err) {
+                                                    setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, is_active: chk } : a));
+                                                    } catch (_err) {
                                                         // Revert on error
                                                         setError("Failed to update status");
                                                     }
@@ -639,6 +669,16 @@ import { TagsInput } from "@/components/ui/tags-input";
                                         <div className="h-4 w-px bg-gray-800" />
 
                                         <div className="flex items-center gap-2">
+                                            <Button 
+                                                id={`test-btn-${acc.id}`}
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="text-gray-500 hover:text-green-400" 
+                                                title="Test Connection"
+                                                onClick={() => handleTestConnection(acc.id, acc.account_name)}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                                            </Button>
                                             <div className="flex items-center gap-1 text-xs text-green-500 bg-green-500/5 px-2 py-1 rounded border border-green-500/10">
                                                 <ShieldCheck className="h-3 w-3" />
                                                 Encrypted

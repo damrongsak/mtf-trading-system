@@ -6,6 +6,12 @@ from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
 from app.services.minimax_service import MinimaxService
 import logging
+from app.database import get_db
+from sqlalchemy.orm import Session
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models import BrokerAccount, Fund
+import uuid
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -136,13 +142,6 @@ async def health():
     return {"status": "ok"}
 
 # --- Smart Execution ---
-from app.database import get_db
-from sqlalchemy.orm import Session
-from app.models import BrokerAccount
-from app.database import get_db
-from sqlalchemy.orm import Session
-from app.models import BrokerAccount, Fund
-import uuid
 
 class SmartOrderRequest(BaseModel):
     broker_account_id: str
@@ -163,8 +162,9 @@ class SmartOrderRequest(BaseModel):
     pain_threshold: Optional[float] = Field(50.0, description="Max allowed psychological regret in USD")
 
 @app.get("/accounts")
-async def get_accounts(db: Session = Depends(get_db)):
-    accounts = db.query(BrokerAccount).all()
+async def get_accounts(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(BrokerAccount))
+    accounts = result.scalars().all()
     # Return simplified list
     return [
         {
@@ -176,14 +176,15 @@ async def get_accounts(db: Session = Depends(get_db)):
     ]
 
 @app.post("/smart-orders", response_model=OrderResponse)
-async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db)):
+async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(get_db)):
     # 1. Fetch Credentials
     try:
         account_uuid = uuid.UUID(req.broker_account_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
         
-    account = db.query(BrokerAccount).filter(BrokerAccount.id == account_uuid).first()
+    result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+    account = result.scalars().first()
     if not account:
         raise HTTPException(status_code=404, detail="Broker Account not found")
 
@@ -205,7 +206,8 @@ async def place_smart_order(req: SmartOrderRequest, db: Session = Depends(get_db
         # Should not happen if data integrity is maintained
         raise HTTPException(status_code=400, detail="Broker Account is not linked to a Fund")
         
-    fund = db.query(Fund).filter(Fund.id == account.fund_id).first()
+    result_fund = await db.execute(select(Fund).where(Fund.id == account.fund_id))
+    fund = result_fund.scalars().first()
     if not fund:
          raise HTTPException(status_code=404, detail="Fund not found")
     

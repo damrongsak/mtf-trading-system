@@ -249,4 +249,22 @@ class AsyncCTraderClient:
              raise Exception(f"Refresh Token Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
-
+    async def get_account_list(self, token: str):
+        """
+        Fetch the list of accounts linked to the given Access Token.
+        """
+        req = ProtoOAGetAccountListByAccessTokenReq()
+        req.accessToken = token
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetAccountListByAccessTokenRes().payloadType:
+            res = ProtoOAGetAccountListByAccessTokenRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.ctidTraderAccount
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Account List Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")

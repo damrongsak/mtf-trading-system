@@ -26,12 +26,14 @@ class BrokerFactory:
             )
         elif broker_name == "CTRADER":
             from app.adapters.ctrader import CTraderOrderAdapter
-            # Map credentials: schema in DB has: app_id, secret, account_id, token
+            # Map credentials: schema in DB has: client_id, client_secret, account_id, token
+            # Note: We fallback to 'app_id'/'secret' for legacy compatibility if needed, but primary is client_id
             return CTraderOrderAdapter(
-                client_id=credentials.get("app_id"),
-                client_secret=credentials.get("secret"),
+                client_id=credentials.get("client_id") or credentials.get("app_id"),
+                client_secret=credentials.get("client_secret") or credentials.get("secret"),
                 account_id=credentials.get("account_id"),
-                token=credentials.get("token")
+                token=credentials.get("token"),
+                host=credentials.get("host", "demo.ctraderapi.com")
             )
         elif broker_name == "MOCK":
             from app.adapters.mock_adapter import MockAdapter
