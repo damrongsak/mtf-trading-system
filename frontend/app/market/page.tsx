@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 // ... imports
-import { Panel, PanelGroup, PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 import { usePersistentState } from '@/lib/hooks/usePersistentState';
@@ -464,7 +464,7 @@ export default function MarketPage() {
             {mounted ? (
                 <PanelGroup 
                     key={showAccountPanel ? 'expanded' : 'collapsed'} 
-                    autoSaveId={showAccountPanel ? 'mtf_layout_main_v4_expanded_auto' : 'mtf_layout_main_v4_collapsed_auto'}
+                    id={showAccountPanel ? 'mtf_layout_main_v4_expanded_auto' : 'mtf_layout_main_v4_collapsed_auto'}
                     orientation="vertical" 
                     className="h-full w-full"
                 >
@@ -472,7 +472,7 @@ export default function MarketPage() {
                     {/* Top Area: Chart & Execution */}
                     <Panel id="top-panel" defaultSize={70} minSize={15}>
                         <PanelGroup 
-                            autoSaveId="mtf_layout_order_v4_auto"
+                            id="mtf_layout_order_v4_auto"
                             orientation="horizontal" 
                             className="h-full w-full"
                         >
@@ -704,9 +704,6 @@ export default function MarketPage() {
                     defaultSize={30} 
                     minSize={4} 
                     collapsible={true}
-                    onCollapse={() => {
-                        // Optional: Handle collapse state if needed
-                    }}
                 >
                         <AccountPanel 
                         refreshTrigger={refreshTrigger}
