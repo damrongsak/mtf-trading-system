@@ -8,17 +8,24 @@ import { useSidebar } from '@/context/SidebarContext';
 import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { getEquityCurve, EquityPoint } from '@/lib/api/dashboard';
 
+import { AccountSelector } from './AccountSelector';
+import { useAccount } from '@/context/AccountContext';
+
 export const Header = () => {
   const { toggleMobile } = useSidebar();
+  const { selectedAccount } = useAccount();
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [dailyPnl, setDailyPnl] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedAccount) return;
+      
       try {
+        setLoading(true);
         const [accSummary, equityCurve] = await Promise.all([
-          getAccountSummary().catch(() => null),
+          getAccountSummary(selectedAccount.id).catch(() => null),
           getEquityCurve(1).catch(() => [] as EquityPoint[])
         ]);
         
@@ -42,7 +49,7 @@ export const Header = () => {
     // Refresh every 30 seconds
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedAccount]);
 
   const formatCurrency = (val: string | number) => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
@@ -62,7 +69,7 @@ export const Header = () => {
         >
           <Menu size={24} />
         </button>
-        {/* Breadcrumbs or Page Title could go here */}
+        <AccountSelector /> 
       </div>
 
       <div className="flex items-center gap-6">

@@ -17,10 +17,13 @@ class APIGatewayClient:
         self.base_url = API_GATEWAY_URL
         self.headers = {"x-internal-key": INTERNAL_KEY}
         
-    async def execute_signal(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def execute_signal(self, payload: Dict[str, Any], broker_account_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Send a signal to API Gateway for execution and journaling.
         """
+        if broker_account_id:
+             payload["broker_account_id"] = broker_account_id
+
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.post(

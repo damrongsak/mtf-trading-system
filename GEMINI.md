@@ -67,6 +67,15 @@ The project distinguishes itself through:
     > export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
     > ```
 
+*   **Diagnosing Environment Issues:**
+    If `node` or `npm` commands are missing in non-interactive shells/scripts:
+    1.  Check OS & Node: `uname -a && node -v`
+    2.  Locate NVM: `ls -la ~/.nvm/nvm.sh`
+    3.  **Fix:** Explicitly source NVM before running commands:
+        ```bash
+        source ~/.nvm/nvm.sh && npm run lint
+        ```
+
 *   **Command Execution Strategy (Important):**
     *   **Backend Services (MANDATORY):** All backend commands MUST be run inside their respective Docker containers.
         *   **Syntax:** `docker compose exec <service_name> <command>`

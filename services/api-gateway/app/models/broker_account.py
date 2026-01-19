@@ -18,6 +18,7 @@ class BrokerAccount(Base):
     credentials_encrypted = Column(JSONB, nullable=False) # Encrypted API keys/tokens (Base64 string)
     is_active = Column(Boolean, default=True)
     is_live = Column(Boolean, default=False) # Demo vs Live
+    environment = Column(String(20), default="practice", nullable=False) # live, demo, practice
     
     # Configuration
     supported_symbols = Column(JSONB, nullable=True)

@@ -82,23 +82,22 @@ class StrategyClient:
                 raise
 
 class ExecutionClient:
-    async def get_account_summary(self, broker_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_account_summary(self, broker_account_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                # Changed to POST to send broker config
-                logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker": broker_config}, timeout=10.0)
+                logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary for {broker_account_id}")
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker_account_id": str(broker_account_id)}, timeout=10.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
                 logger.error(f"Failed to fetch account summary: {e}", exc_info=True)
                 raise
 
-    async def place_order(self, order_data: Dict[str, Any], broker_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def place_order(self, order_data: Dict[str, Any], broker_account_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
                 payload = {
-                    "broker": broker_config,
+                    "broker_account_id": str(broker_account_id),
                     **order_data
                 }
                 logger.info(f"Placing order at {EXECUTION_SERVICE_URL}/orders")
@@ -111,23 +110,22 @@ class ExecutionClient:
                 logger.error(f"Failed to place order: {e}", exc_info=True)
                 raise
 
-    async def get_open_trades(self, broker_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def get_open_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:
         async with httpx.AsyncClient() as client:
             try:
-                # Changed to POST to send broker config
                 logger.info(f"Fetching open trades from {EXECUTION_SERVICE_URL}/trades/open")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/open", json={"broker": broker_config}, timeout=30.0)
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/open", json={"broker_account_id": str(broker_account_id)}, timeout=30.0)
                 resp.raise_for_status()
                 return resp.json().get("data", [])
             except Exception as e:
                 logger.error(f"Failed to fetch open trades: {e}", exc_info=True)
                 raise
     
-    async def close_trade(self, trade_id: str, broker_config: Dict[str, Any], units: float = None) -> Dict[str, Any]:
+    async def close_trade(self, trade_id: str, broker_account_id: str, units: float = None) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
                 payload = {
-                    "broker": broker_config,
+                    "broker_account_id": str(broker_account_id),
                     "broker_trade_id": trade_id,
                     "units": units
                 }

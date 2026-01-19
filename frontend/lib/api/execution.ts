@@ -10,8 +10,11 @@ export interface AccountSummary {
 }
 
 export interface OrderRequest {
+    account_id: string; // The internal BrokerAccount UUID
     symbol: string;
+    order_type: 'MARKET' | 'LIMIT' | 'STOP'; // Explicit type
     units: number; // positive for long, negative for short
+    price?: number; // For Limit/Stop inputs
     sl_price?: number;
     tp_price?: number;
     trade_id?: string;
@@ -105,6 +108,7 @@ export interface ExecutionBrokerAccount {
     id: string;
     broker_name: string;
     account_id: string; // The external broker ID (e.g., "101-001-...")
+    environment: string; 
 }
 
 export interface SmartOrderRequest {

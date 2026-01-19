@@ -26,19 +26,6 @@ router = APIRouter(
     tags=["execution"]
 )
 
-def _get_broker_config(account: BrokerAccount) -> Dict[str, Any]:
-    """Helper to decrypt credentials and format config for execution service."""
-    creds = decrypt_data(account.credentials_encrypted)
-    
-    # Inject Host for cTrader based on is_live
-    if account.broker_name.upper() == "CTRADER":
-        creds["host"] = "live.ctraderapi.com" if account.is_live else "demo.ctraderapi.com"
-        
-    return {
-        "broker_name": account.broker_name,
-        "credentials": creds
-    }
-
 @router.get("/account/summary")
 async def get_account_summary(
     account_id: str = None, # Optional: if not provided, might fail or pick default
@@ -58,9 +45,7 @@ async def get_account_summary(
         if not account:
             raise HTTPException(status_code=404, detail="No active broker account found")
 
-
-        config = _get_broker_config(account)
-        data = await execution_client.get_account_summary(config)
+        data = await execution_client.get_account_summary(str(account.id)) # Pass ID string
         return success_response(data=data)
     except HTTPException:
         raise
@@ -80,6 +65,10 @@ async def place_order(
         
         # Resolve Broker Account
         account_id = order_data.get("account_id")
+        # Support broker_account_id as alias if frontend uses that
+        if not account_id:
+             account_id = order_data.get("broker_account_id")
+
         query = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
             UserFund.user_id == current_user.id,
             BrokerAccount.is_active == True
@@ -91,11 +80,9 @@ async def place_order(
         if not account:
             raise HTTPException(status_code=404, detail="Broker account not found")
 
-             
-        config = _get_broker_config(account)
-        
         # 1. Execute Order
-        execution_result = await execution_client.place_order(order_data, config)
+        # Pass ID directly
+        execution_result = await execution_client.place_order(order_data, str(account.id))
         
         # 2. Persist Trade & Create Journal Entry
         if execution_result and "id" in execution_result:
@@ -150,14 +137,13 @@ async def close_trade(
                 ).first()
                 
                 if has_access:
-                    config = _get_broker_config(account)
                     oanda_id = trade.metadata_json.get("oanda_id") if trade.metadata_json else None
                     
                     if oanda_id:
                         try:
                             await execution_client.close_trade(
                                 trade_id=oanda_id, 
-                                broker_config=config
+                                broker_account_id=str(account.id)
                             )
                         except Exception as e:
                             logger.error(f"Failed to close trade on broker: {e}")
@@ -215,8 +201,7 @@ async def get_trades(
                     
                 async def sync_account(acc):
                     try:
-                        config = _get_broker_config(acc)
-                        oanda_trades = await execution_client.get_open_trades(config)
+                        oanda_trades = await execution_client.get_open_trades(str(acc.id))
                         # Sync operations in TradeService are synchronous DB writes, which is fine within thread pool usually,
                         # but here we are in async path. 
                         # Ideally TradeService.sync_open_trades should be async or run in threadpool if heavy?

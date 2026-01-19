@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { AuthProvider } from "@/context/AuthContext";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { BrokerReferenceProvider } from "@/context/BrokerReferenceContext";
+import { AccountProvider } from "@/context/AccountContext";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -61,18 +62,20 @@ export default function RootLayout({
       <body suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}>
         <AuthProvider>
           <SidebarProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              {/* Main Content Wrapper - Use md:ml-64 to offset sidebar only on desktop */}
-              <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-64">
-                <Header />
-                <main className="flex-1 overflow-y-auto p-6">
-                  <BrokerReferenceProvider>
-                    {children}
-                  </BrokerReferenceProvider>
-                </main>
+            <AccountProvider>
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar />
+                {/* Main Content Wrapper - Use md:ml-64 to offset sidebar only on desktop */}
+                <div className="flex-1 flex flex-col overflow-hidden w-full md:ml-64">
+                  <Header />
+                  <main className="flex-1 overflow-y-auto p-6">
+                    <BrokerReferenceProvider>
+                      {children}
+                    </BrokerReferenceProvider>
+                  </main>
+                </div>
               </div>
-            </div>
+            </AccountProvider>
           </SidebarProvider>
           <Toaster richColors closeButton position="top-right" />
         </AuthProvider>

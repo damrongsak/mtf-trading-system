@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { IndicatorData } from '@/components/charts/CandleChart';
 import { Time } from 'lightweight-charts';
 import { fetchCandles, Candle } from '@/lib/api/market';
-import { getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
+
 import { fetchSystemConfig } from '@/lib/api/system';
 import { 
     calculateEMA, calculateRSI, calculateATR, calculateMACD, calculateADX, calculateSMC, 
@@ -20,7 +20,8 @@ import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
+// ... imports
+import { Panel, PanelGroup, PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 import { usePersistentState } from '@/lib/hooks/usePersistentState';
@@ -72,58 +73,8 @@ export default function MarketPage() {
   const accountPanelRef = useRef<PanelImperativeHandle>(null);
   const orderPanelRef = useRef<PanelImperativeHandle>(null);
 
-  // --- State: Broker Accounts (Lifted State) ---
-  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = usePersistentState<string>('mtf_selected_account', '');
+
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // --- State: Layout Persistence (Manual) ---
-  const [mainLayout, setMainLayout] = useState<number[] | null>(null);
-  const [orderLayout, setOrderLayout] = useState<number[] | null>(null);
-  const [layoutLoaded, setLayoutLoaded] = useState(false);
-
-  // Load Layouts
-  useEffect(() => {
-      try {
-          const mode = showAccountPanel ? 'expanded' : 'collapsed';
-          // Main Layout
-          const savedMain = localStorage.getItem(`mtf_layout_main_v3_${mode}`);
-          if (savedMain) {
-              setMainLayout(JSON.parse(savedMain));
-          } else {
-             // Defaults
-             setMainLayout(showAccountPanel 
-                // Top, Account
-                ? [70, 30] 
-                : [100, 0]
-             );
-          }
-
-          // Order Layout
-          const savedOrder = localStorage.getItem('mtf_layout_order_v3');
-          if (savedOrder) {
-              setOrderLayout(JSON.parse(savedOrder));
-          } else {
-              // Chart, Order
-              setOrderLayout([75, 25]);
-          }
-      } catch (e) { console.error("Layout load failed", e); }
-      setLayoutLoaded(true);
-  }, [showAccountPanel]);
-  // Note: We don't depend on layoutLoaded for mounting anymore if we want immediate render, 
-  // but for layout stability we should wait or render default.
-  
-  // Save Handlers
-  const handleMainLayoutChange = (sizes: number[]) => {
-      const mode = showAccountPanel ? 'expanded' : 'collapsed';
-      setMainLayout(sizes);
-      localStorage.setItem(`mtf_layout_main_v3_${mode}`, JSON.stringify(sizes));
-  };
-
-  const handleOrderLayoutChange = (sizes: number[]) => {
-      setOrderLayout(sizes);
-      localStorage.setItem('mtf_layout_order_v3', JSON.stringify(sizes));
-  };
 
   // Prevent flash of unstyled content (FOUC) / layout jump by waiting for mount
   useEffect(() => {
@@ -158,19 +109,7 @@ export default function MarketPage() {
         }
     }).catch(err => console.error("Failed to load system config", err));
 
-    // Load Broker Accounts
-    getBrokerAccounts().then(accs => {
-        setAccounts(accs);
-        if (accs.length > 0) {
-            // Check if persisted account is valid
-            const isValid = accs.find(a => a.id === selectedAccountId);
-            if (!isValid) {
-                // Smart Selection Fallback
-                const preferred = accs.find(a => a.broker_name.toUpperCase().includes('OANDA'));
-                setSelectedAccountId(preferred ? preferred.id : accs[0].id);
-            }
-        }
-    }).catch(err => console.error("Failed to load accounts", err));
+
 
     setMounted(true);
   }, []);
@@ -522,24 +461,24 @@ export default function MarketPage() {
 
         {/* Workspace Layout: Resizable Panels */}
         <div className="flex-1 min-h-0 relative group">
-            {layoutLoaded ? (
+            {mounted ? (
                 <PanelGroup 
                     key={showAccountPanel ? 'expanded' : 'collapsed'} 
+                    autoSaveId={showAccountPanel ? 'mtf_layout_main_v4_expanded_auto' : 'mtf_layout_main_v4_collapsed_auto'}
                     orientation="vertical" 
                     className="h-full w-full"
-                    onLayout={handleMainLayoutChange}
                 >
                     
                     {/* Top Area: Chart & Execution */}
-                    <Panel id="top-panel" defaultSize={mainLayout?.[0] ?? 70} minSize={15}>
+                    <Panel id="top-panel" defaultSize={70} minSize={15}>
                         <PanelGroup 
+                            autoSaveId="mtf_layout_order_v4_auto"
                             orientation="horizontal" 
                             className="h-full w-full"
-                            onLayout={handleOrderLayoutChange}
                         >
                             
                             {/* Left: Chart */}
-                            <Panel id="chart-panel" defaultSize={orderLayout?.[0] ?? 75} minSize={15} className="relative">
+                            <Panel id="chart-panel" defaultSize={75} minSize={15} className="relative">
                              {/* Toolbar (Moved inside Chart Panel) */}
                             <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -713,7 +652,7 @@ export default function MarketPage() {
                             ref={(node) => {
                                 if (node) orderPanelRef.current = node;
                             }}
-                            defaultSize={orderLayout?.[1] ?? 25} 
+                            defaultSize={25} 
                             minSize={4} 
                             className="bg-gray-950"
                         >
@@ -721,9 +660,6 @@ export default function MarketPage() {
                                 symbol={symbol} 
                                 currentPrice={currentPrice} 
                                 onOrderSuccess={handleOrderSuccess}
-                                accounts={accounts}
-                                selectedAccountId={selectedAccountId}
-                                onAccountChange={setSelectedAccountId}
                                 onOrderLinesChange={setOrderLines}
                                 // Lifted State
                                 slPrice={slPrice}
@@ -765,7 +701,7 @@ export default function MarketPage() {
                 <Panel 
                     id="account-panel"
                     ref={accountPanelRef}
-                    defaultSize={mainLayout?.[1] ?? 10} 
+                    defaultSize={30} 
                     minSize={4} 
                     collapsible={true}
                     onCollapse={() => {
@@ -773,7 +709,6 @@ export default function MarketPage() {
                     }}
                 >
                         <AccountPanel 
-                        accountId={selectedAccountId}
                         refreshTrigger={refreshTrigger}
                         onMinimize={() => {
                             const panel = accountPanelRef.current;

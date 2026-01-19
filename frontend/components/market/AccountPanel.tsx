@@ -28,14 +28,18 @@ const PanelTab = ({ active, onClick, icon: Icon, label }: PanelTabProps) => (
     </button>
 );
 
+import { useAccount } from '@/context/AccountContext';
+
 interface AccountPanelProps {
-    accountId: string;
     refreshTrigger: number;
     onMaximize: () => void;
     onMinimize: () => void;
 }
 
-export const AccountPanel: React.FC<AccountPanelProps> = ({ accountId, refreshTrigger, onMaximize, onMinimize }) => {
+export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMaximize, onMinimize }) => {
+    const { selectedAccount } = useAccount();
+    const accountId = selectedAccount?.id;
+    
     const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY'>('POSITIONS');
     const [trades, setTrades] = useState<Trade[]>([]);
     const [history, setHistory] = useState<Trade[]>([]);

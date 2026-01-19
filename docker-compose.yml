@@ -56,6 +56,9 @@ services:
     networks:
       - default
       - external
+    environment:
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
 
   data-pipeline:
     build: ./services/data-pipeline

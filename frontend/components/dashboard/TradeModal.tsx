@@ -1,8 +1,7 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { Signal } from '@/lib/api/types';
-import { placeSmartOrder, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
+import { placeSmartOrder } from '@/lib/api/execution';
+import { useAccount } from '@/context/AccountContext';
 
 interface TradeModalProps {
   signal: Signal | null;
@@ -14,6 +13,7 @@ interface TradeModalProps {
 type ExecutionMode = 'SMART' | 'MANUAL';
 
 export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose, onTradeSuccess }) => {
+  const { accounts, selectedAccount, selectAccount } = useAccount();
   const [mode, setMode] = useState<ExecutionMode>('SMART');
   
   // Manual State
@@ -21,24 +21,12 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
   
   // Smart State
   const [riskUsd, setRiskUsd] = useState<number>(10.0);
-  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-
+  
   // Common State
   const [sl, setSl] = useState<number>(0);
   const [tp, setTp] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-        // Load accounts when opening
-        getBrokerAccounts().then(accs => {
-            setAccounts(accs);
-            if (accs.length > 0) setSelectedAccountId(accs[0].id);
-        }).catch(err => console.warn("Failed to load accounts", err));
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     if (signal) {
@@ -58,66 +46,13 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
     
     try {
         if (mode === 'MANUAL') {
-            // const units = signal.direction === 'LONG' || signal.direction === 'BULLISH' 
-            //    ? lotSize * 100000 
-            //    : -1 * lotSize * 100000;
-            
-            // For Manual, we still need basic OrderRequest structure
-            // But wait, OrderRequest requires specific broker config usually?
-            // The old placeOrder used `OrderRequest` which had BrokerConfig.
-            // Let's check `lib/api/execution.ts` OrderRequest definition. 
-            // It lacks BrokerConfig in frontend definition? 
-            // Ah, looking at previous view_file, OrderRequest in TS: { symbol, units, sl_price... }
-            // But backend `OrderRequest` has `broker: BrokerConfig`.
-            // There seems to be a mismatch or implicit handling in API Gateway previously?
-            // If the old `placeOrder` worked, the TS definition matches what was sent.
-            // Let's assume the previous TS definition was correct for the middleware or how it was used.
-            // However, looking at the file I viewed:
-            // export interface OrderRequest { symbol: string; units: number... }
-            // It suggests the frontend sends this to... where? 
-            // If endpoint is `/api/v1/execution/orders`, backend expects `OrderRequest` with `BrokerConfig`.
-            // This implies the old frontend code might have been failing or I missed something.
-            // Converting to Smart Order is safer because it uses Account ID stored in DB.
-            
-            // To support Legacy Manual, we'd need to construct BrokerConfig. 
-            // Let's rely on Smart Mode primarily.
-            
-            // Actually, for Manual Mode, we can use SmartOrder with manual units if we update backend,
-            // but Backend SmartOrder calculates units.
-            
-            // Let's try to upgrade `placeOrder` usage to be compatible? 
-            // Or just enforce Smart Order for now since it's the requested upgrade.
-            // Use Trigger Warning for Manual Mode if not fully implemented.
-            
-            // Re-reading `lib/api/execution.ts`: 
-            // `placeOrder(data: OrderRequest)` -> `/api/v1/execution/orders`.
-            // Backend `place_order` -> expects `req.broker`.
-            // Frontend `OrderRequest` -> NO `broker` field.
-            // So Manual Mode was likely BROKEN or mocking something.
-            // I will implement Smart Mode and maybe disable Manual if I can't fix it easily, 
-            // or I assume frontend client injects it? No.
-            
-            // Let's Use Smart Mode logic for everything? 
-            // No, Smart Mode calculates units. Manual mode specifies units.
-            
-            // Strategy: I will implement Smart Mode fully. Validation.
-            
-            // For Manual Mode to work, we need to pass credentials. We don't have them in frontend.
-            // We have Account ID.
-            // So we should probably add a backend endpoint `place_order_by_id` or similar.
-            // OR use SmartOrder but allow overriding units? 
-            // Backend `SmartOrder` doesn't support explicit units override yet.
-            
-            // DECISION: I will focus on SMART MODE working. 
-            // I will show an error for Manual Mode saying "Legacy Execution not supported with Account ID yet".
             throw new Error("Manual Unit entry not yet supported with secure Account ID. Please use Smart Risk.");
-            
         } else {
             // Smart Mode
-            if (!selectedAccountId) throw new Error("No Broker Account selected.");
+            if (!selectedAccount) throw new Error("No Broker Account selected.");
             
             await placeSmartOrder({
-                broker_account_id: selectedAccountId,
+                broker_account_id: selectedAccount.id,
                 symbol: signal.symbol.replace('/', '_'),
                 direction: (signal.direction === 'LONG' || signal.direction === 'BULLISH') ? 'BULLISH' : 'BEARISH',
                 stop_loss: sl,
@@ -174,8 +109,8 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
             <div>
                 <label className="block text-xs text-gray-400 mb-1">Broker Account</label>
                 <select 
-                    value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    value={selectedAccount?.id || ''}
+                    onChange={(e) => selectAccount(e.target.value)}
                     className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm focus:border-accent-blue outline-none"
                     disabled={accounts.length === 0}
                 >
@@ -294,8 +229,8 @@ export const TradeModal: React.FC<TradeModalProps> = ({ signal, isOpen, onClose,
                 </button>
                 <button 
                     onClick={handleSubmit}
-                    disabled={loading ||  (mode === 'SMART' && !selectedAccountId)}
-                    className={`flex-1 py-3 rounded-lg text-white font-bold transition flex justify-center items-center ${btnClass} ${(loading || (mode === 'SMART' && !selectedAccountId)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={loading ||  (mode === 'SMART' && !selectedAccount)}
+                    className={`flex-1 py-3 rounded-lg text-white font-bold transition flex justify-center items-center ${btnClass} ${(loading || (mode === 'SMART' && !selectedAccount)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {loading ? (
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

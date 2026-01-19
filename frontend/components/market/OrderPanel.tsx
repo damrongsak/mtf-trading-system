@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { placeSmartOrder, ExecutionBrokerAccount, getAccountSummary } from '@/lib/api/execution';
+import { placeSmartOrder, getAccountSummary } from '@/lib/api/execution';
+import { useAccount } from '@/context/AccountContext';
 import { Loader2, DollarSign, Target, Settings2, Info, ChevronDown, Check, Calculator, RefreshCw, Lock, Maximize2, ChevronRight } from 'lucide-react';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { cn } from '@/lib/utils';
@@ -12,9 +13,10 @@ interface OrderPanelProps {
   symbol: string;
   currentPrice: number;
   onOrderSuccess: () => void;
-  accounts: ExecutionBrokerAccount[];
-  selectedAccountId: string;
-  onAccountChange: (id: string) => void;
+  // Account Props Removed - using global context
+  // accounts: ExecutionBrokerAccount[];
+  // selectedAccountId: string;
+  // onAccountChange: (id: string) => void;
   onOrderLinesChange?: (lines: ChartPriceLine[]) => void;
   
   // Lifted State
@@ -41,9 +43,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     symbol, 
     currentPrice, 
     onOrderSuccess,
-    accounts,
-    selectedAccountId,
-    onAccountChange,
+    // accounts, selectedAccountId, onAccountChange, // Removed
     onOrderLinesChange,
     slPrice, setSlPrice,
     tpPrice, setTpPrice,
@@ -53,6 +53,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
     onMinimize,
     onMaximize
 }) => {
+  const { accounts, selectedAccount, selectAccount } = useAccount();
+  const selectedAccountId = selectedAccount?.id;
   const { getInstrument, formatPrice } = useBrokerReference();
   const instrument = getInstrument(symbol);
 
@@ -377,11 +379,11 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
             <button className="flex-1 py-3 text-sm font-bold text-gray-500 hover:text-gray-300">DOM</button>
             <div className="px-3 flex items-center border-l border-white/5">
                 <select 
-                    value={selectedAccountId}
-                    onChange={e => onAccountChange(e.target.value)}
+                    value={selectedAccountId || ''}
+                    onChange={e => selectAccount(e.target.value)}
                     className="bg-transparent text-xs outline-none text-gray-400 w-24 truncate cursor-pointer"
                 >
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.broker_name}</option>)}
+                    {accounts.length ? accounts.map(a => <option key={a.id} value={a.id}>{a.broker_name}</option>) : <option>No Accounts</option>}
                 </select>
                 <div className="w-px h-4 bg-white/10 mx-2" />
                 <button onClick={onMinimize} className="text-gray-500 hover:text-white transition-colors" title="Minimize">
