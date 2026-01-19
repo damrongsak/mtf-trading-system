@@ -75,10 +75,10 @@ export function useLivePrices(instruments: string[] = []) {
                         if (!timeoutRef.current) {
                             timeoutRef.current = setTimeout(() => {
                                 if (isMounted) {
-                                    setPrices({ ...pricesRef.current });
+                                    setPrices(() => ({ ...pricesRef.current }));
                                 }
                                 timeoutRef.current = null;
-                            }, 200);
+                            }, 500);
                         }
                     }
                 } catch (e) {

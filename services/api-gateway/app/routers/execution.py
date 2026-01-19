@@ -272,7 +272,9 @@ async def get_accounts(
             {
                 "id": str(account.id),
                 "broker_name": account.broker_name,
-                "account_id": account.account_number
+                "account_id": account.account_number,
+                "environment": account.environment,
+                "is_live": account.is_live
             }
             for account in accounts
         ])

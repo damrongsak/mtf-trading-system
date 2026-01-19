@@ -28,12 +28,16 @@ class BrokerFactory:
             from app.adapters.ctrader import CTraderOrderAdapter
             # Map credentials: schema in DB has: client_id, client_secret, account_id, token
             # Note: We fallback to 'app_id'/'secret' for legacy compatibility if needed, but primary is client_id
+            # Infer host from environment if not explicitly provided
+            env = credentials.get("environment", "demo").lower()
+            default_host = "live.ctraderapi.com" if env in ["live", "production"] else "demo.ctraderapi.com"
+            
             return CTraderOrderAdapter(
                 client_id=credentials.get("client_id") or credentials.get("app_id"),
                 client_secret=credentials.get("client_secret") or credentials.get("secret"),
                 account_id=credentials.get("account_id"),
                 token=credentials.get("token"),
-                host=credentials.get("host", "demo.ctraderapi.com")
+                host=credentials.get("host", default_host)
             )
         elif broker_name == "MOCK":
             from app.adapters.mock_adapter import MockAdapter

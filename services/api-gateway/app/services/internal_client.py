@@ -86,7 +86,7 @@ class ExecutionClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary for {broker_account_id}")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker_account_id": str(broker_account_id)}, timeout=10.0)
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker_account_id": str(broker_account_id)}, timeout=30.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:
@@ -101,7 +101,7 @@ class ExecutionClient:
                     **order_data
                 }
                 logger.info(f"Placing order at {EXECUTION_SERVICE_URL}/orders")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/orders", json=payload, timeout=10.0)
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/orders", json=payload, timeout=30.0)
                 resp.raise_for_status()
                 result = resp.json()
                 logger.info(f"Order placed successfully: {result}")
@@ -130,7 +130,7 @@ class ExecutionClient:
                     "units": units
                 }
                 logger.info(f"Closing trade {trade_id} at {EXECUTION_SERVICE_URL}/trades/close")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/close", json=payload, timeout=10.0)
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/close", json=payload, timeout=30.0)
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
@@ -141,7 +141,7 @@ class ExecutionClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Placing smart order at {EXECUTION_SERVICE_URL}/smart-orders")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/smart-orders", json=smart_order_data, timeout=10.0)
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/smart-orders", json=smart_order_data, timeout=30.0)
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:

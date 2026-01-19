@@ -85,9 +85,10 @@ async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Dep
         if not account.is_active:
              raise HTTPException(status_code=400, detail="Broker Account is inactive")
 
-        # Decrypt
         try:
             credentials = decrypt_data(account.credentials_encrypted)
+            # Inject environment from model
+            credentials["environment"] = account.environment
         except Exception:
             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
 
@@ -117,6 +118,8 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
 
         try:
             credentials = decrypt_data(account.credentials_encrypted)
+            # Inject environment from model
+            credentials["environment"] = account.environment
         except Exception:
              raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
         
@@ -206,6 +209,8 @@ async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_
 
         try:
             credentials = decrypt_data(account.credentials_encrypted)
+            # Inject environment from model
+            credentials["environment"] = account.environment
         except Exception:
              raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
 
@@ -233,6 +238,8 @@ async def close_trade(req: CloseTradeRequest, db: AsyncSession = Depends(get_db)
 
         try:
             credentials = decrypt_data(account.credentials_encrypted)
+            # Inject environment from model
+            credentials["environment"] = account.environment
         except Exception:
              raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
 
@@ -304,6 +311,8 @@ async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(g
     # Decrypt
     try:
         credentials = decrypt_data(account.credentials_encrypted)
+        # Inject environment from model
+        credentials["environment"] = account.environment
     except Exception as e:
         logger.error(f"Decryption failed for account {account.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve broker credentials")
