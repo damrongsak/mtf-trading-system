@@ -268,3 +268,23 @@ class AsyncCTraderClient:
              raise Exception(f"Get Account List Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_trader(self, account_id: int):
+        """
+        Fetch Trader details (Balance, etc.) using ProtoOATraderReq.
+        """
+        req = ProtoOATraderReq()
+        req.ctidTraderAccountId = int(account_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOATraderRes().payloadType:
+            res = ProtoOATraderRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.trader
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Trader Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")

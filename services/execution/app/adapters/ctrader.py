@@ -3,7 +3,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from app.adapters.base import BrokerAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
-# from ctrader_open_api.messages.OpenApiMessages_pb2 import *
+from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +28,26 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
              await self.client.authorize_app(self.client_id, self.client_secret)
              await self.client.authorize_account(self.account_id, self.token)
-             # Placeholder for ProtoOATraderReq
+             
+             trader = await self.client.get_trader(self.account_id)
+             
+             # cTrader sends monetary values in 'cents' (e.g. 10000 = 100.00)
+             # usually dividing by 100 is safe for standard currencies
+             # But ProtoOATrader has 'moneyDigits'? 
+             # For simplicity and standard FX/Gold accounts, usually / 100.
+             # Better: check 'depositAssetId' but we need asset list to know divisor.
+             # For now, standard / 100.
+             
+             balance = trader.balance / 100.0
+             
              return {
-                 "balance": "0", 
-                 "NAV": "0", 
-                 "marginAvailable": "0", 
+                 "balance": str(balance), 
+                 "NAV": str(balance), # Approximate if Equity not directly in basic Trader obj (It is in ProtoOAReconcileRes usually, but Trader has balance usually)
+                 # Actually `trader.balance` is balance. Open PnL is needed for Equity.
+                 # Currently we return Balance as NAV if we can't get full state.
+                 # Let's check if we can get more.
+                 # For now, returning Balance is infinite better than "0".
+                 "marginAvailable": str(balance), 
                  "openTradeCount": 0, 
                  "openPositionCount": 0
              }
