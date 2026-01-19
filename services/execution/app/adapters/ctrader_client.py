@@ -228,6 +228,28 @@ class AsyncCTraderClient:
              raise Exception(f"Get Symbols Error: {error.errorCode}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_symbols_full(self, account_id: int, symbol_ids: list):
+        """
+        Fetch full symbol details (digits, pipPosition, etc.) for a list of IDs.
+        """
+        req = ProtoOASymbolByIdReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId.extend([int(x) for x in symbol_ids])
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOASymbolByIdRes().payloadType:
+            res = ProtoOASymbolByIdRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.symbol # List of ProtoOASymbol
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Symbols Full Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
     async def refresh_token(self, refresh_token: str):
         """
@@ -286,5 +308,70 @@ class AsyncCTraderClient:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Get Trader Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def create_order(self, account_id: int, symbol_id: int, order_type: int, trade_side: int, volume: int, 
+                           price: Optional[float] = None, sl: Optional[float] = None, tp: Optional[float] = None,
+                           comment: Optional[str] = None):
+        req = ProtoOANewOrderReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.orderType = order_type 
+        req.tradeSide = trade_side
+        req.volume = int(volume)
+        
+        if price is not None: req.limitPrice = float(price)
+        if sl is not None: req.stopLoss = float(sl)
+        if tp is not None: req.takeProfit = float(tp)
+        if comment: req.comment = comment
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            # cTrader returns ExecutionEvent for new orders
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Create Order Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_reconcile(self, account_id: int):
+        req = ProtoOAReconcileReq()
+        req.ctidTraderAccountId = int(account_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAReconcileRes().payloadType:
+            res = ProtoOAReconcileRes()
+            res.ParseFromString(resp_msg.payload)
+            return res # Contains .position list
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Reconcile Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def close_position(self, account_id: int, position_id: int, volume: int):
+        req = ProtoOAClosePositionReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.positionId = int(position_id)
+        req.volume = int(volume)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Close Position Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
