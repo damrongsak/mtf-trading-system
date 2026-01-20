@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey
+from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -74,3 +74,23 @@ class MarketSymbol(Base):
     
     data_source = relationship("DataSource")
     category = relationship("MarketCategory")
+
+class Candle(Base):
+    __tablename__ = "candles"
+    
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    market_symbol_id = Column(UUID(as_uuid=True), ForeignKey("market_symbols.id"), nullable=False)
+    
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    timeframe = Column(String, nullable=False)
+    
+    open = Column(Numeric, nullable=False)
+    high = Column(Numeric, nullable=False)
+    low = Column(Numeric, nullable=False)
+    close = Column(Numeric, nullable=False)
+    volume = Column(Numeric, nullable=False)
+    
+    # Use relationship if needed, or just ID
+    # market_symbol = relationship("MarketSymbol")

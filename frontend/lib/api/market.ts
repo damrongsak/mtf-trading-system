@@ -17,6 +17,7 @@ export interface FetchCandlesParams {
   from?: string;
   to?: string;
   count?: number;
+  data_source?: string;
 }
 
 export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]> {
@@ -26,7 +27,8 @@ export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]
       timeframe: params.timeframe,
       from_time: params.from,
       to_time: params.to,
-      count: params.count
+      count: params.count,
+      data_source: params.data_source
     }
   });
   return response.data.data;

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { useAccount } from './AccountContext';
 
 export interface BrokerInstrumentDetails {
     pipLocation?: number;
@@ -46,26 +47,39 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const { selectedAccount } = useAccount();
+
     const fetchSymbols = async () => {
         try {
             setLoading(true);
-            // Default to OANDA for Global Reference for now. 
-            // In future, this could be dynamic based on selected account context.
-            const response = await apiClient.get<BrokerSymbolsResponse>('/api/v1/market/symbols?data_source=OANDA');
+            
+            // Determine Data Source from Selected Account
+            // Default to OANDA
+            let dataSource = 'OANDA';
+            
+            if (selectedAccount) {
+                if (selectedAccount.broker_name === 'CTRADER') {
+                    // Mapped to the actual active cTrader Data Source Name
+                    dataSource = 'CTRADER'; 
+                } 
+                // Add other mappings here as needed, e.g. BINANCE
+            }
+            
+            console.log(`[BrokerRef] Fetching symbols for Data Source: ${dataSource}`);
+
+            const response = await apiClient.get<BrokerSymbolsResponse>(`/api/v1/market/symbols?data_source=${dataSource}`);
             
             const data = response.data?.data || [];
             const map = new Map<string, BrokerSymbol>();
             
             data.forEach((s: BrokerSymbol) => {
                 map.set(s.symbol, s);
-                // Also map display name for fuzzy search if needed?
             });
             
             setSymbols(map);
             setError(null);
         } catch (err: unknown) {
              console.error("Failed to load broker reference:", err);
-            // Don't block app flow, just log error.
             setError("Failed to load global broker data");
         } finally {
             setLoading(false);
@@ -74,7 +88,7 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         fetchSymbols();
-    }, []);
+    }, [selectedAccount]);
 
     const getInstrument = (symbol: string) => {
         return symbols.get(symbol);

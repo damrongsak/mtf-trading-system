@@ -20,6 +20,7 @@ import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
+import { useAccount } from '@/context/AccountContext';
 // ... imports
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
@@ -83,6 +84,7 @@ export default function MarketPage() {
 
   const { prices, connected } = useLivePrices([symbol]);
   const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
+  const { selectedAccount } = useAccount();
 
   // --- Handlers ---
   const handleLineDrag = (title: string, price: number) => {
@@ -109,25 +111,60 @@ export default function MarketPage() {
         }
     }).catch(err => console.error("Failed to load system config", err));
 
-
-
     setMounted(true);
   }, []);
+
+  // --- Effect: Validate Symbol on Broker Switch ---
+  useEffect(() => {
+      if (brokerSymbols.size > 0 && !brokerSymbols.has(symbol)) {
+          // Identify if we can find a close match (e.g. XAU_USD -> XAUUSD)
+          const clean = symbol.replace('_', '').replace('/', '');
+          let match = '';
+          
+          for (const s of Array.from(brokerSymbols.keys())) {
+               if (s.replace('_', '').replace('/', '') === clean) {
+                   match = s;
+                   break;
+               }
+          }
+
+          if (match) {
+              setSymbol(match);
+          } else {
+              // Fallback to first available
+              const first = brokerSymbols.values().next().value;
+              if (first) setSymbol(first.symbol);
+          }
+      }
+  }, [brokerSymbols, symbol, setSymbol]);
 
 
   // --- Effects: Data Loading ---
   const loadData = useCallback(async () => {
     setLoading(true);
     setCandles([]); // Clear old data
+    
+    // Determine Data Source
+    let dataSource = 'OANDA';
+    if (selectedAccount) {
+        if (selectedAccount.broker_name === 'CTRADER') dataSource = 'CTRADER';
+        // Add others as needed
+    }
+
     try {
-      const data = await fetchCandles({ symbol, timeframe, count: 500 });
+      const data = await fetchCandles({ 
+          symbol, 
+          timeframe, 
+          count: 500,
+          data_source: dataSource
+      });
       setCandles(data);
     } catch (error) {
       console.error("Failed to fetch candles", error);
     } finally {
       setLoading(false);
     }
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, selectedAccount]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
