@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
-from app.models import BrokerAccount, Fund, Trade
+from app.models import BrokerAccount, Fund, Trade, TradeStatus, TradeDirection
+from sqlalchemy import desc, func
 import uuid
+import math
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -248,6 +250,60 @@ async def close_trade(req: CloseTradeRequest, db: AsyncSession = Depends(get_db)
         result = await adapter.close_trade(req.broker_trade_id, req.units)
         return {"status": "success", "data": result}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/trades")
+async def get_trades(
+    broker_account_id: Optional[str] = None,
+    status: Optional[TradeStatus] = None,
+    symbol: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get historical trades with filtering and pagination.
+    """
+    try:
+        query = select(Trade)
+        
+        # Filters
+        if broker_account_id:
+            try:
+                acc_uuid = uuid.UUID(broker_account_id)
+                query = query.where(Trade.broker_account_id == acc_uuid)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid UUID format for broker_account_id")
+        
+        if status:
+            query = query.where(Trade.status == status)
+            
+        if symbol:
+            query = query.where(Trade.symbol == symbol)
+            
+        # Count Total
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+        
+        # Pagination & Ordering
+        query = query.order_by(desc(Trade.signal_timestamp))
+        query = query.offset((page - 1) * per_page).limit(per_page)
+        
+        result = await db.execute(query)
+        trades = result.scalars().all()
+        
+        return {
+            "data": trades,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": math.ceil(total / per_page)
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Get Trades Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

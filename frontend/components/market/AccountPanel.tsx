@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getTrades, Trade, getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { TradesTable } from '@/components/trades/TradesTable'; // Reuse existing table
+import { Pagination } from '@/components/common/Pagination';
 
 import { Wallet, History, Radio, RefreshCcw, Maximize2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
     const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY'>('POSITIONS');
     const [trades, setTrades] = useState<Trade[]>([]);
     const [history, setHistory] = useState<Trade[]>([]);
+    
+    // Pagination State
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyPerPage, setHistoryPerPage] = useState(10);
+    const [historyTotal, setHistoryTotal] = useState(0);
+
     const [summary, setSummary] = useState<AccountSummary | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -54,12 +61,15 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
             // Parallel fetch
             const [openRes, closedRes, sumRes] = await Promise.all([
                 getTrades({ status: 'OPEN', page: 1, per_page: 50, account_id: accountId }),
-                getTrades({ status: 'CLOSED', page: 1, per_page: 50, account_id: accountId }),
+                getTrades({ status: 'CLOSED', page: historyPage, per_page: historyPerPage, account_id: accountId }),
                 getAccountSummary(accountId)
             ]);
 
             setTrades(openRes.data || []);
             setHistory(closedRes.data || []);
+            if (closedRes.meta && typeof closedRes.meta.total === 'number') {
+                setHistoryTotal(closedRes.meta.total);
+            }
             setSummary(sumRes);
         } catch (e) {
             console.error("Failed to load account data", e);
@@ -68,7 +78,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
         }
     };
 
-    useEffect(() => { loadData(); }, [accountId, refreshTrigger]);
+    useEffect(() => { loadData(); }, [accountId, refreshTrigger, historyPage, historyPerPage]);
+
+    // Reset page when account changes
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [accountId]);
 
     // Expose refresh method to parent if needed via ref, but for now auto-refresh or manual button
     
@@ -119,8 +134,20 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
                 )}
                 
                 {activeTab === 'HISTORY' && (
-                    <div className="h-full">
-                         <TradesTable trades={history} loading={loading} />
+                    <div className="h-full flex flex-col">
+                         <div className="flex-1 overflow-auto">
+                            <TradesTable trades={history} loading={loading} />
+                         </div>
+                         <div className="shrink-0 mt-2">
+                            <Pagination 
+                                currentPage={historyPage}
+                                totalPages={Math.ceil(historyTotal / historyPerPage)}
+                                perPage={historyPerPage}
+                                total={historyTotal}
+                                onPageChange={setHistoryPage}
+                                onPerPageChange={setHistoryPerPage}
+                            />
+                         </div>
                     </div>
                 )}
 
