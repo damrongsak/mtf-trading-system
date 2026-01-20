@@ -227,13 +227,98 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     })
 
                         elif source.provider == "CTRADER":
-                            # Use get_candles or equivalent
-                            # We need to map timeframe to cTrader enum
-                            # And fetch.
-                            # Assuming client has helper or we allow it.
-                            # cTrader client in data-pipeline does NOT have fetch_candles helper yet?
-                            # Check adapter.
-                            pass
+                            # Map Timeframe to cTrader Period Enum
+                            # M1=1, M2=2, M3=3, M4=4, M5=5, M10=6, M15=7, M30=8, H1=9, H4=10, D1=11, W1=12, MN1=13
+                            # Our TFs: M1, M5, M15, H1, H4, D, W, M
+                            tf_map = {
+                                "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, "D": 11, "W": 12, "M": 13
+                            }
+                            
+                            ct_period = tf_map.get(tf)
+                            if not ct_period:
+                                logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
+                                continue
+                                
+                            # Symbol ID from details
+                            symbol_id = ms.details.get('symbolId')
+                            if not symbol_id and 'raw' in ms.details:
+                                symbol_id = ms.details['raw'].get('symbolId')
+                                
+                            if not symbol_id:
+                                logger.warning(f"Missing symbolId in details for {symbol_name}. Run sync_ctrader_symbols.")
+                                continue
+                            
+                            # Calculate Timestamps (Required by API)
+                            import time
+                            
+                            # TF to Minutes for Duration Calc
+                            minutes_map = {
+                                "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D": 1440, "W": 10080, "M": 43200
+                            }
+                            tf_mins = minutes_map.get(tf, 1) # Default 1 min if unknown
+                            
+                            count_limit = 100
+                            # Buffer: Requested Count * Mins * 60s * 1000ms
+                            duration_ms = count_limit * tf_mins * 60 * 1000
+                            
+                            to_ts = int(time.time() * 1000)
+                            from_ts = to_ts - duration_ms
+                            
+                            # Fetch last 100 candles
+                            try:
+                                trendbars = await client.get_trendbars(
+                                    account_id=int(source.config_json.get("account_id")),
+                                    symbol_id=symbol_id,
+                                    period=ct_period,
+                                    count=count_limit, # Limit result count
+                                    from_timestamp=from_ts,
+                                    to_timestamp=to_ts
+                                )
+                                
+                                for bar in trendbars:
+                                    # timestamp in minutes? No, documentation says Milliseconds usually?
+                                    # ProtoOAGetTrendbarsRes says 'timestamp' in response is usually start time.
+                                    # Let's assume standard cTrader timestamp (epoch ms? or minutes?). 
+                                    # Usually Open API uses Unix Msg. Note says "delta".
+                                    # Wait, `deltaHigh`, `deltaOpen` are deltas. 
+                                    # Low is absolute? No. 
+                                    # Check Proto definition or standard adapter usage.
+                                    # Actually `AsyncCTraderClient` returns `res.trendbar` list.
+                                    # Each bar has `volume`, `deltaHigh`, `deltaOpen`, `deltaClose`, `low` (absolute? or base?)
+                                    # Usually `low` is the base value (int64) and others are deltas (uint64/int64).
+                                    # And price = value / 100000.0
+                                    
+                                    # Handling Delta decoding (accumulated? or per bar?)
+                                    # In getting trendbars, the values are RELATIVE to `low` of that bar?
+                                    # Or is it Delta from PREVIOUS bar?
+                                    # Open API 2.0:
+                                    # Low is absolute (int64).
+                                    # DeltaOpen, DeltaHigh, DeltaClose are relative to Low.
+                                    # All prices / 100000.
+                                    
+                                    low = bar.low
+                                    open_p = low + bar.deltaOpen
+                                    high = low + bar.deltaHigh
+                                    close_p = low + bar.deltaClose
+                                    
+                                    # UTC Timestamp? `bar.utcTimestampInMinutes`?
+                                    # Check Proto definition. The field is often `utcTimestampInMinutes` for trendbars.
+                                    ts = datetime.utcfromtimestamp(bar.utcTimestampInMinutes * 60)
+                                    
+                                    batch_data.append({
+                                        "market_symbol_id": ms.id,
+                                        "timeframe": tf,
+                                        "timestamp": ts,
+                                        "open": open_p / 100000.0,
+                                        "high": high / 100000.0,
+                                        "low": low / 100000.0,
+                                        "close": close_p / 100000.0,
+                                        "volume": bar.volume,
+                                        "is_complete": True 
+                                    })
+                            except Exception as e:
+                                logger.error(f"cTrader fetch failed for {symbol_name} {tf}: {e}")
+                                continue
 
                         # Save and Publish
                         if batch_data:
