@@ -39,7 +39,7 @@ const DEFAULT_TIMEFRAMES = ['M5', 'M15', 'H1', 'H4', 'D', 'W', 'M'];
 export default function MarketPage() {
   // --- State: Market Data ---
   const [candles, setCandles] = useState<Candle[]>([]);
-  const [symbol, setSymbol] = usePersistentState<string>('mtf_symbol', 'XAU_USD');
+  const [symbol, setSymbol] = usePersistentState<string>('mtf_symbol', 'XAUUSD');
   const [timeframe, setTimeframe] = usePersistentState<string>('mtf_timeframe', 'H1');
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>(DEFAULT_TIMEFRAMES);
   const [loading, setLoading] = useState(false);
@@ -86,8 +86,9 @@ export default function MarketPage() {
 
   // Determine Data Source
   const dataSource = React.useMemo(() => {
-      if (selectedAccount?.broker_name === 'CTRADER') return 'CTRADER';
-      return 'OANDA';
+      // Default to CTRADER unless explicitly OANDA
+      if (selectedAccount?.broker_name === 'OANDA') return 'OANDA';
+      return 'CTRADER';
   }, [selectedAccount]);
 
   const { prices, connected } = useLivePrices([symbol], dataSource);
