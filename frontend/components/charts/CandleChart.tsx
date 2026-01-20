@@ -42,9 +42,10 @@ interface CandleChartProps {
   bid?: number;
   ask?: number;
   onLineDrag?: (title: string, price: number) => void;
+  precision?: number;
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 25, bid, ask, onLineDrag }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [], markers = [], priceLines = [], colors = {}, rightOffset = 25, bid, ask, onLineDrag, precision = 2 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -196,6 +197,11 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
       borderVisible: false,
       wickUpColor: colors.wickUpColor || '#10b981',
       wickDownColor: colors.wickDownColor || '#ef4444',
+      priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: 1 / Math.pow(10, precision),
+      },
     });
     seriesRef.current = candlestickSeries;
 
@@ -266,6 +272,19 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     seriesRef.current.setData(uniqueData);
     
   }, [data]);
+  
+  // 2.5 Update Precision
+  useEffect(() => {
+      if (!seriesRef.current) return;
+      seriesRef.current.applyOptions({
+          priceFormat: {
+              type: 'price',
+              precision: precision,
+              minMove: 1 / Math.pow(10, precision),
+          },
+      });
+      // Also update chart price scale if needed, but series format usually drives it for the series' scale
+  }, [precision]);
 
   // 3. Update Markers (New Effect)
   useEffect(() => {

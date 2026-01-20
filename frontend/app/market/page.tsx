@@ -596,6 +596,7 @@ export default function MarketPage() {
                                             markers={smcMarkers}
                                             priceLines={[...smcPriceLines, ...orderLines]}
                                             onLineDrag={handleLineDrag}
+                                            precision={getInstrument(symbol)?.details?.digits ?? getInstrument(symbol)?.details?.displayPrecision ?? 5}
                                         />
                                         {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
                                             if (ind.name.startsWith('RSI')) {
