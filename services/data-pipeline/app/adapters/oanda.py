@@ -13,7 +13,7 @@ class OandaClient:
         self.client = API(access_token=settings.OANDA_API_KEY, environment=settings.OANDA_ENV)
         self.account_id = settings.OANDA_ACCOUNT_ID
 
-    def fetch_candles(self, symbol: str, timeframe: str, count: int = 500):
+    def fetch_candles(self, symbol: str, timeframe: str, count: int = 500, **kwargs):
         """
         Fetch OHLCV candles from Oanda.
         
@@ -21,12 +21,14 @@ class OandaClient:
             symbol: Instrument name (e.g., 'XAU_USD')
             timeframe: Granularity (e.g., 'M15', 'H1', 'H4')
             count: Number of candles to fetch
+            **kwargs: Additional parameters for Oanda API (e.g., fromTime, toTime, price, includeFirst)
         """
         params = {
             "count": count,
             "granularity": timeframe,
             "price": "M"  # Midpoint candles
         }
+        params.update(kwargs) # Merge additional parameters
         
         try:
             # Oanda requires underscore, e.g. XAU_USD

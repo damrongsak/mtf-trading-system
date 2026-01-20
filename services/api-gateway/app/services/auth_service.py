@@ -72,6 +72,34 @@ async def refresh_ctrader_token_internal(account: BrokerAccount, db: Session, fo
             creds["expires_at"] = int(time.time()) + int(expires_in)
             
             account.credentials_encrypted = encrypt_data(creds)
+            
+            # Sync to DataSources (api-gateway & data-pipeline share DB)
+            from app.models.data_source import DataSource
+            
+            # Find all CTRADER sources
+            data_sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
+            
+            for ds in data_sources:
+                if not ds.config_json:
+                    continue
+                    
+                # Check if this Source uses the same account_id
+                # Config JSON usually has strings, ensure int/str comparison handles both
+                ds_acc_id = str(ds.config_json.get("account_id", ""))
+                acc_id_str = str(creds.get("account_id", ""))
+                
+                if ds_acc_id == acc_id_str:
+                    # Update this Source
+                    ds_config = dict(ds.config_json)
+                    ds_config["token"] = new_access_token
+                    ds_config["refresh_token"] = new_refresh_token
+                    # Also update expires for good measure? Not strictly in schema but helpful
+                    ds_config["expires_at"] = creds["expires_at"]
+                    
+                    ds.config_json = ds_config
+                    db.add(ds)
+                    logger.info(f"Synced refreshed token to DataSource {ds.name} (ID: {ds.id})")
+
             db.commit()
             
             logger.info(f"Successfully refreshed token for account {account.id}")

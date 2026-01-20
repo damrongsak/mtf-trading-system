@@ -251,6 +251,61 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+             
+    async def get_trendbars(self, account_id: int, symbol_id: int, period: int, count: int = None, from_timestamp: int = None, to_timestamp: int = None):
+        """
+        Fetch historical trendbars (candles).
+        period: Enum ProtoOATrendbarPeriod (e.g. M1=1, M15=3, H1=4)
+        timestamps: Unix timestamp in Milliseconds
+        """
+        req = ProtoOAGetTrendbarsReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.period = period
+        if count is not None: req.count = count
+        if from_timestamp is not None: req.fromTimestamp = from_timestamp
+        if to_timestamp is not None: req.toTimestamp = to_timestamp
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetTrendbarsRes().payloadType:
+            res = ProtoOAGetTrendbarsRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.trendbar # list of trendbars
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Trendbars Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_tick_data(self, account_id: int, symbol_id: int, quote_type: int, from_timestamp: int, to_timestamp: int):
+        """
+        Fetch historical tick data.
+        quote_type: 1 (Bid), 2 (Ask)
+        timestamps: Unix timestamp in Milliseconds
+        """
+        req = ProtoOAGetTickDataReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.type = quote_type
+        req.fromTimestamp = int(from_timestamp)
+        req.toTimestamp = int(to_timestamp)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetTickDataRes().payloadType:
+            res = ProtoOAGetTickDataRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.tickData # list of ticks (delta encoded)
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Ticks Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
     async def refresh_token(self, refresh_token: str):
         """
         Refresh the access token using the refresh token.

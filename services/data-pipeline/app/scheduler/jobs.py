@@ -15,9 +15,9 @@ from app.utils.retry import async_retry
 logger = logging.getLogger(__name__)
 
 @async_retry(max_retries=3, initial_delay=2, exceptions=(Exception,))
-async def fetch_candles_safe(client_ctx, **kwargs):
+async def fetch_candles_safe(client, **kwargs):
     """Safe wrapper for OANDA candle fetch with retry."""
-    return await asyncio.to_thread(client_ctx.instrument.candles, **kwargs)
+    return await asyncio.to_thread(client.fetch_candles, **kwargs)
 
 async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger):
     current_start = from_date
@@ -25,30 +25,26 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
     symbol_name = ms.symbol
     
     while True:
+        # Params matching OandaClient.fetch_candles kwargs
         kwargs = {
-            "instrument": symbol_name,
-            "granularity": tf,
-            "price": "M",
             "fromTime": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "count": 2500,
-            "includeFirst": current_start == from_date
+            "includeFirst": current_start == from_date,
+            "count": 2500
         }
         
         try:
-            response = await fetch_candles_safe(client.ctx, **kwargs)
+            # Call adapter method
+            candles = await fetch_candles_safe(client, symbol=symbol_name, timeframe=tf, **kwargs)
             
-            if response.status != 200:
-                logger.error(f"Oanda Error: {response.body}")
-                break
-                
-            candles = response.get("candles", 200)
             if not candles:
                 break
                 
             batch_data = []
             for c in candles:
-                if c.complete:
-                    ts = pd.to_datetime(c.time).to_pydatetime()
+                # Oanda returns dicts in adapter
+                is_complete = c.get('complete', False)
+                if is_complete:
+                    ts = pd.to_datetime(c['time']).to_pydatetime()
                     if ts > to_date:
                         break
                         
@@ -56,12 +52,12 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
                         "market_symbol_id": ms.id,
                         "timeframe": tf,
                         "timestamp": ts,
-                        "open": float(c.mid.o),
-                        "high": float(c.mid.h),
-                        "low": float(c.mid.l),
-                        "close": float(c.mid.c),
-                        "volume": int(c.volume),
-                        "is_complete": c.complete
+                        "open": float(c['mid']['o']),
+                        "high": float(c['mid']['h']),
+                        "low": float(c['mid']['l']),
+                        "close": float(c['mid']['c']),
+                        "volume": int(c['volume']),
+                        "is_complete": is_complete
                     })
             
             if not batch_data:
@@ -73,13 +69,15 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
             total_saved += len(batch_data)
             
             last_ts = batch_data[-1]["timestamp"]
+            
+            # Stop conditions
             if last_ts >= to_date or len(candles) < 2500:
                 break
                 
             current_start = last_ts
             
         except Exception as e:
-            logger.error(f"Batch failed: {e}")
+            logger.error(f"Batch failed for {symbol_name}: {e}")
             break
             
     logger.info(f"Backfill complete for {symbol_name} {tf}: {total_saved} candles.")

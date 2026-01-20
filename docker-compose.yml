@@ -64,6 +64,7 @@ services:
     build: ./services/data-pipeline
     image: mtf-data-pipeline
     container_name: data-pipeline
+    env_file: .env
     volumes:
       - ./services/data-pipeline:/app
     depends_on:
@@ -72,6 +73,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
     networks:
       - default
       - external

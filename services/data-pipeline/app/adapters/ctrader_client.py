@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 import struct
@@ -229,6 +230,82 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def get_symbols_full(self, account_id: int, symbol_ids: list):
+        """
+        Fetch full symbol details (digits, pipPosition, etc.) for a list of IDs.
+        """
+        req = ProtoOASymbolByIdReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId.extend([int(x) for x in symbol_ids])
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOASymbolByIdRes().payloadType:
+            res = ProtoOASymbolByIdRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.symbol # List of ProtoOASymbol
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Symbols Full Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+             
+    async def get_trendbars(self, account_id: int, symbol_id: int, period: int, count: int = None, from_timestamp: int = None, to_timestamp: int = None):
+        """
+        Fetch historical trendbars (candles).
+        period: Enum ProtoOATrendbarPeriod (e.g. M1=1, M15=3, H1=4)
+        timestamps: Unix timestamp in Milliseconds
+        """
+        req = ProtoOAGetTrendbarsReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.period = period
+        if count is not None: req.count = count
+        if from_timestamp is not None: req.fromTimestamp = from_timestamp
+        if to_timestamp is not None: req.toTimestamp = to_timestamp
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetTrendbarsRes().payloadType:
+            res = ProtoOAGetTrendbarsRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.trendbar # list of trendbars
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Trendbars Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_tick_data(self, account_id: int, symbol_id: int, quote_type: int, from_timestamp: int, to_timestamp: int):
+        """
+        Fetch historical tick data.
+        quote_type: 1 (Bid), 2 (Ask)
+        timestamps: Unix timestamp in Milliseconds
+        """
+        req = ProtoOAGetTickDataReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.type = quote_type
+        req.fromTimestamp = int(from_timestamp)
+        req.toTimestamp = int(to_timestamp)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetTickDataRes().payloadType:
+            res = ProtoOAGetTickDataRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.tickData # list of ticks (delta encoded)
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Ticks Error: {error.errorCode}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
     async def refresh_token(self, refresh_token: str):
         """
         Refresh the access token using the refresh token.
@@ -242,13 +319,116 @@ class AsyncCTraderClient:
         if resp_msg.payloadType == ProtoOARefreshTokenRes().payloadType:
             res = ProtoOARefreshTokenRes()
             res.ParseFromString(resp_msg.payload)
-            # ProtoOARefreshTokenRes fields: accessToken, refreshToken, expiresIn (optional)
-            # reauthorizationTokenExpiresIn might not exist in this version of proto
-            return res.accessToken, res.refreshToken, getattr(res, 'expiresIn', 0), getattr(res, 'reauthorizationTokenExpiresIn', 0)
+            # ProtoOARefreshTokenRes usually contains: accessToken, refreshToken, expiresIn
+            # reauthorizationTokenExpiresIn might not be present in this Protobuf definition
+            return res.accessToken, res.refreshToken, res.expiresIn, getattr(res, 'reauthorizationTokenExpiresIn', None)
         elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Refresh Token Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+    async def get_account_list(self, token: str):
+        """
+        Fetch the list of accounts linked to the given Access Token.
+        """
+        req = ProtoOAGetAccountListByAccessTokenReq()
+        req.accessToken = token
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAGetAccountListByAccessTokenRes().payloadType:
+            res = ProtoOAGetAccountListByAccessTokenRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.ctidTraderAccount
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Account List Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def get_trader(self, account_id: int):
+        """
+        Fetch Trader details (Balance, etc.) using ProtoOATraderReq.
+        """
+        req = ProtoOATraderReq()
+        req.ctidTraderAccountId = int(account_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOATraderRes().payloadType:
+            res = ProtoOATraderRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.trader
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Trader Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def create_order(self, account_id: int, symbol_id: int, order_type: int, trade_side: int, volume: int, 
+                           price: Optional[float] = None, sl: Optional[float] = None, tp: Optional[float] = None,
+                           comment: Optional[str] = None):
+        req = ProtoOANewOrderReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.symbolId = int(symbol_id)
+        req.orderType = order_type 
+        req.tradeSide = trade_side
+        req.volume = int(volume)
+        
+        if price is not None: req.limitPrice = float(price)
+        if sl is not None: req.stopLoss = float(sl)
+        if tp is not None: req.takeProfit = float(tp)
+        if comment: req.comment = comment
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            # cTrader returns ExecutionEvent for new orders
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Create Order Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_reconcile(self, account_id: int):
+        req = ProtoOAReconcileReq()
+        req.ctidTraderAccountId = int(account_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAReconcileRes().payloadType:
+            res = ProtoOAReconcileRes()
+            res.ParseFromString(resp_msg.payload)
+            return res # Contains .position list
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Reconcile Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def close_position(self, account_id: int, position_id: int, volume: int):
+        req = ProtoOAClosePositionReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.positionId = int(position_id)
+        req.volume = int(volume)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Close Position Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
