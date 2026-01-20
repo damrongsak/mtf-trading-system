@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getTrades, Trade, getAccountSummary, AccountSummary } from '@/lib/api/execution';
+import { getTrades, Trade, getAccountSummary, AccountSummary, getOpenPositions } from '@/lib/api/execution';
 import { TradesTable } from '@/components/trades/TradesTable'; // Reuse existing table
 import { Pagination } from '@/components/common/Pagination';
 
@@ -60,12 +60,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
         try {
             // Parallel fetch
             const [openRes, closedRes, sumRes] = await Promise.all([
-                getTrades({ status: 'OPEN', page: 1, per_page: 50, account_id: accountId }),
+                getOpenPositions(accountId),
                 getTrades({ status: 'CLOSED', page: historyPage, per_page: historyPerPage, account_id: accountId }),
                 getAccountSummary(accountId)
             ]);
 
-            setTrades(openRes.data || []);
+            setTrades(openRes || []);
             setHistory(closedRes.data || []);
             if (closedRes.meta && typeof closedRes.meta.total === 'number') {
                 setHistoryTotal(closedRes.meta.total);

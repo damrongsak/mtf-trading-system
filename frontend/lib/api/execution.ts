@@ -104,11 +104,19 @@ export async function getTrades(params: GetTradesParams = {}): Promise<Paginated
     return response.data;
 }
 
+/**
+ * Get open positions directly from broker
+ */
+export async function getOpenPositions(accountId: string): Promise<Trade[]> {
+    const response = await apiClient.post<{ status: string, data: Trade[] }>('/api/v1/execution/trades/open', { broker_account_id: accountId });
+    return response.data.data;
+}
+
 export interface ExecutionBrokerAccount {
     id: string;
     broker_name: string;
     account_id: string; // The external broker ID (e.g., "101-001-...")
-    environment: string; 
+    environment: string;
 }
 
 export interface SmartOrderRequest {
