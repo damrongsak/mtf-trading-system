@@ -166,8 +166,9 @@ async def backfill_candles():
                     continue
                 
                 symbol_id = ms.details['symbolId']
-                digits = ms.details.get('digits', 2)
-                divisor = 10 ** digits
+                # Digit based scaling is incorrect for raw cTrader values (always 10^5)
+                # digits = ms.details.get('digits', 2)
+                divisor = 100000.0
 
                 for tf_name, tf_enum in TIMEFRAME_MAP.items():
                     logger.info(f"Processing {sym_name} {tf_name}...")
