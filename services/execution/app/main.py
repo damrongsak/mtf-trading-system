@@ -10,7 +10,8 @@ from app.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import BrokerAccount, Fund
+from datetime import datetime, timedelta
+from app.models import BrokerAccount, Fund, Trade
 import uuid
 
 # Setup Logger
@@ -252,6 +253,89 @@ async def close_trade(req: CloseTradeRequest, db: AsyncSession = Depends(get_db)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+class SyncTradesRequest(BaseModel):
+    broker_account_id: str
+    lookback_days: int = Field(30, ge=1, le=365)
+
+@app.post("/trades/sync")
+async def sync_trades(req: SyncTradesRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Import historical closed trades from broker.
+    Uses deterministic UUIDs based on AccountID + BrokerTradeID to prevent duplicates.
+    """
+    try:
+        try:
+            account_uuid = uuid.UUID(req.broker_account_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+        if not account.is_active:
+             raise HTTPException(status_code=400, detail="Broker Account is inactive")
+
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+        except Exception:
+             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
+
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        # Calculate Range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=req.lookback_days)
+        
+        # Fetch History
+        history = await adapter.get_trade_history(start_date, end_date)
+        
+        imported_count = 0
+        
+        for t_data in history:
+            ext_id = str(t_data.get("trade_id"))
+            if not ext_id: continue
+            
+            # If trade_id is missing from the adapter response, generate a deterministic one
+            # This is a fallback for adapters that might not provide a unique trade_id for historical trades
+            if not t_data.get("trade_id"):
+                t_data["trade_id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{t_data['signal_timestamp']}-{t_data['symbol']}-{t_data.get('entry_price')}"))
+            
+            # Generate Deterministic ID
+            trade_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, f"{str(account.id)}_{ext_id}")
+            
+            # Upsert using merge
+            new_trade = Trade(
+                trade_id=trade_uuid,
+                broker_account_id=account.id,
+                symbol=t_data["symbol"],
+                strategy_name=t_data.get("strategy_name", "Imported"),
+                signal_timestamp=t_data["signal_timestamp"],
+                status=t_data["status"],
+                direction=t_data["direction"],
+                entry_price=t_data["entry_price"],
+                exit_price=t_data["exit_price"],
+                sl_price=t_data.get("sl_price", 0),
+                tp_price=t_data.get("tp_price", 0),
+                lot_size=t_data["lot_size"],
+                risk_usd=t_data["risk_usd"],
+                pnl_usd=t_data["pnl_usd"],
+                exit_timestamp=t_data["exit_timestamp"],
+                metadata_json=t_data.get("metadata_json", {"external_id": ext_id})
+            )
+            await db.merge(new_trade)
+            imported_count += 1
+        
+        await db.commit()
+        return {"status": "success", "imported": imported_count, "total_fetched": len(history)}
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Sync Trades Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Smart Execution ---
 

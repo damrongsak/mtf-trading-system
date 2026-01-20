@@ -430,3 +430,26 @@ class AsyncCTraderClient:
              raise Exception(f"Close Position Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def get_deal_list(self, account_id: int, from_timestamp: int, to_timestamp: int):
+        """
+        Fetch historical deals (closed trades).
+        timestamps: Unix timestamp in Milliseconds
+        """
+        req = ProtoOADealListReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.fromTimestamp = int(from_timestamp)
+        req.toTimestamp = int(to_timestamp)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOADealListRes().payloadType:
+            res = ProtoOADealListRes()
+            res.ParseFromString(resp_msg.payload)
+            return res.deal # list of ProtoOADeal
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Get Deal List Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")

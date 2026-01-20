@@ -92,6 +92,27 @@ class MockAdapter(BrokerAdapter):
         elif "JPY" in symbol:
             return 150.00
         return 100.00
+
+    async def get_trade_history(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
+        # Return some mock trades
+        return [
+            {
+                "trade_id": str(uuid.uuid4()),
+                "symbol": "XAU_USD",
+                "strategy_name": "Manual",
+                "signal_timestamp": datetime.utcnow(),
+                "status": "CLOSED",
+                "direction": "LONG",
+                "entry_price": 2000.0,
+                "exit_price": 2010.0,
+                "sl_price": 1990.0,
+                "tp_price": 2020.0,
+                "lot_size": 0.1,
+                "risk_usd": 10.0,
+                "pnl_usd": 100.0,
+                "exit_timestamp": datetime.utcnow()
+            }
+        ]
     
     # Optional dynamic method if needed
     def get_summary(self):

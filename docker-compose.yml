@@ -46,6 +46,8 @@ services:
     build: ./services/execution
     container_name: execution
     env_file: .env
+    ports:
+      - "8002:8000"
     volumes:
       - ./services/execution:/app
     deploy:

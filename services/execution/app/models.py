@@ -1,8 +1,18 @@
 import uuid
-from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime
+from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime, Enum as SQLEnum, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
+import enum
 from app.database import Base
+
+class TradeStatus(enum.Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    REJECTED = "REJECTED"
+
+class TradeDirection(enum.Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"
 
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
@@ -94,3 +104,39 @@ class Candle(Base):
     
     # Use relationship if needed, or just ID
     # market_symbol = relationship("MarketSymbol")
+
+class Trade(Base):
+    __tablename__ = "trades"
+    
+    trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    strategy_run_id = Column(UUID(as_uuid=True), nullable=True)
+    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True)
+    symbol = Column(String(20), nullable=False)
+    strategy_name = Column(String(100), nullable=False)
+    signal_timestamp = Column(DateTime(timezone=True), nullable=False)
+    
+    status = Column(SQLEnum(TradeStatus, name="tradestatus"), nullable=False) # OPEN, CLOSED, REJECTED
+    rejection_reason = Column(String(500), nullable=True)
+    
+    direction = Column(SQLEnum(TradeDirection, name="tradedirection"), nullable=False) # LONG, SHORT
+    entry_price = Column(Numeric(18, 8), nullable=False)
+    sl_price = Column(Numeric(18, 8), nullable=False)
+    tp_price = Column(Numeric(18, 8), nullable=False)
+    
+    lot_size = Column(Numeric(10, 2), nullable=False)
+    risk_usd = Column(Numeric(10, 2), nullable=False)
+    atr_pips = Column(Numeric(10, 2), nullable=True)
+    rr_ratio = Column(Numeric(5, 2), nullable=True)
+    
+    pnl_usd = Column(Numeric(10, 2), nullable=True)
+    mae_usd = Column(Numeric(10, 2), nullable=True)
+    mfe_usd = Column(Numeric(10, 2), nullable=True)
+    
+    exit_price = Column(Numeric(18, 8), nullable=True)
+    exit_timestamp = Column(DateTime(timezone=True), nullable=True)
+    
+    metadata_json = Column(JSONB, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+

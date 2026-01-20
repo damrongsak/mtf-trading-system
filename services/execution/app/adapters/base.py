@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 class BrokerAdapter(ABC):
     """
@@ -49,5 +50,13 @@ class BrokerAdapter(ABC):
         """
         Fetch the current market price for a symbol.
         Used for risk calculation (distance to SL).
+        """
+        pass
+
+    @abstractmethod
+    async def get_trade_history(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
+        """
+        Fetch historical closed trades within a date range.
+        Returns a list of dicts mapped to the system's Trade model fields.
         """
         pass

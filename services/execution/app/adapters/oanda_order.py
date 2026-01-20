@@ -7,7 +7,9 @@ import oandapyV20.endpoints.instruments as instruments
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional
 from fastapi.concurrency import run_in_threadpool
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -201,3 +203,63 @@ class OandaOrderAdapter(BrokerAdapter):
 
 
 
+
+    async def get_trade_history(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
+        """
+        Fetch historical closed trades within a date range via OANDA API.
+        LIMITATION: Fetches last 500 closed trades and filters client-side.
+        """
+        try:
+            params = {
+                "state": "CLOSED",
+                "count": 500
+            }
+            r = trades.TradesList(accountID=self.account_id, params=params)
+            await run_in_threadpool(self.client.request, r)
+            
+            raw_trades = r.response.get("trades", [])
+            results = []
+            
+            for t in raw_trades:
+                ct_str = t.get("closeTime", "")
+                if not ct_str: continue
+                
+                # Parse "2016-06-22T18:41:35.433291884Z" -> remove fractions for simple parse
+                # Using simple string slice to avoid libraries if possible
+                try:
+                    ts_clean = ct_str.split(".")[0] # "2016-06-22T18:41:35"
+                    dt = datetime.strptime(ts_clean, "%Y-%m-%dT%H:%M:%S")
+                    # Assuming naive UTC
+                    
+                    if start_date <= dt <= end_date:
+                        from app.models import TradeStatus, TradeDirection
+
+                        initial_units = float(t.get("initialUnits", 0))
+                        direction = TradeDirection.LONG if initial_units > 0 else TradeDirection.SHORT
+                        
+                        results.append({
+                            "trade_id": t.get("id"),
+                            "symbol": t.get("instrument"),
+                            "strategy_name": "Imported",
+                            "signal_timestamp": dt, # Use close time as signal time for imported? Or 'openTime'
+                            "signal_timestamp": dt, # Fallback
+                            "status": TradeStatus.CLOSED,
+                            "direction": direction,
+                            "entry_price": float(t.get("price", 0)),
+                            "exit_price": float(t.get("averageClosePrice", 0)),
+                            "sl_price": 0.0, # Not always available
+                            "tp_price": 0.0,
+                            "lot_size": abs(initial_units),
+                            "risk_usd": 0.0,
+                            "pnl_usd": float(t.get("realizedPL", 0)),
+                            "exit_timestamp": dt,
+                            "metadata_json": {"raw": t}
+                        })
+                except Exception as parse_e:
+                    logger.warning(f"Failed to parse trade time {ct_str}: {parse_e}")
+                    continue
+                    
+            return results
+        except Exception as e:
+            logger.error(f"OANDA Trade History Error: {e}")
+            raise e
