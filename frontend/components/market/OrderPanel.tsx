@@ -99,7 +99,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   const pipVal = (instrument?.details?.pipLocation !== undefined && instrument?.details?.pipLocation !== null) 
     ? Math.pow(10, instrument.details.pipLocation) 
     : 0.01;
-  const tickSize = instrument?.details?.displayPrecision ? Math.pow(10, -instrument.details.displayPrecision) : 0.00001;
+  const tickSize = (instrument?.details?.displayPrecision ?? instrument?.details?.digits) 
+    ? Math.pow(10, -(instrument?.details?.displayPrecision ?? instrument?.details?.digits!)) 
+    : 0.00001;
   const spreadPips = 1.2; 
   const spreadVal = spreadPips * pipVal;
 
@@ -212,7 +214,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
           const dist = slPips * pipVal;
           const newSl = direction === 'BULLISH' ? (executePrice - dist) : (executePrice + dist);
           if (Math.abs(newSl - slPrice) > tickSize) {
-              setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision || 5)));
+              setSlPrice(parseFloat(newSl.toFixed(instrument?.details?.displayPrecision ?? instrument?.details?.digits ?? 5)));
           }
      }
   }, [slPips, executePrice, pipVal, direction, stopLossEnabled, slMode]);
@@ -223,7 +225,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
           const dist = tpPips * pipVal;
           const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
           if (Math.abs(newTp - tpPrice) > tickSize) {
-              setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
+              setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision ?? instrument?.details?.digits ?? 5)));
           }
      }
   }, [tpPips, executePrice, pipVal, direction, takeProfitEnabled, tpMode]);
@@ -321,7 +323,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       // Update Price Immediately
       const dist = newTpPips * pipVal;
       const newTp = direction === 'BULLISH' ? (executePrice + dist) : (executePrice - dist);
-      setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision || 5)));
+      setTpPrice(parseFloat(newTp.toFixed(instrument?.details?.displayPrecision ?? instrument?.details?.digits ?? 5)));
   };
 
 
@@ -408,7 +410,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 )}
              >
                  <span className={cn("text-sm font-bold uppercase", direction === 'BEARISH' ? "text-rose-500" : "text-gray-500")}>Sell</span>
-                 <span className={cn("text-lg font-mono font-bold", direction === 'BEARISH' ? "text-white" : "text-gray-400")}>{bid.toFixed(instrument?.details?.displayPrecision || 5)}</span>
+                 <span className={cn("text-lg font-mono font-bold", direction === 'BEARISH' ? "text-white" : "text-gray-400")}>{bid.toFixed(instrument?.details?.displayPrecision ?? instrument?.details?.digits ?? 5)}</span>
              </div>
 
              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 bg-[#252833] text-[10px] text-gray-300 px-2 py-0.5 rounded border border-black shadow-sm font-mono">
@@ -426,7 +428,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 )}
              >
                  <span className={cn("text-sm font-bold uppercase", direction === 'BULLISH' ? "text-blue-500" : "text-gray-500")}>Buy</span>
-                 <span className={cn("text-lg font-mono font-bold", direction === 'BULLISH' ? "text-white" : "text-gray-400")}>{ask.toFixed(instrument?.details?.displayPrecision || 5)}</span>
+                 <span className={cn("text-lg font-mono font-bold", direction === 'BULLISH' ? "text-white" : "text-gray-400")}>{ask.toFixed(instrument?.details?.displayPrecision ?? instrument?.details?.digits ?? 5)}</span>
              </div>
         </div>
 

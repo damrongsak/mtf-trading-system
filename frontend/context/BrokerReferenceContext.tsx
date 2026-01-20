@@ -96,10 +96,8 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
 
     const formatPrice = (symbol: string, price: number) => {
         const inst = symbols.get(symbol);
-        if (!inst || !inst.details || typeof inst.details.displayPrecision === 'undefined') {
-            return price.toFixed(5); // Default fallback
-        }
-        return price.toFixed(inst.details.displayPrecision);
+        const precision = inst?.details?.displayPrecision ?? inst?.details?.digits ?? 5;
+        return price.toFixed(precision);
     };
 
     return (
