@@ -98,11 +98,15 @@ class CTraderStreamer(StreamAdapter):
         logger.info("Stopping cTrader Stream...")
         self._stop_event.set()
 
-    def _calculate_price(self, raw_price, digits):
-        """Convert raw integer price to float using digits."""
+    def _calculate_price(self, raw_price):
+        """
+        Convert raw integer price to float.
+        Observation: cTrader (IC Markets) seems to send all prices scaled by 10^5 
+        regardless of the 'digits' metadata.
+        """
         if raw_price is None:
             return None
-        return float(raw_price) / (10 ** digits)
+        return float(raw_price) / 100000.0
 
     async def _on_message(self, msg):
         # Callback from client
@@ -112,21 +116,19 @@ class CTraderStreamer(StreamAdapter):
             
             symbol_id = event.symbolId
             symbol_name = self._subscription_map.get(symbol_id, f"ID:{symbol_id}")
-            digits = self._digits_map.get(symbol_id, 5) # Default 5 if unknown
+            # digits = self._digits_map.get(symbol_id, 5) # Unreliable for scaling, ignoring.
             
             # --- State Management for Partial Updates ---
-            # cTrader SpotEvent might send only Bid or only Ask if only one changed.
-            # We need to maintain the current state of the book for this symbol.
             
             current_state = self._last_quotes.get(symbol_id, {"bid": 0.0, "ask": 0.0})
             
             # Update Bid
             if event.HasField('bid'):
-                current_state["bid"] = self._calculate_price(event.bid, digits)
+                current_state["bid"] = self._calculate_price(event.bid)
                 
             # Update Ask
             if event.HasField('ask'):
-                current_state["ask"] = self._calculate_price(event.ask, digits)
+                current_state["ask"] = self._calculate_price(event.ask)
             
             # Save state
             self._last_quotes[symbol_id] = current_state
