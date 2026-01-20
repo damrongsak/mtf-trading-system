@@ -82,14 +82,22 @@ export default function MarketPage() {
     setMounted(true);
   }, []);
 
-  const { prices, connected } = useLivePrices([symbol]);
-  const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
   const { selectedAccount } = useAccount();
+
+  // Determine Data Source
+  const dataSource = React.useMemo(() => {
+      if (selectedAccount?.broker_name === 'CTRADER') return 'CTRADER';
+      return 'OANDA';
+  }, [selectedAccount]);
+
+  const { prices, connected } = useLivePrices([symbol], dataSource);
+  const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
 
   // --- Handlers ---
   const handleLineDrag = (title: string, price: number) => {
       const instrument = getInstrument(symbol);
-      const precision = instrument?.details?.displayPrecision ?? 5;
+      // Standardized 'digits' takes precedence
+      const precision = instrument?.details?.digits ?? instrument?.details?.displayPrecision ?? 5;
       const rounded = parseFloat(price.toFixed(precision));
       
       if (title === 'SL') {
@@ -145,11 +153,7 @@ export default function MarketPage() {
     setCandles([]); // Clear old data
     
     // Determine Data Source
-    let dataSource = 'OANDA';
-    if (selectedAccount) {
-        if (selectedAccount.broker_name === 'CTRADER') dataSource = 'CTRADER';
-        // Add others as needed
-    }
+    // const dataSource = ... (already memoized above)
 
     try {
       const data = await fetchCandles({ 

@@ -204,8 +204,9 @@ entities:
         type: jsonb
         nullable: true
         description: >-
-          Broker-specific instrument metadata (e.g. pipLocation, displayPrecision, 
-          marginRate, financing rates). Synced from broker API.
+          Broker-specific instrument metadata. Standardized JSON structure: 
+          {digits, pipPosition, minLot, maxLot, stepVolume, raw: {...}}.
+          Synced from broker API (e.g. cTrader, OANDA).
 
 
   Strategy:

@@ -14,7 +14,7 @@ const getWsUrl = () => {
 
 const WS_URL = getWsUrl();
 
-export function useLivePrices(instruments: string[] = []) {
+export function useLivePrices(instruments: string[] = [], dataSource?: string) {
     const [prices, setPrices] = useState<Record<string, PriceUpdate>>({});
     const [connected, setConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
@@ -48,6 +48,9 @@ export function useLivePrices(instruments: string[] = []) {
             const queryParams = new URLSearchParams();
             if (instrumentsList) {
                 queryParams.append('symbols', instrumentsList);
+            }
+            if (dataSource) {
+                queryParams.append('source', dataSource);
             }
             queryParams.append('token', authToken);
 
@@ -116,7 +119,7 @@ export function useLivePrices(instruments: string[] = []) {
                 ws.current = null;
             }
         };
-    }, [authToken, instrumentsList]);
+    }, [authToken, instrumentsList, dataSource]);
 
     return { prices, connected };
 }

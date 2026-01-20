@@ -24,29 +24,36 @@ class ConnectionManager:
         if self.initialized:
             return
         
-        # Maps symbol to set of websockets: "EUR_USD" -> {ws1, ws2}
-        self.active_connections: Dict[str, Set[WebSocket]] = defaultdict(set)
+        # Maps symbol to set of (websocket, source_filter) tuples
+        # "EUR_USD" -> {(ws1, "OANDA"), (ws2, None)}
+        self.active_connections: Dict[str, Set[tuple]] = defaultdict(set)
         self.redis = RedisSubscriber()
         self.is_running = False
         self.listen_task = None
         self.initialized = True
 
-    async def connect(self, websocket: WebSocket, symbols: List[str]):
+    async def connect(self, websocket: WebSocket, symbols: List[str], source: str = None):
         """Register a new websocket connection for specific symbols."""
         await websocket.accept()
         for symbol in symbols:
-            self.active_connections[symbol].add(websocket)
+            self.active_connections[symbol].add((websocket, source))
         logger.info(f"Client connected. Active symbols: {len(self.active_connections)}")
 
     async def disconnect(self, websocket: WebSocket, symbols: List[str]):
         """Unregister a websocket connection."""
         for symbol in symbols:
-            # Check if symbol exists before accessing to avoid creating empty entry in defaultdict
             if symbol in self.active_connections:
-                if websocket in self.active_connections[symbol]:
-                    self.active_connections[symbol].remove(websocket)
-                    if not self.active_connections[symbol]:
-                        del self.active_connections[symbol]
+                # Need to find and remove the tuple containing this websocket
+                to_remove = set()
+                for conn in self.active_connections[symbol]:
+                    if conn[0] == websocket:
+                        to_remove.add(conn)
+                
+                for item in to_remove:
+                    self.active_connections[symbol].remove(item)
+
+                if not self.active_connections[symbol]:
+                    del self.active_connections[symbol]
         logger.info(f"Client disconnected. Active symbols: {len(self.active_connections)}")
 
     async def broadcast(self, symbol: str, message: str):
@@ -55,8 +62,29 @@ class ConnectionManager:
             return
 
         # Create a copy to avoid runtime errors if set changes during iteration
-        for connection in list(self.active_connections[symbol]):
+        for connection, source_filter in list(self.active_connections[symbol]):
             try:
+                # Filter logic
+                # 1. If client requested specific source (source_filter is set), ONLY send matching source
+                # 2. If client didn't specify (source_filter is None), send EVERYTHING (or default?) 
+                #    Let's assume None means "All" or "Aggregated" for now, but strict matching is safer.
+                
+                # Check data for source
+                msg_source = None
+                if isinstance(message, dict):
+                    msg_source = message.get("source")
+                elif isinstance(message, str):
+                    try:
+                        import json
+                        parsed = json.loads(message)
+                        msg_source = parsed.get("source")
+                    except:
+                        pass
+                
+                if source_filter:
+                    if not msg_source or msg_source.upper() != source_filter.upper():
+                        continue
+                
                 await connection.send_text(message)
             except Exception as e:
                 logger.warning(f"Failed to send to client: {e}")

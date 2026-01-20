@@ -11,7 +11,7 @@ router = APIRouter(tags=["stream"])
 
 
 @router.websocket("/prices")
-async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_USD", token: str = Query(...)):
+async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_USD", token: str = Query(...), source: str = Query(None)):
     # Authenticate
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -32,7 +32,7 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_U
     from app.streaming.manager import stream_manager
     
     # Register connection
-    await stream_manager.connect(websocket, requested_symbols)
+    await stream_manager.connect(websocket, requested_symbols, source)
     
     try:
         while True:
