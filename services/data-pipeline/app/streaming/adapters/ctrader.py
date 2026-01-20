@@ -22,6 +22,8 @@ class CTraderStreamer(StreamAdapter):
         self.client = AsyncCTraderClient(self.host, self.port)
         self._stop_event = asyncio.Event()
         self._subscription_map = {} # Symbol -> SymbolID (Need mapping!)
+        self._digits_map = {} # SymbolID -> Digits
+        self._last_quotes = {} # SymbolID -> {bid, ask}
         
     async def start(self, instruments: List[str]):
         logger.info(f"Starting cTrader Stream for {instruments}...")
@@ -30,19 +32,21 @@ class CTraderStreamer(StreamAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            # TODO: Resolve Symbol IDs
-            # For MVP, assuming we have method or hardcoded map if needed.
-            # Using get_symbols_list to find IDs
+            # 1. Resolve Symbol IDs and Digits
+            # We first need the list to find IDs
             symbols_list = await self.client.get_symbols_list(self.account_id)
-            # Create Map
+            # Create Map: Name -> ID
             sym_map = {s.symbolName: s.symbolId for s in symbols_list}
             
             ids_to_subscribe = []
+            ids_for_details = []
+
             for instr in instruments:
                 # Handle mapping (e.g. XAU/USD -> XAUUSD)
                 clean_instr = instr.replace("/", "").replace("_", "")
-                # Try exact match, then clean match
+                
                 sid = None
+                # Try exact match, then clean match
                 for s_name, s_id in sym_map.items():
                     if s_name == instr or s_name == clean_instr:
                         sid = s_id
@@ -50,6 +54,7 @@ class CTraderStreamer(StreamAdapter):
                 
                 if sid:
                     ids_to_subscribe.append(sid)
+                    ids_for_details.append(sid)
                     self._subscription_map[sid] = instr # Map ID back to requested name
                 else:
                     logger.warning(f"Symbol {instr} not found in cTrader account.")
@@ -58,7 +63,17 @@ class CTraderStreamer(StreamAdapter):
                 logger.error("No valid symbols to subscribe.")
                 return
 
-            # Subscribe
+            # 2. Fetch Symbol Details (Digits)
+            # cTrader requires fetching details to know precision (digits)
+            if ids_for_details:
+                full_symbols = await self.client.get_symbols_full(self.account_id, ids_for_details)
+                for fs in full_symbols:
+                    # Default to 5 digits if missing, but usually present
+                    digits = fs.digits if fs.HasField('digits') else 5
+                    self._digits_map[fs.symbolId] = digits
+                    logger.debug(f"Symbol {fs.symbolId} digits: {digits}")
+
+            # 3. Subscribe
             req = ProtoOASubscribeSpotsReq()
             req.ctidTraderAccountId = self.account_id
             req.symbolId.extend(ids_to_subscribe)
@@ -67,26 +82,27 @@ class CTraderStreamer(StreamAdapter):
             await self.client.send(req)
             logger.info(f"Subscribed to {len(ids_to_subscribe)} symbols.")
             
-            # Start Loop to process incoming Spot Events
-            # The client handles reading messages in background task.
-            # We need to hook into the client to receive UNSOLICITED messages.
-            # AsyncCTraderClient currently only resolves Futures.
-            # I need to update AsyncCTraderClient to support a listener/callback for unsolicited messages.
-            
-            # HACK: monkey patch or subclass?
-            # Better: Update AsyncCTraderClient to accept a generic callback.
+            # 4. Set Message Handler
             self.client.set_message_handler(self._on_message)
             
             await self._stop_event.wait()
             
         except Exception as e:
             logger.error(f"cTrader Streamer Error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         finally:
             await self.client.disconnect()
 
     async def stop(self):
         logger.info("Stopping cTrader Stream...")
         self._stop_event.set()
+
+    def _calculate_price(self, raw_price, digits):
+        """Convert raw integer price to float using digits."""
+        if raw_price is None:
+            return None
+        return float(raw_price) / (10 ** digits)
 
     async def _on_message(self, msg):
         # Callback from client
@@ -96,28 +112,36 @@ class CTraderStreamer(StreamAdapter):
             
             symbol_id = event.symbolId
             symbol_name = self._subscription_map.get(symbol_id, f"ID:{symbol_id}")
+            digits = self._digits_map.get(symbol_id, 5) # Default 5 if unknown
             
-            # Extract multiple prices? cTrader sends bid/ask changes.
-            # We need to maintain state or just push what we have.
-            # ProtoOASpotEvent has bid, ask, trendbar?
+            # --- State Management for Partial Updates ---
+            # cTrader SpotEvent might send only Bid or only Ask if only one changed.
+            # We need to maintain the current state of the book for this symbol.
             
-            bid = event.bid if event.HasField('bid') else None
-            ask = event.ask if event.HasField('ask') else None
+            current_state = self._last_quotes.get(symbol_id, {"bid": 0.0, "ask": 0.0})
             
-            # These are usually delta encoded or absolute?
-            # Documentation says: "Bid price" (uint64). 
-            # If standard int64, need to divide by 100000 etc?
-            # We need symbol Digits.
+            # Update Bid
+            if event.HasField('bid'):
+                current_state["bid"] = self._calculate_price(event.bid, digits)
+                
+            # Update Ask
+            if event.HasField('ask'):
+                current_state["ask"] = self._calculate_price(event.ask, digits)
             
-            # MVP: Just log.
-            # Real impl needs decoding logic.
+            # Save state
+            self._last_quotes[symbol_id] = current_state
             
+            # Check if we have valid prices
+            if current_state["bid"] == 0.0 and current_state["ask"] == 0.0:
+                return # Parsing or initialization issue
+
             data = {
                 "type": "PRICE",
                 "source": "ctrader",
                 "instrument": symbol_name,
-                "time": str(datetime.utcnow()), # Approx
-                "bid": float(bid) / 100000 if bid else 0.0, # Approximate scaling
-                "ask": float(ask) / 100000 if ask else 0.0
+                "time": str(datetime.utcnow()), 
+                "bid": current_state["bid"],
+                "ask": current_state["ask"],
+                "status": "tradeable" # Assume tradeable if streaming
             }
             await self.callback(data)
