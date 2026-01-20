@@ -60,7 +60,7 @@ class StreamManager:
         # Channel convention: market_data:{symbol}
         # Symbol format: EUR_USD. 
         symbol = data.get("instrument", "UNKNOWN")
-        channel = f"market_data:{symbol}"
+        channel = f"market_data:tick:{symbol}"
         await self.publisher.publish(channel, data)
 
     async def refresh_subscriptions(self):
