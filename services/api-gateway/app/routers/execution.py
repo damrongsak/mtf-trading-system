@@ -4,12 +4,10 @@ from app.services.internal_client import execution_client
 from app.services.trade_service import TradeService
 from app.database import get_db
 from app.security import get_current_user
-from app.security import get_current_user
 from app.models.user_fund import Fund, UserFund
 from app.models.user import User
 from app.models.trade import Trade, TradeStatus
 from app.models.broker_account import BrokerAccount
-from app.utils.crypto import decrypt_data
 from app.utils.crypto import decrypt_data
 from app.utils.response import success_response, paginated_response
 from app.schemas.trade import TradeResponse
@@ -166,6 +164,34 @@ async def close_trade(
         logger.error(f"Error closing trade: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/trades/open")
+async def get_open_trades(
+    payload: Dict[str, str] = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        broker_account_id = payload.get("broker_account_id")
+        if not broker_account_id:
+             raise HTTPException(status_code=400, detail="broker_account_id is required")
+
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+
+        trades = await execution_client.get_open_trades(str(account.id))
+        return success_response(data=trades)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching open trades: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/trades")
 async def get_trades(
     status: str = "OPEN",
@@ -216,43 +242,41 @@ async def get_trades(
         except KeyError:
             raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
-        # Additional Filters
-        if symbol:
-            query = query.filter(Trade.symbol.ilike(f"%{symbol}%"))
+    # Additional Filters
+    if symbol:
+        query = query.filter(Trade.symbol.ilike(f"%{symbol}%"))
+    
+    if from_date:
+        query = query.filter(Trade.signal_timestamp >= from_date)
         
-        if from_date:
-            query = query.filter(Trade.signal_timestamp >= from_date)
-            
-        if to_date:
-            query = query.filter(Trade.signal_timestamp <= to_date)
+    if to_date:
+        query = query.filter(Trade.signal_timestamp <= to_date)
 
-        # Pagination logic
-        total = query.count()
-        trades = query.order_by(Trade.signal_timestamp.desc())\
-                      .offset((page - 1) * per_page)\
-                      .limit(per_page)\
-                      .all()
+    # Pagination logic
+    total = query.count()
+    trades = query.order_by(Trade.signal_timestamp.desc())\
+                  .offset((page - 1) * per_page)\
+                  .limit(per_page)\
+                  .all()
 
-        trades_response = [TradeResponse.model_validate(t) for t in trades]
-        
-        meta = {
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "total_pages": (total + per_page - 1) // per_page
-        }
-        
-        # Manually construct paginated response structure if helper not available or to match generic Response
-        # Manually construct paginated response structure if helper not available or to match generic Response
-        return paginated_response(
-            data=trades_response,
-            page=page,
-            per_page=per_page,
-            total=total,
-            message="Trades retrieved successfully"
-        )
-
-
+    trades_response = [TradeResponse.model_validate(t) for t in trades]
+    
+    meta = {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": (total + per_page - 1) // per_page
+    }
+    
+    # Manually construct paginated response structure if helper not available or to match generic Response
+    # Manually construct paginated response structure if helper not available or to match generic Response
+    return paginated_response(
+        data=trades_response,
+        page=page,
+        per_page=per_page,
+        total=total,
+        message="Trades retrieved successfully"
+    )
 
 @router.get("/accounts")
 async def get_accounts(

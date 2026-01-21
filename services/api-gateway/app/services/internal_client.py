@@ -148,5 +148,7 @@ class ExecutionClient:
                 logger.error(f"Failed to place smart order: {e}", exc_info=True)
                 raise
 
+
+
 strategy_client = StrategyClient()
 execution_client = ExecutionClient()

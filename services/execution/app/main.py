@@ -345,8 +345,11 @@ async def sync_trades(req: SyncTradesRequest, db: AsyncSession = Depends(get_db)
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=req.lookback_days)
         
+        logger.info(f"Syncing trades for {account.id} from {start_date} to {end_date}")
+
         # Fetch History
         history = await adapter.get_trade_history(start_date, end_date)
+        logger.info(f"Fetched {len(history)} trades from adapter")
         
         imported_count = 0
         

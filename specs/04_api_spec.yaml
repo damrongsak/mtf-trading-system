@@ -1758,7 +1758,69 @@ paths:
                     type: string
                   rows_processed:
                     type: integer
-  /api/v1/execution/trades:
+  /api/v1/execution/trades/open:
+    post:
+      summary: Get open trades directly from broker
+      tags: [Execution]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: List of open trades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_TradeList'
+
+  /api/v1/execution/trades/sync:
+    post:
+      tags:
+        - Execution
+      summary: Sync Trades from Broker
+      description: Triggers a manual synchronization of trades (history) from the broker account to the local database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+                  description: The internal Broker Account ID
+                lookback_days:
+                  type: integer
+                  description: Number of days to look back for history (default 30)
+      responses:
+        '200':
+          description: Trades synced successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      synced_count:
+                        type: integer
+
     get:
       summary: List trades with filtering and pagination
       parameters:
