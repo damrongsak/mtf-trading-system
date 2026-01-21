@@ -358,6 +358,17 @@ def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, floa
         "0.382": low_val + diff * 0.382,
         "0.5": low_val + diff * 0.5,
         "0.618": low_val + diff * 0.618,
+        "0.65": low_val + diff * 0.65,
+        "0.705": low_val + diff * 0.705,
         "0.786": low_val + diff * 0.786,
-        "1.0": high_val
+        "0.886": low_val + diff * 0.886,
+        "1.0": high_val,
+        "1.13": low_val + diff * 1.13,
+        "1.272": low_val + diff * 1.272,
+        "1.414": low_val + diff * 1.414,
+        "1.618": low_val + diff * 1.618,
+        "2.0": low_val + diff * 2.0,
+        "2.618": low_val + diff * 2.618,
+        "3.618": low_val + diff * 3.618,
+        "4.236": low_val + diff * 4.236
     }
