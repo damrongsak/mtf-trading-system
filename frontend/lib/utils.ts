@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { logger } from "@/lib/api/app-logger"
 
 /**
  * Format a date string to a localized date/time format
@@ -128,7 +129,7 @@ export const storage = {
         try {
             return localStorage.getItem(key);
         } catch (error) {
-            console.error('Error reading from localStorage:', error);
+            logger.error('Error reading from localStorage:', error);
             return null;
         }
     },
@@ -138,7 +139,7 @@ export const storage = {
         try {
             localStorage.setItem(key, value);
         } catch (error) {
-            console.error('Error writing to localStorage:', error);
+            logger.error('Error writing to localStorage:', error);
         }
     },
 
@@ -147,7 +148,7 @@ export const storage = {
         try {
             localStorage.removeItem(key);
         } catch (error) {
-            console.error('Error removing from localStorage:', error);
+            logger.error('Error removing from localStorage:', error);
         }
     },
 
@@ -156,7 +157,7 @@ export const storage = {
         try {
             localStorage.clear();
         } catch (error) {
-            console.error('Error clearing localStorage:', error);
+            logger.error('Error clearing localStorage:', error);
         }
     },
 };

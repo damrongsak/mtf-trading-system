@@ -1,12 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { useAccount } from './AccountContext';
+import { logger } from '@/lib/api/app-logger';
 
 export interface BrokerInstrumentDetails {
     pipLocation?: number;
     displayPrecision?: number;
+    digits?: number;
     marginRate?: string;
     maximumOrderUnits?: string;
     minimumTradeSize?: string;
@@ -49,7 +51,7 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
 
     const { selectedAccount } = useAccount();
 
-    const fetchSymbols = async () => {
+    const fetchSymbols = useCallback(async () => {
         try {
             setLoading(true);
             
@@ -65,7 +67,7 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
                 // Add other mappings here as needed, e.g. BINANCE
             }
             
-            console.log(`[BrokerRef] Fetching symbols for Data Source: ${dataSource}`);
+            logger.debug(`[BrokerRef] Fetching symbols for Data Source: ${dataSource}`);
 
             const response = await apiClient.get<BrokerSymbolsResponse>(`/api/v1/market/symbols?data_source=${dataSource}`);
             
@@ -79,12 +81,12 @@ export function BrokerReferenceProvider({ children }: { children: ReactNode }) {
             setSymbols(map);
             setError(null);
         } catch (err: unknown) {
-             console.error("Failed to load broker reference:", err);
+             logger.error("Failed to load broker reference:", err);
             setError("Failed to load global broker data");
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedAccount]);
 
     useEffect(() => {
         fetchSymbols();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, RefreshCw } from "lucide-react";
 import { triggerBackfill, fetchDataSourceSymbols } from '@/lib/api/data-sources';
 import { toast } from 'sonner';
+import { logger } from '@/lib/api/app-logger';
 
 interface BackfillModalProps {
     isOpen: boolean;
@@ -24,24 +25,24 @@ export function BackfillModal({ isOpen, onClose, dataSourceId, dataSourceName }:
     const [availableSymbols, setAvailableSymbols] = useState<string[]>([]);
     const [fetchingSymbols, setFetchingSymbols] = useState(false);
 
-    useEffect(() => {
-        if (isOpen && dataSourceId) {
-            loadSymbols();
-        }
-    }, [isOpen, dataSourceId]);
-
-    const loadSymbols = async () => {
+    const loadSymbols = useCallback(async () => {
         setFetchingSymbols(true);
         try {
             const symbols = await fetchDataSourceSymbols(dataSourceId);
             setAvailableSymbols(symbols);
         } catch (error) {
-            console.error("Failed to fetch symbols", error);
+            logger.error("Failed to fetch symbols", error);
             // Don't show error to user immediately, just let them type manually
         } finally {
             setFetchingSymbols(false);
         }
-    };
+    }, [dataSourceId]);
+
+    useEffect(() => {
+        if (isOpen && dataSourceId) {
+            loadSymbols();
+        }
+    }, [isOpen, dataSourceId, loadSymbols]);
 
     const handleBackfill = async (e: React.FormEvent) => {
         e.preventDefault();

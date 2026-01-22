@@ -13,6 +13,7 @@ import { getDataSources } from '@/lib/api/data-sources';
 import { BrokerAccount, BrokerAccountCreate } from '@/lib/api/types';
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { TagsInput } from "@/components/ui/tags-input";
+import { logger } from "@/lib/api/app-logger";
 
     interface BrokerAccountsSectionProps {
         fundId?: string | null;
@@ -67,10 +68,10 @@ import { TagsInput } from "@/components/ui/tags-input";
              // Ensure OANDA/BINANCE are always options if desired, or strictly from sources
              // Merging with defaults to ensure basic options exist
              const defaults = ['OANDA', 'BINANCE'];
-             const combined = Array.from(new Set([...defaults, ...providers]));
+             const combined = Array.from(new Set([...defaults, ...providers])).filter((p): p is string => !!p);
              setAvailableBrokers(combined);
          } catch (err) {
-             console.error("Failed to fetch data sources for broker list", err);
+             logger.error("Failed to fetch data sources for broker list", err);
          }
     }, []);
 
@@ -88,7 +89,7 @@ import { TagsInput } from "@/components/ui/tags-input";
                 setAccounts(data);
             }
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             setError("Failed to load accounts");
         } finally {
             setLoading(false);
@@ -289,7 +290,7 @@ import { TagsInput } from "@/components/ui/tags-input";
             await testAccountConnection(accountId);
             setSuccess(`Successfully connected to ${accountName}`);
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             setError(`Connection Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
         } finally {
              // Reset icon
@@ -312,10 +313,7 @@ import { TagsInput } from "@/components/ui/tags-input";
             // Include credentials if updated
             if (editingAccount.broker_name === 'CTRADER' && (editAccessToken || editRefreshToken)) {
                 updates.credentials = {
-                    ...editingAccount.credentials, // merge with existing if needed, but backend might replace. 
-                    // ideally we patch specific keys. BrokerAccountUpdate expects a dict.
-                    // If we send partial credentials, the backend logic for update needs to handle merge or we send full.
-                    // For now, let's assume we send what we want to update.
+                    ...((editingAccount as any).credentials || {}), 
                     token: editAccessToken || undefined,
                     refresh_token: editRefreshToken || undefined
                 };

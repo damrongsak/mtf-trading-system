@@ -1,6 +1,11 @@
 import { apiClient } from './client';
 import { OpportunityLog } from './types';
 import {
+    IndicatorResponse,
+    AnalysisDriftPost200Response,
+    SMCResponse,
+    SMCStructureLabel,
+    SMCOrderBlock,
     EmaRequest,
     RsiRequest,
     AtrRequest,
@@ -8,13 +13,31 @@ import {
     MacdResponse,
     AdxRequest,
     AdxResponse,
-    SMCRequest,
-    SMCResponse,
-    IndicatorResponse,
-    AnalysisDriftPost200Response
+    SMCRequest
 } from './generated/api';
 
-export * from './generated/api';
+export type {
+    IndicatorResponse,
+    AnalysisDriftPost200Response,
+    SMCResponse,
+    SMCStructureLabel,
+    SMCOrderBlock,
+    EmaRequest,
+    RsiRequest,
+    AtrRequest,
+    MacdRequest,
+    MacdResponse,
+    AdxRequest,
+    AdxResponse,
+    SMCRequest
+};
+
+export type DriftAnalysisResponse = AnalysisDriftPost200Response & {
+    signal_count?: number;
+    opportunity_count?: number;
+};
+
+// export * from './generated/api'; // Removed to avoid conflicts with manual types in types.ts
 
 export async function getOpportunities(limit: number = 50): Promise<OpportunityLog[]> {
     const response = await apiClient.get<OpportunityLog[]>('/api/v1/analysis/opportunities', { params: { limit } });
@@ -23,18 +46,18 @@ export async function getOpportunities(limit: number = 50): Promise<OpportunityL
 
 export async function calculateEMA(params: EmaRequest): Promise<number[]> {
     const response = await apiClient.post<IndicatorResponse>('/api/v1/analysis/calculate/ema', params);
-    // Return values or empty array if undefined
-    return response.data.values ?? [];
+    // Return values or empty array if undefined, filtering out nulls
+    return (response.data.values ?? []).filter((v): v is number => v !== null);
 }
 
 export async function calculateRSI(params: RsiRequest): Promise<number[]> {
     const response = await apiClient.post<IndicatorResponse>('/api/v1/analysis/calculate/rsi', params);
-    return response.data.values ?? [];
+    return (response.data.values ?? []).filter((v): v is number => v !== null);
 }
 
 export async function calculateATR(params: AtrRequest): Promise<number[]> {
     const response = await apiClient.post<IndicatorResponse>('/api/v1/analysis/calculate/atr', params);
-    return response.data.values ?? [];
+    return (response.data.values ?? []).filter((v): v is number => v !== null);
 }
 
 export async function calculateMACD(params: MacdRequest): Promise<MacdResponse> {

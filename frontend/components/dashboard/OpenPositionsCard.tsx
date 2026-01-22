@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { closeTrade } from '@/lib/api/execution';
 import { apiClient } from '@/lib/api/client';
+import { logger } from '@/lib/api/app-logger';
 import { APIResponse } from '@/lib/api/types';
 
 interface OpenPosition {
@@ -74,7 +75,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
       setPositions(parsedPositions);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch open positions:', err);
+      logger.error('Failed to fetch open positions:', err);
       setError('Failed to load positions');
     } finally {
       setLoading(false);
@@ -95,7 +96,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
       setPositions(prev => prev.filter(p => p.trade_id !== tradeId));
       if (onRefresh) onRefresh();
     } catch (err) {
-      console.error('Failed to close trade:', err);
+      logger.error('Failed to close trade:', err);
       alert('Failed to close trade. Please try again.');
     } finally {
       setClosingId(null);

@@ -15,12 +15,12 @@ interface SelectContextType {
 const SelectContext = createContext<SelectContextType | undefined>(undefined);
 
 interface SelectProps {
-  value: string;
+  value?: string;
   onValueChange: (value: string) => void;
   children: React.ReactNode;
 }
 
-export const Select: React.FC<SelectProps> = ({ value, onValueChange, children }) => {
+export const Select: React.FC<SelectProps> = ({ value = '', onValueChange, children }) => {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState<React.ReactNode>(null);
 

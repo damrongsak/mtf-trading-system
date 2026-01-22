@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { getDriftAnalysis, DriftAnalysisResponse } from '@/lib/api/analysis';
+import { getDriftAnalysis, DriftAnalysisResponse, getOpportunities } from '@/lib/api/analysis';
+import { OpportunityLog } from '@/lib/api/types';
 import { AlertTriangle, CheckCircle, Activity, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { logger } from '@/lib/api/app-logger';
 
 export const DriftDashboard: React.FC = () => {
     const [data, setData] = useState<DriftAnalysisResponse | null>(null);
@@ -17,8 +19,8 @@ export const DriftDashboard: React.FC = () => {
             const result = await getDriftAnalysis(24);
             setData(result);
             setError(null);
-        } catch (err) {
-            console.error("Failed to fetch drift analysis", err);
+        } catch (error) {
+            logger.error("Failed to fetch drift analysis", error);
             setError("Failed to load analysis");
         } finally {
             setLoading(false);
@@ -50,7 +52,8 @@ export const DriftDashboard: React.FC = () => {
     const isHealthy = data.status === 'HEALTHY';
     
     // Calculate color based on filter rate
-    const rateColor = data.filter_rate > 0.8 ? 'text-red-500' : data.filter_rate > 0.5 ? 'text-yellow-500' : 'text-green-500';
+    const filterRate = data.filter_rate ?? 0;
+    const rateColor = filterRate > 0.8 ? 'text-red-500' : filterRate > 0.5 ? 'text-yellow-500' : 'text-green-500';
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -92,15 +95,15 @@ export const DriftDashboard: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                         <div className={`text-2xl font-bold ${rateColor}`}>
-                            {(data.filter_rate * 100).toFixed(1)}%
+                            {(filterRate * 100).toFixed(1)}%
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                             <span className="text-white">{data.opportunity_count || 0}</span> skipped / <span className="text-white">{(data.signal_count || 0) + (data.opportunity_count || 0)}</span> total
                         </div>
                         <div className="w-full bg-gray-700 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div 
-                                className={`h-full ${data.filter_rate > 0.8 ? 'bg-red-500' : 'bg-blue-500'}`} 
-                                style={{ width: `${Math.min(data.filter_rate * 100, 100)}%` }}
+                                className={`h-full ${filterRate > 0.8 ? 'bg-red-500' : 'bg-blue-500'}`} 
+                                style={{ width: `${Math.min(filterRate * 100, 100)}%` }}
                             />
                         </div>
                     </CardContent>

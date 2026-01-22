@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/lib/api/app-logger';
 
 /**
  * A custom hook that wraps useState to persist values in localStorage.
@@ -21,7 +22,7 @@ export function usePersistentState<T>(key: string, initialValue: T): [T, (value:
         setState(JSON.parse(item));
       }
     } catch (error) {
-      console.warn(`Error reading localStorage key "${key}":`, error);
+      logger.warn(`Error reading localStorage key "${key}":`, error);
     } finally {
       setIsHydrated(true);
     }
@@ -35,7 +36,7 @@ export function usePersistentState<T>(key: string, initialValue: T): [T, (value:
       try {
         window.localStorage.setItem(key, JSON.stringify(state));
       } catch (error) {
-        console.warn(`Error writing localStorage key "${key}":`, error);
+        logger.warn(`Error writing localStorage key "${key}":`, error);
       }
     }
   }, [key, state, isHydrated]);

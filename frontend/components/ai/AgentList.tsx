@@ -2,11 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { defaultApi } from '@/lib/api/client';
-import { APIResponseAgentList, Agent } from '@/lib/api/generated';
+import { Agent } from '@/lib/api/generated';
+import { logger } from '@/lib/api/app-logger';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Zap, Activity } from 'lucide-react';
-import { toast } from 'sonner';
+import { Bot, Zap } from 'lucide-react';
 
 export function AgentList() {
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -20,7 +20,7 @@ export function AgentList() {
                     setAgents(response.data.data);
                 }
             } catch (error) {
-                console.error("Failed to fetch agents", error);
+                logger.error("Failed to fetch agents", error);
                 // toast.error("Failed to load agents"); // Optional: suppress on init if backend unstable
             } finally {
                 setIsLoading(false);

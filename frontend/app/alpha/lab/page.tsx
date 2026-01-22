@@ -17,6 +17,8 @@ import { Play, Rocket, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { deployAlphaStrategy } from '@/lib/api/alpha';
+import { Pagination } from '@/components/common';
+import { logger } from '@/lib/api/app-logger';
 
 const STRATEGY_EXAMPLES = [
     {
@@ -96,7 +98,7 @@ const AlphaLabPage = () => {
             toast.success("Strategy Deployed Successfully!");
             setIsDeployOpen(false);
         } catch (e) {
-            console.error("Deploy failed", e);
+            logger.error("Deploy failed", e);
             toast.error("Failed to deploy strategy: " + (e as any).message);
         }
         finally {

@@ -1,12 +1,13 @@
 import { apiClient } from './client';
-import { DashboardStats, RecentSignal } from './types';
+import { APIResponse, Signal, RecentSignal, DashboardStats } from './types';
+import { logger } from '@/lib/api/app-logger';
+import { getBatchSignals, getDetectedSignals } from './signals';
 
 /**
  * Get dashboard statistics
  * @returns Dashboard statistics
  */
 export async function getDashboardStats(strategyId?: string): Promise<DashboardStats> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: Record<string, any> = {};
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
@@ -21,7 +22,6 @@ export interface EquityPoint {
 }
 
 export async function getEquityCurve(days: number = 30, strategyId?: string): Promise<EquityPoint[]> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: Record<string, any> = { days };
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
@@ -46,13 +46,6 @@ export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
  * @param limit - Number of recent signals to fetch (default: 5)
  * @returns Array of recent signals
  */
-import { getBatchSignals, getDetectedSignals } from './signals';
-
-/**
- * Get recent trading signals
- * @param limit - Number of recent signals to fetch (default: 5)
- * @returns Array of recent signals
- */
 export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[]> {
     try {
         // Fetch from both sources in parallel
@@ -60,13 +53,6 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
             getBatchSignals("OANDA"),
             getDetectedSignals(limit * 2)
         ]);
-
-        // Merge strategies (preferring detected if duplicates exist? 
-        // Actually, scanner signals are ephemeral ("now"). Detected are "history". 
-        // If scanner signal is "now", it might not be in DB yet if not executed/persisted by a deployment.
-        // But scanner signals are "potential" signals.
-        // Detected signals are FROM deployments (Scanner defaults usually don't save to DB unless we add autosave).
-        // For now, simple merge.
 
         const allSignals = [...detectedSignals, ...scannerSignals];
 
@@ -107,7 +93,7 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
 
         return validSignals.slice(0, limit);
     } catch (error) {
-        console.error("Error fetching recent signals", error);
+        logger.error("Error fetching recent signals", error);
         return [];
     }
 }

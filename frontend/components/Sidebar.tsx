@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/context/SidebarContext';
@@ -115,7 +116,7 @@ export const Sidebar = () => {
             setExpandedCategories(parsed);
           }
         } catch (e) {
-          console.error("Failed to parse sidebar categories", e);
+          logger.error("Failed to parse sidebar categories", e);
         }
       }
       // Mark as initialized after first load

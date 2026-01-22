@@ -517,11 +517,12 @@ async def startup_event():
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
 
+    # TODO: Disable Indicator Worker for now
     # Start Indicator Worker
-    from app.workers.indicator_worker import IndicatorWorker
-    global indicator_worker
-    indicator_worker = IndicatorWorker()
-    await indicator_worker.start()
+    # from app.workers.indicator_worker import IndicatorWorker
+    # global indicator_worker
+    # indicator_worker = IndicatorWorker()
+    # await indicator_worker.start()
     
     # Ensure LiveRunner (Tick Stream) is active
     await live_runner.start()
@@ -536,6 +537,7 @@ async def startup_event():
 async def shutdown_event():
     await live_runner.stop()
     
-    global indicator_worker
-    if indicator_worker:
-        await indicator_worker.stop()
+    # TODO: Disable Indicator Worker for now
+    # global indicator_worker
+    # if indicator_worker:
+    #     await indicator_worker.stop()

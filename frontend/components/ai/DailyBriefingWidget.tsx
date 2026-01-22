@@ -8,6 +8,7 @@ import { aiApi } from "@/lib/api/ai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/api/app-logger";
 
 export function DailyBriefingWidget() {
     const [content, setContent] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export function DailyBriefingWidget() {
             setContent(data.content);
             setLastUpdated(new Date());
         } catch (err: any) {
-            console.error("Failed to fetch briefing:", err);
+            logger.error("Failed to fetch briefing:", err);
             setError(err.message || "Failed to load briefing");
         } finally {
             setLoading(false);

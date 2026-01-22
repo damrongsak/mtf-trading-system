@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/lib/api/app-logger';
 
 // Feature Payload Structure
 export interface FeatureUpdate {
@@ -13,7 +14,7 @@ export interface FeatureUpdate {
     volatility?: number | null;
     close?: number;
     features_complete?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 // Determine WS_URL dynamically
@@ -56,7 +57,7 @@ export function useLiveFeatures(instruments: string[] = ['XAU_USD', 'EUR_USD']) 
 
             socket.onopen = () => {
                 if (isMounted) {
-                    if (process.env.NODE_ENV === 'development') console.log('Connected to Alpha Stream');
+                    logger.debug('Connected to Alpha Stream');
                     setConnected(true);
                 }
             };
@@ -112,7 +113,7 @@ export function useLiveFeatures(instruments: string[] = ['XAU_USD', 'EUR_USD']) 
                         }
                     }
                 } catch (e) {
-                    console.error("Alpha Stream Parse Error", e);
+                    logger.error("Alpha Stream Parse Error", e);
                 }
             };
 

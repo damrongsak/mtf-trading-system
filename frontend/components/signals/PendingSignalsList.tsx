@@ -1,8 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { getDetectedSignals, approveSignal, rejectSignal } from '@/lib/api/signals';
 import { Signal, SignalStatus } from '@/lib/api/types';
-import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { logger } from '@/lib/api/app-logger';
 
 export function PendingSignalsList() {
     const [signals, setSignals] = useState<Signal[]>([]);
@@ -18,7 +18,7 @@ export function PendingSignalsList() {
             const pending = allSignals.filter(s => s.status === SignalStatus.PENDING_APPROVAL);
             setSignals(pending);
         } catch (error) {
-            console.error("Failed to fetch pending signals", error);
+            logger.error("Failed to fetch pending signals", error);
         } finally {
             setLoading(false);
         }
@@ -38,7 +38,7 @@ export function PendingSignalsList() {
             await approveSignal(id);
             setSignals(prev => prev.filter(s => s.id !== id));
         } catch (e) {
-            alert("Failed to approve signal: " + e);
+            alert(`Failed to approve signal: ${e}`);
         } finally {
             setProcessingId(null);
         }
@@ -63,7 +63,7 @@ export function PendingSignalsList() {
     return (
         <div className="mb-8">
             <h2 className="text-xl font-semibold text-amber-400 mb-4 flex items-center gap-2">
-                <ClockIcon className="w-6 h-6" />
+                <Clock className="w-6 h-6" />
                 Pending Approvals ({signals.length})
             </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -82,7 +82,7 @@ export function PendingSignalsList() {
                         </div>
                         
                         <div className="text-sm text-gray-300 mb-4 space-y-1">
-                            <p>Price: <span className="font-mono">{signal.entry_price || signal.price}</span></p>
+                            <p>Price: <span className="font-mono">{signal.entry_price}</span></p>
                             <p>Strategy: <span className="text-blue-300">{signal.strategy_name?.replace('Strategy-', '')}</span></p>
                             <p className="text-xs italic mt-2 opacity-70">"{signal.reason}"</p>
                         </div>
@@ -93,14 +93,14 @@ export function PendingSignalsList() {
                                 disabled={processingId === signal.id}
                                 className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded flex justify-center items-center gap-1 disabled:opacity-50 transition-colors"
                             >
-                                {processingId === signal.id ? "..." : <><CheckCircleIcon className="w-4 h-4" /> Approve</>}
+                                {processingId === signal.id ? "..." : <><CheckCircle2 className="w-4 h-4" /> Approve</>}
                             </button>
                             <button
                                 onClick={() => signal.id && handleReject(signal.id)}
                                 disabled={processingId === signal.id}
                                 className="flex-1 bg-gray-700 hover:bg-red-600/80 text-white py-2 rounded flex justify-center items-center gap-1 disabled:opacity-50 transition-colors"
                             >
-                                <XCircleIcon className="w-4 h-4" /> Reject
+                                <XCircle className="w-4 h-4" /> Reject
                             </button>
                         </div>
                     </div>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { MarketRegimeSelector } from '@/components/simulation/MarketRegimeSelector';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { runSimulation } from '@/lib/api/simulation';
+import { logger } from '@/lib/api/app-logger';
 import { SimulationResult, MarketRegime, GridConfig } from '@/lib/api/types';
 
 export default function SimulationPage() {
@@ -34,7 +35,7 @@ export default function SimulationPage() {
       });
       setResult(data);
     } catch (error) {
-      console.error("Simulation failed", error);
+      logger.error("Simulation failed", error);
     } finally {
       setIsRunning(false);
     }

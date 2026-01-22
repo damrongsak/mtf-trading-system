@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { format } from 'date-fns';
+import { logger } from '@/lib/api/app-logger';
 import { BacktestConfigForm } from '@/components/backtest/BacktestConfigForm';
 import { BacktestResults } from '@/components/backtest/BacktestResults';
 import { runBacktest, BacktestRequest, BacktestResponse } from '@/lib/api/backtest';
@@ -40,7 +42,7 @@ export default function BacktestPage() {
                 addLog(`Backtest finished with status: ${data.status}`, 'warning');
             }
         } catch (error) {
-            console.error("Backtest failed", error);
+            logger.error("Backtest failed", error);
             const msg = error instanceof Error ? error.message : 'Unknown error occurred';
             addLog(`Error: ${msg}`, 'error');
             alert("Backtest failed. Check console.");

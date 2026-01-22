@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStrategyTemplates, createStrategy, getAccounts, getFunds, type LogicTemplate, type BrokerAccount } from '@/lib/api';
+import { logger } from '@/lib/api/app-logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,7 +50,7 @@ export default function NewStrategyPage() {
                 if (fundsList.length > 0) setSelectedFund(fundsList[0].id);
                 
             } catch (err) {
-                console.error(err);
+                logger.error(err);
                 setError("Failed to load configuration data");
             } finally {
                 setLoading(false);
@@ -158,7 +159,7 @@ export default function NewStrategyPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {accounts.map(a => (
-                                            <SelectItem key={a.id} value={a.id}>
+                                            <SelectItem key={a.id} value={a.id || ""}>
                                                 {a.broker_name} - {a.account_name}
                                             </SelectItem>
                                         ))}

@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { aiApi, Briefing } from '@/lib/api/ai';
 import { format } from 'date-fns';
 import remarkGfm from 'remark-gfm';
+import { logger } from '@/lib/api/app-logger';
 
 export function DailyBriefingCard() {
   const [briefing, setBriefing] = useState<Briefing | null>(null);
@@ -18,7 +19,7 @@ export function DailyBriefingCard() {
       } catch (err) {
         // It's okay if no briefing exists or AI is offline, show fallback or nothing?
         // Let's show a button to generate one or just an error message.
-        console.warn("Failed to fetch daily briefing", err);
+        logger.warn("Failed to fetch daily briefing", err);
         setError("AI Briefing unavailable.");
       } finally {
         setLoading(false);

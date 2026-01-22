@@ -17,6 +17,7 @@ import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
 import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
+import { logger } from '@/lib/api/app-logger';
 
 import { getStrategies } from '@/lib/api/strategies';
 import { StrategyResponse } from '@/lib/api/types';
@@ -65,7 +66,7 @@ export default function DashboardPage() {
               const res = await getStrategies();
               setStrategies(res);
           } catch (e) {
-              console.warn("Failed to load strategies list", e);
+              logger.warn("Failed to load strategies list", e);
           }
       }
       loadStrategies();
@@ -83,17 +84,17 @@ export default function DashboardPage() {
                  setWatchlist(prev => prev.length === 0 ? [prefs.default_symbol] : prev);
              }
         } catch (e) {
-            console.warn("Failed to load user preferences, using defaults", e);
+            logger.warn("Failed to load user preferences, using defaults", e);
         }
 
         const [eqData, accData, perfData] = await Promise.all([
             getEquityCurve(30, selectedStrategyId), // Pass ID
             getAccountSummary().catch(e => {
-                console.warn("Failed to fetch account summary:", e);
+                logger.warn("Failed to fetch account summary:", e);
                 return null;
             }),
             getStrategyPerformance().catch(e => {
-                 console.warn("Failed to fetch strategy performance:", e);
+                 logger.warn("Failed to fetch strategy performance:", e);
                  return [];
             })
         ]);
@@ -101,7 +102,7 @@ export default function DashboardPage() {
         setAccountSummary(accData);
         setPerformance(perfData);
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        logger.error('Failed to fetch dashboard data:', error);
       } finally {
         setEquityLoading(false);
       }

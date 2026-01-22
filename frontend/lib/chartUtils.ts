@@ -100,7 +100,7 @@ export const cleanHistogramData = (
                 time: time as Time,
                 value: numVal,
                 color: (numVal >= 0 ? colorPos : colorNeg)
-            };
+            } as HistogramData<Time>;
         })
         .filter((item): item is HistogramData<Time> => item !== null);
 };

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getProfile } from "@/lib/api/auth";
 import { UserResponse } from "@/lib/api/types";
+import { logger } from "@/lib/api/app-logger";
 
 interface AuthContextType {
   user: UserResponse | null;
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData = await getProfile();
       setUser(userData);
     } catch (error) {
-      console.error("Failed to fetch user profile:", error);
+      logger.error("Failed to fetch user profile:", error);
       // If profile fetch fails, clear token and redirect to login
       localStorage.removeItem("token");
       setAuthToken(null);

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { OpportunityLog } from '@/lib/api/types';
 import { getOpportunities } from '@/lib/api/analysis';
+import { logger } from '@/lib/api/app-logger';
 
 export function SkippedTradesTable() {
     const [logs, setLogs] = useState<OpportunityLog[]>([]);
@@ -14,7 +15,7 @@ export function SkippedTradesTable() {
             const data = await getOpportunities(50);
             setLogs(data);
         } catch (error) {
-            console.error('Failed to fetch opportunity logs:', error);
+            logger.error('Failed to fetch opportunity logs:', error);
         } finally {
             setLoading(false);
         }

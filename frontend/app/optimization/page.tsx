@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import { OptimizationConfigForm } from '@/components/optimization/OptimizationConfigForm';
 import { OptimizationResults } from '@/components/optimization/OptimizationResults';
 import { runOptimization, OptimizationResponse } from '@/lib/api/optimization';
@@ -38,7 +39,7 @@ export default function OptimizationPage() {
             addLog(`Found ${data.results.length} results. Top Sharpe: ${data.results[0]?.metrics.sharpe_ratio?.toFixed(2)}`, 'success');
             
         } catch (error: unknown) {
-            console.error("Optimization failed", error);
+            logger.error("Optimization failed", error);
             addLog(`Error: ${(error as Error).message || 'Unknown error occurred'}`, 'error');
         } finally {
             setLoading(false);

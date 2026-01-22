@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { TradesTable } from '@/components/trades/TradesTable';
 import { getTrades, Trade, TradeStatus } from '@/lib/api/execution';
+import { Badge } from '@/components/ui/badge';
+import { logger } from '@/lib/api/app-logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -94,7 +96,7 @@ export default function TradesPage() {
             setTrades(response.data);
             setTotalPages(response.meta?.total_pages || 1);
         } catch (error) {
-            console.error("Failed to fetch trades:", error);
+            logger.error("Failed to fetch trades:", error);
         } finally {
             setLoading(false);
         }

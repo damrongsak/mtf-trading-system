@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@/lib/api/app-logger";
 import type { JournalEntry, CreateJournalEntryDto, TimelineEvent } from "@/lib/api/types";
 import { getPreferences } from "@/lib/api";
 import WizardLayout from "@/components/journal/WizardLayout";
@@ -32,7 +33,7 @@ export default function JournalWizard({ initialData, onSubmit, isSubmitting = fa
                 setSupportedSymbols(prev => Array.from(new Set([prefs.default_symbol, "XAU_USD", "EUR_USD", "BTC_USD", ...prev])));
             }
         } catch (error) {
-            console.error('Failed to load supported symbols', error);
+            logger.error('Failed to load supported symbols', error);
         }
     };
     fetchSymbols();

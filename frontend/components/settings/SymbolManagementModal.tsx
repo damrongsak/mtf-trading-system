@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, AlertCircle, CheckCircle2, Settings2, Save, X, RefreshCw } from "lucide-react";
 import { getBrokerSymbols, updateSymbol, fetchDataSourceSymbols, createSymbol, fetchSymbolDetails } from '@/lib/api/data-sources';
 import { MarketSymbol } from "@/lib/api/types";
+import { logger } from "@/lib/api/app-logger";
 
 interface SymbolManagementModalProps {
     isOpen: boolean;
@@ -46,7 +47,7 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
             try {
                 availableSymbols = await fetchDataSourceSymbols(dataSourceId);
             } catch (e) {
-                console.warn("Failed to fetch provider symbols", e);
+                logger.warn("Failed to fetch provider symbols", e);
             }
 
             // 3. Merge
@@ -243,7 +244,7 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
                                             onChange={(e) => setEditDetails(e.target.value)}
                                         />
                                         <p className="text-[10px] text-gray-500">
-                                            Example: {"{"} "pipLocation": -4, "marginRate": "0.02" {"}"}
+                                            Example: {'{ "pipLocation": -4, "marginRate": "0.02" }'}
                                         </p>
                                     </div>
                                 )}

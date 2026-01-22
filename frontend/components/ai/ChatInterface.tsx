@@ -2,13 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { defaultApi } from '@/lib/api/client';
+import { logger } from '@/lib/api/app-logger';
 import { createChatSession, sendChatMessage, SendMessageRequest, CreateChatSessionRequest } from '@/lib/api/alpha';
 import { APIResponseAgentList, Agent } from '@/lib/api/generated';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Bot, User as UserIcon, Loader2 } from 'lucide-react';
+import { Send, Bot, User as UserIcon, Loader2, RefreshCw, Sunrise, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { aiApi } from "@/lib/api/ai";
 
 interface Message {
   id: string;
@@ -40,7 +42,7 @@ export function ChatInterface() {
                 setSessionId(res.id);
             }
         } catch (e) {
-            console.error("Failed to init chat session", e);
+            logger.error("Failed to init chat session", e);
             toast.error("Failed to connect to AI Brain");
         }
     };
@@ -91,7 +93,7 @@ export function ChatInterface() {
             setMessages(prev => [...prev, aiMsg]);
         }
     } catch (error) {
-        console.error("Chat error:", error);
+        logger.error("Chat error:", error);
         toast.error("Failed to send message: " + (error as any).message);
     } finally {
         setIsLoading(false);

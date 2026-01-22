@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { toast } from 'sonner';
 import { apiClient } from '../api/client';
 import { ApiError } from '../api/errors';
+import { logger } from '@/lib/api/app-logger';
 
 // Define types locally or import from generated API if verified
 export interface AlphaResult {
@@ -21,7 +22,7 @@ interface AlphaStore {
     timeframe: string;
     startDate: string; // ISO Date String YYYY-MM-DD
     endDate: string;   // ISO Date String YYYY-MM-DD
-    code: string; 
+    code: string;
     isRunning: boolean;
     result: AlphaResult | null;
     error: string | null;
@@ -42,7 +43,7 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
     timeframe: 'H1',
     startDate: '', // Default empty (backend handles defaults)
     endDate: '',
-    code: 'rank(close / delay(close, 5))', 
+    code: 'rank(close / delay(close, 5))',
     isRunning: false,
     result: null,
     error: null,
@@ -71,7 +72,7 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
             // Backend expects ISO strings or just dates. 
             // If inputs are YYYY-MM-DD, we might want to append T00:00:00Z to be safe, 
             // but let's send what the input provides and let backend parse or standardise.
-            const payload: any = {
+            const payload: Record<string, unknown> = {
                 formula,
                 symbol,
                 timeframe
@@ -91,16 +92,16 @@ export const useAlphaStore = create<AlphaStore>((set, get) => ({
                 if (mode === 'full') toast.error(res.data.error || 'Simulation failed');
             }
 
-        } catch (err: unknown) {
-            console.error(err);
+        } catch (error: unknown) {
+            logger.error("Alpha Run Error", error);
             let msg = 'Unknown error';
-            
-            if (err instanceof ApiError) {
-                msg = err.message;
-            } else if (err instanceof Error) {
-                msg = err.message;
+
+            if (error instanceof ApiError) {
+                msg = error.message;
+            } else if (error instanceof Error) {
+                msg = error.message;
             }
-            
+
             set({ error: msg });
             if (mode === 'full') toast.error(msg);
         } finally {

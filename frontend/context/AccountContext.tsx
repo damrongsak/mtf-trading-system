@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ExecutionBrokerAccount, getBrokerAccounts } from '@/lib/api/execution';
-import { useBrokerReference } from './BrokerReferenceContext';
+import { logger } from '@/lib/api/app-logger';
 
 interface AccountContextType {
     accounts: ExecutionBrokerAccount[];
@@ -43,7 +43,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     localStorage.setItem('selected_broker_account_id', found.id);
                 }
             } catch (err) {
-                console.error("Failed to load broker accounts", err);
+                logger.error("Failed to load broker accounts", err);
             } finally {
                 setIsLoading(false);
             }

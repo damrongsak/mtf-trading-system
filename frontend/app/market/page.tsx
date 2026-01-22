@@ -12,16 +12,16 @@ import {
     SMCResponse, SMCStructureLabel, SMCOrderBlock 
 } from '@/lib/api/analysis';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
+import { logger } from '@/lib/api/app-logger';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
 import { SeriesMarker } from 'lightweight-charts';
 
 import { cn } from '@/lib/utils';
-import { RefreshCcw, Activity, TrendingUp, ChevronDown, ChevronRight, LayoutTemplate } from 'lucide-react';
+import { RefreshCcw, Activity, TrendingUp, LayoutTemplate } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
 import { useAccount } from '@/context/AccountContext';
-// ... imports
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
@@ -47,18 +47,20 @@ export default function MarketPage() {
 
   // --- State: Indicators ---
   const [showEMA, setShowEMA] = usePersistentState<boolean>('mtf_show_ema', false);
-  const [showEMA50, setShowEMA50] = usePersistentState<boolean>('mtf_show_ema50', true);
+  const [showEMA50] = usePersistentState<boolean>('mtf_show_ema50', true);
   const [showRSI, setShowRSI] = usePersistentState<boolean>('mtf_show_rsi', false);
   const [showATR, setShowATR] = usePersistentState<boolean>('mtf_show_atr', true);
   const [showMACD, setShowMACD] = usePersistentState<boolean>('mtf_show_macd', true);
   const [showADX, setShowADX] = usePersistentState<boolean>('mtf_show_adx', false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
   const [showSMC, setShowSMC] = usePersistentState<boolean>('mtf_show_smc', false);
-  const [smcData, setSmcData] = useState<SMCResponse | null>(null);
   const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
   const [orderLines, setOrderLines] = useState<ChartPriceLine[]>([]);
   
+  // Ref bypass for components with problematic ref types
+  const AnyPanel = Panel as any;
+
   // --- Lifted Order State ---
   const [slPrice, setSlPrice] = useState<number>(0);
   const [tpPrice, setTpPrice] = useState<number>(0);
@@ -68,7 +70,7 @@ export default function MarketPage() {
 
   // --- State: UI Layout ---
   const [showAnalytics, setShowAnalytics] = useState(false); // Default hidden for cleaner look
-  const [showAccountPanel, setShowAccountPanel] = usePersistentState<boolean>('mtf_show_account_panel', true);
+  const [showAccountPanel] = usePersistentState<boolean>('mtf_show_account_panel', true);
   const [mounted, setMounted] = useState(false);
   
   const accountPanelRef = useRef<PanelImperativeHandle>(null);
@@ -92,13 +94,14 @@ export default function MarketPage() {
   }, [selectedAccount]);
 
   const { prices, connected } = useLivePrices([symbol], dataSource);
-  const { symbols: brokerSymbols, formatPrice, getInstrument } = useBrokerReference();
+  const { formatPrice, getInstrument } = useBrokerReference();
+  const brokerSymbols = useBrokerReference().symbols;
 
   // --- Handlers ---
   const handleLineDrag = (title: string, price: number) => {
       const instrument = getInstrument(symbol);
       // Standardized 'digits' takes precedence
-      const precision = instrument?.details?.digits ?? instrument?.details?.displayPrecision ?? 5;
+      const precision = (instrument?.details?.digits ?? instrument?.details?.displayPrecision ?? 5) as number;
       const rounded = parseFloat(price.toFixed(precision));
       
       if (title === 'SL') {
@@ -118,7 +121,7 @@ export default function MarketPage() {
         if (config.supported_timeframes && config.supported_timeframes.length > 0) {
             setAvailableTimeframes(config.supported_timeframes);
         }
-    }).catch(err => console.error("Failed to load system config", err));
+    }).catch(err => logger.error("Failed to load system config", err));
 
     setMounted(true);
   }, []);
@@ -153,9 +156,6 @@ export default function MarketPage() {
     setLoading(true);
     setCandles([]); // Clear old data
     
-    // Determine Data Source
-    // const dataSource = ... (already memoized above)
-
     try {
       const data = await fetchCandles({ 
           symbol, 
@@ -165,11 +165,11 @@ export default function MarketPage() {
       });
       setCandles(data);
     } catch (error) {
-      console.error("Failed to fetch candles", error);
+      logger.error("Failed to fetch candles", error);
     } finally {
       setLoading(false);
     }
-  }, [symbol, timeframe, selectedAccount]);
+  }, [symbol, timeframe, dataSource]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -235,15 +235,14 @@ export default function MarketPage() {
               return newCandles;
           }
       });
-  }, [prices, symbol, timeframe]); // Added timeframe dependency
+  }, [prices, symbol, timeframe, formatPrice]);
 
   // --- Effects: Indicators ---
   useEffect(() => {
     if (candles.length === 0) return;
     updateIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles.length, showEMA, showEMA50, showRSI, showATR, showMACD, showADX, symbol, timeframe]); 
-  // Dependency Change: candles.length instead of candles to avoid re-calc on every tick
+  }, [candles.length, showEMA, showRSI, showATR, showMACD, showADX, symbol, timeframe]); 
 
   const updateIndicators = async () => {
 
@@ -257,7 +256,7 @@ export default function MarketPage() {
           try {
               const res = await fn();
               pushFn(res);
-          } catch(e) { console.error("Indicator Calc Failed", e); }
+          } catch(e) { logger.error("Indicator Calc Failed", e); }
       };
 
       // Queue all enabled indicators for parallel execution
@@ -265,12 +264,6 @@ export default function MarketPage() {
           promises.push(tryCalc(
               () => calculateEMA({ data: closes, span: 200 }), 
               (res: number[]) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' })
-          ));
-      }
-      if (showEMA50) {
-          promises.push(tryCalc(
-              () => calculateEMA({ data: closes, span: 50 }), 
-              (res: number[]) => newInds.push({ name: 'EMA 50', data: res, color: '#f59e0b' })
           ));
       }
       if (showRSI) {
@@ -325,7 +318,6 @@ export default function MarketPage() {
   // --- Effect: SMC ---
   useEffect(() => {
     if (!showSMC || candles.length === 0) {
-        setSmcData(null);
         setSmcMarkers([]);
         setSmcPriceLines([]);
         return;
@@ -341,7 +333,6 @@ export default function MarketPage() {
                  close: candles.map(c => c.close),
                  volume: candles.map(c => c.volume || 0),
              });
-             setSmcData(res);
              
              // 2. Transform for Chart
              const newMarkers: SeriesMarker<Time>[] = [];
@@ -410,7 +401,7 @@ export default function MarketPage() {
              setSmcPriceLines(newPriceLines);
 
          } catch (e) {
-             console.error("SMC Calc Failed", e);
+             logger.error("SMC Calc Failed", e);
          }
     };
     
@@ -436,7 +427,6 @@ export default function MarketPage() {
     <div className="h-screen bg-black text-gray-300 font-sans selection:bg-blue-500/30 flex flex-col overflow-hidden">
         
         {/* Top Bar: Market Ticker */}
-        {/* ... (Header content unchanged) ... */}
         <header className="border-b border-white/5 bg-gray-950/50 backdrop-blur-md z-40 h-14 flex items-center px-4 justify-between shrink-0">
             <div className="flex items-center gap-6">
                  {/* Symbol Selector embedded in header for quick switch */}
@@ -482,9 +472,8 @@ export default function MarketPage() {
                         const panel = accountPanelRef.current;
                         if (panel) {
                             const size = panel.getSize();
-                            // @ts-expect-error - getSize returns object in new version
-                            const currentSize = typeof size === 'number' ? size : size.asPercentage;
-                            panel.resize(currentSize < 10 ? "30" : "4");
+                            const currentSize = typeof size === 'number' ? size : (size as any).asPercentage;
+                            panel.resize(currentSize < 10 ? 30 : 4);
                         }
                     }} 
                     className={cn("p-1.5 rounded hover:bg-white/10 transition-colors", "text-blue-400 bg-blue-500/10")}
@@ -512,7 +501,7 @@ export default function MarketPage() {
                 >
                     
                     {/* Top Area: Chart & Execution */}
-                    <Panel id="top-panel" defaultSize={70} minSize={15}>
+                    <AnyPanel id="top-panel" defaultSize={70} minSize={15}>
                         <PanelGroup 
                             id="mtf_layout_order_v4_auto"
                             orientation="horizontal" 
@@ -520,7 +509,7 @@ export default function MarketPage() {
                         >
                             
                             {/* Left: Chart */}
-                            <Panel id="chart-panel" defaultSize={75} minSize={15} className="relative">
+                            <AnyPanel id="chart-panel" defaultSize={75} minSize={15} className="relative">
                              {/* Toolbar (Moved inside Chart Panel) */}
                             <div className="absolute top-0 left-0 right-0 z-20 bg-gray-950/80 backdrop-blur-sm border-b border-white/5 p-2 px-4 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -581,7 +570,6 @@ export default function MarketPage() {
                                         <CandleChart 
                                             data={candles} 
                                             indicators={chartIndicators.filter(i => i.priceScaleId !== 'left')} 
-                                            // @ts-expect-error - Color types definition mismatch in simple-react-chart
                                             colors={{
                                                 backgroundColor: 'transparent',
                                                 textColor: '#525252',
@@ -596,7 +584,7 @@ export default function MarketPage() {
                                             markers={smcMarkers}
                                             priceLines={[...smcPriceLines, ...orderLines]}
                                             onLineDrag={handleLineDrag}
-                                            precision={getInstrument(symbol)?.details?.digits ?? getInstrument(symbol)?.details?.displayPrecision ?? 5}
+                                            precision={Number(getInstrument(symbol)?.details?.digits ?? getInstrument(symbol)?.details?.displayPrecision ?? 5)}
                                         />
                                         {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
                                             if (ind.name.startsWith('RSI')) {
@@ -606,7 +594,6 @@ export default function MarketPage() {
                                                         type="RSI"
                                                         data={ind.data.map((v: number, i: number) => ({ time: new Date(candles[i]?.timestamp).getTime() / 1000 as Time, value: v as number || 0 }))}
                                                         height={100}
-                                                        // @ts-expect-error - Color types
                                                         colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
                                                 );
@@ -634,7 +621,6 @@ export default function MarketPage() {
                                                             hist: v.hist
                                                         }))}
                                                         height={150}
-                                                        // @ts-expect-error - Color types
                                                         colors={{ lineColor: '#2962FF', signalColor: '#FF6D00', histColor: '#26a69a', textColor: '#525252' }}
                                                     />
                                                 );
@@ -651,7 +637,6 @@ export default function MarketPage() {
                                                             dmn: v.dmn
                                                         }))}
                                                         height={100}
-                                                        // @ts-expect-error - Color types
                                                         colors={{ lineColor: ind.color, textColor: '#525252' }}
                                                     />
                                                 );
@@ -682,17 +667,16 @@ export default function MarketPage() {
                                     </button>
                                  </div>
                             </div>
-                        </Panel>
+                        </AnyPanel>
 
                         <PanelResizeHandle className="relative z-50 group flex justify-center items-center bg-transparent w-4 -ml-2 hover:cursor-col-resize focus:outline-none">
                             <div className="w-px h-full bg-white/5 group-hover:bg-blue-500/50 transition-colors" />
                             <div className="absolute w-1 h-8 bg-white/10 rounded-full group-hover:bg-blue-500 transition-colors" />
                         </PanelResizeHandle>
 
-                        {/* Right: Order Panel */}
-                        <Panel 
+                        <AnyPanel 
                             id="order-panel" 
-                            ref={(node) => {
+                            ref={(node: any) => {
                                 if (node) orderPanelRef.current = node;
                             }}
                             defaultSize={25} 
@@ -718,56 +702,52 @@ export default function MarketPage() {
                                 onMinimize={() => {
                                     const panel = orderPanelRef.current;
                                     if (panel) {
-                                        panel.resize("4");
+                                        panel.resize(4);
                                     }
                                 }}
                                 onMaximize={() => {
                                     const panel = orderPanelRef.current;
                                     if (panel) {
                                         const size = panel.getSize();
-                                        // @ts-expect-error - getSize returns object in new version
-                                        const currentSize = typeof size === 'number' ? size : size.asPercentage;
-                                        panel.resize(currentSize < 10 ? "25" : (currentSize > 30 ? "25" : "40"));
+                                        const currentSize = typeof size === 'number' ? size : (size as any).asPercentage;
+                                        panel.resize(currentSize < 10 ? 25 : (currentSize > 30 ? 25 : 40));
                                     }
                                 }}
                             />
-                        </Panel>
+                        </AnyPanel>
 
                     </PanelGroup>
-                </Panel>
-
-                {/* Bottom Area: Account Panel */}
-                <PanelResizeHandle className="relative z-50 group flex justify-center items-center bg-transparent h-4 -mt-2 hover:cursor-row-resize focus:outline-none">
-                    <div className="h-px w-full bg-white/5 group-hover:bg-blue-500/50 transition-colors" />
-                    <div className="absolute h-1 w-16 bg-white/10 rounded-full group-hover:bg-blue-500 transition-colors" />
-                </PanelResizeHandle>
-                <Panel 
-                    id="account-panel"
-                    ref={accountPanelRef}
-                    defaultSize={30} 
-                    minSize={4} 
-                    collapsible={true}
-                >
-                        <AccountPanel 
-                        refreshTrigger={refreshTrigger}
-                        onMinimize={() => {
-                            const panel = accountPanelRef.current;
-                            if (panel) {
-                                panel.resize("4");
-                            }
-                        }}
-                        onMaximize={() => {
-                            const panel = accountPanelRef.current;
-                            if (panel) {
-                                const size = panel.getSize();
-                                // @ts-expect-error - getSize returns object in new version
-                                const currentSize = typeof size === 'number' ? size : size.asPercentage;
-                                panel.resize(currentSize < 10 ? "25" : (currentSize > 30 ? "25" : "40"));
-                            }
-                        }}
-                    />
-                </Panel>
-            </PanelGroup>
+                    </AnyPanel>
+                    <PanelResizeHandle className="relative z-50 group flex justify-center items-center bg-transparent h-4 -mt-2 hover:cursor-row-resize focus:outline-none">
+                        <div className="h-px w-full bg-white/5 group-hover:bg-blue-500/50 transition-colors" />
+                        <div className="absolute h-1 w-16 bg-white/10 rounded-full group-hover:bg-blue-500 transition-colors" />
+                    </PanelResizeHandle>
+                    <AnyPanel 
+                        id="account-panel"
+                        ref={accountPanelRef}
+                        defaultSize={30} 
+                        minSize={4} 
+                        collapsible={true}
+                    >
+                            <AccountPanel 
+                            refreshTrigger={refreshTrigger}
+                            onMinimize={() => {
+                                const panel = accountPanelRef.current;
+                                if (panel) {
+                                    panel.resize(4);
+                                }
+                            }}
+                            onMaximize={() => {
+                                const panel = accountPanelRef.current;
+                                if (panel) {
+                                    const size = panel.getSize();
+                                    const currentSize = typeof size === 'number' ? size : (size as any).asPercentage;
+                                    panel.resize(currentSize < 10 ? 25 : (currentSize > 30 ? 25 : 40));
+                                }
+                            }}
+                        />
+                    </AnyPanel>
+                </PanelGroup>
             ) : (
                 <div className="h-full w-full bg-black animate-pulse" />
             )}

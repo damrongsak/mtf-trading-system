@@ -5,6 +5,7 @@ import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, LineS
 import { useChartSync } from './ChartContainer';
 import { Candle } from '@/lib/api/market';
 import { cleanCandleData, cleanLineSeriesData } from '@/lib/chartUtils';
+import { logger } from '@/lib/api/app-logger';
 
 export interface IndicatorData {
   name: string;
@@ -209,7 +210,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     try {
         markersPluginRef.current = createSeriesMarkers(candlestickSeries, []);
     } catch (e) {
-        console.error('[CandleChart] Failed to create markers plugin:', e);
+        logger.error('[CandleChart] Failed to create markers plugin:', e);
     }
 
     chartRef.current = chart;
@@ -292,7 +293,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     try {
         markersPluginRef.current.setMarkers(markers);
     } catch (e) {
-        console.error('[CandleChart] Error setting markers:', e);
+        logger.error('[CandleChart] Error setting markers:', e);
     }
   }, [markers]);
 
@@ -307,7 +308,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
                 chartRef.current.removeSeries(series);
             }
         } catch (e) {
-            console.warn('[CandleChart] Failed to remove series:', e);
+            logger.warn('[CandleChart] Failed to remove series:', e);
         }
     });
     indicatorSeriesRefs.current.clear();
@@ -336,7 +337,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
             lineSeries.setData(lineData);
             indicatorSeriesRefs.current.set(ind.name, lineSeries);
         } catch (e) {
-             console.error('[CandleChart] Failed to add indicator series:', e);
+             logger.error('[CandleChart] Failed to add indicator series:', e);
         }
     });
 
@@ -350,8 +351,8 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     if (!seriesRef.current) return;
 
     // Default colors if not provided in props (using explicit defaults for Bid/Ask clarity)
-    const bidColor = (colors as any).upColor || '#22c55e'; // Green-500
-    const askColor = (colors as any).downColor || '#ef4444'; // Red-500
+    const bidColor = colors.upColor || '#22c55e'; // Green-500
+    const askColor = colors.downColor || '#ef4444'; // Red-500
 
     // --- Bid Line (Buy Price) ---
     if (bid !== undefined && bid !== null) {
@@ -403,7 +404,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
     priceLinesMapRef.current.forEach(line => {
         try {
            seriesRef.current?.removePriceLine(line);
-        } catch(e) { console.warn(e); }
+        } catch(e) { logger.warn('[CandleChart] Failed to remove old price line:', e); }
     });
     priceLinesMapRef.current.clear();
 
@@ -422,7 +423,7 @@ export const CandleChart: React.FC<CandleChartProps> = ({ data, indicators = [],
                 priceLinesMapRef.current.set(`line-${index}`, line);
             }
         } catch (e) {
-            console.error('Failed to create price line:', e);
+            logger.error('[CandleChart] Failed to create price line:', e);
         }
     });
 

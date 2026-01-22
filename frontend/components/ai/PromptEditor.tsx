@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { logger } from '@/lib/api/app-logger';
 import { Plus, Save, Play, Edit2, Code } from 'lucide-react';
 
 export function PromptEditor() {
@@ -37,7 +38,7 @@ export function PromptEditor() {
             }
         } catch (error) {
             toast.error("Failed to load prompts");
-            console.error(error);
+            logger.error(error);
         } finally {
             setIsLoading(false);
         }
@@ -105,8 +106,8 @@ export function PromptEditor() {
             }
             fetchPrompts();
             setIsEditing(false);
-        } catch (error: any) {
-             const msg = error.response?.data?.message || error.message || "Failed to save";
+        } catch (error) {
+             const msg = error instanceof Error ? error.message : "Failed to save";
              toast.error(msg);
         }
     };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import { getJournalStats, getJournalEquityCurve, getPatternAnalysis } from '@/lib/api/journal';
 import { JournalStatsResponse, EquityCurvePoint, PatternAnalysisResponse } from '@/lib/api/types';
 import StatsCards from './analytics/StatsCards';
@@ -27,7 +28,7 @@ const JournalAnalytics: React.FC = () => {
                 setEquityCurve(equityData);
                 setPatterns(patternsData);
             } catch (err) {
-                console.error("Failed to fetch analytics:", err);
+                logger.error("Failed to fetch analytics:", err);
                 setError("Failed to load analytics data. Please try again.");
             } finally {
                 setLoading(false);

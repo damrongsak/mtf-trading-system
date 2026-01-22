@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { APIResponse, DataSource, DataSourceCreate, DataSourceUpdate, DataSourceType, DataSourceProvider, MarketSymbol } from './types';
+import { logger } from '@/lib/api/app-logger';
 
 export type { DataSource, DataSourceCreate, DataSourceUpdate, DataSourceType, DataSourceProvider };
 

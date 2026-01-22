@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { logger } from '@/lib/api/app-logger';
 
 // Dynamically import Plot with no SSR to avoid "window is not defined"
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
@@ -20,7 +21,7 @@ export default function InteractiveBacktestChart({ plotJson }: InteractiveBackte
         layout: parsed.layout || {}
       };
     } catch (e) {
-      console.error("Failed to parse Plotly JSON", e);
+      logger.error("Failed to parse Plotly JSON", e);
       return { data: [], layout: {} };
     }
   }, [plotJson]);

@@ -1,7 +1,7 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,7 +40,7 @@ export default function DeploymentsPage() {
             setError(null);
         } catch (err) {
             setError("Failed to load deployments.");
-            console.error(err);
+            logger.error(err);
         } finally {
             setIsLoading(false);
         }

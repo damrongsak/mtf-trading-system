@@ -15,6 +15,7 @@ import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktest
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';
 import { getSavedStrategy, getSavedStrategies, createSavedStrategy, updateSavedStrategy, deleteSavedStrategy } from '@/lib/api/saved_strategies';
+import { logger } from '@/lib/api/app-logger';
 import { OptimizationPanel } from './OptimizationPanel';
 import { runOptimization, runMonteCarlo } from '@/lib/api/backtest';
 import { MonteCarloPanel } from './MonteCarloPanel';
@@ -206,7 +207,7 @@ function StrategyEditorContent() {
                     setTimeframe(NORMALIZE_TF(prefs.preferred_timeframes[0]));
                 }
             } catch (error) {
-                console.error("Failed to fetch preferences:", error);
+                logger.error("Failed to fetch preferences:", error);
             }
         };
         fetchPreferences();
@@ -222,7 +223,7 @@ function StrategyEditorContent() {
                      const strategy = await getSavedStrategy(id);
                      performLoadStrategy(strategy);
                  } catch (err) {
-                     console.error(err);
+                     logger.error(err);
                      addLog('ERROR', `Failed to load strategy from URL: ${(err as Error).message}`);
                  }
              };
@@ -235,7 +236,7 @@ function StrategyEditorContent() {
             const strats = await getSavedStrategies();
             setSavedStrategies(strats);
         } catch (error) {
-            console.error("Failed to fetch strategies:", error);
+            logger.error("Failed to fetch strategies:", error);
             addLog('ERROR', "Failed to load strategy library.");
         }
     };

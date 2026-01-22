@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { JournalFilters, getPreferences } from '@/lib/api';
+import { logger } from '@/lib/api/app-logger';
 
 interface JournalFilterBarProps {
     currentFilters: JournalFilters;
@@ -22,7 +23,7 @@ export default function JournalFilterBar({ currentFilters, onFilterChange }: Jou
                      setSupportedSymbols(["XAU_USD", "EUR_USD", "BTC_USD"]);
                 }
             } catch (error) {
-                console.error('Failed to load supported symbols', error);
+                logger.error('Failed to load supported symbols', error);
             }
         };
         fetchSymbols();

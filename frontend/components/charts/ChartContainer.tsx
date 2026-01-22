@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { IChartApi, MouseEventParams, Time, ISeriesApi } from 'lightweight-charts';
+import { logger } from '@/lib/api/app-logger';
 
 interface ChartContainerProps {
   children: React.ReactNode;
@@ -53,7 +54,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
                             e.chart.timeScale().setVisibleLogicalRange(range);
                        }
                   } catch (err) {
-                      console.warn('[ChartContainer] Sync error (TimeScale), removing stale chart', err);
+                      logger.warn('[ChartContainer] Sync error (TimeScale), removing stale chart', err);
                       registryRef.current = registryRef.current.filter(r => r.chart !== e.chart);
                   }
               }
@@ -75,7 +76,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
                    try {
                        e.chart.setCrosshairPosition(NaN, param.time as Time, e.syncSeries);
                    } catch (err) {
-                       console.warn('[ChartContainer] Sync error (Crosshair), removing stale chart', err);
+                       logger.warn('[ChartContainer] Sync error (Crosshair), removing stale chart', err);
                        registryRef.current = registryRef.current.filter(r => r.chart !== e.chart);
                    }
                }

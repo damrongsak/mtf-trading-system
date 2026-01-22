@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiError } from './errors';
+import { logger } from '@/lib/api/app-logger';
 
 export const handleApiError = (error: unknown): ApiError => {
     if (error instanceof ApiError) return error;
@@ -28,13 +29,10 @@ apiClient.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Log requests in development
-        if (process.env.NODE_ENV === 'development') {
-            if (config.data) {
-                console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data);
-            } else {
-                console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
-            }
+        if (config.data) {
+            logger.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data);
+        } else {
+            logger.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
         }
 
         return config;
@@ -47,10 +45,7 @@ apiClient.interceptors.request.use(
 // Response interceptor - handle errors globally
 apiClient.interceptors.response.use(
     (response) => {
-        // Log successful responses in development
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
-        }
+        logger.debug(`[API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
         return response;
     },
     (error: AxiosError) => {
@@ -71,7 +66,7 @@ apiClient.interceptors.response.use(
                         // Optionally redirect to login or trigger logout
                         if (typeof window !== 'undefined') {
                             // You could dispatch a logout event here
-                            if (process.env.NODE_ENV === 'development') console.warn('[API] Unauthorized - token may be expired');
+                            logger.warn('[API] Unauthorized - token may be expired');
                         }
                         break;
                     case 403:
@@ -99,12 +94,9 @@ apiClient.interceptors.response.use(
         // Create proper ApiError instance
         const apiError = new ApiError(message, status, details);
 
-        // Log errors in development
-        if (process.env.NODE_ENV === 'development') {
-            // specific status codes that are expected/handled
-            if (status !== 401 && status !== 404) {
-                console.error(`[API Error] ${status || 'Unknown'}: ${message}`, details ? details : '');
-            }
+        // Log errors - these are kept even in prod if they are critical
+        if (status !== 401 && status !== 404) {
+            logger.error(`[API Error] ${status || 'Unknown'}: ${message}`, details ? details : '');
         }
 
         throw apiError;

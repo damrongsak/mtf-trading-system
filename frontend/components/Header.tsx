@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import { ProfileDropdown } from './ProfileDropdown';
 
 import { Menu } from 'lucide-react';
@@ -39,7 +40,7 @@ export const Header = () => {
           setDailyPnl(latest.daily_pnl);
         }
       } catch (error) {
-        console.error('Failed to fetch header data:', error);
+        logger.error('Failed to fetch header data:', error);
       } finally {
         setLoading(false);
       }

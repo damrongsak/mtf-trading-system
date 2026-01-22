@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, Edit2, Database, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { getDataSources, createDataSource, updateDataSource, deleteDataSource, DataSource, DataSourceCreate, DataSourceType, DataSourceProvider } from '@/lib/api/data-sources';
+import { getDataSources, createDataSource, updateDataSource, deleteDataSource, DataSource, DataSourceCreate, DataSourceType, DataSourceProvider, getBrokerSymbols, updateSymbol, fetchDataSourceSymbols, createSymbol, fetchSymbolDetails } from '@/lib/api/data-sources';
+import { MarketSymbol } from "@/lib/api/types";
+import { logger } from '@/lib/api/app-logger';
 import { BackfillModal } from './BackfillModal';
 import { SymbolManagementModal } from './SymbolManagementModal';
 import { List } from "lucide-react";
@@ -119,6 +121,7 @@ export function DataSourcesSection() {
             const data = await getDataSources();
             setSources(data);
         } catch (err) {
+            logger.error("Failed to load data sources", err);
             setError("Failed to load data sources");
         } finally {
             setLoading(false);
@@ -159,6 +162,7 @@ export function DataSourcesSection() {
             try {
                 parsedConfig = JSON.parse(configString);
             } catch (e) {
+                logger.warn("Invalid JSON configuration", e);
                 throw new Error("Invalid JSON configuration");
             }
 
@@ -223,12 +227,11 @@ export function DataSourcesSection() {
             // Reusing symbol fetch as connection test since it uses the config
             // We import it dynamically or assume it's available. 
             // It was imported in line 14: fetchDataSourceSymbols (Wait, line 14 imports getDataSources etc. check imports)
-            const { fetchDataSourceSymbols } = await import('@/lib/api/data-sources');
             await fetchDataSourceSymbols(source.id);
             
             setSuccess(`Successfully connected to ${source.name}`);
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             setError(`Connection Failed: ${err instanceof Error ? err.message : 'Unknown Error'}`);
         } finally {
              if (btn) btn.innerHTML = originalContent || '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>'; 

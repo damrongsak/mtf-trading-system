@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, memo, CSSProperties } from 'react';
+import { logger } from '@/lib/api/app-logger';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getOpenInterestDetails, OpenInterestRecord } from '@/lib/api/data';
 import { Loader2, Flame } from 'lucide-react';
@@ -90,7 +91,7 @@ export function OpenInterestHeatmap({ snapshotAt, contract, minOi = 0, maxOi }: 
 
             getOpenInterestDetails(snapshotAt, queryContract, minOi, maxOi, true)
                 .then(data => setRecords(data))
-                .catch(err => console.error(err))
+                .catch(err => logger.error(err))
                 .finally(() => setLoading(false));
         }, 500);
 

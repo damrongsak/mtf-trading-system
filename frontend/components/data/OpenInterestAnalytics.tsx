@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { Loader2, TrendingUp, BarChart2, Activity, ArrowDown, ArrowUp, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { logger } from '@/lib/api/app-logger';
 import { OpenInterestHeatmap } from './OpenInterestHeatmap';
 
 export function OpenInterestAnalytics() {
@@ -71,7 +72,7 @@ export function OpenInterestAnalytics() {
             
             getOpenInterestAnalysis(selectedSnapshot, queryContract, minOiVal, maxOiVal)
                 .then(data => setAnalysis(data))
-                .catch(err => console.error(err))
+                .catch(err => logger.error(err))
                 .finally(() => setLoading(false));
         }, 500); // 500ms debounce
 

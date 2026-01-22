@@ -13,6 +13,7 @@ interface ParamRange {
 }
 
 import { OptimizationResult } from '@/lib/api/types';
+import { logger } from '@/lib/api/app-logger';
 
 interface OptimizationPanelProps {
     onRunOptimization: (ranges: Record<string, unknown>) => Promise<OptimizationResult[]>;
@@ -61,7 +62,7 @@ export function OptimizationPanel({ onRunOptimization, isLoading }: Optimization
             const res = await onRunOptimization(paramGrid);
             setResults(res);
         } catch (error) {
-            console.error("Optimization failed:", error);
+            logger.error("Optimization failed:", error);
         }
     };
 

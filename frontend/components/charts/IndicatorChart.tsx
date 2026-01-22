@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries, AreaSeries, HistogramSeries, Time } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries, AreaSeries, HistogramSeries, Time, MouseEventParams } from 'lightweight-charts';
 import { useChartSync } from './ChartContainer';
 import { cleanLineSeriesData, cleanHistogramData } from '@/lib/chartUtils';
+import { logger } from '@/lib/api/app-logger';
 
 export interface SingleIndicatorData {
   time: Time;
@@ -116,7 +117,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
         try {
             chartRef.current?.removeSeries(s);
         } catch (e) {
-            console.warn("Failed to remove series", e);
+            logger.warn("Failed to remove series", e);
         }
     });
     seriesRef.current = [];
@@ -249,7 +250,7 @@ export const IndicatorChart: React.FC<IndicatorChartProps> = ({
   useEffect(() => {
     if (!chartRef.current || !seriesRef.current.length) return;
 
-    const updateLegend = (param: any) => {
+    const updateLegend = (param: MouseEventParams) => {
        const newLegend = new Map<string, number>();
        
        // Default to last visible data point if no crosshair

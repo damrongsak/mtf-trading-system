@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getPreferences, updatePreferences, getFunds, updateFund, type Fund } from '@/lib/api';
-import { StrategyType } from '@/lib/api/types';
+import { getPreferences, updatePreferences, getFunds, updateFund } from '@/lib/api';
+import { type Fund, type StrategyType } from '@/lib/api/types';
 import { BrokerAccountsSection } from './BrokerAccountsSection';
 import { FundManagementModal } from './FundManagementModal';
 import { Settings, Lock } from 'lucide-react';

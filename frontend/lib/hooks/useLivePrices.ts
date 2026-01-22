@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { PriceUpdate } from '../api/types';
+import { logger } from '@/lib/api/app-logger';
 
 // Determine WS_URL dynamically
 const getWsUrl = () => {
@@ -60,7 +61,7 @@ export function useLivePrices(instruments: string[] = [], dataSource?: string) {
 
             socket.onopen = () => {
                 if (isMounted) {
-                    if (process.env.NODE_ENV === 'development') console.log('Connected to Price Stream');
+                    logger.debug('Connected to Price Stream');
                     setConnected(true);
                 }
             };
@@ -85,14 +86,14 @@ export function useLivePrices(instruments: string[] = [], dataSource?: string) {
                         }
                     }
                 } catch (e) {
-                    console.error('Error parsing price update:', e);
+                    logger.error('Error parsing price update:', e);
                 }
             };
 
             socket.onclose = (event) => {
                 if (!isMounted) return;
 
-                if (process.env.NODE_ENV === 'development') console.log('Price Stream disconnected', event.reason);
+                logger.debug('Price Stream disconnected', event.reason);
                 setConnected(false);
                 ws.current = null;
 

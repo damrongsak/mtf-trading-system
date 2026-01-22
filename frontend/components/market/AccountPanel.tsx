@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getTrades, Trade, getAccountSummary, AccountSummary, getOpenPositions } from '@/lib/api/execution';
 import { TradesTable } from '@/components/trades/TradesTable'; // Reuse existing table
 import { Pagination } from '@/components/common/Pagination';
+import { logger } from '@/lib/api/app-logger';
 
 import { Wallet, History, Radio, RefreshCcw, Maximize2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -53,7 +54,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
     const [summary, setSummary] = useState<AccountSummary | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         if (!accountId) return; // Don't fetch if no account selected
         
         setLoading(true);
@@ -72,13 +73,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
             }
             setSummary(sumRes);
         } catch (e) {
-            console.error("Failed to load account data", e);
-        } finally {
+          logger.error("Failed to parse sidebar categories", e);
+        }
+ finally {
             setLoading(false);
         }
-    };
+    }, [accountId, historyPage, historyPerPage]);
 
-    useEffect(() => { loadData(); }, [accountId, refreshTrigger, historyPage, historyPerPage]);
+    useEffect(() => { loadData(); }, [loadData, refreshTrigger]);
 
     // Reset page when account changes
     useEffect(() => {

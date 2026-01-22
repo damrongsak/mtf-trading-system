@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { aiApi } from '../api/ai';
 import { ChatSession, ChatMessage } from '../api/types';
+import { logger } from '@/lib/api/app-logger';
 
 export function useStrategyChat(strategyId?: string) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -22,7 +23,7 @@ export function useStrategyChat(strategyId?: string) {
             }
         } catch (err) {
             setError('Failed to load chat history');
-            console.error(err);
+            logger.error('Failed to load sessions:', err);
         } finally {
             setLoading(false);
         }
@@ -39,7 +40,7 @@ export function useStrategyChat(strategyId?: string) {
             const data = await aiApi.getMessages(activeSessionId);
             setMessages(data);
         } catch (err) {
-            console.error('Failed to load messages:', err);
+            logger.error('Failed to load messages:', err);
         }
     }, [activeSessionId]);
 

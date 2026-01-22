@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Signal } from '@/lib/api/types';
 import { getBatchSignals } from '@/lib/api/signals';
 import { TradeModal } from './TradeModal';
+import { logger } from '@/lib/api/app-logger';
 
 export const RecentSignalsCard: React.FC = () => {
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -23,7 +24,7 @@ export const RecentSignalsCard: React.FC = () => {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setSignals(sorted);
     } catch (e) {
-      console.error("Failed to fetch signals", e);
+      logger.error("Failed to fetch signals", e);
     } finally {
       setLoading(false);
     }
