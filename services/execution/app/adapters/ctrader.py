@@ -62,29 +62,45 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def _resolve_symbol_id(self, symbol_name: str) -> int:
         from app.database import AsyncSessionLocal
         from app.models import MarketSymbol, DataSource
-        from sqlalchemy import select
+        from sqlalchemy import select, or_
         
         async with AsyncSessionLocal() as db:
-            # Query MarketSymbol joined with DataSource where provider is CTRADER
-            # and symbol matches or is similar
-            # For strictness:
+            # Normalize requested symbol
+            normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
+            
+            # 1. Try exact match, underscore match, and slashed match
+            search_names = [symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name]
+            # Remove duplicates
+            search_names = list(set(search_names))
+            
             result = await db.execute(select(MarketSymbol).join(DataSource).where(
-                MarketSymbol.symbol == symbol_name,
+                MarketSymbol.symbol.in_(search_names),
                 DataSource.provider == 'CTRADER'
             ))
             ms = result.scalars().first()
             
             if not ms:
-                # Try fallback: remove underscore
-                alt_name = symbol_name.replace("_", "")
+                # 2. Try partial match if still not found
+                # This handles cases where we have e.g. "XAUUSD" stored and user sends "XAU_USD"
+                # but the simple permutations didn't catch it.
                 result = await db.execute(select(MarketSymbol).join(DataSource).where(
-                    MarketSymbol.symbol == alt_name,
+                    or_(
+                        MarketSymbol.symbol.like(f"%{normalized_name}%"),
+                        MarketSymbol.symbol.like(f"%{symbol_name}%")
+                    ),
                     DataSource.provider == 'CTRADER'
                 ))
                 ms = result.scalars().first()
             
-            if ms and ms.details and "symbolId" in ms.details:
-                return int(ms.details["symbolId"])
+            if ms and ms.details:
+                # Check for symbolId in details, handling inconsistent nesting
+                details = ms.details
+                if "symbolId" in details:
+                    return int(details["symbolId"])
+                elif "raw" in details and "symbolId" in details["raw"]:
+                    return int(details["raw"]["symbolId"])
+                elif "ctrader_symbol_id" in details:
+                    return int(details["ctrader_symbol_id"])
             
             raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
 
