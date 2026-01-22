@@ -284,7 +284,9 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       try {
           if (!selectedAccountId) throw new Error("Select Broker");
           
-          const finalRisk = isManualLots ? ((parseFloat(manualLots) || 0) * 100000 * slDistPrice) : riskUsd;
+          const isGoldTrade = symbol.includes('XAU') || symbol.includes('GOLD');
+          const tradeContractSize = isGoldTrade ? 100 : 100000;
+          const finalRisk = isManualLots ? ((parseFloat(manualLots) || 0) * tradeContractSize * slDistPrice) : riskUsd;
 
           await placeSmartOrder({
                 broker_account_id: selectedAccountId,

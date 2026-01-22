@@ -375,5 +375,15 @@ async def place_smart_order(
     except HTTPException as he:
         raise he
     except Exception as e:
+        # Check if it's an HTTP error from the execution client
+        if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
+             status_code = e.response.status_code
+             try:
+                 detail = e.response.json().get("detail", str(e))
+             except:
+                 detail = str(e)
+             logger.error(f"Execution Service Error ({status_code}): {detail}")
+             raise HTTPException(status_code=status_code, detail=detail)
+             
         logger.error(f"Smart Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
