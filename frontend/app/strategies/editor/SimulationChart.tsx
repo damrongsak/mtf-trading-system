@@ -65,8 +65,10 @@ export function SimulationChart({ equityCurves }: SimulationChartProps) {
                             contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', fontSize: '12px' }}
                             itemStyle={{ color: '#94a3b8' }}
                             labelStyle={{ color: '#e2e8f0' }}
-                            formatter={(value: number) => [`${value.toFixed(2)}%`, 'Return']}
-                            labelFormatter={(label) => `Trade #${label}`}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            formatter={(value: any) => [typeof value === 'number' ? `${value.toFixed(2)}%` : '0.00%', 'Return']}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            labelFormatter={(label: any) => `Trade #${label}`}
                         />
                         {/* Render lines for each simulation */}
                         {equityCurves.map((_, idx) => (

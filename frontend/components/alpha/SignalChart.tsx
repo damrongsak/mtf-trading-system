@@ -46,8 +46,9 @@ const SignalChart = ({ data, timestamps }: SignalChartProps) => {
             contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
             itemStyle={{ color: '#60a5fa' }}
             labelStyle={{ display: 'none' }}
-            formatter={(value: number, name: string, props: any) => [
-                value.toFixed(4), 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, name: any, props: any) => [
+                typeof value === 'number' ? value.toFixed(4) : 'N/A', 
                 `Signal (${props.payload.formattedTime})`
             ]}
           />

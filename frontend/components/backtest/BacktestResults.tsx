@@ -85,8 +85,10 @@ export function BacktestResults({ results }: BacktestResultsProps) {
                             <YAxis stroke="#666" fontSize={12} />
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#1e293b', border: 'none' }}
-                                labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                                formatter={(value: number) => [`$${value.toFixed(2)}`, 'Equity']}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                labelFormatter={(label: any) => new Date(label).toLocaleDateString()}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                formatter={(value: any) => [typeof value === 'number' ? `$${value.toFixed(2)}` : 'N/A', 'Equity']}
                             />
                             <Area 
                                 type="monotone" 

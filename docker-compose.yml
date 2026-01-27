@@ -9,7 +9,7 @@ services:
       - "80:80"
     depends_on:
       - api-gateway
-      # - frontend # manually run `npm run build` and `npm run start` in frontend directory
+      - frontend # manually run `npm run build` and `npm run start` in frontend directory
     networks:
       - default
       - external
@@ -168,11 +168,14 @@ services:
   #     - QDRANT__CLUSTER__ENABLED=false
 
   # Manualy run
-  # frontend:
-  #   build: ./frontend
-  #   container_name: frontend
-  #   ports:
-  #     - "3000:3000"
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - default
+      - external
 
   redis:
     image: redis:7-alpine

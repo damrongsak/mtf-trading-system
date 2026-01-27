@@ -8,7 +8,8 @@ interface EquityChartProps {
 
 interface CustomTooltipProps {
     active?: boolean;
-    payload?: { value: number; payload: { pnl: number } }[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payload?: { value: any; payload: any }[];
     label?: string;
 }
 

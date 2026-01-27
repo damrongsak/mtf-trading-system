@@ -30,9 +30,12 @@ const TOOLTIP_CONTENT_STYLE = {
 
 const TOOLTIP_ITEM_STYLE = { color: '#60a5fa' };
 
-const formatCurrency = (value: number) => `$${value.toFixed(0)}`;
-const formatTooltipValue = (value: number) => [`$${value.toFixed(2)}`, 'Equity'];
-const formatTooltipLabel = (label: string) => new Date(label).toLocaleDateString();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatCurrency = (value: any) => typeof value === 'number' ? `$${value.toFixed(0)}` : '';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatTooltipValue = (value: any) => [typeof value === 'number' ? `$${value.toFixed(2)}` : 'N/A', 'Equity'];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatTooltipLabel = (label: any) => new Date(label).toLocaleDateString();
 const formatXAxisDate = (value: string) => {
     const date = new Date(value);
     return `${date.getMonth() + 1}/${date.getDate()}`;
