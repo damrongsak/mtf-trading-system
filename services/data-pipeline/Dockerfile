@@ -1,5 +1,6 @@
 FROM python:3.11-slim-bookworm
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Install uv via pip to avoid ghcr.io key issues
+RUN pip install uv
 
 # Install curl
 RUN apt-get update && apt-get install -y curl
