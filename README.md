@@ -105,7 +105,7 @@ docker compose exec redis redis-cli PSUBSCRIBE "market_data:tick:*"
 ### Quick Start (Full Stack)
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/your-org/mtf-trading-system.git
+    git clone https://github.com/damrongsak/mtf-trading-system.git
     cd mtf-trading-system
     ```
 
