@@ -161,11 +161,17 @@ async def backfill_candles():
                     MarketSymbol.is_active == True
                 ).first()
                 
-                if not ms or not ms.details or 'symbolId' not in ms.details:
-                    logger.warning(f"Symbol {sym_name} not found or missing ID.")
+                if not ms or not ms.details:
+                    logger.warning(f"Symbol {sym_name} not found or details missing.")
                     continue
                 
-                symbol_id = ms.details['symbolId']
+                symbol_id = ms.details.get('symbolId')
+                if not symbol_id and 'raw' in ms.details:
+                    symbol_id = ms.details['raw'].get('symbolId')
+                
+                if not symbol_id:
+                     logger.warning(f"Symbol {sym_name} missing 'symbolId'.")
+                     continue
                 # Digit based scaling is incorrect for raw cTrader values (always 10^5)
                 # digits = ms.details.get('digits', 2)
                 divisor = 100000.0
