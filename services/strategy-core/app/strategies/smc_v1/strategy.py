@@ -11,19 +11,28 @@ METADATA = {
 }
 
 
-def strategy(data, params=None):
+
+async def strategy(state, data_manager):
     """
     SMC V1: Macro Bias (H4) + Setup Zone (H1) + Trigger (M15)
+    Adapted for FleetManager (Unified Interface)
     """
-    if params is None:
-        params = {}
-        
-    # 1. Get Data
+    params = state.config_json if state.config_json else {}
+    symbol = state.symbol
+    
+    # Get Data from Manager
+    # data_manager.get_data(symbol) returns a DataFrame
+    data = data_manager.get_data(symbol)
+
     if data.empty or len(data) < 100:
         return None, None, None
 
     # Resampling Logic (Sync)
     try:
+        # Timeframe Config
+        tf_macro = params.get("tf_macro", "4h")
+        tf_setup = params.get("tf_setup", "1h")
+        
         # data index must be datetime
         if not isinstance(data.index, pd.DatetimeIndex):
              # Try to convert if possible or return
@@ -33,11 +42,11 @@ def strategy(data, params=None):
         else:
              df_base = data
              
-        df_h1 = df_base.resample('1h').agg({
+        df_setup = df_base.resample(tf_setup).agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
         }).dropna()
         
-        df_h4 = df_base.resample('4h').agg({
+        df_macro = df_base.resample(tf_macro).agg({
             'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
         }).dropna()
         
@@ -55,17 +64,17 @@ def strategy(data, params=None):
     signal_dict = None
     
     # Run Checks for Latest Candle
-    bias = check_macro_bias(df_h4)
+    bias = check_macro_bias(df_macro)
     
     if bias != SignalDirection.NEUTRAL:
-        in_zone = check_setup_zone(df_h1, bias)
+        in_zone = check_setup_zone(df_setup, bias)
         triggered = check_trigger(df_base, bias)
         
         if in_zone and triggered:
             # Calculate Risk
             stop_loss = calculate_stop_loss(df_base, bias)
             entry_price = df_base['close'].iloc[-1]
-            target_price = calculate_target_price(df_h1, bias, entry_price, stop_loss)
+            target_price = calculate_target_price(df_setup, bias, entry_price, stop_loss)
             
             # RRR Check
             if check_rrr(entry_price, stop_loss, target_price):
