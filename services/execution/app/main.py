@@ -15,6 +15,7 @@ from app.models import BrokerAccount, Fund, Trade, TradeStatus, TradeDirection
 from sqlalchemy import desc, func
 import uuid
 import math
+from oandapyV20.exceptions import V20Error
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -191,9 +192,16 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
         )
     except HTTPException as he:
         raise he
+    except V20Error as ve:
+        logger.error(f"OANDA API Error: {ve}")
+        raise HTTPException(status_code=400, detail=f"OANDA Error: {str(ve)}")
+    except ValueError as ve:
+        logger.error(f"Value Error: {ve}")
+        raise HTTPException(status_code=400, detail=f"Invalid Input: {str(ve)}")
     except Exception as e:
         logger.error(f"Place Order Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Expose error detail for debugging (in dev/test envs this is acceptable)
+        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
 @app.post("/trades/open")
 async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_db)):

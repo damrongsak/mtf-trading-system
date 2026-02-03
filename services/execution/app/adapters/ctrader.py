@@ -139,12 +139,27 @@ class CTraderOrderAdapter(BrokerAdapter):
             )
             
             # Extract Trade ID or Order ID
-            # ExecutionEvent -> positionId, orderId
+            # ExecutionEvent -> position -> positionId, order -> orderId
+            
+            # Check if order was executed/filled
+            # Usually MARKET order results in FILLED or PARTIALLY_FILLED
+            # We should have 'position' and 'deal'
+            
+            position_id = ""
+            if res.HasField("position"):
+                 position_id = str(res.position.positionId)
+            elif res.HasField("deal") and res.deal.positionId:
+                 position_id = str(res.deal.positionId)
+                 
+            order_id = ""
+            if res.HasField("order"):
+                 order_id = str(res.order.orderId)
+            
             return {
                 "status": "executed", 
-                "trade_id": str(res.positionId), # Map cTrader PositionID to our TradeID
-                "order_id": str(res.orderId),
-                "price": res.executionPrice if hasattr(res, 'executionPrice') else 0.0
+                "trade_id": position_id, # Map cTrader PositionID to our TradeID
+                "order_id": order_id,
+                "price": res.deal.executionPrice if res.HasField("deal") else (res.order.executionPrice if res.HasField("order") and hasattr(res.order, 'executionPrice') else 0.0)
             }
         except Exception as e:
              logger.error(f"cTrader Place Order Error: {e}")
@@ -246,7 +261,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                 comment=f"Ref:{trade_id}" if trade_id else "Auto"
             )
             
-            return {"status": "placed", "order_id": str(res.orderId)}
+            order_id = str(res.order.orderId) if res.HasField("order") else ""
+            return {"status": "placed", "order_id": order_id}
         except Exception as e:
             logger.error(f"cTrader Limit Order Error: {e}")
             raise e
