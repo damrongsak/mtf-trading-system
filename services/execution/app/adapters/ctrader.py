@@ -107,7 +107,8 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
-                           trade_id: Optional[str] = None) -> Dict[str, Any]:
+                           trade_id: Optional[str] = None,
+                           comment: Optional[str] = None) -> Dict[str, Any]:
         
         await self.client.connect()
         try:
@@ -135,7 +136,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 volume=abs(volume_cents),
                 sl=sl_price,
                 tp=tp_price,
-                comment=f"Ref:{trade_id}" if trade_id else "Auto"
+                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
             # Extract Trade ID or Order ID
@@ -236,7 +237,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
-                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+                          trade_id: Optional[str] = None,
+                          comment: Optional[str] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -258,7 +260,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 price=entry_price,
                 sl=sl_price,
                 tp=tp_price,
-                comment=f"Ref:{trade_id}" if trade_id else "Auto"
+                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
             order_id = str(res.order.orderId) if res.HasField("order") else ""

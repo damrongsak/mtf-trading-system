@@ -49,6 +49,7 @@ class OrderRequest(BaseModel):
     sl_price: Optional[float] = None
     tp_price: Optional[float] = None
     trade_id: Optional[str] = None
+    comment: Optional[str] = None
 
 class GetTradesRequest(BaseModel):
     broker_account_id: str
@@ -136,7 +137,8 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
                 units=req.units,
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
-                trade_id=req.trade_id
+                trade_id=req.trade_id,
+                comment=req.comment
             )
         elif req.order_type == "LIMIT":
             if not req.price:
@@ -146,7 +148,8 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
                 units=req.units,
                 entry_price=req.price,
                 sl_price=req.sl_price,
-                tp_price=req.tp_price
+                tp_price=req.tp_price,
+                comment=req.comment
             )
         elif req.order_type == "STOP":
              # Assuming adapter has place_stop_order or uses limit interface. 
@@ -171,7 +174,8 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
                 units=req.units,
                 entry_price=req.price,
                 sl_price=req.sl_price,
-                tp_price=req.tp_price
+                tp_price=req.tp_price,
+                comment=req.comment
             )
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
