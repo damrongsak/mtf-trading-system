@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
+from app.adapters.ctrader_connection import CTraderConnectionManager
 from app.services.minimax_service import MinimaxService
 import logging
 from app.database import get_db
@@ -23,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Execution Service")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Execution Service...")
+    await CTraderConnectionManager.shutdown_all()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,6 +36,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # --- Request Models ---
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from app.adapters.base import BrokerAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
+from app.adapters.ctrader_connection import CTraderConnectionManager
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 
@@ -23,7 +24,8 @@ class CTraderOrderAdapter(BrokerAdapter):
         self.client_secret = client_secret
         self.account_id = int(account_id)
         self.token = token
-        self.client = AsyncCTraderClient(self.host, self.port)
+        # Use Connection Manager to get a persistent client
+        self.client = CTraderConnectionManager.get_client(self.host, self.port, str(self.account_id))
 
     async def get_account_summary(self) -> Dict[str, Any]:
         await self.client.connect()
@@ -168,8 +170,6 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
              logger.error(f"cTrader Place Order Error: {e}")
              raise e
-        finally:
-            await self.client.disconnect()
 
     async def get_open_trades(self) -> List[Dict[str, Any]]:
         await self.client.connect()
@@ -233,8 +233,6 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"cTrader Get Open Trades Error: {e}")
             return []
-        finally:
-            await self.client.disconnect()
 
     async def place_limit_order(self, symbol: str, units: float, entry_price: float,
                           sl_price: Optional[float] = None, 
@@ -279,8 +277,6 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"cTrader Limit Order Error: {e}")
             raise e
-        finally:
-            await self.client.disconnect()
         
     async def get_order_book(self, symbol: str) -> Dict[str, Any]:
         return {}
@@ -311,8 +307,6 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
              logger.error(f"cTrader Close Trade Error: {e}")
              raise e
-        finally:
-             await self.client.disconnect()
 
     async def get_current_price(self, symbol: str) -> float:
         # In a real implementation, this would subscribe to spots or fetch latest spot
@@ -438,6 +432,4 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"cTrader Trade History Error: {e}")
             raise e
-        finally:
-            await self.client.disconnect()
 

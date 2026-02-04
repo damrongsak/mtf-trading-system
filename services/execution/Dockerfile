@@ -1,8 +1,8 @@
 FROM python:3.11-slim-bookworm
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Install curl
-RUN apt-get update && apt-get install -y curl
+# Install curl and top (procps)
+RUN apt-get update && apt-get install -y curl procps
 
 WORKDIR /app
 
@@ -28,4 +28,4 @@ ENTRYPOINT []
 
 COPY . .
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-exclude", ".venv", "--reload-exclude", ".git", "--reload-exclude", "__pycache__"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

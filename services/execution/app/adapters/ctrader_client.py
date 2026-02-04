@@ -17,6 +17,8 @@ class AsyncCTraderClient:
         self.reader: Optional[asyncio.StreamReader] = None
         self.writer: Optional[asyncio.StreamWriter] = None
         self._connected = False
+        self._app_authorized = False
+        self._account_authorized = False
         self._response_futures: Dict[str, asyncio.Future] = {}
         self._reader_task: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
@@ -47,6 +49,8 @@ class AsyncCTraderClient:
 
     async def disconnect(self):
         self._connected = False
+        self._app_authorized = False
+        self._account_authorized = False
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
         if self._reader_task:
@@ -180,6 +184,9 @@ class AsyncCTraderClient:
         await self.writer.drain()
 
     async def authorize_app(self, client_id: str, client_secret: str):
+        if self._app_authorized:
+            return True
+
         req = ProtoOAApplicationAuthReq()
         req.clientId = client_id
         req.clientSecret = client_secret
@@ -188,6 +195,7 @@ class AsyncCTraderClient:
         
         # Extract response
         if resp_msg.payloadType == ProtoOAApplicationAuthRes().payloadType:
+            self._app_authorized = True
             return True
         elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
             error = ProtoOAErrorRes()
@@ -197,6 +205,9 @@ class AsyncCTraderClient:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
              
     async def authorize_account(self, account_id: int, token: str):
+        if self._account_authorized:
+            return True
+
         req = ProtoOAAccountAuthReq()
         req.ctidTraderAccountId = int(account_id)
         req.accessToken = token
@@ -204,6 +215,7 @@ class AsyncCTraderClient:
         resp_msg = await self.send(req)
         
         if resp_msg.payloadType == ProtoOAAccountAuthRes().payloadType:
+            self._account_authorized = True
             return True
         elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
             error = ProtoOAErrorRes()
