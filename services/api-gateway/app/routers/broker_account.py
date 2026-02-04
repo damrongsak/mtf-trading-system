@@ -206,8 +206,8 @@ class BrokerAccountResponse(BaseModel):
     account_number: Optional[str] = None
     supported_symbols: Optional[List[str]] = None
     risk_settings: Optional[Dict[str, Any]] = None
-    is_active: bool
-    is_live: bool
+    is_active: Optional[bool] = True
+    is_live: Optional[bool] = False
     created_at: Any
     
     model_config = ConfigDict(from_attributes=True)
