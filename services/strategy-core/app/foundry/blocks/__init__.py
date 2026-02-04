@@ -1,6 +1,7 @@
 from .trend import TrendEMACross, TrendAMA
 from .structure import StructureSMCOrderBlock, StructureFibGolden
 from .momentum import MomentumRSICross, MomentumVectorCandle
+from .volatility import VolatilityGarch, VolatilityATR
 
 BLOCK_REGISTRY = {
     "TREND_EMA_CROSS": TrendEMACross,
@@ -8,7 +9,9 @@ BLOCK_REGISTRY = {
     "STRUCT_SMC_OB": StructureSMCOrderBlock,
     "STRUCT_FIB_GOLDEN": StructureFibGolden,
     "MOM_RSI_CROSS": MomentumRSICross,
-    "MOM_VECTOR_CANDLE": MomentumVectorCandle
+    "MOM_VECTOR_CANDLE": MomentumVectorCandle,
+    "VOL_GARCH": VolatilityGarch,
+    "VOL_ATR": VolatilityATR
 }
 
 def get_block_class(block_id: str):

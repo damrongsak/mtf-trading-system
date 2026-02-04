@@ -374,7 +374,6 @@ async def stop_strategy_endpoint(strategy_id: str):
     return await strategy_engine.stop_strategy(strategy_id)
 
 @router.post("/backtest/optimize", response_model=OptimizationResponse)
-@router.post("/backtest/optimize", response_model=OptimizationResponse)
 def run_optimization_endpoint(req: StrategyBacktestRequest):
     try:
         # Check optimization config (it's a dict in StrategyBacktestRequest per backend spec?)
