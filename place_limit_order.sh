@@ -2,17 +2,26 @@
 
 # Configuration
 API_URL="http://localhost:8000"
-USERNAME="${1:-dan}"    # Default user 'dan', or pass as first arg
-PASSWORD="${2:-password}" # Default password 'password', or pass as second arg
-SYMBOL="${3:-XAU_USD}"    # Default symbol
-UNITS="${4:-1}"           # Default units
-PRICE="${5:-2000.0}"      # Default limit price
-SL_PRICE="${6:-1990.0}"   # Default SL
-TP_PRICE="${7:-2020.0}"   # Default TP
-COMMENT="${8}"            # Optional Comment
+USERNAME="${1:-dan}"
+PASSWORD="${2:-password}"
+SIDE="${3:-BUY}"          # BUY / SELL
+ORDER_TYPE="${4:-LIMIT}"  # LIMIT / MARKET / STOP
+SYMBOL="${5:-XAU_USD}"
+UNITS_RAW="${6:-1}"       # Positive units
+PRICE="${7:-2000.0}"
+SL_PRICE="${8:-1990.0}"
+TP_PRICE="${9:-2020.0}"
+COMMENT="${10}"
+
+# Logic to sign units based on SIDE
+if [ "$SIDE" == "SELL" ]; then
+  UNITS="-$UNITS_RAW"
+else
+  UNITS="$UNITS_RAW"
+fi
 
 echo "--- MTF Olympus Limit Order Script ---"
-echo "Target: $SYMBOL Buy/Sell $UNITS @ $PRICE"
+echo "Target: $SYMBOL $SIDE $UNITS_RAW (Signed: $UNITS) @ $PRICE [$ORDER_TYPE]"
 
 # 1. Authenticate
 echo "1. Authenticating..."
@@ -64,16 +73,15 @@ BROKER_NAME=$(echo "$ACCOUNT_DATA" | cut -d'|' -f2)
 
 echo "   Selected Account: $BROKER_NAME ($ACCOUNT_ID)"
 
-# 3. Place Limit Order
-echo "3. Placing LIMIT Order on $BROKER_NAME..."
+# 3. Place Order
+echo "3. Placing $ORDER_TYPE Order on $BROKER_NAME..."
 ORDER_PAYLOAD=$(cat <<EOF
 {
   "broker_account_id": "$ACCOUNT_ID",
   "symbol": "$SYMBOL",
-  "order_type": "LIMIT",
+  "order_type": "$ORDER_TYPE",
   "units": $UNITS,
   "price": $PRICE,
-  "sl_price": $SL_PRICE,
   "sl_price": $SL_PRICE,
   "tp_price": $TP_PRICE,
   "comment": "$COMMENT"
@@ -87,12 +95,17 @@ ORDER_RESPONSE=$(curl -s -X POST "$API_URL/api/v1/execution/orders" \
   -d "$ORDER_PAYLOAD")
 
 # Check result
-ORDER_ID=$(echo "$ORDER_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))" 2>/dev/null)
+# API Gateway wraps response in {"status":"success", "data": {...}}
+ORDER_ID=$(echo "$ORDER_RESPONSE" | python3 -c "import sys, json; resp=json.load(sys.stdin); print(resp.get('data', {}).get('id', ''))" 2>/dev/null)
+MESSAGE=$(echo "$ORDER_RESPONSE" | python3 -c "import sys, json; resp=json.load(sys.stdin); print(resp.get('message', ''))" 2>/dev/null)
 
 if [ -n "$ORDER_ID" ] && [ "$ORDER_ID" != "0" ]; then
     echo "   ✅ Success! Order Placed."
     echo "   Order ID: $ORDER_ID"
     echo "   Full Response: $ORDER_RESPONSE"
+elif [ "$ORDER_ID" == "0" ] && [[ "$MESSAGE" == *"success"* || "$ORDER_RESPONSE" == *"success"* ]]; then
+     echo "   ✅ Success! (Pending/Accepted)."
+     echo "   Full Response: $ORDER_RESPONSE"
 else
     echo "   ❌ Failed."
     echo "   Response: $ORDER_RESPONSE"

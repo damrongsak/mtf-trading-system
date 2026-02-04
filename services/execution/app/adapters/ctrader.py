@@ -157,10 +157,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                  order_id = str(res.order.orderId)
             
             return {
-                "status": "executed", 
-                "trade_id": position_id, # Map cTrader PositionID to our TradeID
-                "order_id": order_id,
-                "price": res.deal.executionPrice if res.HasField("deal") else (res.order.executionPrice if res.HasField("order") and hasattr(res.order, 'executionPrice') else 0.0)
+                "orderFillTransaction": {
+                    "id": order_id or position_id,
+                    "instrument": symbol,
+                    "units": str(units),
+                    "price": str(res.deal.executionPrice) if res.HasField("deal") else "0",
+                    "time": datetime.utcnow().isoformat()
+                }
             }
         except Exception as e:
              logger.error(f"cTrader Place Order Error: {e}")
@@ -263,8 +266,16 @@ class CTraderOrderAdapter(BrokerAdapter):
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
-            order_id = str(res.order.orderId) if res.HasField("order") else ""
-            return {"status": "placed", "order_id": order_id}
+            # Return structure compatible with main.py expectation (Oanda style)
+            return {
+                "orderCreateTransaction": {
+                    "id": str(res.order.orderId) if res.HasField("order") else "0",
+                    "instrument": symbol,
+                    "units": str(units),
+                    "price": str(entry_price),
+                    "time": datetime.utcnow().isoformat()
+                }
+            }
         except Exception as e:
             logger.error(f"cTrader Limit Order Error: {e}")
             raise e
