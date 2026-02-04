@@ -19,7 +19,7 @@ export function OpenInterestAnalytics() {
     const [contracts, setContracts] = useState<string[]>([]);
     const [selectedContract, setSelectedContract] = useState<string>("");
     const [minOi, setMinOi] = useState<number[]>([2000, 5500]); // Initialize with Range [2000, 5500]
-    const [sliderMax, setSliderMax] = useState<number>(10000); // Dynamic Slider Max Scale
+    const [sliderMax, setSliderMax] = useState<number>(30000); // Dynamic Slider Max Scale
 
     const [analysis, setAnalysis] = useState<OpenInterestAnalysis | null>(null);
     const [loading, setLoading] = useState(false);
