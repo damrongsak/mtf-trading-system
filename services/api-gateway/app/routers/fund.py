@@ -55,7 +55,7 @@ async def list_user_funds(
         fund = db.query(Fund).filter(Fund.id == uf.fund_id).first()
         if fund:
             # Find the owner name for this fund
-            from app.models.user import UserRole as UserFundRole
+            from app.models.user_fund import UserRole as UserFundRole
             owner_uf = db.query(UserFund).filter(
                 UserFund.fund_id == fund.id,
                 UserFund.role == UserFundRole.OWNER
@@ -124,7 +124,7 @@ async def get_fund(
         )
 
     # Find the owner name for this fund
-    from app.models.user import UserRole as UserFundRole
+    from app.models.user_fund import UserRole as UserFundRole
     owner_uf = db.query(UserFund).filter(
         UserFund.fund_id == fund.id,
         UserFund.role == UserFundRole.OWNER
@@ -215,7 +215,7 @@ async def create_fund(
     db.flush() # Generate ID
     
     # Assign creator as OWNER
-    from app.models.user import UserRole as UserFundRole
+    from app.models.user_fund import UserRole as UserFundRole
     user_fund = UserFund(
         user_id=current_user.id,
         fund_id=new_fund.id,
@@ -258,7 +258,7 @@ async def update_fund(
     """
     Update fund details. Requires MANAGER or OWNER role.
     """
-    from app.models.user import UserRole as UserFundRole
+    from app.models.user_fund import UserRole as UserFundRole
     
     # Check permissions
     user_fund = db.query(UserFund).filter(
@@ -337,7 +337,7 @@ async def delete_fund(
     """
     Delete a fund. Requires OWNER role.
     """
-    from app.models.user import UserRole as UserFundRole
+    from app.models.user_fund import UserRole as UserFundRole
     
     # Check permissions (Strictly OWNER)
     user_fund = db.query(UserFund).filter(
