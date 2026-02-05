@@ -1,6 +1,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -23,6 +24,8 @@ class FleetManager:
     def __init__(self):
         self.active_strategies: Dict[str, dict] = {} # Template-based: strategy_id -> context
         self.active_deployments: Dict[str, dict] = {} # Dynamic: deployment_id -> context
+        self.last_tick_times: Dict[str, float] = {} # strategy_id/deployment_id -> timestamp
+        self.throttle_interval = 2.0 # Minimum seconds between ticks
         self.is_running = False
 
     @classmethod
@@ -130,10 +133,18 @@ class FleetManager:
         if not self.active_strategies and not self.active_deployments:
             return
         
+        now = time.time()
+
         # 1. Tick Template Strategies
         for strat_id, context in self.active_strategies.items():
             if symbol_filter and context["symbol"] != symbol_filter:
                 continue
+            
+            # Throttle check
+            last_run = self.last_tick_times.get(strat_id, 0)
+            if now - last_run < self.throttle_interval:
+                continue
+
             try:
                 # Wrapper for Template Logic
                 class StrategyState:
@@ -145,6 +156,8 @@ class FleetManager:
                 
                 state_obj = StrategyState(context)
                 result = await context["logic"](state_obj, data_manager)
+                self.last_tick_times[strat_id] = now
+                
                 if result:
                     logger.info(f"TEMPLATE SIGNAL {context['name']}: {result}")
             except Exception as e:
@@ -154,6 +167,12 @@ class FleetManager:
         for dep_id, context in self.active_deployments.items():
             if symbol_filter and context["symbol"] != symbol_filter:
                 continue
+            
+            # Throttle check
+            last_run = self.last_tick_times.get(dep_id, 0)
+            if now - last_run < self.throttle_interval:
+                continue
+
             try:
                  # Wrapper for Dynamic Logic
                 class DeploymentState:
@@ -164,6 +183,7 @@ class FleetManager:
                 
                 state_obj = DeploymentState(context)
                 result = await context["executor"].execute(state_obj, data_manager)
+                self.last_tick_times[dep_id] = now
                 
                 if result:
                     logger.info(f"DYNAMIC SIGNAL {context['name']} (Live={context['is_live']}): {result}")
