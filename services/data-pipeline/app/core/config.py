@@ -14,5 +14,7 @@ class Settings(BaseSettings):
     OANDA_API_KEY: str
     OANDA_ACCOUNT_ID: str
     OANDA_ENV: str = "practice" # or 'live'
+    
+    REDIS_URL: str = "redis://redis:6379/0"
 
 settings = Settings()
