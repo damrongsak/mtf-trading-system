@@ -1,7 +1,7 @@
 # 03 - AI Agent Specification
 
-**Version:** 1.0  
-**Status:** DRAFT (Phase 3)
+**Version:** 1.1
+**Status:** IMPLEMENTED (Phase 3 Verified)
 
 ---
 
@@ -30,50 +30,97 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - **Pattern Recognition:** Uses RAG to compare current entry with historical "Tilt" or "Revenge Trading" patterns stored in Qdrant.
     - **Feedback Loop:** Suggests corrective actions (e.g., "Stop trading for 2 hours").
 
-### 2.3. Multimodal Chart Analysis (New)
+### 2.3. Multimodal Chart Analysis
 - **Goal:** Visual analysis of price action patterns (Head & Shoulders, Wedges) that are hard to describe mathematically.
 - **Input:** Chart screenshots (images) from the frontend.
 - **Process:**
     - Gemini Vision Model analyzes the image.
     - Correlates visual patterns with mathematical indicators.
 
-### 2.4. Agentic Code Execution (New)
+### 2.4. Agentic Code Execution (Strategy Advisor)
 - **Goal:** Verify strategies by running them, not just hallucinating code.
+- **Agent:** `StrategyAdvisorAgent`
 - **Process:**
     - Agent generates Python code (using `vectorbt`).
-    - Code is executed in a secure sandbox.
+    - Code is executed in a secure sandbox (via Strategy Core).
     - Results (PnL, Sharpe) are fed back to the agent to refine the strategy.
 
-### 2.5. Real-Time Search Grounding (New)
+### 2.5. Real-Time Search Grounding (Market Observer)
 - **Goal:** Incorporate live breaking news (not just scheduled calendar events).
+- **Agent:** `MarketObserverAgent`
 - **Process:** Use Google Search Tool to find reasons for sudden volatility (e.g., "Why is Gold dropping?").
+
+### 2.6. Daily Briefing Agent
+- **Goal:** Autonomous daily market reporting.
+- **Agent:** `DailyBriefingAgent`
+- **Process:** Compiles overnight price action, news, and calendar events into a morning briefing.
 
 ## 3. Architecture components
 
-### 3.1. RAG Engine (Retrieval Augmented Generation)
-- **Vector Database:** Qdrant
-- **embedding Model:** `text-embedding-gecko` (Google) or `all-MiniLM-L6-v2` (Local).
-- **Collections:**
-    - `market_context`: Historical daily summaries.
-    - `journal_entries`: Past trade reviews and psychological states.
+### 3.1. System Data Flow
 
-### 3.2. Reasoning Engine (LangChain)
-- **Orchestrator:** LangChain `AgentExecutor`.
+```mermaid
+graph TD
+    Client[Client / API Gateway] -->|HTTP/JSON| API[FastAPI Entry Point]
+
+    subgraph "AI Analyst Service"
+        API -->|Dispatch| Router{Router}
+        Router -->|Direct Analysis| Gemini[GeminiClient]
+        Router -->|Agent Task| Agent[LangGraph Agent]
+        Router -->|Sentiment| SS[SentimentService]
+        
+        Agent -->|Tools| Search[Google Search]
+        Agent -->|Tools| RAG[RAGService]
+        Agent -->|Tools| MK[Market Data Tool]
+    end
+
+    subgraph "Data & Infra"
+        Gemini <-->|GenAI API| Google[Google Vertex AI]
+        RAG <-->|Vector Search| Qdrant[(Qdrant DB)]
+        SS <-->|Cache| Redis[(Redis)]
+        MK <-->|Fetch| DataPipe[Data Pipeline Service]
+    end
+
+    classDef service fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef infra fill:#dfd,stroke:#333,stroke-width:2px;
+    class Gemini,Agent,SS service;
+    class Google,Qdrant,Redis,DataPipe infra;
+```
+
+### 3.2. RAG Engine (Retrieval Augmented Generation)
+- **Vector Database:** Qdrant
+- **Embedding Model:** `models/gemini-embedding-001` (Google).
+- **Collections:**
+    - `journal_entries`: Past trade reviews and psychological states.
+    - `strategies`: Catalog of trading strategies and code.
+    - `system_docs`: Project documentation for context.
+
+### 3.2. Reasoning Engine (LangChain/LangGraph)
+- **Orchestrator:** LangGraph `create_react_agent`.
 - **Tools:**
-    - `get_market_price(symbol)`
-    - `get_account_exposure()`
-    - `search_historical_patterns(query)`
-    - `google_search(query)` (New)
-    - `run_python_code(code)` (New)
+    - `GetMarketContextTool`: Fetch price/trend.
+    - `GetTechnicalSignalsTool`: unique signals.
+    - `GetAccountStatusTool`: Exposure checking.
+    - `GoogleSearchTool`: Real-time web search.
+    - `GetEconomicCalendarTool`: Scheduled events.
+    - `GetStrategyPerformanceTool`: Backtest runner.
 - **Loop (OODA):**
-    1.  **Observe:** Fetch data.
-    2.  **Orient:** Retrieve similar historical contexts.
-    3.  **Decide:** Formulate an opinion.
-    4.  **Act:** Output analysis or alert.
+    - **Observe:** Fetch data via tools.
+    - **Orient:** Retrieve similar historical contexts or specs.
+    - **Decide:** Formulate an opinion.
+    - **Act:** Output analysis or alert.
 
 ## 4. Data Models
 
-### 4.1. MarketNarrative
+### 4.1. AnalysisResponse (Implemented)
+```python
+class AnalysisResponse(BaseModel):
+    insight: str # Markdown formatted narrative
+    timestamp: datetime
+```
+*Note: Full object decomposition (sentiment_score, drivers) is currently handled within the text 'insight' or by specific specialized agents.*
+
+### 4.2. MarketNarrative (Target V2)
 ```python
 class MarketNarrative(BaseModel):
     timestamp: datetime
@@ -83,64 +130,35 @@ class MarketNarrative(BaseModel):
     recommendation: str # "Risk Off", "Look for Longs"
 ```
 
-### 4.2. PsychologicalProfile
-```python
-class PsychProfile(BaseModel):
-    user_id: str
-    current_state: str # "Tilted", "Focused", "Anxious"
-    risk_flag: bool
-    suggested_action: str
-```
-
 ## 5. API Interface
 
 ### 5.1. Generate Analysis
 - **POST** `/analyze/market`
-- **Body:** `{ "symbol": "XAUUSD", "timeframe": "4H" }`
-- **Response:** `MarketNarrative` object.
+- **Body:** `MarketAnalysisRequest` (OHLCV, Trends, Image)
+- **Response:** `AnalysisResponse`
 
 ### 5.2. Journal Feedback
 - **POST** `/analyze/journal`
-- **Body:** `{ "entry_id": "...", "content": "..." }`
-- **Response:** Analysis of the journal entry + RAG matches.
+- **Body:** `JournalAnalysisRequest` (Content, Entry ID)
+- **Response:** `AnalysisResponse` (Analysis + RAG matches implied in text)
 
-## 6. Integration Roadmap
-Building an **AI-powered system** using a modern GenAI stack (LangChain, Gemini, Qdrant, PostgreSQL).
+### 5.3. SMC Narrative
+- **POST** `/analyze/smc-narrative`
+- **Body:** `SMCNarrativeRequest` (Smart Money Concepts Data)
+- **Response:** `AnalysisResponse`
 
-Given your background as a **full-stack AI engineer who thrives on designing and experimenting**, this roadmap plays directly to your strengths by focusing on core architectural components (memory, vector DB) and high-value agent development (RAG, Market Observer).
+### 5.4. Market Observer Agent
+- **POST** `/agent/observer/run`
+- **Body:** `{ "input_text": "Analyze XAUUSD details" }`
+- **Response:** `{ "report": "...", "timestamp": "..." }`
 
-I can provide a technical breakdown and visualization of the architecture. 
+### 5.5. Strategy Advisor Chat
+- **POST** `/ai/chat/sessions/message`
+- **Body:** `{ "message": "Optimize this MACD params...", "context_code": "..." }`
+- **Response:** `{ "response": "..." }`
 
-### Integration Roadmap Breakdown
-
-Here is a technical outline of the phases and how the components interact:
-
-#### Phase 3.1: Implement GeminiClient and Basic Prompt Engineering (Done)
-
-* **Goal:** Establish the foundational LLM connectivity and initial interaction logic.
-* **Technical Implication:**
-    * **GeminiClient:** This is the core communication layer with the Google Gemini API.
-    * **Basic Prompt Engineering:** Developing system prompts and user templates to ensure the LLM (Gemini) provides relevant, structured responses. This is the **Brain** of your system.
-
-#### Phase 3.2: Connect Qdrant and Implement RAG for Journal Entries
-
-* **Goal:** Give the LLM access to proprietary, long-term memory (Journal Entries) via Retrieval-Augmented Generation (RAG).
-* **Technical Implication:**
-    * **Qdrant (Vector Store):** This will store the vector embeddings of your Journal entries.
-        * **Ingestion Pipeline:** Journal entries must be chunked, embedded (using a Gemini embedding model), and indexed in a Qdrant collection.
-    * **RAG Implementation:** When a query is made, a LangChain retriever will:
-        1.  Convert the query into a vector embedding.
-        2.  Perform a **similarity search** in Qdrant to find the most relevant journal entry chunks.
-        3.  Pass those retrieved chunks (the "context") along with the original query to the GeminiClient for a context-aware response.
-    * **Agent Memory (PostgreSQL):** PostgreSQL will likely serve as the **short-term memory/checkpointer** for the agents in Phase 3.3, tracking conversation history or agent state across turns using LangChain's `PostgresSaver` or similar checkpointer functionality.
-
-#### Phase 3.3: Build LangChain “Market Observer” Agent for Daily Reports
-
-* **Goal:** Create a complex, autonomous agent that uses the connected data sources to perform a specialized, high-value task.
-* **Technical Implication:**
-    * **Agent:** This will be built using the LangChain framework (likely with LangGraph for more complex orchestration).
-    * **Tools:** The agent will be given **Tools** to perform actions:
-        * **Journal RAG Tool:** A tool that queries the RAG system from Phase 3.2 (Qdrant) to pull historical context from Journal entries.
-        * **External Data Tool:** (Implied) A tool to access real-time market data or external APIs to fulfill the "Market Observer" role.
-    * **Daily Reports:** The agent's final action will be a reasoning step that synthesizes information from both the Journal RAG Tool and External Data Tool to generate the daily report.
-    * **Long-Term Memory:** The agent's decision-making process (thoughts, observations, final reports) could also be selectively indexed back into Qdrant to form a richer, evolving long-term memory.
+## 6. Infrastructure & Roadmap
+The service is fully containerized and integrated with:
+- **Redis:** For sentiment caching.
+- **Qdrant:** For RAG memory.
+- **Google Vertex AI / Studio:** For Gemini 2.5 models.

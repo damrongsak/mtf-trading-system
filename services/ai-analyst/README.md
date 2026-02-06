@@ -65,8 +65,12 @@ uv run env PYTHONPATH=. pytest tests/
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/health` | Check service health and connection to AI/RAG providers. |
-| `POST` | `/analyze/market` | Generates a narrative market outlook based on technical indicators (Trend, Key Levels). |
-| `POST` | `/analyze/journal` | Analyzes a trading journal entry for emotions and mistakes, comparing it with historical entries. |
+| `POST` | `/analyze/market` | Generates a narrative market outlook. |
+| `POST` | `/analyze/journal` | Analyzes a trading journal entry. |
+| `POST` | `/analyze/smc-narrative` | Generates a narrative from SMC data (OBs, FVGs). |
+| `POST` | `/agent/observer/run` | Triggers the Market Observer Agent for deep research. |
+| `POST` | `/agent/briefing` | Triggers the Daily Briefing Agent. |
+| `POST` | `/ai/chat/sessions/message` | Helper endpoint for Strategy Advisor chat. |
 
 ## 📂 Project Structure
 
