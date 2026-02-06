@@ -5,7 +5,53 @@ from app.services.gemini import GeminiClient
 import uuid
 import logging
 
+
+
 logger = logging.getLogger(__name__)
+
+class SimpleTextSplitter:
+    """A zero-dependency text splitter that chunks by character count with overlap."""
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, separators: list = None):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.separators = separators or ["\n\n", "\n", ". ", " ", ""]
+
+    def split_text(self, text: str) -> list[str]:
+        """Iteratively splits text trying to keep semantic blocks together."""
+        final_chunks = []
+        
+        # Simple loop for now: explicit slicing with overlap
+        # A full recursive splitter is complex; this is a robust "Good Enough" fallback
+        start = 0
+        text_len = len(text)
+        
+        while start < text_len:
+            end = start + self.chunk_size
+            
+            # If we are not at the end of text, try to find a separator to break cleanly
+            if end < text_len:
+                # Search backwards from 'end' for the best separator
+                found_cut = False
+                for sep in self.separators:
+                    cut_idx = text.rfind(sep, start, end)
+                    if cut_idx != -1 and cut_idx > start + (self.chunk_size // 2): 
+                        # Only accept cut if it's materially advanced
+                        end = cut_idx + len(sep)
+                        found_cut = True
+                        break
+            
+            chunk = text[start:end].strip()
+            if chunk:
+                final_chunks.append(chunk)
+            
+            # Move start forward, accounting for overlap
+            start = end - self.chunk_overlap
+            
+            # Prevent infinite loop if overlap >= advance
+            if start >= end:
+                start = end  # Force advance if we are stuck
+
+        return final_chunks
 
 class RAGService:
     def __init__(self, gemini_client: GeminiClient = None):
@@ -33,7 +79,7 @@ class RAGService:
             self.qdrant.create_collection(
                 collection_name=name,
                 vectors_config=models.VectorParams(
-                    size=768,  # Gemini 1.5 embedding dimension
+                    size=3072,  # Gemini-embedding-001 dimension
                     distance=models.Distance.COSINE
                 )
             )
@@ -42,10 +88,18 @@ class RAGService:
         """Generate embedding using Gemini API."""
         try:
             result = await self.gemini.client.aio.models.embed_content(
-                model="models/text-embedding-004",
+                model="models/gemini-embedding-001",
                 contents=text
             )
-            return result.embedding
+            # Handle new SDK response structure
+            if hasattr(result, 'embeddings') and result.embeddings:
+                return result.embeddings[0].values
+            elif hasattr(result, 'embedding'):
+                 return result.embedding
+            else:
+                 # Fallback/Debug
+                 logger.error(f"Unknown embedding response structure: {dir(result)}")
+                 raise ValueError("Could not extract embedding from response")
         except Exception as e:
             logger.error(f"Embedding failed: {e}")
             raise
@@ -107,12 +161,12 @@ class RAGService:
             ]
         )
 
-        search_result = self.qdrant.search(
+        search_result = self.qdrant.query_points(
             collection_name=self.journal_collection,
-            query_vector=embedding,
+            query=embedding,
             query_filter=search_filter,
             limit=limit
-        )
+        ).points
         
         return [hit.payload["content"] for hit in search_result]
 
@@ -131,12 +185,12 @@ class RAGService:
             ]
         )
 
-        search_result = self.qdrant.search(
+        search_result = self.qdrant.query_points(
             collection_name=self.strategy_collection,
-            query_vector=embedding,
+            query=embedding,
             query_filter=search_filter,
             limit=limit
-        )
+        ).points
         
         results = []
         for hit in search_result:
@@ -147,35 +201,53 @@ class RAGService:
             })
         return results
 
+
+
     async def ingest_document(self, filename: str, content: str, doc_type: str = "spec"):
-        """Ingest a system documentation file (Spec or Guide)."""
-        embedding = await self._get_embedding(content)
+        """Ingest a system documentation file (Spec or Guide) with chunking."""
         
-        point = models.PointStruct(
-            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, filename)),
-            vector=embedding,
-            payload={
-                "filename": filename,
-                "content": content,
-                "doc_type": doc_type
-            }
-        )
+        splitter = SimpleTextSplitter(chunk_size=1000, chunk_overlap=200)
+        chunks = splitter.split_text(content)
         
-        self.qdrant.upsert(
-            collection_name=self.docs_collection,
-            points=[point]
-        )
-        logger.info(f"Ingested document: {filename}")
+        points = []
+        for i, chunk_text in enumerate(chunks):
+            embedding = await self._get_embedding(chunk_text)
+            
+            # Create a deterministic ID based on filename + chunk index
+            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_chunk_{i}"))
+            
+            point = models.PointStruct(
+                id=chunk_id,
+                vector=embedding,
+                payload={
+                    "filename": filename,
+                    "content": chunk_text,
+                    "doc_type": doc_type,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks)
+                }
+            )
+            points.append(point)
+        
+        # Upsert in batch
+        if points:
+            self.qdrant.upsert(
+                collection_name=self.docs_collection,
+                points=points
+            )
+            logger.info(f"Ingested document: {filename} ({len(points)} chunks)")
+        else:
+            logger.warning(f"No chunks created for {filename}")
 
     async def search_documentation(self, query: str, limit: int = 3) -> list[dict]:
         """Search system documentation for context."""
         embedding = await self._get_embedding(query)
         
-        search_result = self.qdrant.search(
+        search_result = self.qdrant.query_points(
             collection_name=self.docs_collection,
-            query_vector=embedding,
+            query=embedding,
             limit=limit
-        )
+        ).points
         
         return [{
             "filename": hit.payload["filename"],
