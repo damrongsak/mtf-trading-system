@@ -3,16 +3,16 @@ from app.core.config import settings
 
 class GeminiClient:
     def __init__(self, client_factory=None):
-        if not settings.GOOGLE_API_KEY:
+        if not settings.gemini.api_key:
             raise ValueError("GOOGLE_API_KEY is not set")
         
         # Dependency Injection for testing
         self.client_factory = client_factory or genai.Client
         
         # Initialize the client with the API key
-        self.client = self.client_factory(api_key=settings.GOOGLE_API_KEY)
+        self.client = self.client_factory(api_key=settings.gemini.api_key)
         # Using configured model
-        self.model_id = settings.GEMINI_MODEL_ID
+        self.model_id = settings.gemini.model_id
 
     async def generate_market_outlook(self, context: dict, api_key: str = None, model_id: str = None) -> str:
         """
@@ -22,12 +22,12 @@ class GeminiClient:
         """
         
         # Determine strict client config
-        active_key = api_key or settings.GOOGLE_API_KEY
+        active_key = api_key or settings.gemini.api_key
         active_model = model_id or self.model_id
         
         # Instantiate transient client if key differs, else use default
         client = self.client
-        if api_key and api_key != settings.GOOGLE_API_KEY:
+        if api_key and api_key != settings.gemini.api_key:
             client = genai.Client(api_key=active_key)
 
         prompt = f"""
@@ -151,11 +151,11 @@ class GeminiClient:
         """
         Generates a narrative based on SMC data (Order Blocks, FVGs, Structure).
         """
-        active_key = api_key or settings.GOOGLE_API_KEY
+        active_key = api_key or settings.gemini.api_key
         active_model = model_id or self.model_id
         
         client = self.client
-        if api_key and api_key != settings.GOOGLE_API_KEY:
+        if api_key and api_key != settings.gemini.api_key:
             client = genai.Client(api_key=active_key)
 
         prompt = f"""

@@ -56,19 +56,23 @@ class SimpleTextSplitter:
 class RAGService:
     def __init__(self, gemini_client: GeminiClient = None):
         self.qdrant = QdrantClient(
-            host=settings.QDRANT_HOST,
-            port=settings.QDRANT_PORT,
-            api_key=settings.QDRANT_API_KEY,
-            https=settings.QDRANT_GRPC_HTTPS
+            host=settings.qdrant.host,
+            port=settings.qdrant.port,
+            api_key=settings.qdrant.api_key,
+            https=settings.qdrant.grpc_https,
+            timeout=5.0
         )
         self.gemini = gemini_client or GeminiClient()
         self.journal_collection = "journal_entries"
         self.strategy_collection = "strategies"
         self.docs_collection = "system_docs"
         
-        self._ensure_collection(self.journal_collection)
-        self._ensure_collection(self.strategy_collection)
-        self._ensure_collection(self.docs_collection)
+        try:
+            self._ensure_collection(self.journal_collection)
+            self._ensure_collection(self.strategy_collection)
+            self._ensure_collection(self.docs_collection)
+        except Exception as e:
+            logger.warning(f"Could not ensure collections on init (Qdrant offline?): {e}")
 
     def _ensure_collection(self, name: str):
         """Ensure the Qdrant collection exists with proper config."""

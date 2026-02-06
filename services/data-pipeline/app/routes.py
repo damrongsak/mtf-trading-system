@@ -11,6 +11,7 @@ from app.database import get_db
 from app.services.market_service import MarketService
 from app.services.candle_service import CandleService
 from app.services.open_interest_service import OpenInterestService
+from app.services.news_service import NewsService
 from app.scheduler.jobs import run_ingestion_job
 
 from app.schemas import (
@@ -24,7 +25,10 @@ from app.schemas import (
     OpenInterestSnapshotResponse,
     OpenInterestRecordResponse,
     OpenInterestAnalysisResponse,
-    SymbolDiscoveryRequest
+    OpenInterestAnalysisResponse,
+    SymbolDiscoveryRequest,
+    SentimentCreate,
+    SentimentResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -258,6 +262,7 @@ async def discover_symbols(
              if client._connected:
                  await client.disconnect()
 
+
     elif request.provider == "OANDA":
         import oandapyV20
         from oandapyV20 import API
@@ -358,3 +363,34 @@ async def refresh_ctrader_token(
     finally:
          if client._connected:
              await client.disconnect()
+
+@router.get("/news/headlines", response_model=List[dict])
+async def get_news_headlines(
+    symbol: str = Query(..., description="Symbol to fetch news for (e.g., XAU/USD)"),
+):
+    """
+    Fetch recent news headlines for a symbol from external sources (NewsAPI).
+    """
+    return await NewsService.fetch_headlines(symbol)
+
+@router.post("/news/sentiment", response_model=SentimentResponse, status_code=201)
+def save_news_sentiment(
+    payload: SentimentCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Save calculated sentiment score to the database.
+    """
+    return NewsService.save_sentiment(db, payload)
+
+@router.get("/news/sentiment/history", response_model=List[SentimentResponse])
+def get_sentiment_history(
+    symbol: Optional[str] = Query(None, description="Filter by symbol"),
+    start_date: Optional[datetime] = Query(None, description="Start date (ISO)"),
+    end_date: Optional[datetime] = Query(None, description="End date (ISO)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get historical sentiment scores for trend analysis.
+    """
+    return NewsService.get_sentiment_history(db, symbol, start_date, end_date)

@@ -10,12 +10,12 @@ from app.tools.search import GoogleSearchTool
 
 class MarketObserverAgent:
     def __init__(self):
-        if not settings.GOOGLE_API_KEY:
+        if not settings.gemini.api_key:
             raise ValueError("GOOGLE_API_KEY is not set")
 
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL_ID,
-            google_api_key=settings.GOOGLE_API_KEY,
+            model=settings.gemini.model_id,
+            google_api_key=settings.gemini.api_key,
             temperature=0.1
         )
         

@@ -1,7 +1,7 @@
 # AI Analyst Service
 
 ## 🧠 Overview
-The **AI Analyst Service** is a specialized microservice within the MTF Trading System. It leverages **Google Gemini 1.5 Pro** and **RAG (Retrieval-Augmented Generation)** to provide semantic market analysis and psychological insights for trading journals.
+The **AI Analyst Service** is a specialized microservice within the MTF Trading System. It leverages **Google Gemini 2.5 Pro** and **RAG (Retrieval-Augmented Generation)** to provide semantic market analysis and psychological insights for trading journals.
 
 ## 🛠️ Tech Stack
 *   **Python 3.11+**

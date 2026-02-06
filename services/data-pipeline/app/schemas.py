@@ -122,3 +122,23 @@ class OpenInterestAnalysisResponse(BaseModel):
 class SymbolDiscoveryRequest(BaseModel):
     provider: str
     config: dict
+
+# -------------------------------------------------------------------------
+# Sentiment Schemas
+# -------------------------------------------------------------------------
+
+class SentimentCreate(BaseModel):
+    symbol: str
+    score: float
+    reason: Optional[str] = None
+    source_breakdown: Optional[dict] = None
+
+class SentimentResponse(BaseModel):
+    id: int
+    symbol: str
+    score: float
+    reason: Optional[str]
+    source_breakdown: Optional[dict]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

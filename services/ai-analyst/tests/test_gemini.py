@@ -12,8 +12,8 @@ async def test_gemini_client_byok_override():
     mock_factory.side_effect = lambda api_key: mock_custom_client if api_key == "custom-key" else mock_default_client
     
     with patch("app.services.gemini.settings") as mock_settings:
-        mock_settings.GOOGLE_API_KEY = "system-key"
-        mock_settings.GEMINI_MODEL_ID = "system-model"
+        mock_settings.gemini.api_key = "system-key"
+        mock_settings.gemini.model_id = "system-model"
         
         # Inject factory
         client = GeminiClient(client_factory=mock_factory)
@@ -38,8 +38,8 @@ async def test_gemini_client_default():
     mock_factory = MagicMock(return_value=mock_default_client)
     
     with patch("app.services.gemini.settings") as mock_settings:
-        mock_settings.GOOGLE_API_KEY = "system-key"
-        mock_settings.GEMINI_MODEL_ID = "system-model"
+        mock_settings.gemini.api_key = "system-key"
+        mock_settings.gemini.model_id = "system-model"
         
         client = GeminiClient(client_factory=mock_factory)
         

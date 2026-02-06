@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 
 class SentimentService:
     def __init__(self):
-        self.news_api_key = settings.NEWS_API_KEY
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL_ID,
             google_api_key=settings.GOOGLE_API_KEY,
@@ -22,8 +21,8 @@ class SentimentService:
         Uses Redis caching (TTL 1h).
         Returns: { "score": float, "reason": str }
         """
-        if not self.news_api_key:
-            return {"score": 0.0, "reason": "NewsAPI key not configured."}
+        if not settings.GOOGLE_API_KEY:
+            return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
 
         # 1. Check Cache
         cache_key = f"sentiment:{symbol}"
@@ -42,7 +41,10 @@ class SentimentService:
         # 3. Analyze with Gemini
         result = await self._analyze_headlines(symbol, headlines)
         
-        # 4. Save to Cache
+        # 4. Persist to DB
+        await self._save_sentiment_to_db(symbol, result)
+
+        # 5. Save to Cache
         try:
             await self.redis.setex(cache_key, self.cache_ttl, json.dumps(result))
         except Exception as e:
@@ -50,37 +52,43 @@ class SentimentService:
             
         return result
 
-    async def _fetch_news(self, symbol: str) -> list[str]:
-        # Map symbol to query
-        query_map = {
-            "XAU/USD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
-            "EUR/USD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
-            "BTC/USD": "Bitcoin OR BTC price OR Crypto regulation",
+    async def _save_sentiment_to_db(self, symbol: str, result: dict):
+        """Persist sentiment score to Data Pipeline."""
+        url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/sentiment"
+        payload = {
+            "symbol": symbol,
+            "score": result.get("score"),
+            "reason": result.get("reason"),
+            "source_breakdown": {} # Placeholder
         }
-        q = query_map.get(symbol, symbol)
         
-        url = "https://newsapi.org/v2/everything"
-        params = {
-            "q": q,
-            "apiKey": self.news_api_key,
-            "language": "en",
-            "sortBy": "relevancy",
-            "from": (datetime.utcnow() - timedelta(days=1)).isoformat(), # Last 24h
-            "pageSize": 15
-        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as resp:
+                     if resp.status not in [200, 201]:
+                         print(f"Failed to save sentiment to DB: {resp.status}")
+        except Exception as e:
+            print(f"Error saving sentiment to DB: {e}")
+
+    async def _fetch_news(self, symbol: str) -> list[str]:
+        """
+        Fetches news headlines from Data Pipeline service.
+        """
+        url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines"
+        params = {"symbol": symbol}
 
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(url, params=params) as resp:
                     if resp.status == 200:
-                        data = await resp.json()
-                        articles = data.get("articles", [])
-                        return [f"- {a['title']} ({a['source']['name']})" for a in articles]
+                        headlines = await resp.json()
+                        # Headlines are list of dicts: {title, source, url, publishedAt}
+                        return [f"- {h['title']} ({h['source']})" for h in headlines]
                     else:
-                        print(f"NewsAPI Error: {resp.status} {await resp.text()}")
+                        print(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
                         return []
             except Exception as e:
-                print(f"Failed to fetch news: {e}")
+                print(f"Failed to fetch news from pipeline: {e}")
                 return []
 
     async def _analyze_headlines(self, symbol: str, headlines: list[str]) -> dict:

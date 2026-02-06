@@ -128,6 +128,9 @@ app.include_router(data.router)
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Analysis"])
 app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
 
+from app.routers import news
+app.include_router(news.router)
+
 
 
 @app.get("/health")

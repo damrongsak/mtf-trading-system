@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
+from typing import Optional
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -16,5 +17,6 @@ class Settings(BaseSettings):
     OANDA_ENV: str = "practice" # or 'live'
     
     REDIS_URL: str = "redis://redis:6379/0"
+    NEWS_API_KEY: Optional[str] = None
 
 settings = Settings()

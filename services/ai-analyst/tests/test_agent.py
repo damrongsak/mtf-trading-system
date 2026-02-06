@@ -8,7 +8,7 @@ def mock_agent_deps():
          patch("app.agents.market_observer.settings") as mock_settings, \
          patch("app.agents.market_observer.create_react_agent") as mock_create_agent:
         
-        mock_settings.GOOGLE_API_KEY = "fake_key"
+        mock_settings.gemini.api_key = "fake_key"
         
         # Mock graph run
         mock_graph = MagicMock()
