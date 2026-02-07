@@ -2,7 +2,7 @@ FROM python:3.12-slim-bookworm
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Install curl
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y curl jq
 
 WORKDIR /app
 

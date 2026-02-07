@@ -1,236 +1,306 @@
-from app.core.workflow import AgentState, OlympusWorkflow
-from app.services.rag import RAGService
-from app.services.gemini import GeminiClient
+from typing import TypedDict, Annotated, List, Union
+import operator
 import json
+import logging
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.base import BaseCheckpointSaver
 
-class StrategyAdvisorAgent(OlympusWorkflow):
-    def __init__(self, rag_service: RAGService, gemini_client: GeminiClient):
-        super().__init__(gemini_client)
+from app.services.gemini import GeminiClient
+from app.services.rag import RAGService
+from app.services.memory import MemoryService
+
+logger = logging.getLogger(__name__)
+
+class AgentState(TypedDict):
+    """
+    The state of the Strategy Advisor Agent.
+    """
+    # Messages
+    input_text: str
+    user_id: str
+    
+    # Internal State
+    optimized_query: str
+    intent: str # 'chat', 'strategy_design', 'market_analysis'
+    plan_steps: List[str]
+    
+    # Context
+    retrieved_docs: Annotated[List[str], operator.add]
+    user_facts: List[str]
+    market_context: str
+    strategy_code: str
+    
+    # Outputs
+    reasoning_trace: List[str]
+    final_response: str
+    
+    # Scratchpad for tool outputs
+    scratchpad: Annotated[List[str], operator.add]
+
+class StrategyAdvisorAgent:
+    def __init__(self, 
+                 rag_service: RAGService, 
+                 gemini_client: GeminiClient, 
+                 checkpointer: BaseCheckpointSaver = None,
+                 memory_service: MemoryService = None):
+        
         self.rag = rag_service
+        self.gemini = gemini_client
+        self.memory = memory_service
+        self.checkpointer = checkpointer
         
-    async def run(self, state: AgentState) -> AgentState:
+        # Build the Graph
+        self.graph = self._build_graph()
+
+    def _build_graph(self):
+        workflow = StateGraph(AgentState)
+
+        # 1. Add Nodes
+        workflow.add_node("query_optimizer", self.node_query_optimizer)
+        workflow.add_node("router", self.node_router)
+        workflow.add_node("decompose", self.node_decompose)
+        workflow.add_node("retrieve_knowledge", self.node_retrieve)
+        workflow.add_node("reasoning", self.node_reason)
+        workflow.add_node("generate", self.node_generate)
+        workflow.add_node("memory_write", self.node_memory_write)
+
+        # 2. Add Edges
+        workflow.set_entry_point("query_optimizer")
+        
+        workflow.add_edge("query_optimizer", "router")
+        
+        # Router Conditional API
+        workflow.add_conditional_edges(
+            "router",
+            self._route_decision,
+            {
+                "direct": "generate",
+                "complex": "decompose"
+            }
+        )
+        
+        workflow.add_edge("decompose", "retrieve_knowledge")
+        workflow.add_edge("retrieve_knowledge", "reasoning")
+        workflow.add_edge("reasoning", "generate")
+        workflow.add_edge("generate", "memory_write")
+        workflow.add_edge("memory_write", END)
+
+        # 3. Compile
+        return workflow.compile(checkpointer=self.checkpointer)
+
+    # --- NODE IMPLEMENTATIONS ---
+
+    async def node_query_optimizer(self, state: AgentState):
         """
-        Main entry point for the Strategy workflow.
-        Steps: Retrieve -> Reason -> Generate Code -> Validate
+        Uses Gemini Flash to optimize the query.
         """
-        # 1. Retrieve Context
-        user_query = state["messages"][-1].content
-        user_id = state["user_id"]
-        
-        # Check for user file context
-        file_context = state.get("context", {}).get("file_context")
-        
-        # Retrieve System Docs
-        docs = await self.rag.search_documentation(user_query)
-        doc_text = "\n".join([f"[{d['filename']}]: {d['content'][:500]}..." for d in docs])
-        
-        # Retrieve Similar Strategies
-        strategies = await self.rag.search_similar_strategies(user_query, user_id=user_id)
-        strat_text = "\n".join([s['code'][:300] for s in strategies])
-        
-        # Retrieve Similar Strategies
-        strategies = await self.rag.search_similar_strategies(user_query, user_id=user_id)
-        strat_text = "\n".join([s['code'][:300] for s in strategies])
-        
-        # Retrieve Active Strategies (Context Awareness)
-        active_strats = await self.registry.execute("list_active_strategies", user_id=user_id)
-        active_context = json.dumps(active_strats, indent=2)
-        
-        # 2. Reason & Plan (CoT)
-        state = await self.reason_and_plan(state, user_query, doc_text, strat_text, active_context, file_context)
-        
-        # 3. Execute Action (Generate Code OR Deploy)
-        # Check plan for intent
-        last_plan = state["scratchpad"][-1]
-        
-        if "ACTION: DEPLOY" in last_plan:
-            state = await self.deploy_strategy(state)
-        elif "ACTION: REPORT" in last_plan:
-            # Plan itself is the response
-            clean_plan = last_plan.replace("ACTION: REPORT", "").strip()
-            state["final_response"] = clean_plan
-        else:
-            # Default to Code Gen (Backtest/Research)
-            state = await self.generate_code(state, doc_text)
-        
-        return state
-
-    async def reason_and_plan(self, state, query, docs, strats, active_context, file_context) -> AgentState:
-        api_key = state.get("user_config", {}).get("api_key")
-        model_id = state.get("user_config", {}).get("model_id")
-
-        multimodal_content = []
-        prompt_text = f"""
-        You are an expert Quant Developer for the MTF Olympus System.
-        
-        Session Summary:
-        {state.get("summary", "None")}
-        
-        User Request: "{query}"
-
-        Knowledge Base:
-        {docs}
-
-        Similar Strategies:
-        {strats}
-        
-        Analyze the request and creating a step-by-step implementation plan.
-        If the user provided a file (Chart/PDF), use it to extract logic.
-
-        # Context Awareness
-        The user currently has these active strategies:
-        {active_context}
-        Check if the request duplicates an existing one. If so, mention it.
-
-        # Tools & Actions
-        You have three capabilities:
-        1. GENERATE CODE: For backtesting in vectorbt (Python).
-        2. DEPLOY STRATEGY: For launching a live Alpha Engine strategy.
-        3. GENERATE REPORT: For investment planning, risk consultation, or general advice.
-
-        If the user asks for a "Plan", "Advice", "Portfolio allocation", or "Risk management" (e.g., "I have $10,000"):
-        - Act as a Wealth Manager & Senior Quant.
-        - Analyze the user's capital, goals, and preferred strategies (Trend, SMC, ADX).
-        - Propose a concrete plan including:
-            - Risk per trade (e.g., 1-2% of Account).
-            - Max Drawdown limits.
-            - Compounding strategy.
-            - Strategy mix suggestion.
-        - Output the line "ACTION: REPORT" at the end.
-        - The content of your plan prior to "ACTION: REPORT" will be returned to the user as the final response.
-
-        If the user explicitly asks to "Deploy", "Start", "Trade", or "Launch" a strategy:
-        - Output the line "ACTION: DEPLOY" at the end of your plan.
-        - Specify the Formula and Thresholds clearly in a JSON block labeled "DEPLOY_PAYLOAD".
-        
-        DEPLOY_PAYLOAD Schema:
-        {{
-            "symbol": "XAU/USD",
-            "formula": "...",
-            "threshold_long": 30.0,
-            "threshold_short": 70.0,
-            "strategy_type": "ALPHA_ENGINE_V1" (or "HYBRID_ALPHA_V1"),
-            "description": "Concise explanation of intent"
-        }}
-
-        IMPORTANT: If the user asks for a specific factor or signal formula, use the 'Alpha Engine' syntax:
-        - Format: Single line expression string.
-        - Supported Functions:
-            - rank(series): Cross-sectional rank (0.0 to 1.0)
-            - delay(series, n): Lag series by n periods
-            - ts_max(series, n): Rolling max over n periods
-            - ts_min(series, n): Rolling min over n periods
-            - ts_argmax(series, n): Index of max
-            - correlation(s1, s2, n): Rolling correlation
-            - sma(series, n): Simple Moving Average
-            - std(series, n): Rolling Std Dev
-            - log(series): Natural log
-            - sign(series): Sign of value (-1, 0, 1)
-            - adx(high, low, close, n): Average Directional Index
-            - di_plus(high, low, close, n): Plus Directional Indicator
-            - di_minus(high, low, close, n): Minus Directional Indicator
-        - Inputs: 'open', 'high', 'low', 'close', 'volume'
-        - Examples:
-            - Momentum: "rank(close / delay(close, 5))"
-            - ADX Filter: "adx(high, low, close, 14)"
-            - Mean Reversion: "-1 * correlation(close, delay(close, 1), 5)"
-            - Breakout: "(close - ts_min(low, 20)) / (ts_max(high, 20) - ts_min(low, 20))"
-        """
-        multimodal_content.append(prompt_text)
-
-        # Attach file if present
-        if file_context and file_context.get("type") == "base64":
-            import base64
-            img_data = base64.b64decode(file_context["data"])
-            multimodal_content.append({
-                "mime_type": file_context["mime_type"],
-                "data": img_data
-            })
-            prompt_text += "\n[Attached File Analysis Required]"
-
-        try:
-             # Transient client for BYOK
-            client = self.gemini.client
-            if api_key:
-                from google import genai
-                client = genai.Client(api_key=api_key)
-
-            response = await client.aio.models.generate_content(
-                model=model_id or self.gemini.model_id,
-                contents=multimodal_content
-            )
-            state["scratchpad"].append(f"Plan: {response.text}")
-        except Exception as e:
-            state["scratchpad"].append(f"Error planning: {e}")
-            
-        return state
-
-    async def generate_code(self, state, docs) -> AgentState:
-        api_key = state.get("user_config", {}).get("api_key")
-        model_id = state.get("user_config", {}).get("model_id")
-        
-        plan = state["scratchpad"][-1]
+        query = state["input_text"]
+        logger.info(f"Optimizing query: {query}")
         
         prompt = f"""
-        Based on this plan:
-        {plan}
+        You are a Query Optimizer for a Hedge Fund AI.
+        Your goal is to rewrite the user's raw query into a clear, unambiguous Request.
         
-        And these system docs:
-        {docs}
+        Raw Query: "{query}"
         
-        Write the compatible Python code (vectorbt/pandas).
-        Ensure it follows the 'SandboxedStrategy' class structure if applicable.
-        Output ONLY the code block.
+        1. Expand financial acronyms (e.g., "DN arb" -> "Delta Neutral Arbitrage").
+        2. Identify the Intent (STRATEGY_DESIGN, MARKET_ANALYSIS, or CHAT).
+        3. Output JSON only.
+
+        Schema:
+        {{
+            "optimized_query": "...",
+            "intent": "..."
+        }}
         """
         
         try:
-            client = self.gemini.client
-            if api_key:
-                from google import genai
-                client = genai.Client(api_key=api_key)
-
-            response = await client.aio.models.generate_content(
-                model=model_id or self.gemini.model_id,
+            # Use Flash model for speed
+            response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-flash", 
                 contents=prompt
             )
-            code = response.text.replace("```python", "").replace("```", "")
-            state["final_response"] = code
+            text = response.text.replace("```json", "").replace("```", "")
+            data = json.loads(text)
+            
+            return {
+                "optimized_query": data.get("optimized_query", query),
+                "intent": data.get("intent", "CHAT")
+            }
         except Exception as e:
-             state["final_response"] = f"Error generating code: {e}"
-             
-        return state
+            logger.error(f"Optimizer failed: {e}")
+            return {"optimized_query": query, "intent": "CHAT"}
 
-    async def deploy_strategy(self, state) -> AgentState:
+    async def node_router(self, state: AgentState):
         """
-        Parses the plan for DEPLOY_PAYLOAD and calls the alpha_deployer tool.
+        Passthrough node - routing logic handles the split.
+        In a more complex graph, this could do more classification.
         """
-        plan = state["scratchpad"][-1]
+        return {} # State update if needed
+
+    def _route_decision(self, state: AgentState):
+        """
+        Conditional Logic: Complex intent -> Decompose; Simple intent -> Direct Generate.
+        """
+        intent = state.get("intent", "CHAT")
+        if intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS"]:
+            return "complex"
+        return "direct"
+
+    async def node_decompose(self, state: AgentState):
+        """
+        Breaks down the optimized query into reasoning steps.
+        """
+        query = state["optimized_query"]
+        prompt = f"""
+        Decompose this quantitative request into 3-5 logical reasoning steps.
+        Request: "{query}"
+        
+        Output valid JSON List of strings:
+        ["Step 1...", "Step 2..."]
+        """
+        try:
+             response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-pro", # Use Pro for reasoning
+                contents=prompt
+            )
+             text = response.text.replace("```json", "").replace("```", "")
+             steps = json.loads(text)
+             return {"plan_steps": steps}
+        except:
+             return {"plan_steps": ["Analyze Request", "Retrieve Data", "Formulate Answer"]}
+
+    async def node_retrieve(self, state: AgentState):
+        """
+        Contextual Retrieval from Qdrant and Memory.
+        """
+        query = state["optimized_query"]
         user_id = state["user_id"]
         
-        try:
-            # Extract JSON payload
-            import re
-            json_match = re.search(r'DEPLOY_PAYLOAD.*?({.*})', plan, re.DOTALL)
-            if json_match:
-                payload_str = json_match.group(1)
-                payload = json.loads(payload_str)
+        # 1. Retrieve User Context (Long Term)
+        user_facts = []
+        if self.memory:
+            user_ctx = await self.memory.get_user_context(user_id, query)
+            if user_ctx:
+                user_facts.append(user_ctx)
                 
-                # Call Tool
-                result = await self.registry.execute("deploy_alpha_strategy", 
-                    user_id=user_id,
-                    symbol=payload.get("symbol"),
-                    formula=payload.get("formula"),
-                    threshold_long=payload.get("threshold_long"),
-                    threshold_short=payload.get("threshold_short"),
-                    strategy_type=payload.get("strategy_type", "ALPHA_ENGINE_V1"),
-                    description=payload.get("description", "")
-                )
-                
-                state["final_response"] = f"Deployment Action Executed:\n{result}"
-            else:
-                state["final_response"] = "Error: Could not parse DEPLOY_PAYLOAD from plan. Please try again."
-                
-        except Exception as e:
-            state["final_response"] = f"Error executing deployment: {e}"
+        # 2. Retrieve System Docs (Financial Knowledge)
+        system_docs = await self.rag.search_documentation(query)
+        doc_texts = [d["content"] for d in system_docs]
+        
+        # 3. Retrieve Strategies (Code)
+        strategies = await self.rag.search_similar_strategies(query, user_id)
+        strat_texts = [s["code"] for s in strategies]
+        
+        return {
+            "user_facts": user_facts,
+            "retrieved_docs": doc_texts + strat_texts
+        }
+
+    async def node_reason(self, state: AgentState):
+        """
+        CoT Reasoning Step: Synthesize ALL retrieved info.
+        """
+        steps = state.get("plan_steps", [])
+        context = "\n\n".join(state.get("retrieved_docs", []))
+        user_facts = "\n".join(state.get("user_facts", []))
+        
+        trace = []
+        # We simulate a "Thinking" process by prompting the model to reason about the data
+        prompt = f"""
+        Act as a Hedge Fund Quant. Follow these steps to answer the User Request.
+        
+        Context:
+        {context}
+        
+        User Preferences:
+        {user_facts}
+        
+        Plan:
+        {json.dumps(steps, indent=2)}
+        
+        User Request: "{state['optimized_query']}"
+        
+        Execute the plan step-by-step. specificially cite the Context if used.
+        """
+        
+        response = await self.gemini.client.aio.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=prompt
+        )
+        
+        return {"reasoning_trace": [response.text]}
+
+
+    async def node_generate(self, state: AgentState):
+        """
+        Final Answer Generation.
+        """
+        # If routed directly (CHAT), we just answer. 
+        # If came from Reasoning, we format the reasoning trace.
+        
+        if state.get("reasoning_trace"):
+            # We already have the detailed answer from the Reasoning node
+            final = state["reasoning_trace"][0]
+        else:
+            # Direct Chat Mode
+            response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f"Answer politely and concisely: {state['optimized_query']}"
+            )
+            final = response.text
             
-        return state
+        return {"final_response": final}
+
+    async def node_memory_write(self, state: AgentState):
+        """
+        Self-Reflection: Did we learn something new about the user?
+        If so, save to Long-Term Memory.
+        """
+        if not self.memory:
+            return {}
+            
+        interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
+        
+        prompt = f"""
+        Analyze this interaction. Did the user state a clear preference, goal, or fact about themselves?
+        If yes, extract it as a concise fact. If no, output "NO_FACT".
+        
+        Interaction:
+        {interaction}
+        """
+        
+        try:
+            response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            fact = response.text.strip()
+            if "NO_FACT" not in fact and len(fact) < 200:
+                await self.memory.add_user_fact(state["user_id"], fact)
+        except:
+             pass
+             
+        return {}
+
+    # --- PUBLIC API ---
+
+    async def run(self, input_text: str, user_id: str, context_code: str = None, image_b64: str = None):
+        """
+        Main entry point.
+        """
+        initial_state = {
+            "input_text": input_text,
+            "user_id": user_id,
+            "scratchpad": [],
+            "retrieved_docs": [],
+            "user_facts": []
+        }
+        
+        # Configure Checkpoint (Thread ID = user_id for simplicity, or session_id)
+        config = {"configurable": {"thread_id": user_id}}
+        
+        # Run graph
+        result = await self.graph.ainvoke(initial_state, config=config)
+        
+        return result["final_response"]

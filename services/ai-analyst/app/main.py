@@ -16,20 +16,16 @@ from app.agents.daily_briefing import DailyBriefingAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents
+from app.routers import analysis as analysis_router
+from app.services.memory import MemoryService
+from langgraph.checkpoint.redis import RedisSaver
+from redis import Redis
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai-analyst")
 
-# Global Service Instances
-services = {
-    "gemini": None,
-    "rag": None,
-    "market_observer": None,
-    "strategy_advisor": None,
-    "daily_briefing": None,
-    "sentiment": None
-}
+from app.core.globals import services
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,16 +67,43 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ RAG Service Failed: {e}")
 
-    # 4. Initialize Agents
+    # 4. Initialize Memory Service
+    try:
+        if services["rag"]:
+            services["memory"] = MemoryService(services["rag"])
+            logger.info("✅ Memory Service (Long-Term) Ready")
+    except Exception as e:
+        logger.error(f"❌ Memory Service Failed: {e}")
+
+    # 5. Initialize Redis Checkpointer (Short-Term Memory)
+    try:
+        # Assuming REDIS_URL is in settings or env
+        from app.core.config import settings
+        logger.info(f"Connecting to Redis at: {settings.redis.url}")
+        redis_conn = Redis.from_url(settings.redis.url)
+        services["checkpointer"] = RedisSaver(redis_conn)
+        logger.info("✅ Redis Checkpointer (Short-Term Memory) Ready")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis Checkpointer Failed: {e}")
+
+    # 6. Initialize Agents
     try:
         services["market_observer"] = MarketObserverAgent()
         logger.info("✅ Market Observer Agent Ready")
     except Exception as e:
         logger.error(f"❌ Market Observer Agent Failed: {e}")
+    except Exception as e:
+        logger.error(f"❌ Market Observer Agent Failed: {e}")
 
     try:
         if services["rag"]:
-            services["strategy_advisor"] = StrategyAdvisorAgent(services["rag"], services["gemini"])
+            # Pass checkpointer to agent
+            services["strategy_advisor"] = StrategyAdvisorAgent(
+                services["rag"], 
+                services["gemini"], 
+                checkpointer=services.get("checkpointer"),
+                memory_service=services.get("memory")
+            )
             logger.info("✅ Strategy Advisor Agent Ready")
         else:
             logger.warning("⚠️ Strategy Advisor Skipped (RAG missing)")
@@ -107,7 +130,6 @@ async def lifespan(app: FastAPI):
     yield
     
     logger.info("🛑 Service Shutting Down...")
-    # Cleanup logic if needed
 
 app = FastAPI(title="AI Analyst Service", lifespan=lifespan)
 
@@ -122,72 +144,8 @@ app.add_middleware(
 
 app.include_router(ingest.router, prefix="/api/v1/ai/ingest", tags=["Ingest"])
 app.include_router(agents.router, prefix="/api/v1/ai", tags=["Agents"])
+app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"]) 
 
-
-class AgentRunRequest(BaseModel):
-    input_text: str = "Generate a market situation report for XAU/USD."
-
-class AnalysisRequest(BaseModel):
-    symbol: str = "XAU/USD"
-    context: str = ""
-
-@app.post("/analyze/sentiment")
-async def analyze_sentiment(req: AnalysisRequest):
-    if not services["sentiment"]:
-        raise HTTPException(status_code=503, detail="Sentiment Service unavailable")
-    return await services["sentiment"].get_sentiment(req.symbol)
-
-
-@app.post("/agent/observer/run")
-async def run_observer_agent(request: AgentRunRequest, authorization: str = Header(None, alias="Authorization")):
-    if not services["market_observer"]:
-        raise HTTPException(status_code=503, detail="AI Agent unavailable")
-    
-    try:
-        report = await services["market_observer"].run(request.input_text, auth_header=authorization)
-        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
-    except Exception as e:
-        print(f"Error executing agent: {str(e)}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/agent/briefing")
-async def run_daily_briefing(authorization: str = Header(None, alias="Authorization")):
-    if not services["daily_briefing"]:
-        raise HTTPException(status_code=503, detail="Daily Briefing Agent unavailable")
-    
-    try:
-        report = await services["daily_briefing"].run("Generate valid Daily Briefing.", auth_header=authorization)
-        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
-    except Exception as e:
-        print(f"Error executing agent: {str(e)}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/ai/chat/sessions/message")
-async def chat_strategy(request: StrategyChatRequest):
-    """
-    Chat with the Strategy Advisor Agent regarding a specific strategy.
-    """
-    if not services["strategy_advisor"]:
-        raise HTTPException(status_code=503, detail="Strategy Advisor Agent unavailable (Check Gemini/Qdrant config)")
-    
-    try:
-        response_text = await services["strategy_advisor"].run(
-            input_text=request.message, 
-            user_id=request.user_id,
-            context_code=request.context_code,
-            image_b64=request.image_b64
-        )
-        return {
-            "response": response_text,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        print(f"Error in strategy chat: {str(e)}")
-        traceback.print_exc()
-        # Fallback error response properly formatted
-        raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
 
 @app.get("/health")
 def health_check():
@@ -203,53 +161,3 @@ def health_check():
             "sentiment_service": "active" if services["sentiment"] else "inactive"
         }
     }
-
-@app.post("/analyze/market", response_model=AnalysisResponse)
-async def analyze_market(request: MarketAnalysisRequest):
-    if not services["gemini"]:
-        raise HTTPException(status_code=503, detail="AI Service unavailable")
-    
-    context = request.model_dump()
-    insight = await services["gemini"].generate_market_outlook(context)
-    
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )
-
-@app.post("/analyze/journal", response_model=AnalysisResponse)
-async def analyze_journal(request: JournalAnalysisRequest):
-    if not services["gemini"]:
-        raise HTTPException(status_code=503, detail="AI Service unavailable")
-
-    # RAG Step: Find similar entries
-    similar_entries = []
-    if services["rag"]:
-        try:
-            # Legacy method call, ensuring compatibility if rag.py changed
-            similar_entries = await services["rag"].search_similar_entries(request.entry_content, user_id=request.user_id)
-        except Exception as e:
-             print(f"RAG search failed: {e}")
-
-    insight = await services["gemini"].analyze_journal_entry(request.entry_content, similar_entries, user_id=request.user_id)
-    
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )
-
-class SMCNarrativeRequest(BaseModel):
-    smc_data: dict
-    price_context: dict
-
-@app.post("/analyze/smc-narrative", response_model=AnalysisResponse)
-async def analyze_smc_narrative(request: SMCNarrativeRequest):
-    if not services["gemini"]:
-        raise HTTPException(status_code=503, detail="AI Service unavailable")
-    
-    insight = await services["gemini"].generate_smc_narrative(request.smc_data, request.price_context)
-    
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )

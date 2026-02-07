@@ -1,17 +1,15 @@
-from fastapi import APIRouter, HTTPException
-
-from app.agents.market_observer import MarketObserverAgent
-from app.agents.strategy_advisor import StrategyAdvisorAgent
-from app.agents.daily_briefing import DailyBriefingAgent
-from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, Header, Body
+from typing import List, Dict, Any, Optional
+import traceback
+from datetime import datetime
+from pydantic import BaseModel
+from app.core.globals import services
 
 router = APIRouter(
-    prefix="/agents",
     tags=["agents"]
 )
 
-# In-memory registry (should be replaced by DB or Agent Registry service later)
-# For now, we manually list the known agents in this service
+# ... (AGENTS dict remains same) ...
 AGENTS = {
     "market_observer": {
         "id": "market_observer",
@@ -39,7 +37,17 @@ AGENTS = {
     }
 }
 
-@router.get("", response_model=Dict[str, Any])
+class AgentRunRequest(BaseModel):
+    input_text: str = "Generate a market situation report for XAU/USD."
+
+class StrategyChatRequest(BaseModel):
+    message: str
+    user_id: str
+    strategy_id: Optional[str] = None
+    context_code: Optional[str] = None
+    image_b64: Optional[str] = None
+
+@router.get("/agents", response_model=Dict[str, Any])
 async def list_agents():
     """
     List all available AI agents.
@@ -49,7 +57,7 @@ async def list_agents():
         "data": list(AGENTS.values())
     }
 
-@router.get("/{agent_id}", response_model=Dict[str, Any])
+@router.get("/agents/{agent_id}", response_model=Dict[str, Any])
 async def get_agent_details(agent_id: str):
     """
     Get details for a specific AI agent.
@@ -62,3 +70,54 @@ async def get_agent_details(agent_id: str):
         "status": "success",
         "data": agent
     }
+
+@router.post("/agent/observer/run")
+async def run_observer_agent(request: AgentRunRequest, authorization: str = Header(None, alias="Authorization")):
+    if not services["market_observer"]:
+        raise HTTPException(status_code=503, detail="AI Agent unavailable")
+    
+    try:
+        report = await services["market_observer"].run(request.input_text, auth_header=authorization)
+        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        print(f"Error executing agent: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/agent/briefing")
+async def run_daily_briefing(authorization: str = Header(None, alias="Authorization")):
+    if not services["daily_briefing"]:
+        raise HTTPException(status_code=503, detail="Daily Briefing Agent unavailable")
+    
+    try:
+        report = await services["daily_briefing"].run("Generate valid Daily Briefing.", auth_header=authorization)
+        return {"report": report, "timestamp": datetime.utcnow().isoformat()}
+    except Exception as e:
+        print(f"Error executing agent: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/chat/sessions/message")
+async def chat_strategy(request: StrategyChatRequest):
+    """
+    Chat with the Strategy Advisor Agent regarding a specific strategy.
+    """
+    if not services["strategy_advisor"]:
+        raise HTTPException(status_code=503, detail="Strategy Advisor Agent unavailable (Check Gemini/Qdrant config)")
+    
+    try:
+        response_text = await services["strategy_advisor"].run(
+            input_text=request.message, 
+            user_id=request.user_id,
+            context_code=request.context_code,
+            image_b64=request.image_b64
+        )
+        return {
+            "response": response_text,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        print(f"Error in strategy chat: {str(e)}")
+        traceback.print_exc()
+        # Fallback error response properly formatted
+        raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")

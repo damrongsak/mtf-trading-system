@@ -66,11 +66,13 @@ class RAGService:
         self.journal_collection = "journal_entries"
         self.strategy_collection = "strategies"
         self.docs_collection = "system_docs"
+        self.user_memory = "user_memory"
         
         try:
             self._ensure_collection(self.journal_collection)
             self._ensure_collection(self.strategy_collection)
             self._ensure_collection(self.docs_collection)
+            self._ensure_collection(self.user_memory)
         except Exception as e:
             logger.warning(f"Could not ensure collections on init (Qdrant offline?): {e}")
 
@@ -258,3 +260,48 @@ class RAGService:
             "content": hit.payload["content"],
             "score": hit.score
         } for hit in search_result]
+
+    async def search_user_memory(self, user_id: str, query: str, limit: int = 5) -> list[str]:
+        """Search long-term user memory."""
+        embedding = await self._get_embedding(query)
+        
+        search_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id)
+                )
+            ]
+        )
+
+        try:
+            search_result = self.qdrant.query_points(
+                collection_name=self.user_memory,
+                query=embedding,
+                query_filter=search_filter,
+                limit=limit
+            ).points
+            
+            return [hit.payload["content"] for hit in search_result]
+        except Exception:
+            # Collection might not exist yet or empty
+            return []
+
+    async def add_user_memory(self, user_id: str, content: str):
+        """Store a user fact."""
+        embedding = await self._get_embedding(content)
+        
+        point = models.PointStruct(
+            id=str(uuid.uuid4()),
+            vector=embedding,
+            payload={
+                "content": content,
+                "user_id": user_id,
+                "timestamp": uuid.uuid1().time  # roughly timestamp
+            }
+        )
+        
+        self.qdrant.upsert(
+            collection_name=self.user_memory,
+            points=[point]
+        )

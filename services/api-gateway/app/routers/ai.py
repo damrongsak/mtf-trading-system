@@ -46,7 +46,7 @@ async def analyze_market(req: MarketAnalysisRequest):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                f"{AI_SERVICE_URL}/analyze/market", 
+                f"{AI_SERVICE_URL}/api/v1/analyze/market", 
                 json=req.model_dump(mode='json'),
                 timeout=30.0 # LLMs can be slow
             )
@@ -65,7 +65,7 @@ async def analyze_journal(req: JournalAnalysisRequest):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                f"{AI_SERVICE_URL}/analyze/journal", 
+                f"{AI_SERVICE_URL}/api/v1/analyze/journal", 
                 json=req.model_dump(mode='json'),
                 timeout=30.0
             )
@@ -92,7 +92,7 @@ async def run_market_observer(
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                f"{AI_SERVICE_URL}/agent/observer/run", 
+                f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
                 json=req.model_dump(),
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=60.0 # Agents can be slow
@@ -116,7 +116,7 @@ async def get_daily_briefing(
         try:
             # We call the POST endpoint on AI Analyst to generate/fetch
             response = await client.post(
-                f"{AI_SERVICE_URL}/agent/briefing",
+                f"{AI_SERVICE_URL}/api/v1/ai/agent/briefing",
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=60.0 
             )
@@ -264,7 +264,7 @@ async def send_chat_message(
         
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{AI_SERVICE_URL}/chat/strategy",
+                f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message",
                 json=payload,
                 timeout=60.0 # Long timeout for CoT
             )

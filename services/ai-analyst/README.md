@@ -60,6 +60,27 @@ To run the tests:
 uv run env PYTHONPATH=. pytest tests/
 ```
 
+## 🖥️ CLI Chat
+The service includes a professional CLI for interacting with the Agentic RAG system.
+
+### Running with Docker (Recommended)
+You can run the CLI directly inside the container. This ensures all dependencies (Rich, HTTPX) are present.
+
+```bash
+# 1. Update Lockfile (if needed) & Rebuild
+docker compose run --rm ai-analyst uv lock
+docker compose build ai-analyst
+
+# 2. Run the CLI script (Connects to the running ai-analyst service)
+docker compose run --rm -e API_URL=http://ai-analyst:8000 ai-analyst python scripts/chat_cli.py
+```
+
+### Running Locally
+```bash
+uv sync
+uv run python scripts/chat_cli.py
+```
+
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |
