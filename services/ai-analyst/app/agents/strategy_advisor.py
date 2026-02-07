@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     # Outputs
     reasoning_trace: List[str]
     final_response: str
+    thoughts: str # Captured from Thinking models
     
     # Scratchpad for tool outputs
     scratchpad: Annotated[List[str], operator.add]
@@ -236,21 +237,31 @@ class StrategyAdvisorAgent:
         """
         Final Answer Generation.
         """
-        # If routed directly (CHAT), we just answer. 
-        # If came from Reasoning, we format the reasoning trace.
+        thoughts = None
+        final = ""
         
         if state.get("reasoning_trace"):
-            # We already have the detailed answer from the Reasoning node
+            # We already have the detailed answer from the Reasoning node (Manual CoT)
+            # We treat the CoT trace as "thoughts" for the UI
             final = state["reasoning_trace"][0]
+            thoughts = "Captured from Reasoning Step (Manual CoT)"
         else:
-            # Direct Chat Mode
-            response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"Answer politely and concisely: {state['optimized_query']}"
-            )
-            final = response.text
+            # Direct Chat Mode - Try to use Native Thinking if capabilities allow
+            # We use a thinking budget or include_thoughts
+            try:
+                # Use generate_content to capture native thoughts
+                result = await self.gemini.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"Answer politely and concisely: {state['optimized_query']}",
+                    thinking_config={"include_thoughts": True} 
+                )
+                final = result["text"]
+                thoughts = result.get("thoughts")
+            except Exception as e:
+                logger.error(f"Generation failed: {e}")
+                final = "I'm sorry, I encountered an error generating the response."
             
-        return {"final_response": final}
+        return {"final_response": final, "thoughts": thoughts}
 
     async def node_memory_write(self, state: AgentState):
         """
@@ -303,4 +314,7 @@ class StrategyAdvisorAgent:
         # Run graph
         result = await self.graph.ainvoke(initial_state, config=config)
         
-        return result["final_response"]
+        return {
+            "response": result.get("final_response"),
+            "thoughts": result.get("thoughts")
+        }

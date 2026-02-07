@@ -106,14 +106,15 @@ async def chat_strategy(request: StrategyChatRequest):
         raise HTTPException(status_code=503, detail="Strategy Advisor Agent unavailable (Check Gemini/Qdrant config)")
     
     try:
-        response_text = await services["strategy_advisor"].run(
+        result = await services["strategy_advisor"].run(
             input_text=request.message, 
             user_id=request.user_id,
             context_code=request.context_code,
             image_b64=request.image_b64
         )
         return {
-            "response": response_text,
+            "response": result.get("response"),
+            "thoughts": result.get("thoughts"),
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:

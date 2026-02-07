@@ -14,7 +14,51 @@ class GeminiClient:
         # Using configured model
         self.model_id = settings.gemini.model_id
 
-    async def generate_market_outlook(self, context: dict, api_key: str = None, model_id: str = None) -> str:
+    async def generate_content(self, model: str, contents: list, config: dict = None, thinking_config: dict = None) -> dict:
+        """
+        Generic generation with support for Thinking models.
+        Returns dict with 'text' and 'thoughts' (if available).
+        """
+        try:
+            # Merge config
+            if thinking_config:
+                if config is None:
+                    config = {}
+                config['thinking_config'] = thinking_config
+
+            response = await self.client.aio.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config
+            )
+            
+            # Extract thoughts if present (Gemini 2.5/3.0 style)
+            thoughts = []
+            try:
+                # Iterate through candidates and parts to find thought/reasoning
+                if hasattr(response, 'candidates'):
+                    for candidate in response.candidates:
+                         if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                            for part in candidate.content.parts:
+                                # Check for thought attribute
+                                if hasattr(part, "thought") and part.thought:
+                                    if isinstance(part.thought, str):
+                                        thoughts.append(part.thought)
+                                    elif isinstance(part.thought, bool) and part.thought and hasattr(part, "text"):
+                                        thoughts.append(part.text)
+            except Exception as e:
+                print(f"Thought extraction warning: {e}")
+
+            return {
+                "text": response.text,
+                "thoughts": "\n".join(thoughts) if thoughts else None,
+                "usage": getattr(response, 'usage_metadata', None)
+            }
+        except Exception as e:
+            print(f"Gemini Generation Error: {e}")
+            raise e
+
+    async def generate_market_outlook(self, context: dict, api_key: str = None, model_id: str = None, thinking_config: dict = None) -> str:
         """
         Generates a market outlook based on technical indicators and SMC context.
         Supports multimodal input (images).
