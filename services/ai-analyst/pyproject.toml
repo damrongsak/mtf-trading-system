@@ -29,6 +29,8 @@ dependencies = [
     "msgpack>=1.0.0",
     "langgraph-checkpoint-redis>=0.1.0",
     "prompt-toolkit>=3.0.0",
+    "pandas>=2.2.0",
+    "tabulate>=0.9.0",
 ]
 
 [dependency-groups]

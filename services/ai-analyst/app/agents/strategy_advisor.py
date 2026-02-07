@@ -45,6 +45,9 @@ class AgentState(TypedDict):
     final_response: str
     thoughts: str # Captured from Thinking models
     
+    # Safety / HITL
+    pending_tool_call: dict # Tool call waiting for confirmation
+    
     # Scratchpad for tool outputs
     scratchpad: Annotated[List[str], operator.add]
 
@@ -96,7 +99,8 @@ class StrategyAdvisorAgent:
                 "direct": "generate",
                 "complex": "decompose",
                 "research": "retrieve_knowledge", # Research goes to RAG -> Synthesize
-                "tool_use": "tool_selection"
+                "tool_use": "tool_selection",
+                "confirmation_check": "tool_selection" # Route pending confirmations here
             }
         )
         
@@ -180,6 +184,10 @@ class StrategyAdvisorAgent:
         """
         Conditional Logic: Routes based on Intent.
         """
+        # Prioritize Pending Confirmation
+        if state.get("pending_tool_call"):
+            return "confirmation_check"
+            
         intent = state.get("intent", "CHAT")
         
         if intent == "TOOL_USE":
@@ -236,9 +244,13 @@ class StrategyAdvisorAgent:
         strategies = await self.rag.search_similar_strategies(query, user_id)
         strat_texts = [s["code"] for s in strategies]
         
+        # 4. Inject Tool Context (Dynamic Capabilities)
+        tool_info = self.tool_registry.get_tool_descriptions()
+        tool_ctx = f"**Available System Tools:**\n{tool_info}"
+        
         return {
             "user_facts": user_facts,
-            "retrieved_docs": doc_texts + strat_texts
+            "retrieved_docs": doc_texts + strat_texts + [tool_ctx]
         }
 
     async def node_reason(self, state: AgentState):
@@ -270,8 +282,23 @@ class StrategyAdvisorAgent:
 
     async def node_tool_selection(self, state: AgentState):
         """
-        Selects the best tool for the job.
+        Selects the best tool for the job. Handles HITL Confirmation.
         """
+        # 1. Handle Pending Confirmation
+        pending = state.get("pending_tool_call")
+        if pending:
+            user_response = state["input_text"].strip().upper()
+            logger.info(f"Processing Confirmation: {user_response}")
+            
+            # Simple keyword matching for now
+            if user_response in ["YES", "CONFIRM", "EXECUTE", "OK", "SURE", "Y"]:
+                # Confirmed -> Move to execution
+                return {"tool_calls": [pending], "pending_tool_call": None}
+            else:
+                # Denied -> Cancel
+                return {"pending_tool_call": None, "scratchpad": ["Action cancelled by user."]}
+
+        # 2. Normal Selection
         query = state["optimized_query"]
         tool_descriptions = self.tool_registry.get_tool_descriptions()
         
@@ -290,8 +317,34 @@ class StrategyAdvisorAgent:
             
             tool_name = decision.get("tool_name")
             if tool_name == "direct_answer" or not tool_name:
-                return {} # No tool needed, will flow to execute which does nothing? No, logic needs to handle this.
-                # Actually edge goes to execute_tools.
+                return {} 
+            
+            # 3. Safety Check for High-Risk Tools
+            # Strategy Manager (Start/Stop) and Smart Order (Execute) need confirmation
+            if tool_name in ["smart_order", "strategy_manager"]:
+                # Check if it is a 'list' action for strategy, which is safe
+                if tool_name == "strategy_manager":
+                     inp = decision.get("tool_input", "")
+                     # If input is dict and action is list, or string 'list' -> Safe
+                     is_safe = False
+                     if isinstance(inp, dict) and inp.get("action") == "list": is_safe = True
+                     elif isinstance(inp, str) and "list" in inp.lower(): is_safe = True
+                     
+                     if is_safe:
+                         return {"tool_calls": [decision]}
+
+                # For Smart Order, Auto-Run Risk Check First
+                if tool_name == "smart_order":
+                    logger.info("Intercepting Smart Order for Risk Check...")
+                    risk_tool = self.tool_registry.get_tool("risk_check")
+                    token = state.get("auth_token")
+                    risk_result = await risk_tool.run(decision.get("tool_input"), auth_token=token)
+                    
+                    # Store risk result in pending_tool_call metadata so we can show it
+                    decision["risk_analysis"] = risk_result
+
+                # Otherwise, Require Confirmation
+                return {"pending_tool_call": decision, "tool_calls": []}
             
             return {"tool_calls": [decision]}
             
@@ -316,15 +369,8 @@ class StrategyAdvisorAgent:
             if tool:
                 try:
                     # Execute tool
-                    if tool_name in ["trade_history", "account_status"]:
-                         # These might need auth token mapping or specific args
-                         # The prompt asks for "tool_input", we pass it or just run
-                         result = await tool.run(tool_input, auth_token=auth_token)
-                    elif tool_name == "knowledge_base":
-                         result = await tool.run(tool_input)
-                    else:
-                         result = await tool.run(tool_input)
-                         
+                    # Always pass auth_token
+                    result = await tool.run(tool_input, auth_token=auth_token)
                     outputs.append(f"Tool '{tool_name}' output:\n{result}")
                 except Exception as e:
                     outputs.append(f"Tool '{tool_name}' failed: {e}")
@@ -351,6 +397,33 @@ class StrategyAdvisorAgent:
         """
         Final Answer Generation.
         """
+        # 0. Check for Pending Confirmation
+        if state.get("pending_tool_call"):
+            tool = state["pending_tool_call"]
+            try:
+                # Pretty print input
+                inp = tool.get('tool_input')
+                if isinstance(inp, str):
+                    try: inp = json.loads(inp)
+                    except: pass
+                
+                inp_str = json.dumps(inp, indent=2)
+            except:
+                inp_str = str(tool.get('tool_input'))
+
+            risk_info = ""
+            if tool.get("risk_analysis"):
+                risk_info = f"\n\n**🛡️ Risk Analysis:**\n{tool.get('risk_analysis')}\n"
+
+            msg = (
+                f"# ⚠️ Confirmation Required\n\n"
+                f"I am about to execute **{tool.get('tool_name')}**.\n\n"
+                f"**Action Details:**\n```json\n{inp_str}\n```"
+                f"{risk_info}\n"
+                f"**Type 'YES' to confirm or 'NO' to cancel.**"
+            )
+            return {"final_response": msg}
+
         thoughts = None
         final = ""
         
