@@ -8,4 +8,4 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 echo "Starting AI Chat CLI..."
-docker compose exec ai-analyst python3 scripts/chat_cli.py "$@"
+docker compose exec -it -e API_URL=http://api-gateway:8000 ai-analyst python3 scripts/chat_cli.py "$@"

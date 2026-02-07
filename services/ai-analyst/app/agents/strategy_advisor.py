@@ -9,6 +9,14 @@ from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.services.memory import MemoryService
 
+from app.core.prompts import (
+    SYSTEM_PERSONA, 
+    RETRIEVAL_SYSTEM_PROMPT, 
+    REASONING_PROMPT_TEMPLATE,
+    TOOL_ROUTER_SYSTEM_PROMPT
+)
+from app.core.tools import ToolRegistry, BaseTool
+
 logger = logging.getLogger(__name__)
 
 class AgentState(TypedDict):
@@ -18,11 +26,13 @@ class AgentState(TypedDict):
     # Messages
     input_text: str
     user_id: str
+    auth_token: str # Derived from API call
     
     # Internal State
     optimized_query: str
-    intent: str # 'chat', 'strategy_design', 'market_analysis'
+    intent: str # 'chat', 'strategy_design', 'market_analysis', 'research', 'tool_use'
     plan_steps: List[str]
+    tool_calls: List[dict] # Selected tools to run
     
     # Context
     retrieved_docs: Annotated[List[str], operator.add]
@@ -50,6 +60,9 @@ class StrategyAdvisorAgent:
         self.memory = memory_service
         self.checkpointer = checkpointer
         
+        # Initialize Tools
+        self.tool_registry = ToolRegistry(rag_service)
+        
         # Build the Graph
         self.graph = self._build_graph()
 
@@ -64,25 +77,46 @@ class StrategyAdvisorAgent:
         workflow.add_node("reasoning", self.node_reason)
         workflow.add_node("generate", self.node_generate)
         workflow.add_node("memory_write", self.node_memory_write)
+        
+        # New Nodes for Advanced Features
+        workflow.add_node("synthesize", self.node_synthesize) # Deep Research
+        workflow.add_node("tool_selection", self.node_tool_selection) 
+        workflow.add_node("execute_tools", self.node_execute_tools)
 
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
         workflow.add_edge("query_optimizer", "router")
         
-        # Router Conditional API
+        # Enhanced Router Logic
         workflow.add_conditional_edges(
             "router",
             self._route_decision,
             {
                 "direct": "generate",
-                "complex": "decompose"
+                "complex": "decompose",
+                "research": "retrieve_knowledge", # Research goes to RAG -> Synthesize
+                "tool_use": "tool_selection"
             }
         )
         
         workflow.add_edge("decompose", "retrieve_knowledge")
-        workflow.add_edge("retrieve_knowledge", "reasoning")
+        
+        # Retrieve Knowledge Logic
+        workflow.add_conditional_edges(
+            "retrieve_knowledge",
+            lambda x: "synthesize" if x.get("intent") == "RESEARCH" else "reasoning",
+            {
+                "synthesize": "synthesize",
+                "reasoning": "reasoning"
+            }
+        )
+
+        workflow.add_edge("tool_selection", "execute_tools")
+        workflow.add_edge("execute_tools", "generate") # Tools feed into generation
+        
         workflow.add_edge("reasoning", "generate")
+        workflow.add_edge("synthesize", "memory_write") # Research ends here usually
         workflow.add_edge("generate", "memory_write")
         workflow.add_edge("memory_write", END)
 
@@ -93,22 +127,25 @@ class StrategyAdvisorAgent:
 
     async def node_query_optimizer(self, state: AgentState):
         """
-        Uses Gemini Flash to optimize the query.
+        Uses Gemini Flash to optimize the query and classify intent.
         """
         query = state["input_text"]
         logger.info(f"Optimizing query: {query}")
         
         prompt = f"""
-        You are a Query Optimizer for a Hedge Fund AI.
-        Your goal is to rewrite the user's raw query into a clear, unambiguous Request.
+        You are a Query Optimizer for a Hedge Fund AI (MTF Olympus).
+        Your goal is to rewrite the user's raw query into a clear, unambiguous Request and classify its INTENT.
         
         Raw Query: "{query}"
         
-        1. Expand financial acronyms (e.g., "DN arb" -> "Delta Neutral Arbitrage").
-        2. Identify the Intent (STRATEGY_DESIGN, MARKET_ANALYSIS, or CHAT).
-        3. Output JSON only.
-
-        Schema:
+        **Intents:**
+        - **TOOL_USE**: User asks for Account Balance, Trade History, or specific data lookup.
+        - **RESEARCH**: User asks for deep explanation of system architecture, risk concepts, or documentation.
+        - **STRATEGY_DESIGN**: User wants to code or modify a strategy.
+        - **MARKET_ANALYSIS**: User asks for market outlook or price analysis.
+        - **CHAT**: General conversation or simple questions.
+        
+        **Output JSON only:**
         {{
             "optimized_query": "...",
             "intent": "..."
@@ -141,11 +178,17 @@ class StrategyAdvisorAgent:
 
     def _route_decision(self, state: AgentState):
         """
-        Conditional Logic: Complex intent -> Decompose; Simple intent -> Direct Generate.
+        Conditional Logic: Routes based on Intent.
         """
         intent = state.get("intent", "CHAT")
-        if intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS"]:
+        
+        if intent == "TOOL_USE":
+            return "tool_use"
+        elif intent == "RESEARCH":
+            return "research"
+        elif intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS"]:
             return "complex"
+        
         return "direct"
 
     async def node_decompose(self, state: AgentState):
@@ -208,29 +251,100 @@ class StrategyAdvisorAgent:
         
         trace = []
         # We simulate a "Thinking" process by prompting the model to reason about the data
-        prompt = f"""
-        Act as a Hedge Fund Quant. Follow these steps to answer the User Request.
-        
-        Context:
-        {context}
-        
-        User Preferences:
-        {user_facts}
-        
-        Plan:
-        {json.dumps(steps, indent=2)}
-        
-        User Request: "{state['optimized_query']}"
-        
-        Execute the plan step-by-step. specificially cite the Context if used.
-        """
-        
-        response = await self.gemini.client.aio.models.generate_content(
-            model="gemini-2.5-pro",
-            contents=prompt
+        prompt = REASONING_PROMPT_TEMPLATE.format(
+            context=context,
+            user_facts=user_facts,
+            query=state['optimized_query']
         )
         
-        return {"reasoning_trace": [response.text]}
+        try:
+            response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-pro",
+                contents=prompt
+            )
+            trace = [response.text]
+        except:
+            trace = ["Reasoning failed."]
+        
+        return {"reasoning_trace": trace}
+
+    async def node_tool_selection(self, state: AgentState):
+        """
+        Selects the best tool for the job.
+        """
+        query = state["optimized_query"]
+        tool_descriptions = self.tool_registry.get_tool_descriptions()
+        
+        prompt = TOOL_ROUTER_SYSTEM_PROMPT.format(
+            tool_descriptions=tool_descriptions,
+            query=query
+        )
+        
+        try:
+            response = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-flash", 
+                contents=prompt
+            )
+            text = response.text.replace("```json", "").replace("```", "")
+            decision = json.loads(text)
+            
+            tool_name = decision.get("tool_name")
+            if tool_name == "direct_answer" or not tool_name:
+                return {} # No tool needed, will flow to execute which does nothing? No, logic needs to handle this.
+                # Actually edge goes to execute_tools.
+            
+            return {"tool_calls": [decision]}
+            
+        except Exception as e:
+            logger.error(f"Tool selection failed: {e}")
+            return {}
+
+    async def node_execute_tools(self, state: AgentState):
+        """
+        Executes selected tools and adds output to scratchpad.
+        """
+        calls = state.get("tool_calls", [])
+        outputs = []
+        
+        auth_token = state.get("auth_token")
+        
+        for call in calls:
+            tool_name = call.get("tool_name")
+            tool_input = call.get("tool_input")
+            
+            tool = self.tool_registry.get_tool(tool_name)
+            if tool:
+                try:
+                    # Execute tool
+                    if tool_name in ["trade_history", "account_status"]:
+                         # These might need auth token mapping or specific args
+                         # The prompt asks for "tool_input", we pass it or just run
+                         result = await tool.run(tool_input, auth_token=auth_token)
+                    elif tool_name == "knowledge_base":
+                         result = await tool.run(tool_input)
+                    else:
+                         result = await tool.run(tool_input)
+                         
+                    outputs.append(f"Tool '{tool_name}' output:\n{result}")
+                except Exception as e:
+                    outputs.append(f"Tool '{tool_name}' failed: {e}")
+            else:
+                outputs.append(f"Tool '{tool_name}' not found.")
+                
+        return {"scratchpad": outputs}
+
+    async def node_synthesize(self, state: AgentState):
+        """
+        Deep Research / Synthesis Node.
+        """
+        query = state["optimized_query"]
+        docs = state.get("retrieved_docs", [])
+        
+        context = "\n\n".join(docs)
+        
+        report = await self.gemini.generate_research_report(query, context)
+        
+        return {"final_response": report}
 
 
     async def node_generate(self, state: AgentState):
@@ -240,19 +354,37 @@ class StrategyAdvisorAgent:
         thoughts = None
         final = ""
         
+        # Gather Context
+        scratchpad = "\n".join(state.get("scratchpad", []))
+        user_facts = "\n".join(state.get("user_facts", []))
+        context_docs = "\n\n".join(state.get("retrieved_docs", []))
+        
+        # Build System Context
+        system_ctx = f"{SYSTEM_PERSONA}\n\nUser Facts:\n{user_facts}"
+        
         if state.get("reasoning_trace"):
-            # We already have the detailed answer from the Reasoning node (Manual CoT)
-            # We treat the CoT trace as "thoughts" for the UI
             final = state["reasoning_trace"][0]
             thoughts = "Captured from Reasoning Step (Manual CoT)"
         else:
-            # Direct Chat Mode - Try to use Native Thinking if capabilities allow
-            # We use a thinking budget or include_thoughts
+            # Direct Chat Mode or Tool Result Synthesis
+            prompt = f"""
+            {system_ctx}
+            
+            Context from Documentation/Tools:
+            {context_docs}
+            
+            Tool Outputs:
+            {scratchpad}
+            
+            User Request: "{state['optimized_query']}"
+            
+            Answer efficiently.
+            """
+            
             try:
-                # Use generate_content to capture native thoughts
                 result = await self.gemini.generate_content(
                     model="gemini-2.5-flash",
-                    contents=f"Answer politely and concisely: {state['optimized_query']}",
+                    contents=prompt,
                     thinking_config={"include_thoughts": True} 
                 )
                 final = result["text"]
@@ -296,16 +428,19 @@ class StrategyAdvisorAgent:
 
     # --- PUBLIC API ---
 
-    async def run(self, input_text: str, user_id: str, context_code: str = None, image_b64: str = None):
+    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None):
         """
         Main entry point.
         """
         initial_state = {
             "input_text": input_text,
             "user_id": user_id,
+            "auth_token": auth_token,
             "scratchpad": [],
             "retrieved_docs": [],
-            "user_facts": []
+            "user_facts": [],
+            "tool_calls": [],
+            "plan_steps": []
         }
         
         # Configure Checkpoint (Thread ID = user_id for simplicity, or session_id)

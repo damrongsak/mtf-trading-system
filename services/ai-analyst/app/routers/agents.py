@@ -98,17 +98,23 @@ async def run_daily_briefing(authorization: str = Header(None, alias="Authorizat
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat/sessions/message")
-async def chat_strategy(request: StrategyChatRequest):
+async def chat_strategy(request: StrategyChatRequest, authorization: str = Header(None, alias="Authorization")):
     """
     Chat with the Strategy Advisor Agent regarding a specific strategy.
     """
     if not services["strategy_advisor"]:
         raise HTTPException(status_code=503, detail="Strategy Advisor Agent unavailable (Check Gemini/Qdrant config)")
     
+    # Extract token
+    auth_token = None
+    if authorization and authorization.startswith("Bearer "):
+        auth_token = authorization.split(" ")[1]
+
     try:
         result = await services["strategy_advisor"].run(
             input_text=request.message, 
             user_id=request.user_id,
+            auth_token=auth_token, # Pass the extracted token
             context_code=request.context_code,
             image_b64=request.image_b64
         )

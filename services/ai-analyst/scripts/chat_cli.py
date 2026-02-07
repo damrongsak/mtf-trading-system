@@ -30,14 +30,16 @@ install()
 # Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 AGENT_ENDPOINT = "/api/v1/ai/chat/sessions/message"
+LOGIN_ENDPOINT = "/api/v1/auth/token"
 HEALTH_ENDPOINT = "/health"
 USER_ID_FILE = ".cli_user_id"
-HISTORY_FILE = ".cli_history"
+TOKEN_FILE = ".cli_token"
 
 class ChatApp:
     def __init__(self):
         self.console = Console()
         self.user_id = self.get_or_create_user_id()
+        self.auth_token = self.load_token()
         self.client = httpx.AsyncClient(timeout=120.0)
         self.running = True
         self.session = None # Delay init
@@ -51,14 +53,61 @@ class ChatApp:
             f.write(new_id)
         return new_id
 
+    def load_token(self):
+        if os.path.exists(TOKEN_FILE):
+            with open(TOKEN_FILE, "r") as f:
+                return f.read().strip()
+        return None
+
+    def save_token(self, token):
+        with open(TOKEN_FILE, "w") as f:
+            f.write(token)
+        self.auth_token = token
+
+    async def login(self):
+        self.console.print(Panel("🔒 **Authentication Required**\nPlease log in to access your account data.", style="yellow"))
+        
+        while True:
+            username = await self.session.prompt_async(HTML("Username: "))
+            password = await self.session.prompt_async(HTML("Password: "), is_password=True)
+            
+            with self.console.status("[bold green]Logging in...[/bold green]"):
+                try:
+                    # Standard OAuth2 Form Request
+                    data = {"username": username, "password": password}
+                    resp = await self.client.post(f"{API_URL}{LOGIN_ENDPOINT}", data=data)
+                    
+                    if resp.status_code == 200:
+                        token_data = resp.json()
+                        token = None
+                        if "auth" in token_data:
+                            token = token_data["auth"]["access_token"]
+                            if "data" in token_data:
+                                self.user_id = token_data["data"]["id"]
+                                with open(USER_ID_FILE, "w") as f:
+                                    f.write(self.user_id)
+                        else:
+                             token = token_data.get("access_token")
+                             
+                        if token:
+                            self.save_token(token)
+                            self.console.print("[green]✓ Login Successful[/green]")
+                            return True
+                        else:
+                             self.console.print(f"[red]Login Successful but no token found in response.[/red]")
+                    else:
+                        self.console.print(f"[red]Login Failed ({resp.status_code}): {resp.text}[/red]")
+                except Exception as e:
+                    self.console.print(f"[red]Connection Error: {e}[/red]")
+            
+            retry = await self.session.prompt_async("Try again? (y/n): ")
+            if retry.lower() != 'y':
+                return False
+
     async def check_health(self) -> bool:
         try:
             resp = await self.client.get(f"{API_URL}{HEALTH_ENDPOINT}", timeout=2.0)
-            if resp.status_code == 200:
-                data = resp.json()
-                # Status check logic
-                return True
-            return False
+            return resp.status_code == 200
         except:
             return False
 
@@ -71,7 +120,12 @@ class ChatApp:
         
         # Info
         self.console.print(f"[dim]User ID: {self.user_id}[/dim]")
-        self.console.print(f"[dim]Gateway: {API_URL}[/dim]")
+        
+        if self.auth_token:
+            self.console.print("[bold green]Authenticated[/bold green]")
+        else:
+            self.console.print("[yellow]Guest Mode (Limited Access)[/yellow]")
+            
         self.console.print("[dim]Type [bold]/help[/bold] for commands. [bold]Alt+Enter[/bold] for new line.[/dim]\n")
 
     async def handle_command(self, text: str) -> bool:
@@ -84,13 +138,24 @@ class ChatApp:
             self.console.clear()
             self.print_welcome()
             return True
+        if cmd == "/login":
+            await self.login()
+            self.print_welcome()
+            return True
+        if cmd == "/logout":
+            if os.path.exists(TOKEN_FILE):
+                os.remove(TOKEN_FILE)
+            self.auth_token = None
+            self.console.print("[yellow]Logged out.[/yellow]")
+            return True
         if cmd == "/help":
             self.console.print(Panel(
                 """
                 [bold]Commands:[/bold]
+                /login        - Authenticate
+                /logout       - Clear session
                 /quit, /exit  - Exit application
                 /clear        - Clear screen
-                /save         - Save transcript (TODO)
                 
                 [bold]Shortcuts:[/bold]
                 Alt+Enter     - Multi-line input
@@ -114,23 +179,21 @@ class ChatApp:
             if not await self.check_health():
                 self.console.print(f"[bold red]❌ Could not connect to {API_URL}[/bold red]")
                 self.console.print("[yellow]Ensure 'docker compose up ai-analyst' is running.[/yellow]")
-                # We don't exit, just warn
         
+        # Auto-login check if no token
+        if not self.auth_token:
+            self.console.print("[dim]Tip: Type /login to access account data.[/dim]")
+
         self.console.print("[green]✓ Connected[/green]\n")
 
         while self.running:
             try:
                 # Prompt Input
-                # patch_stdout ensures prompt handling doesn't interfere with prints
                 with patch_stdout():
                     user_input = await self.session.prompt_async(
                         HTML("<b><cyan>You</cyan></b>: "),
-                        multiline=False # Allow simple enter for submission, M-Enter for newline is default in multiline=True but user prefers quick chat?
-                        # Actually Web interfaces use Shift+Enter for newline. 
-                        # prompt_toolkit multiline=True requires Alt+Enter to submit by default.
-                        # Let's stick to multiline=False (Enter submits) for chat feel.
-                        # If user wants multi-line, they can escape newline? or use editor.
-                        # actually, many CLI chat apps use single line default.
+                        multiline=False,
+                        is_password=False
                     )
 
                 if not user_input.strip():
@@ -144,6 +207,10 @@ class ChatApp:
                     "message": user_input,
                     "user_id": self.user_id
                 }
+                
+                headers = {}
+                if self.auth_token:
+                    headers["Authorization"] = f"Bearer {self.auth_token}"
 
                 self.console.print()
                 
@@ -158,13 +225,22 @@ class ChatApp:
                         response = await self.client.post(
                              f"{API_URL}{AGENT_ENDPOINT}", 
                              json=payload,
+                             headers=headers,
                              timeout=120.0
                         )
-                        response.raise_for_status()
-                        data = response.json()
                         
-                        response_content = data.get("response", "")
-                        thoughts_content = data.get("thoughts")
+                        if response.status_code == 401 or response.status_code == 403:
+                            error_msg = "[bold red]Authentication Failed (401). Please /login again.[/bold red]"
+                            # Invalidate token
+                            if os.path.exists(TOKEN_FILE):
+                                os.remove(TOKEN_FILE)
+                            self.auth_token = None
+                        else:
+                            response.raise_for_status()
+                            data = response.json()
+                            
+                            response_content = data.get("response", "")
+                            thoughts_content = data.get("thoughts")
                         
                     except httpx.HTTPStatusError as e:
                         error_msg = f"[bold red]API Error {e.response.status_code}[/bold red]: {e.response.text}"
@@ -177,8 +253,6 @@ class ChatApp:
 
                 # 1. Thought Process (Collapsible)
                 if thoughts_content:
-                    # Create a distinct panel for thoughts
-                    # We use a distinct style to separate "Thinking" from "Answer"
                     thought_panel = Panel(
                         Markdown(thoughts_content),
                         title=f"[bold blue]🧠 Reasoning ({elapsed:.1f}s)[/bold blue]",
@@ -193,7 +267,7 @@ class ChatApp:
                 if response_content:
                     self.console.print(Panel(
                         Markdown(response_content),
-                        title="[bold violet]AI Analyst[/bold violet]",
+                        title="[bold violet]MTF Olympus AI[/bold violet]",
                         border_style="violet",
                         expand=False
                     ))

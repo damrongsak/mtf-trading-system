@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
+from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
 from app.schemas.ai import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.schemas.response import APIResponse
@@ -134,7 +135,37 @@ async def get_daily_briefing(
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
-# --- AI Chat Integration ---
+class StrategyChatRequest(BaseModel):
+    message: str
+    user_id: str
+    strategy_id: Optional[str] = None
+    context_code: Optional[str] = None
+    image_b64: Optional[str] = None
+
+@router.post("/chat/sessions/message")
+async def chat_strategy(
+    request: StrategyChatRequest, 
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Direct chat with Strategy Advisor (Stateless wrapper for CLI/Quick Chat).
+    Proxies to AI Analyst service.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            # Forward to AI Analyst
+            response = await client.post(
+                f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message", 
+                json=request.model_dump(),
+                headers={"Authorization": authorization} if authorization else None,
+                timeout=60.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 from app.schemas.generated import (
     APIResponseChatSessionList, 

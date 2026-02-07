@@ -1,1 +1,3 @@
 docs/*.md
+.cli_token
+.cli_user_id

@@ -232,3 +232,23 @@ class GeminiClient:
              return response.text
         except Exception as e:
             return f"Error generating narrative: {str(e)}"
+
+    async def generate_research_report(self, query: str, context: str, model_id: str = None) -> str:
+        """
+        Generates a deep research report based on retrieved context.
+        """
+        from app.core.prompts import DEEP_RESEARCH_PROMPT_TEMPLATE
+        
+        try:
+            prompt = DEEP_RESEARCH_PROMPT_TEMPLATE.format(
+                query=query,
+                context=context
+            )
+            
+            response = await self.client.aio.models.generate_content(
+                model=model_id or self.model_id,
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            return f"Error generating research report: {str(e)}"
