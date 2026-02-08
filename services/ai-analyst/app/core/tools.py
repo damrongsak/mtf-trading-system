@@ -231,22 +231,29 @@ class MarketDataTool(BaseTool):
         headers = {"Authorization": f"Bearer {auth_token}"}
         
         async with aiohttp.ClientSession() as session:
-            # 1. Base SMC Analysis (Existing)
-            try:
-                # IMPORTANT: User specifies CTRADER as default
-                url_smc = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/signal/latest/{symbol}?timeframe={timeframe}"
-                async with session.get(url_smc, headers=headers, timeout=10.0) as resp:
-                     if resp.status == 200:
-                         data = (await resp.json()).get("data", {})
-                         report.append(f"**SMC Analysis**:")
-                         report.append(f"- Trend Bias: {data.get('direction')}")
-                         report.append(f"- Signal Reason: {data.get('reason')}")
-                         report.append(f"- Current Price: {data.get('entry_price')}")
-            except Exception as e:
-                report.append(f"SMC Analysis Failed: {e}")
+            # Create tasks for parallel execution
+            tasks = []
+            
+            # 1. Base SMC Analysis Task
+            async def get_smc():
+                try:
+                    url_smc = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/signal/latest/{symbol}?timeframe={timeframe}"
+                    async with session.get(url_smc, headers=headers, timeout=10.0) as resp:
+                         if resp.status == 200:
+                             data = (await resp.json()).get("data", {})
+                             return [
+                                 "**SMC Analysis**:",
+                                 f"- Trend Bias: {data.get('direction')}",
+                                 f"- Signal Reason: {data.get('reason')}",
+                                 f"- Current Price: {data.get('entry_price')}"
+                             ]
+                         return [f"SMC Analysis Failed ({resp.status})"]
+                except Exception as e:
+                    return [f"SMC Analysis Error: {e}"]
 
-            # 2. News (New)
-            if include_news:
+            # 2. News Task
+            async def get_news():
+                if not include_news: return []
                 try:
                     url_news = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/news/headlines"
                     params = {"symbol": symbol, "count": 10}
@@ -256,32 +263,43 @@ class MarketDataTool(BaseTool):
                     async with session.get(url_news, params=params, headers=headers, timeout=10.0) as resp:
                         if resp.status == 200:
                             news_data = (await resp.json()).get("data", [])
-                            report.append(f"**Latest News**:")
+                            res = ["**Latest News**:"]
                             if not news_data:
-                                report.append("(No specific news found for this period)")
-                            for n in news_data:
-                                report.append(f"- [{n.get('published_at')}] {n.get('title')} ({n.get('source')})")
+                                res.append("(No specific news found for this period)")
+                            else:
+                                for n in news_data:
+                                    res.append(f"- [{n.get('published_at')}] {n.get('title')} ({n.get('source')})")
+                            return res
+                        return [f"News Fetch Failed ({resp.status})"]
                 except Exception as e:
-                    report.append(f"News Fetch Failed: {e}")
+                    return [f"News Fetch Error: {e}"]
 
-            # 3. Candles (New)
-            if include_candles:
+            # 3. Candles Task
+            async def get_candles():
+                if not include_candles: return []
                 try:
                     url_candles = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/market/candles"
-                    # Defaulting to CTRADER as requested
                     params = {"symbol": symbol, "timeframe": timeframe, "count": 20, "data_source": "CTRADER"}
                     async with session.get(url_candles, params=params, headers=headers, timeout=10.0) as resp:
                         if resp.status == 200:
                             candles = (await resp.json()).get("data", [])
                             if candles:
-                                # Create compact DataFrame representation
                                 df = pd.DataFrame(candles)
-                                # Keep relevant columns
                                 df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
-                                report.append(f"**Recent Candles (Last 20)**:")
-                                report.append(df.to_markdown(index=False))
+                                return ["**Recent Candles (Last 20)**:", df.to_markdown(index=False)]
+                            return ["(No candle data found)"]
+                        return [f"Candle Fetch Failed ({resp.status})"]
                 except Exception as e:
-                    report.append(f"Candle Fetch Failed: {e}")
+                    return [f"Candle Fetch Error: {e}"]
+
+            # Run all tasks in parallel
+            import asyncio
+            results = await asyncio.gather(get_smc(), get_news(), get_candles())
+            
+            # Combine reports
+            for res_list in results:
+                if res_list:
+                    report.extend(res_list)
 
         return "\n\n".join(report)
 

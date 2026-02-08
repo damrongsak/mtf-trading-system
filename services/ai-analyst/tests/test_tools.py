@@ -20,7 +20,7 @@ async def test_market_context_tool_success(mock_aiohttp_session):
     mock_resp.status = 200
     mock_resp.json.return_value = {
         "data": [
-            {"time": "2024-01-01", "close": 2000.0}
+            {"timestamp": "2024-01-01T00:00:00Z", "close": 2000.0}
         ]
     }
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
@@ -81,16 +81,25 @@ async def test_strategy_backtest_tool_failure(mock_aiohttp_session):
 
 @pytest.mark.asyncio
 async def test_economic_calendar_tool():
-    # This tool currently uses mock data, so we test the logic directly
     tool = GetEconomicCalendarTool()
     
-    # Test USD (should find mock events)
-    result_usd = await tool._arun("USD")
-    assert "HIGH IMPACT Economic Events for USD" in result_usd
-    
-    # Test XYZ (should find nothing)
-    result_xyz = await tool._arun("XYZ")
-    assert "No high-impact economic events found for XYZ" in result_xyz
+    with patch("httpx.AsyncClient.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [
+            {"datetime": "2024-01-01T10:00:00Z", "country": "USD", "impact": "High", "title": "NFP", "forecast": "200k", "previous": "210k"}
+        ]
+        mock_get.return_value = mock_resp
+        
+        # Test USD
+        result_usd = await tool._arun("USD")
+        assert "USD: NFP" in result_usd
+        assert "High" in result_usd
+        
+        # Test XYZ (empty response)
+        mock_resp.json.return_value = []
+        result_xyz = await tool._arun("XYZ")
+        assert "No economic events found" in result_xyz
 
 from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool

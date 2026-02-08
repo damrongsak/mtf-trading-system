@@ -127,8 +127,6 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
             return
 
         for source in active_sources:
-            logger.info(f"Processing Source: {source.name} ({source.provider})")
-            
             # Instantiate Client based on Provider
             client = None
             if source.provider == "OANDA":
@@ -186,149 +184,97 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                     await client.disconnect()
                 continue
                 
-            # 3. Process Symbols
-            for ms in source_symbols:
-                symbol_name = ms.symbol
-                
-                for tf in timeframes:
-                    logger.info(f"Processing {symbol_name} {tf} (ID: {ms.id}) via {source.provider}...")
-                    
-                    if from_date and to_date:
-                        # BACKFILL LOGIC (Simplified for generic, but OANDA has specific loop)
-                        # We need to adapt the fetching logic per provider or unify it.
-                        pass # Keeping the OANDA loop implies we need specific handling.
-                        
-                        # Existing OANDA logic was robust. Let's wrap it in provider check.
-                        if source.provider == "OANDA":
-                             await process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
-                        elif source.provider == "CTRADER":
-                             # Implement cTrader backfill if needed
-                             pass
-                             
-                    else:
-                        # REAL-TIME CATCHUP
+            # 3. Parallel Processing of Symbols & Timeframes
+            semaphore = asyncio.Semaphore(10) # Limit concurrent tasks
+            
+            async def process_ms_tf(ms, tf):
+                async with semaphore:
+                    # Create a local session for this task to avoid sharing DB session across tasks
+                    task_db = SessionLocal()
+                    try:
+                        symbol_name = ms.symbol
                         batch_data = []
                         
-                        if source.provider == "OANDA":
-                            candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=100)
-                            if candles:
-                                for c in candles:
-                                    # Oanda Adapter returns dicts
-                                    timestamp = pd.to_datetime(c['time']).to_pydatetime()
-                                    batch_data.append({
-                                        "market_symbol_id": ms.id,
-                                        "symbol": symbol_name,
-                                        "timeframe": tf,
-                                        "timestamp": timestamp,
-                                        "open": float(c['mid']['o']),
-                                        "high": float(c['mid']['h']),
-                                        "low": float(c['mid']['l']),
-                                        "close": float(c['mid']['c']),
-                                        "volume": int(c['volume']),
-                                        "is_complete": c['complete']
-                                    })
+                        if from_date and to_date:
+                            # BACKFILL LOGIC
+                            if source.provider == "OANDA":
+                                 await process_oanda_backfill(client, ms, tf, from_date, to_date, task_db, logger)
+                            elif source.provider == "CTRADER":
+                                 pass # Implement if needed
+                        else:
+                            # REAL-TIME CATCHUP
+                            if source.provider == "OANDA":
+                                candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=100)
+                                if candles:
+                                    for c in candles:
+                                        timestamp = pd.to_datetime(c['time']).to_pydatetime()
+                                        batch_data.append({
+                                            "market_symbol_id": ms.id,
+                                            "symbol": symbol_name,
+                                            "timeframe": tf,
+                                            "timestamp": timestamp,
+                                            "open": float(c['mid']['o']),
+                                            "high": float(c['mid']['h']),
+                                            "low": float(c['mid']['l']),
+                                            "close": float(c['mid']['c']),
+                                            "volume": int(c['volume']),
+                                            "is_complete": c['complete']
+                                        })
 
-                        elif source.provider == "CTRADER":
-                            # Map Timeframe to cTrader Period Enum
-                            # M1=1, M2=2, M3=3, M4=4, M5=5, M10=6, M15=7, M30=8, H1=9, H4=10, D1=11, W1=12, MN1=13
-                            # Our TFs: M1, M5, M15, H1, H4, D1, W1, MN1
-                            tf_map = {
-                                "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, "D1": 11, "W1": 12, "MN1": 13
-                            }
-                            
-                            ct_period = tf_map.get(tf)
-                            if not ct_period:
-                                logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
-                                continue
+                            elif source.provider == "CTRADER":
+                                # Map Timeframe to cTrader Period Enum
+                                # Supports both full (D1, W1, MN1) and short (D, W, M) formats
+                                tf_map = {
+                                    "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
+                                    "D1": 11, "D": 11, "W1": 12, "W": 12, "MN1": 13, "M": 13
+                                }
+                                ct_period = tf_map.get(tf)
+                                if not ct_period: 
+                                    logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
+                                    return
                                 
-                            # Symbol ID from details
-                            symbol_id = ms.details.get('symbolId')
-                            if not symbol_id and 'raw' in ms.details:
-                                symbol_id = ms.details['raw'].get('symbolId')
+                                symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+                                if not symbol_id: return
                                 
-                            if not symbol_id:
-                                logger.warning(f"Missing symbolId in details for {symbol_name}. Run sync_ctrader_symbols.")
-                                continue
-                            
-                            # Calculate Timestamps (Required by API)
-                            import time
-                            
-                            # TF to Minutes for Duration Calc
-                            minutes_map = {
-                                "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D1": 1440, "W1": 10080, "MN1": 43200
-                            }
-                            tf_mins = minutes_map.get(tf, 1) # Default 1 min if unknown
-                            
-                            count_limit = 100
-                            # Buffer: Requested Count * Mins * 60s * 1000ms
-                            duration_ms = count_limit * tf_mins * 60 * 1000
-                            
-                            to_ts = int(time.time() * 1000)
-                            from_ts = to_ts - duration_ms
-                            
-                            # Fetch last 100 candles
-                            try:
+                                import time
+                                minutes_map = {
+                                    "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, 
+                                    "D1": 1440, "D": 1440, "W1": 10080, "W": 10080, "MN1": 43200, "M": 43200
+                                }
+                                tf_mins = minutes_map.get(tf, 1)
+                                count_limit = 100
+                                duration_ms = count_limit * tf_mins * 60 * 1000
+                                to_ts = int(time.time() * 1000)
+                                from_ts = to_ts - duration_ms
+                                
                                 trendbars = await client.get_trendbars(
                                     account_id=int(source.config_json.get("account_id")),
                                     symbol_id=symbol_id,
                                     period=ct_period,
-                                    count=count_limit, # Limit result count
+                                    count=count_limit,
                                     from_timestamp=from_ts,
                                     to_timestamp=to_ts
                                 )
-                                
                                 for bar in trendbars:
-                                    # timestamp in minutes? No, documentation says Milliseconds usually?
-                                    # ProtoOAGetTrendbarsRes says 'timestamp' in response is usually start time.
-                                    # Let's assume standard cTrader timestamp (epoch ms? or minutes?). 
-                                    # Usually Open API uses Unix Msg. Note says "delta".
-                                    # Wait, `deltaHigh`, `deltaOpen` are deltas. 
-                                    # Low is absolute? No. 
-                                    # Check Proto definition or standard adapter usage.
-                                    # Actually `AsyncCTraderClient` returns `res.trendbar` list.
-                                    # Each bar has `volume`, `deltaHigh`, `deltaOpen`, `deltaClose`, `low` (absolute? or base?)
-                                    # Usually `low` is the base value (int64) and others are deltas (uint64/int64).
-                                    # And price = value / 100000.0
-                                    
-                                    # Handling Delta decoding (accumulated? or per bar?)
-                                    # In getting trendbars, the values are RELATIVE to `low` of that bar?
-                                    # Or is it Delta from PREVIOUS bar?
-                                    # Open API 2.0:
-                                    # Low is absolute (int64).
-                                    # DeltaOpen, DeltaHigh, DeltaClose are relative to Low.
-                                    # All prices / 100000.
-                                    
                                     low = bar.low
-                                    open_p = low + bar.deltaOpen
-                                    high = low + bar.deltaHigh
-                                    close_p = low + bar.deltaClose
-                                    
-                                    # UTC Timestamp? `bar.utcTimestampInMinutes`?
-                                    # Check Proto definition. The field is often `utcTimestampInMinutes` for trendbars.
-                                    ts = datetime.utcfromtimestamp(bar.utcTimestampInMinutes * 60)
-                                    
                                     batch_data.append({
                                         "market_symbol_id": ms.id,
                                         "symbol": symbol_name,
                                         "timeframe": tf,
-                                        "timestamp": ts,
-                                        "open": open_p / 100000.0,
-                                        "high": high / 100000.0,
+                                        "timestamp": datetime.utcfromtimestamp(bar.utcTimestampInMinutes * 60),
+                                        "open": (low + bar.deltaOpen) / 100000.0,
+                                        "high": (low + bar.deltaHigh) / 100000.0,
                                         "low": low / 100000.0,
-                                        "close": close_p / 100000.0,
+                                        "close": (low + bar.deltaClose) / 100000.0,
                                         "volume": bar.volume,
                                         "is_complete": True 
                                     })
-                            except Exception as e:
-                                logger.error(f"cTrader fetch failed for {symbol_name} {tf}: {e}")
-                                continue
 
                         # Save and Publish
                         if batch_data:
-                            candle_repo = CandleRepository(db)
+                            candle_repo = CandleRepository(task_db)
                             await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
-                            logger.info(f"Saved {len(batch_data)} candles for {symbol_name} {tf}")
-
+                            # ... publish to stream ...
                             for c_data in batch_data:
                                 if c_data['is_complete']:
                                     event_payload = c_data.copy()
@@ -345,10 +291,20 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                         "c_volume": event_payload['volume'],
                                         "data": json.dumps(event_payload, default=str)
                                     }
-                                    try:
-                                        await publisher.xadd("market.data.stream", stream_payload)
-                                    except Exception as e:
-                                        logger.error(f"Pub failed: {e}")
+                                    await publisher.xadd("market.data.stream", stream_payload)
+                    except Exception as ex:
+                        logger.error(f"Failed to process {ms.symbol} {tf}: {ex}")
+                    finally:
+                        task_db.close()
+
+            # Create task list
+            ingest_tasks = []
+            for ms in source_symbols:
+                for tf in timeframes:
+                    ingest_tasks.append(process_ms_tf(ms, tf))
+            
+            if ingest_tasks:
+                await asyncio.gather(*ingest_tasks)
 
             # Cleanup Client
             if source.provider == "CTRADER" and client:
@@ -361,6 +317,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         if 'publisher' in locals():
             await publisher.close()
         db.close()
+
 async def run_calendar_sync_job():
     """Scheduled job to sync economic calendar to DB and cache."""
     logger.info("Starting scheduled Calendar Sync job...")
@@ -389,11 +346,20 @@ async def run_news_sync_job():
         symbols = db.query(MarketSymbol).filter(MarketSymbol.is_active == True).all()
         symbol_names = list(set([s.symbol for s in symbols]))
         
-        total_new = 0
-        for symbol in symbol_names:
-            # NewsAPI rate limiting is handled internally in fetch_headlines via Redis
-            new_count = await news_service.sync_news_to_db(db, symbol)
-            total_new += new_count
+        # Parallel news sync
+        semaphore = asyncio.Semaphore(5)
+        async def sync_symbol_news(symbol):
+            async with semaphore:
+                # Create a local session for each task
+                task_db = SessionLocal()
+                try:
+                    return await news_service.sync_news_to_db(task_db, symbol)
+                finally:
+                    task_db.close()
+
+        tasks = [sync_symbol_news(s) for s in symbol_names]
+        results = await asyncio.gather(*tasks)
+        total_new = sum(results)
             
         logger.info(f"News sync job completed. Total new articles: {total_new}")
     except Exception as e:

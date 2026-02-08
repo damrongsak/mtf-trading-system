@@ -14,13 +14,21 @@ class SentimentService:
         )
         self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
         self.cache_ttl = 3600 # 1 hour
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def get_session(self) -> aiohttp.ClientSession:
+        """Lazy initialization of persistent aiohttp session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self):
+        """Close the persistent session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
 
     async def get_sentiment(self, symbol: str = "XAU/USD") -> dict:
-        """
-        Fetches news and calculates sentiment score for the given symbol.
-        Uses Redis caching (TTL 1h).
-        Returns: { "score": float, "reason": str }
-        """
+        # ... (rest of the method remains same, but uses self.get_session())
         if not settings.GOOGLE_API_KEY:
             return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
 
@@ -63,10 +71,10 @@ class SentimentService:
         }
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload) as resp:
-                     if resp.status not in [200, 201]:
-                         print(f"Failed to save sentiment to DB: {resp.status}")
+            session = await self.get_session()
+            async with session.post(url, json=payload) as resp:
+                 if resp.status not in [200, 201]:
+                     print(f"Failed to save sentiment to DB: {resp.status}")
         except Exception as e:
             print(f"Error saving sentiment to DB: {e}")
 
@@ -77,19 +85,19 @@ class SentimentService:
         url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines"
         params = {"symbol": symbol}
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url, params=params) as resp:
-                    if resp.status == 200:
-                        headlines = await resp.json()
-                        # Headlines are list of dicts: {title, source, url, publishedAt}
-                        return [f"- {h['title']} ({h['source']})" for h in headlines]
-                    else:
-                        print(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
-                        return []
-            except Exception as e:
-                print(f"Failed to fetch news from pipeline: {e}")
-                return []
+        try:
+            session = await self.get_session()
+            async with session.get(url, params=params) as resp:
+                if resp.status == 200:
+                    headlines = await resp.json()
+                    # Headlines are list of dicts: {title, source, url, publishedAt}
+                    return [f"- {h['title']} ({h['source']})" for h in headlines]
+                else:
+                    print(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
+                    return []
+        except Exception as e:
+            print(f"Failed to fetch news from pipeline: {e}")
+            return []
 
     async def _analyze_headlines(self, symbol: str, headlines: list[str]) -> dict:
         headlines_text = "\n".join(headlines)

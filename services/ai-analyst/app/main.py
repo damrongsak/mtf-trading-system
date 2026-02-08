@@ -135,6 +135,9 @@ async def lifespan(app: FastAPI):
     yield
     
     logger.info("🛑 Service Shutting Down...")
+    if services.get("sentiment"):
+        await services["sentiment"].close()
+        logger.info("✅ Sentiment Service Cleanup Complete")
 
 app = FastAPI(title="AI Analyst Service", lifespan=lifespan)
 
