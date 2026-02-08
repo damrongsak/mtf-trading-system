@@ -361,3 +361,42 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         if 'publisher' in locals():
             await publisher.close()
         db.close()
+async def run_calendar_sync_job():
+    """Scheduled job to sync economic calendar to DB and cache."""
+    logger.info("Starting scheduled Calendar Sync job...")
+    from app.services.calendar_service import calendar_service
+    db = SessionLocal()
+    try:
+        # 1. Sync to DB
+        new_events = await calendar_service.sync_calendar_to_db(db)
+        # 2. Update Redis Cache
+        await calendar_service.fetch_and_cache_events()
+        logger.info(f"Calendar sync job completed. New events: {new_events}")
+    except Exception as e:
+        logger.error(f"Calendar sync job failed: {e}")
+    finally:
+        db.close()
+
+async def run_news_sync_job():
+    """Scheduled job to sync news for active symbols to DB."""
+    logger.info("Starting scheduled News Sync job...")
+    from app.services.news_service import NewsApiService
+    from app.models.market import MarketSymbol
+    news_service = NewsApiService()
+    db = SessionLocal()
+    try:
+        # Get active symbols (e.g., XAU/USD, EUR/USD)
+        symbols = db.query(MarketSymbol).filter(MarketSymbol.is_active == True).all()
+        symbol_names = list(set([s.symbol for s in symbols]))
+        
+        total_new = 0
+        for symbol in symbol_names:
+            # NewsAPI rate limiting is handled internally in fetch_headlines via Redis
+            new_count = await news_service.sync_news_to_db(db, symbol)
+            total_new += new_count
+            
+        logger.info(f"News sync job completed. Total new articles: {total_new}")
+    except Exception as e:
+        logger.error(f"News sync job failed: {e}")
+    finally:
+        db.close()

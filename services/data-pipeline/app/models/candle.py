@@ -23,6 +23,8 @@ class Candle(Base):
                       comment="Timeframe identifier (15m, 1h, 4h, D)")
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
                       comment="Candle open timestamp (UTC)")
+    symbol = Column(String(20), nullable=False, index=True,
+                   comment="Redundant symbol name for faster filtering")
 
     # OHLCV Data
     open = Column(Numeric(18, 8), nullable=False,

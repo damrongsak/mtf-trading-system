@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.scheduler.jobs import run_ingestion_job
+from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job
 from app.logging_config import setup_logging
 import logging
 
@@ -22,6 +22,13 @@ async def start_scheduler():
     logger.info(f"Database Pool Size: {engine.pool.size()}")
     # Schedule ingestion every 5 minutes (Optimized for RAM/CPU)
     scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job', misfire_grace_time=60)
+    
+    # Schedule Economic Calendar every 1 hour
+    scheduler.add_job(run_calendar_sync_job, 'interval', hours=1, id='calendar_sync_job', misfire_grace_time=300)
+    
+    # Schedule News Sync every 1 hour
+    scheduler.add_job(run_news_sync_job, 'interval', hours=1, id='news_sync_job', misfire_grace_time=300)
+    
     scheduler.start()
     
     # Start Stream Manager

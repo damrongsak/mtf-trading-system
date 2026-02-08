@@ -14,26 +14,10 @@ logging.basicConfig(
 logger = logging.getLogger("stream_runner")
 
 from app.streaming.manager import stream_manager
-from app.services.calendar_service import calendar_service
-
-async def run_calendar_scraper():
-    """Runs calendar scraper every 4 hours"""
-    while True:
-        try:
-            logger.info("Running scheduled Calendar Update...")
-            await calendar_service.fetch_and_cache_events()
-        except Exception as e:
-            logger.error(f"Calendar scheduler failed: {e}")
-        
-        # Sleep for 4 hours
-        await asyncio.sleep(4 * 3600)
-
 async def main():
     logger.info("Initializing Stream Manager...")
     try:
-        # Start Calendar Scraper in background
-        asyncio.create_task(run_calendar_scraper())
-
+        # Note: Calendar and News jobs are now handled by the main scheduler in app/main.py
         await stream_manager.start()
         
         # Keep process alive

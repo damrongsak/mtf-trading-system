@@ -29,4 +29,4 @@ ENTRYPOINT []
 
 COPY . .
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-exclude", ".venv", "--reload-exclude", ".git", "--reload-exclude", "__pycache__"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-exclude", ".venv", "--reload-exclude", ".git", "--reload-exclude", "__pycache__"]

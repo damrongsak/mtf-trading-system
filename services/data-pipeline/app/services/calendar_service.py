@@ -46,6 +46,67 @@ class CalendarService(BaseService):
             # though usually the service persists.
             # In a long running app, we might keep connections open.
 
+    async def sync_calendar_to_db(self, db) -> int:
+        """Fetches and stores unique events in the database."""
+        try:
+            logger.info(f"Syncing economic calendar from {self.url}...")
+            session = await self.get_session()
+            
+            async with session.get(self.url) as resp:
+                if resp.status != 200:
+                    logger.error(f"Failed to fetch calendar: {resp.status}")
+                    return 0
+                
+                data = await resp.json()
+                
+            from app.models.economic_event import EconomicEvent
+            import hashlib
+            
+            new_count = 0
+            for item in data:
+                # Deduplication hash: date-country-title
+                raw_id = f"{item.get('date')}-{item.get('country')}-{item.get('title')}"
+                ext_id = hashlib.md5(raw_id.encode()).hexdigest()
+                
+                exists = db.query(EconomicEvent).filter(EconomicEvent.external_id == ext_id).first()
+                if exists:
+                    # Update actual value if it changed
+                    if item.get('actual') != exists.actual:
+                        exists.actual = item.get('actual')
+                        db.add(exists)
+                    continue
+                    
+                dt_str = item.get('date')
+                try:
+                    dt = datetime.fromisoformat(dt_str)
+                except Exception:
+                    continue
+
+                event = EconomicEvent(
+                    external_id=ext_id,
+                    title=item.get('title'),
+                    country=item.get('country'),
+                    currency=item.get('country'),
+                    impact=item.get('impact'),
+                    datetime=dt,
+                    actual=item.get('actual', ''),
+                    forecast=item.get('forecast', ''),
+                    previous=item.get('previous', '')
+                )
+                db.add(event)
+                new_count += 1
+                
+            if new_count > 0 or db.deleted or db.dirty:
+                db.commit()
+                logger.info(f"Successfully synced {new_count} new economic events to database.")
+            
+            return new_count
+                
+        except Exception as e:
+            logger.error(f"Error in sync_calendar_to_db: {e}")
+            db.rollback()
+            return 0
+
     async def get_cached_events(self) -> Optional[List[Dict]]:
         """Retrieve events from cache."""
         return await self._cache_get(self.redis_key)

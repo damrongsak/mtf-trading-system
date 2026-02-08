@@ -103,6 +103,52 @@ class NewsApiService(BaseService):
             else:
                 return [self._create_sys_msg(f"Error: {resp.status}", "NewsAPI")]
 
+    async def sync_news_to_db(self, db: DBSession, symbol: str) -> int:
+        """Fetch headlines and sync new ones to the database."""
+        headlines = await self.fetch_headlines(symbol)
+        if not headlines or (len(headlines) == 1 and headlines[0].get("source") == "System"):
+            return 0
+
+        from app.models.news import NewsArticle
+        import hashlib
+        
+        new_count = 0
+        for item in headlines:
+            url = item.get("url")
+            if not url:
+                continue
+                
+            # Deduplication hash: URL
+            ext_id = hashlib.md5(url.encode()).hexdigest()
+            
+            exists = db.query(NewsArticle).filter(NewsArticle.external_id == ext_id).first()
+            if exists:
+                continue
+                
+            pub_at_str = item.get("publishedAt")
+            try:
+                # Handle ISO format from NewsAPI
+                pub_at = datetime.fromisoformat(pub_at_str.replace('Z', '+00:00'))
+            except Exception:
+                pub_at = datetime.utcnow()
+
+            article = NewsArticle(
+                external_id=ext_id,
+                title=item.get("title"),
+                source=item.get("source"),
+                url=url,
+                published_at=pub_at,
+                symbol=symbol
+            )
+            db.add(article)
+            new_count += 1
+            
+        if new_count > 0:
+            db.commit()
+            logger.info(f"Successfully synced {new_count} new news articles for {symbol} to database.")
+            
+        return new_count
+
     def _create_sys_msg(self, title: str, source: str = "System") -> Dict[str, str]:
         return {
             "title": title,
