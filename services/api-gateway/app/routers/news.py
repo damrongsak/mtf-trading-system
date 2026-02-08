@@ -20,16 +20,23 @@ AI_ANALYST_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 
 @router.get("/headlines")
 async def get_headlines(
-    symbol: str = Query(..., description="Symbol to fetch news for (e.g., XAU/USD)")
+    symbol: str = Query(..., description="Symbol to fetch news for (e.g., XAU/USD)"),
+    count: int = Query(10, description="Number of headlines"),
+    from_date: Optional[str] = Query(None, description="Start date (ISO)"),
+    to_date: Optional[str] = Query(None, description="End date (ISO)")
 ):
     """
     Proxy to Data Pipeline: Get News Headlines
     """
     async with httpx.AsyncClient() as client:
         try:
+            params = {"symbol": symbol, "count": count}
+            if from_date: params["from_date"] = from_date
+            if to_date: params["to_date"] = to_date
+
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/news/headlines",
-                params={"symbol": symbol},
+                params=params,
                 timeout=10.0
             )
             if response.status_code != 200:
@@ -86,3 +93,49 @@ async def trigger_analysis(
             return response.json()
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@router.get("/calendar")
+async def get_calendar(
+    country: Optional[str] = Query(None),
+    impact: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None)
+):
+    """
+    Proxy to Data Pipeline: Get Economic Calendar
+    """
+    params = {}
+    if country: params["country"] = country
+    if impact: params["impact"] = impact
+    if date_from: params["date_from"] = date_from
+    if date_to: params["date_to"] = date_to
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/news/calendar",
+                params=params,
+                timeout=10.0
+            )
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.post("/calendar/sync")
+async def sync_calendar():
+    """
+    Proxy to Data Pipeline: Sync Calendar
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/news/calendar/sync",
+                timeout=30.0
+            )
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")

@@ -142,3 +142,23 @@ class SentimentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+# -------------------------------------------------------------------------
+# Economic Calendar Schemas
+# -------------------------------------------------------------------------
+
+class EconomicEventResponse(BaseModel):
+    id: int
+    external_id: Optional[str]
+    title: str
+    country: str
+    currency: str
+    impact: str
+    datetime: datetime
+    actual: Optional[str]
+    forecast: Optional[str]
+    previous: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    model_config = ConfigDict(from_attributes=True)

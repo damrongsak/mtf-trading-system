@@ -119,7 +119,7 @@ class StrategyAdvisorAgent:
         workflow.add_edge("tool_selection", "execute_tools")
         workflow.add_edge("execute_tools", "generate") # Tools feed into generation
         
-        workflow.add_edge("reasoning", "generate")
+        workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
         workflow.add_edge("synthesize", "memory_write") # Research ends here usually
         workflow.add_edge("generate", "memory_write")
         workflow.add_edge("memory_write", END)
@@ -263,10 +263,13 @@ class StrategyAdvisorAgent:
         
         trace = []
         # We simulate a "Thinking" process by prompting the model to reason about the data
+        from datetime import datetime
+        current_date = datetime.utcnow().strftime("%Y-%m-%d")
+        
         prompt = REASONING_PROMPT_TEMPLATE.format(
             context=context,
             user_facts=user_facts,
-            query=state['optimized_query']
+            query=f"{state['optimized_query']}\n(Current Date: {current_date})"
         )
         
         try:
@@ -302,9 +305,18 @@ class StrategyAdvisorAgent:
         query = state["optimized_query"]
         tool_descriptions = self.tool_registry.get_tool_descriptions()
         
+        # Inject Current Date for relative time reasoning
+        from datetime import datetime
+        current_date = datetime.utcnow().strftime("%Y-%m-%d")
+        
+        # Include Reasoning Trace if available (The Plan)
+        reasoning_context = ""
+        if state.get("reasoning_trace"):
+             reasoning_context = f"\n\n**Agent Plan (Reasoning Trace):**\n{state['reasoning_trace'][0]}"
+        
         prompt = TOOL_ROUTER_SYSTEM_PROMPT.format(
             tool_descriptions=tool_descriptions,
-            query=query
+            query=f"{query}\n(Current Date: {current_date}){reasoning_context}"
         )
         
         try:
@@ -315,6 +327,15 @@ class StrategyAdvisorAgent:
             text = response.text.replace("```json", "").replace("```", "")
             decision = json.loads(text)
             
+            # Robust Input Extraction
+            # Models sometimes use 'tool_parameters', 'parameters', or 'arguments' despite instructions
+            start_input = decision.get("tool_input")
+            if not start_input:
+                start_input = decision.get("tool_parameters") or decision.get("parameters") or decision.get("arguments")
+            
+            # Update decision object for downstream use
+            decision["tool_input"] = start_input
+
             tool_name = decision.get("tool_name")
             if tool_name == "direct_answer" or not tool_name:
                 return {} 
@@ -433,7 +454,9 @@ class StrategyAdvisorAgent:
         context_docs = "\n\n".join(state.get("retrieved_docs", []))
         
         # Build System Context
-        system_ctx = f"{SYSTEM_PERSONA}\n\nUser Facts:\n{user_facts}"
+        from datetime import datetime
+        current_date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        system_ctx = f"{SYSTEM_PERSONA}\n\nCurrent Date: {current_date_str}\n\nUser Facts:\n{user_facts}"
         
         if state.get("reasoning_trace"):
             final = state["reasoning_trace"][0]

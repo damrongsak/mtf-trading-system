@@ -96,7 +96,7 @@ async def run_market_observer(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
                 json=req.model_dump(),
                 headers={"Authorization": f"Bearer {token}"},
-                timeout=60.0 # Agents can be slow
+                timeout=120.0 # Agents can be slow
             )
             response.raise_for_status()
             return success_response(data=response.json())
@@ -119,7 +119,7 @@ async def get_daily_briefing(
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/briefing",
                 headers={"Authorization": f"Bearer {token}"},
-                timeout=60.0 
+                timeout=120.0 
             )
             response.raise_for_status()
             data = response.json()
@@ -158,12 +158,14 @@ async def chat_strategy(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message", 
                 json=request.model_dump(),
                 headers={"Authorization": authorization} if authorization else None,
-                timeout=60.0
+                timeout=180.0 # Very Long timeout for CoT
             )
             response.raise_for_status()
             return response.json()
         except httpx.RequestError as exc:
-            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+            import logging
+            logging.error(f"AI Service Connection Failed: {exc} | URL: {AI_SERVICE_URL}")
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {type(exc).__name__} - {exc}")
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
@@ -297,7 +299,7 @@ async def send_chat_message(
             resp = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message",
                 json=payload,
-                timeout=60.0 # Long timeout for CoT
+                timeout=180.0 # Very Long timeout for CoT and Multi-Step Reasoning
             )
             
             if resp.status_code == 200:

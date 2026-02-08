@@ -147,3 +147,68 @@ class NewsService:
             query = query.filter(SentimentScore.created_at <= end_date)
             
         return query.order_by(SentimentScore.created_at.desc()).limit(1000).all()
+
+    @staticmethod
+    async def fetch_and_store_calendar(db) -> List[Dict]:
+        """
+        Fetches economic calendar from ForexFactory (nfs) and stores unique events.
+        """
+        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return []
+                    data = await resp.json()
+            except Exception as e:
+                print(f"Error fetching calendar: {e}")
+                return []
+
+        from app.models.economic_event import EconomicEvent
+        import hashlib
+        
+        new_count = 0
+        stored_events = []
+        
+        for item in data:
+            # Generate deterministic ID
+            # Use date (time), country, and title to uniquely identify
+            raw_id = f"{item.get('date')}-{item.get('country')}-{item.get('title')}"
+            ext_id = hashlib.md5(raw_id.encode()).hexdigest()
+            
+            # Check if exists
+            exists = db.query(EconomicEvent).filter(EconomicEvent.external_id == ext_id).first()
+            if exists:
+                # Update actual values if released
+                if item.get('actual') != exists.actual:
+                     exists.actual = item.get('actual')
+                     db.add(exists)
+                continue
+                
+            # Parse datetime
+            dt_str = item.get('date')
+            try:
+                dt = datetime.fromisoformat(dt_str)
+            except Exception:
+                continue
+
+            event = EconomicEvent(
+                external_id=ext_id,
+                title=item.get('title'),
+                country=item.get('country'),
+                currency=item.get('country'), # FF often uses 'USD' as country for currency
+                impact=item.get('impact'),
+                datetime=dt,
+                actual=item.get('actual', ''),
+                forecast=item.get('forecast', ''),
+                previous=item.get('previous', '')
+            )
+            db.add(event)
+            stored_events.append(event)
+            new_count += 1
+            
+        if new_count > 0:
+            db.commit()
+            
+        return stored_events

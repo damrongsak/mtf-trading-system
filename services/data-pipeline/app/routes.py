@@ -28,7 +28,8 @@ from app.schemas import (
     OpenInterestAnalysisResponse,
     SymbolDiscoveryRequest,
     SentimentCreate,
-    SentimentResponse
+    SentimentResponse,
+    EconomicEventResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -394,3 +395,37 @@ def get_sentiment_history(
     Get historical sentiment scores for trend analysis.
     """
     return NewsService.get_sentiment_history(db, symbol, start_date, end_date)
+
+@router.get("/news/calendar", response_model=List[EconomicEventResponse])
+async def get_economic_calendar(
+    country: Optional[str] = Query(None, description="Filter by country (e.g. USD, EUR)"),
+    impact: Optional[str] = Query(None, description="Filter by impact (High, Medium, Low)"),
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get economic calendar events. 
+    """
+    from app.models.economic_event import EconomicEvent
+    query = db.query(EconomicEvent)
+    
+    if country:
+        query = query.filter(EconomicEvent.country == country)
+    if impact:
+        query = query.filter(EconomicEvent.impact == impact)
+    if date_from:
+        query = query.filter(EconomicEvent.datetime >= date_from)
+    if date_to:
+        query = query.filter(EconomicEvent.datetime <= date_to)
+        
+    return query.order_by(EconomicEvent.datetime.asc()).all()
+
+@router.post("/news/calendar/sync", response_model=List[EconomicEventResponse])
+async def sync_economic_calendar(
+    db: Session = Depends(get_db)
+):
+    """
+    Force sync of economic calendar from external source.
+    """
+    return await NewsService.fetch_and_store_calendar(db)

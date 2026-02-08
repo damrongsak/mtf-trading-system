@@ -193,7 +193,7 @@ class SmartOrderTool(BaseTool):
 
 class MarketDataTool(BaseTool):
     name: str = "market_data"
-    description: str = "Get market analysis, price context, and news. Input JSON: {symbol: str, timeframe: str='H1', include_candles: bool=False, include_news: bool=False}"
+    description: str = "Get market analysis, price context, and news. Input JSON: {symbol: str, timeframe: str='H1', include_candles: bool=True, include_news: bool=True, from_date: str (ISO), to_date: str (ISO)}"
 
     async def run(self, input_data: Any, auth_token: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
@@ -203,6 +203,8 @@ class MarketDataTool(BaseTool):
         timeframe = "H1"
         include_candles = False
         include_news = False
+        from_date = None
+        to_date = None
         
         if isinstance(input_data, str):
             try:
@@ -211,6 +213,8 @@ class MarketDataTool(BaseTool):
                 timeframe = data.get("timeframe", timeframe)
                 include_candles = data.get("include_candles", True) # Default True
                 include_news = data.get("include_news", True)       # Default True
+                from_date = data.get("from_date")
+                to_date = data.get("to_date")
             except:
                 symbol = input_data.strip().upper()
                 include_candles = True # Default True
@@ -220,6 +224,12 @@ class MarketDataTool(BaseTool):
             timeframe = input_data.get("timeframe", timeframe)
             include_candles = input_data.get("include_candles", True) # Default True
             include_news = input_data.get("include_news", True)       # Default True
+            from_date = input_data.get("from_date")
+            to_date = input_data.get("to_date")
+
+        # Auto-Normalization for cTrader (e.g., XAU/USD -> XAUUSD)
+        if symbol and "CTRADER" in "CTRADER": # Explicit intent
+             symbol = symbol.replace("/", "").replace("_", "").replace("-", "")
 
         report = [f"### Market Data for {symbol} ({timeframe})"]
         headers = {"Authorization": f"Bearer {auth_token}"}
@@ -227,6 +237,7 @@ class MarketDataTool(BaseTool):
         async with aiohttp.ClientSession() as session:
             # 1. Base SMC Analysis (Existing)
             try:
+                # IMPORTANT: User specifies CTRADER as default
                 url_smc = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/signal/latest/{symbol}?timeframe={timeframe}"
                 async with session.get(url_smc, headers=headers, timeout=10.0) as resp:
                      if resp.status == 200:
@@ -241,13 +252,19 @@ class MarketDataTool(BaseTool):
             # 2. News (New)
             if include_news:
                 try:
-                    url_news = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/news/headlines?symbol={symbol}"
-                    async with session.get(url_news, headers=headers, timeout=10.0) as resp:
+                    url_news = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/news/headlines"
+                    params = {"symbol": symbol, "count": 10}
+                    if from_date: params["from_date"] = from_date
+                    if to_date: params["to_date"] = to_date
+                    
+                    async with session.get(url_news, params=params, headers=headers, timeout=10.0) as resp:
                         if resp.status == 200:
                             news_data = (await resp.json()).get("data", [])
                             report.append(f"**Latest News**:")
-                            for n in news_data[:3]:
-                                report.append(f"- {n.get('title')} ({n.get('source')})")
+                            if not news_data:
+                                report.append("(No specific news found for this period)")
+                            for n in news_data:
+                                report.append(f"- [{n.get('published_at')}] {n.get('title')} ({n.get('source')})")
                 except Exception as e:
                     report.append(f"News Fetch Failed: {e}")
 
@@ -255,7 +272,8 @@ class MarketDataTool(BaseTool):
             if include_candles:
                 try:
                     url_candles = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/market/candles"
-                    params = {"symbol": symbol, "timeframe": timeframe, "count": 20}
+                    # Defaulting to CTRADER as requested
+                    params = {"symbol": symbol, "timeframe": timeframe, "count": 20, "data_source": "CTRADER"}
                     async with session.get(url_candles, params=params, headers=headers, timeout=10.0) as resp:
                         if resp.status == 200:
                             candles = (await resp.json()).get("data", [])
