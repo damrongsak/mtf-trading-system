@@ -418,11 +418,10 @@ class StrategyAdvisorAgent:
         report = await self.gemini.generate_research_report(query, context)
         
         return {"final_response": report}
-
-
     async def node_generate(self, state: AgentState):
         """
         Final Answer Generation.
+        Synthesizes tool results and retrieved context into a high-fidelity response.
         """
         # 0. Check for Pending Confirmation
         if state.get("pending_tool_call"):
@@ -451,49 +450,56 @@ class StrategyAdvisorAgent:
             )
             return {"final_response": msg}
 
-        thoughts = None
-        final = ""
-        
-        # Gather Context
+        # 1. Gather Context
         scratchpad = "\n".join(state.get("scratchpad", []))
         user_facts = "\n".join(state.get("user_facts", []))
         context_docs = "\n\n".join(state.get("retrieved_docs", []))
+        reasoning_trace = state.get("reasoning_trace", [])
         
-        # Build System Context
+        # 2. Build Generation Prompt
         from datetime import datetime
         current_date_str = datetime.utcnow().strftime("%Y-%m-%d")
-        system_ctx = f"{SYSTEM_PERSONA}\n\nCurrent Date: {current_date_str}\n\nUser Facts:\n{user_facts}"
         
-        if state.get("reasoning_trace"):
-            final = state["reasoning_trace"][0]
-            thoughts = "Captured from Reasoning Step (Manual CoT)"
-        else:
-            # Direct Chat Mode or Tool Result Synthesis
-            prompt = f"""
-            {system_ctx}
-            
-            Context from Documentation/Tools:
-            {context_docs}
-            
-            Tool Outputs:
-            {scratchpad}
-            
-            User Request: "{state['optimized_query']}"
-            
-            Answer efficiently.
-            """
-            
-            try:
-                result = await self.gemini.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=prompt,
-                    thinking_config={"include_thoughts": True} 
-                )
-                final = result["text"]
-                thoughts = result.get("thoughts")
-            except Exception as e:
-                logger.error(f"Generation failed: {e}")
-                final = "I'm sorry, I encountered an error generating the response."
+        # System instructions embedded for generation
+        prompt = f"""
+        {SYSTEM_PERSONA}
+        
+        Current Date: {current_date_str}
+        
+        **Retrieved Context (Knowledge Base):**
+        {context_docs}
+        
+        **Available User Information:**
+        {user_facts}
+        
+        **Agent Planning/Reasoning:**
+        {reasoning_trace[0] if reasoning_trace else "No specific reasoning plan."}
+        
+        **CRITICAL Tool Outputs (Execution Results):**
+        {scratchpad if scratchpad else "No tools were executed."}
+        
+        **User Request:** "{state['optimized_query']}"
+        
+        **Response Guidelines:**
+        1. If Tool Outputs are present, you MUST use them as the primary source of truth for market data and prices.
+        2. DO NOT use numbers from the 'Agent Planning/Reasoning' section if they conflict with 'Tool Outputs'. The reasoning section is a planning phase and may contain placeholders.
+        3. Formulate a professional, quantitative response. 
+        4. If no tools were used and information is missing, state it clearly.
+        """
+        
+        try:
+            # Use Gemini 2.5 Pro for high-fidelity synthesis
+            result = await self.gemini.generate_content(
+                model="gemini-2.5-pro",
+                contents=prompt,
+                thinking_config={"include_thoughts": True} 
+            )
+            final = result["text"]
+            thoughts = result.get("thoughts") or (reasoning_trace[0] if reasoning_trace else None)
+        except Exception as e:
+            logger.error(f"Generation failed: {e}")
+            final = "I'm sorry, I encountered an error generating the final response."
+            thoughts = "Generation Error"
             
         return {"final_response": final, "thoughts": thoughts}
 
