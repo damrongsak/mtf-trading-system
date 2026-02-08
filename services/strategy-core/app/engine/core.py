@@ -113,7 +113,7 @@ class StrategyEngine:
         symbol = state.symbol
         # In a real shared data model, we'd ensure the *System* is subscribed to this symbol.
         # For now, we just ensure the engine is listening to the Redis channel for this symbol.
-        timeframes = ["M5", "M15", "H1", "H4", "D"] 
+        timeframes = ["M5", "M15", "H1", "H4", "D1"] 
         channels = [f"market_data:candle:{symbol}:{tf}" for tf in timeframes]
         if self.subscriber:
              await self.subscriber.subscribe(channels)

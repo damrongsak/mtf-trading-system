@@ -297,7 +297,7 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
     tf_map = {
         '1m': 'M1', '5m': 'M5', '15m': 'M15', '30m': 'M30',
         '1h': 'H1', '4h': 'H4', 
-        '1d': 'D', '1w': 'W'
+        '1d': 'D1', '1w': 'W1'
     }
     normalized_tf = tf_map.get(str(req.timeframe).lower(), str(req.timeframe))
     # Handle implicit casing if not in map (e.g. m1 -> M1)

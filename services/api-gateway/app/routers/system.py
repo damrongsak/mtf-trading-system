@@ -15,7 +15,7 @@ def get_system_config(db: Session = Depends(get_db)) -> Dict[str, Any]:
     
     # Default fallback if DB is empty (MVP)
     result = {
-        "supported_timeframes": ["M5", "M15", "H1", "H4", "D", "W", "M"]
+        "supported_timeframes": ["M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
     }
     
     for c in configs:

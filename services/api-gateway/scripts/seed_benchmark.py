@@ -65,7 +65,7 @@ def seed_benchmark():
         # 3. Check if we have D1 candles
         count = db.query(Candle).filter(
             Candle.market_symbol_id == ms.id, 
-            Candle.timeframe == 'D'
+            Candle.timeframe == 'D1'
         ).count()
         
         if count > 300:
@@ -87,7 +87,7 @@ def seed_benchmark():
             candles.append(Candle(
                 id=str(uuid.uuid4()),
                 market_symbol_id=ms.id,
-                timeframe='D',
+                timeframe='D1',
                 timestamp=current_date,
                 open=start_price,
                 high=high_price,

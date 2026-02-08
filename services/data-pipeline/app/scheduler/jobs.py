@@ -99,7 +99,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
     from app.models.system_config import SystemConfig
     
     # 0. Load Supported Timeframes
-    default_timeframes = ["M1", "M5", "M15", "H1", "H4", "D", "W", "M"]
+    default_timeframes = ["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
     try:
         config_record = db.query(SystemConfig).filter(SystemConfig.key == "supported_timeframes").first()
         if config_record and isinstance(config_record.value, list):
@@ -229,9 +229,9 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         elif source.provider == "CTRADER":
                             # Map Timeframe to cTrader Period Enum
                             # M1=1, M2=2, M3=3, M4=4, M5=5, M10=6, M15=7, M30=8, H1=9, H4=10, D1=11, W1=12, MN1=13
-                            # Our TFs: M1, M5, M15, H1, H4, D, W, M
+                            # Our TFs: M1, M5, M15, H1, H4, D1, W1, MN1
                             tf_map = {
-                                "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, "D": 11, "W": 12, "M": 13
+                                "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, "D1": 11, "W1": 12, "MN1": 13
                             }
                             
                             ct_period = tf_map.get(tf)
@@ -253,7 +253,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                             
                             # TF to Minutes for Duration Calc
                             minutes_map = {
-                                "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D": 1440, "W": 10080, "M": 43200
+                                "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D1": 1440, "W1": 10080, "MN1": 43200
                             }
                             tf_mins = minutes_map.get(tf, 1) # Default 1 min if unknown
                             

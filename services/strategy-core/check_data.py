@@ -19,7 +19,7 @@ def check_data():
         print(f"INFO: Found XAU/USD with ID: {symbol_id}")
 
         # 2. Check Candles Count for various timeframes
-        timeframes = ['M15', 'H1', 'D', 'W', 'M']
+        timeframes = ['M15', 'H1', 'D1', 'W1', 'MN1']
         for tf in timeframes:
             query_count = text(f"""
                 SELECT count(*), min(timestamp), max(timestamp) 

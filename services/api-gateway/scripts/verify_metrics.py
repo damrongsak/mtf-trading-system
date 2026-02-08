@@ -78,7 +78,7 @@ def strategy(data, params=None):
     payload = {
         "code": code,
         "symbol": "XAU/USD",
-        "timeframe": "D", # Using Daily to match our seeded bench data resolution easily
+        "timeframe": "D1", # Using Daily to match our seeded bench data resolution easily
         "start_date": "2024-01-01T00:00:00", # Placeholder, logic uses DB availability
         "end_date": "2024-12-31T00:00:00",
         "initial_capital": 10000,
@@ -88,11 +88,11 @@ def strategy(data, params=None):
     
     # We need to find a date range that actually has data.
     # The seed_plugin seeded ~365 days back from TODAY.
-    # So using 'D' timeframe and recent dates should work if XAU/USD candles exist.
+    # So using 'D1' timeframe and recent dates should work if XAU/USD candles exist.
     # Wait, seed_benchmark seeded D1 candles for XAU/USD. 
     # But does XAU/USD have M1/H1 candles for the backtest? 
     # The 'custom' backtest uses `fetch_data_from_db`. 
-    # If I only seeded 'D' candles, I MUST request 'D' timeframe.
+    # If I only seeded 'D1' candles, I MUST request 'D1' timeframe.
     
     # Update dates to be dynamic (last 100 days)
     import datetime
