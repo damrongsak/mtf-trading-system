@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services.rag import RAGService
+from app.tools.smc import SMCAnalystTool
 
 logger = logging.getLogger(__name__)
 
@@ -439,7 +440,8 @@ class ToolRegistry:
             "market_data": MarketDataTool(),
             "risk_check": RiskCheckTool(),
             "python_sandbox": PythonSandboxTool(),
-            "open_interest": OpenInterestTool()
+            "open_interest": OpenInterestTool(),
+            "smc_analyst": SMCAnalystTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

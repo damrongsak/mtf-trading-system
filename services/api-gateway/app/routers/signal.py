@@ -67,8 +67,11 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     3. Determine Signal
     """
     async with httpx.AsyncClient() as client:
-        # 1. Fetch Candles
         try:
+            # 1. Fetch Candles
+            # We do NOT specify broker, letting data-pipeline pick the ACTIVE one (e.g. CTRADER).
+            # This follows the project rule: "check active flag is true".
+            
             # Note: timeframe format mismatch might occur (H1 vs 1h). 
             # Assuming data-pipeline uses standard formats like 'H1'.
             candles_resp = await client.get(
@@ -158,6 +161,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         sl_price=last_close * 0.99 if direction == SignalDirection.LONG else last_close * 1.01,
         tp_price=last_close * 1.02 if direction == SignalDirection.LONG else last_close * 0.98,
         reason=reason,
+        analysis=analysis,
         strategy_name="Smart Money Concepts (Scanner)"
     ))
 

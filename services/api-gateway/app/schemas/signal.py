@@ -21,6 +21,8 @@ class SignalResponse(BaseModel):
     strategy_name: Optional[str] = None
     confidence: Optional[float] = 0.0
     
+    analysis: Optional[dict] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class SignalRequest(BaseModel):

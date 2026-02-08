@@ -8,7 +8,16 @@ from fastapi import HTTPException
 
 class MarketService:
     @staticmethod
-    def get_active_symbols(db: Session, broker: str) -> List[MarketSymbolResponse]:
+    def get_active_symbols(db: Session, broker: Optional[str]) -> List[MarketSymbolResponse]:
+        # 0. Resolve Broker if None
+        if not broker:
+            from app.models.data_source import DataSource
+            active_source = db.query(DataSource).filter(DataSource.is_active == True).first()
+            if active_source:
+                broker = active_source.name
+            else:
+                return []
+
         repo = MarketRepository(db)
         symbols = repo.get_active_symbols(broker)
         # Pydantic conversion happens in Route via response_model, 

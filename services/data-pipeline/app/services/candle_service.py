@@ -72,12 +72,25 @@ class CandleService:
         db: Session,
         symbol: str,
         timeframe: str,
-        broker: str,
+        broker: Optional[str],
         page: int,
         page_size: int
     ) -> PaginationResponse:
         repo = CandleRepository(db)
         
+        # 0. Resolve Broker if None
+        if not broker:
+            from app.models.data_source import DataSource
+            active_source = db.query(DataSource).filter(DataSource.is_active == True).first()
+            if active_source:
+                broker = active_source.name
+            else:
+                # Fallback or error? Let's error clearly.
+                # Actually, raising HTTP 404 is cleaner if no source found.
+                # But original code returned empty. Let's stick to empty for consistency but log warning.
+                logger.warning("No active data source found when resolving default broker.")
+                return PaginationResponse(total=0, page=page, page_size=page_size, data=[])
+
         # 1. Resolve MarketSymbol
         market_symbol = repo.get_market_symbol(symbol, broker)
         if not market_symbol:

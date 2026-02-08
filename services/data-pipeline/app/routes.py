@@ -174,20 +174,20 @@ async def upload_candles(
 def get_candles(
     symbol: str = Query(..., description="Symbol to filter by"),
     timeframe: str = Query(..., description="Timeframe to filter by"),
-    broker: str = Query("OANDA", description="Data Provider (e.g. OANDA, BINANCE)"),
+    broker: Optional[str] = Query(None, description="Data Provider (e.g. OANDA, CTRADER). Defaults to active source."),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
     """
     Retrieve candles with pagination. Filters by Symbol AND Broker.
-    Defaults to 'OANDA' if broker not specified.
+    Defaults to the first ACTIVE data source if broker not specified.
     """
     return CandleService.get_candles(db, symbol, timeframe, broker, page, page_size)
 
 @router.get("/symbols", response_model=List[MarketSymbolResponse])
 def get_active_symbols(
-    broker: str = Query("OANDA", description="Filter by broker name"),
+    broker: Optional[str] = Query(None, description="Filter by broker name. Defaults to active source."),
     db: Session = Depends(get_db)
 ):
     """
