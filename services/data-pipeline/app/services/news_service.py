@@ -1,4 +1,5 @@
 import logging
+import json
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from app.core.config import settings
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session as DBSession
 
 logger = logging.getLogger(__name__)
 
-class NewsService(BaseService):
+class NewsApiService(BaseService):
     def __init__(self):
         super().__init__()
         self.base_url = "https://newsapi.org/v2/everything"

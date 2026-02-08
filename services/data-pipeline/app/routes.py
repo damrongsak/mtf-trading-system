@@ -11,7 +11,7 @@ from app.database import get_db
 from app.services.market_service import MarketService
 from app.services.candle_service import CandleService
 from app.services.open_interest_service import OpenInterestService
-from app.services.news_service import NewsService
+from app.services.news_service import NewsApiService
 from app.scheduler.jobs import run_ingestion_job
 
 from app.schemas import (
@@ -372,7 +372,8 @@ async def get_news_headlines(
     """
     Fetch recent news headlines for a symbol from external sources (NewsAPI).
     """
-    return await NewsService.fetch_headlines(symbol)
+    service = NewsApiService()
+    return await service.fetch_headlines(symbol)
 
 @router.post("/news/sentiment", response_model=SentimentResponse, status_code=201)
 def save_news_sentiment(
@@ -382,7 +383,7 @@ def save_news_sentiment(
     """
     Save calculated sentiment score to the database.
     """
-    return NewsService.save_sentiment(db, payload)
+    return NewsApiService.save_sentiment(db, payload)
 
 @router.get("/news/sentiment/history", response_model=List[SentimentResponse])
 def get_sentiment_history(
@@ -394,7 +395,7 @@ def get_sentiment_history(
     """
     Get historical sentiment scores for trend analysis.
     """
-    return NewsService.get_sentiment_history(db, symbol, start_date, end_date)
+    return NewsApiService.get_sentiment_history(db, symbol, start_date, end_date)
 
 @router.get("/news/calendar", response_model=List[EconomicEventResponse])
 async def get_economic_calendar(
@@ -428,4 +429,5 @@ async def sync_economic_calendar(
     """
     Force sync of economic calendar from external source.
     """
-    return await NewsService.fetch_and_store_calendar(db)
+    service = NewsApiService()
+    return await service.fetch_and_store_calendar(db)
