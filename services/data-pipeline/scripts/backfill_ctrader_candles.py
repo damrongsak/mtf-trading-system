@@ -91,9 +91,9 @@ TIMEFRAME_MAP = {
     'M15': ExtendedPeriod.M15,
     'H1': ExtendedPeriod.H1,
     'H4': ExtendedPeriod.H4,
-    'D': ExtendedPeriod.D1,
-    'W': ExtendedPeriod.W1,   
-    'M': ExtendedPeriod.MN1,
+    'D1': ExtendedPeriod.D1,
+    'W1': ExtendedPeriod.W1,   
+    'MN1': ExtendedPeriod.MN1,
     'T15': 'TICK' # Special marker
 }
 
@@ -148,9 +148,9 @@ async def backfill_candles():
                 if tf_str == 'M15': return 15
                 if tf_str == 'H1': return 60
                 if tf_str == 'H4': return 240
-                if tf_str.startswith('D'): return 1440
-                if tf_str.startswith('W'): return 10080
-                if tf_str.startswith('M'): return 43200
+                if tf_str == 'D1': return 1440
+                if tf_str == 'W1': return 10080
+                if tf_str == 'MN1': return 43200
                 if tf_str == 'T15': return 1 # Approximation
                 return 1
 
@@ -256,7 +256,7 @@ async def backfill_candles():
                             # Reduce count for long timeframes to avoid "INVALID_REQUEST"
                             req_count = 500
                             # Reduce Month and Week requests to avoid hitting data limits or timestamp issues
-                            if tf_name in ['W', 'M', 'MN1', 'W1']:
+                            if tf_name in ['W1', 'MN1']:
                                 req_count = 50 
                                 
                             duration_ms = req_count * mins * 60 * 1000
