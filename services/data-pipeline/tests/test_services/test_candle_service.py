@@ -73,9 +73,9 @@ def test_get_candles_pagination(db_session, mock_market_symbol):
     resp = CandleService.get_candles(db_session, "EUR_USD", "M15", "OANDA", 1, 1)
     assert resp.total == 2
     assert len(resp.data) == 1
-    assert resp.data[0]['timestamp'] == c2.timestamp # Sort desc
+    assert resp.data[0].timestamp == c2.timestamp # Sort desc
     
     # Test Page 2
     resp = CandleService.get_candles(db_session, "EUR_USD", "M15", "OANDA", 2, 1)
     assert len(resp.data) == 1
-    assert resp.data[0]['timestamp'] == c1.timestamp
+    assert resp.data[0].timestamp == c1.timestamp

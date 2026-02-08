@@ -2,13 +2,16 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
 import uuid
-from app.repositories.candle_repository import CandleRepository
-from app.repositories.market_repository import MarketRepository
-from app.services.loader import load_candles_from_csv
-from app.schemas import PaginationResponse, CandleResponse
-from fastapi import HTTPException
 import logging
 import traceback
+
+from fastapi import HTTPException
+
+from app.repositories.candle_repository import CandleRepository
+from app.repositories.market_repository import MarketRepository
+from app.services.loader import load_candles_from_csv, CsvValidationError
+from app.services.market_service import MarketService
+from app.schemas import PaginationResponse, CandleResponse
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class CandleService:
         # 2. Parse CSV
         try:
             df = load_candles_from_csv(file_path, symbol, timeframe)
-        except ValueError as ve:
+        except CsvValidationError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(f"Processing error in load_candles_from_csv: {str(e)}")
@@ -80,22 +83,14 @@ class CandleService:
         
         # 0. Resolve Broker if None
         if not broker:
-            from app.models.data_source import DataSource
-            active_source = db.query(DataSource).filter(DataSource.is_active == True).first()
-            if active_source:
-                broker = active_source.name
-            else:
-                # Fallback or error? Let's error clearly.
-                # Actually, raising HTTP 404 is cleaner if no source found.
-                # But original code returned empty. Let's stick to empty for consistency but log warning.
+            broker = MarketService.get_active_broker_name(db)
+            if not broker:
                 logger.warning("No active data source found when resolving default broker.")
                 return PaginationResponse(total=0, page=page, page_size=page_size, data=[])
 
         # 1. Resolve MarketSymbol
         market_symbol = repo.get_market_symbol(symbol, broker)
         if not market_symbol:
-             # Basic check if symbol exists at all to give better error (using MarketRepo logic manually or via repo)
-             # Let's just return empty as per original logic
              return PaginationResponse(total=0, page=page, page_size=page_size, data=[])
 
         # 2. Query
@@ -105,8 +100,7 @@ class CandleService:
         # 3. Format Response
         data = []
         for c in candles:
-            # We construct CandleResponse manually or let Pydantic handle it.
-            # But the schema expected 'symbol' and 'broker' fields which are not on the Candle model.
+            # Manually constructing response matching CandleResponse schema expected by frontend
             c_dict = {
                 "id": c.id,
                 "symbol": symbol,

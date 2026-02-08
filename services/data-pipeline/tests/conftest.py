@@ -52,7 +52,7 @@ def mock_market_symbol(db_session):
     db_session.flush()
     
     # 2. Create DataSource
-    ds = DataSource(name="OANDA", provider="OANDA", config_json={})
+    ds = DataSource(name="OANDA", provider="OANDA", type="api", config_json={})
     db_session.add(ds)
     db_session.flush()
     

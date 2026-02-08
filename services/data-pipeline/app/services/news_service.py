@@ -1,58 +1,38 @@
-import aiohttp
-import redis.asyncio as redis
-import json
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+import logging
+from datetime import datetime
+from typing import List, Dict, Optional, Any
 from app.core.config import settings
+from app.services.base import BaseService
+from sqlalchemy.orm import Session as DBSession
 
-class NewsService:
-    @staticmethod
-    async def _get_redis():
-        return redis.from_url(settings.REDIS_URL, decode_responses=True)
+logger = logging.getLogger(__name__)
 
-    @staticmethod
-    async def check_quota(redis_client) -> bool:
+class NewsService(BaseService):
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://newsapi.org/v2/everything"
+        self.vip_domains = "bloomberg.com,reuters.com,wsj.com,cnbc.com,ft.com,marketwatch.com,benzinga.com,investing.com,finance.yahoo.com"
+        
+    async def check_quota(self) -> bool:
         """Check if daily quota (100) is exceeded."""
+        redis = await self.get_redis()
         today = datetime.utcnow().strftime("%Y-%m-%d")
         key = f"news_api:daily_count:{today}"
-        count = await redis_client.get(key)
+        count = await redis.get(key)
         return int(count) < 100 if count else True
 
-    @staticmethod
-    async def increment_quota(redis_client):
+    async def increment_quota(self):
         """Increment daily quota usage."""
+        redis = await self.get_redis()
         today = datetime.utcnow().strftime("%Y-%m-%d")
         key = f"news_api:daily_count:{today}"
-        pipe = redis_client.pipeline()
-        pipe.incr(key)
-        pipe.expire(key, 86400) # 24h retention
-        await pipe.execute()
+        async with redis.pipeline() as pipe:
+            await pipe.incr(key)
+            await pipe.expire(key, 86400) # 24h retention
+            await pipe.execute()
 
-    @staticmethod
-    async def fetch_headlines(symbol: str) -> List[Dict]:
-        """
-        Fetches news headlines with Quota Management, Caching, and Source Filtering.
-        """
-        if not settings.NEWS_API_KEY:
-            return [{"title": "NewsAPI Key Missing", "source": "System", "url": "", "publishedAt": datetime.utcnow().isoformat()}]
-
-        redis_client = await NewsService._get_redis()
-        cache_key = f"news:headlines:{symbol}"
-        
-        # 1. Check Cache (Read-Through to save quota)
-        cached = await redis_client.get(cache_key)
-        if cached:
-            import json
-            return json.loads(cached)
-
-        # 2. Check Quota
-        under_quota = await NewsService.check_quota(redis_client)
-        
-        if not under_quota:
-            return [{"title": "Daily Quota Exceeded", "source": "System", "url": "", "publishedAt": datetime.utcnow().isoformat()}]
-
-        # 3. Construct Query
-        # Map symbol to query
+    def _get_query_for_symbol(self, symbol: str) -> str:
+        """Map symbol to news query."""
         query_map = {
             "XAU/USD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
             "EUR/USD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
@@ -60,62 +40,79 @@ class NewsService:
             "USD/JPY": "USDJPY OR Bank of Japan OR Yen",
             "GBP/USD": "GBPUSD OR Bank of England OR UK economy",
         }
-        q = query_map.get(symbol, symbol)
-        
-        # VIP Domains for Quality Filter
-        vip_domains = "bloomberg.com,reuters.com,wsj.com,cnbc.com,ft.com,marketwatch.com,benzinga.com,investing.com,finance.yahoo.com"
+        return query_map.get(symbol, symbol)
 
-        url = "https://newsapi.org/v2/everything"
+    async def fetch_headlines(self, symbol: str) -> List[Dict[str, Any]]:
+        """
+        Fetches news headlines with Quota Management, Caching, and Source Filtering.
+        """
+        if not settings.NEWS_API_KEY:
+            return [self._create_sys_msg("NewsAPI Key Missing")]
+
+        cache_key = f"news:headlines:{symbol}"
+        
+        # 1. Check Cache
+        cached = await self._cache_get(cache_key)
+        if cached:
+            return cached
+
+        # 2. Check Quota
+        if not await self.check_quota():
+            return [self._create_sys_msg("Daily Quota Exceeded")]
+
+        # 3. Fetch from API
+        try:
+            results = await self._fetch_from_api(symbol)
+            if results:
+                 await self.increment_quota()
+                 await self._cache_set(cache_key, results, ttl=14400) # 4 hours
+            return results
+        except Exception as e:
+            logger.error(f"News fetch failed: {e}")
+            return [self._create_sys_msg(f"Fetch Failed: {str(e)}")]
+
+    async def _fetch_from_api(self, symbol: str) -> List[Dict[str, Any]]:
+        """Internal method to call NewsAPI."""
+        q = self._get_query_for_symbol(symbol)
         params = {
             "q": q,
             "apiKey": settings.NEWS_API_KEY,
             "language": "en",
             "sortBy": "publishedAt",
             "pageSize": 15,
-            "domains": vip_domains
+            "domains": self.vip_domains
         }
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url, params=params) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        articles = data.get("articles", [])
-                        
-                        # Simplify
-                        results = [
-                            {
-                                "title": a.get("title"),
-                                "source": a.get("source", {}).get("name"),
-                                "url": a.get("url"),
-                                "publishedAt": a.get("publishedAt")
-                            }
-                            for a in articles
-                        ]
-                        
-                        # 4. Success -> Increment Quota & Cache
-                        await NewsService.increment_quota(redis_client)
-                        await redis_client.setex(cache_key, 14400, json.dumps(results)) # 4 hour cache
-                        
-                        return results
-                    elif resp.status == 429:
-                         # Rate limit hit (external)
-                         cached = await redis_client.get(cache_key)
-                         if cached:
-                             return json.loads(cached)
-                         return [{"title": "Rate Limit Exceeded (External)", "source": "NewsAPI", "url": "", "publishedAt": datetime.utcnow().isoformat()}]
-                    else:
-                        return [{"title": f"Error: {resp.status}", "source": "NewsAPI", "url": "", "publishedAt": datetime.utcnow().isoformat()}]
-            except Exception as e:
-                return [{"title": f"Fetch Failed: {str(e)}", "source": "NewsAPI", "url": "", "publishedAt": datetime.utcnow().isoformat()}]
-            finally:
-                await redis_client.close()
+        session = await self.get_session()
+        async with session.get(self.base_url, params=params) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                articles = data.get("articles", [])
+                return [
+                    {
+                        "title": a.get("title"),
+                        "source": a.get("source", {}).get("name"),
+                        "url": a.get("url"),
+                        "publishedAt": a.get("publishedAt")
+                    }
+                    for a in articles
+                ]
+            elif resp.status == 429:
+                return [self._create_sys_msg("Rate Limit Exceeded (External)", "NewsAPI")]
+            else:
+                return [self._create_sys_msg(f"Error: {resp.status}", "NewsAPI")]
+
+    def _create_sys_msg(self, title: str, source: str = "System") -> Dict[str, str]:
+        return {
+            "title": title,
+            "source": source,
+            "url": "",
+            "publishedAt": datetime.utcnow().isoformat()
+        }
 
     @staticmethod
-    def save_sentiment(db, sentiment_data):
-        """
-        Save calculated sentiment score to the database.
-        """
+    def save_sentiment(db: DBSession, sentiment_data: Any):
+        """Save calculated sentiment score to the database."""
         from app.models.sentiment import SentimentScore
         
         db_obj = SentimentScore(
@@ -129,41 +126,39 @@ class NewsService:
         return db_obj
 
     @staticmethod
-    def get_sentiment_history(db, symbol: Optional[str] = None, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
-        """
-        Retrieve historical sentiment scores.
-        """
+    def get_sentiment_history(db: DBSession, symbol: Optional[str] = None, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
+        """Retrieve historical sentiment scores."""
         from app.models.sentiment import SentimentScore
         
         query = db.query(SentimentScore)
-        
         if symbol:
             query = query.filter(SentimentScore.symbol == symbol)
-        
         if start_date:
             query = query.filter(SentimentScore.created_at >= start_date)
-            
         if end_date:
             query = query.filter(SentimentScore.created_at <= end_date)
             
         return query.order_by(SentimentScore.created_at.desc()).limit(1000).all()
 
-    @staticmethod
-    async def fetch_and_store_calendar(db) -> List[Dict]:
+    async def fetch_and_store_calendar(self, db: DBSession) -> List[Any]:
         """
         Fetches economic calendar from ForexFactory (nfs) and stores unique events.
+        Legacy method kept on NewsService causing confusion with CalendarService. 
+         Ideally should be moved to CalendarService, but kept here for compatibility if needed.
         """
+        # Delegating to the new CalendarService would be better, but avoiding circular Deps.
+        # Implemented using current BaseService structure.
         url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
         
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        return []
-                    data = await resp.json()
-            except Exception as e:
-                print(f"Error fetching calendar: {e}")
-                return []
+        try:
+             session = await self.get_session()
+             async with session.get(url) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+        except Exception as e:
+            logger.error(f"Error fetching calendar: {e}")
+            return []
 
         from app.models.economic_event import EconomicEvent
         import hashlib
@@ -172,21 +167,16 @@ class NewsService:
         stored_events = []
         
         for item in data:
-            # Generate deterministic ID
-            # Use date (time), country, and title to uniquely identify
             raw_id = f"{item.get('date')}-{item.get('country')}-{item.get('title')}"
             ext_id = hashlib.md5(raw_id.encode()).hexdigest()
             
-            # Check if exists
             exists = db.query(EconomicEvent).filter(EconomicEvent.external_id == ext_id).first()
             if exists:
-                # Update actual values if released
                 if item.get('actual') != exists.actual:
                      exists.actual = item.get('actual')
                      db.add(exists)
                 continue
                 
-            # Parse datetime
             dt_str = item.get('date')
             try:
                 dt = datetime.fromisoformat(dt_str)
@@ -197,7 +187,7 @@ class NewsService:
                 external_id=ext_id,
                 title=item.get('title'),
                 country=item.get('country'),
-                currency=item.get('country'), # FF often uses 'USD' as country for currency
+                currency=item.get('country'),
                 impact=item.get('impact'),
                 datetime=dt,
                 actual=item.get('actual', ''),
