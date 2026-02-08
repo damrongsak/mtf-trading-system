@@ -240,6 +240,7 @@ async def backfill_candles():
                                     
                                     candles_to_save.append({
                                         "market_symbol_id": ms.id,
+                                        "symbol": ms.symbol,  # NEW
                                         "timeframe": tf_name,
                                         "timestamp": datetime.fromtimestamp(c_time / 1000.0, timezone.utc),
                                         "open": c_open / divisor,
@@ -277,6 +278,7 @@ async def backfill_candles():
                                     low = bar.low
                                     candles_to_save.append({
                                         "market_symbol_id": ms.id,
+                                        "symbol": ms.symbol,  # NEW
                                         "timeframe": tf_name,
                                         "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, timezone.utc) if bar.utcTimestampInMinutes else datetime.now(timezone.utc),
                                         "open": (low + bar.deltaOpen) / divisor,
@@ -297,6 +299,7 @@ async def backfill_candles():
                                 ).first()
                                 
                                 if existing:
+                                    existing.symbol = c_data['symbol']  # Update symbol too for consistency
                                     existing.open = c_data['open']
                                     existing.high = c_data['high']
                                     existing.low = c_data['low']

@@ -328,6 +328,11 @@ class StrategyAdvisorAgent:
             text = response.text.replace("```json", "").replace("```", "")
             decision = json.loads(text)
             
+            # Validate that decision is a dictionary (not a list or other type)
+            if not isinstance(decision, dict):
+                logger.warning(f"Tool selection returned non-dict type: {type(decision)}. Falling back to direct answer.")
+                return {}
+            
             # Robust Input Extraction
             # Models sometimes use 'tool_parameters', 'parameters', or 'arguments' despite instructions
             start_input = decision.get("tool_input")

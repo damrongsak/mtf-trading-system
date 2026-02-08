@@ -19,6 +19,9 @@ class Candle(Base):
     market_symbol_id = Column(UUID(as_uuid=True), ForeignKey("market_symbols.id"), nullable=False, index=True,
                              comment="Foreign Key to MarketSymbol (defines Symbol + DataSource)")
     
+    symbol = Column(String(20), nullable=False, index=True,
+                    comment="Denormalized symbol for easier querying (e.g. XAUUSD)")
+    
     timeframe = Column(String(10), nullable=False, index=True,
                       comment="Timeframe identifier (15m, 1h, 4h, D)")
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
@@ -61,6 +64,7 @@ class Candle(Base):
     # Indexes for performance
     __table_args__ = (
         Index('ix_candles_market_symbol_timeframe_timestamp', 'market_symbol_id', 'timeframe', 'timestamp', unique=True),
+        Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp'),
         {
             'comment': 'OHLCV candlestick data with multi-timeframe indicators',
             'extend_existing': True

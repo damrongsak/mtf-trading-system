@@ -50,6 +50,7 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
                         
                     batch_data.append({
                         "market_symbol_id": ms.id,
+                        "symbol": symbol_name,
                         "timeframe": tf,
                         "timestamp": ts,
                         "open": float(c['mid']['o']),
@@ -216,6 +217,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     timestamp = pd.to_datetime(c['time']).to_pydatetime()
                                     batch_data.append({
                                         "market_symbol_id": ms.id,
+                                        "symbol": symbol_name,
                                         "timeframe": tf,
                                         "timestamp": timestamp,
                                         "open": float(c['mid']['o']),
@@ -307,6 +309,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     
                                     batch_data.append({
                                         "market_symbol_id": ms.id,
+                                        "symbol": symbol_name,
                                         "timeframe": tf,
                                         "timestamp": ts,
                                         "open": open_p / 100000.0,

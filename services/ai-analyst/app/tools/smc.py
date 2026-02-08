@@ -113,6 +113,7 @@ The data returned is REAL and should be trusted over any simulated/example data.
                 # Build the professional report
                 report = []
                 report.append(f"### 🏛️ SMC Institutional Analysis: {symbol} ({timeframe})")
+                report.append(f"\n> **📊 Data Source:** Real-time database feed from active broker connection")
                 
                 # Market status banner
                 if market_status == "closed":

@@ -52,6 +52,7 @@ class CandleService:
             candle_dicts.append({
                 "id": uuid.uuid4(),
                 "market_symbol_id": market_symbol.id,
+                "symbol": symbol,
                 "timeframe": row['timeframe'],
                 "timestamp": row['timestamp'],
                 "open": row['open'],

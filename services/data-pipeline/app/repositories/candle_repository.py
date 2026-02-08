@@ -73,6 +73,7 @@ class CandleRepository:
         do_update_stmt = stmt.on_conflict_do_update(
             index_elements=['market_symbol_id', 'timeframe', 'timestamp'],
             set_={
+                'symbol': stmt.excluded.symbol,
                 'open': stmt.excluded.open,
                 'high': stmt.excluded.high,
                 'low': stmt.excluded.low,
