@@ -79,11 +79,11 @@ async def lifespan(app: FastAPI):
     # 5. Initialize Redis Checkpointer (Short-Term Memory)
     try:
         from app.core.config import settings
-        from langgraph.checkpoint.memory import MemorySaver # Local import safe here
+        from langgraph.checkpoint.redis.aio import AsyncRedisSaver # Correct async import
         
         logger.info(f"Connecting to Redis at: {settings.redis.url}")
-        redis_conn = Redis.from_url(settings.redis.url)
-        services["checkpointer"] = RedisSaver(redis_conn)
+        # AsyncRedisSaver can take the URL directly and manage its own connection
+        services["checkpointer"] = AsyncRedisSaver.from_conn_string(settings.redis.url)
         logger.info("✅ Redis Checkpointer (Short-Term Memory) Ready")
     except Exception as e:
         logger.warning(f"⚠️ Redis Checkpointer Failed: {e}. Falling back to MemorySaver.")
