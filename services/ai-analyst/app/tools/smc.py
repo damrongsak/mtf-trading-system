@@ -23,9 +23,19 @@ class SMCAnalystTool(BaseTool):
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         if "XAU" in normalized_symbol and "USD" in normalized_symbol:
              # Try to keep standard format if possible, but api-gateway likely expects standard
-             # Actually api-gateway/routers/signal.py does `symbol.upper()` and passes to `data-pipeline`.
              # `data-pipeline` uses `MarketSymbol` lookup which is flexible.
              pass
+        
+        # Normalize Timeframe 
+        # API expects M1, M5, M15, M30, H1, H4, D1, W1, MN1
+        if timeframe.lower() in ["15m", "15min", "m15"]:
+            timeframe = "M15"
+        elif timeframe.lower() in ["1h", "1hr", "h1"]:
+            timeframe = "H1"
+        elif timeframe.lower() in ["4h", "4hr", "h4"]:
+            timeframe = "H4"
+        elif timeframe.lower() in ["1d", "daily", "d1"]:
+            timeframe = "D1"
 
         # Use internal URL for api-gateway
         # Wait, the tool is inside ai-analyst. It should call api-gateway.
