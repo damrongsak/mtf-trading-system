@@ -10,10 +10,12 @@ class SMCOrderBlock(TypedDict):
     """
     type: str  # 'bullish' | 'bearish'
     index: int
+    timestamp: str # ISO string for charting
     top: float
     bottom: float
     mitigated: bool
     strength: str  # 'strong' | 'weak'
+    meta: Dict[str, Any]
 
 class SMCFVG(TypedDict):
     """
@@ -21,9 +23,11 @@ class SMCFVG(TypedDict):
     """
     type: str  # 'bullish' | 'bearish'
     index: int
+    timestamp: str 
     top: float
     bottom: float
     mitigated: bool
+    meta: Dict[str, Any]
 
 class SMCSweep(TypedDict):
     """
@@ -31,8 +35,10 @@ class SMCSweep(TypedDict):
     """
     type: str  # 'bullish_sweep' | 'bearish_sweep'
     index: int
+    timestamp: str
     level: float
     description: str
+    meta: Dict[str, Any]
 
 class SMCStructureLabel(TypedDict):
     """
@@ -124,21 +130,32 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
         ob_idx = int(idx - 1)
         if ob_idx < 0: continue
         
+        timestamp = ohlc.index[ob_idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        
         top = float(prev_open.iloc[idx])
         bottom = float(prev_close.iloc[idx])
         
         obs.append({
             "type": "bullish",
             "index": ob_idx,
+            "timestamp": ts_str,
             "top": top,
             "bottom": bottom,
             "mitigated": False,
-            "strength": "strong" if has_volume else "weak" # Since we filter by volume if present
+            "strength": "strong" if has_volume else "weak",
+            "meta": {
+                "body_size": float(prev_body.iloc[idx]),
+                "engulfing_ratio": float(body.iloc[idx] / prev_body.iloc[idx]) if prev_body.iloc[idx] > 0 else 0
+            }
         })
         
     for idx in bear_indices:
         ob_idx = int(idx - 1)
         if ob_idx < 0: continue
+        
+        timestamp = ohlc.index[ob_idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
         
         top = float(prev_close.iloc[idx])
         bottom = float(prev_open.iloc[idx])
@@ -146,10 +163,15 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
         obs.append({
             "type": "bearish",
             "index": ob_idx,
+            "timestamp": ts_str,
             "top": top,
             "bottom": bottom,
             "mitigated": False,
-            "strength": "strong" if has_volume else "weak"
+            "strength": "strong" if has_volume else "weak",
+            "meta": {
+                "body_size": float(prev_body.iloc[idx]),
+                "engulfing_ratio": float(body.iloc[idx] / prev_body.iloc[idx]) if prev_body.iloc[idx] > 0 else 0
+            }
         })
         
     return sorted(obs, key=lambda x: x['index'])
@@ -191,19 +213,29 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
         # Original logic: index = i-1
         gap_idx = int(idx - 1)
         
+        timestamp = ohlc.index[gap_idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        
         top_val = float(low.iloc[idx])
         bottom_val = float(high_minus_2.iloc[idx])
         
         fvgs.append({
             "type": "bullish",
             "index": gap_idx,
+            "timestamp": ts_str,
             "top": top_val,
             "bottom": bottom_val,
-            "mitigated": False
+            "mitigated": False,
+            "meta": {
+                "gap_size": float(top_val - bottom_val)
+            }
         })
         
     for idx in bear_indices:
         gap_idx = int(idx - 1)
+        
+        timestamp = ohlc.index[gap_idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
         
         top_val = float(low_minus_2.iloc[idx])
         bottom_val = float(high.iloc[idx])
@@ -211,9 +243,13 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
         fvgs.append({
             "type": "bearish",
             "index": gap_idx,
+            "timestamp": ts_str,
             "top": top_val,
             "bottom": bottom_val,
-            "mitigated": False
+            "mitigated": False,
+            "meta": {
+                "gap_size": float(top_val - bottom_val)
+            }
         })
         
     return sorted(fvgs, key=lambda x: x['index'])
@@ -246,20 +282,36 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
     
     for idx in bear_indices:
         level = float(recent_highs.iloc[idx])
+        timestamp = ohlc.index[idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        
         sweeps.append({
             "type": "bearish_sweep",
             "index": int(idx),
+            "timestamp": ts_str,
             "level": level,
-            "description": "Swept recent high and closed below"
+            "description": "Swept recent high and closed below",
+            "meta": {
+                "swept_level": level,
+                "wick_size": float(high.iloc[idx] - recent_highs.iloc[idx])
+            }
         })
         
     for idx in bull_indices:
         level = float(recent_lows.iloc[idx])
+        timestamp = ohlc.index[idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        
         sweeps.append({
             "type": "bullish_sweep",
             "index": int(idx),
+            "timestamp": ts_str,
             "level": level,
-            "description": "Swept recent low and closed above"
+            "description": "Swept recent low and closed above",
+            "meta": {
+                "swept_level": level,
+                "wick_size": float(recent_lows.iloc[idx] - low.iloc[idx])
+            }
         })
         
     return sorted(sweeps, key=lambda x: x['index'])
@@ -371,4 +423,109 @@ def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, floa
         "2.618": low_val + diff * 2.618,
         "3.618": low_val + diff * 3.618,
         "4.236": low_val + diff * 4.236
+    }
+
+def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown") -> Dict[str, Any]:
+    """
+    Central orchestration for all SMC indicators and metadata.
+    Includes Institutional Bias and Strategic Reasoning.
+    """
+    from datetime import datetime
+    
+    if df.empty:
+        return {
+            "order_blocks": [], "fvgs": [], "liquidity_sweeps": [], 
+            "structure": {}, "auto_fibs": {}, 
+            "institutional_bias": "NEUTRAL", "strategic_reasoning": "Insufficient data",
+            "timestamp": datetime.utcnow().isoformat(), "meta": {}
+        }
+
+    obs = detect_order_blocks(df)
+    fvgs = detect_fvg(df)
+    sweeps = detect_liquidity_sweeps(df)
+    structure = detect_structure(df)
+    fibs = calculate_auto_fibs(df)
+    
+    last_close = float(df['close'].iloc[-1])
+    
+    # --- Institutional Reasoning & Bias ---
+    # Bias is determined by proximity to unmitigated institutional levels
+    bias = "NEUTRAL"
+    reasoning = "Market is currently in safe-haven consolidation."
+    
+    # Proximity tolerance: 0.1% for Gold ($4000+ means ~$4.0 range)
+    tolerance = 0.001 
+    
+    bullish_confluence = []
+    bearish_confluence = []
+    
+    # 1. Check Order Blocks
+    unmitigated_obs = [ob for ob in obs if not ob.get("mitigated")]
+    for ob in reversed(unmitigated_obs):
+        if ob["type"] == "bullish":
+            # Support zone
+            if ob["bottom"] <= last_close <= ob["top"] * (1 + tolerance):
+                bias = "BULLISH"
+                reasoning = f"Price reacting to significant Bullish Order Block at {ob['top']}."
+                bullish_confluence.append("OB_SUPPORT")
+                break
+        else:
+            # Resistance zone
+            if ob["bottom"] * (1 - tolerance) <= last_close <= ob["top"]:
+                bias = "BEARISH"
+                reasoning = f"Price rejecting significant Bearish Order Block at {ob['bottom']}."
+                bearish_confluence.append("OB_RESISTANCE")
+                break
+
+    # 2. Check FVGs for Confluence
+    unmitigated_fvgs = [f for f in fvgs if not f.get("mitigated")]
+    for fvg in reversed(unmitigated_fvgs):
+        if fvg["type"] == "bullish":
+            if fvg["bottom"] <= last_close <= fvg["top"] * (1 + tolerance):
+                if bias == "BULLISH":
+                    reasoning += f" Confluence found with Bullish FVG (Gap: {fvg.get('meta',{}).get('gap_size',0):.2f})."
+                    bullish_confluence.append("FVG_CONFLUENCE")
+                elif bias == "NEUTRAL":
+                    bias = "BULLISH"
+                    reasoning = f"Price filling Bullish FVG at {fvg['bottom']}."
+                break
+        else:
+            if fvg["bottom"] * (1 - tolerance) <= last_close <= fvg["top"]:
+                if bias == "BEARISH":
+                    reasoning += f" Confluence found with Bearish FVG (Gap: {fvg.get('meta',{}).get('gap_size',0):.2f})."
+                    bearish_confluence.append("FVG_CONFLUENCE")
+                elif bias == "NEUTRAL":
+                    bias = "BEARISH"
+                    reasoning = f"Price filling Bearish FVG at {fvg['top']}."
+                break
+
+    # 3. Check Sweeps
+    if sweeps:
+        last_sweep = sweeps[-1]
+        if last_sweep["type"] == "bullish_sweep" and last_sweep["index"] >= len(df) - 5:
+            reasoning = f"Liquidity Sweep detected at {last_sweep['level']}. Institutional accumulation likely."
+            bias = "BULLISH"
+        elif last_sweep["type"] == "bearish_sweep" and last_sweep["index"] >= len(df) - 5:
+            reasoning = f"Liquidity Sweep detected at {last_sweep['level']}. Institutional distribution likely."
+            bias = "BEARISH"
+
+    # Enhanced Metadata
+    meta = {
+        "symbol": symbol,
+        "candle_count": len(df),
+        "volatility_score": float(df['high'].max() - df['low'].min()) / float(df['close'].iloc[-1]) if not df.empty else 0,
+        "bullish_confluence": bullish_confluence,
+        "bearish_confluence": bearish_confluence
+    }
+    
+    return {
+        "order_blocks": obs,
+        "fvgs": fvgs,
+        "liquidity_sweeps": sweeps,
+        "structure": structure,
+        "auto_fibs": fibs,
+        "institutional_bias": bias,
+        "strategic_reasoning": reasoning,
+        "timestamp": datetime.utcnow().isoformat(),
+        "meta": meta
     }

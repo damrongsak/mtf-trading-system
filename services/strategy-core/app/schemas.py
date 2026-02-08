@@ -48,11 +48,13 @@ class BBandsRequest(BaseModel):
     alpha: float = 2.0
 
 class SMCRequest(BaseModel):
+    symbol: str
     open: List[float]
     high: List[float]
     low: List[float]
     close: List[float]
     volume: Optional[List[float]] = None
+    timestamps: Optional[List[str]] = None
 
 class SMCResponse(BaseModel):
     order_blocks: List[Dict[str, Any]]
@@ -60,6 +62,10 @@ class SMCResponse(BaseModel):
     liquidity_sweeps: List[Dict[str, Any]] = []
     structure: Dict[str, Any] = {}
     auto_fibs: Dict[str, float] = {}
+    institutional_bias: str = "NEUTRAL"
+    strategic_reasoning: str = ""
+    timestamp: Optional[datetime] = None  # Analysis snapshot time
+    meta: Dict[str, Any] = {}  # Global confluence or strength metrics
 
 class SMCBatchRequest(BaseModel):
     # Dictionary mapping symbol -> SMCRequest

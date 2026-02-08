@@ -15,7 +15,8 @@ from app.core.prompts import (
     REASONING_PROMPT_TEMPLATE,
     TOOL_ROUTER_SYSTEM_PROMPT
 )
-from app.core.tools import ToolRegistry, BaseTool
+from app.core.base_tool import BaseTool
+from app.core.tools import ToolRegistry
 
 logger = logging.getLogger(__name__)
 

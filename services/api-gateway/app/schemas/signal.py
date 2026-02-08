@@ -23,6 +23,12 @@ class SignalResponse(BaseModel):
     
     analysis: Optional[dict] = None
     
+    # Market context fields
+    market_status: Optional[str] = "unknown"  # "open", "closed", "unknown"
+    market_reason: Optional[str] = None
+    data_age_seconds: Optional[int] = None
+    data_freshness: Optional[str] = "unknown"  # "real-time", "recent", "stale"
+    
     model_config = ConfigDict(from_attributes=True)
 
 class SignalRequest(BaseModel):

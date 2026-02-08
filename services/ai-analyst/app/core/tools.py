@@ -14,12 +14,7 @@ from app.tools.smc import SMCAnalystTool
 
 logger = logging.getLogger(__name__)
 
-class BaseTool(BaseModel):
-    name: str
-    description: str
-    
-    async def run(self, input_data: Any, auth_token: str = None) -> Any:
-        raise NotImplementedError
+from app.core.base_tool import BaseTool
 
 class KnowledgeBaseTool(BaseTool):
     name: str = "knowledge_base"
@@ -437,11 +432,9 @@ class ToolRegistry:
             "smart_order": SmartOrderTool(),
             "market_data": MarketDataTool(),
             "risk_check": RiskCheckTool(),
-            "market_data": MarketDataTool(),
-            "risk_check": RiskCheckTool(),
             "python_sandbox": PythonSandboxTool(),
             "open_interest": OpenInterestTool(),
-            "smc_analyst": SMCAnalystTool()
+            "smc_technical_analysis": SMCAnalystTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

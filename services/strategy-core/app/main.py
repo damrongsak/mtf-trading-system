@@ -10,7 +10,7 @@ from app.indicators import (
     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
 )
 from app.backtest import run_historical_backtest
-from app.indicators.smc import detect_order_blocks, detect_fvg, detect_liquidity_sweeps, detect_structure, calculate_auto_fibs
+from app.indicators.smc import analyze_smc
 from app.simulation import run_grid_simulation_logic
 from app.analysis.optimization import run_grid_search
 from app.analysis.monte_carlo import run_monte_carlo
@@ -58,7 +58,7 @@ def get_candles(
     from_time: Optional[datetime] = None, 
     to_time: Optional[datetime] = None, 
     count: int = 500,
-    data_source: str = "OANDA"
+    data_source: str = "CTRADER"
 ):
     try:
         from app.backtest import fetch_data_from_db
@@ -269,33 +269,34 @@ def get_adx(req: ADXRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def _prepare_df(req: SMCRequest) -> pd.DataFrame:
+    data = {
+        "open": req.open,
+        "high": req.high,
+        "low": req.low,
+        "close": req.close
+    }
+    if req.volume:
+        data["volume"] = req.volume
+        
+    df = pd.DataFrame(data)
+    if req.timestamps and len(req.timestamps) == len(df):
+        df.index = pd.to_datetime(req.timestamps)
+        
+    if len(df) < 3:
+         raise HTTPException(status_code=400, detail="Not enough data points")
+    return df
+
 @router.post("/calculate/smc", response_model=SMCResponse)
 def get_smc(req: SMCRequest):
     try:
-        data = {
-            "open": req.open,
-            "high": req.high,
-            "low": req.low,
-            "close": req.close
-        }
-        if req.volume:
-            data["volume"] = req.volume
-            
-        df = pd.DataFrame(data)
-        
-        if len(df) < 3:
-             raise HTTPException(status_code=400, detail="Not enough data points")
-
-        obs = detect_order_blocks(df)
-        fvgs = detect_fvg(df)
-        sweeps = detect_liquidity_sweeps(df)
-        structure = detect_structure(df)
-        fibs = calculate_auto_fibs(df)
-        
-        return SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps, structure=structure, auto_fibs=fibs)
+        df = _prepare_df(req)
+        result = analyze_smc(df, req.symbol)
+        return SMCResponse(**result)
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"SMC calculation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/calculate/smc/batch", response_model=SMCBatchResponse)
@@ -304,32 +305,11 @@ def get_smc_batch(req: SMCBatchRequest):
         results = {}
         for symbol, smc_req in req.requests.items():
             try:
-                data = {
-                    "open": smc_req.open,
-                    "high": smc_req.high,
-                    "low": smc_req.low,
-                    "close": smc_req.close
-                }
-                if smc_req.volume:
-                    data["volume"] = smc_req.volume
-                    
-                df = pd.DataFrame(data)
-                
-                if len(df) < 3:
-                     # Skip or return empty
-                     results[symbol] = SMCResponse(order_blocks=[], fvgs=[], liquidity_sweeps=[])
-                     continue
-    
-                obs = detect_order_blocks(df)
-                fvgs = detect_fvg(df)
-                sweeps = detect_liquidity_sweeps(df)
-                structure = detect_structure(df)
-                fibs = calculate_auto_fibs(df)
-                
-                results[symbol] = SMCResponse(order_blocks=obs, fvgs=fvgs, liquidity_sweeps=sweeps, structure=structure, auto_fibs=fibs)
+                df = _prepare_df(smc_req)
+                result = analyze_smc(df, smc_req.symbol)
+                results[symbol] = SMCResponse(**result)
             except Exception as e:
-                logger.error(f"Error processing {symbol}: {e}")
-                # Return empty/safe response on individual failure so entire batch doesn't fail
+                logger.error(f"Error processing {symbol} in batch: {e}")
                 results[symbol] = SMCResponse(order_blocks=[], fvgs=[], liquidity_sweeps=[])
         
         return SMCBatchResponse(results=results)

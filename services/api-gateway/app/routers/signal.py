@@ -109,7 +109,13 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         # 2. Analyze with Strategy Core
         try:
             smc_payload = {
-                "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes
+                "symbol": symbol.upper(),
+                "open": opens, 
+                "high": highs, 
+                "low": lows, 
+                "close": closes, 
+                "volume": volumes,
+                "timestamps": [c["timestamp"] for c in candles_data]
             }
             smc_resp = await client.post(
                 f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc",
@@ -122,47 +128,57 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Strategy Service Error: {str(e)}")
 
-    # 3. Interpret Results (Simple Logic for MVP)
-    # Check if price is inside an unmitigated Order Block
-    direction = SignalDirection.NEUTRAL
-    reason = "No clear signal"
+    # 3. Use Strategic Results from Strategy Core
+    direction = analysis.get("institutional_bias", "NEUTRAL")
+    reason = analysis.get("strategic_reasoning", "No clear signal")
     
-    order_blocks = analysis.get("order_blocks", [])
+    # Map to Enum
+    direction_enum = SignalDirection.NEUTRAL
+    if direction == "BULLISH":
+        direction_enum = SignalDirection.LONG
+    elif direction == "BEARISH":
+        direction_enum = SignalDirection.SHORT
+
+    # 4. Calculate Market Status and Data Freshness
+    from app.services.market_status import MarketStatusService
     
-    # Sort OBs by index (recent first)
-    # They are likely returned in order of detection found
+    market_service = MarketStatusService()
+    status = await market_service.get_market_status(symbol)
     
-    for ob in reversed(order_blocks): # Check most recent OBs first
-        if ob["mitigated"]:
-            continue
-            
-        # Bullish OB (Support)
-        if ob["type"] == "bullish":
-            # If price is near or inside OB
-            if ob["bottom"] <= last_close <= ob["top"] * 1.001: # 0.1% tolerance above
-                direction = SignalDirection.LONG
-                reason = f"Price reacting to Bullish OB at {ob['top']}"
-                break
-                
-        # Bearish OB (Resistance)
-        elif ob["type"] == "bearish":
-            # If price is near or inside OB
-            if ob["bottom"] * 0.999 <= last_close <= ob["top"]:
-                direction = SignalDirection.SHORT
-                reason = f"Price reacting to Bearish OB at {ob['bottom']}"
-                break
+    # Calculate data age
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
+    if isinstance(last_time, str):
+        last_candle_time = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+    else:
+        last_candle_time = last_time
+    
+    age_seconds = int((now - last_candle_time).total_seconds())
+    
+    # Classify freshness
+    if age_seconds < 300:  # < 5 minutes
+        freshness = "real-time"
+    elif age_seconds < 3600:  # < 1 hour
+        freshness = "recent"
+    else:
+        freshness = "stale"
 
     return success_response(data=SignalResponse(
         symbol=symbol.upper(),
         timeframe=timeframe,
         timestamp=last_time,
-        direction=direction,
+        direction=direction_enum,
         entry_price=last_close,
-        sl_price=last_close * 0.99 if direction == SignalDirection.LONG else last_close * 1.01,
-        tp_price=last_close * 1.02 if direction == SignalDirection.LONG else last_close * 0.98,
+        sl_price=last_close * 0.99 if direction_enum == SignalDirection.LONG else last_close * 1.01,
+        tp_price=last_close * 1.02 if direction_enum == SignalDirection.LONG else last_close * 0.98,
         reason=reason,
         analysis=analysis,
-        strategy_name="Smart Money Concepts (Scanner)"
+        strategy_name="Smart Money Concepts (Scanner)",
+        # Market context
+        market_status="open" if status["is_open"] else "closed",
+        market_reason=status["reason"],
+        data_age_seconds=age_seconds,
+        data_freshness=freshness
     ))
 
 @router.post("/check", response_model=APIResponse[SignalResponse])
@@ -276,42 +292,26 @@ async def get_batch_signals(req: SignalBatchRequest):
             last_close = float(last_candle["close"])
             last_time = last_candle["timestamp"]
             
-            # Logic duplication from get_latest_signal (Refactor candidate later)
-            direction = SignalDirection.NEUTRAL
-            reason = "No clear signal"
+            # 4. Use Strategic Results from Strategy Core
+            direction = analysis.get("institutional_bias", "NEUTRAL")
+            reason = analysis.get("strategic_reasoning", "No clear signal")
             
-            order_blocks = analysis.get("order_blocks", [])
+            # Map to Enum
+            direction_enum = SignalDirection.NEUTRAL
+            if direction == "BULLISH":
+                direction_enum = SignalDirection.LONG
+            elif direction == "BEARISH":
+                direction_enum = SignalDirection.SHORT
             
-            for ob in reversed(order_blocks):
-                if ob["mitigated"]: continue
-                
-                if ob["type"] == "bullish":
-                    if ob["bottom"] <= last_close <= ob["top"] * 1.001:
-                        direction = SignalDirection.LONG
-                        reason = f"Reacting to Bullish OB at {ob['top']}"
-                        break
-                elif ob["type"] == "bearish":
-                    if ob["bottom"] * 0.999 <= last_close <= ob["top"]:
-                        direction = SignalDirection.SHORT
-                        reason = f"Reacting to Bearish OB at {ob['bottom']}"
-                        break
-            
-            # Calculate SL/TP only if signal
-            sl = 0
-            tp = 0
-            
-            if direction == SignalDirection.LONG:
-                 sl = last_close * 0.99 # 1% SL
-                 tp = last_close * 1.02 # 2% TP
-            elif direction == SignalDirection.SHORT:
-                 sl = last_close * 1.01
-                 tp = last_close * 0.98
+            # Calculate SL/TP
+            sl = last_close * 0.99 if direction_enum == SignalDirection.LONG else last_close * 1.01
+            tp = last_close * 1.02 if direction_enum == SignalDirection.LONG else last_close * 0.98
             
             final_response.append(SignalResponse(
                 symbol=sym,
                 timeframe=timeframe,
                 timestamp=last_time,
-                direction=direction,
+                direction=direction_enum,
                 entry_price=last_close,
                 sl_price=sl,
                 tp_price=tp,
