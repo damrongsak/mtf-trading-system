@@ -43,6 +43,14 @@ class UserPreferences(Base):
         nullable=True,
         comment="Trading session preferences: LONDON, NY, ASIA"
     )
+    
+    # Telegram Configuration
+    telegram_bot_token = Column(
+        String, 
+        nullable=True,
+        comment="Encrypted Telegram bot token for user's personal bot"
+    )
+    
     # Trading Preferences
     # supported_symbols moved to BrokerAccount
     

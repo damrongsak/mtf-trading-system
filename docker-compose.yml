@@ -117,6 +117,7 @@ services:
     container_name: strategy-core
     volumes:
       - ./services/strategy-core:/app
+      - /app/.venv
     depends_on:
       - data-pipeline
     environment:
@@ -143,6 +144,7 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     deploy:
       resources:
         limits:
@@ -192,7 +194,7 @@ services:
       - external
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:latest
     container_name: redis
     ports:
       - "6379:6379"

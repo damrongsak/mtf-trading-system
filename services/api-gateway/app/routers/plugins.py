@@ -230,3 +230,28 @@ async def inspect_system_hooks(current_user: User = Depends(get_current_user)):
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"Strategy Core Hook Inspection Failed: {e}")
 
+class NotifyRequest(BaseModel):
+    message: str
+    category: Optional[str] = "info"
+
+@router.post("/notify")
+async def send_notification(
+    request: NotifyRequest, 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Proxies a notification request to Strategy Core for the current user.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            payload = {
+                "message": request.message,
+                "user_id": str(current_user.id),
+                "category": request.category
+            }
+            resp = await client.post(f"{STRATEGY_CORE_URL}/internal/plugins/notify", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=502, detail=f"Strategy Core Notification Failed: {e}")
+

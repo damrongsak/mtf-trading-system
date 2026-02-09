@@ -67,7 +67,10 @@ class HookManager:
             logger.debug(f"Triggering action: {tag}")
             for callback in self.actions[tag]:
                 try:
-                    callback(*args, **kwargs)
+                    import asyncio
+                    res = callback(*args, **kwargs)
+                    if asyncio.iscoroutine(res):
+                        asyncio.create_task(res)
                 except Exception as e:
                     logger.error(f"Error in action '{tag}' callback '{callback.__name__}': {e}")
                     # Trigger system-level error hook if not recursive

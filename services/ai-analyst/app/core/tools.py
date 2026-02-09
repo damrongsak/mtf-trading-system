@@ -438,6 +438,32 @@ class PythonSandboxTool(BaseTool):
         finally:
             sys.stdout = sys.__stdout__ # Restore stdout
 
+class NotificationTool(BaseTool):
+    name: str = "send_notification"
+    description: str = "\n    Send a notification to the user's Telegram bot.\n    Input: Message string to send.\n    "
+
+    async def run(self, input_data: Any, auth_token: str = None) -> str:
+        if not auth_token: return "Error: Authentication required."
+        
+        # Robust extraction
+        message = input_data
+        if isinstance(input_data, dict):
+            message = input_data.get("message") or input_data.get("input") or str(input_data)
+            
+        url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/plugins/notify"
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        payload = {"message": message}
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                     if resp.status == 200:
+                         return f"Notification Sent: {message}"
+                     else:
+                         return f"Failed to send notification ({resp.status}): {await resp.text()}"
+            except Exception as e:
+                return f"Notification Error: {e}"
+
 class ToolRegistry:
     def __init__(self, rag_service: RAGService):
         self.rag = rag_service
@@ -452,7 +478,8 @@ class ToolRegistry:
             "risk_check": RiskCheckTool(),
             "python_sandbox": PythonSandboxTool(),
             "open_interest": OpenInterestTool(),
-            "smc_technical_analysis": SMCAnalystTool()
+            "smc_technical_analysis": SMCAnalystTool(),
+            "send_notification": NotificationTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

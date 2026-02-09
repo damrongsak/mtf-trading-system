@@ -3,7 +3,7 @@ import shutil
 import zipfile
 import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 from app.engine import strategy_engine
@@ -110,7 +110,20 @@ def inspect_hooks():
             result.append(HookInfo(tag=tag, callbacks=cb_names))
         return result
 
-    return SystemHooks(
-        actions=serialize_callbacks(hm.actions),
-        filters=serialize_callbacks(hm.filters)
+
+class NotifyRequest(BaseModel):
+    message: str
+    user_id: Optional[str] = None
+    category: Optional[str] = "info"
+
+@router.post("/notify")
+async def notify_users(request: NotifyRequest):
+    """
+    Trigger a manual notification via the system hooks.
+    """
+    strategy_engine.notify(
+        message=request.message,
+        user_id=request.user_id,
+        category=request.category
     )
+    return {"status": "dispatched"}

@@ -46,6 +46,8 @@ class StrategyChatRequest(BaseModel):
     strategy_id: Optional[str] = None
     context_code: Optional[str] = None
     image_b64: Optional[str] = None
+    reply_via_telegram: bool = False
+    telegram_chat_id: Optional[int] = None
 
 @router.get("/agents", response_model=Dict[str, Any])
 async def list_agents():
@@ -118,6 +120,28 @@ async def chat_strategy(request: StrategyChatRequest, authorization: str = Heade
             context_code=request.context_code,
             image_b64=request.image_b64
         )
+        
+        # If reply_via_telegram is enabled, send response to Telegram
+        if request.reply_via_telegram and request.telegram_chat_id:
+            try:
+                import httpx
+                import os
+                
+                bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+                telegram_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                
+                # Format response for Telegram
+                response_text = result.get("response", "No response generated.")
+                
+                async with httpx.AsyncClient() as client:
+                    await client.post(telegram_url, json={
+                        "chat_id": request.telegram_chat_id,
+                        "text": response_text,
+                        "parse_mode": "Markdown"
+                    })
+            except Exception as telegram_error:
+                print(f"Failed to send Telegram response: {telegram_error}")
+        
         return {
             "response": result.get("response"),
             "thoughts": result.get("thoughts"),

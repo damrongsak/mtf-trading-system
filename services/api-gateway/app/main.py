@@ -116,6 +116,8 @@ from app.routers import plugins
 app.include_router(plugins.router, prefix="/api/v1")
 from app.routers import alpha
 app.include_router(alpha.router, prefix="/api/v1")
+from app.routers import telegram
+app.include_router(telegram.router, prefix="/api/v1")
 
 from app.routers import auth, strategy, execution, risk, data_source, backtest, journal, data, analysis, prompts, ai
 

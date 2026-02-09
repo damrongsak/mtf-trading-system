@@ -37,6 +37,10 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 AI Analyst Service Starting...")
     logger.info("="*50 + "\n")
 
+    # Clear any stale services from global dict (important for reloads)
+    for key in services.keys():
+        services[key] = None
+
     # 1. Bootstrap Tools
     try:
         bootstrap_tools()
@@ -44,30 +48,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Failed to bootstrap tools: {e}")
 
-    # 2. Initialize Gemini Client
+    # 2. Initialize Core Services
     try:
         services["gemini"] = GeminiClient()
-        # Simple health check (optional, e.g. checking models, but simple init is usually enough for validation)
         logger.info("✅ Gemini Client Initialized")
     except Exception as e:
         logger.error(f"❌ Gemini Client Failed: {e}")
 
-    # 3. Initialize RAG Service (Qdrant)
     try:
         services["rag"] = RAGService(services["gemini"])
-        # Check Qdrant Connection
-        try:
-             # The RAG service init already attempts to ensure collections, which effectively checks connection
-             # We can explicitly list collections if we want to be sure
-             collections = services["rag"].qdrant.get_collections()
-             logger.info(f"✅ Qdrant Connected (Collections: {len(collections.collections)})")
-        except Exception as e:
-            logger.warning(f"⚠️ RAG Initialized but Qdrant check failed: {e}")
-            
+        collections = services["rag"].qdrant.get_collections()
+        logger.info(f"✅ Qdrant Connected (Collections: {len(collections.collections)})")
     except Exception as e:
-        logger.error(f"❌ RAG Service Failed: {e}")
+        logger.error(f"❌ RAG Service/Qdrant Failed: {e}")
 
-    # 4. Initialize Memory Service
     try:
         if services["rag"]:
             services["memory"] = MemoryService(services["rag"])
@@ -75,64 +69,67 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Memory Service Failed: {e}")
 
-    # 5. Initialize Redis Checkpointer (Short-Term Memory)
-    # 5. Initialize Redis Checkpointer (Short-Term Memory)
-    try:
-        from app.core.config import settings
-        from langgraph.checkpoint.redis.aio import AsyncRedisSaver # Correct async import
-        
-        logger.info(f"Connecting to Redis at: {settings.redis.url}")
-        # AsyncRedisSaver can take the URL directly and manage its own connection
-        services["checkpointer"] = AsyncRedisSaver.from_conn_string(settings.redis.url)
-        logger.info("✅ Redis Checkpointer (Short-Term Memory) Ready")
-    except Exception as e:
-        logger.warning(f"⚠️ Redis Checkpointer Failed: {e}. Falling back to MemorySaver.")
-        from langgraph.checkpoint.memory import MemorySaver
-        services["checkpointer"] = MemorySaver()
-        logger.info("✅ MemorySaver (In-Memory Checkpointer) Ready")
-
-    # 6. Initialize Agents
-    try:
-        services["market_observer"] = MarketObserverAgent()
-        logger.info("✅ Market Observer Agent Ready")
-    except Exception as e:
-        logger.error(f"❌ Market Observer Agent Failed: {e}")
-    except Exception as e:
-        logger.error(f"❌ Market Observer Agent Failed: {e}")
-
-    try:
-        if services["rag"]:
-            # Pass checkpointer to agent
-            services["strategy_advisor"] = StrategyAdvisorAgent(
-                services["rag"], 
-                services["gemini"], 
-                checkpointer=services.get("checkpointer"),
-                memory_service=services.get("memory")
-            )
-            logger.info("✅ Strategy Advisor Agent Ready")
-        else:
-            logger.warning("⚠️ Strategy Advisor Skipped (RAG missing)")
-    except Exception as e:
-        logger.error(f"❌ Strategy Advisor Agent Failed: {e}")
-
-    try:
-        services["daily_briefing"] = DailyBriefingAgent()
-        logger.info("✅ Daily Briefing Agent Ready")
-    except Exception as e:
-        logger.error(f"❌ Daily Briefing Agent Failed: {e}")
-
-    try:
-        services["sentiment"] = SentimentService()
-        if services["sentiment"]:
-             logger.info("✅ Sentiment Service Ready (delegated to Data Pipeline)")
-    except Exception as e:
-        logger.error(f"❌ Sentiment Service Failed: {e}")
-
-    logger.info("\n" + "="*50)
-    logger.info("✨ Service Startup Complete")
-    logger.info("="*50 + "\n")
+    # 3. Handle Checkpointer and Agents within AsyncExitStack
+    from contextlib import AsyncExitStack
+    from langgraph.checkpoint.memory import MemorySaver
     
-    yield
+    # Default to MemorySaver
+    services["checkpointer"] = MemorySaver()
+
+    async with AsyncExitStack() as stack:
+        # Try to upgrade to Redis for persistence
+        try:
+            from app.core.config import settings
+            from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+            
+            logger.info(f"Connecting to Redis at: {settings.redis.url}")
+            # IMPORTANT: AsyncRedisSaver.from_conn_string returns a CONTEXT MANAGER.
+            # We MUST use stack.enter_async_context to get the actual checkpointer object.
+            # This fixes the 'AttributeError: ... no attribute get_next_version'
+            services["checkpointer"] = await stack.enter_async_context(
+                AsyncRedisSaver.from_conn_string(settings.redis.url)
+            )
+            logger.info("✅ Redis Checkpointer (Short-Term Memory) Ready")
+        except Exception as e:
+            logger.warning(f"⚠️ Redis Checkpointer Failed ({e}). Falling back to MemorySaver.")
+            services["checkpointer"] = MemorySaver()
+
+        # 4. Initialize Agents (Inside the stack so checkpointer is entered/active)
+        try:
+            services["market_observer"] = MarketObserverAgent()
+            logger.info("✅ Market Observer Agent Ready")
+        except Exception as e:
+            logger.error(f"❌ Market Observer Agent Failed: {e}")
+
+        try:
+            if services["rag"]:
+                services["strategy_advisor"] = StrategyAdvisorAgent(
+                    services["rag"], 
+                    services["gemini"], 
+                    checkpointer=services["checkpointer"],
+                    memory_service=services.get("memory")
+                )
+                logger.info("✅ Strategy Advisor Agent Ready")
+        except Exception as e:
+            logger.error(f"❌ Strategy Advisor Agent Failed: {e}")
+
+        try:
+            services["daily_briefing"] = DailyBriefingAgent()
+            logger.info("✅ Daily Briefing Agent Ready")
+        except Exception as e:
+            logger.error(f"❌ Daily Briefing Agent Failed: {e}")
+
+        try:
+            services["sentiment"] = SentimentService()
+            logger.info("✅ Sentiment Service Ready")
+        except Exception as e:
+            logger.error(f"❌ Sentiment Service Failed: {e}")
+
+        logger.info("\n" + "="*50)
+        logger.info("✨ Service Startup Complete")
+        logger.info("="*50 + "\n")
+        
+        yield
     
     logger.info("🛑 Service Shutting Down...")
     if services.get("sentiment"):

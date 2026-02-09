@@ -1,0 +1,13 @@
+from sqlalchemy import Column, Integer, BigInteger, Boolean, DateTime, ForeignKey
+from sqlalchemy.sql import func
+from app.database import Base
+
+
+class TelegramChatMapping(Base):
+    __tablename__ = "telegram_chat_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    chat_id = Column(BigInteger, unique=True, nullable=False, index=True)
+    linked_at = Column(DateTime, server_default=func.now(), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)

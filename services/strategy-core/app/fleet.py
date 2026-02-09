@@ -152,6 +152,7 @@ class FleetManager:
                         self.config_json = ctx["config"]
                         self.symbol = ctx["symbol"]
                         self.id = ctx["id"]
+                        self.fund_id = ctx.get("fund_id")
                         self.broker_account_id = ctx["broker_account_id"]
                 
                 state_obj = StrategyState(context)

@@ -31,6 +31,7 @@ class StrategyState:
         self.broker_account_id = config.get("broker_account_id")
         self.symbol = config.get("symbol", "EUR_USD")
         self.timeframe = config.get("timeframe", "M15")
+        self.fund_id = config.get("fund_id")
         self.mode = config.get("execution_mode", ExecutionMode.MANUAL)
         self.last_tick_time = None
         # Data is now accessed via market_data_manager using self.symbol
@@ -343,6 +344,20 @@ class StrategyEngine:
             
             db.add(new_signal)
             db.commit()
+            
+            # HOOK: on_signal
+            # Triggered when a signal is persisted, even if it's PENDING_APPROVAL
+            self.hook_manager.do_action("on_signal", {
+                "id": str(new_signal.id),
+                "symbol": new_signal.symbol,
+                "direction": new_signal.direction,
+                "timeframe": new_signal.timeframe,
+                "price": float(new_signal.price) if new_signal.price else None,
+                "reason": new_signal.reason,
+                "status": new_signal.status,
+                "fund_id": str(state.fund_id) if state.fund_id else None
+            })
+            
             db.close()
         except Exception as e:
             logger.error(f"Failed to save SignalLog: {e}")
@@ -412,5 +427,16 @@ class StrategyEngine:
                     
             except Exception as e:
                 logger.error(f"Execution failed: {e}")
+
+
+    def notify(self, message: str, user_id: str = None, category: str = "info"):
+        """
+        Generic notification hook for plugins or other components.
+        """
+        self.hook_manager.do_action("notify_message", {
+            "message": message,
+            "category": category,
+            "user_id": user_id
+        })
 
 strategy_engine = StrategyEngine()
