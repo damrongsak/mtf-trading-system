@@ -181,6 +181,111 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         data_freshness=freshness
     ))
 
+@router.get("/market-state/{symbol}")
+async def get_market_state(symbol: str, timeframe: str = "H1", compare_with: Optional[str] = None, include_positioning: bool = True):
+    """
+    Get comprehensive market state analysis (volatility, trend, squeeze, vwap, liquidity, correlation, positioning).
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            # 1. Fetch main candles
+            candles_resp = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/candles",
+                params={"symbol": symbol.upper(), "timeframe": timeframe, "page_size": 100},
+                timeout=10.0
+            )
+            candles_resp.raise_for_status()
+            candles_data = candles_resp.json().get("data", [])
+            
+            if not candles_data:
+                return success_response(data={"error": "No data available"})
+            
+            candles_data.reverse()
+            
+            # 2. Fetch second candles (optional for correlation)
+            second_close = None
+            if compare_with:
+                try:
+                    comp_resp = await client.get(
+                        f"{DATA_SERVICE_URL}/api/v1/candles",
+                        params={"symbol": compare_with.upper(), "timeframe": timeframe, "page_size": 100},
+                        timeout=5.0
+                    )
+                    if comp_resp.status_code == 200:
+                        comp_data = comp_resp.json().get("data", [])
+                        comp_data.reverse()
+                        second_close = [float(c["close"]) for c in comp_data]
+                except Exception as e:
+                    print(f"Warning: Failed to fetch comparison data: {e}")
+
+            # 3. Fetch Open Interest data (optional for positioning)
+            oi_call = None
+            oi_put = None
+            oi_strikes = None
+            
+            if include_positioning:
+                try:
+                    # Fetch latest OI snapshot
+                    oi_resp = await client.get(
+                        f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/snapshots",
+                        params={"limit": 1},
+                        timeout=5.0
+                    )
+                    if oi_resp.status_code == 200:
+                        snapshots = oi_resp.json()
+                        if isinstance(snapshots, list) and len(snapshots) > 0:
+                            latest_snapshot_time = snapshots[0].get("snapshot_at")
+                            
+                            # Fetch OI details for this snapshot (all strikes, no filtering)
+                            oi_detail_resp = await client.get(
+                                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/details",
+                                params={
+                                    "snapshot_at": latest_snapshot_time,
+                                    "min_oi": 0,           # Include all strikes
+                                    "max_oi": 999999,      # Effectively no limit
+                                    "smart_filter": False  # No statistical filtering
+                                },
+                                timeout=5.0
+                            )
+                            if oi_detail_resp.status_code == 200:
+                                oi_details = oi_detail_resp.json()
+                                if oi_details:
+                                    oi_call = [float(d.get("call_oi", 0)) for d in oi_details]
+                                    oi_put = [float(d.get("put_oi", 0)) for d in oi_details]
+                                    oi_strikes = [float(d.get("strike", 0)) for d in oi_details]
+                except Exception as e:
+                    print(f"Warning: Failed to fetch OI data: {e}")
+
+            # 4. Call Strategy Core /market-state
+            payload = {
+                "symbol": symbol.upper(),
+                "open": [float(c["open"]) for c in candles_data],
+                "high": [float(c["high"]) for c in candles_data],
+                "low": [float(c["low"]) for c in candles_data],
+                "close": [float(c["close"]) for c in candles_data],
+                "volume": [float(c["volume"]) for c in candles_data],
+                "timestamps": [c["timestamp"] for c in candles_data],
+                "second_close": second_close,
+                "second_symbol": compare_with.upper() if compare_with else None,
+                "oi_call": oi_call,
+                "oi_put": oi_put,
+                "oi_strikes": oi_strikes
+            }
+            
+            resp = await client.post(
+                f"{STRATEGY_SERVICE_URL}/api/v1/calculate/market-state",
+                json=payload,
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return success_response(data=resp.json())
+            
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Service Error: {str(e)}")
+            
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Service Error: {str(e)}")
+
 @router.post("/check", response_model=APIResponse[SignalResponse])
 async def check_signal(symbol: str):
     """

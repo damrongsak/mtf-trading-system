@@ -58,5 +58,26 @@ def calculate_adr(high: pd.Series, low: pd.Series, window: int = 20) -> float:
     
     # Reindex to original high index to broadcast values
     adr_aligned = adr_shifted.reindex(high.index, method='ffill')
-    
     return adr_aligned
+
+def detect_volatility_regime(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 20) -> pd.Series:
+    """
+    Detect volatility regime:
+    - Low: ATR < SMA(ATR)
+    - Expanding: ATR > SMA(ATR) AND ATR rising
+    - Panic: ATR > 2 * SMA(ATR)
+    """
+    atr = calculate_atr(high, low, close, window=window)
+    atr_sma = atr.rolling(window=window).mean()
+    
+    regime = pd.Series('Stable', index=close.index)
+    
+    low_mask = atr < atr_sma
+    expanding_mask = (atr > atr_sma) & (atr > atr.shift(1))
+    panic_mask = atr > (atr_sma * 2.0)
+    
+    regime.loc[low_mask] = 'Low'
+    regime.loc[expanding_mask] = 'Expanding'
+    regime.loc[panic_mask] = 'Panic'
+    
+    return regime

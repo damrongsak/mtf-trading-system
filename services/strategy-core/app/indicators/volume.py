@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from typing import Dict, Any, List, Optional
 from numba import njit
 import vectorbt as vbt
 
@@ -54,19 +55,44 @@ def volume_profile_nb(close, volume, bins):
         
     return price_levels, bucket_vols
 
-def calculate_volume_profile(close: pd.Series, volume: pd.Series, bins: int = 24) -> pd.DataFrame:
+def calculate_vwap(close: pd.Series, volume: pd.Series) -> pd.Series:
+    """
+    Calculate Cumulative Volume Weighted Average Price (VWAP).
+    """
+    v_c = volume * close
+    return v_c.cumsum() / volume.cumsum()
+
+def detect_liquidity_condition(volume: pd.Series, close: pd.Series, window: int = 20) -> Dict[str, Any]:
+    """
+    Identify liquidity conditions based on Relative Volume (RVOL) and Volume Profile.
+    """
+    avg_vol = volume.rolling(window=window).mean()
+    rvol = volume / avg_vol
+    
+    current_rvol = rvol.iloc[-1]
+    
+    # Classify Liquidity
+    if current_rvol > 2.0:
+        condition = "High (Institutional Hub)"
+    elif current_rvol > 1.2:
+        condition = "Expanding"
+    elif current_rvol < 0.8:
+        condition = "Low (Thin Market)"
+    else:
+        condition = "Neutral"
+        
+    return {
+        "rvol": round(float(current_rvol), 2),
+        "condition": condition,
+        "is_high_volume_node": bool(current_rvol > 1.5) # Simple proxy for now
+    }
+
+def calculate_volume_profile(df: pd.DataFrame, bins: int = 10) -> pd.DataFrame:
     """
     Calculate Volume Profile (Price-by-Volume) using Numba acceleration.
-    Returns a DataFrame with price levels and volume at that level.
     """
-    # Ensure numpy arrays (copy=False for speed if possible)
-    close_arr = close.values
-    
-    # Handle volume if integer or float
-    # Numba likes homogeneous types. If volume is int and close is float, strict typing might complain 
-    # if we don't handle it. But standard python types usually work with JIT.
-    # Safe cast to float for volume to match expected bucket_vols type
-    vol_arr = volume.values.astype(np.float64) 
+    close_arr = df['close'].values
+    vol_arr = df['volume'].values.astype(np.float64) 
     
     levels, vols = volume_profile_nb(close_arr, vol_arr, bins)
     

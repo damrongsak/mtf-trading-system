@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.rag import RAGService
 from app.tools.smc import SMCAnalystTool
+from app.tools.market_state import MarketStateTool
 
 logger = logging.getLogger(__name__)
 
@@ -535,6 +536,7 @@ class ToolRegistry:
             "python_sandbox": PythonSandboxTool(),
             "open_interest": OpenInterestTool(),
             "smc_technical_analysis": SMCAnalystTool(),
+            "market_state": MarketStateTool(),
             "send_notification": NotificationTool()
         }
 

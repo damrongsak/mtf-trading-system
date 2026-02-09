@@ -269,6 +269,36 @@ def get_adx(req: ADXRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/calculate/market-state")
+def get_market_state(req: SMCRequest):
+    try:
+        from app.analysis.market_state import MarketStateService
+        import json
+        df = _prepare_df(req)
+        
+        second_df = None
+        if req.second_close:
+            second_df = pd.DataFrame({"close": req.second_close})
+        
+        # Prepare OI data if provided
+        oi_data = None
+        if req.oi_call and req.oi_put and req.oi_strikes:
+            oi_data = {
+                "call_oi": req.oi_call,
+                "put_oi": req.oi_put,
+                "strikes": req.oi_strikes,
+                "current_price": float(df['close'].iloc[-1])
+            }
+            
+        result = MarketStateService.analyze_state(df, second_df, oi_data)
+        
+        # Use pandas to-json for robust nan handling (converts nan to null)
+        json_str = pd.Series(result).to_json()
+        return json.loads(json_str)
+    except Exception as e:
+        logger.error(f"Market state calculation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 def _prepare_df(req: SMCRequest) -> pd.DataFrame:
     data = {
         "open": req.open,

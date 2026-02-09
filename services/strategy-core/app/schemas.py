@@ -55,6 +55,13 @@ class SMCRequest(BaseModel):
     close: List[float]
     volume: Optional[List[float]] = None
     timestamps: Optional[List[str]] = None
+    # For Correlation analysis
+    second_close: Optional[List[float]] = None
+    second_symbol: Optional[str] = None
+    # For Positioning analysis
+    oi_call: Optional[List[float]] = None
+    oi_put: Optional[List[float]] = None
+    oi_strikes: Optional[List[float]] = None
 
 class SMCResponse(BaseModel):
     order_blocks: List[Dict[str, Any]]

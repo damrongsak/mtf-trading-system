@@ -120,3 +120,38 @@ def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, length: int
         'dmp': res.plus_di,
         'dmn': res.minus_di
     }, index=close.index)
+
+def detect_trend_structure(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> pd.DataFrame:
+    """
+    Detect trend structure and compression:
+    - Trend: ADX > 25
+    - Range: ADX < 20
+    - Squeeze: BBands inside Keltner Channels
+    """
+    adx_df = calculate_adx(high, low, close, length=length)
+    
+    # BBands
+    res_bb = vbt.BBANDS.run(close, window=20, alpha=2)
+    bb_width = res_bb.upper - res_bb.lower
+    
+    # KC (Manual Implementation using primitives)
+    kc_mid = calculate_ema(close, span=20)
+    atr_20 = vbt.ATR.run(high, low, close, window=20).atr
+    kc_upper = kc_mid + (2.0 * atr_20)
+    kc_lower = kc_mid - (2.0 * atr_20)
+    kc_width = kc_upper - kc_lower
+    
+    # Conditions
+    is_trend = adx_df['adx'] > 25
+    is_range = adx_df['adx'] < 20
+    is_squeeze = bb_width < kc_width
+    
+    structure = pd.Series('Neutral', index=close.index)
+    structure.loc[is_trend] = 'Trending'
+    structure.loc[is_range] = 'Range'
+    
+    return pd.DataFrame({
+        'structure': structure,
+        'is_squeeze': is_squeeze,
+        'adx': adx_df['adx']
+    }, index=close.index)

@@ -7,6 +7,7 @@ from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.calendar import GetEconomicCalendarTool
 from app.tools.search import GoogleSearchTool
+from app.tools.market_state import MarketStateTool
 
 class MarketObserverAgent:
     def __init__(self):
@@ -20,6 +21,7 @@ class MarketObserverAgent:
         )
         
         self.tools = [
+            MarketStateTool(),  # NEW: Institutional-grade market state features
             GetMarketContextTool(),
             GetTechnicalSignalsTool(),
             GetAccountStatusTool(),
@@ -39,6 +41,7 @@ class MarketObserverAgent:
         # GetTechnicalSignalsTool definitely needs it.
         
         runtime_tools = [
+            MarketStateTool(),  # NEW: Institutional-grade market state features
             GetMarketContextTool(),
             GetTechnicalSignalsTool(auth_header=auth_header),
             GetAccountStatusTool(), # Assuming internal execution service doesn't require user token, OR it needs one. Let's assume user token is better.
