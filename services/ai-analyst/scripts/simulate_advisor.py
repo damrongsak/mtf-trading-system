@@ -15,7 +15,7 @@ from app.core.bootstrap import bootstrap_tools
 from app.core.globals import services
 
 # Configuration
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("simulation")
 
 async def simulate():

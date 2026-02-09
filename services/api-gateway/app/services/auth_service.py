@@ -100,6 +100,27 @@ async def refresh_ctrader_token_internal(account: BrokerAccount, db: Session, fo
                     db.add(ds)
                     logger.info(f"Synced refreshed token to DataSource {ds.name} (ID: {ds.id})")
 
+            # NEW: Sync to other BrokerAccount records with the same account_id
+            # This handles duplicate accounts in different funds
+            acc_id_str = str(creds.get("account_id", ""))
+            other_accounts = db.query(BrokerAccount).filter(
+                BrokerAccount.broker_name == "CTRADER",
+                BrokerAccount.id != account.id
+            ).all()
+            
+            for other_acc in other_accounts:
+                try:
+                    other_creds = decrypt_data(other_acc.credentials_encrypted)
+                    if str(other_creds.get("account_id", "")) == acc_id_str:
+                        other_creds["token"] = new_access_token
+                        other_creds["refresh_token"] = new_refresh_token
+                        other_creds["expires_at"] = creds["expires_at"]
+                        other_acc.credentials_encrypted = encrypt_data(other_creds)
+                        db.add(other_acc)
+                        logger.info(f"Synced refreshed token to duplicate BrokerAccount {other_acc.id}")
+                except Exception as sync_err:
+                    logger.error(f"Failed to sync to duplicate account {other_acc.id}: {sync_err}")
+
             db.commit()
             
             logger.info(f"Successfully refreshed token for account {account.id}")

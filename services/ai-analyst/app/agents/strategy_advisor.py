@@ -51,6 +51,11 @@ class AgentState(TypedDict):
     
     # Scratchpad for tool outputs
     scratchpad: Annotated[List[str], operator.add]
+    
+    # Agentic RAG / Iterative Refinement
+    iteration_count: int
+    evaluation_feedback: str
+    is_satisfactory: bool
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -80,6 +85,7 @@ class StrategyAdvisorAgent:
         workflow.add_node("retrieve_knowledge", self.node_retrieve)
         workflow.add_node("reasoning", self.node_reason)
         workflow.add_node("generate", self.node_generate)
+        workflow.add_node("evaluator", self.node_evaluator)
         workflow.add_node("memory_write", self.node_memory_write)
         
         # New Nodes for Advanced Features
@@ -130,7 +136,19 @@ class StrategyAdvisorAgent:
         
         workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
         workflow.add_edge("synthesize", "memory_write") # Research ends here usually
-        workflow.add_edge("generate", "memory_write")
+        
+        workflow.add_edge("generate", "evaluator")
+        
+        workflow.add_conditional_edges(
+            "evaluator",
+            self._route_evaluation,
+            {
+                "satisfactory": "memory_write",
+                "refine": "decompose",
+                "max_iterations": "memory_write"
+            }
+        )
+        
         workflow.add_edge("memory_write", END)
 
         # 3. Compile
@@ -209,6 +227,19 @@ class StrategyAdvisorAgent:
         
         return "direct"
 
+    def _route_evaluation(self, state: AgentState):
+        """
+        Routes based on evaluation result.
+        """
+        if state.get("is_satisfactory"):
+            return "satisfactory"
+        
+        if state.get("iteration_count", 0) >= 3:
+            logger.warning("Max Agentic RAG iterations reached.")
+            return "max_iterations"
+            
+        return "refine"
+
     def _route_selection_output(self, state: AgentState):
         """
         Routes based on whether tools were selected or we are done.
@@ -279,9 +310,14 @@ class StrategyAdvisorAgent:
         tool_info = self.tool_registry.get_tool_descriptions()
         tool_ctx = f"**Available System Tools:**\n{tool_info}"
         
+        # 5. Agentic RAG: Use evaluation feedback to refine search if present
+        refinement_ctx = []
+        if state.get("evaluation_feedback"):
+             refinement_ctx.append(f"**Previous Evaluation Feedback (Reason to refine search):**\n{state['evaluation_feedback']}")
+        
         return {
             "user_facts": user_facts,
-            "retrieved_docs": doc_texts + strat_texts + [tool_ctx]
+            "retrieved_docs": doc_texts + strat_texts + [tool_ctx] + refinement_ctx
         }
 
     async def node_reason(self, state: AgentState):
@@ -540,6 +576,61 @@ class StrategyAdvisorAgent:
             
         return {"final_response": final, "thoughts": thoughts}
 
+    async def node_evaluator(self, state: AgentState):
+        """
+        The 'Judge' node. Evaluates if the response is complete and accurate.
+        """
+        query = state["optimized_query"]
+        response = state["final_response"]
+        context = "\n\n".join(state.get("retrieved_docs", []))
+        scratchpad = "\n".join(state.get("scratchpad", []))
+        iteration = state.get("iteration_count", 0)
+
+        logger.info(f"Evaluating Response (Iteration {iteration})...")
+
+        prompt = f"""
+        You are the Quality Control (Judge) Agent for MTF Olympus AI.
+        Your task is to evaluate if the AI's generated response completely and accurately answers the User Request.
+        
+        User Request: "{query}"
+        
+        AI Response:
+        {response}
+        
+        Retrieved Context & Tool Data:
+        {context}
+        {scratchpad}
+        
+        **Evaluation Criteria:**
+        1. Does it answer EVERY part of the user's request?
+        2. Is it grounded in the provided context/tool data (no hallucinations)?
+        3. If data was missing, did it explain why?
+        4. Is the tone professional and quantitative?
+        
+        **Output JSON only:**
+        {{
+            "is_satisfactory": true/false,
+            "feedback": "If unsatisfactory, explain exactly what is missing or wrong to guide the next retrieval/reasoning step. Otherwise, leave empty."
+        }}
+        """
+
+        try:
+            res = await self.gemini.client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            text = res.text.replace("```json", "").replace("```", "")
+            data = json.loads(text)
+            
+            return {
+                "is_satisfactory": data.get("is_satisfactory", True),
+                "evaluation_feedback": data.get("feedback", ""),
+                "iteration_count": iteration + 1
+            }
+        except Exception as e:
+            logger.error(f"Evaluation failed: {e}")
+            return {"is_satisfactory": True, "iteration_count": iteration + 1}
+
     async def node_memory_write(self, state: AgentState):
         """
         Self-Reflection: Did we learn something new about the user?
@@ -585,7 +676,10 @@ class StrategyAdvisorAgent:
             "retrieved_docs": [],
             "user_facts": [],
             "tool_calls": [],
-            "plan_steps": []
+            "plan_steps": [],
+            "iteration_count": 0,
+            "evaluation_feedback": "",
+            "is_satisfactory": False
         }
         
         # Configure Checkpoint (Thread ID = user_id for simplicity, or session_id)

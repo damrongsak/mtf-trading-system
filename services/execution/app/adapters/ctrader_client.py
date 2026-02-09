@@ -331,7 +331,7 @@ class AsyncCTraderClient:
         if resp_msg.payloadType == ProtoOARefreshTokenRes().payloadType:
             res = ProtoOARefreshTokenRes()
             res.ParseFromString(resp_msg.payload)
-            return res.accessToken, res.refreshToken, res.expiresIn, res.reauthorizationTokenExpiresIn
+            return res.accessToken, res.refreshToken, res.expiresIn, getattr(res, 'reauthorizationTokenExpiresIn', None)
         elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
