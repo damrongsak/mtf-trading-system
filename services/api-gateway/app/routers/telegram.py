@@ -79,6 +79,7 @@ async def telegram_webhook(
         return {"ok": True}
     
     chat_id = update.message.get("chat", {}).get("id")
+    message_id = update.message.get("message_id")  # Extract message_id for reply threading
     text = update.message.get("text", "")
     
     if not chat_id or not text:
@@ -115,7 +116,8 @@ async def telegram_webhook(
                     "message": text,
                     "user_id": user.username,
                     "reply_via_telegram": True,
-                    "telegram_chat_id": chat_id
+                    "telegram_chat_id": chat_id,
+                    "telegram_message_id": message_id  # For reply threading
                 }
             )
             

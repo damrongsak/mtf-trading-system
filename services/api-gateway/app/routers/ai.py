@@ -141,6 +141,9 @@ class StrategyChatRequest(BaseModel):
     strategy_id: Optional[str] = None
     context_code: Optional[str] = None
     image_b64: Optional[str] = None
+    reply_via_telegram: bool = False
+    telegram_chat_id: Optional[int] = None
+    telegram_message_id: Optional[int] = None
 
 @router.post("/chat/sessions/message")
 async def chat_strategy(

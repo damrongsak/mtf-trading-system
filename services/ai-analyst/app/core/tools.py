@@ -52,8 +52,39 @@ class AccountStatusTool(BaseTool):
                 async with session.get(url, headers=headers, timeout=5.0) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        # Allow the agent to parse the raw JSON to be flexible
-                        return json.dumps(data.get("data", {}), indent=2)
+                        account_data = data.get("data", {})
+                        
+                        # Format as table
+                        summary = []
+                        summary.append(f"**Account Summary ({account_data.get('login')})**")
+                        
+                        metrics = [
+                            ["Balance", f"{account_data.get('balance', 0):,.2f}"],
+                            ["Equity", f"{account_data.get('equity', 0):,.2f}"],
+                            ["Margin", f"{account_data.get('margin', 0):,.2f}"],
+                            ["Free Margin", f"{account_data.get('free_margin', 0):,.2f}"],
+                            ["Profit", f"{account_data.get('profit', 0):,.2f}"]
+                        ]
+                        
+                        from tabulate import tabulate
+                        table = tabulate(metrics, headers=["Metric", "Value"], tablefmt="psql")
+                        summary.append(f"```\n{table}\n```")
+                        
+                        # Add positions if any
+                        positions = account_data.get("positions", [])
+                        if positions:
+                            summary.append("\n**Open Positions:**")
+                            pos_table = []
+                            for p in positions:
+                                pos_table.append([
+                                    p.get("symbol"), 
+                                    p.get("direction"), 
+                                    p.get("volume"), 
+                                    f"{p.get('unrealized_profit', 0):,.2f}"
+                                ])
+                            summary.append(f"```\n{tabulate(pos_table, headers=['Symbol', 'Type', 'Vol', 'Profit'], tablefmt='psql')}\n```")
+                            
+                        return "\n".join(summary)
                     else:
                         text = await resp.text()
                         return f"Error ({resp.status}): {text}"
@@ -68,7 +99,6 @@ class TradeHistoryTool(BaseTool):
         if not auth_token:
             return "Error: Authentication required."
             
-        # Using journal endpoint as proxy for trade history
         url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/journal?per_page={limit}"
         headers = {"Authorization": f"Bearer {auth_token}"}
 
@@ -77,7 +107,23 @@ class TradeHistoryTool(BaseTool):
                 async with session.get(url, headers=headers, timeout=5.0) as resp:
                     if resp.status == 200:
                          data = await resp.json()
-                         return json.dumps(data, indent=2)
+                         items = data.get("data", {}).get("items", [])
+                         if not items:
+                             return "No recent trade history found."
+                         
+                         trades = []
+                         for item in items:
+                             trades.append([
+                                 item.get("symbol"),
+                                 item.get("side"),
+                                 item.get("entry_price"),
+                                 item.get("exit_price"),
+                                 f"{item.get('profit', 0):.2f}"
+                             ])
+                         
+                         from tabulate import tabulate
+                         table = tabulate(trades, headers=["Symbol", "Side", "Entry", "Exit", "Profit"], tablefmt="psql")
+                         return f"**Recent Trade History**:\n```\n{table}\n```"
                     return f"Error ({resp.status}): {await resp.text()}"
             except Exception as e:
                 return f"Connection failed: {e}"
@@ -286,7 +332,12 @@ class MarketDataTool(BaseTool):
                             if candles:
                                 df = pd.DataFrame(candles)
                                 df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
-                                return ["**Recent Candles (Last 20)**:", df.to_markdown(index=False)]
+                                try:
+                                    from tabulate import tabulate
+                                    table = tabulate(df, headers='keys', tablefmt='psql', showindex=False)
+                                    return ["**Recent Candles (Last 20)**:", f"{table}"]
+                                except Exception:
+                                    return ["**Recent Candles (Last 20)**:", df.to_markdown(index=False)]
                             return ["(No candle data found)"]
                         return [f"Candle Fetch Failed ({resp.status})"]
                 except Exception as e:
@@ -393,11 +444,16 @@ class OpenInterestTool(BaseTool):
                          # Breakdowns
                          if "significant_levels" in data:
                              summary.append(f"\n**Significant Levels**:")
-                             for lvl in data.get('significant_levels', [])[:5]:
+                             levels_table = []
+                             for lvl in data.get('significant_levels', [])[:10]:
                                  price = lvl.get('strike') or lvl.get('price')
                                  oi = (lvl.get('call_oi', 0) + lvl.get('put_oi', 0)) or lvl.get('oi', 0)
-                                 summary.append(f"- {price}: {oi:,} OI")
-                                 
+                                 levels_table.append([price, f"{oi:,}"])
+                             
+                             from tabulate import tabulate
+                             table = tabulate(levels_table, headers=["Price/Strike", "OI"], tablefmt="psql")
+                             summary.append(f"```\n{table}\n```")
+                             
                          return "\n".join(summary)
                     else:
                         return f"OI Analysis Failed ({resp.status}): {await resp.text()}"
