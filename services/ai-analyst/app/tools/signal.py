@@ -1,30 +1,27 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Optional, Type
+from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
-
-class SignalInput(BaseModel):
-    symbol: str = Field(description="The trading symbol to check signals for, e.g., 'XAU/USD'")
+from app.core.base_tool import BaseTool
 
 class GetTechnicalSignalsTool(BaseTool):
     name: str = "get_technical_signals"
     description: str = "Checks for active technical trading signals (SMC, Order Blocks) for a symbol."
-    args_schema: Type[BaseModel] = SignalInput
-    auth_header: Optional[str] = None
 
-    def _run(self, symbol: str):
-        raise NotImplementedError("Use _arun instead")
-
-    async def _arun(self, symbol: str):
+    async def run(self, input_data: Any, auth_token: str = None) -> str:
+        symbol = "XAUUSD"
+        if isinstance(input_data, str) and input_data:
+            symbol = input_data
+        elif isinstance(input_data, dict) and "symbol" in input_data:
+            symbol = input_data["symbol"]
+            
         async with aiohttp.ClientSession() as session:
             try:
                 # Call API Gateway /signal/latest/{symbol}
                 url = f"{settings.API_GATEWAY_URL}/api/v1/signal/latest/{symbol}"
                 
                 headers = {}
-                if self.auth_header:
-                    headers["Authorization"] = self.auth_header
+                if auth_token:
+                    headers["Authorization"] = auth_token
 
                 async with session.get(url, headers=headers) as resp:
                      if resp.status == 200:

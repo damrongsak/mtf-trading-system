@@ -1,22 +1,21 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Optional, Type, List
+from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
-
-class JournalInput(BaseModel):
-    limit: int = Field(default=10, description="Number of recent entries to fetch")
+from app.core.base_tool import BaseTool
 
 class GetJournalEntriesTool(BaseTool):
     name: str = "get_journal_entries"
     description: str = "Fetches recent trading journal entries (trades, reflections) for the user."
-    args_schema: Type[BaseModel] = JournalInput
-    auth_header: Optional[str] = None
 
-    def _run(self, limit: int = 10):
-        raise NotImplementedError("Use _arun instead")
-
-    async def _arun(self, limit: int = 10):
+    async def run(self, input_data: Any, auth_token: str = None) -> str:
+        limit = 10
+        if isinstance(input_data, int):
+            limit = input_data
+        elif isinstance(input_data, dict):
+            limit = input_data.get("limit", 10)
+        elif isinstance(input_data, str) and input_data.isdigit():
+            limit = int(input_data)
+            
         async with aiohttp.ClientSession() as session:
             try:
                 # Call API Gateway /journal/
@@ -24,8 +23,8 @@ class GetJournalEntriesTool(BaseTool):
                 params = {"page": 1, "per_page": limit}
                 
                 headers = {}
-                if self.auth_header:
-                    headers["Authorization"] = self.auth_header
+                if auth_token:
+                    headers["Authorization"] = auth_token
                 
                 async with session.get(url, params=params, headers=headers) as resp:
                      if resp.status == 200:

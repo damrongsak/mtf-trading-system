@@ -11,8 +11,6 @@ from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
-from app.agents.market_observer import MarketObserverAgent
-from app.agents.daily_briefing import DailyBriefingAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents
@@ -94,12 +92,6 @@ async def lifespan(app: FastAPI):
             logger.warning(f"⚠️ Redis Checkpointer Failed ({e}). Falling back to MemorySaver.")
             services["checkpointer"] = MemorySaver()
 
-        # 4. Initialize Agents (Inside the stack so checkpointer is entered/active)
-        try:
-            services["market_observer"] = MarketObserverAgent()
-            logger.info("✅ Market Observer Agent Ready")
-        except Exception as e:
-            logger.error(f"❌ Market Observer Agent Failed: {e}")
 
         try:
             if services["rag"]:
@@ -113,11 +105,6 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"❌ Strategy Advisor Agent Failed: {e}")
 
-        try:
-            services["daily_briefing"] = DailyBriefingAgent()
-            logger.info("✅ Daily Briefing Agent Ready")
-        except Exception as e:
-            logger.error(f"❌ Daily Briefing Agent Failed: {e}")
 
         try:
             services["sentiment"] = SentimentService()
@@ -160,9 +147,7 @@ def health_check():
         "gemini": "active" if services["gemini"] else "inactive",
         "rag": "active" if services["rag"] else "inactive",
         "agents": {
-            "market_observer": "active" if services["market_observer"] else "inactive",
             "strategy_advisor": "active" if services["strategy_advisor"] else "inactive",
-            "daily_briefing": "active" if services["daily_briefing"] else "inactive",
             "sentiment_service": "active" if services["sentiment"] else "inactive"
         }
     }

@@ -4,9 +4,7 @@
 services = {
     "gemini": None,
     "rag": None,
-    "market_observer": None,
     "strategy_advisor": None,
-    "daily_briefing": None,
     "sentiment": None,
     "memory": None,
     "checkpointer": None

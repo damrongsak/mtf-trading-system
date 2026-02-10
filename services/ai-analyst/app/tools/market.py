@@ -1,21 +1,19 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Optional, Type
+from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
-
-class MarketContextInput(BaseModel):
-    symbol: str = Field(description="The trading symbol to analyze, e.g., 'XAU/USD'")
+from app.core.base_tool import BaseTool
 
 class GetMarketContextTool(BaseTool):
     name: str = "get_market_context"
     description: str = "Fetches current market price, trends, and technical indicators for a symbol."
-    args_schema: Type[BaseModel] = MarketContextInput
 
-    def _run(self, symbol: str):
-        raise NotImplementedError("Use _arun instead")
-
-    async def _arun(self, symbol: str):
+    async def run(self, input_data: Any, auth_token: str = None) -> str:
+        symbol = "XAUUSD"
+        if isinstance(input_data, str) and input_data:
+            symbol = input_data
+        elif isinstance(input_data, dict) and "symbol" in input_data:
+            symbol = input_data["symbol"]
+            
         async with aiohttp.ClientSession() as session:
             try:
                 # Use strategy-core market/candles endpoint
@@ -25,7 +23,6 @@ class GetMarketContextTool(BaseTool):
                 async with session.get(url, params=params) as resp:
                      if resp.status == 200:
                          data = await resp.json()
-                         # Simplify data for LLM
                          candles = data.get("data", [])
                          summary = [
                              f"Time: {c['timestamp']}, Close: {c['close']}" for c in candles

@@ -1,23 +1,23 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Type, Optional
+from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
-
-class SearchInput(BaseModel):
-    query: str = Field(description="The query to search for (e.g., 'Why is Gold dropping?').")
+from app.core.base_tool import BaseTool
 
 class GoogleSearchTool(BaseTool):
     name: str = "google_search"
     description: str = "Searches the web for real-time information and news. Use this to find reasons for market movements."
-    args_schema: Type[BaseModel] = SearchInput
 
-    def _run(self, query: str):
-        raise NotImplementedError("Use _arun instead")
+    async def run(self, input_data: Any, auth_token: str = None) -> str:
+        query = ""
+        if isinstance(input_data, str):
+            query = input_data
+        elif isinstance(input_data, dict):
+            query = input_data.get("query", "")
+            
+        if not query:
+            return "No query provided for search."
 
-    async def _arun(self, query: str):
         if not settings.GOOGLE_CSE_ID or not settings.GOOGLE_SEARCH_API_KEY:
-            # Fallback / Mock behavior for demonstration
             return (
                 f"[MOCK SEARCH RESULT for '{query}']\n"
                 "Note: Real Google Search is not configured (missing GOOGLE_CSE_ID/GOOGLE_SEARCH_API_KEY).\n"
@@ -36,19 +36,22 @@ class GoogleSearchTool(BaseTool):
         }
         
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params) as resp:
-                if resp.status != 200:
-                    return f"Error searching Google: {resp.status} - {await resp.text()}"
-                
-                data = await resp.json()
-                results = []
-                for item in data.get("items", []):
-                    title = item.get("title")
-                    snippet = item.get("snippet")
-                    link = item.get("link")
-                    results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
+            try:
+                async with session.get(url, params=params) as resp:
+                    if resp.status != 200:
+                        return f"Error searching Google: {resp.status} - {await resp.text()}"
                     
-                if not results:
-                    return "No results found."
-                    
-                return "\n---\n".join(results)
+                    data = await resp.json()
+                    results = []
+                    for item in data.get("items", []):
+                        title = item.get("title")
+                        snippet = item.get("snippet")
+                        link = item.get("link")
+                        results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
+                        
+                    if not results:
+                        return "No results found."
+                        
+                    return "\n---\n".join(results)
+            except Exception as e:
+                return f"Google Search failed: {e}"

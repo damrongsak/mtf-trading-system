@@ -1,45 +1,32 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Optional, Type
+from typing import Any, Optional
 import aiohttp
+import logging
 from app.core.config import settings
+from app.core.base_tool import BaseTool
 
-class AccountStatusInput(BaseModel):
-    pass
+logger = logging.getLogger(__name__)
 
 class GetAccountStatusTool(BaseTool):
     name: str = "get_account_status"
     description: str = "Fetches comprehensive account health including balance, equity, margin, open positions, and risk metrics."
-    args_schema: Type[BaseModel] = AccountStatusInput
-    auth_header: Optional[str] = None
 
-    def _run(self):
-        raise NotImplementedError("Use _arun instead")
-
-    async def _arun(self):
+    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
         async with aiohttp.ClientSession() as session:
             try:
-                # 1. Fetch Account Summary
-                # Use API Gateway to handle authentication & credential decryption
                 headers = {}
-                if self.auth_header:
-                    headers["Authorization"] = self.auth_header
+                if auth_token:
+                    headers["Authorization"] = auth_token
                 
                 url = f"{settings.API_GATEWAY_URL}/api/v1/execution/account/summary"
                 
                 async with session.get(url, headers=headers) as resp:
                      if resp.status == 200:
                          json_resp = await resp.json()
-                         print(f"DEBUG ACCOUNT DATA: {json_resp}")
-                         
                          data = json_resp.get("data", {})
                          
-                         # Parse Key Metrics
-                         # Handle potential formatted strings like "1000.00 USDT"
                          def parse_float(v):
                              if isinstance(v, (float, int)): return float(v)
                              if isinstance(v, str):
-                                 # Remove currency suffixes if present
                                  clean = v.split(' ')[0].replace(',', '')
                                  try:
                                      return float(clean)
@@ -53,10 +40,6 @@ class GetAccountStatusTool(BaseTool):
                          margin_used = equity - margin_available
                          open_positions = data.get("open_positions", [])
                          
-                         # Calculate Risk Metrics
-                         # daily_start_equity = data.get("daily_start_equity", balance) # Assuming API provides this or we use balance
-                         # daily_drawdown_pct = ((daily_start_equity - equity) / daily_start_equity) * 100
-                         
                          positions_summary = []
                          total_exposure_risk = 0.0
                          for p in open_positions:
@@ -66,7 +49,6 @@ class GetAccountStatusTool(BaseTool):
                              total_exposure_risk += risk
                              positions_summary.append(f"{symbol}: PnL ${pnl:.2f}, Risk ${risk:.2f}")
                              
-                         # Formatted Report
                          report = (
                              f"**Account Health**:\n"
                              f"- Balance: ${balance:,.2f}\n"
