@@ -297,14 +297,21 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                     finally:
                         task_db.close()
 
-            # Create task list
-            ingest_tasks = []
-            for ms in source_symbols:
-                for tf in timeframes:
-                    ingest_tasks.append(process_ms_tf(ms, tf))
-            
-            if ingest_tasks:
-                await asyncio.gather(*ingest_tasks)
+            # 3. Processing of Symbols & Timeframes
+            if source.provider == "CTRADER":
+                # Sequential processing for cTrader to avoid REQUEST_FREQUENCY_EXCEEDED
+                for ms in source_symbols:
+                    for tf in timeframes:
+                        await process_ms_tf(ms, tf)
+            else:
+                # Parallel processing for others (e.g. OANDA)
+                ingest_tasks = []
+                for ms in source_symbols:
+                    for tf in timeframes:
+                        ingest_tasks.append(process_ms_tf(ms, tf))
+                
+                if ingest_tasks:
+                    await asyncio.gather(*ingest_tasks)
 
             # Cleanup Client
             if source.provider == "CTRADER" and client:
@@ -332,6 +339,7 @@ async def run_calendar_sync_job():
     except Exception as e:
         logger.error(f"Calendar sync job failed: {e}")
     finally:
+        await calendar_service.close()
         db.close()
 
 async def run_news_sync_job():
@@ -365,4 +373,5 @@ async def run_news_sync_job():
     except Exception as e:
         logger.error(f"News sync job failed: {e}")
     finally:
+        await news_service.close()
         db.close()

@@ -57,10 +57,15 @@ class StreamManager:
         asyncio.create_task(adapter.start(instruments))
 
     async def _publish_callback(self, data: dict):
-        # Channel convention: market_data:{symbol}
-        # Symbol format: EUR_USD. 
+        # Channel convention: market_data:{type}:{symbol}
+        event_type = data.get("type", "tick").lower()
         symbol = data.get("instrument", "UNKNOWN")
-        channel = f"market_data:tick:{symbol}"
+        
+        if event_type == "symbol_details":
+            channel = f"market_data:info:{symbol}"
+        else:
+            channel = f"market_data:tick:{symbol}"
+            
         await self.publisher.publish(channel, data)
 
     async def refresh_subscriptions(self):

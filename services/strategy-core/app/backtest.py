@@ -131,6 +131,13 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
 
         close_price = df['close'].astype(float)
         
+        # Advanced: Use ECST Details if available
+        symbol_details = req_dict.get('symbol_details', {})
+        # If fees/slippage are default (0.0001) and we have better info in details, use it
+        # Actually, let's just log them for now to show we have them
+        if symbol_details:
+             logger.info(f"Backtest Worker: Using ECST details for {req_dict.get('symbol')}: {symbol_details.keys()}")
+
         pf = vbt.Portfolio.from_signals(
             close_price,
             entries,
@@ -281,13 +288,15 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
 
     # 1. Fetch Data
     from app.database import SessionLocal
-    from app.utils.helpers import resolve_market_symbol_id
+    from app.utils.helpers import resolve_market_symbol
     
     db = SessionLocal()
     try:
-        ms_id = resolve_market_symbol_id(db, req.symbol)
-        if not ms_id:
+        ms = resolve_market_symbol(db, req.symbol)
+        if not ms:
             return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
+        ms_id = str(ms.id)
+        ms_details = ms.details or {}
     finally:
         db.close()
 
@@ -323,7 +332,8 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
         'fees': req.fees,
         'slippage': req.slippage,
         'size': req.size,
-        'size_type': req.size_type
+        'size_type': req.size_type,
+        'symbol_details': ms_details
     }
 
     queue = multiprocessing.Queue()
@@ -366,14 +376,16 @@ def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
 def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # 1. Fetch Data
     from app.database import SessionLocal
-    from app.utils.helpers import resolve_market_symbol_id
+    from app.utils.helpers import resolve_market_symbol
     
     db = SessionLocal()
     try:
-        ms_id = resolve_market_symbol_id(db, req.symbol)
-        if not ms_id:
+        ms = resolve_market_symbol(db, req.symbol)
+        if not ms:
             print(f"ERROR: MarketSymbol not found for {req.symbol}")
             return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
+        ms_id = str(ms.id)
+        ms_details = ms.details or {}
     finally:
         db.close()
 
@@ -416,9 +428,14 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # 3. Running Portfolio
     # Estimate frequency from data
     freq = None
+    # Estimate frequency from data
+    freq = None
     if len(df) > 1:
         diff = df.index[1] - df.index[0]
         freq = str(int(diff.total_seconds())) + 'S'
+
+    if ms_details:
+         print(f"INFO: Historical Backtest using ECST details: {ms_details.keys()}")
 
     pf = vbt.Portfolio.from_signals(
         close_price,

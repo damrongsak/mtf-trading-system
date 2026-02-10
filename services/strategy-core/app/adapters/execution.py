@@ -1,28 +1,35 @@
-import httpx
 import os
+import json
+import redis.asyncio as redis
 from typing import Dict, Any
 
 EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:8000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 class ExecutionClient:
     def __init__(self):
         self.base_url = EXECUTION_SERVICE_URL
-        # In async context, we might want to instantiate client per request or use a singleton with lifecycle.
-        # For simplicity in this step, we'll use a context manager per request, 
-        # or we could make the methods async and use httpx.AsyncClient().
+        self.redis_url = REDIS_URL
+        self.queue_name = "queue:execution:commands"
+        self._redis = None
         
+    async def _get_redis(self):
+        if self._redis is None:
+            self._redis = redis.from_url(self.redis_url, decode_responses=True)
+        return self._redis
+
     async def place_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Place an order via the Execution Service.
+        Place an order via Redis Queue (Async RPC).
         """
-        async with httpx.AsyncClient() as client:
-            try:
-                resp = await client.post(f"{self.base_url}/smart-orders", json=order_data, timeout=10.0)
-                resp.raise_for_status()
-                return resp.json()
-            except httpx.HTTPError as e:
-                # Log error or re-raise custom exception
-                print(f"Execution Service Error: {e}")
-                raise
+        try:
+            r = await self._get_redis()
+            await r.lpush(self.queue_name, json.dumps(order_data))
+            return {"status": "queued", "queue": self.queue_name}
+        except Exception as e:
+            # If error, clear redis connection to retry next time
+            self._redis = None
+            print(f"Redis Queue Error: {e}")
+            raise
 
 execution_client = ExecutionClient()

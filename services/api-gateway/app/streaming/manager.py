@@ -4,7 +4,9 @@ import logging
 from typing import Dict, Set, List
 from collections import defaultdict
 from fastapi import WebSocket
+import json
 from app.utils.redis_subscriber import RedisSubscriber
+from app.streaming.handlers import MarketDataHandler
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,7 @@ class ConnectionManager:
         try:
             await self.redis.psubscribe("market_data:tick:*")
             await self.redis.psubscribe("market.features.*")
+            await self.redis.psubscribe("market_data:info:*")
             logger.info("StreamManager: PSubscribed successfully.")
         except Exception as e:
             logger.error(f"StreamManager: PSubscribe FAILED: {e}")
@@ -137,15 +140,19 @@ class ConnectionManager:
                 # Extract symbol logic
                 try:
                     symbol = None
-                    if "market_data:tick:" in channel:
+                    if "market_data:tick:" in channel or "market_data:info:" in channel:
                         symbol = channel.split(":")[-1]
                     elif "market.features." in channel:
                         symbol = channel.split(".")[-1]
                     
                     if symbol:
-                        await self.broadcast(symbol, data)
+                        if "market_data:info:" in channel:
+                            # Forward to specialized handler
+                            asyncio.create_task(MarketDataHandler.handle_symbol_info_async(symbol, data))
+                        else:
+                            await self.broadcast(symbol, data)
                 except Exception as e:
-                    logger.error(f"Error broadcasting message: {e}")
+                    logger.error(f"Error processing message: {e}")
 
 # Global instance
 stream_manager = ConnectionManager()

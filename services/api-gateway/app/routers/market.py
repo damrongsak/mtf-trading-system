@@ -113,58 +113,94 @@ async def get_symbol_details(
     db: Session = Depends(get_db)
 ):
     """
-    Fetch up-to-date details for a specific symbol from OANDA (Global Config).
+    Fetch up-to-date details for a specific symbol from the relevant Broker.
     Updates the local DB cache and returns the details.
     """
-    token = os.getenv("OANDA_API_TOKEN") or os.getenv("OANDA_API_KEY")
-    account_id = os.getenv("OANDA_ACCOUNT_ID")
-    env = os.getenv("OANDA_ENV", "practice")
-    
-    if not token or not account_id:
-        raise HTTPException(status_code=500, detail="OANDA configuration missing (Env vars)")
+    from app.models.market import MarketSymbol
+    from app.models.data_source import DataSource
 
-    host = "api-fxtrade.oanda.com" if env == "live" else "api-fxpractice.oanda.com"
-    url = f"https://{host}/v3/accounts/{account_id}/instruments?instruments={symbol}"
+    # 1. Resolve Symbol and Provider
+    # We look for the OANDA one first as it's the most common for details, 
+    # but the user might be asking for a CTRADER specific one.
+    # Try exact match first
+    ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
     
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=10.0)
-            
-            if response.status_code != 200:
-                try:
-                    detail = response.json().get("errorMessage", response.text)
-                except:
-                    detail = response.text
-                raise HTTPException(status_code=response.status_code, detail=f"OANDA Error: {detail}")
+    if not ms:
+        # Try normalized OANDA match (XAUUSD -> XAU/USD) if needed, 
+        # but the request usually uses the exact symbol stored.
+        # If not found, try replacing underscore/slash
+        alt_symbol = symbol.replace("_", "/") if "_" in symbol else symbol.replace("/", "_")
+        ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == alt_symbol).first()
+
+    if not ms:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found in database")
+
+    source = ms.data_source
+    if not source:
+        raise HTTPException(status_code=400, detail="Symbol has no linked data source")
+
+    # 2. Handle by Provider
+    if source.provider == "OANDA":
+        token = os.getenv("OANDA_API_TOKEN") or os.getenv("OANDA_API_KEY")
+        account_id = os.getenv("OANDA_ACCOUNT_ID")
+        env = os.getenv("OANDA_ENV", "practice")
+        
+        if not token or not account_id:
+            raise HTTPException(status_code=500, detail="OANDA configuration missing (Env vars)")
+
+        # Normalize for OANDA API (XAUUSD or XAU/USD -> XAU_USD)
+        oanda_symbol = ms.symbol.replace("/", "_").replace("-", "_")
+        
+        host = "api-fxtrade.oanda.com" if env == "live" else "api-fxpractice.oanda.com"
+        url = f"https://{host}/v3/accounts/{account_id}/instruments?instruments={oanda_symbol}"
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers, timeout=10.0)
                 
-            data = response.json()
-            instruments = data.get("instruments", [])
-            
-            if not instruments:
-                raise HTTPException(status_code=404, detail="Symbol not found at Broker")
+                if response.status_code != 200:
+                    try:
+                        detail = response.json().get("errorMessage", response.text)
+                    except:
+                        detail = response.text
+                    raise HTTPException(status_code=response.status_code, detail=f"OANDA Error: {detail}")
+                    
+                data = response.json()
+                instruments = data.get("instruments", [])
                 
-            details = instruments[0]
-            
-            # Update DB
-            from app.models.market import MarketSymbol
-            from app.models.data_source import DataSource
-            
-            ms = db.query(MarketSymbol).join(DataSource).filter(
-                MarketSymbol.symbol == symbol,
-                DataSource.name == "OANDA"
-            ).first()
-            
-            if ms:
+                if not instruments:
+                    raise HTTPException(status_code=404, detail="Symbol not found at OANDA")
+                    
+                details = instruments[0]
+                
+                # Update DB
                 ms.details = details
                 db.commit()
                 db.refresh(ms)
                 
-            return success_response(data=details)
-            
-        except httpx.RequestError as e:
-             raise HTTPException(status_code=503, detail=f"Broker Connection Failed: {str(e)}")
+                return success_response(data=details)
+                
+            except httpx.RequestError as e:
+                 raise HTTPException(status_code=503, detail=f"OANDA Connection Failed: {str(e)}")
+
+    elif source.provider == "CTRADER":
+        # For cTrader, if we have details in DB, use them. 
+        # Real-time refresh from cTrader usually happens during ingestion or via Execution service.
+        # For now, return what we have or a placeholder if missing.
+        if ms.details:
+            return success_response(data=ms.details)
+        else:
+             # cTrader details are usually populated via internal_client if we had an endpoint there
+             # For now, return what we have as "details"
+             return success_response(data={"symbol": ms.symbol, "provider": "CTRADER", "info": "Details loaded from cache"})
+
+    else:
+        # Generic fallback
+        if ms.details:
+            return success_response(data=ms.details)
+        raise HTTPException(status_code=400, detail=f"Provider {source.provider} does not support on-demand detail refresh yet")

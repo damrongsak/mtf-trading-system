@@ -72,6 +72,21 @@ class CTraderStreamer(StreamAdapter):
                     digits = fs.digits if fs.HasField('digits') else 5
                     self._digits_map[fs.symbolId] = digits
                     logger.debug(f"Symbol {fs.symbolId} digits: {digits}")
+                    
+                    # Publish Symbol Details for ECST
+                    symbol_name = self._subscription_map.get(fs.symbolId)
+                    if symbol_name:
+                        # Convert Protobuf to dict for serialization
+                        details = {}
+                        for field, value in fs.ListFields():
+                            details[field.name] = value
+                        
+                        await self.callback({
+                            "type": "SYMBOL_DETAILS",
+                            "source": "ctrader",
+                            "instrument": symbol_name,
+                            "details": details
+                        })
 
             # 3. Subscribe
             req = ProtoOASubscribeSpotsReq()

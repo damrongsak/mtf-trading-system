@@ -14,15 +14,20 @@ The project distinguishes itself through:
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Frontend** | Next.js 16 (React 19) | Modern dashboard for Signals, Journal, and Backtesting. |
-| **API Gateway** | Python (FastAPI) | Entry point for all backend operations; Auth (JWT) and routing. |
-| **Strategy Core** | Python (Vectorbt, Pandas) | Implements SMC Logic, Market Structure, and Backtesting Engine. |
-| **Execution Service** | Python (FastAPI, PyPortfolioOpt) | Handles trade execution and Smart Dynamic Risk sizing. |
+| **API Gateway** | Python (FastAPI, Redis) | Auth (JWT), routing, and **ECST Cache** for market symbols. |
+| **Strategy Core** | Python (Vectorbt, Pandas) | Implements Logic and **Async Execution Client** (Redis Queue). |
+| **Execution Service** | Python (Async Worker, Redis) | **Resilient Background Worker** for trade lifecycle & Risk. |
 | **AI Analyst** | Python (LangGraph, Gemini 2.5) | "Market Observer" Agent and RAG-based Journal analysis. |
-| **Data Pipeline** | Python (Redis, Oanda v20) | Real-time StreamManager and OpenInterest ingestion. |
-| **Database** | PostgreSQL 15 | Stores relational trade data and vector embeddings. |
+| **Data Pipeline** | Python (StreamManager, Oanda) | Real-time streams and **Symbol Details event broadcasting**. |
+| **Database** | PostgreSQL 15 | Stores relational trade data and **Cached Symbol Metadata (JSONB)**. |
 | **Vector Store** | Qdrant | Handles similarity search for pattern recognition and RAG. |
-| **Infrastructure** | Docker Compose, Nginx | Container orchestration and reverse proxying. |
+| **Infrastructure** | Redis, Docker, Nginx | Messaging backbone, container orchestration, and proxying. |
 | **Cloud Target** | GCP (Cloud Run, SQL) | Production environment. |
+
+### 🛠️ Decoupled Architecture (v2.1+)
+The system utilizes two primary patterns for high resilience:
+1.  **Event-Carried State Transfer (ECST)**: `data-pipeline` broadcasts symbol metadata which is cached locally by `api-gateway`.
+2.  **Asynchronous RPC**: `strategy-core` pushes trade commands to a Redis queue, processed asynchronously by the `execution` worker.
 
 ### 📂 Directory Structure
 *   `specs/`: **Source of Truth**. Contains Architecture (`01`), Data Models (`03`), API Contracts (`04`), and Logic Rules (`08`).
@@ -159,6 +164,8 @@ To apply schema changes to the database:
 *   ✅ **Binance Integration:** Multi-broker support including Crypto.
 *   ✅ **System Drift Monitor:** Real-time health check (`/analysis/drift`).
 *   ✅ **AI Analyst V2:** Doc-RAG, Workflow Engine, BYOK, **Semantic Summarization**, and **Universal Agents (MCP)**.
+*   ✅ **Decoupled Architecture (v2.1):** Implemented **ECST** for symbol metadata and **Async RPC** for resilient execution.
+*   ✅ **Quality Assurance:** Comprehensive Unit Test Suite with **>60% code coverage** verified across all backend services.
 
 ##  Inspiration & Examples
 *   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration.

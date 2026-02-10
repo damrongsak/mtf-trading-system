@@ -17,6 +17,8 @@ from sqlalchemy import desc, func
 import uuid
 import math
 from oandapyV20.exceptions import V20Error
+from app.services.order_service import OrderService
+from app.worker import worker
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +26,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Execution Service")
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Execution Service...")
+    # Start background worker
+    asyncio.create_task(worker.start())
+
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Execution Service...")
+    await worker.stop()
     await CTraderConnectionManager.shutdown_all()
 
 app.add_middleware(
@@ -456,241 +465,12 @@ async def get_accounts(db: AsyncSession = Depends(get_db)):
 
 @app.post("/smart-orders", response_model=OrderResponse)
 async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Fetch Credentials
     try:
-        account_uuid = uuid.UUID(req.broker_account_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid UUID format")
-        
-    result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-    account = result.scalars().first()
-    if not account:
-        raise HTTPException(status_code=404, detail="Broker Account not found")
-        
-    if not account.is_active:
-         raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-    # Decrypt
-    try:
-        credentials = decrypt_data(account.credentials_encrypted)
-        # Inject environment from model
-        credentials["environment"] = account.environment
+        req_data = req.dict()
+        result = await OrderService.execute_smart_order(req_data, db)
+        return OrderResponse(**result)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Decryption failed for account {account.id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve broker credentials")
-
-    adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
-    
-    # 2. Validation & Config
-    if not req.stop_loss:
-
-         # Need SL to calculate risk
-         raise HTTPException(status_code=400, detail="Smart Order requires a Stop Loss price to calculate risk.")
-
-    # Determine Risk Amount
-    # If not provided in request, could fallback to Account default or Global default
-    # For now, we enforce a strict fallback if missing.
-    # Determine Risk Amount
-    # HIERARCHICAL RISK CHECK
-    
-    # 2a. Fetch Fund
-    if not account.fund_id:
-        # Should not happen if data integrity is maintained
-        raise HTTPException(status_code=400, detail="Broker Account is not linked to a Fund")
-        
-    result_fund = await db.execute(select(Fund).where(Fund.id == account.fund_id))
-    fund = result_fund.scalars().first()
-    if not fund:
-         raise HTTPException(status_code=404, detail="Fund not found")
-    
-    # 2b. Check Symbol Whitelist (Account Level)
-    if account.supported_symbols:
-        # Simple check: exact match or "XAU/..."
-        # Logic: Helper to normalize slashes for comparison
-        def normalize_symbol(s: str):
-            return s.replace("/", "_").replace("-", "_").upper()
-
-        if normalize_symbol(req.symbol) not in [normalize_symbol(s) for s in account.supported_symbols]:
-             # Just a warning for now or allow if list is empty?
-             # If supported_symbols is set, we enforce it.
-             logger.warning(f"Symbol {req.symbol} not strictly in supported list {account.supported_symbols} for account {account.id}")
-             # raise HTTPException(status_code=400, detail=f"Symbol {req.symbol} is not supported by this account")
-
-    # 2c. Determine Max Risk Limit (Hierarchical)
-    # Fund Hard Limit
-    fund_limit = float(fund.max_risk_per_trade)
-    
-    # Account Override (Optional, strict downward)
-    account_limit = None
-    if account.risk_settings and "max_risk_per_trade" in account.risk_settings:
-        account_limit = float(account.risk_settings["max_risk_per_trade"])
-        
-    # Effective Limit = Min(Fund, Account)
-    effective_limit = fund_limit
-    if account_limit is not None:
-        effective_limit = min(fund_limit, account_limit)
-    
-    # --- DYNAMIC RISK CALCULATION ---
-    # Default to requested or effective limit if no dynamic rule
-    calculated_risk = effective_limit
-    
-    # If Fund has Risk % set (e.g. 0.01 for 1%)
-    if fund.risk_percentage and float(fund.risk_percentage) > 0:
-        try:
-             # Fetch Account NAV
-             # We reuse the adapter we already instantiated
-             summary = await adapter.get_account_summary() # Should return dict with 'NAV' or 'balance' or 'marginAvailable'
-             # Oanda summary has 'NAV' (Net Asset Value)
-             nav_str = summary.get('NAV')
-             if nav_str:
-                 nav = float(nav_str)
-                 
-                 # Calc Dynamic Risk
-                 dynamic_risk = nav * float(fund.risk_percentage)
-                 
-                 # Cap at Effective Limit (Safety Guardrail)
-                 calculated_risk = min(dynamic_risk, effective_limit)
-                 
-                 # Log for debugging (in real system use logger)
-                 print(f"Dynamic Risk: NAV={nav} * {fund.risk_percentage} = {dynamic_risk}. Capped at {effective_limit} -> {calculated_risk}")
-             else:
-                 # Fallback if NAV not available? 
-                 # Use effective_limit but maybe warn?
-                 pass
-        except Exception as e:
-            # If fetch fails, fallback to safe limit or existing logic?
-            # For safety, maybe fallback to a safe default if fetching NAV fails?
-            # Or just proceed with effective_limit?
-            # Let's log and proceed
-            print(f"Failed to calc dynamic risk: {e}")
-
-    # Requested Risk
-    # checking if user provided a specific override
-    requested_risk = req.risk_usd if req.risk_usd is not None else calculated_risk
-    
-    # Cap User Request at Effective Limit (and maybe dynamic limit?)
-    # If user manually requests $50 but dynamic is $20, should we allow?
-    # Usually manual override (req.risk_usd) implies "I know what I'm doing".
-    # But we MUST respect the HARD LIMIT (effective_limit).
-    
-    # Enforce Limit
-    if requested_risk > effective_limit:
-         raise HTTPException(status_code=400, detail=f"Requested risk ${requested_risk} exceeds effective limit ${effective_limit} (Fund: ${fund_limit})")
-
-    target_risk = requested_risk
-    
-    # 3. Fetch Real-time Price
-    try:
-        current_price = await adapter.get_current_price(req.symbol)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch live price for risk calculation: {str(e)}")
-        
-    # 4. Calculate Position Size (Units)
-    # Use entry_price for risk calculation if provided (Limit Order), otherwise current market price
-    entry_ref = req.entry_price if req.entry_price else current_price
-    
-    dist = abs(entry_ref - req.stop_loss)
-    
-    if dist <= 0:
-         raise HTTPException(status_code=400, detail="Stop Loss cannot be equal to Entry/Current Price")
-         
-    raw_units = target_risk / dist
-    
-    # Direction Check
-    if req.direction == "BULLISH":
-        units = raw_units
-        if req.stop_loss >= entry_ref:
-             raise HTTPException(status_code=400, detail="Long SL must be below Entry Price")
-    elif req.direction == "BEARISH":
-        units = -raw_units
-        if req.stop_loss <= entry_ref:
-             raise HTTPException(status_code=400, detail="Short SL must be above Entry Price")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid direction")
-
-    # Order Book Depth Validation
-    try:
-        order_book = await adapter.get_order_book(req.symbol)
-        side = "asks" if req.direction == "BULLISH" else "bids"
-        # Check top 5 levels of liquidity
-        available_liquidity = sum(float(level.get('liquidity', 0)) for level in order_book.get(side, [])[:5])
-        
-        if available_liquidity > 0 and abs(units) > available_liquidity:
-            logger.warning(f"Liquidity Warning: {req.symbol} {req.direction} {abs(units)} units requested, but only {available_liquidity} available in top 5 levels.")
-            # For now, we proceed but log. In production, might reject or split.
-    except Exception as ob_e:
-        logger.warning(f"Could not validate order book depth: {ob_e}")
-
-    # Min Lot Validation
-    if abs(units) < 1.0: 
-         raise HTTPException(status_code=400, detail=f"Calculated size {units:.4f} is below minimum tradable limit (1 unit)")
-
-    # Rounding
-    units = int(units)
-
-    # 4b. Minimax Regret Check (The Risk Citadel)
-    # Calculate Potential Reward
-    reward_usd = 0.0
-    if req.take_profit:
-        reward_dist = abs(req.take_profit - entry_ref)
-        reward_usd = reward_dist * abs(units)
-    else:
-        # If no TP, assume 2:1 Reward for calculation purposes or 0?
-        # Rule of thumb: If no TP, regret of missing out is hard to quantify.
-        # Let's assume a standard 2R target for "potential" missed profit.
-        reward_usd = target_risk * 2.0
-    
-    # Execute Minimax Check
-    is_safe, regret, reason = MinimaxService.calculate_regret(
-        risk_usd=target_risk,
-        reward_usd=reward_usd,
-        confidence=req.confidence or 0.8,
-        pain_threshold=req.pain_threshold or 50.0, # Default to $50 if not set
-        volatility_multiplier=req.atr_multiplier or 1.0
-    )
-    
-    if not is_safe:
-        logger.warning(f"Minimax Rejected: {reason}")
-        raise HTTPException(
-            status_code=422, # Unprocessable Entity (Business Logic Rejection)
-            detail=f"Risk Citadel Validation Failed: {reason}"
-        )
-
-
-    # 5. Execute
-    logger.info(f"Executing Smart Order: {req.symbol} {units} units. EntryRef={entry_ref}, SL={req.stop_loss}, Risk=${target_risk}")
-    
-    if req.entry_price:
-        # LIMIT / PENDING ORDER
-        response = await adapter.place_limit_order(
-            symbol=req.symbol,
-            units=units,
-            entry_price=req.entry_price,
-            sl_price=req.stop_loss,
-            tp_price=req.take_profit,
-            time_in_force=req.time_in_force or "GTC",
-            trade_id=None
-        )
-    else:
-        # MARKET ORDER
-        response = await adapter.place_market_order(
-            symbol=req.symbol,
-            units=units,
-            sl_price=req.stop_loss,
-            tp_price=req.take_profit,
-            trade_id=None
-        )
-    
-    # Handle Response
-    # Oanda returns 'orderFillTransaction' for Market, 'orderCreateTransaction' for Limit
-    fill = response.get("orderFillTransaction") or response.get("orderCreateTransaction") or {}
-
-    logger.info(f"Execution Successful: ID={fill.get('id')} Price={fill.get('price')} Units={fill.get('units')}")
-
-    return OrderResponse(
-        id=fill.get("id", "0"),
-        instrument=fill.get("instrument", req.symbol),
-        units=fill.get("units", str(units)),
-        price=fill.get("price", str(entry_ref)),
-        time=fill.get("time", "")
-    )
+        logger.error(f"Smart Order Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

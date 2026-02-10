@@ -1,75 +1,51 @@
-
-import asyncio
-import logging
-import sys
 import os
-import time
+import json
+import base64
+from cryptography.fernet import Fernet
+import psycopg2
 
-# Add parent directory to path to import app
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+def get_cipher():
+    key = os.getenv("SETTINGS_ENCRYPTION_KEY")
+    if not key:
+        raise ValueError("SETTINGS_ENCRYPTION_KEY environment variable is not set")
+    return Fernet(key.encode())
 
-from app.database import SessionLocal
-from app.models.broker_account import BrokerAccount
-from app.models.data_source import DataSource
-from app.utils.crypto import encrypt_data, decrypt_data
+def encrypt_data(data: dict) -> str:
+    cipher = get_cipher()
+    json_bytes = json.dumps(data).encode('utf-8')
+    encrypted_bytes = cipher.encrypt(json_bytes)
+    return base64.b64encode(encrypted_bytes).decode('utf-8')
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("UpdateCreds")
-
-NEW_ACCESS_TOKEN = "lN0ySqEpBUELurOeqh-jcOfefGzB9k6cmMZlNE3KA_s"
-NEW_REFRESH_TOKEN = "a_orv62ZHd830VMkX93kYKlGH6jMlFPQaHsKVrC3O5g"
-EXPIRES_IN = 2628000
-
-async def update_creds():
-    logger.info("Starting Credential Update...")
-    db = SessionLocal()
+def update_credentials():
+    new_creds = {
+        "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
+        "client_secret": "Ba7u0sGyBKrGjzIC3jYMvLGqBQP6q2ofYiE4pFy1BPQtG6GFFW",
+        "token": "VonH4k7jzrdnWZRWqKqZsDJLON4p8UvxLo9GQIMYcI0",
+        "refresh_token": "S3e8wJGusaVw36qMXkc6YXz7AZoai9NS13ULELPN5js",
+        "account_id": "40816494"
+    }
+    
+    encrypted = encrypt_data(new_creds)
+    # Wrap in quotes to make it a valid JSON string for JSONB column
+    json_encrypted = json.dumps(encrypted)
+    
+    db_url = os.getenv("DATABASE_URL", "postgresql://trader:trader@mtf-postgres:5432/mtf_db")
+    
     try:
-        # 1. Update Broker Accounts
-        accounts = db.query(BrokerAccount).filter(
-            BrokerAccount.broker_name == "CTRADER", 
-            BrokerAccount.is_active == True
-        ).all()
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
         
-        if not accounts:
-            logger.error("No active cTrader accounts found.")
-            return
-
-        for account in accounts:
-            logger.info(f"Updating account {account.account_name} ({account.id})...")
-            
-            creds = decrypt_data(account.credentials_encrypted)
-            creds["token"] = NEW_ACCESS_TOKEN
-            creds["refresh_token"] = NEW_REFRESH_TOKEN
-            creds["expires_at"] = int(time.time()) + EXPIRES_IN
-            
-            account.credentials_encrypted = encrypt_data(creds)
-            
-            # 2. Update Matching Data Sources
-            data_sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
-            for ds in data_sources:
-                 if not ds.config_json: continue
-                 
-                 ds_acc_id = str(ds.config_json.get("account_id", ""))
-                 acc_id_str = str(creds.get("account_id", ""))
-                 
-                 if ds_acc_id == acc_id_str:
-                     ds_config = dict(ds.config_json)
-                     ds_config["token"] = NEW_ACCESS_TOKEN
-                     ds_config["refresh_token"] = NEW_REFRESH_TOKEN
-                     ds_config["expires_at"] = creds["expires_at"]
-                     
-                     ds.config_json = ds_config
-                     db.add(ds)
-                     logger.info(f"Synced to DataSource {ds.name}")
-            
-            db.commit()
-            logger.info("SUCCESS: Credentials Updated.")
-
+        cur.execute(
+            "UPDATE broker_accounts SET credentials_encrypted = %s, account_number = %s WHERE broker_name = 'CTRADER'",
+            (json_encrypted, "40816494")
+        )
+        
+        conn.commit()
+        print(f"Successfully updated {cur.rowcount} CTRADER accounts.")
+        cur.close()
+        conn.close()
     except Exception as e:
-        logger.error(f"Update failed: {e}")
-    finally:
-        db.close()
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(update_creds())
+    update_credentials()
