@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
+from app.utils.response import success_response
 from typing import List, Optional
 import httpx
 import os
@@ -209,3 +210,74 @@ def get_opportunities(limit: int = 50, db: Session = Depends(get_db)):
     """
     logs = db.query(OpportunityLog).order_by(OpportunityLog.timestamp.desc()).limit(limit).all()
     return logs
+
+DATA_PIPELINE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
+
+@router.get("/positioning/status", status_code=200)
+async def get_positioning_status(symbol: str = "XAUUSD"):
+    """
+    Aggregated endpoint for MarketStateTool.
+    Fetches latest OI snapshot and returns analysis with crowding regime.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            # 1. Get latest snapshot
+            snap_resp = await client.get(
+                f"{DATA_PIPELINE_URL}/api/v1/ingest/open-interest/snapshots",
+                params={"limit": 1},
+                timeout=5.0
+            )
+            
+            if snap_resp.status_code != 200 or not snap_resp.json():
+                # Silently return empty if no snapshots available
+                 return success_response(data={
+                    "symbol": symbol,
+                    "pcr": 1.0,
+                    "crowding_regime": "Balanced",
+                    "max_pain": 0.0,
+                    "oi_skew_pct": 0.0,
+                    "regime": "Neutral"
+                })
+
+            snapshot = snap_resp.json()[0]
+            snapshot_at = snapshot["snapshot_at"]
+
+            # 2. Get Analysis
+            analysis_resp = await client.get(
+                f"{DATA_PIPELINE_URL}/api/v1/ingest/open-interest/analysis",
+                params={"snapshot_at": snapshot_at},
+                timeout=10.0
+            )
+
+            if analysis_resp.status_code != 200:
+                raise HTTPException(status_code=analysis_resp.status_code, detail="Analysis fetch failed")
+
+            analysis = analysis_resp.json()
+            summary = analysis.get("summary", {})
+            pcr = summary.get("pcr", 1.0)
+
+            # 3. Derive Crowding Regime
+            regime = "Balanced"
+            if pcr > 1.5:
+                regime = "Short Crowded"
+            elif pcr < 0.7:
+                regime = "Long Crowded"
+
+            # 4. Map to Tool expectations
+            return success_response(data={
+                "symbol": symbol,
+                "pcr": pcr,
+                "crowding_regime": regime,
+                "max_pain": summary.get("max_call_strike", 0.0), # Simplification for now
+                "oi_skew_pct": 0.0, # Placeholder until skew logic is in pipeline
+                "regime": regime
+            })
+
+    except Exception as e:
+        logger.error(f"Positioning aggregate failed: {e}")
+        return success_response(data={
+            "symbol": symbol,
+            "error": str(e),
+            "pcr": 1.0,
+            "crowding_regime": "Unavailable"
+        })

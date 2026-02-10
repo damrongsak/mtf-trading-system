@@ -15,6 +15,8 @@ from app.tools.market_state import MarketStateTool
 from app.tools.calendar import GetEconomicCalendarTool
 from app.tools.journal import GetJournalEntriesTool
 from app.tools.signal import GetTechnicalSignalsTool
+from app.tools.search import GoogleSearchTool
+from app.tools.market import GetMarketContextTool
 
 
 logger = logging.getLogger(__name__)
@@ -545,7 +547,9 @@ class ToolRegistry:
             # Consolidated Tools
             "get_economic_calendar": GetEconomicCalendarTool(),
             "journal_entries": GetJournalEntriesTool(),
-            "get_technical_signals": GetTechnicalSignalsTool()
+            "get_technical_signals": GetTechnicalSignalsTool(),
+            "google_search": GoogleSearchTool(),
+            "get_market_context": GetMarketContextTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

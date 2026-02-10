@@ -299,9 +299,15 @@ async def send_chat_message(
         }
         
         async with httpx.AsyncClient() as client:
+            # Pass the Authorization header from the incoming request if it exists
+            headers = {}
+            if authorization:
+                headers["Authorization"] = authorization
+                
             resp = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message",
                 json=payload,
+                headers=headers,
                 timeout=180.0 # Very Long timeout for CoT and Multi-Step Reasoning
             )
             

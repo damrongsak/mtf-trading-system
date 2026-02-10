@@ -196,10 +196,12 @@ class StrategyAdvisorAgent:
         Raw Query: "{query}"
         
         **Intents:**
-        - **MARKET_ANALYSIS**: User asks for market outlook or price analysis for a specific symbol.
+        - **MARKET_ANALYSIS**: User asks for market outlook, price analysis, or a trading PLAN/STRATEGY for a specific symbol and timeframe.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
-        - **CHAT**: General conversation or simple questions.
+        - **CHAT**: General conversation, project questions, or simple questions not requiring real-time data.
+        
+        **CRITICAL**: If the user mentions a timeframe (e.g. 5min, H1, etc.) or a specific symbol (XAUUSD, Gold), ALWAYS classify as **MARKET_ANALYSIS**.
         
         **Output JSON only:**
         {{
@@ -450,7 +452,7 @@ class StrategyAdvisorAgent:
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id, # Optimized: Use Flash for tool routing
+                model=settings.gemini.model_id, # Use Pro (model_id is gemini-2.5-pro by default)
                 contents=prompt
             )
             text = response.text.replace("```json", "").replace("```", "")
@@ -560,8 +562,8 @@ class StrategyAdvisorAgent:
         
         logger.info("Starting Market Scan...")
 
-        # Select tools for scan
-        tools = ["market_state", "get_technical_signals", "market_data"]
+        # Select tools for scan (Observer Parity)
+        tools = ["smc_technical_analysis", "market_state", "get_technical_signals", "market_data", "google_search", "get_market_context"]
         
         async def run_market_tool(name):
              tool = self.tool_registry.get_tool(name)
@@ -569,6 +571,7 @@ class StrategyAdvisorAgent:
              try:
                  # Pass appropriate inputs
                  if name == "market_data": inp = {"symbol": symbol, "include_candles": False}
+                 elif name == "smc_technical_analysis": inp = {"symbol": symbol, "timeframe": "H1"}
                  else: inp = symbol
                  
                  res = await tool.run(inp, auth_token=auth_token)
@@ -590,8 +593,8 @@ class StrategyAdvisorAgent:
         auth_token = state.get("auth_token")
         logger.info("Generating Daily Briefing...")
 
-        # Select tools for briefing
-        tools = ["account_status", "get_economic_calendar", "journal_entries", "get_technical_signals"]
+        # Select tools for briefing (Daily Briefing Parity)
+        tools = ["account_status", "get_economic_calendar", "journal_entries", "get_technical_signals", "get_market_context"]
         
         async def run_briefing_tool(name):
              tool = self.tool_registry.get_tool(name)
@@ -601,6 +604,7 @@ class StrategyAdvisorAgent:
                  if name == "get_economic_calendar": inp = {"currency": "USD", "days": 1}
                  elif name == "journal_entries": inp = {"limit": 5}
                  elif name == "get_technical_signals": inp = "XAUUSD"
+                 elif name == "get_market_context": inp = "XAUUSD"
                  
                  res = await tool.run(inp, auth_token=auth_token)
                  return f"### {name.replace('_', ' ').title()}\n{res}"
@@ -611,7 +615,11 @@ class StrategyAdvisorAgent:
         
         return {
             "scratchpad": results,
-            "reasoning_trace": ["System gathered account status, calendar events, and recent journal entries for the daily briefing."]
+            "reasoning_trace": [
+                "System gathered account status, calendar events, and recent journal entries for the daily briefing.",
+                "Persona Instruction: Act as 'The Weaver' (Quant Fund Manager Assistant).",
+                "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure."
+            ]
         }
 
     async def node_generate(self, state: AgentState):
