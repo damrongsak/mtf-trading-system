@@ -2,12 +2,14 @@ from typing import TypedDict, Annotated, List, Union
 import operator
 import json
 import logging
+import asyncio
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.services.memory import MemoryService
+from app.services.semantic_cache import SemanticCache
 
 from app.core.prompts import (
     SYSTEM_PERSONA, 
@@ -67,6 +69,7 @@ class StrategyAdvisorAgent:
         self.rag = rag_service
         self.gemini = gemini_client
         self.memory = memory_service
+        self.cache = SemanticCache(gemini_client)
         self.checkpointer = checkpointer
         
         # Initialize Tools
@@ -86,7 +89,9 @@ class StrategyAdvisorAgent:
         workflow.add_node("reasoning", self.node_reason)
         workflow.add_node("generate", self.node_generate)
         workflow.add_node("evaluator", self.node_evaluator)
+
         workflow.add_node("memory_write", self.node_memory_write)
+        workflow.add_node("check_cache", self.node_check_cache)
         
         # New Nodes for Advanced Features
         workflow.add_node("synthesize", self.node_synthesize) # Deep Research
@@ -96,7 +101,16 @@ class StrategyAdvisorAgent:
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
-        workflow.add_edge("query_optimizer", "router")
+        workflow.add_edge("query_optimizer", "check_cache")
+
+        workflow.add_conditional_edges(
+            "check_cache",
+            lambda x: "cache_hit" if x.get("from_cache") else "miss",
+            {
+                "cache_hit": END,
+                "miss": "router"
+            }
+        )
         
         # Enhanced Router Logic
         workflow.add_conditional_edges(
@@ -186,7 +200,7 @@ class StrategyAdvisorAgent:
         try:
             # Use Flash model for speed
             response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-flash", 
+                model=settings.gemini.flash_model_id, 
                 contents=prompt
             )
             text = response.text.replace("```json", "").replace("```", "")
@@ -200,6 +214,28 @@ class StrategyAdvisorAgent:
         except Exception as e:
             logger.error(f"Optimizer failed: {e}")
             return {"optimized_query": query, "intent": "CHAT"}
+
+    async def node_check_cache(self, state: AgentState):
+        """
+        Checks semantic cache for existing valid responses.
+        Skipped for real-time/tool-use intents.
+        """
+        query = state["optimized_query"]
+        intent = state.get("intent", "CHAT")
+        
+        # Only cache RESEARCH and STRATEGY_DESIGN 
+        if intent in ["RESEARCH", "STRATEGY_DESIGN"]:
+            if self.cache:
+                cached_response = await self.cache.check(query)
+                if cached_response:
+                    logger.info(f"✨ Semantic Cache HIT for: {query}")
+                    return {
+                        "final_response": "✨ (Cached) " + cached_response, 
+                        "from_cache": True,
+                        "is_satisfactory": True
+                    }
+        
+        return {"from_cache": False}
 
     async def node_router(self, state: AgentState):
         """
@@ -274,13 +310,13 @@ class StrategyAdvisorAgent:
         ["Step 1...", "Step 2..."]
         """
         try:
-             response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-pro", # Use Pro for reasoning
+            response = await self.gemini.client.aio.models.generate_content(
+                model=settings.gemini.flash_model_id, # Optimized: Use Flash for decomposition
                 contents=prompt
             )
-             text = response.text.replace("```json", "").replace("```", "")
-             steps = json.loads(text)
-             return {"plan_steps": steps}
+            text = response.text.replace("```json", "").replace("```", "")
+            steps = json.loads(text)
+            return {"plan_steps": steps}
         except:
              return {"plan_steps": ["Analyze Request", "Retrieve Data", "Formulate Answer"]}
 
@@ -399,7 +435,7 @@ class StrategyAdvisorAgent:
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-pro", 
+                model=settings.gemini.flash_model_id, # Optimized: Use Flash for tool routing
                 contents=prompt
             )
             text = response.text.replace("```json", "").replace("```", "")
@@ -456,13 +492,15 @@ class StrategyAdvisorAgent:
     async def node_execute_tools(self, state: AgentState):
         """
         Executes selected tools and adds output to scratchpad.
+        Optimized: Runs tools in parallel using asyncio.gather.
         """
         calls = state.get("tool_calls", [])
         outputs = []
         
         auth_token = state.get("auth_token")
         
-        for call in calls:
+        # Helper function for individual tool execution
+        async def exec_tool(call):
             tool_name = call.get("tool_name")
             tool_input = call.get("tool_input")
             
@@ -472,11 +510,16 @@ class StrategyAdvisorAgent:
                     # Execute tool
                     # Always pass auth_token
                     result = await tool.run(tool_input, auth_token=auth_token)
-                    outputs.append(f"Tool '{tool_name}' output:\n{result}")
+                    return f"Tool '{tool_name}' output:\n{result}"
                 except Exception as e:
-                    outputs.append(f"Tool '{tool_name}' failed: {e}")
+                    return f"Tool '{tool_name}' failed: {e}"
             else:
-                outputs.append(f"Tool '{tool_name}' not found.")
+                return f"Tool '{tool_name}' not found."
+
+        # Execute all tools in parallel
+        if calls:
+             results = await asyncio.gather(*[exec_tool(call) for call in calls])
+             outputs.extend(results)
                 
         return {"scratchpad": outputs, "tool_calls": []} # CRITICAL: Clear tool_calls so we don't repeat them
 
@@ -563,7 +606,7 @@ class StrategyAdvisorAgent:
         try:
             # Use Gemini 2.5 Flash for faster/reliable synthesis in test
             result = await self.gemini.generate_content(
-                model="gemini-2.5-flash",
+                model=settings.gemini.flash_model_id,
                 contents=prompt,
                 thinking_config={"include_thoughts": True} 
             )
@@ -616,7 +659,7 @@ class StrategyAdvisorAgent:
 
         try:
             res = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-flash",
+                model=settings.gemini.flash_model_id,
                 contents=prompt
             )
             text = res.text.replace("```json", "").replace("```", "")
@@ -651,7 +694,7 @@ class StrategyAdvisorAgent:
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-flash",
+                model=settings.gemini.flash_model_id,
                 contents=prompt
             )
             fact = response.text.strip()
@@ -659,6 +702,11 @@ class StrategyAdvisorAgent:
                 await self.memory.add_user_fact(state["user_id"], fact)
         except:
              pass
+        
+        # Store in Semantic Cache if high quality response and NOT from cache
+        intent = state.get("intent")
+        if self.cache and intent in ["RESEARCH", "STRATEGY_DESIGN"] and state.get("is_satisfactory") and not state.get("from_cache"):
+             await self.cache.store(state["optimized_query"], state["final_response"])
              
         return {}
 

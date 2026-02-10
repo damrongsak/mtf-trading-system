@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 class GeminiSettings(BaseModel):
     api_key: str
     model_id: str
+    flash_model_id: str = "gemini-2.5-flash"
+    embedding_dim: int = 768
     search_cse_id: Optional[str] = None
     search_api_key: Optional[str] = None
 
@@ -41,6 +43,8 @@ class Settings(BaseSettings):
     # Raw Environment Variables
     GOOGLE_API_KEY: str
     GEMINI_MODEL_ID: str = "gemini-2.5-pro"
+    GEMINI_FLASH_MODEL_ID: str = "gemini-2.5-flash"
+    GEMINI_EMBEDDING_DIM: int = 3072
     GOOGLE_CSE_ID: Optional[str] = None
     GOOGLE_SEARCH_API_KEY: Optional[str] = None
     
@@ -63,6 +67,8 @@ class Settings(BaseSettings):
         return GeminiSettings(
             api_key=self.GOOGLE_API_KEY,
             model_id=self.GEMINI_MODEL_ID,
+            flash_model_id=self.GEMINI_FLASH_MODEL_ID,
+            embedding_dim=self.GEMINI_EMBEDDING_DIM,
             search_cse_id=self.GOOGLE_CSE_ID,
             search_api_key=self.GOOGLE_SEARCH_API_KEY
         )

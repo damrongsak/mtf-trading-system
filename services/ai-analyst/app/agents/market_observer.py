@@ -15,7 +15,7 @@ class MarketObserverAgent:
             raise ValueError("GOOGLE_API_KEY is not set")
 
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.gemini.model_id,
+            model=settings.gemini.flash_model_id, # Optimized for speed/cost
             google_api_key=settings.gemini.api_key,
             temperature=0.1
         )
