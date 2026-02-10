@@ -10,6 +10,8 @@ from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.services.memory import MemoryService
 from app.services.semantic_cache import SemanticCache
+from app.core.config import settings
+
 
 from app.core.prompts import (
     SYSTEM_PERSONA, 
@@ -98,6 +100,10 @@ class StrategyAdvisorAgent:
         workflow.add_node("tool_selection", self.node_tool_selection) 
         workflow.add_node("execute_tools", self.node_execute_tools)
 
+        # Consolidated Nodes
+        workflow.add_node("market_scan", self.node_market_scan)
+        workflow.add_node("generate_briefing", self.node_generate_briefing)
+
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
@@ -121,7 +127,9 @@ class StrategyAdvisorAgent:
                 "complex": "decompose",
                 "research": "retrieve_knowledge", # Research goes to RAG -> Synthesize
                 "tool_use": "tool_selection",
-                "confirmation_check": "tool_selection" # Route pending confirmations here
+                "confirmation_check": "tool_selection", # Route pending confirmations here
+                "market_scan": "market_scan",
+                "generate_briefing": "generate_briefing"
             }
         )
         
@@ -150,6 +158,10 @@ class StrategyAdvisorAgent:
         
         workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
         workflow.add_edge("synthesize", "memory_write") # Research ends here usually
+
+        # Edges for Consolidated Nodes
+        workflow.add_edge("market_scan", "generate")
+        workflow.add_edge("generate_briefing", "generate")
         
         workflow.add_edge("generate", "evaluator")
         
@@ -184,10 +196,9 @@ class StrategyAdvisorAgent:
         Raw Query: "{query}"
         
         **Intents:**
-        - **TOOL_USE**: User asks for Account Balance, Trade History, or specific data lookup.
-        - **RESEARCH**: User asks for deep explanation of system architecture, risk concepts, or documentation.
-        - **STRATEGY_DESIGN**: User wants to code or modify a strategy.
-        - **MARKET_ANALYSIS**: User asks for market outlook or price analysis.
+        - **MARKET_ANALYSIS**: User asks for market outlook or price analysis for a specific symbol.
+        - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
+        - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
         - **CHAT**: General conversation or simple questions.
         
         **Output JSON only:**
@@ -260,6 +271,10 @@ class StrategyAdvisorAgent:
             return "research"
         elif intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS"]:
             return "complex"
+        elif intent == "MARKET_REPORT":
+            return "market_scan"
+        elif intent == "DAILY_BRIEFING":
+            return "generate_briefing"
         
         return "direct"
 
@@ -535,6 +550,70 @@ class StrategyAdvisorAgent:
         report = await self.gemini.generate_research_report(query, context)
         
         return {"final_response": report}
+
+    async def node_market_scan(self, state: AgentState):
+        """
+        Consolidated MarketObserver logic: Parallelized Market Scan.
+        """
+        auth_token = state.get("auth_token")
+        symbol = "XAUUSD" # Default symbol for scan
+        
+        logger.info("Starting Market Scan...")
+
+        # Select tools for scan
+        tools = ["market_state", "get_technical_signals", "market_data"]
+        
+        async def run_market_tool(name):
+             tool = self.tool_registry.get_tool(name)
+             if not tool: return f"Tool {name} not found."
+             try:
+                 # Pass appropriate inputs
+                 if name == "market_data": inp = {"symbol": symbol, "include_candles": False}
+                 else: inp = symbol
+                 
+                 res = await tool.run(inp, auth_token=auth_token)
+                 return f"### {name.replace('_', ' ').title()}\n{res}"
+             except Exception as e:
+                 return f"Error running {name}: {e}"
+
+        results = await asyncio.gather(*[run_market_tool(t) for t in tools])
+        
+        return {
+            "scratchpad": results,
+            "reasoning_trace": ["System performed a comprehensive market scan for XAUUSD."]
+        }
+
+    async def node_generate_briefing(self, state: AgentState):
+        """
+        Consolidated DailyBriefing logic: Parallelized Personal Digest.
+        """
+        auth_token = state.get("auth_token")
+        logger.info("Generating Daily Briefing...")
+
+        # Select tools for briefing
+        tools = ["account_status", "get_economic_calendar", "journal_entries", "get_technical_signals"]
+        
+        async def run_briefing_tool(name):
+             tool = self.tool_registry.get_tool(name)
+             if not tool: return f"Tool {name} not found."
+             try:
+                 inp = {}
+                 if name == "get_economic_calendar": inp = {"currency": "USD", "days": 1}
+                 elif name == "journal_entries": inp = {"limit": 5}
+                 elif name == "get_technical_signals": inp = "XAUUSD"
+                 
+                 res = await tool.run(inp, auth_token=auth_token)
+                 return f"### {name.replace('_', ' ').title()}\n{res}"
+             except Exception as e:
+                 return f"Error running {name}: {e}"
+
+        results = await asyncio.gather(*[run_briefing_tool(t) for t in tools])
+        
+        return {
+            "scratchpad": results,
+            "reasoning_trace": ["System gathered account status, calendar events, and recent journal entries for the daily briefing."]
+        }
+
     async def node_generate(self, state: AgentState):
         """
         Synthesizes tool results and retrieved context into a high-fidelity response.

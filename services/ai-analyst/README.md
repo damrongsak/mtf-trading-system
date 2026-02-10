@@ -3,6 +3,37 @@
 ## 🧠 Overview
 The **AI Analyst Service** is a specialized microservice within the MTF Trading System. It leverages **Google Gemini 2.5 Pro** and **RAG (Retrieval-Augmented Generation)** to provide semantic market analysis and psychological insights for trading journals.
 
+## 🏗️ Architecture & Dataflow
+
+### System Overview
+The service orchestrates AI agents and analysis tools using a modular architecture:
+*   **FastAPI**: Entry point and router management (`main.py`).
+*   **Agents**: Autonomous workers (`MarketObserver`, `StrategyAdvisor`, `DailyBriefing`).
+*   **Services**: Core logic providers (`GeminiClient`, `RAGService`, `MemoryService`, `SentimentService`).
+*   **Tools**: Specialized functions for market data, search, and system state.
+*   **Persistence**: Redis (Short-term/Checkpoints) and Qdrant (Long-term/RAG).
+
+### Agent Workflows
+
+#### Strategy Advisor (`StateGraph`)
+The most complex flow, designed for interactive coaching and strategy design:
+1.  **Query Optimizer**: `Gemini Flash` rewrites query and classifies INTENT (e.g., `RESEARCH`, `TOOL_USE`).
+2.  **Router**: Splits logic based on intent (Research, Tool Use, etc.).
+3.  **Retrieval (RAG)**: Fetches User Facts, System Docs, and Strategy Code from `Qdrant`.
+4.  **Reasoning**: `Gemini Pro` generates a "Chain of Thought" plan.
+5.  **Tool Selection**: `Gemini Flash` selects tools based on plan + tool registry.
+6.  **Execution**: Runs selected tools (e.g., `GetAccountStatus`) in parallel.
+7.  **Generation**: Synthesizes all context, tool outputs, and reasoning into a final response.
+8.  **Memory**: Updates User Facts (Long-term) and Redis Checkpoint (Short-term).
+
+#### Market Observer (`ReAct`)
+A standard ReAct (Reason + Act) loop for autonomous market monitoring:
+1.  **Input**: "Generate market report for XAUUSD".
+2.  **LLM**: `Gemini Flash` decides which tool to call.
+3.  **Tools**: `MarketStateTool`, `GetTechnicalSignalsTool`, `GoogleSearchTool`.
+4.  **Loop**: Iteratively calls tools and feeds output back into LLM until analysis is complete.
+5.  **Output**: Structured markdown report.
+
 ## 🛠️ Tech Stack
 *   **Python 3.11+**
 *   **FastAPI**: High-performance web framework.

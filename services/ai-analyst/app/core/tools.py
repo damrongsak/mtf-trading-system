@@ -12,6 +12,10 @@ from app.core.config import settings
 from app.services.rag import RAGService
 from app.tools.smc import SMCAnalystTool
 from app.tools.market_state import MarketStateTool
+from app.tools.calendar import GetEconomicCalendarTool
+from app.tools.journal import GetJournalEntriesTool
+from app.tools.signal import GetTechnicalSignalsTool
+
 
 logger = logging.getLogger(__name__)
 
@@ -537,7 +541,11 @@ class ToolRegistry:
             "open_interest": OpenInterestTool(),
             "smc_technical_analysis": SMCAnalystTool(),
             "market_state": MarketStateTool(),
-            "send_notification": NotificationTool()
+            "send_notification": NotificationTool(),
+            # Consolidated Tools
+            "get_economic_calendar": GetEconomicCalendarTool(),
+            "journal_entries": GetJournalEntriesTool(),
+            "get_technical_signals": GetTechnicalSignalsTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

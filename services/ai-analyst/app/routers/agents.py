@@ -85,43 +85,47 @@ async def run_observer_agent(
     request: AgentRunRequest,
     authorization: str = Header(None, alias="Authorization")
 ):
-    """Run the Market Observer agent."""
-    if not services["market_observer"]:
+    """Run the Market Observer (via Strategy Advisor)."""
+    if not services["strategy_advisor"]:
         raise HTTPException(status_code=503, detail="AI Agent unavailable")
     
     try:
-        report = await services["market_observer"].run(
-            request.input_text,
-            auth_header=authorization
+        auth_token = extract_auth_token(authorization)
+        result = await services["strategy_advisor"].run(
+            input_text=request.input_text,
+            user_id="observer_report",
+            auth_token=auth_token
         )
         return {
-            "report": report,
+            "report": result.get("response"),
+            "thoughts": result.get("thoughts"),
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
-        logger.error(f"Error executing Market Observer: {e}")
-        traceback.print_exc()
+        logger.error(f"Error executing Market Observer flow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/agent/briefing")
 async def run_daily_briefing(authorization: str = Header(None, alias="Authorization")):
-    """Run the Daily Briefing agent."""
-    if not services["daily_briefing"]:
-        raise HTTPException(status_code=503, detail="Daily Briefing Agent unavailable")
+    """Run the Daily Briefing (via Strategy Advisor)."""
+    if not services["strategy_advisor"]:
+        raise HTTPException(status_code=503, detail="Strategy Advisor unavailable")
     
     try:
-        report = await services["daily_briefing"].run(
-            "Generate valid Daily Briefing.",
-            auth_header=authorization
+        auth_token = extract_auth_token(authorization)
+        result = await services["strategy_advisor"].run(
+            input_text="Generate my Daily Briefing.",
+            user_id="briefing_user", # User context is handled via auth_token in nodes
+            auth_token=auth_token
         )
         return {
-            "report": report,
+            "report": result.get("response"),
+            "thoughts": result.get("thoughts"),
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
-        logger.error(f"Error executing Daily Briefing: {e}")
-        traceback.print_exc()
+        logger.error(f"Error executing Daily Briefing flow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
