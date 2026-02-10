@@ -7,6 +7,7 @@ from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
 from app.services.minimax_service import MinimaxService
 import logging
+import asyncio
 from app.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
@@ -19,6 +20,7 @@ import math
 from oandapyV20.exceptions import V20Error
 from app.services.order_service import OrderService
 from app.worker import worker
+from app.health import verify_dependencies
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +31,10 @@ app = FastAPI(title="Execution Service")
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting Execution Service...")
+    
+    # Verify critical dependencies before accepting traffic
+    await verify_dependencies()
+    
     # Start background worker
     asyncio.create_task(worker.start())
 
