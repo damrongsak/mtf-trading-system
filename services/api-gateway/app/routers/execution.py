@@ -15,6 +15,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 import logging
 import asyncio
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def get_account_summary(
         raise
     except Exception as e:
         # Improve error handling (e.g. 503 if services down)
-        logger.error(f"Error fetching account summary: {e}", exc_info=True)
+        logger.error(f"Error fetching account summary: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/orders")
@@ -102,7 +104,8 @@ async def place_order(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error placing order: {e}", exc_info=True)
+        logger.error(f"Error placing order: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/trades/{trade_id}/close")
@@ -161,7 +164,8 @@ async def close_trade(
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"Error closing trade: {e}", exc_info=True)
+        logger.error(f"Error closing trade: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/trades/open")
@@ -189,7 +193,8 @@ async def get_open_trades(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching open trades: {e}", exc_info=True)
+        logger.error(f"Error fetching open trades: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/trades")

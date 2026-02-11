@@ -5,12 +5,16 @@ import httpx
 from typing import Optional
 from datetime import datetime
 import os
+import logging
+import traceback
 
 router = APIRouter(
     prefix="/api/v1/data",
     tags=["data"],
     responses={404: {"description": "Not found"}},
 )
+
+logger = logging.getLogger(__name__)
 
 DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 
@@ -61,10 +65,14 @@ async def upload_historical_data(
             return response.json()
 
         except httpx.RequestError as e:
+            logger.error(f"Data Service unavailable (Historical Upload): {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Historical Upload failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @router.post("/open-interest/upload", status_code=status.HTTP_201_CREATED)
@@ -91,25 +99,28 @@ async def upload_open_interest(
                 f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest",
                 params=params,
                 files=files,
-                timeout=60.0
+                timeout=300.0
             )
-
             if response.status_code != 201:
-                 # Propagate error
-                 try:
-                     err = response.json()
-                     detail = err.get('detail', response.text)
-                 except:
-                     detail = response.text
-                 raise HTTPException(status_code=response.status_code, detail=detail)
+                try:
+                    err = response.json()
+                    detail = err.get('detail', response.text)
+                except:
+                    detail = response.text
+                logger.error(f"Data Pipeline Error (OI Upload): {response.status_code} - {detail}")
+                raise HTTPException(status_code=response.status_code, detail=detail)
 
-            return response.json()
+            return success_response(data=response.json())
 
         except httpx.RequestError as e:
-            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+            logger.error(f"Data Service unavailable (OI Upload): {e}")
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {type(e).__name__} - {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"OI Upload failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 @router.get("/open-interest/snapshots")
@@ -127,9 +138,12 @@ async def get_open_interest_snapshots(
                 timeout=5.0
             )
             if response.status_code != 200:
+                logger.error(f"Failed to fetch snapshots: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
-            return response.json()
+            return success_response(data=response.json())
         except Exception as e:
+            logger.error(f"Fetch snapshots failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.get("/open-interest/details")
@@ -158,12 +172,15 @@ async def get_open_interest_details(
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/details",
                 params=params,
-                timeout=10.0
+                timeout=60.0
             )
             if response.status_code != 200:
+                logger.error(f"Failed to fetch details: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
-            return response.json()
+            return success_response(data=response.json())
         except Exception as e:
+            logger.error(f"Fetch details failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.get("/open-interest/analysis")
@@ -193,18 +210,19 @@ async def get_open_interest_analysis(
                 timeout=10.0
             )
             if response.status_code != 200:
-                # If pipeline returns 404/500, propagate
-                # Ideally, we should check application/json vs text
                 try:
                     detail = response.json().get('detail', response.text)
                 except:
                     detail = response.text
+                logger.error(f"Failed to fetch analysis: {response.status_code} - {detail}")
                 raise HTTPException(status_code=response.status_code, detail=detail)
 
-            return response.json()
+            return success_response(data=response.json())
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Fetch analysis failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.get("/open-interest/contracts")
@@ -226,11 +244,14 @@ async def get_open_interest_contracts(
                     detail = response.json().get('detail', response.text)
                  except:
                     detail = response.text
+                 logger.error(f"Failed to fetch contracts: {response.status_code} - {detail}")
                  raise HTTPException(status_code=response.status_code, detail=detail)
-            return response.json()
+            return success_response(data=response.json())
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Fetch contracts failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
@@ -250,11 +271,14 @@ async def trigger_sync(
             )
             
             if response.status_code not in [200, 202]:
+                 logger.error(f"Failed to trigger sync: {response.status_code} - {response.text}")
                  raise HTTPException(status_code=response.status_code, detail=response.text)
             
-            return response.json()
+            return success_response(data=response.json())
             
         except Exception as e:
+            logger.error(f"Manual sync failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
 
 @router.get("/candles")
@@ -284,11 +308,14 @@ async def get_candles(
             )
             
             if response.status_code != 200:
+                logger.error(f"Failed to fetch candles: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
                 
-            return response.json()
+            return success_response(data=response.json())
             
         except Exception as e:
+            logger.error(f"Fetch candles failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.get("/symbols")
@@ -309,15 +336,20 @@ async def get_active_symbols(
             
             if response.status_code != 200:
                 # If pipeline returns 404/500, propagate
+                logger.error(f"Failed to fetch symbols: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
             
-            return response.json()
+            return success_response(data=response.json())
             
         except httpx.RequestError as e:
+            logger.error(f"Data Service unavailable (Symbols): {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Fetch symbols failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.post("/symbols", status_code=201)
@@ -336,15 +368,20 @@ async def create_symbol(
             )
             
             if response.status_code != 201 and response.status_code != 200:
+                logger.error(f"Failed to create symbol: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
             
-            return response.json()
+            return success_response(data=response.json())
             
         except httpx.RequestError as e:
+            logger.error(f"Data Service unavailable (Create Symbol): {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Create symbol failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Creation failed: {str(e)}")
 
 @router.patch("/symbols/{symbol_id}")
@@ -364,13 +401,18 @@ async def update_symbol_status(
             )
             
             if response.status_code != 200:
+                logger.error(f"Failed to update symbol: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=response.text)
             
-            return response.json()
+            return success_response(data=response.json())
             
         except httpx.RequestError as e:
+            logger.error(f"Data Service unavailable (Update Symbol): {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Update symbol failed: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")

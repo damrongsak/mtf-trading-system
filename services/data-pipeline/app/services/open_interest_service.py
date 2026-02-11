@@ -50,6 +50,7 @@ class OpenInterestService:
             db.execute(stmt)
             db.commit()
             
+            logger.info(f"Successfully processed {len(records_to_insert)} OI records for {snapshot_time}")
             return {
                 "status": "success", 
                 "records_processed": len(records_to_insert),

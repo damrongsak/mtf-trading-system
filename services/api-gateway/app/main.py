@@ -4,6 +4,10 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from app.logging_config import setup_logging
+
+# Configure logging
+logger = setup_logging()
 from app.routers import signal, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry
 # ... (existing code)
 from app.schemas.response import ErrorCode

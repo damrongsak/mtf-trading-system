@@ -52,11 +52,19 @@ class OpenInterestRepository:
     def get_active_strike_range(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, std_dev_multiplier: float = 2.0) -> Tuple[float, float]:
         """
         Calculates the 'Active' strike range based on OI Weighted Mean and Standard Deviation.
+        Uses SQL aggregations for performance (E[X^2] - E[X]^2 formula).
         Returns (min_strike, max_strike).
         """
+        total_oi_expr = func.coalesce(OpenInterest.call_oi, 0) + func.coalesce(OpenInterest.put_oi, 0)
+        
+        # Calculate Weighted Mean E[X] and E[X^2] in one pass
+        # sum_oi = Σ w_i
+        # sum_w_x = Σ (w_i * x_i)
+        # sum_w_x2 = Σ (w_i * x_i^2)
         query = select(
-            OpenInterest.strike,
-            (OpenInterest.call_oi + OpenInterest.put_oi).label('total_oi')
+            func.sum(total_oi_expr).label('sum_oi'),
+            func.sum(OpenInterest.strike * total_oi_expr).label('sum_w_x'),
+            func.sum(OpenInterest.strike * OpenInterest.strike * total_oi_expr).label('sum_w_x2')
         ).filter(
             OpenInterest.snapshot_at == snapshot_at
         )
@@ -64,24 +72,17 @@ class OpenInterestRepository:
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
-        result = self.db.execute(query)
-        rows = result.fetchall()
-
-        if not rows:
+        res = self.db.execute(query).fetchone()
+        if not res or not res.sum_oi or float(res.sum_oi) == 0:
             return (0.0, 0.0)
 
-        # Calculate Weighted Mean
-        total_oi_sum = sum(row.total_oi for row in rows if row.total_oi)
-        if total_oi_sum == 0:
-            return (0.0, 0.0)
+        sum_oi = float(res.sum_oi)
+        mean_strike = float(res.sum_w_x) / sum_oi
+        mean_sq_strike = float(res.sum_w_x2) / sum_oi
 
-        weighted_sum = sum(float(row.strike) * float(row.total_oi) for row in rows if row.total_oi)
-        mean_strike = weighted_sum / float(total_oi_sum)
-
-        # Calculate Variance / StdDev
-        variance_sum = sum(float(row.total_oi) * ((float(row.strike) - mean_strike) ** 2) for row in rows if row.total_oi)
-        variance = variance_sum / float(total_oi_sum)
-        std_dev = variance ** 0.5
+        # Variance = E[X^2] - (E[X])^2
+        variance = mean_sq_strike - (mean_strike ** 2)
+        std_dev = variance ** 0.5 if variance > 0 else 0
 
         min_strike = mean_strike - (std_dev * std_dev_multiplier)
         max_strike = mean_strike + (std_dev * std_dev_multiplier)
