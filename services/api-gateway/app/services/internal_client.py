@@ -88,7 +88,7 @@ class ExecutionClient:
                 logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary for {broker_account_id}")
                 resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker_account_id": str(broker_account_id)}, timeout=30.0)
                 resp.raise_for_status()
-                return resp.json()
+                return resp.json().get("data", {})
             except Exception as e:
                 logger.error(f"Failed to fetch account summary: {e}", exc_info=True)
                 raise
@@ -103,9 +103,7 @@ class ExecutionClient:
                 logger.info(f"Placing order at {EXECUTION_SERVICE_URL}/orders")
                 resp = await client.post(f"{EXECUTION_SERVICE_URL}/orders", json=payload, timeout=30.0)
                 resp.raise_for_status()
-                result = resp.json()
-                logger.info(f"Order placed successfully: {result}")
-                return result
+                return resp.json().get("data")
             except Exception as e:
                 logger.error(f"Failed to place order: {e}", exc_info=True)
                 raise
@@ -143,7 +141,7 @@ class ExecutionClient:
                 logger.info(f"Placing smart order at {EXECUTION_SERVICE_URL}/smart-orders")
                 resp = await client.post(f"{EXECUTION_SERVICE_URL}/smart-orders", json=smart_order_data, timeout=30.0)
                 resp.raise_for_status()
-                return resp.json()
+                return resp.json().get("data", {})
             except Exception as e:
                 logger.error(f"Failed to place smart order: {e}", exc_info=True)
                 raise

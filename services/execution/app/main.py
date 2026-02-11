@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.utils.response import success_response, error_response
+from app.schemas.response import APIResponse
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
@@ -98,7 +99,7 @@ class OrderResponse(BaseModel):
     price: str
     time: str
 
-@app.post("/account/summary", response_model=AccountSummaryResponse)
+@app.post("/account/summary", response_model=APIResponse[AccountSummaryResponse])
 async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Depends(get_db)):
     try:
         try:
@@ -129,7 +130,7 @@ async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Dep
         logger.error(f"Account Summary Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/orders", response_model=OrderResponse, status_code=201)
+@app.post("/orders", response_model=APIResponse[OrderResponse], status_code=201)
 async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
     try:
         try:
@@ -475,7 +476,7 @@ async def get_accounts(db: AsyncSession = Depends(get_db)):
     ]
     return success_response(data=data)
 
-@app.post("/smart-orders", response_model=OrderResponse)
+@app.post("/smart-orders", response_model=APIResponse[OrderResponse])
 async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(get_db)):
     try:
         req_data = req.dict()

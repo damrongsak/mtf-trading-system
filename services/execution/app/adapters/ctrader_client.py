@@ -23,6 +23,7 @@ class AsyncCTraderClient:
         self._reader_task: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._message_handler = None
+        self._auth_lock = asyncio.Lock()
 
     def set_message_handler(self, handler):
         """Set a callback for unsolicited messages (e.g. Spot Events)"""
@@ -184,45 +185,52 @@ class AsyncCTraderClient:
         await self.writer.drain()
 
     async def authorize_app(self, client_id: str, client_secret: str):
-        if self._app_authorized:
-            return True
+        async with self._auth_lock:
+            if self._app_authorized:
+                return True
 
-        req = ProtoOAApplicationAuthReq()
-        req.clientId = client_id
-        req.clientSecret = client_secret
-        
-        resp_msg = await self.send(req)
-        
-        # Extract response
-        if resp_msg.payloadType == ProtoOAApplicationAuthRes().payloadType:
-            self._app_authorized = True
-            return True
-        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
-            error = ProtoOAErrorRes()
-            error.ParseFromString(resp_msg.payload)
-            raise Exception(f"App Auth Error: {error.errorCode} - {error.description}")
-        else:
-             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+            req = ProtoOAApplicationAuthReq()
+            req.clientId = client_id
+            req.clientSecret = client_secret
+            
+            resp_msg = await self.send(req)
+            
+            # Extract response
+            if resp_msg.payloadType == ProtoOAApplicationAuthRes().payloadType:
+                self._app_authorized = True
+                return True
+            elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+                error = ProtoOAErrorRes()
+                error.ParseFromString(resp_msg.payload)
+                raise Exception(f"App Auth Error: {error.errorCode} - {error.description}")
+            else:
+                 raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
              
     async def authorize_account(self, account_id: int, token: str):
-        if self._account_authorized:
-            return True
+        async with self._auth_lock:
+            if self._account_authorized:
+                return True
 
-        req = ProtoOAAccountAuthReq()
-        req.ctidTraderAccountId = int(account_id)
-        req.accessToken = token
-        
-        resp_msg = await self.send(req)
-        
-        if resp_msg.payloadType == ProtoOAAccountAuthRes().payloadType:
-            self._account_authorized = True
-            return True
-        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
-            error = ProtoOAErrorRes()
-            error.ParseFromString(resp_msg.payload)
-            raise Exception(f"Account Auth Error: {error.errorCode} - {error.description}")
-        else:
-             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+            req = ProtoOAAccountAuthReq()
+            req.ctidTraderAccountId = int(account_id)
+            req.accessToken = token
+            
+            resp_msg = await self.send(req)
+            
+            if resp_msg.payloadType == ProtoOAAccountAuthRes().payloadType:
+                self._account_authorized = True
+                return True
+            elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+                error = ProtoOAErrorRes()
+                error.ParseFromString(resp_msg.payload)
+                # Handle case where server thinks we are already logged in but client state was reset
+                if error.errorCode == "ALREADY_LOGGED_IN":
+                    logger.info(f"Account {account_id} already logged in on server. Updating client state.")
+                    self._account_authorized = True
+                    return True
+                raise Exception(f"Account Auth Error: {error.errorCode} - {error.description}")
+            else:
+                 raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
     async def get_symbols_list(self, account_id: int):
         req = ProtoOASymbolsListReq()

@@ -58,8 +58,6 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
              logger.error(f"cTrader Account Summary Error: {e}")
              raise e
-        finally:
-             await self.client.disconnect()
 
     async def _resolve_symbol_id(self, symbol_name: str) -> int:
         from app.database import AsyncSessionLocal

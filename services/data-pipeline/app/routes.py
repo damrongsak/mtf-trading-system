@@ -87,7 +87,8 @@ async def ingest_open_interest(
 
     try:
         content = await file.read()
-        result = OpenInterestService.parse_and_store(content, db, snapshot_at)
+        import asyncio
+        result = await asyncio.to_thread(OpenInterestService.parse_and_store, content, db, snapshot_at)
         return result
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")

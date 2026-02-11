@@ -1,8 +1,18 @@
-from fastapi import APIRouter, UploadFile, File, Query, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, Query, HTTPException, status, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.repositories.open_interest_repository import OpenInterestRepository
+from app.schemas.open_interest import (
+    OpenInterestSnapshotResponse,
+    OpenInterestRecordResponse,
+    OpenInterestAnalysisResponse
+)
+from app.utils.redis_client import redis_client
 from app.schemas.response import APIResponse
 from app.utils.response import success_response, error_response
 import httpx
-from typing import Optional
+import json
+from typing import Optional, List
 from datetime import datetime
 import os
 import logging
@@ -123,136 +133,121 @@ async def upload_open_interest(
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
-@router.get("/open-interest/snapshots")
+@router.get("/open-interest/snapshots", response_model=APIResponse[List[OpenInterestSnapshotResponse]])
 async def get_open_interest_snapshots(
-    limit: int = Query(20, ge=1, le=100)
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
 ):
     """
-    Get available OI snapshots. Proxies to Data Pipeline.
+    Get available OI snapshots. Cached in Redis (ECST Pattern).
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/snapshots",
-                params={"limit": limit},
-                timeout=5.0
-            )
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch snapshots: {response.status_code} - {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-            return success_response(data=response.json())
-        except Exception as e:
-            logger.error(f"Fetch snapshots failed: {e}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+    cache_key = f"oi:snapshots:{limit}"
+    
+    try:
+        r = await redis_client.get_client()
+        cached = await r.get(cache_key)
+        if cached:
+            logger.info("OI Snapshots: Cache HIT")
+            return success_response(data=json.loads(cached))
+    except Exception as re:
+        logger.warning(f"Redis cache check failed: {re}")
 
-@router.get("/open-interest/details")
+    try:
+        repo = OpenInterestRepository(db)
+        results = repo.get_snapshots(limit)
+        
+        data = [
+            {
+                "snapshot_at": r.snapshot_at.isoformat(),
+                "count": r.count,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            }
+            for r in results
+        ]
+        
+        # Update Cache
+        try:
+            r = await redis_client.get_client()
+            await r.setex(cache_key, 300, json.dumps(data)) # 5 min TTL
+            logger.info("OI Snapshots: Cache UPDATED")
+        except Exception as re:
+            logger.warning(f"Redis cache update failed: {re}")
+            
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"Fetch snapshots failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/open-interest/details", response_model=APIResponse[List[OpenInterestRecordResponse]])
 async def get_open_interest_details(
     snapshot_at: datetime = Query(...),
     contract: Optional[str] = Query(None),
     min_oi: int = Query(2000),
     max_oi: Optional[int] = Query(5500),
-    smart_filter: bool = Query(True)
+    smart_filter: bool = Query(True),
+    db: Session = Depends(get_db)
 ):
     """
-    Get detailed OI records. Proxies to Data Pipeline.
+    Get detailed OI records directly from DB.
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            params = {
-                "snapshot_at": snapshot_at.isoformat(),
-                "min_oi": min_oi,
-                "smart_filter": str(smart_filter).lower()
-            }
-            if contract:
-                params["contract"] = contract
-            if max_oi is not None:
-                params["max_oi"] = max_oi
+    try:
+        repo = OpenInterestRepository(db)
+        results = repo.get_by_snapshot(
+            snapshot_at=snapshot_at,
+            contract_symbol=contract,
+            min_oi=min_oi,
+            max_oi=max_oi,
+            smart_filter=smart_filter
+        )
+        
+        return success_response(data=[OpenInterestRecordResponse.model_validate(r) for r in results])
+    except Exception as e:
+        logger.error(f"Fetch details failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
-            response = await client.get(
-                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/details",
-                params=params,
-                timeout=60.0
-            )
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch details: {response.status_code} - {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-            return success_response(data=response.json())
-        except Exception as e:
-            logger.error(f"Fetch details failed: {e}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
-
-@router.get("/open-interest/analysis")
+@router.get("/open-interest/analysis", response_model=APIResponse[OpenInterestAnalysisResponse])
 async def get_open_interest_analysis(
     snapshot_at: datetime = Query(...),
     contract: Optional[str] = Query(None),
     min_oi: int = Query(0),
-    max_oi: Optional[int] = Query(None)
+    max_oi: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
 ):
     """
-    Get detailed OI analysis. Proxies to Data Pipeline.
+    Get detailed OI analysis directly from DB.
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            params = {
-                "snapshot_at": snapshot_at.isoformat(),
-                "min_oi": min_oi
-            }
-            if contract:
-                params["contract"] = contract
-            if max_oi is not None:
-                params["max_oi"] = max_oi
+    try:
+        repo = OpenInterestRepository(db)
+        data = repo.get_analysis_data(
+            snapshot_at=snapshot_at,
+            contract_symbol=contract,
+            min_oi=min_oi,
+            max_oi=max_oi
+        )
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"Fetch analysis failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
-            response = await client.get(
-                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/analysis",
-                params=params,
-                timeout=10.0
-            )
-            if response.status_code != 200:
-                try:
-                    detail = response.json().get('detail', response.text)
-                except:
-                    detail = response.text
-                logger.error(f"Failed to fetch analysis: {response.status_code} - {detail}")
-                raise HTTPException(status_code=response.status_code, detail=detail)
-
-            return success_response(data=response.json())
-        except HTTPException as he:
-            raise he
-        except Exception as e:
-            logger.error(f"Fetch analysis failed: {e}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
-
-@router.get("/open-interest/contracts")
+@router.get("/open-interest/contracts", response_model=APIResponse[List[str]])
 async def get_open_interest_contracts(
-    snapshot_at: datetime = Query(...)
+    snapshot_at: datetime = Query(...),
+    db: Session = Depends(get_db)
 ):
     """
-    Get list of contracts. Proxies to Data Pipeline.
+    Get list of contracts directly from DB.
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{DATA_SERVICE_URL}/api/v1/ingest/open-interest/contracts",
-                params={"snapshot_at": snapshot_at.isoformat()},
-                timeout=5.0
-            )
-            if response.status_code != 200:
-                 try:
-                    detail = response.json().get('detail', response.text)
-                 except:
-                    detail = response.text
-                 logger.error(f"Failed to fetch contracts: {response.status_code} - {detail}")
-                 raise HTTPException(status_code=response.status_code, detail=detail)
-            return success_response(data=response.json())
-        except HTTPException as he:
-            raise he
-        except Exception as e:
-            logger.error(f"Fetch contracts failed: {e}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+    try:
+        repo = OpenInterestRepository(db)
+        contracts = repo.get_available_contracts(snapshot_at)
+        return success_response(data=contracts)
+    except Exception as e:
+        logger.error(f"Fetch contracts failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.post("/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_sync(
