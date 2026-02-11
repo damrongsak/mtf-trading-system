@@ -195,6 +195,12 @@ class StrategyAdvisorAgent:
         
         Raw Query: "{query}"
         
+        **Instructions:**
+        1. **Translate to English**: If the raw query is not in English, translate it to clear technical English.
+        2. **Infer Symbol**: If no symbol is mentioned, default to "XAUUSD" (Gold) as this is our primary asset.
+        3. **Normalize Timeframe**: Standardize timeframes (e.g., "5min" -> "M5", "1h" -> "H1").
+        4. **Be Specific**: Include the symbol and timeframe in the optimized query.
+        
         **Intents:**
         - **MARKET_ANALYSIS**: User asks for market outlook, price analysis, or a trading PLAN/STRATEGY for a specific symbol and timeframe.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
@@ -219,7 +225,7 @@ class StrategyAdvisorAgent:
             text = response.text.replace("```json", "").replace("```", "")
             data = json.loads(text)
             
-            logger.debug(f"Query Optimized. Intent: {data.get('intent')}, Optimized Query: {data.get('optimized_query')}")
+            logger.info(f"Optimization Result - Intent: {data.get('intent')}, Query: {data.get('optimized_query')}")
             return {
                 "optimized_query": data.get("optimized_query", query),
                 "intent": data.get("intent", "CHAT")
@@ -449,6 +455,8 @@ class StrategyAdvisorAgent:
             tool_descriptions=tool_descriptions,
             query=f"{query}\n(Current Date: {current_date}){reasoning_context}{tool_results}"
         )
+        
+        logger.info(f"Tool Selection - Query: {query} | Context/Trace: {len(reasoning_context)} chars | Scratchpad: {len(tool_results)} chars")
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
@@ -799,7 +807,7 @@ class StrategyAdvisorAgent:
 
     # --- PUBLIC API ---
 
-    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None):
+    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None):
         """
         Main entry point.
         """
@@ -817,9 +825,9 @@ class StrategyAdvisorAgent:
             "is_satisfactory": False
         }
         
-        # Configure Checkpoint (Thread ID = user_id for simplicity, or session_id)
+        # Configure Checkpoint (Thread ID = thread_id or user_id for simplicity)
         config = {
-            "configurable": {"thread_id": user_id},
+            "configurable": {"thread_id": thread_id or user_id},
             "recursion_limit": 100 # Increased for multi-step tool loops
         }
         result = await self.graph.ainvoke(initial_state, config=config)

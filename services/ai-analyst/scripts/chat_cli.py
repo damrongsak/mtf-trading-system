@@ -39,6 +39,7 @@ class ChatApp:
     def __init__(self):
         self.console = Console()
         self.user_id = self.get_or_create_user_id()
+        self.session_id = f"sess_{uuid.uuid4().hex[:12]}" # Unique for this CLI run
         self.auth_token = self.load_token()
         self.client = httpx.AsyncClient(timeout=120.0)
         self.running = True
@@ -205,7 +206,8 @@ class ChatApp:
                 # Prepare Payload
                 payload = {
                     "message": user_input,
-                    "user_id": self.user_id
+                    "user_id": self.user_id,
+                    "thread_id": self.session_id
                 }
                 
                 headers = {}
@@ -239,8 +241,8 @@ class ChatApp:
                             response.raise_for_status()
                             data = response.json()
                             
-                            response_content = data.get("response", "")
-                            thoughts_content = data.get("thoughts")
+                            response_content = data.get("data", {}).get("response", "")
+                            thoughts_content = data.get("data", {}).get("thoughts")
                         
                     except httpx.HTTPStatusError as e:
                         error_msg = f"[bold red]API Error {e.response.status_code}[/bold red]: {e.response.text}"

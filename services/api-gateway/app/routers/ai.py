@@ -144,6 +144,7 @@ class StrategyChatRequest(BaseModel):
     reply_via_telegram: bool = False
     telegram_chat_id: Optional[int] = None
     telegram_message_id: Optional[int] = None
+    thread_id: Optional[str] = None
 
 @router.post("/chat/sessions/message")
 async def chat_strategy(
@@ -295,7 +296,8 @@ async def send_chat_message(
             "user_id": str(current_user.id),
             "strategy_id": str(session.strategy_id) if session.strategy_id else None,
             "context_code": context_code,
-            "image_b64": image_b64
+            "image_b64": image_b64,
+            "thread_id": str(session_id) # Use session_id as LangGraph thread_id
         }
         
         async with httpx.AsyncClient() as client:

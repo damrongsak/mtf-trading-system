@@ -56,6 +56,7 @@ class StrategyChatRequest(BaseModel):
     reply_via_telegram: bool = False
     telegram_chat_id: Optional[int] = None
     telegram_message_id: Optional[int] = None  # For reply threading
+    thread_id: Optional[str] = None # For LangGraph persistence
 
 
 # API Endpoints
@@ -145,7 +146,8 @@ async def chat_strategy(
             user_id=request.user_id,
             auth_token=auth_token,
             context_code=request.context_code,
-            image_b64=request.image_b64
+            image_b64=request.image_b64,
+            thread_id=request.thread_id
         )
         
         # Send response to Telegram if requested
