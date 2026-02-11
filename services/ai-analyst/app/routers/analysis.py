@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 
 from app.schemas.analysis import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
-from app.schemas.response import APIResponse
+from app.utils.response import success_response
 from pydantic import BaseModel
 
 # We need access to the services. 
@@ -35,10 +35,7 @@ async def analyze_market(request: MarketAnalysisRequest):
     context = request.model_dump()
     insight = await services["gemini"].generate_market_outlook(context)
     
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )
+    return success_response(data={"insight": insight})
 
 @router.post("/journal", response_model=AnalysisResponse)
 async def analyze_journal(request: JournalAnalysisRequest):
@@ -56,10 +53,7 @@ async def analyze_journal(request: JournalAnalysisRequest):
 
     insight = await services["gemini"].analyze_journal_entry(request.entry_content, similar_entries, user_id=request.user_id)
     
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )
+    return success_response(data={"insight": insight})
 
 @router.post("/smc-narrative", response_model=AnalysisResponse)
 async def analyze_smc_narrative(request: SMCNarrativeRequest):
@@ -68,10 +62,7 @@ async def analyze_smc_narrative(request: SMCNarrativeRequest):
     
     insight = await services["gemini"].generate_smc_narrative(request.smc_data, request.price_context)
     
-    return AnalysisResponse(
-        insight=insight,
-        timestamp=datetime.utcnow().isoformat()
-    )
+    return success_response(data={"insight": insight})
 
 class AnalysisRequest(BaseModel):
     symbol: str = "XAU/USD"
@@ -81,4 +72,5 @@ class AnalysisRequest(BaseModel):
 async def analyze_sentiment(req: AnalysisRequest):
     if not services["sentiment"]:
         raise HTTPException(status_code=503, detail="Sentiment Service unavailable")
-    return await services["sentiment"].get_sentiment(req.symbol)
+    res = await services["sentiment"].get_sentiment(req.symbol)
+    return success_response(data=res)

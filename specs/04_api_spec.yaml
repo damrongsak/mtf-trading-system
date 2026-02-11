@@ -468,7 +468,7 @@ paths:
           content:
              application/json:
                schema:
-                 $ref: '#/components/schemas/AnalysisResponse'
+                 $ref: '#/components/schemas/APIResponse_Analysis'
 
   /analyze/journal:
     post:
@@ -484,7 +484,7 @@ paths:
            content:
               application/json:
                 schema:
-                  $ref: '#/components/schemas/AnalysisResponse'
+                  $ref: '#/components/schemas/APIResponse_Analysis'
 
   /analyze/smc-narrative:
     post:
@@ -500,7 +500,7 @@ paths:
             content:
                application/json:
                  schema:
-                   $ref: '#/components/schemas/AnalysisResponse'
+                  $ref: '#/components/schemas/APIResponse_Analysis'
 
 
   /api/v1/ai/agent/observer/run:
@@ -2250,14 +2250,157 @@ components:
             format: date-time
 
     APIResponse_Alpha:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AlphaResponse'
+
+    MarketAnalysisRequest:
       type: object
       properties:
+        trend_4h:
+          type: string
+        current_price:
+          type: number
+        key_levels:
+          type: array
+          items:
+            type: number
+        recent_signals:
+          type: array
+          items:
+            type: object
+        image_b64:
+          type: string
+          nullable: true
+
+    JournalAnalysisRequest:
+      type: object
+      required:
+        - entry_content
+        - user_id
+      properties:
+        entry_content:
+          type: string
+        entry_id:
+          type: string
+          format: uuid
+          nullable: true
+        user_id:
+          type: string
+
+    SMCNarrativeRequest:
+      type: object
+      properties:
+        smc_data:
+          type: object
+        price_context:
+          type: object
+
+    AnalysisResponse:
+      type: object
+      properties:
+        insight:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_Analysis:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AnalysisResponse'
+
+    APIResponse_TradeList:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Trade'
+
+    Trade:
+      type: object
+      required:
+        - trade_id
+        - symbol
+        - strategy_name
+        - signal_timestamp
+        - status
+        - direction
+        - entry_price
+        - sl_price
+        - tp_price
+        - lot_size
+        - risk_usd
+      properties:
+        trade_id:
+          type: string
+          format: uuid
+        strategy_run_id:
+          type: string
+          format: uuid
+          nullable: true
+        broker_account_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        strategy_name:
+          type: string
+        signal_timestamp:
+          type: string
+          format: date-time
         status:
           type: string
-        data:
-          $ref: '#/components/schemas/AlphaResponse'
-        error:
+          enum: [OPEN, CLOSED, REJECTED]
+        rejection_reason:
           type: string
+          nullable: true
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        entry_price:
+          type: number
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        lot_size:
+          type: number
+        risk_usd:
+          type: number
+        atr_pips:
+          type: number
+          nullable: true
+        rr_ratio:
+          type: number
+          nullable: true
+        pnl_usd:
+          type: number
+          nullable: true
+        mae_usd:
+          type: number
+          nullable: true
+        mfe_usd:
+          type: number
+          nullable: true
+        exit_price:
+          type: number
+          nullable: true
+        exit_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        metadata_json:
+          type: object
           nullable: true
 
     # --- Standard Response Wrappers ---
@@ -2374,23 +2517,41 @@ components:
 
     APIResponse:
       type: object
+      required:
+        - status
+        - timestamp
       properties:
         status:
-          type: string
-        message:
-          type: string
+          $ref: '#/components/schemas/ResponseStatus'
         data:
           type: object
-
-    APIResponse_StrategyTemplateList:
-      type: object
-      properties:
-        status:
+          nullable: true
+        message:
           type: string
-        data:
+          nullable: true
+        errors:
           type: array
           items:
-            $ref: '#/components/schemas/StrategyTemplate'
+            $ref: '#/components/schemas/ErrorDetail'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        auth:
+          $ref: '#/components/schemas/AuthTokens'
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitInfo'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_StrategyTemplateList:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/StrategyTemplate'
 
     APIResponse_DataSource:
       allOf:
@@ -2399,24 +2560,6 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/DataSource'
-        - initial_capital
-      properties:
-        code:
-          type: string
-          description: "Python code defining the strategy (async def strategy...)"
-        symbol:
-          type: string
-        timeframe:
-          type: string
-        start_date:
-          type: string
-          format: date
-        end_date:
-          type: string
-          format: date
-        initial_capital:
-          type: number
-          default: 10000.0
 
     Meta:
       type: object
@@ -2513,230 +2656,82 @@ components:
           type: boolean
 
     APIResponse_RiskCheckResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/RiskCheckResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RiskCheckResponse'
 
     APIResponse_UserResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/UserResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserResponse'
 
     APIResponse_UserPreferencesResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/UserPreferencesResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserPreferencesResponse'
 
 
 
 
 
     APIResponse_BriefingResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          type: object
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
           properties:
-            content:
-              type: string
-              description: Markdown formatted briefing content
-            timestamp:
-              type: string
-              format: date-time
-        message:
-          type: string
-        timestamp:
-          type: string
-          format: date-time
+            data:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: Markdown formatted briefing content
+                timestamp:
+                  type: string
+                  format: date-time
 
     APIResponse_Success:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        message:
-          type: string
-        data:
-          type: object
-          nullable: true
-        timestamp:
-          type: string
-          format: date-time
+      $ref: '#/components/schemas/APIResponse'
 
     APIResponse_Fund:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/Fund'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Fund'
 
     APIResponse_StrategyResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/StrategyResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/StrategyResponse'
 
     APIResponse_JournalEntryResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/JournalEntryResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/JournalEntryResponse'
 
     APIResponse_BacktestResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/BacktestResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BacktestResponse'
           
     MonteCarloRequest:
       type: object
@@ -2772,96 +2767,42 @@ components:
           type: number
 
     APIResponse_TransactionResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          $ref: '#/components/schemas/TransactionResponse'
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TransactionResponse'
 
     APIResponse_TransactionImportResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          type: object
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
           properties:
-            imported_count:
-              type: integer
-            skipped_count:
-              type: integer
-            errors:
-              type: array
-              items:
-                type: string
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+            data:
+              type: object
+              properties:
+                imported_count:
+                  type: integer
+                skipped_count:
+                  type: integer
+                errors:
+                  type: array
+                  items:
+                    type: string
 
     APIResponse_BalanceResponse:
-      type: object
-      required:
-        - status
-        - timestamp
-      properties:
-        status:
-          $ref: '#/components/schemas/ResponseStatus'
-        data:
-          type: object
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
           properties:
-            balance:
-              type: number
-            currency:
-              type: string
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-        meta:
-          $ref: '#/components/schemas/Meta'
-        auth:
-          $ref: '#/components/schemas/AuthTokens'
-        rate_limit:
-          $ref: '#/components/schemas/RateLimitInfo'
-        timestamp:
-          type: string
-          format: date-time
+            data:
+              type: object
+              properties:
+                balance:
+                  type: number
+                currency:
+                  type: string
 
     PaginatedResponse_TransactionResponse:
       type: object
@@ -3687,14 +3628,14 @@ components:
           description: Optional list of symbols to override broker defaults
     
     APIResponse_SignalList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/SignalResponse'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SignalResponse'
 
     SignalResponse:
       type: object
@@ -3736,12 +3677,12 @@ components:
           nullable: true
 
     APIResponse_SignalResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/SignalResponse'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SignalResponse'
 
     FoundryAssembleResponse:
       type: object
@@ -3788,14 +3729,14 @@ components:
             type: object
 
     APIResponse_SymbolList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            type: string
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: string
 
     # --- Backtest Schemas ---
     StrategyBacktestRequest:
@@ -3944,22 +3885,22 @@ components:
           type: object
 
     APIResponse_DeploymentList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Deployment'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Deployment'
 
     APIResponse_Deployment:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/Deployment'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Deployment'
 
     # --- AI Chat Schemas ---
     ChatSession:
@@ -4029,53 +3970,54 @@ components:
           nullable: true
     
     APIResponse_ChatSessionList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ChatSession'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ChatSession'
     
     APIResponse_ChatSession:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/ChatSession'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ChatSession'
 
     APIResponse_ChatMessageList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ChatMessage'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ChatMessage'
 
     APIResponse_ChatMessage:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/ChatMessage'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ChatMessage'
 
-    APIResponse_AIReport: 
-       type: object
-       properties:
-         status:
-           type: string
-         data:
-           type: object
-           properties:
-             report:
-                type: string
-             timestamp:
-                type: string
+    APIResponse_AIReport:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                report:
+                   type: string
+                timestamp:
+                   type: string
+                   format: date-time
 
     BrokerAccount:
       type: object
@@ -4166,22 +4108,22 @@ components:
           nullable: true
 
     APIResponse_BrokerAccount:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/BrokerAccount'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BrokerAccount'
 
     APIResponse_BrokerAccountList:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/BrokerAccount'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/BrokerAccount'
 
 
     FoundryAssembleRequest:
@@ -4190,20 +4132,14 @@ components:
         config:
            $ref: '#/components/schemas/StrategyConfigUpdate'
         
+
     APIResponse_FoundryAssembleResponse:
-      type: object
-      properties:
-        status:
-           type: string
-        data:
-           type: object
-           properties:
-              pipeline_hash:
-                 type: string
-              errors:
-                 type: array
-                 items:
-                    type: string
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FoundryAssembleResponse'
     
     FoundryValidateRequest:
       type: object
@@ -4220,18 +4156,21 @@ components:
           type: string
           format: date
     
-    APIResponse_FoundryValidateResponse:
+    APIResponse_FoundryValidateResponse_data:
       type: object
       properties:
-        status:
-          type: string
-        data:
-          type: object
+         robustness_score:
+            type: integer
+         is_passed:
+            type: boolean
+
+    APIResponse_FoundryValidateResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
           properties:
-             robustness_score:
-                type: integer
-             is_passed:
-                type: boolean
+            data:
+              $ref: '#/components/schemas/APIResponse_FoundryValidateResponse_data'
     
     PortfolioAllocationUpdate:
       type: object
@@ -4272,14 +4211,15 @@ components:
             type: string
 
     APIResponse_StrategyList:
-       type: object
-       properties:
-          status:
-             type: string
-          data:
-             type: array
-             items:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
                 type: object # Placeholder for Strategy
+                x-comment: "TODO: Define Strategy schema formally"
     BacktestMetrics:
       type: object
       properties:
@@ -4425,12 +4365,12 @@ components:
           enum: [DAILY, ALERTS]
 
     APIResponse_Briefing:
-        type: object
-        properties:
-          status:
-            type: string
-          data:
-            $ref: '#/components/schemas/Briefing'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Briefing'
   
 
 
@@ -4716,12 +4656,12 @@ components:
           type: number
 
     APIResponse_WalkForwardResponse:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/WalkForwardResponse'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/WalkForwardResponse'
 
     AnalysisSummary:
       type: object
@@ -4760,32 +4700,30 @@ components:
             $ref: '#/components/schemas/AnalysisDistribution'
 
     APIResponse_OpenInterestAnalytics:
-      type: object
-      properties:
-        status:
-          type: string
-        data:
-          $ref: '#/components/schemas/OpenInterestAnalysisResponse'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/OpenInterestAnalysisResponse'
 
     APIResponse_Agent:
-      type: object
-      properties:
-        status:
-          type: string
-          example: success
-        data:
-          $ref: '#/components/schemas/Agent'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Agent'
 
     APIResponse_AgentList:
-      type: object
-      properties:
-        status:
-          type: string
-          example: success
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/Agent'
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Agent'
 
     Agent:
       type: object

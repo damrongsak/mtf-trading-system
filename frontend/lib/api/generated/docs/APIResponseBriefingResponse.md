@@ -6,8 +6,12 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **status** | [**ResponseStatus**](ResponseStatus.md) |  | [default to undefined]
-**data** | [**APIResponseBriefingResponseData**](APIResponseBriefingResponseData.md) |  | [optional] [default to undefined]
+**data** | [**APIResponseBriefingResponseAllOfData**](APIResponseBriefingResponseAllOfData.md) |  | [optional] [default to undefined]
 **message** | **string** |  | [optional] [default to undefined]
+**errors** | [**Array&lt;ErrorDetail&gt;**](ErrorDetail.md) |  | [optional] [default to undefined]
+**meta** | [**Meta**](Meta.md) |  | [optional] [default to undefined]
+**auth** | [**AuthTokens**](AuthTokens.md) |  | [optional] [default to undefined]
+**rate_limit** | [**RateLimitInfo**](RateLimitInfo.md) |  | [optional] [default to undefined]
 **timestamp** | **string** |  | [default to undefined]
 
 ## Example
@@ -19,6 +23,10 @@ const instance: APIResponseBriefingResponse = {
     status,
     data,
     message,
+    errors,
+    meta,
+    auth,
+    rate_limit,
     timestamp,
 };
 ```

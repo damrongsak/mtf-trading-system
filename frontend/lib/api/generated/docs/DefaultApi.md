@@ -5,6 +5,9 @@ All URIs are relative to *http://localhost*
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
 |[**aiChatSessionsMessagePost**](#aichatsessionsmessagepost) | **POST** /ai/chat/sessions/message | Chat with Strategy Advisor|
+|[**analyzeJournalPost**](#analyzejournalpost) | **POST** /analyze/journal | Analyze journal entry|
+|[**analyzeMarketPost**](#analyzemarketpost) | **POST** /analyze/market | Generate market outlook|
+|[**analyzeSmcNarrativePost**](#analyzesmcnarrativepost) | **POST** /analyze/smc-narrative | Generate SMC Narrative|
 |[**apiV1AccountsAccountIdDelete**](#apiv1accountsaccountiddelete) | **DELETE** /api/v1/accounts/{account_id} | Delete a broker account|
 |[**apiV1AccountsAccountIdPut**](#apiv1accountsaccountidput) | **PUT** /api/v1/accounts/{account_id} | Update a broker account|
 |[**apiV1AccountsGet**](#apiv1accountsget) | **GET** /api/v1/accounts/ | List broker accounts|
@@ -47,7 +50,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1DeploymentsPost**](#apiv1deploymentspost) | **POST** /api/v1/deployments/ | Create a new deployment|
 |[**apiV1ExecutionAccountSummaryGet**](#apiv1executionaccountsummaryget) | **GET** /api/v1/execution/account/summary | Get account summary|
 |[**apiV1ExecutionOrdersPost**](#apiv1executionorderspost) | **POST** /api/v1/execution/orders | Place a new order|
-|[**apiV1ExecutionTradesGet**](#apiv1executiontradesget) | **GET** /api/v1/execution/trades | List trades with filtering and pagination|
+|[**apiV1ExecutionTradesSyncGet**](#apiv1executiontradessyncget) | **GET** /api/v1/execution/trades/sync | List trades with filtering and pagination|
 |[**apiV1ExecutionTradesTradeIdClosePost**](#apiv1executiontradestradeidclosepost) | **POST** /api/v1/execution/trades/{trade_id}/close | Manually close a trade|
 |[**apiV1FoundryValidatePost**](#apiv1foundryvalidatepost) | **POST** /api/v1/foundry/validate | Run Walk-Forward Validation (Proving Ground)|
 |[**apiV1FundsFundIdDelete**](#apiv1fundsfundiddelete) | **DELETE** /api/v1/funds/{fund_id} | Delete a fund|
@@ -153,8 +156,161 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **analyzeJournalPost**
+> APIResponseAnalysis analyzeJournalPost()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    JournalAnalysisRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let journalAnalysisRequest: JournalAnalysisRequest; // (optional)
+
+const { status, data } = await apiInstance.analyzeJournalPost(
+    journalAnalysisRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **journalAnalysisRequest** | **JournalAnalysisRequest**|  | |
+
+
+### Return type
+
+**APIResponseAnalysis**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Journal Analysis |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **analyzeMarketPost**
+> APIResponseAnalysis analyzeMarketPost()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    MarketAnalysisRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let marketAnalysisRequest: MarketAnalysisRequest; // (optional)
+
+const { status, data } = await apiInstance.analyzeMarketPost(
+    marketAnalysisRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **marketAnalysisRequest** | **MarketAnalysisRequest**|  | |
+
+
+### Return type
+
+**APIResponseAnalysis**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Market Analysis |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **analyzeSmcNarrativePost**
+> APIResponseAnalysis analyzeSmcNarrativePost()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    SMCNarrativeRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let sMCNarrativeRequest: SMCNarrativeRequest; // (optional)
+
+const { status, data } = await apiInstance.analyzeSmcNarrativePost(
+    sMCNarrativeRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **sMCNarrativeRequest** | **SMCNarrativeRequest**|  | |
+
+
+### Return type
+
+**APIResponseAnalysis**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | SMC Narrative |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **apiV1AccountsAccountIdDelete**
-> APIResponseSuccess apiV1AccountsAccountIdDelete()
+> APIResponse apiV1AccountsAccountIdDelete()
 
 
 ### Example
@@ -184,7 +340,7 @@ const { status, data } = await apiInstance.apiV1AccountsAccountIdDelete(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -1259,7 +1415,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1CoachMentalHistoryPost**
-> APIResponseSuccess apiV1CoachMentalHistoryPost(mentalHandHistoryCreate)
+> APIResponse apiV1CoachMentalHistoryPost(mentalHandHistoryCreate)
 
 
 ### Example
@@ -1290,7 +1446,7 @@ const { status, data } = await apiInstance.apiV1CoachMentalHistoryPost(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -2187,7 +2343,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1ExecutionAccountSummaryGet**
-> APIResponseSuccess apiV1ExecutionAccountSummaryGet()
+> APIResponse apiV1ExecutionAccountSummaryGet()
 
 
 ### Example
@@ -2210,7 +2366,7 @@ This endpoint does not have any parameters.
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -2230,7 +2386,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1ExecutionOrdersPost**
-> APIResponseSuccess apiV1ExecutionOrdersPost(body)
+> APIResponse apiV1ExecutionOrdersPost(body)
 
 
 ### Example
@@ -2260,7 +2416,7 @@ const { status, data } = await apiInstance.apiV1ExecutionOrdersPost(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -2279,8 +2435,8 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **apiV1ExecutionTradesGet**
-> PaginatedResponseTradeResponse apiV1ExecutionTradesGet()
+# **apiV1ExecutionTradesSyncGet**
+> PaginatedResponseTradeResponse apiV1ExecutionTradesSyncGet()
 
 
 ### Example
@@ -2301,7 +2457,7 @@ let symbol: string; // (optional) (default to undefined)
 let fromDate: string; // (optional) (default to undefined)
 let toDate: string; // (optional) (default to undefined)
 
-const { status, data } = await apiInstance.apiV1ExecutionTradesGet(
+const { status, data } = await apiInstance.apiV1ExecutionTradesSyncGet(
     page,
     perPage,
     status,
@@ -2345,7 +2501,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1ExecutionTradesTradeIdClosePost**
-> APIResponseSuccess apiV1ExecutionTradesTradeIdClosePost()
+> APIResponse apiV1ExecutionTradesTradeIdClosePost()
 
 
 ### Example
@@ -2379,7 +2535,7 @@ const { status, data } = await apiInstance.apiV1ExecutionTradesTradeIdClosePost(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -2698,7 +2854,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1InternalSignalsPost**
-> APIResponseSuccess apiV1InternalSignalsPost(apiV1InternalSignalsPostRequest)
+> APIResponse apiV1InternalSignalsPost(apiV1InternalSignalsPostRequest)
 
 
 ### Example
@@ -2729,7 +2885,7 @@ const { status, data } = await apiInstance.apiV1InternalSignalsPost(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 
@@ -3708,7 +3864,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1RiskPortfolioPost**
-> APIResponseSuccess apiV1RiskPortfolioPost(portfolioAllocationUpdate)
+> APIResponse apiV1RiskPortfolioPost(portfolioAllocationUpdate)
 
 
 ### Example
@@ -3739,7 +3895,7 @@ const { status, data } = await apiInstance.apiV1RiskPortfolioPost(
 
 ### Return type
 
-**APIResponseSuccess**
+**APIResponse**
 
 ### Authorization
 

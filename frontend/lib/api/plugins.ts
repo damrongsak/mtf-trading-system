@@ -1,11 +1,11 @@
 import { apiClient } from './client';
-import { Plugin, PluginConfigUpdate } from './types';
+import { Plugin, PluginConfigUpdate, SystemHooks, APIResponse } from './types';
 
 export const pluginsApi = {
     // List all plugins
     list: async (): Promise<Plugin[]> => {
-        const response = await apiClient.get<Plugin[]>('/api/v1/plugins');
-        return response.data;
+        const response = await apiClient.get<APIResponse<Plugin[]>>('/api/v1/plugins');
+        return response.data.data || [];
     },
 
     // Activate a plugin
@@ -40,8 +40,8 @@ export const pluginsApi = {
     },
 
     // Get system hooks
-    getHooks: async (): Promise<any> => {
-        const response = await apiClient.get('/api/v1/plugins/hooks');
-        return response.data;
+    getHooks: async (): Promise<SystemHooks> => {
+        const response = await apiClient.get<APIResponse<SystemHooks>>('/api/v1/plugins/hooks');
+        return response.data.data!;
     }
 };

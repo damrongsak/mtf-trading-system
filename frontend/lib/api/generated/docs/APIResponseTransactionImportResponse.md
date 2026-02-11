@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **status** | [**ResponseStatus**](ResponseStatus.md) |  | [default to undefined]
-**data** | [**APIResponseTransactionImportResponseData**](APIResponseTransactionImportResponseData.md) |  | [optional] [default to undefined]
+**data** | [**APIResponseTransactionImportResponseAllOfData**](APIResponseTransactionImportResponseAllOfData.md) |  | [optional] [default to undefined]
 **message** | **string** |  | [optional] [default to undefined]
 **errors** | [**Array&lt;ErrorDetail&gt;**](ErrorDetail.md) |  | [optional] [default to undefined]
 **meta** | [**Meta**](Meta.md) |  | [optional] [default to undefined]

@@ -24,35 +24,81 @@ import type { RequestArgs } from './base';
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
 export interface APIResponse {
-    'status'?: string;
-    'message'?: string;
-    'data'?: object;
+    'status': ResponseStatus;
+    'data'?: object | null;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseAIReport {
-    'status'?: string;
-    'data'?: APIResponseAIReportData;
+    'status': ResponseStatus;
+    'data'?: ApiV1AiAgentObserverRunPost200ResponseData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
-export interface APIResponseAIReportData {
-    'report'?: string;
-    'timestamp'?: string;
-}
+
+
 export interface APIResponseAgent {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Agent;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseAgentList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<Agent>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseAlpha {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: AlphaResponse;
-    'error'?: string | null;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
+export interface APIResponseAnalysis {
+    'status': ResponseStatus;
+    'data'?: AnalysisResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseBacktestResponse {
     'status': ResponseStatus;
     'data'?: BacktestResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -63,8 +109,8 @@ export interface APIResponseBacktestResponse {
 
 export interface APIResponseBalanceResponse {
     'status': ResponseStatus;
-    'data'?: APIResponseBalanceResponseData;
-    'message'?: string;
+    'data'?: APIResponseBalanceResponseAllOfData;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -73,23 +119,35 @@ export interface APIResponseBalanceResponse {
 }
 
 
-export interface APIResponseBalanceResponseData {
+export interface APIResponseBalanceResponseAllOfData {
     'balance'?: number;
     'currency'?: string;
 }
 export interface APIResponseBriefing {
-    'status'?: string;
-    'data'?: Briefing;
-}
-export interface APIResponseBriefingResponse {
     'status': ResponseStatus;
-    'data'?: APIResponseBriefingResponseData;
-    'message'?: string;
+    'data'?: Briefing;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
     'timestamp': string;
 }
 
 
-export interface APIResponseBriefingResponseData {
+export interface APIResponseBriefingResponse {
+    'status': ResponseStatus;
+    'data'?: APIResponseBriefingResponseAllOfData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseBriefingResponseAllOfData {
     /**
      * Markdown formatted briefing content
      */
@@ -97,68 +155,149 @@ export interface APIResponseBriefingResponseData {
     'timestamp'?: string;
 }
 export interface APIResponseBrokerAccount {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: BrokerAccount;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseBrokerAccountList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<BrokerAccount>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseChatMessage {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: ChatMessage;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseChatMessageList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<ChatMessage>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseChatSession {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: ChatSession;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseChatSessionList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<ChatSession>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseDataSource {
-    'status'?: string;
-    'message'?: string;
+    'status': ResponseStatus;
     'data'?: DataSource;
-    /**
-     * Python code defining the strategy (async def strategy...)
-     */
-    'code'?: string;
-    'symbol'?: string;
-    'timeframe'?: string;
-    'start_date'?: string;
-    'end_date'?: string;
-    'initial_capital'?: number;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseDataSourceList {
-    'status'?: string;
-    'message'?: string;
+    'status': ResponseStatus;
     'data'?: Array<DataSource>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseDeployment {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Deployment;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseDeploymentList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<Deployment>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseFoundryAssembleResponse {
-    'status'?: string;
-    'data'?: APIResponseFoundryAssembleResponseData;
+    'status': ResponseStatus;
+    'data'?: FoundryAssembleResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
-export interface APIResponseFoundryAssembleResponseData {
-    'pipeline_hash'?: string;
-    'errors'?: Array<string>;
-}
+
+
 export interface APIResponseFoundryValidateResponse {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: APIResponseFoundryValidateResponseData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseFoundryValidateResponseData {
     'robustness_score'?: number;
     'is_passed'?: boolean;
@@ -166,7 +305,7 @@ export interface APIResponseFoundryValidateResponseData {
 export interface APIResponseFund {
     'status': ResponseStatus;
     'data'?: Fund;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -178,7 +317,7 @@ export interface APIResponseFund {
 export interface APIResponseJournalEntryResponse {
     'status': ResponseStatus;
     'data'?: JournalEntryResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -188,13 +327,21 @@ export interface APIResponseJournalEntryResponse {
 
 
 export interface APIResponseOpenInterestAnalytics {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: OpenInterestAnalysisResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseRiskCheckResponse {
     'status': ResponseStatus;
     'data'?: RiskCheckResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -204,21 +351,45 @@ export interface APIResponseRiskCheckResponse {
 
 
 export interface APIResponseSignalList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<SignalResponse>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseSignalResponse {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: SignalResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseStrategyList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<object>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface APIResponseStrategyResponse {
     'status': ResponseStatus;
     'data'?: StrategyResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -228,25 +399,9 @@ export interface APIResponseStrategyResponse {
 
 
 export interface APIResponseStrategyTemplateList {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: Array<StrategyTemplate>;
-}
-export interface APIResponseSuccess {
-    'status': ResponseStatus;
-    'message'?: string;
-    'data'?: object | null;
-    'timestamp': string;
-}
-
-
-export interface APIResponseSymbolList {
-    'status'?: string;
-    'data'?: Array<string>;
-}
-export interface APIResponseTransactionImportResponse {
-    'status': ResponseStatus;
-    'data'?: APIResponseTransactionImportResponseData;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -255,7 +410,43 @@ export interface APIResponseTransactionImportResponse {
 }
 
 
-export interface APIResponseTransactionImportResponseData {
+export interface APIResponseSymbolList {
+    'status': ResponseStatus;
+    'data'?: Array<string>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseTradeList {
+    'status': ResponseStatus;
+    'data'?: Array<Trade>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseTransactionImportResponse {
+    'status': ResponseStatus;
+    'data'?: APIResponseTransactionImportResponseAllOfData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseTransactionImportResponseAllOfData {
     'imported_count'?: number;
     'skipped_count'?: number;
     'errors'?: Array<string>;
@@ -263,7 +454,7 @@ export interface APIResponseTransactionImportResponseData {
 export interface APIResponseTransactionResponse {
     'status': ResponseStatus;
     'data'?: TransactionResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -275,7 +466,7 @@ export interface APIResponseTransactionResponse {
 export interface APIResponseUserPreferencesResponse {
     'status': ResponseStatus;
     'data'?: UserPreferencesResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -287,7 +478,7 @@ export interface APIResponseUserPreferencesResponse {
 export interface APIResponseUserResponse {
     'status': ResponseStatus;
     'data'?: UserResponse;
-    'message'?: string;
+    'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
     'auth'?: AuthTokens;
@@ -297,9 +488,17 @@ export interface APIResponseUserResponse {
 
 
 export interface APIResponseWalkForwardResponse {
-    'status'?: string;
+    'status': ResponseStatus;
     'data'?: WalkForwardResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
 }
+
+
 export interface AdxRequest {
     'high': Array<number>;
     'low': Array<number>;
@@ -365,6 +564,10 @@ export const AnalysisDriftPost200ResponseStatusEnum = {
 
 export type AnalysisDriftPost200ResponseStatusEnum = typeof AnalysisDriftPost200ResponseStatusEnum[keyof typeof AnalysisDriftPost200ResponseStatusEnum];
 
+export interface AnalysisResponse {
+    'insight'?: string;
+    'timestamp'?: string;
+}
 export interface AnalysisSummary {
     'total_call_oi'?: number;
     'total_put_oi'?: number;
@@ -416,6 +619,26 @@ export interface ApiV1DataUploadPost200Response {
     'message'?: string;
     'rows_processed'?: number;
 }
+export interface ApiV1ExecutionTradesOpenPostRequest {
+    'broker_account_id': string;
+}
+export interface ApiV1ExecutionTradesSyncPost200Response {
+    'status'?: string;
+    'data'?: ApiV1ExecutionTradesSyncPost200ResponseData;
+}
+export interface ApiV1ExecutionTradesSyncPost200ResponseData {
+    'synced_count'?: number;
+}
+export interface ApiV1ExecutionTradesSyncPostRequest {
+    /**
+     * The internal Broker Account ID
+     */
+    'broker_account_id': string;
+    /**
+     * Number of days to look back for history (default 30)
+     */
+    'lookback_days'?: number;
+}
 export interface ApiV1ExecutionTradesTradeIdClosePostRequest {
     'exit_price': number;
 }
@@ -458,6 +681,13 @@ export const ApiV1SignalCheckPostRequestDirectionEnum = {
 
 export type ApiV1SignalCheckPostRequestDirectionEnum = typeof ApiV1SignalCheckPostRequestDirectionEnum[keyof typeof ApiV1SignalCheckPostRequestDirectionEnum];
 
+export interface ApiV1SignalsIdApprovePost200Response {
+    'status'?: string;
+    'execution_response'?: object;
+}
+export interface ApiV1SignalsIdRejectPost200Response {
+    'status'?: string;
+}
 export interface AtrRequest {
     'high': Array<number>;
     'low': Array<number>;
@@ -794,6 +1024,11 @@ export type FundUpdateStrategyTypeEnum = typeof FundUpdateStrategyTypeEnum[keyof
 export interface IndicatorResponse {
     'values'?: Array<number | null>;
 }
+export interface JournalAnalysisRequest {
+    'entry_content': string;
+    'entry_id'?: string | null;
+    'user_id': string;
+}
 export interface JournalEntryCreate {
     'symbol': string;
     'direction': JournalEntryCreateDirectionEnum;
@@ -891,6 +1126,13 @@ export interface MacdResponse {
     'macd'?: Array<number | null>;
     'signal'?: Array<number | null>;
     'hist'?: Array<number | null>;
+}
+export interface MarketAnalysisRequest {
+    'trend_4h'?: string;
+    'current_price'?: number;
+    'key_levels'?: Array<number>;
+    'recent_signals'?: Array<object>;
+    'image_b64'?: string | null;
 }
 export interface MarketCategory {
     'id': string;
@@ -1108,6 +1350,10 @@ export const SMCFVGTypeEnum = {
 
 export type SMCFVGTypeEnum = typeof SMCFVGTypeEnum[keyof typeof SMCFVGTypeEnum];
 
+export interface SMCNarrativeRequest {
+    'smc_data'?: object;
+    'price_context'?: object;
+}
 export interface SMCOrderBlock {
     'type'?: SMCOrderBlockTypeEnum;
     'index'?: number;
@@ -1331,6 +1577,45 @@ export interface SystemPromptUpdate {
     'input_variables'?: Array<string>;
     'is_active'?: boolean;
 }
+export interface Trade {
+    'trade_id': string;
+    'strategy_run_id'?: string | null;
+    'broker_account_id'?: string;
+    'symbol': string;
+    'strategy_name': string;
+    'signal_timestamp': string;
+    'status': TradeStatusEnum;
+    'rejection_reason'?: string | null;
+    'direction': TradeDirectionEnum;
+    'entry_price': number;
+    'sl_price': number;
+    'tp_price': number;
+    'lot_size': number;
+    'risk_usd': number;
+    'atr_pips'?: number | null;
+    'rr_ratio'?: number | null;
+    'pnl_usd'?: number | null;
+    'mae_usd'?: number | null;
+    'mfe_usd'?: number | null;
+    'exit_price'?: number | null;
+    'exit_timestamp'?: string | null;
+    'metadata_json'?: object | null;
+}
+
+export const TradeStatusEnum = {
+    Open: 'OPEN',
+    Closed: 'CLOSED',
+    Rejected: 'REJECTED'
+} as const;
+
+export type TradeStatusEnum = typeof TradeStatusEnum[keyof typeof TradeStatusEnum];
+export const TradeDirectionEnum = {
+    Long: 'LONG',
+    Short: 'SHORT'
+} as const;
+
+export type TradeDirectionEnum = typeof TradeDirectionEnum[keyof typeof TradeDirectionEnum];
+
 
 export const TradeDirection = {
     Long: 'LONG',
@@ -2177,6 +2462,108 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(strategyChatRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Analyze journal entry
+         * @param {JournalAnalysisRequest} [journalAnalysisRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeJournalPost: async (journalAnalysisRequest?: JournalAnalysisRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/analyze/journal`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(journalAnalysisRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Generate market outlook
+         * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeMarketPost: async (marketAnalysisRequest?: MarketAnalysisRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/analyze/market`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(marketAnalysisRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Generate SMC Narrative
+         * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeSmcNarrativePost: async (sMCNarrativeRequest?: SMCNarrativeRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/analyze/smc-narrative`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(sMCNarrativeRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -3752,15 +4139,15 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @summary List trades with filtering and pagination
          * @param {number} [page] 
          * @param {number} [perPage] 
-         * @param {ApiV1ExecutionTradesGetStatusEnum} [status] 
+         * @param {ApiV1ExecutionTradesSyncGetStatusEnum} [status] 
          * @param {string} [symbol] 
          * @param {string} [fromDate] 
          * @param {string} [toDate] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionTradesGet: async (page?: number, perPage?: number, status?: ApiV1ExecutionTradesGetStatusEnum, symbol?: string, fromDate?: string, toDate?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/execution/trades`;
+        apiV1ExecutionTradesSyncGet: async (page?: number, perPage?: number, status?: ApiV1ExecutionTradesSyncGetStatusEnum, symbol?: string, fromDate?: string, toDate?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/execution/trades/sync`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -5677,12 +6064,51 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Analyze journal entry
+         * @param {JournalAnalysisRequest} [journalAnalysisRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async analyzeJournalPost(journalAnalysisRequest?: JournalAnalysisRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.analyzeJournalPost(journalAnalysisRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.analyzeJournalPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Generate market outlook
+         * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async analyzeMarketPost(marketAnalysisRequest?: MarketAnalysisRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.analyzeMarketPost(marketAnalysisRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.analyzeMarketPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Generate SMC Narrative
+         * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async analyzeSmcNarrativePost(sMCNarrativeRequest?: SMCNarrativeRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.analyzeSmcNarrativePost(sMCNarrativeRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.analyzeSmcNarrativePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Delete a broker account
          * @param {string} accountId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1AccountsAccountIdDelete(accountId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1AccountsAccountIdDelete(accountId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AccountsAccountIdDelete(accountId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AccountsAccountIdDelete']?.[localVarOperationServerIndex]?.url;
@@ -5973,7 +6399,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1CoachMentalHistoryPost(mentalHandHistoryCreate: MentalHandHistoryCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1CoachMentalHistoryPost(mentalHandHistoryCreate: MentalHandHistoryCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1CoachMentalHistoryPost(mentalHandHistoryCreate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1CoachMentalHistoryPost']?.[localVarOperationServerIndex]?.url;
@@ -6214,7 +6640,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionAccountSummaryGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1ExecutionAccountSummaryGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionAccountSummaryGet(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionAccountSummaryGet']?.[localVarOperationServerIndex]?.url;
@@ -6227,7 +6653,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionOrdersPost(body: object, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1ExecutionOrdersPost(body: object, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersPost(body, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionOrdersPost']?.[localVarOperationServerIndex]?.url;
@@ -6238,17 +6664,17 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @summary List trades with filtering and pagination
          * @param {number} [page] 
          * @param {number} [perPage] 
-         * @param {ApiV1ExecutionTradesGetStatusEnum} [status] 
+         * @param {ApiV1ExecutionTradesSyncGetStatusEnum} [status] 
          * @param {string} [symbol] 
          * @param {string} [fromDate] 
          * @param {string} [toDate] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionTradesGet(page?: number, perPage?: number, status?: ApiV1ExecutionTradesGetStatusEnum, symbol?: string, fromDate?: string, toDate?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseTradeResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesGet(page, perPage, status, symbol, fromDate, toDate, options);
+        async apiV1ExecutionTradesSyncGet(page?: number, perPage?: number, status?: ApiV1ExecutionTradesSyncGetStatusEnum, symbol?: string, fromDate?: string, toDate?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PaginatedResponseTradeResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesSyncGet(page, perPage, status, symbol, fromDate, toDate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionTradesGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionTradesSyncGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -6259,7 +6685,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionTradesTradeIdClosePost(tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1ExecutionTradesTradeIdClosePost(tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesTradeIdClosePost(tradeId, apiV1ExecutionTradesTradeIdClosePostRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionTradesTradeIdClosePost']?.[localVarOperationServerIndex]?.url;
@@ -6350,7 +6776,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1InternalSignalsPost(apiV1InternalSignalsPostRequest: ApiV1InternalSignalsPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1InternalSignalsPost(apiV1InternalSignalsPostRequest: ApiV1InternalSignalsPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1InternalSignalsPost(apiV1InternalSignalsPostRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1InternalSignalsPost']?.[localVarOperationServerIndex]?.url;
@@ -6614,7 +7040,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1RiskPortfolioPost(portfolioAllocationUpdate: PortfolioAllocationUpdate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseSuccess>> {
+        async apiV1RiskPortfolioPost(portfolioAllocationUpdate: PortfolioAllocationUpdate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskPortfolioPost(portfolioAllocationUpdate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1RiskPortfolioPost']?.[localVarOperationServerIndex]?.url;
@@ -6943,12 +7369,42 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
+         * @summary Analyze journal entry
+         * @param {DefaultApiAnalyzeJournalPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeJournalPost(requestParameters: DefaultApiAnalyzeJournalPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
+            return localVarFp.analyzeJournalPost(requestParameters.journalAnalysisRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Generate market outlook
+         * @param {DefaultApiAnalyzeMarketPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeMarketPost(requestParameters: DefaultApiAnalyzeMarketPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
+            return localVarFp.analyzeMarketPost(requestParameters.marketAnalysisRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Generate SMC Narrative
+         * @param {DefaultApiAnalyzeSmcNarrativePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analyzeSmcNarrativePost(requestParameters: DefaultApiAnalyzeSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
+            return localVarFp.analyzeSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Delete a broker account
          * @param {DefaultApiApiV1AccountsAccountIdDeleteRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AccountsAccountIdDelete(requestParameters: DefaultApiApiV1AccountsAccountIdDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1AccountsAccountIdDelete(requestParameters: DefaultApiApiV1AccountsAccountIdDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1AccountsAccountIdDelete(requestParameters.accountId, options).then((request) => request(axios, basePath));
         },
         /**
@@ -7163,7 +7619,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1CoachMentalHistoryPost(requestParameters: DefaultApiApiV1CoachMentalHistoryPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1CoachMentalHistoryPost(requestParameters: DefaultApiApiV1CoachMentalHistoryPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1CoachMentalHistoryPost(requestParameters.mentalHandHistoryCreate, options).then((request) => request(axios, basePath));
         },
         /**
@@ -7340,7 +7796,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionAccountSummaryGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1ExecutionAccountSummaryGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1ExecutionAccountSummaryGet(options).then((request) => request(axios, basePath));
         },
         /**
@@ -7350,18 +7806,18 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionOrdersPost(requestParameters: DefaultApiApiV1ExecutionOrdersPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1ExecutionOrdersPost(requestParameters: DefaultApiApiV1ExecutionOrdersPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1ExecutionOrdersPost(requestParameters.body, options).then((request) => request(axios, basePath));
         },
         /**
          * 
          * @summary List trades with filtering and pagination
-         * @param {DefaultApiApiV1ExecutionTradesGetRequest} requestParameters Request parameters.
+         * @param {DefaultApiApiV1ExecutionTradesSyncGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionTradesGet(requestParameters: DefaultApiApiV1ExecutionTradesGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseTradeResponse> {
-            return localVarFp.apiV1ExecutionTradesGet(requestParameters.page, requestParameters.perPage, requestParameters.status, requestParameters.symbol, requestParameters.fromDate, requestParameters.toDate, options).then((request) => request(axios, basePath));
+        apiV1ExecutionTradesSyncGet(requestParameters: DefaultApiApiV1ExecutionTradesSyncGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<PaginatedResponseTradeResponse> {
+            return localVarFp.apiV1ExecutionTradesSyncGet(requestParameters.page, requestParameters.perPage, requestParameters.status, requestParameters.symbol, requestParameters.fromDate, requestParameters.toDate, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -7370,7 +7826,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionTradesTradeIdClosePost(requestParameters: DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1ExecutionTradesTradeIdClosePost(requestParameters: DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1ExecutionTradesTradeIdClosePost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdClosePostRequest, options).then((request) => request(axios, basePath));
         },
         /**
@@ -7439,7 +7895,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1InternalSignalsPost(requestParameters: DefaultApiApiV1InternalSignalsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1InternalSignalsPost(requestParameters: DefaultApiApiV1InternalSignalsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1InternalSignalsPost(requestParameters.apiV1InternalSignalsPostRequest, options).then((request) => request(axios, basePath));
         },
         /**
@@ -7636,7 +8092,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1RiskPortfolioPost(requestParameters: DefaultApiApiV1RiskPortfolioPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseSuccess> {
+        apiV1RiskPortfolioPost(requestParameters: DefaultApiApiV1RiskPortfolioPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1RiskPortfolioPost(requestParameters.portfolioAllocationUpdate, options).then((request) => request(axios, basePath));
         },
         /**
@@ -7874,6 +8330,27 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
  */
 export interface DefaultApiAiChatSessionsMessagePostRequest {
     readonly strategyChatRequest?: StrategyChatRequest
+}
+
+/**
+ * Request parameters for analyzeJournalPost operation in DefaultApi.
+ */
+export interface DefaultApiAnalyzeJournalPostRequest {
+    readonly journalAnalysisRequest?: JournalAnalysisRequest
+}
+
+/**
+ * Request parameters for analyzeMarketPost operation in DefaultApi.
+ */
+export interface DefaultApiAnalyzeMarketPostRequest {
+    readonly marketAnalysisRequest?: MarketAnalysisRequest
+}
+
+/**
+ * Request parameters for analyzeSmcNarrativePost operation in DefaultApi.
+ */
+export interface DefaultApiAnalyzeSmcNarrativePostRequest {
+    readonly sMCNarrativeRequest?: SMCNarrativeRequest
 }
 
 /**
@@ -8185,14 +8662,14 @@ export interface DefaultApiApiV1ExecutionOrdersPostRequest {
 }
 
 /**
- * Request parameters for apiV1ExecutionTradesGet operation in DefaultApi.
+ * Request parameters for apiV1ExecutionTradesSyncGet operation in DefaultApi.
  */
-export interface DefaultApiApiV1ExecutionTradesGetRequest {
+export interface DefaultApiApiV1ExecutionTradesSyncGetRequest {
     readonly page?: number
 
     readonly perPage?: number
 
-    readonly status?: ApiV1ExecutionTradesGetStatusEnum
+    readonly status?: ApiV1ExecutionTradesSyncGetStatusEnum
 
     readonly symbol?: string
 
@@ -8558,6 +9035,39 @@ export class DefaultApi extends BaseAPI {
      */
     public aiChatSessionsMessagePost(requestParameters: DefaultApiAiChatSessionsMessagePostRequest = {}, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).aiChatSessionsMessagePost(requestParameters.strategyChatRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Analyze journal entry
+     * @param {DefaultApiAnalyzeJournalPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public analyzeJournalPost(requestParameters: DefaultApiAnalyzeJournalPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).analyzeJournalPost(requestParameters.journalAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Generate market outlook
+     * @param {DefaultApiAnalyzeMarketPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public analyzeMarketPost(requestParameters: DefaultApiAnalyzeMarketPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).analyzeMarketPost(requestParameters.marketAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Generate SMC Narrative
+     * @param {DefaultApiAnalyzeSmcNarrativePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public analyzeSmcNarrativePost(requestParameters: DefaultApiAnalyzeSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).analyzeSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -9017,12 +9527,12 @@ export class DefaultApi extends BaseAPI {
     /**
      * 
      * @summary List trades with filtering and pagination
-     * @param {DefaultApiApiV1ExecutionTradesGetRequest} requestParameters Request parameters.
+     * @param {DefaultApiApiV1ExecutionTradesSyncGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public apiV1ExecutionTradesGet(requestParameters: DefaultApiApiV1ExecutionTradesGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1ExecutionTradesGet(requestParameters.page, requestParameters.perPage, requestParameters.status, requestParameters.symbol, requestParameters.fromDate, requestParameters.toDate, options).then((request) => request(this.axios, this.basePath));
+    public apiV1ExecutionTradesSyncGet(requestParameters: DefaultApiApiV1ExecutionTradesSyncGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1ExecutionTradesSyncGet(requestParameters.page, requestParameters.perPage, requestParameters.status, requestParameters.symbol, requestParameters.fromDate, requestParameters.toDate, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -9580,13 +10090,350 @@ export class DefaultApi extends BaseAPI {
     }
 }
 
-export const ApiV1ExecutionTradesGetStatusEnum = {
+export const ApiV1ExecutionTradesSyncGetStatusEnum = {
     Open: 'OPEN',
     Closed: 'CLOSED',
     Rejected: 'REJECTED',
     All: 'ALL'
 } as const;
-export type ApiV1ExecutionTradesGetStatusEnum = typeof ApiV1ExecutionTradesGetStatusEnum[keyof typeof ApiV1ExecutionTradesGetStatusEnum];
+export type ApiV1ExecutionTradesSyncGetStatusEnum = typeof ApiV1ExecutionTradesSyncGetStatusEnum[keyof typeof ApiV1ExecutionTradesSyncGetStatusEnum];
+
+
+/**
+ * ExecutionApi - axios parameter creator
+ */
+export const ExecutionApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Get open trades directly from broker
+         * @param {ApiV1ExecutionTradesOpenPostRequest} apiV1ExecutionTradesOpenPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesOpenPost: async (apiV1ExecutionTradesOpenPostRequest: ApiV1ExecutionTradesOpenPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1ExecutionTradesOpenPostRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesOpenPost', 'apiV1ExecutionTradesOpenPostRequest', apiV1ExecutionTradesOpenPostRequest)
+            const localVarPath = `/api/v1/execution/trades/open`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesOpenPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Triggers a manual synchronization of trades (history) from the broker account to the local database.
+         * @summary Sync Trades from Broker
+         * @param {ApiV1ExecutionTradesSyncPostRequest} apiV1ExecutionTradesSyncPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesSyncPost: async (apiV1ExecutionTradesSyncPostRequest: ApiV1ExecutionTradesSyncPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1ExecutionTradesSyncPostRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesSyncPost', 'apiV1ExecutionTradesSyncPostRequest', apiV1ExecutionTradesSyncPostRequest)
+            const localVarPath = `/api/v1/execution/trades/sync`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesSyncPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Manually trigger execution for a signal in PENDING_APPROVAL state.
+         * @summary Approve a pending signal
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsIdApprovePost: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1SignalsIdApprovePost', 'id', id)
+            const localVarPath = `/api/v1/signals/{id}/approve`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Mark a PENDING_APPROVAL signal as REJECTED.
+         * @summary Reject a pending signal
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsIdRejectPost: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1SignalsIdRejectPost', 'id', id)
+            const localVarPath = `/api/v1/signals/{id}/reject`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * ExecutionApi - functional programming interface
+ */
+export const ExecutionApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ExecutionApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Get open trades directly from broker
+         * @param {ApiV1ExecutionTradesOpenPostRequest} apiV1ExecutionTradesOpenPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionTradesOpenPost(apiV1ExecutionTradesOpenPostRequest: ApiV1ExecutionTradesOpenPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseTradeList>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesOpenPost(apiV1ExecutionTradesOpenPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionTradesOpenPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Triggers a manual synchronization of trades (history) from the broker account to the local database.
+         * @summary Sync Trades from Broker
+         * @param {ApiV1ExecutionTradesSyncPostRequest} apiV1ExecutionTradesSyncPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionTradesSyncPost(apiV1ExecutionTradesSyncPostRequest: ApiV1ExecutionTradesSyncPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1ExecutionTradesSyncPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesSyncPost(apiV1ExecutionTradesSyncPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionTradesSyncPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Manually trigger execution for a signal in PENDING_APPROVAL state.
+         * @summary Approve a pending signal
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SignalsIdApprovePost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1SignalsIdApprovePost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SignalsIdApprovePost(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1SignalsIdApprovePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Mark a PENDING_APPROVAL signal as REJECTED.
+         * @summary Reject a pending signal
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SignalsIdRejectPost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1SignalsIdRejectPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SignalsIdRejectPost(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1SignalsIdRejectPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * ExecutionApi - factory interface
+ */
+export const ExecutionApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = ExecutionApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Get open trades directly from broker
+         * @param {ExecutionApiApiV1ExecutionTradesOpenPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesOpenPost(requestParameters: ExecutionApiApiV1ExecutionTradesOpenPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseTradeList> {
+            return localVarFp.apiV1ExecutionTradesOpenPost(requestParameters.apiV1ExecutionTradesOpenPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Triggers a manual synchronization of trades (history) from the broker account to the local database.
+         * @summary Sync Trades from Broker
+         * @param {ExecutionApiApiV1ExecutionTradesSyncPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesSyncPost(requestParameters: ExecutionApiApiV1ExecutionTradesSyncPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1ExecutionTradesSyncPost200Response> {
+            return localVarFp.apiV1ExecutionTradesSyncPost(requestParameters.apiV1ExecutionTradesSyncPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Manually trigger execution for a signal in PENDING_APPROVAL state.
+         * @summary Approve a pending signal
+         * @param {ExecutionApiApiV1SignalsIdApprovePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsIdApprovePost(requestParameters: ExecutionApiApiV1SignalsIdApprovePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1SignalsIdApprovePost200Response> {
+            return localVarFp.apiV1SignalsIdApprovePost(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Mark a PENDING_APPROVAL signal as REJECTED.
+         * @summary Reject a pending signal
+         * @param {ExecutionApiApiV1SignalsIdRejectPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsIdRejectPost(requestParameters: ExecutionApiApiV1SignalsIdRejectPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1SignalsIdRejectPost200Response> {
+            return localVarFp.apiV1SignalsIdRejectPost(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1ExecutionTradesOpenPost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionTradesOpenPostRequest {
+    readonly apiV1ExecutionTradesOpenPostRequest: ApiV1ExecutionTradesOpenPostRequest
+}
+
+/**
+ * Request parameters for apiV1ExecutionTradesSyncPost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionTradesSyncPostRequest {
+    readonly apiV1ExecutionTradesSyncPostRequest: ApiV1ExecutionTradesSyncPostRequest
+}
+
+/**
+ * Request parameters for apiV1SignalsIdApprovePost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1SignalsIdApprovePostRequest {
+    readonly id: string
+}
+
+/**
+ * Request parameters for apiV1SignalsIdRejectPost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1SignalsIdRejectPostRequest {
+    readonly id: string
+}
+
+/**
+ * ExecutionApi - object-oriented interface
+ */
+export class ExecutionApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get open trades directly from broker
+     * @param {ExecutionApiApiV1ExecutionTradesOpenPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionTradesOpenPost(requestParameters: ExecutionApiApiV1ExecutionTradesOpenPostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionTradesOpenPost(requestParameters.apiV1ExecutionTradesOpenPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Triggers a manual synchronization of trades (history) from the broker account to the local database.
+     * @summary Sync Trades from Broker
+     * @param {ExecutionApiApiV1ExecutionTradesSyncPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionTradesSyncPost(requestParameters: ExecutionApiApiV1ExecutionTradesSyncPostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionTradesSyncPost(requestParameters.apiV1ExecutionTradesSyncPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Manually trigger execution for a signal in PENDING_APPROVAL state.
+     * @summary Approve a pending signal
+     * @param {ExecutionApiApiV1SignalsIdApprovePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SignalsIdApprovePost(requestParameters: ExecutionApiApiV1SignalsIdApprovePostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1SignalsIdApprovePost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Mark a PENDING_APPROVAL signal as REJECTED.
+     * @summary Reject a pending signal
+     * @param {ExecutionApiApiV1SignalsIdRejectPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SignalsIdRejectPost(requestParameters: ExecutionApiApiV1SignalsIdRejectPostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1SignalsIdRejectPost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
 
 
 /**

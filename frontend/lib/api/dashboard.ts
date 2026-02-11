@@ -11,8 +11,8 @@ export async function getDashboardStats(strategyId?: string): Promise<DashboardS
     const params: Record<string, any> = {};
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
-    const response = await apiClient.get<DashboardStats>('/api/v1/dashboard/stats', { params });
-    return response.data;
+    const response = await apiClient.get<APIResponse<DashboardStats>>('/api/v1/dashboard/stats', { params });
+    return response.data.data!;
 }
 
 export interface EquityPoint {
@@ -25,8 +25,8 @@ export async function getEquityCurve(days: number = 30, strategyId?: string): Pr
     const params: Record<string, any> = { days };
     if (strategyId && strategyId !== 'all') params.strategy_id = strategyId;
 
-    const response = await apiClient.get<EquityPoint[]>('/api/v1/dashboard/equity-curve', { params });
-    return response.data;
+    const response = await apiClient.get<APIResponse<EquityPoint[]>>('/api/v1/dashboard/equity-curve', { params });
+    return response.data.data || [];
 }
 
 export interface StrategyPerformance {
@@ -37,8 +37,8 @@ export interface StrategyPerformance {
 }
 
 export async function getStrategyPerformance(): Promise<StrategyPerformance[]> {
-    const response = await apiClient.get<StrategyPerformance[]>('/api/v1/dashboard/performance');
-    return response.data;
+    const response = await apiClient.get<APIResponse<StrategyPerformance[]>>('/api/v1/dashboard/performance');
+    return response.data.data || [];
 }
 
 /**

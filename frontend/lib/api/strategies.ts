@@ -4,62 +4,42 @@ import {
   StrategyCreate,
   LogicTemplate,
   APIResponse,
-  PaginatedResponse
+  StrategyBacktestRequest,
+  StrategyBacktestResponse
 } from './types';
 
 export const getStrategies = async (): Promise<StrategyResponse[]> => {
-  // Can return array or paginated response depending on backend config
-  const response = await apiClient.get<PaginatedResponse<StrategyResponse> | StrategyResponse[]>('/api/v1/strategies');
-
-  if ('data' in response.data && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  return response.data as StrategyResponse[];
+  const response = await apiClient.get<APIResponse<StrategyResponse[]>>('/api/v1/strategies');
+  return response.data.data || [];
 };
 
 export const getStrategyTemplates = async (): Promise<LogicTemplate[]> => {
-  const response = await apiClient.get<APIResponse<LogicTemplate[]> | LogicTemplate[]>('/api/v1/strategies/templates');
-
-  if ('data' in response.data && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  return response.data as LogicTemplate[];
+  const response = await apiClient.get<APIResponse<LogicTemplate[]>>('/api/v1/strategies/templates');
+  return response.data.data || [];
 };
 
 export const createStrategy = async (data: StrategyCreate): Promise<StrategyResponse> => {
-  const response = await apiClient.post<StrategyResponse>('/api/v1/strategies', data);
-  return response.data;
+  const response = await apiClient.post<APIResponse<StrategyResponse>>('/api/v1/strategies', data);
+  return response.data.data!;
 };
 
 export const startStrategy = async (id: string): Promise<APIResponse<{ status: string }>> => {
-  const response = await apiClient.post<{ status: string }>(`/api/v1/strategies/${id}/start`, {});
-  return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    status: response.status as any, // Enum mapping might be needed if strict
-    timestamp: new Date().toISOString(),
-    data: response.data
-  };
+  const response = await apiClient.post<APIResponse<{ status: string }>>(`/api/v1/strategies/${id}/start`, {});
+  return response.data;
 };
 
 export const stopStrategy = async (id: string): Promise<APIResponse<{ status: string }>> => {
-  const response = await apiClient.post<{ status: string }>(`/api/v1/strategies/${id}/stop`, {});
-  return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    status: response.status as any,
-    timestamp: new Date().toISOString(),
-  };
+  const response = await apiClient.post<APIResponse<{ status: string }>>(`/api/v1/strategies/${id}/stop`, {});
+  return response.data;
 };
 
 export const deleteStrategy = async (id: string): Promise<void> => {
   await apiClient.delete(`/api/v1/strategies/${id}`);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const validateStrategy = async (data: any): Promise<any> => {
-  // Mock for now, replace with actual endpoint
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const response = await apiClient.post<any>('/api/v1/strategies/backtest-custom', data);
-  return response.data;
+export const validateStrategy = async (data: StrategyBacktestRequest): Promise<StrategyBacktestResponse> => {
+  const response = await apiClient.post<APIResponse<StrategyBacktestResponse>>('/api/v1/strategies/backtest-custom', data);
+  return response.data.data!;
 };
 
 export const saveCustomStrategy = async (data: StrategyCreate): Promise<StrategyResponse> => {

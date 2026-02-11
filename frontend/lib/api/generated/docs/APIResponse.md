@@ -5,9 +5,14 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
-**message** | **string** |  | [optional] [default to undefined]
+**status** | [**ResponseStatus**](ResponseStatus.md) |  | [default to undefined]
 **data** | **object** |  | [optional] [default to undefined]
+**message** | **string** |  | [optional] [default to undefined]
+**errors** | [**Array&lt;ErrorDetail&gt;**](ErrorDetail.md) |  | [optional] [default to undefined]
+**meta** | [**Meta**](Meta.md) |  | [optional] [default to undefined]
+**auth** | [**AuthTokens**](AuthTokens.md) |  | [optional] [default to undefined]
+**rate_limit** | [**RateLimitInfo**](RateLimitInfo.md) |  | [optional] [default to undefined]
+**timestamp** | **string** |  | [default to undefined]
 
 ## Example
 
@@ -16,8 +21,13 @@ import { APIResponse } from './api';
 
 const instance: APIResponse = {
     status,
-    message,
     data,
+    message,
+    errors,
+    meta,
+    auth,
+    rate_limit,
+    timestamp,
 };
 ```
 

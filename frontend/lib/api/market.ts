@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { APIResponse } from './types';
 
 export interface Candle {
   timestamp: string;
@@ -21,7 +22,7 @@ export interface FetchCandlesParams {
 }
 
 export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]> {
-  const response = await apiClient.get<{ data: Candle[] }>('/api/v1/market/candles', {
+  const response = await apiClient.get<APIResponse<Candle[]>>('/api/v1/market/candles', {
     params: {
       symbol: params.symbol,
       timeframe: params.timeframe,
@@ -31,5 +32,5 @@ export async function fetchCandles(params: FetchCandlesParams): Promise<Candle[]
       data_source: params.data_source
     }
   });
-  return response.data.data;
+  return response.data.data || [];
 }

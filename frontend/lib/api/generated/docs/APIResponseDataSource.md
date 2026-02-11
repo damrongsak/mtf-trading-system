@@ -5,15 +5,14 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
-**message** | **string** |  | [optional] [default to undefined]
+**status** | [**ResponseStatus**](ResponseStatus.md) |  | [default to undefined]
 **data** | [**DataSource**](DataSource.md) |  | [optional] [default to undefined]
-**code** | **string** | Python code defining the strategy (async def strategy...) | [optional] [default to undefined]
-**symbol** | **string** |  | [optional] [default to undefined]
-**timeframe** | **string** |  | [optional] [default to undefined]
-**start_date** | **string** |  | [optional] [default to undefined]
-**end_date** | **string** |  | [optional] [default to undefined]
-**initial_capital** | **number** |  | [optional] [default to 10000.0]
+**message** | **string** |  | [optional] [default to undefined]
+**errors** | [**Array&lt;ErrorDetail&gt;**](ErrorDetail.md) |  | [optional] [default to undefined]
+**meta** | [**Meta**](Meta.md) |  | [optional] [default to undefined]
+**auth** | [**AuthTokens**](AuthTokens.md) |  | [optional] [default to undefined]
+**rate_limit** | [**RateLimitInfo**](RateLimitInfo.md) |  | [optional] [default to undefined]
+**timestamp** | **string** |  | [default to undefined]
 
 ## Example
 
@@ -22,14 +21,13 @@ import { APIResponseDataSource } from './api';
 
 const instance: APIResponseDataSource = {
     status,
-    message,
     data,
-    code,
-    symbol,
-    timeframe,
-    start_date,
-    end_date,
-    initial_capital,
+    message,
+    errors,
+    meta,
+    auth,
+    rate_limit,
+    timestamp,
 };
 ```
 

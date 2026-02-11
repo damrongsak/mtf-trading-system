@@ -5,9 +5,14 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
+**status** | [**ResponseStatus**](ResponseStatus.md) |  | [default to undefined]
 **data** | [**AlphaResponse**](AlphaResponse.md) |  | [optional] [default to undefined]
-**error** | **string** |  | [optional] [default to undefined]
+**message** | **string** |  | [optional] [default to undefined]
+**errors** | [**Array&lt;ErrorDetail&gt;**](ErrorDetail.md) |  | [optional] [default to undefined]
+**meta** | [**Meta**](Meta.md) |  | [optional] [default to undefined]
+**auth** | [**AuthTokens**](AuthTokens.md) |  | [optional] [default to undefined]
+**rate_limit** | [**RateLimitInfo**](RateLimitInfo.md) |  | [optional] [default to undefined]
+**timestamp** | **string** |  | [default to undefined]
 
 ## Example
 
@@ -17,7 +22,12 @@ import { APIResponseAlpha } from './api';
 const instance: APIResponseAlpha = {
     status,
     data,
-    error,
+    message,
+    errors,
+    meta,
+    auth,
+    rate_limit,
+    timestamp,
 };
 ```
 

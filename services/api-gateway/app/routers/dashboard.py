@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.trade import Trade, TradeStatus
 from app.models.strategy_run import StrategyRun
 from app.models.strategy import Strategy
+from app.utils.response import success_response
 
 router = APIRouter()
 
@@ -34,7 +35,7 @@ async def get_dashboard_stats(
     total_trades = base_query.count()
     
     if total_trades == 0:
-         return {
+         return success_response(data={
             "total_pnl": 0.0,
             "total_trades": 0,
             "winning_trades": 0,
@@ -43,7 +44,7 @@ async def get_dashboard_stats(
             "open_positions": 0,
             "avg_win": 0.0,
             "avg_loss": 0.0
-        }
+        })
 
     # Calculate PnL (Using subquery or same filter)
     total_pnl = base_query.with_entities(func.sum(Trade.pnl_usd)).scalar() or 0.0
@@ -64,7 +65,7 @@ async def get_dashboard_stats(
     avg_win = base_query.filter(Trade.pnl_usd > 0).with_entities(func.avg(Trade.pnl_usd)).scalar() or 0.0
     avg_loss = base_query.filter(Trade.pnl_usd <= 0).with_entities(func.avg(Trade.pnl_usd)).scalar() or 0.0
 
-    return {
+    return success_response(data={
         "total_pnl": float(total_pnl),
         "total_trades": total_trades,
         "winning_trades": winning_trades,
@@ -73,7 +74,7 @@ async def get_dashboard_stats(
         "open_positions": open_positions,
         "avg_win": float(avg_win),
         "avg_loss": float(avg_loss)
-    }
+    })
 
 @router.get("/equity-curve")
 async def get_equity_curve(
@@ -126,7 +127,7 @@ async def get_equity_curve(
             "daily_pnl": daily_pnl[day]
         })
         
-    return curve_data
+    return success_response(data=curve_data)
 
 @router.get("/performance")
 async def get_strategy_performance(
@@ -155,4 +156,4 @@ async def get_strategy_performance(
             "win_rate": float(win_rate)
         })
         
-    return performance
+    return success_response(data=performance)

@@ -7,6 +7,7 @@ from fastapi import WebSocket
 import json
 from app.utils.redis_subscriber import RedisSubscriber
 from app.streaming.handlers import MarketDataHandler
+from app.streaming.feature_cache import feature_cache
 
 logger = logging.getLogger(__name__)
 
@@ -144,13 +145,14 @@ class ConnectionManager:
                         symbol = channel.split(":")[-1]
                     elif "market.features." in channel:
                         symbol = channel.split(".")[-1]
-                    
-                    if symbol:
-                        if "market_data:info:" in channel:
-                            # Forward to specialized handler
-                            asyncio.create_task(MarketDataHandler.handle_symbol_info_async(symbol, data))
-                        else:
-                            await self.broadcast(symbol, data)
+                        # Populate Feature Cache
+                        try:
+                            features = json.loads(data)
+                            feature_cache.update(symbol, features)
+                        except Exception as ce:
+                            logger.error(f"Failed to cache features for {symbol}: {ce}")
+                        
+                        await self.broadcast(symbol, data)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
 

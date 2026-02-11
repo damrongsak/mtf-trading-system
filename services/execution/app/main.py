@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
+from app.utils.response import success_response, error_response
 from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
@@ -121,7 +122,7 @@ async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Dep
 
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         data = await adapter.get_account_summary()
-        return AccountSummaryResponse(**data)
+        return success_response(data=data)
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -209,13 +210,13 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
              # raise HTTPException(status_code=400, detail="Order not immediately filled or structure mismatch")
              pass # Allow it, sometimes it's pending.
 
-        return OrderResponse(
-            id=fill.get("id", "0") if fill else "0",
-            instrument=fill.get("instrument", req.symbol) if fill else req.symbol,
-            units=fill.get("units", str(req.units)) if fill else str(req.units),
-            price=fill.get("price", "0") if fill else "0",
-            time=fill.get("time", "") if fill else ""
-        )
+        return success_response(data={
+            "id": fill.get("id", "0") if fill else "0",
+            "instrument": fill.get("instrument", req.symbol) if fill else req.symbol,
+            "units": fill.get("units", str(req.units)) if fill else str(req.units),
+            "price": fill.get("price", "0") if fill else "0",
+            "time": fill.get("time", "") if fill else ""
+        })
     except HTTPException as he:
         raise he
     except V20Error as ve:
@@ -253,7 +254,7 @@ async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_
 
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         trades = await adapter.get_open_trades()
-        return {"status": "success", "data": trades}
+        return success_response(data=trades)
     except Exception as e:
         logger.error(f"Get Open Trades Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -282,7 +283,7 @@ async def close_trade(req: CloseTradeRequest, db: AsyncSession = Depends(get_db)
 
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         result = await adapter.close_trade(req.broker_trade_id, req.units)
-        return {"status": "success", "data": result}
+        return success_response(data=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -327,13 +328,15 @@ async def get_trades(
         result = await db.execute(query)
         trades = result.scalars().all()
         
-        return {
-            "data": trades,
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": math.ceil(total / per_page)
-        }
+        return success_response(
+            data=trades,
+            meta={
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": math.ceil(total / per_page)
+            }
+        )
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -342,7 +345,7 @@ async def get_trades(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return success_response(data={"status": "ok"})
 
 class SyncTradesRequest(BaseModel):
     broker_account_id: str
@@ -422,7 +425,10 @@ async def sync_trades(req: SyncTradesRequest, db: AsyncSession = Depends(get_db)
             imported_count += 1
         
         await db.commit()
-        return {"status": "success", "imported": imported_count, "total_fetched": len(history)}
+        return success_response(
+            data={"imported": imported_count, "total_fetched": len(history)},
+            message=f"Imported {imported_count} trades"
+        )
         
     except HTTPException as he:
         raise he
@@ -458,23 +464,23 @@ from app.utils.crypto import decrypt_data
 async def get_accounts(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active == True))
     accounts = result.scalars().all()
-    # Return simplified list
-    return [
+    data = [
         {
             "id": str(account.id),
             "broker_name": account.broker_name,
-            "account_id": account.account_number if account.account_number else "N/A", # Use account_number if available? Or verify what front-end expects. Front-end expects 'account_id' but model has 'account_number' now. Let's map account.account_number to account_id field in response.
+            "account_id": account.account_number if account.account_number else "N/A",
             "environment": account.environment
         }
         for account in accounts
     ]
+    return success_response(data=data)
 
 @app.post("/smart-orders", response_model=OrderResponse)
 async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(get_db)):
     try:
         req_data = req.dict()
         result = await OrderService.execute_smart_order(req_data, db)
-        return OrderResponse(**result)
+        return success_response(data=result)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:

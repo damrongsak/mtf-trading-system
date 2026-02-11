@@ -768,6 +768,11 @@ export interface PluginConfigUpdate {
     config_overrides: Record<string, unknown>;
 }
 
+export interface SystemHooks {
+    actions: { tag: string; callbacks: string[] }[];
+    filters: { tag: string; callbacks: string[] }[];
+}
+
 export interface OpportunityLog {
     id: string;
     timestamp: string;
@@ -790,7 +795,7 @@ export interface MarketSymbol {
     display_name?: string;
     is_active: boolean;
     data_source_id?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
 }
 
 export type DataSourceType = 'api' | 'csv' | 'db' | 'websocket';

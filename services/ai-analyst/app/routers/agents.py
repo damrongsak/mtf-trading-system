@@ -10,6 +10,7 @@ import os
 from app.core.globals import services
 from app.core.utils import extract_auth_token
 from app.services.telegram import send_telegram_message
+from app.utils.response import success_response
 
 router = APIRouter(tags=["agents"])
 logger = logging.getLogger(__name__)
@@ -61,10 +62,7 @@ class StrategyChatRequest(BaseModel):
 @router.get("/agents", response_model=Dict[str, Any])
 async def list_agents():
     """List all available AI agents."""
-    return {
-        "status": "success",
-        "data": list(AGENTS.values())
-    }
+    return success_response(data=list(AGENTS.values()))
 
 
 @router.get("/agents/{agent_id}", response_model=Dict[str, Any])
@@ -74,10 +72,7 @@ async def get_agent_details(agent_id: str):
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    return {
-        "status": "success",
-        "data": agent
-    }
+    return success_response(data=agent)
 
 
 @router.post("/agent/observer/run")
@@ -96,11 +91,10 @@ async def run_observer_agent(
             user_id="observer_report",
             auth_token=auth_token
         )
-        return {
-            "report": result.get("response"),
-            "thoughts": result.get("thoughts"),
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        return success_response(
+            data=result,
+            message="Observer agent execution successful"
+        )
     except Exception as e:
         logger.error(f"Error executing Market Observer flow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -119,11 +113,10 @@ async def run_daily_briefing(authorization: str = Header(None, alias="Authorizat
             user_id="briefing_user", # User context is handled via auth_token in nodes
             auth_token=auth_token
         )
-        return {
-            "report": result.get("response"),
-            "thoughts": result.get("thoughts"),
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        return success_response(
+            data=result,
+            message="Daily briefing execution successful"
+        )
     except Exception as e:
         logger.error(f"Error executing Daily Briefing flow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -165,11 +158,10 @@ async def chat_strategy(
                 reply_to_message_id=request.telegram_message_id  # Thread the reply
             )
         
-        return {
-            "response": result.get("response"),
-            "thoughts": result.get("thoughts"),
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        return success_response(
+            data=result,
+            message="Message processed by Strategy Advisor"
+        )
         
     except Exception as e:
         logger.error(f"Error in strategy chat: {e}")

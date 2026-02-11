@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.schemas.analysis import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.services.gemini import GeminiClient
+from app.utils.response import success_response
 from app.services.rag import RAGService
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
@@ -141,7 +142,7 @@ app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"])
 
 @app.get("/health")
 def health_check():
-    return {
+    data = {
         "status": "ok", 
         "service": "ai-analyst",
         "gemini": "active" if services["gemini"] else "inactive",
@@ -151,3 +152,4 @@ def health_check():
             "sentiment_service": "active" if services["sentiment"] else "inactive"
         }
     }
+    return success_response(data=data)

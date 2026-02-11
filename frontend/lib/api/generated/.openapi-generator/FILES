@@ -6,16 +6,16 @@ common.ts
 configuration.ts
 docs/APIResponse.md
 docs/APIResponseAIReport.md
-docs/APIResponseAIReportData.md
 docs/APIResponseAgent.md
 docs/APIResponseAgentList.md
 docs/APIResponseAlpha.md
+docs/APIResponseAnalysis.md
 docs/APIResponseBacktestResponse.md
 docs/APIResponseBalanceResponse.md
-docs/APIResponseBalanceResponseData.md
+docs/APIResponseBalanceResponseAllOfData.md
 docs/APIResponseBriefing.md
 docs/APIResponseBriefingResponse.md
-docs/APIResponseBriefingResponseData.md
+docs/APIResponseBriefingResponseAllOfData.md
 docs/APIResponseBrokerAccount.md
 docs/APIResponseBrokerAccountList.md
 docs/APIResponseChatMessage.md
@@ -27,7 +27,6 @@ docs/APIResponseDataSourceList.md
 docs/APIResponseDeployment.md
 docs/APIResponseDeploymentList.md
 docs/APIResponseFoundryAssembleResponse.md
-docs/APIResponseFoundryAssembleResponseData.md
 docs/APIResponseFoundryValidateResponse.md
 docs/APIResponseFoundryValidateResponseData.md
 docs/APIResponseFund.md
@@ -39,10 +38,10 @@ docs/APIResponseSignalResponse.md
 docs/APIResponseStrategyList.md
 docs/APIResponseStrategyResponse.md
 docs/APIResponseStrategyTemplateList.md
-docs/APIResponseSuccess.md
 docs/APIResponseSymbolList.md
+docs/APIResponseTradeList.md
 docs/APIResponseTransactionImportResponse.md
-docs/APIResponseTransactionImportResponseData.md
+docs/APIResponseTransactionImportResponseAllOfData.md
 docs/APIResponseTransactionResponse.md
 docs/APIResponseUserPreferencesResponse.md
 docs/APIResponseUserResponse.md
@@ -57,6 +56,7 @@ docs/AlphaResponse.md
 docs/AnalysisApi.md
 docs/AnalysisDistribution.md
 docs/AnalysisDriftPost200Response.md
+docs/AnalysisResponse.md
 docs/AnalysisSummary.md
 docs/ApiV1AiAgentObserverRunPost200Response.md
 docs/ApiV1AiAgentObserverRunPost200ResponseData.md
@@ -69,12 +69,18 @@ docs/ApiV1DataSourcesIdBackfillPost202Response.md
 docs/ApiV1DataSourcesIdBackfillPostRequest.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
+docs/ApiV1ExecutionTradesOpenPostRequest.md
+docs/ApiV1ExecutionTradesSyncPost200Response.md
+docs/ApiV1ExecutionTradesSyncPost200ResponseData.md
+docs/ApiV1ExecutionTradesSyncPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdClosePostRequest.md
 docs/ApiV1InternalSignalsPostRequest.md
 docs/ApiV1PluginsIdActivatePost200Response.md
 docs/ApiV1PromptsIdRenderPost200Response.md
 docs/ApiV1PromptsIdRenderPostRequest.md
 docs/ApiV1SignalCheckPostRequest.md
+docs/ApiV1SignalsIdApprovePost200Response.md
+docs/ApiV1SignalsIdRejectPost200Response.md
 docs/AtrRequest.md
 docs/AuthTokens.md
 docs/BacktestMetrics.md
@@ -101,6 +107,7 @@ docs/DeploymentCreate.md
 docs/EmaRequest.md
 docs/ErrorCode.md
 docs/ErrorDetail.md
+docs/ExecutionApi.md
 docs/FoundryApi.md
 docs/FoundryAssembleRequest.md
 docs/FoundryAssembleResponse.md
@@ -109,6 +116,7 @@ docs/Fund.md
 docs/FundCreate.md
 docs/FundUpdate.md
 docs/IndicatorResponse.md
+docs/JournalAnalysisRequest.md
 docs/JournalEntryCreate.md
 docs/JournalEntryCreateMentalState.md
 docs/JournalEntryCreateRootCause.md
@@ -116,6 +124,7 @@ docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
 docs/MacdRequest.md
 docs/MacdResponse.md
+docs/MarketAnalysisRequest.md
 docs/MarketCategory.md
 docs/MarketCategoryCreate.md
 docs/MarketSymbol.md
@@ -145,6 +154,7 @@ docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md
 docs/RsiRequest.md
 docs/SMCFVG.md
+docs/SMCNarrativeRequest.md
 docs/SMCOrderBlock.md
 docs/SMCRequest.md
 docs/SMCResponse.md
@@ -168,6 +178,7 @@ docs/StrategyTemplate.md
 docs/SystemPromptCreate.md
 docs/SystemPromptResponse.md
 docs/SystemPromptUpdate.md
+docs/Trade.md
 docs/TradeDirection.md
 docs/TradeResponse.md
 docs/TradeStatus.md

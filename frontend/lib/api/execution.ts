@@ -66,11 +66,8 @@ export interface GetTradesParams {
  */
 export async function getAccountSummary(accountId?: string): Promise<AccountSummary> {
     const params = accountId ? { account_id: accountId } : {};
-    const response = await apiClient.get<AccountSummary | { data: AccountSummary }>('/api/v1/execution/account/summary', { params });
-    if ('data' in response.data) {
-        return response.data.data;
-    }
-    return response.data as AccountSummary;
+    const response = await apiClient.get<APIResponse<AccountSummary>>('/api/v1/execution/account/summary', { params });
+    return response.data.data!;
 }
 
 /**
@@ -140,11 +137,8 @@ export interface SmartOrderRequest {
 
 
 export async function getBrokerAccounts(): Promise<ExecutionBrokerAccount[]> {
-    const response = await apiClient.get<APIResponse<ExecutionBrokerAccount[]> | ExecutionBrokerAccount[]>('/api/v1/execution/accounts');
-    if ('data' in response.data && Array.isArray(response.data.data)) {
-        return response.data.data;
-    }
-    return response.data as ExecutionBrokerAccount[];
+    const response = await apiClient.get<APIResponse<ExecutionBrokerAccount[]>>('/api/v1/execution/accounts');
+    return response.data.data || [];
 }
 
 export async function placeSmartOrder(data: SmartOrderRequest): Promise<OrderResponse> {

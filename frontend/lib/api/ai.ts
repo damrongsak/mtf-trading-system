@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse } from './types';
+import { APIResponse, ChatSession, ChatMessage, CreateChatSessionDto, CreateChatMessageDto } from './types';
 
 export interface Briefing {
     content: string;
@@ -20,25 +20,27 @@ export const runMarketObserver = async (instruction: string): Promise<AIReportRe
 };
 
 export const aiApi = {
-    getSessions: async (strategyId?: string) => {
-        const response = await apiClient.get<APIResponse<any[]>>('/api/v1/ai/chat/sessions', {
+    getSessions: async (strategyId?: string): Promise<ChatSession[]> => {
+        const response = await apiClient.get<APIResponse<ChatSession[]>>('/api/v1/ai/chat/sessions', {
             params: { strategy_id: strategyId }
         });
         return response.data.data || [];
     },
 
-    getMessages: async (sessionId: string) => {
-        const response = await apiClient.get<APIResponse<any[]>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`);
+    getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
+        const response = await apiClient.get<APIResponse<ChatMessage[]>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`);
         return response.data.data || [];
     },
 
-    createSession: async (payload: { strategy_id?: string, initial_message?: string }) => {
-        const response = await apiClient.post<APIResponse<any>>('/api/v1/ai/chat/sessions', payload);
+    createSession: async (payload: CreateChatSessionDto): Promise<ChatSession> => {
+        const response = await apiClient.post<APIResponse<ChatSession>>('/api/v1/ai/chat/sessions', payload);
+        if (!response.data.data) throw new Error('Failed to create session');
         return response.data.data;
     },
 
-    sendMessage: async (sessionId: string, payload: { content: string, context_snapshot?: any }) => {
-        const response = await apiClient.post<APIResponse<any>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`, payload);
+    sendMessage: async (sessionId: string, payload: CreateChatMessageDto): Promise<ChatMessage> => {
+        const response = await apiClient.post<APIResponse<ChatMessage>>(`/api/v1/ai/chat/sessions/${sessionId}/messages`, payload);
+        if (!response.data.data) throw new Error('Failed to send message');
         return response.data.data;
     },
 

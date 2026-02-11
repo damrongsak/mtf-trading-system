@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from typing import Optional
+from app.utils.response import success_response
 import base64
 
 router = APIRouter()
@@ -28,17 +29,19 @@ async def upload_file(
         # In prod, we might store to GCS/S3 and pass URI.
         b64_content = base64.b64encode(content).decode("utf-8")
         
-        return {
-            "filename": filename,
-            "mime_type": mime_type,
-            "size": len(content),
-            "context_ref": {
-                "type": "base64",
-                "data": b64_content,
-                "mime_type": mime_type
+        return success_response(
+            data={
+                "filename": filename,
+                "mime_type": mime_type,
+                "size": len(content),
+                "context_ref": {
+                    "type": "base64",
+                    "data": b64_content,
+                    "mime_type": mime_type
+                }
             },
-            "message": "File uploaded successfully. Pass 'context_ref' to Agent chat."
-        }
+            message="File uploaded successfully. Pass 'context_ref' to Agent chat."
+        )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
