@@ -10,6 +10,9 @@ from app.utils.response import success_response
 import httpx
 import os
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/signal",
@@ -77,7 +80,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
             candles_resp = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/candles",
                 params={"symbol": symbol.upper(), "timeframe": timeframe, "page_size": 100},
-                timeout=10.0
+                timeout=30.0
             )
             candles_resp.raise_for_status()
             candles_data = candles_resp.json().get("data", [])
@@ -104,6 +107,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
             last_time = candles_data[-1]["timestamp"]
 
         except Exception as e:
+             logger.error(f"Data Service Error for {symbol} @ {timeframe}: {str(e)} | URL: {DATA_SERVICE_URL}/api/v1/candles")
              raise HTTPException(status_code=503, detail=f"Data Service Error: {str(e)}")
 
         # 2. Analyze with Strategy Core
@@ -120,12 +124,13 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
             smc_resp = await client.post(
                 f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc",
                 json=smc_payload,
-                timeout=10.0
+                timeout=30.0
             )
             smc_resp.raise_for_status()
             analysis = smc_resp.json()
             
         except Exception as e:
+            logger.error(f"Strategy Service Error for {symbol} @ {timeframe}: {str(e)} | URL: {STRATEGY_SERVICE_URL}/api/v1/calculate/smc")
             raise HTTPException(status_code=503, detail=f"Strategy Service Error: {str(e)}")
 
     # 3. Use Strategic Results from Strategy Core
