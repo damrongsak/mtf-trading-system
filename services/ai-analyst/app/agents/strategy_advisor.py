@@ -442,12 +442,16 @@ class StrategyAdvisorAgent:
         tool_results = ""
         if state.get("scratchpad"):
             formatted_outputs = []
-            for i, output in enumerate(state["scratchpad"]):
-                # Clean up output for prompt readability
-                clean_output = str(output)[:2000] # Limit per tool to save context
-                formatted_outputs.append(f"--- Turn {i+1} Output ---\n{clean_output}\n")
+            total_chars = 0
+            # Prune strictly to last 8000 chars total for tool selection to avoid noise
+            for output in reversed(state["scratchpad"]):
+                clean_output = str(output)[:2000]
+                if total_chars + len(clean_output) > 8000:
+                    break
+                formatted_outputs.append(f"--- Tool Output ---\n{clean_output}\n")
+                total_chars += len(clean_output)
             
-            tool_results = f"\n\n**Previous Tool Outputs (Current State):**\n" + "\n".join(formatted_outputs)
+            tool_results = f"\n\n**Recent Tool Outputs:**\n" + "\n".join(reversed(formatted_outputs))
 
         prompt = TOOL_ROUTER_SYSTEM_PROMPT.format(
             tool_descriptions=tool_descriptions,
@@ -458,16 +462,25 @@ class StrategyAdvisorAgent:
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.model_id, # Use Pro (model_id is gemini-2.5-pro by default)
+                model=settings.gemini.model_id, # Use Pro
                 contents=prompt
             )
-            text = response.text.replace("```json", "").replace("```", "")
+            
+            # Robust JSON Extraction
+            import re
+            text = response.text
+            json_match = re.search(r'(\{.*\})', text, re.DOTALL)
+            if json_match:
+                text = json_match.group(1)
+            else:
+                text = text.replace("```json", "").replace("```", "").strip()
+
             logger.debug(f"Tool Selection Decision Raw: {text}")
             decision = json.loads(text)
             
-            # Validate that decision is a dictionary (not a list or other type)
+            # Validate that decision is a dictionary
             if not isinstance(decision, dict):
-                logger.warning(f"Tool selection returned non-dict type: {type(decision)}. Falling back to direct answer.")
+                logger.warning(f"Tool selection returned {type(decision)}. Falling back.")
                 return {}
             
             # Robust Extraction for multiple tools
