@@ -17,6 +17,9 @@ from app.tools.journal import GetJournalEntriesTool
 from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.search import GoogleSearchTool
 from app.tools.market import GetMarketContextTool
+from app.tools.account import GetAccountStatusTool
+from app.tools.strategy_retriever import StrategyRetrieverTool
+from app.tools.strategy import StrategyBacktestTool
 
 
 logger = logging.getLogger(__name__)
@@ -43,97 +46,7 @@ class KnowledgeBaseTool(BaseTool):
             logger.error(f"KB Tool failed: {e}")
             return f"Error retrieving knowledge: {e}"
 
-class AccountStatusTool(BaseTool):
-    name: str = "account_status"
-    description: str = "Get current account balance, equity, margin, and open positions."
-
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
-        if not auth_token:
-            return "Error: Authentication required for account access."
-
-        url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/execution/account/summary"
-        headers = {"Authorization": f"Bearer {auth_token}"}
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url, headers=headers, timeout=5.0) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        account_data = data.get("data", {})
-                        
-                        # Format as table
-                        summary = []
-                        summary.append(f"**Account Summary ({account_data.get('login')})**")
-                        
-                        metrics = [
-                            ["Balance", f"{account_data.get('balance', 0):,.2f}"],
-                            ["Equity", f"{account_data.get('equity', 0):,.2f}"],
-                            ["Margin", f"{account_data.get('margin', 0):,.2f}"],
-                            ["Free Margin", f"{account_data.get('free_margin', 0):,.2f}"],
-                            ["Profit", f"{account_data.get('profit', 0):,.2f}"]
-                        ]
-                        
-                        from tabulate import tabulate
-                        table = tabulate(metrics, headers=["Metric", "Value"], tablefmt="psql")
-                        summary.append(f"```\n{table}\n```")
-                        
-                        # Add positions if any
-                        positions = account_data.get("positions", [])
-                        if positions:
-                            summary.append("\n**Open Positions:**")
-                            pos_table = []
-                            for p in positions:
-                                pos_table.append([
-                                    p.get("symbol"), 
-                                    p.get("direction"), 
-                                    p.get("volume"), 
-                                    f"{p.get('unrealized_profit', 0):,.2f}"
-                                ])
-                            summary.append(f"```\n{tabulate(pos_table, headers=['Symbol', 'Type', 'Vol', 'Profit'], tablefmt='psql')}\n```")
-                            
-                        return "\n".join(summary)
-                    else:
-                        text = await resp.text()
-                        return f"Error ({resp.status}): {text}"
-            except Exception as e:
-                return f"Connection failed: {e}"
-
-class TradeHistoryTool(BaseTool):
-    name: str = "trade_history"
-    description: str = "Fetch recent trade history and performance metrics."
-
-    async def run(self, limit: int = 10, auth_token: str = None) -> str:
-        if not auth_token:
-            return "Error: Authentication required."
-            
-        url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/journal?per_page={limit}"
-        headers = {"Authorization": f"Bearer {auth_token}"}
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url, headers=headers, timeout=5.0) as resp:
-                    if resp.status == 200:
-                         data = await resp.json()
-                         items = data.get("data", {}).get("items", [])
-                         if not items:
-                             return "No recent trade history found."
-                         
-                         trades = []
-                         for item in items:
-                             trades.append([
-                                 item.get("symbol"),
-                                 item.get("side"),
-                                 item.get("entry_price"),
-                                 item.get("exit_price"),
-                                 f"{item.get('profit', 0):.2f}"
-                             ])
-                         
-                         from tabulate import tabulate
-                         table = tabulate(trades, headers=["Symbol", "Side", "Entry", "Exit", "Profit"], tablefmt="psql")
-                         return f"**Recent Trade History**:\n```\n{table}\n```"
-                    return f"Error ({resp.status}): {await resp.text()}"
-            except Exception as e:
-                return f"Connection failed: {e}"
+# AccountStatusTool and TradeHistoryTool removed (using standardized versions from app.tools)
 
 class StrategyManagerTool(BaseTool):
     name: str = "strategy_manager"
@@ -532,10 +445,13 @@ class ToolRegistry:
         self.rag = rag_service
         self.tools = {
             "knowledge_base": KnowledgeBaseTool(rag_service=rag_service),
-            "account_status": AccountStatusTool(),
-            "trade_history": TradeHistoryTool(),
+            "account_status": GetAccountStatusTool(),
+            "get_account_status": GetAccountStatusTool(),
+            "trade_history": GetJournalEntriesTool(),
+            "journal_entries": GetJournalEntriesTool(),
+            "get_journal_entries": GetJournalEntriesTool(),
             "strategy_manager": StrategyManagerTool(),
-            "backtest_runner": BacktestRunnerTool(),
+            "backtest_runner": StrategyBacktestTool(),
             "smart_order": SmartOrderTool(),
             "market_data": MarketDataTool(),
             "risk_check": RiskCheckTool(),
@@ -544,12 +460,11 @@ class ToolRegistry:
             "smc_technical_analysis": SMCAnalystTool(),
             "market_state": MarketStateTool(),
             "send_notification": NotificationTool(),
-            # Consolidated Tools
             "get_economic_calendar": GetEconomicCalendarTool(),
-            "journal_entries": GetJournalEntriesTool(),
             "get_technical_signals": GetTechnicalSignalsTool(),
             "google_search": GoogleSearchTool(),
-            "get_market_context": GetMarketContextTool()
+            "get_market_context": GetMarketContextTool(),
+            "list_active_strategies": StrategyRetrieverTool()
         }
 
     def get_tools(self) -> List[BaseTool]:
