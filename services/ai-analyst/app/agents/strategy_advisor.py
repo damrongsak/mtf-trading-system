@@ -58,6 +58,7 @@ class AgentState(TypedDict):
     
     # Agentic RAG / Iterative Refinement
     iteration_count: int
+    tool_loop_count: int # Execution turns count
     evaluation_feedback: str
     is_satisfactory: bool
 
@@ -305,15 +306,12 @@ class StrategyAdvisorAgent:
         """
         # If tools were selected, go to execution
         if state.get("tool_calls"):
-            # Limit loops
-            scratchpad = state.get("scratchpad", [])
-            exec_count = len(scratchpad)
-            logger.debug(f"Loop Check: exec_count={exec_count}, tools={len(state['tool_calls'])}")
-            if exec_count > 0:
-                logger.debug(f"Scratchpad preview: {str(scratchpad[0])[:50]}...")
+            # Limit loops using turn-based count
+            loop_count = state.get("tool_loop_count", 0)
+            logger.debug(f"Loop Check: turn={loop_count}, tools_this_turn={len(state['tool_calls'])}")
             
-            if exec_count >= 15:
-                logger.warning("Max tool execution loops reached. Forcing generation.")
+            if loop_count >= 10: # 10 turns is plenty for parallel processing
+                logger.warning("Max tool execution turns reached. Forcing generation.")
                 return "done"
             return "execute"
             
@@ -489,6 +487,25 @@ class StrategyAdvisorAgent:
                  if "tool_input" not in call:
                      call["tool_input"] = call.get("tool_parameters") or call.get("parameters") or call.get("arguments")
 
+            # --- De-duplication Logic ---
+            unique_calls = []
+            seen_signatures = set()
+            for call in tool_calls:
+                name = call.get("tool_name")
+                # Normalize input for signature comparison
+                inp = call.get("tool_input")
+                inp_str = json.dumps(inp, sort_keys=True) if isinstance(inp, dict) else str(inp)
+                sig = f"{name}:{inp_str}"
+                
+                if sig not in seen_signatures:
+                    unique_calls.append(call)
+                    seen_signatures.add(sig)
+                else:
+                    logger.info(f"De-duplicated redundant tool call: {name} with input {inp_str}")
+            
+            tool_calls = unique_calls
+            # ----------------------------
+
             logger.info(f"Selected {len(tool_calls)} tools: {[t.get('tool_name') for t in tool_calls]}")
             
             if not tool_calls and not decision.get("direct_answer"):
@@ -546,7 +563,9 @@ class StrategyAdvisorAgent:
              results = await asyncio.gather(*[exec_tool(call) for call in calls])
              outputs.extend(results)
                 
-        return {"scratchpad": outputs, "tool_calls": []} # CRITICAL: Clear tool_calls so we don't repeat them
+        # Increment loop count
+        loop_count = state.get("tool_loop_count", 0)
+        return {"scratchpad": outputs, "tool_calls": [], "tool_loop_count": loop_count + 1}
 
     async def node_synthesize(self, state: AgentState):
         """
@@ -821,6 +840,7 @@ class StrategyAdvisorAgent:
             "tool_calls": [],
             "plan_steps": [],
             "iteration_count": 0,
+            "tool_loop_count": 0,
             "evaluation_feedback": "",
             "is_satisfactory": False
         }
