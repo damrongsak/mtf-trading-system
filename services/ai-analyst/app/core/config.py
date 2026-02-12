@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     GEMINI_EMBEDDING_DIM: int = 3072
     GOOGLE_CSE_ID: Optional[str] = None
     GOOGLE_SEARCH_API_KEY: Optional[str] = None
+    SERPAPI_API_KEY: Optional[str] = None
     
     QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333
