@@ -216,8 +216,19 @@ async def get_open_interest_analysis(
     db: Session = Depends(get_db)
 ):
     """
-    Get detailed OI analysis directly from DB.
+    Get detailed OI analysis directly from DB. Cached in Redis (5 min).
     """
+    cache_key = f"oi:analysis:{snapshot_at.isoformat()}:{contract}:{min_oi}:{max_oi}"
+    
+    try:
+        r = await redis_client.get_client()
+        cached = await r.get(cache_key)
+        if cached:
+            logger.info("OI Analysis: Cache HIT")
+            return success_response(data=json.loads(cached))
+    except Exception as re:
+        logger.warning(f"Redis cache check failed: {re}")
+
     try:
         repo = OpenInterestRepository(db)
         data = repo.get_analysis_data(
@@ -226,6 +237,15 @@ async def get_open_interest_analysis(
             min_oi=min_oi,
             max_oi=max_oi
         )
+        
+        # Update Cache
+        try:
+            r = await redis_client.get_client()
+            await r.setex(cache_key, 300, json.dumps(data))
+            logger.info("OI Analysis: Cache UPDATED")
+        except Exception as re:
+            logger.warning(f"Redis cache update failed: {re}")
+
         return success_response(data=data)
     except Exception as e:
         logger.error(f"Fetch analysis failed: {e}")

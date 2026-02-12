@@ -22,6 +22,7 @@ class AnalysisSummary(BaseModel):
     total_call_oi: float
     total_put_oi: float
     pcr: float
+    oiwap: float
     max_call_strike: float
     max_put_strike: float
 

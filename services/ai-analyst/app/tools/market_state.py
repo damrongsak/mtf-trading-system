@@ -21,7 +21,10 @@ class MarketStateTool(BaseTool):
             try:
                 headers = {}
                 if auth_token:
-                    headers["Authorization"] = auth_token
+                    if not auth_token.startswith("Bearer "):
+                        headers["Authorization"] = f"Bearer {auth_token}"
+                    else:
+                        headers["Authorization"] = auth_token
                 
                 # Call API Gateway analysis/positioning endpoint
                 url = f"{settings.API_GATEWAY_URL}/api/v1/analysis/positioning/status"

@@ -7,6 +7,8 @@ from app.tools.search import GoogleSearchTool
 from app.tools.journal import GetJournalEntriesTool
 from app.tools.alpha_deployer import AlphaDeployerTool
 from app.tools.strategy_retriever import StrategyRetrieverTool
+from app.tools.open_interest import OpenInterestTool
+from app.tools.market_state import MarketStateTool
 
 def bootstrap_tools():
     """
@@ -30,6 +32,8 @@ def bootstrap_tools():
     # Strategy Tools
     registry.register("deploy_alpha_strategy", AlphaDeployerTool())
     registry.register("list_active_strategies", StrategyRetrieverTool())
+    registry.register("open_interest", OpenInterestTool())
+    registry.register("market_state", MarketStateTool())
     
     print("All standard tools registered.")
 
@@ -49,7 +53,9 @@ async def run_diagnostics(auth_token: str = None) -> list:
         "google_search": "XAUUSD price today",
         "get_journal_entries": {"limit": 1},
         "deploy_alpha_strategy": None, # Skip risky or complex tools if needed
-        "list_active_strategies": {"user_id": "diagnostic_user"}
+        "list_active_strategies": {"user_id": "diagnostic_user"},
+        "open_interest": {},
+        "market_state": "XAUUSD"
     }
     
     for name, tool in registry._tools.items():

@@ -119,11 +119,17 @@ class OpenInterestRepository:
         max_call_oi = 0
         max_put_oi = 0
 
+        # OIWAP Accumulators
+        sum_weighted_strike = 0.0
+        sum_total_oi = 0.0
+
         for row in rows:
             c_oi = float(row.total_call_oi or 0)
             p_oi = float(row.total_put_oi or 0)
             total_leg_oi = c_oi + p_oi
 
+            # Apply OI filters (Post-Aggregation or Pre? Pre is better but grouped sum is hard to filter pre without subquery)
+            # Doing post-filter here for simplicity with aggregated sums
             if total_leg_oi < min_oi:
                 continue
             if max_oi is not None and total_leg_oi > max_oi:
@@ -132,8 +138,12 @@ class OpenInterestRepository:
             summary["total_call_oi"] += c_oi
             summary["total_put_oi"] += p_oi
             
+            # Accumulate for OIWAP
+            sum_weighted_strike += (float(row.strike) * total_leg_oi)
+            sum_total_oi += total_leg_oi
+            
             distribution.append({
-                "strike": float(row.strike),
+                "strike": row.strike,
                 "call_oi": c_oi,
                 "put_oi": p_oi,
                 "total_oi": total_leg_oi,
@@ -149,6 +159,9 @@ class OpenInterestRepository:
 
         if summary["total_call_oi"] > 0:
             summary["pcr"] = summary["total_put_oi"] / summary["total_call_oi"]
+        
+        # Calculate OIWAP
+        summary["oiwap"] = sum_weighted_strike / sum_total_oi if sum_total_oi > 0 else 0.0
         
         return {
             "summary": summary,

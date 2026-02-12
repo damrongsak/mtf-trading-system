@@ -14,12 +14,13 @@ from app.tools.smc import SMCAnalystTool
 from app.tools.market_state import MarketStateTool
 from app.tools.calendar import GetEconomicCalendarTool
 from app.tools.journal import GetJournalEntriesTool
-from app.tools.signal import GetTechnicalSignalsTool
-from app.tools.search import GoogleSearchTool
-from app.tools.market import GetMarketContextTool
 from app.tools.account import GetAccountStatusTool
 from app.tools.strategy_retriever import StrategyRetrieverTool
 from app.tools.strategy import StrategyBacktestTool
+from app.tools.open_interest import OpenInterestTool
+from app.tools.signal import GetTechnicalSignalsTool
+from app.tools.search import GoogleSearchTool
+from app.tools.market import GetMarketContextTool
 
 
 logger = logging.getLogger(__name__)
@@ -303,83 +304,6 @@ class RiskCheckTool(BaseTool):
                          return f"Risk Check FAILED ({resp.status}):\n{json.dumps(data, indent=2)}"
             except Exception as e:
                 return f"Risk Check Error: {e}"
-
-class OpenInterestTool(BaseTool):
-    name: str = "open_interest"
-    description: str = "\n    Get Open Interest (OI) Analysis. \n    Input JSON: {snapshot_at: str (ISO), contract: str (optional)}\n    If 'snapshot_at' is missing, it fetches the LATEST available snapshot. \n    "
-
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
-        if not auth_token: return "Error: Authentication required."
-        
-        url_base = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/data/open-interest"
-        headers = {"Authorization": f"Bearer {auth_token}"}
-        
-        # Parse Input
-        snapshot_at = None
-        contract = None
-        
-        if isinstance(input_data, str):
-            try:
-                data = json.loads(input_data)
-                snapshot_at = data.get("snapshot_at")
-                contract = data.get("contract")
-            except: pass
-        elif isinstance(input_data, dict):
-            snapshot_at = input_data.get("snapshot_at")
-            contract = input_data.get("contract")
-
-        async with aiohttp.ClientSession() as session:
-            try:
-                # 1. Auto-Resolve Latest Snapshot if needed
-                if not snapshot_at:
-                    async with session.get(f"{url_base}/snapshots?limit=1", headers=headers, timeout=5.0) as resp:
-                        if resp.status == 200:
-                            snaps = await resp.json()
-                            if isinstance(snaps, dict): snaps = snaps.get("data", [])
-                            
-                            if snaps and isinstance(snaps, list):
-                                snapshot_at = snaps[0].get("snapshot_at")
-                            else:
-                                return "No Open Interest snapshots available."
-                        else:
-                            return f"Failed to fetch snapshots ({resp.status})."
-
-                # 2. Fetch Analysis
-                params = {"snapshot_at": snapshot_at}
-                if contract: params["contract"] = contract
-                
-                async with session.get(f"{url_base}/analysis", params=params, headers=headers, timeout=10.0) as resp:
-                    if resp.status == 200:
-                         data = await resp.json()
-                         if isinstance(data, dict) and "data" in data: data = data["data"]
-                         
-                         # Format for LLM
-                         summary = [f"### Open Interest Analysis ({snapshot_at})"]
-                         summary.append(f"- **Total OI**: {data.get('total_oi', 0):,}")
-                         summary.append(f"- **Net OI**: {data.get('net_oi', 0):,}")
-                         
-                         if "put_call_ratio" in data:
-                             summary.append(f"- **Put/Call Ratio**: {data.get('put_call_ratio', 0):.2f}")
-                             
-                         # Breakdowns
-                         if "significant_levels" in data:
-                             summary.append(f"\n**Significant Levels**:")
-                             levels_table = []
-                             for lvl in data.get('significant_levels', [])[:10]:
-                                 price = lvl.get('strike') or lvl.get('price')
-                                 oi = (lvl.get('call_oi', 0) + lvl.get('put_oi', 0)) or lvl.get('oi', 0)
-                                 levels_table.append([price, f"{oi:,}"])
-                             
-                             from tabulate import tabulate
-                             table = tabulate(levels_table, headers=["Price/Strike", "OI"], tablefmt="psql")
-                             summary.append(f"```\n{table}\n```")
-                             
-                         return "\n".join(summary)
-                    else:
-                        return f"OI Analysis Failed ({resp.status}): {await resp.text()}"
-                        
-            except Exception as e:
-                return f"Open Interest Tool Error: {e}"
 
 class PythonSandboxTool(BaseTool):
     name: str = "python_sandbox"
