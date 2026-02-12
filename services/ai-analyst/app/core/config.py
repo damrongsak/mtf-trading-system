@@ -9,8 +9,6 @@ class GeminiSettings(BaseModel):
     model_id: str
     flash_model_id: str = "gemini-2.5-flash"
     embedding_dim: int = 768
-    search_cse_id: Optional[str] = None
-    search_api_key: Optional[str] = None
 
 class QdrantSettings(BaseModel):
     host: str
@@ -45,8 +43,6 @@ class Settings(BaseSettings):
     GEMINI_MODEL_ID: str = "gemini-2.5-pro"
     GEMINI_FLASH_MODEL_ID: str = "gemini-2.5-flash"
     GEMINI_EMBEDDING_DIM: int = 3072
-    GOOGLE_CSE_ID: Optional[str] = None
-    GOOGLE_SEARCH_API_KEY: Optional[str] = None
     SERPAPI_API_KEY: Optional[str] = None
     
     QDRANT_HOST: str = "qdrant"
@@ -69,9 +65,7 @@ class Settings(BaseSettings):
             api_key=self.GOOGLE_API_KEY,
             model_id=self.GEMINI_MODEL_ID,
             flash_model_id=self.GEMINI_FLASH_MODEL_ID,
-            embedding_dim=self.GEMINI_EMBEDDING_DIM,
-            search_cse_id=self.GOOGLE_CSE_ID,
-            search_api_key=self.GOOGLE_SEARCH_API_KEY
+            embedding_dim=self.GEMINI_EMBEDDING_DIM
         )
 
     @property

@@ -8,6 +8,10 @@ from app.core.base_tool import BaseTool
 logger = logging.getLogger(__name__)
 
 class GoogleSearchTool(BaseTool):
+    """
+    Search tool standardized on SerpApi.
+    Provides organic results and top stories for market context.
+    """
     name: str = "google_search"
     description: str = "Searches the web for real-time information and news. Use this to find reasons for market movements."
 
@@ -21,36 +25,37 @@ class GoogleSearchTool(BaseTool):
         if not query:
             return "No query provided for search."
 
-        # If SerpApi is configured, it takes priority (more robust results)
-        if settings.SERPAPI_API_KEY:
-            return await self._run_serpapi(query)
+        if not settings.SERPAPI_API_KEY:
+            return (
+                f"[MOCK SEARCH RESULT for '{query}']\n"
+                "Note: SerpApi is not configured (missing SERPAPI_API_KEY).\n"
+                "Simulated News:\n"
+                "- Breaking: US Inflation data comes in hotter than expected (3.4% vs 3.1%).\n"
+                "- Market Reaction: Gold sells off as yields spike.\n"
+                "- Analyst Comment: 'Fed pivot likely delayed'."
+            )
 
-        # Fallback to Google Custom Search if configured
-        if settings.GOOGLE_CSE_ID and settings.GOOGLE_SEARCH_API_KEY:
-            return await self._run_google_custom_search(query)
-
-        # Mock results if no API is configured
-        return (
-            f"[MOCK SEARCH RESULT for '{query}']\n"
-            "Note: Real Search is not configured (missing SERPAPI_API_KEY or GOOGLE_CSE_ID).\n"
-            "Simulated News:\n"
-            "- Breaking: US Inflation data comes in hotter than expected (3.4% vs 3.1%).\n"
-            "- Market Reaction: Gold sells off as yields spike.\n"
-            "- Analyst Comment: 'Fed pivot likely delayed'."
-        )
+        # Standardized SerpApi call
+        return await self._run_serpapi(query)
 
     async def _run_serpapi(self, query: str) -> str:
+        """
+        Executes search via SerpApi and returns formatted results.
+        """
         url = "https://serpapi.com/search"
         params = {
             "api_key": settings.SERPAPI_API_KEY,
             "engine": "google",
             "q": query,
-            "num": 3
+            "num": 3  # Limit results per turn to save throughput and context
         }
         
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params) as resp:
+                    if resp.status == 429:
+                        return "Error: SerpApi rate limit exceeded (Free plan: 50 throughput/hour)."
+                    
                     if resp.status != 200:
                         error_text = await resp.text()
                         logger.error(f"SerpApi error: {resp.status} - {error_text}")
@@ -59,7 +64,12 @@ class GoogleSearchTool(BaseTool):
                     data = await resp.json()
                     results = []
                     
-                    # Organic results are usually the most relevant
+                    # 1. Answer Box (if available for quick facts)
+                    if "answer_box" in data:
+                        ab = data["answer_box"]
+                        results.append(f"Direct Answer: {ab.get('answer') or ab.get('snippet')}\n")
+
+                    # 2. Organic results
                     for item in data.get("organic_results", []):
                         title = item.get("title")
                         snippet = item.get("snippet")
@@ -67,53 +77,9 @@ class GoogleSearchTool(BaseTool):
                         results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
                         
                     if not results:
-                        return "No results found on SerpApi."
+                        return "No results found on SerpApi for this query."
                         
                     return "\n---\n".join(results)
         except Exception as e:
             logger.error(f"SerpApi execution failed: {e}")
-            return f"SerpApi failed: {e}"
-
-    async def _run_google_custom_search(self, query: str) -> str:
-        url = "https://www.googleapis.com/customsearch/v1"
-        params = {
-            "key": settings.GOOGLE_SEARCH_API_KEY,
-            "cx": settings.GOOGLE_CSE_ID,
-            "q": query,
-            "num": 3
-        }
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params) as resp:
-                    if resp.status == 403:
-                        error_data = await resp.json()
-                        err = error_data.get("error", {})
-                        message = err.get("message", "Permission Denied")
-                        reason = ""
-                        if "details" in err:
-                            reason = err["details"][0].get("reason", "")
-                        
-                        if reason == "API_KEY_SERVICE_BLOCKED":
-                            return "Error: Google API Key restricted. Please check Cloud Console."
-                        
-                        return f"Google Search Access Denied: {message}"
-                        
-                    if resp.status != 200:
-                        return f"Error searching Google: {resp.status}"
-                    
-                    data = await resp.json()
-                    results = []
-                    for item in data.get("items", []):
-                        title = item.get("title")
-                        snippet = item.get("snippet")
-                        link = item.get("link")
-                        results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
-                        
-                    if not results:
-                        return "No results found on Google Custom Search."
-                        
-                    return "\n---\n".join(results)
-        except Exception as e:
-            logger.error(f"Google Custom Search failed: {e}")
-            return f"Google Custom Search failed: {e}"
+            return f"SerpApi search failed due to internal error."
