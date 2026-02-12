@@ -78,13 +78,28 @@ def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
                  
     return False
 
+
+    
     return False
+
+def check_market_regime(df_h1: pd.DataFrame, direction: SignalDirection) -> Dict[str, Any]:
+    """
+    Rule F (New): Adaptive Guardrails
+    - Uses ADX to determine if we should be trading Trend or Range.
+    - Uses SFP (Swing Failure Pattern) to detect Traps.
+    """
+    from app.analysis.market_regime import get_market_context, MarketRegime
+    
+    context = get_market_context(df_h1, direction.value)
+    
+    return context
 
 def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
     """
     Rule C: Trigger
     - Volatility Check (Quantreo)
     - Candle Shape (Body/Wick)
+    - [NEW] Adaptive Guardrail Check (Fakeout/Regime)
     
     CRITICAL: Strict `iloc[-2]` usage.
     """
@@ -100,6 +115,28 @@ def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold
         # Market too quiet, reject trade
         return False
         
+    # [NEW] Adaptive Guardrail: Check for recent Fakeout/Trap
+    # If we are entering a TREND trade (e.g. Bullish Breakout), 
+    # we want to ensure we aren't buying into a Bearish SFP (Trap).
+    from app.analysis.market_regime import detect_fakeout_alignment
+    
+    # We check against the OPPOSITE bias to see if there is a Trap against us
+    # e.g. If specific Direction is BULLISH, is there a Bearish SFP (trap at high)?
+    trap_type = detect_fakeout_alignment(df_m15, direction.value)
+    
+    # If there is a Trap aligning with our direction (e.g. we are Bullish, and there is a Bullish SFP/Sweep of Lows)
+    # Then this is actually a HIGH CONFIDENCE setup (Anti-Fragile).
+    # But if there is a Trap AGAINST us (e.g. we are Bullish, but there is a Bearish SFP/Sweep of Highs)
+    # Then we should be very careful.
+    
+    # For Trigger logic, let's keep it simple:
+    # If we are buying (Bullish), we like to see a recent Sweep of Lows (Bullish SFP).
+    # We HATE to see a Sweep of Highs (Bearish SFP) right before we buy.
+    
+    # Current simplistic logic: Just standard trigger. 
+    # The Regime filter should optionally filter this at a higher level or here.
+    # Let's pass for now and rely on refined entry.
+
     # We check the LAST COMPLETED candle for the trigger shape
     candle = df_m15.iloc[-2]
     

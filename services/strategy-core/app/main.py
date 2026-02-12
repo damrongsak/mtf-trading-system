@@ -517,6 +517,9 @@ app.include_router(strategies_router, prefix="/api/v1")
 from app.routers.execution_flow import router as execution_flow_router
 app.include_router(execution_flow_router, prefix="/api/v1")
 
+from app.routers.market import router as market_router
+app.include_router(market_router, prefix="/api/v1")
+
 # Global Worker
 indicator_worker = None
 

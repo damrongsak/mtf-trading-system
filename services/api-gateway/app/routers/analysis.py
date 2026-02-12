@@ -261,6 +261,7 @@ async def get_positioning_status(symbol: str = "XAUUSD", db: Session = Depends(g
             "snapshot_at": snapshot_at
         })
 
+
     except Exception as e:
         logger.error(f"Positioning aggregate failed: {e}")
         return success_response(data={
@@ -269,3 +270,36 @@ async def get_positioning_status(symbol: str = "XAUUSD", db: Session = Depends(g
             "pcr": 1.0,
             "crowding_regime": "Unavailable"
         })
+
+@router.get("/market-regime/{symbol}", status_code=200)
+async def get_market_regime(symbol: str, timeframe: str = "H1", bias: str = "NEUTRAL"):
+    """
+    Fetches Adaptive Guardrails (Regime, Fakeout, Risk) from Strategy Core.
+    """
+    try:
+        payload = {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "bias": bias
+        }
+        
+        # Call Strategy Core
+        # Note: Strategy Core endpoint is POST /api/v1/market/regime
+        url = f"{STRATEGY_CORE_URL}/api/v1/market/regime"
+        
+        response = await http_client.post(url, json=payload)
+        
+        if response.status_code != 200:
+             logger.error(f"Strategy Core Regime Check failed: {response.text}")
+             # Return fallback or error?
+             raise HTTPException(status_code=response.status_code, detail=response.text)
+             
+        data = response.json()
+        return success_response(data=data)
+        
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
+        logger.error(f"Market Regime Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
