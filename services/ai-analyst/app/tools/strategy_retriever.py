@@ -1,11 +1,12 @@
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
-from typing import Type, List, Dict
+from typing import Type, List, Dict, Optional
 import aiohttp
 from app.core.config import settings
 
 class StrategyRetrieverInput(BaseModel):
     user_id: str = Field(description="The ID of the user.")
+    auth_token: Optional[str] = Field(default=None, description="The authentication token.")
 
 class StrategyRetrieverTool(BaseTool):
     name: str = "list_active_strategies"
@@ -15,15 +16,18 @@ class StrategyRetrieverTool(BaseTool):
     def _run(self, **kwargs):
         raise NotImplementedError("Use _arun instead")
 
-    async def _arun(self, user_id: str) -> List[Dict]:
+    async def _arun(self, user_id: str, auth_token: str = None) -> List[Dict]:
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
         url = f"{base_url}/api/v1/strategies/"
         
         async with aiohttp.ClientSession() as session:
             try:
-                # Filter by active? The API currently lists all. We filter client side.
-                # headers = {"x-user-id": user_id} 
-                headers = {} # Auth usually handled by Gateway middleware 
+                headers = {}
+                if auth_token:
+                    if not auth_token.startswith("Bearer "):
+                        headers["Authorization"] = f"Bearer {auth_token}"
+                    else:
+                        headers["Authorization"] = auth_token
                 
                 async with session.get(url, headers=headers, timeout=5) as resp:
                     if resp.status == 200:

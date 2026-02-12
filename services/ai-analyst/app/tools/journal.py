@@ -24,7 +24,10 @@ class GetJournalEntriesTool(BaseTool):
                 
                 headers = {}
                 if auth_token:
-                    headers["Authorization"] = auth_token
+                    if not auth_token.startswith("Bearer "):
+                        headers["Authorization"] = f"Bearer {auth_token}"
+                    else:
+                        headers["Authorization"] = auth_token
                 
                 async with session.get(url, params=params, headers=headers) as resp:
                      if resp.status == 200:

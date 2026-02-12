@@ -59,6 +59,34 @@ class StrategyChatRequest(BaseModel):
     thread_id: Optional[str] = None # For LangGraph persistence
 
 
+@router.get("/diagnose")
+async def run_system_diagnostics(
+    authorization: str = Header(None, alias="Authorization")
+):
+    """Run system-wide diagnostic smoke tests for all tools."""
+    from app.core.bootstrap import run_diagnostics
+    
+    try:
+        auth_token = extract_auth_token(authorization)
+        results = await run_diagnostics(auth_token=auth_token)
+        
+        # Calculate overall health
+        success_count = sum(1 for r in results if r["status"] == "SUCCESS")
+        overall_status = "HEALTHY" if success_count == len(results) else "DEGRADED"
+        
+        return success_response(
+            data={
+                "status": overall_status,
+                "tool_health": results,
+                "summary": f"{success_count}/{len(results)} tools passed."
+            },
+            message="System diagnostics completed"
+        )
+    except Exception as e:
+        logger.error(f"Diagnostic failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # API Endpoints
 @router.get("/agents", response_model=Dict[str, Any])
 async def list_agents():

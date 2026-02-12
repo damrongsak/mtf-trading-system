@@ -82,9 +82,16 @@ The data returned is REAL and should be trusted over any simulated/example data.
         
         params = {"timeframe": timeframe}
 
+        headers = {}
+        if auth_token:
+            if not auth_token.startswith("Bearer "):
+                headers["Authorization"] = f"Bearer {auth_token}"
+            else:
+                headers["Authorization"] = auth_token
+
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(url, params=params, timeout=15.0)
+                resp = await client.get(url, params=params, headers=headers, timeout=15.0)
                 if resp.status_code != 200:
                     return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
                 
