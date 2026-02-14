@@ -55,6 +55,8 @@ class StrategyBacktestTool(BaseTool):
                             f"- Profit Factor: {metrics.get('profit_factor', 0):.2f}\n"
                             f"- Win Rate: {metrics.get('win_rate', 0):.2f}%\n"
                             f"- K-Ratio: {metrics.get('k_ratio', 0):.2f}\n"
+                            f"- Reward-to-Risk: {metrics.get('reward_to_risk_ratio', 0):.2f}\n"
+                            f"- Kurtosis: {metrics.get('kurtosis', 0):.2f}\n"
                             f"- Max Drawdown: {metrics.get('max_drawdown_percent', 0):.2f}%\n"
                             f"- Trades: {metrics.get('total_trades', 0)}"
                         )
