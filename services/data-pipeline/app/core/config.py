@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
     NEWS_API_KEY: Optional[str] = None
 
+    # CTrader
+    CTRADER_CLIENT_ID: Optional[str] = None
+    CTRADER_CLIENT_SECRET: Optional[str] = None
+    CTRADER_ACCOUNT_ID: Optional[str] = None
+    CTRADER_TOKEN: Optional[str] = None
+    CTRADER_HOST: str = "demo.ctraderapi.com"
+    CTRADER_PORT: int = 5035
+
+
 class CalendarSettings(BaseModel):
     source_url: str = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
     cache_ttl: int = 21600 # 6 hours

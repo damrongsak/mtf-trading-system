@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job
+from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job
 from app.logging_config import setup_logging
 import logging
 
@@ -28,6 +28,10 @@ async def start_scheduler():
     
     # Schedule News Sync every 1 hour
     scheduler.add_job(run_news_sync_job, 'interval', hours=1, id='news_sync_job', misfire_grace_time=300)
+
+    # Schedule Trade Sync every 5 minutes (cTrader Rate Limit Friendly)
+    scheduler.add_job(run_trade_sync_job, 'interval', minutes=5, id='trade_sync_job', misfire_grace_time=60)
+
     
     scheduler.start()
     

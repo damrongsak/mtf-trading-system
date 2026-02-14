@@ -18,7 +18,10 @@ from app.routers import ingest, agents
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
 from langgraph.checkpoint.redis import RedisSaver
-from redis import Redis
+from redis.asyncio import Redis
+from app.services.equity_guardian import EquityGuardian
+from app.streaming.consumers import TradeEventConsumer
+from app.core.scheduler import scheduler
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -112,7 +115,32 @@ async def lifespan(app: FastAPI):
             logger.info("✅ Sentiment Service Ready")
         except Exception as e:
             logger.error(f"❌ Sentiment Service Failed: {e}")
+            logger.error(f"❌ Sentiment Service Failed: {e}")
 
+        # 4. Initialize Equity Guardian & Consumer
+        try:
+            from app.core.config import settings
+            redis_client = Redis.from_url(settings.redis.url, decode_responses=True)
+            guardian = EquityGuardian(redis_client)
+            services["equity_guardian"] = guardian
+            
+            # Initialize Consumer
+            trade_consumer = TradeEventConsumer(settings.redis.url)
+            trade_consumer.register_handler(guardian.projections.update_curve)
+            services["trade_consumer"] = trade_consumer
+            
+            # Start Consumer (Background Task)
+            import asyncio
+            asyncio.create_task(trade_consumer.start())
+            logger.info("✅ Trade Event Consumer Started")
+            
+            # Start Scheduler & Schedule Job
+            scheduler.start()
+            scheduler.add_job(guardian.check_health, 'interval', minutes=5)
+            logger.info("✅ Scheduler Started (Equity Guardian Job Added)")
+            
+        except Exception as e:
+            logger.error(f"❌ Equity Guardian/Consumer Failed: {e}")
         logger.info("\n" + "="*50)
         logger.info("✨ Service Startup Complete")
         logger.info("="*50 + "\n")

@@ -12,6 +12,15 @@ import asyncio
 from app.streaming.publisher import RedisPublisher
 from app.utils.retry import async_retry
 
+import logging
+import json
+import asyncio
+from datetime import timedelta
+from sqlalchemy.dialects.postgresql import insert
+from app.streaming.publisher import RedisPublisher
+from app.utils.retry import async_retry
+from app.utils.crypto import decrypt_data
+
 logger = logging.getLogger(__name__)
 
 @async_retry(max_retries=3, initial_delay=2, exceptions=(Exception,))
@@ -374,4 +383,131 @@ async def run_news_sync_job():
         logger.error(f"News sync job failed: {e}")
     finally:
         await news_service.close()
+        db.close()
+
+async def run_trade_sync_job():
+    """Scheduled job to sync trade history from brokers (cTrader) and publish events."""
+    logger.info("Starting scheduled Trade Sync job...")
+    db = SessionLocal()
+    publisher = RedisPublisher()
+    
+    try:
+        await publisher.connect()
+        
+        # 1. Get Active Broker Accounts
+        from app.models.execution import BrokerAccount, Trade
+        from app.adapters.ctrader import CTraderClient
+        
+        accounts = db.query(BrokerAccount).filter(BrokerAccount.is_active == True).all()
+        logger.info(f"Found {len(accounts)} active broker accounts.")
+        
+        for account in accounts:
+            if account.broker_name != "CTRADER":
+                continue
+                
+            try:
+                # Decrypt Credentials
+                creds = decrypt_data(account.credentials_encrypted)
+                
+                # Determine Host based on Environment
+                env_str = str(account.environment).lower() if account.environment else "demo"
+                host = "live.ctraderapi.com" if env_str in ["live", "production", "real"] else "demo.ctraderapi.com"
+                
+                # Instantiate Adapter with Account-Specific Creds
+                client_adapter = CTraderClient(
+                    client_id=creds.get("client_id"),
+                    client_secret=creds.get("client_secret"),
+                    account_id=creds.get("account_id"),
+                    token=creds.get("token"),
+                    host=host,
+                    port=int(creds.get("port", 5035))
+                )
+                
+                # Range: Last 24h to maintain hydration? Or last sync check?
+                # For safety, lookback 1 day. Duplicates handled by DB.
+                end_date = datetime.utcnow()
+                start_date = end_date - timedelta(days=1)
+                
+                logger.info(f"Syncing trades for account {account.id} ({start_date} - {end_date})")
+                
+                trades = await client_adapter.fetch_trade_history(start_date, end_date)
+                
+                new_event_count = 0
+                
+                for t_data in trades:
+                    # Upsert to DB
+                    # We need a deterministic UUID for the Trade record itself if we want to store it.
+                    # Trade model has `trade_id` (PK).
+                    # t_data has `trade_id` (Deal ID).
+                    import uuid
+                    # Create determinstic UUID for our DB
+                    db_trade_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{account.id}_{t_data['trade_id']}")
+                    
+                    # Check if exists to avoid re-publishing old events?
+                    # Or upsert and check 'created_at' or 'updated_at'?
+                    # Simpler: query existing.
+                    existing = db.query(Trade).filter(Trade.trade_id == db_trade_id).first()
+                    is_new = existing is None
+                    
+                    if is_new:
+                        # Map to Model
+                        new_trade = Trade(
+                            trade_id=db_trade_id,
+                            broker_account_id=account.id,
+                            broker_trade_id=t_data.get("broker_trade_id"),
+                            broker_deal_id=t_data.get("broker_deal_id"),
+                            symbol=t_data["symbol"],
+                            strategy_name=t_data["strategy_name"],
+                            signal_timestamp=t_data["signal_timestamp"],
+                            status=t_data["status"],
+                            direction=t_data["direction"],
+                            entry_price=t_data["entry_price"],
+                            exit_price=t_data["exit_price"],
+                            sl_price=t_data["sl_price"],
+                            tp_price=t_data["tp_price"],
+                            lot_size=t_data["lot_size"],
+                            risk_usd=t_data["risk_usd"],
+                            commission=t_data.get("commission"),
+                            swap=t_data.get("swap"),
+                            gross_pnl=t_data.get("gross_pnl"),
+                            pnl_usd=t_data["pnl_usd"],
+                            exit_timestamp=t_data["exit_timestamp"],
+                            metadata_json=t_data["metadata_json"]
+                        )
+                        db.add(new_trade)
+                        new_event_count += 1
+                        
+                        # PUBLISH EVENT via STREAM (Persistence)
+                        stream_payload = {
+                            "event_type": "trade_closed",
+                            "account_id": str(account.id),
+                            "trade_id": str(db_trade_id),
+                            "broker_trade_id": str(t_data.get("broker_trade_id")),
+                            "broker_deal_id": str(t_data.get("broker_deal_id")),
+                            "symbol": t_data["symbol"],
+                            "commission": str(t_data.get("commission") or 0.0),
+                            "swap": str(t_data.get("swap") or 0.0),
+                            "gross_pnl": str(t_data.get("gross_pnl") or 0.0),
+                            "pnl": str(t_data["pnl_usd"] or 0.0), # XADD needs strings
+                            "close_time": t_data["exit_timestamp"].isoformat(),
+                            "direction": t_data["direction"],
+                            "lot_size": str(t_data["lot_size"])
+                        }
+                        await publisher.xadd("market.trade.stream", stream_payload)
+                
+                if new_event_count > 0:
+                    db.commit()
+                    logger.info(f"Synced {len(trades)} trades, {new_event_count} new events published.")
+                else:
+                    db.rollback() # Nothing to save
+                
+            except Exception as e:
+                logger.error(f"Failed to sync account {account.id}: {e}")
+                db.rollback()
+                continue
+                
+    except Exception as e:
+        logger.error(f"Trade sync job failed: {e}")
+    finally:
+        await publisher.close()
         db.close()
