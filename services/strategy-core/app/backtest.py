@@ -194,6 +194,72 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
         alpha_beta = calculate_alpha_beta(strat_returns, bench_returns)
         info_ratio = calculate_information_ratio(strat_returns, bench_returns)
 
+        # Radar Chart Metrics Implementation
+        # 1. Profit Factor (Gross Gain / Gross Loss)
+        profit_factor = 0.0
+        gross_gain = stats.get('Gross Profit', 0.0) # VBT might use 'Total Profit' sum of positive?
+        # VBT 'Total Profit' is Net. 'Gross Profit' usually exists or we calc.
+        # Let's derive from readable_trades if missing, or trust stats.
+        if 'Gross Profit' not in stats:
+             # Basic fallback calculation if VBT doesn't provide it
+             # readable_trades is a DF
+             if not pf.trades.records_readable.empty:
+                pnls = pf.trades.records_readable['PnL']
+                g_gain = pnls[pnls > 0].sum()
+                g_loss = abs(pnls[pnls < 0].sum())
+                profit_factor = g_gain / g_loss if g_loss != 0 else (100.0 if g_gain > 0 else 0.0)
+             else:
+                profit_factor = 0.0
+        else:
+             profit_factor = float(stats.get('Profit Factor', 0.0))
+             if pd.isna(profit_factor) or np.isinf(profit_factor): profit_factor = 0.0
+
+        # 2. Reward-to-Risk (Avg Win / Avg Loss)
+        reward_to_risk = 0.0
+        avg_win = float(stats.get('Avg Winning Trade [$]', 0.0))
+        avg_loss = abs(float(stats.get('Avg Losing Trade [$]', 0.0)))
+        if avg_loss > 0:
+            reward_to_risk = avg_win / avg_loss
+        
+        # 3. Kurtosis (Tail Risk)
+        # Using Scipy if available, else pandas kurtosis
+        kurtosis_val = 0.0
+        if len(strat_returns) > 10:
+            kurtosis_val = float(strat_returns.kurtosis())
+        
+        # 4. Volatility (Annualized Std Dev)
+        # Assuming Daily Returns for Annualization? OR freq based.
+        # If High Freq, annualization is tricky. Let's use standard VBT 'Volatility (Ann.) [%]' if avail
+        volatility_val = float(stats.get('Volatility (Ann.) [%]', 0.0))
+        if volatility_val == 0.0 and len(strat_returns) > 1:
+            # Simple annualized calc assuming Daily 252
+            volatility_val = float(strat_returns.std() * np.sqrt(252)) * 100
+
+        # 5. K-Ratio
+        # Slope of Equity Curve / Std Err of Slope
+        # Simple Linear Regression on Equity Log? Or just Equity.
+        # K-Ratio = (Slope of Log VAMI) / (Std Err of Slope) * sqrt(periods)
+        # We can implement a simplified version.
+        k_ratio_val = 0.0
+        try:
+            if len(equity_series) > 10:
+                # Use Log Equity
+                log_equity = np.log(equity_series[equity_series > 0])
+                x = np.arange(len(log_equity))
+                y = log_equity.values
+                if len(y) == len(x):
+                    slope, intercept = np.polyfit(x, y, 1)
+                    # Calculate residuals
+                    y_pred = slope * x + intercept
+                    residuals = y - y_pred
+                    std_err = np.std(residuals)
+                    if std_err > 0:
+                        k_ratio_val = slope / std_err * np.sqrt(len(x))
+                    else:
+                        k_ratio_val = 10.0 # Perfect line
+        except Exception as k_err:
+            logger.warning(f"Failed to calc K-Ratio: {k_err}")
+
         metrics = BacktestMetrics(
             total_return=total_return, 
             total_return_percent=get_val('Total Return [%]'),
@@ -210,7 +276,13 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
             sortino_ratio=float(sortino),
             alpha=float(alpha_beta['alpha']),
             beta=float(alpha_beta['beta']),
-            information_ratio=float(info_ratio)
+            information_ratio=float(info_ratio),
+            # Radar Chart Metrics
+            profit_factor=float(profit_factor),
+            k_ratio=float(k_ratio_val),
+            volatility=float(volatility_val),
+            kurtosis=float(kurtosis_val),
+            reward_to_risk_ratio=float(reward_to_risk)
         )
         
         if 'Total Return [$]' not in stats and 'Total Profit' in stats:

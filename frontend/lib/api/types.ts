@@ -467,6 +467,12 @@ export interface BacktestMetrics {
     winning_trades: number;
     losing_trades: number;
     candle_count?: number;
+    // Radar Chart Metrics
+    profit_factor?: number;
+    k_ratio?: number;
+    volatility?: number;
+    kurtosis?: number;
+    reward_to_risk_ratio?: number;
 }
 
 export interface OptimizationResult {

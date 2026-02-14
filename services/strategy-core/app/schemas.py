@@ -204,6 +204,13 @@ class BacktestMetrics(BaseModel):
     beta: float = 0.0
     information_ratio: float = 0.0
 
+    # Radar Chart Metrics
+    profit_factor: float = 0.0
+    k_ratio: float = 0.0
+    volatility: float = 0.0
+    kurtosis: float = 0.0
+    reward_to_risk_ratio: float = 0.0
+
 class BacktestResponse(BaseModel):
     id: str
     status: str

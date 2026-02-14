@@ -1,9 +1,7 @@
-'use client';
-
-import React from 'react';
 import { BacktestMetrics } from '@/lib/api/types';
-import { TrendingUp, Shield, Activity, BarChart2, Target, Percent } from 'lucide-react';
+import { TrendingUp, Shield, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SystemRadarChart } from '@/components/analysis/SystemRadarChart';
 
 interface BacktestMetricsCardProps {
     metrics: BacktestMetrics;
@@ -128,6 +126,11 @@ export function BacktestMetricsCard({ metrics }: BacktestMetricsCardProps) {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* 4. System Evaluation (Radar) */}
+            <div className="md:col-span-3">
+                <SystemRadarChart metrics={metrics} className="bg-slate-950/50 border-slate-800 backdrop-blur-sm" />
+            </div>
         </div>
     );
 }
