@@ -13,7 +13,7 @@ class OpenInterestParser:
     """
     
     @staticmethod
-    def parse(file_content: bytes, snapshot_at: Optional[datetime] = None) -> Tuple[List[Dict[str, Any]], datetime]:
+    def parse(file_content: bytes, snapshot_at: Optional[datetime] = None, underlying_price: Optional[float] = None) -> Tuple[List[Dict[str, Any]], datetime]:
         """
         Parses the Excel content and returns a list of records and the snapshot timestamp.
         """
@@ -75,6 +75,7 @@ class OpenInterestParser:
                     'strike': strike,
                     'call_oi': data['call'],
                     'put_oi': data['put'],
+                    'underlying_price': underlying_price,
                     'created_at': datetime.utcnow()
                 })
                 

@@ -300,6 +300,37 @@ async def get_market_regime(symbol: str, timeframe: str = "H1", bias: str = "NEU
     except httpx.RequestError as e:
         logger.error(f"Strategy Core unavailable: {str(e)}")
         raise HTTPException(status_code=503, detail="Strategy Core unavailable")
-    except Exception as e:
         logger.error(f"Market Regime Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/gamma/levels", status_code=200)
+async def get_gamma_levels(symbol: str = "XAUUSD", current_price: Optional[float] = None):
+    """
+    Fetches Gamma Levels and Market Regime from Strategy Core.
+    """
+    try:
+        url = f"{STRATEGY_CORE_URL}/api/v1/analysis/gamma/levels"
+        params = {"symbol": symbol}
+        if current_price:
+            params["current_price"] = str(current_price)
+            
+        response = await http_client.get(url, params=params)
+        
+        if response.status_code != 200:
+             # If 404/500, might be no data or service down.
+             # Return empty/error structure rather than failing hard if possible?
+             # But here we proxy, so maybe just pass through error or return standard structure
+             if response.status_code == 404:
+                 return success_response(data={"error": "No Gamma Data Found"})
+             raise HTTPException(status_code=response.status_code, detail=response.text)
+             
+        data = response.json()
+        return success_response(data=data)
+        
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core unavailable: {str(e)}")
+        # Start of fallback for AI tool
+        return success_response(data={"error": "Service Unavailable"})
+    except Exception as e:
+        logger.error(f"Gamma Levels Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

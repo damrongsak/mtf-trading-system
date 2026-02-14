@@ -89,6 +89,7 @@ class MarketSymbolResponse(BaseModel):
 class OpenInterestSnapshotResponse(BaseModel):
     snapshot_at: datetime
     count: int
+    underlying_price: Optional[float] = None
     created_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)

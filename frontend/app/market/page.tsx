@@ -26,6 +26,7 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, PanelImpera
 import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 import { usePersistentState } from '@/lib/hooks/usePersistentState';
+import { useGammaLevels } from '@/lib/hooks/useGammaLevels';
 
 // Dynamic Imports for Heavy Charts
 const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
@@ -54,6 +55,7 @@ export default function MarketPage() {
   const [showADX, setShowADX] = usePersistentState<boolean>('mtf_show_adx', false);
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
   const [showSMC, setShowSMC] = usePersistentState<boolean>('mtf_show_smc', false);
+  const [showGamma, setShowGamma] = usePersistentState<boolean>('mtf_show_gamma', false);
   const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
   const [orderLines, setOrderLines] = useState<ChartPriceLine[]>([]);
@@ -416,6 +418,9 @@ export default function MarketPage() {
   const changePercent = prevClose ? (change / prevClose) * 100 : 0;
   const isUp = change >= 0;
 
+  // --- Gamma Levels ---
+  const { gammaPriceLines } = useGammaLevels(symbol, currentPrice, showGamma);
+
 
   // Trigger refresh function
   const handleOrderSuccess = () => {
@@ -544,6 +549,7 @@ export default function MarketPage() {
                                             { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
                                             { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
                                             { id: 'SMC', label: 'SMC', state: showSMC, set: setShowSMC },
+                                            { id: 'GMA', label: 'GAMMA', state: showGamma, set: setShowGamma },
                                         ].map(btn => (
                                             <button
                                                 key={btn.id}
@@ -582,7 +588,7 @@ export default function MarketPage() {
                                             bid={prices[symbol]?.bid}
                                             ask={prices[symbol]?.ask}
                                             markers={smcMarkers}
-                                            priceLines={[...smcPriceLines, ...orderLines]}
+                                            priceLines={[...smcPriceLines, ...orderLines, ...gammaPriceLines]}
                                             onLineDrag={handleLineDrag}
                                             precision={Number(getInstrument(symbol)?.details?.digits ?? getInstrument(symbol)?.details?.displayPrecision ?? 5)}
                                         />

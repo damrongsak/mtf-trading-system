@@ -1986,6 +1986,46 @@ export const AnalysisApiAxiosParamCreator = function (configuration?: Configurat
             };
         },
         /**
+         * Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+         * @summary Get Gamma Levels and Market Regime
+         * @param {string} [symbol] 
+         * @param {number} [currentPrice] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analysisGammaLevelsGet: async (symbol?: string, currentPrice?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/analysis/gamma/levels`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+            if (currentPrice !== undefined) {
+                localVarQueryParameter['current_price'] = currentPrice;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Calculate ADX
          * @param {AdxRequest} [adxRequest] 
@@ -2178,6 +2218,20 @@ export const AnalysisApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+         * @summary Get Gamma Levels and Market Regime
+         * @param {string} [symbol] 
+         * @param {number} [currentPrice] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async analysisGammaLevelsGet(symbol?: string, currentPrice?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.analysisGammaLevelsGet(symbol, currentPrice, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.analysisGammaLevelsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Calculate ADX
          * @param {AdxRequest} [adxRequest] 
@@ -2262,6 +2316,16 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
             return localVarFp.analysisDriftPost(requestParameters.windowHours, options).then((request) => request(axios, basePath));
         },
         /**
+         * Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+         * @summary Get Gamma Levels and Market Regime
+         * @param {AnalysisApiAnalysisGammaLevelsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        analysisGammaLevelsGet(requestParameters: AnalysisApiAnalysisGammaLevelsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.analysisGammaLevelsGet(requestParameters.symbol, requestParameters.currentPrice, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Calculate ADX
          * @param {AnalysisApiApiV1AnalysisCalculateAdxPostRequest} requestParameters Request parameters.
@@ -2322,6 +2386,15 @@ export interface AnalysisApiAnalysisDriftPostRequest {
 }
 
 /**
+ * Request parameters for analysisGammaLevelsGet operation in AnalysisApi.
+ */
+export interface AnalysisApiAnalysisGammaLevelsGetRequest {
+    readonly symbol?: string
+
+    readonly currentPrice?: number
+}
+
+/**
  * Request parameters for apiV1AnalysisCalculateAdxPost operation in AnalysisApi.
  */
 export interface AnalysisApiApiV1AnalysisCalculateAdxPostRequest {
@@ -2369,6 +2442,17 @@ export class AnalysisApi extends BaseAPI {
      */
     public analysisDriftPost(requestParameters: AnalysisApiAnalysisDriftPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).analysisDriftPost(requestParameters.windowHours, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+     * @summary Get Gamma Levels and Market Regime
+     * @param {AnalysisApiAnalysisGammaLevelsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public analysisGammaLevelsGet(requestParameters: AnalysisApiAnalysisGammaLevelsGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).analysisGammaLevelsGet(requestParameters.symbol, requestParameters.currentPrice, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

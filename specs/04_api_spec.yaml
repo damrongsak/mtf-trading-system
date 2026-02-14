@@ -502,6 +502,35 @@ paths:
                  schema:
                   $ref: '#/components/schemas/APIResponse_Analysis'
 
+  /analysis/gamma/levels:
+    get:
+      tags:
+        - Analysis
+      summary: Get Gamma Levels and Market Regime
+      description: Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XAUUSD
+        - name: current_price
+          in: query
+          required: false
+          schema:
+            type: number
+            format: float
+      responses:
+        '200':
+          description: Gamma Analysis Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+        '500':
+          description: Internal Server Error
+
 
   /api/v1/ai/agent/observer/run:
     post:

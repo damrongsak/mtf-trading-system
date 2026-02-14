@@ -22,7 +22,8 @@ class OpenInterestService:
     def parse_and_store(
         file_content: bytes, 
         db: Session, 
-        snapshot_at: Optional[datetime] = None
+        snapshot_at: Optional[datetime] = None,
+        underlying_price: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Parses Open Interest Matrix Excel and stores parsing results.
@@ -39,7 +40,8 @@ class OpenInterestService:
             update_dict = {
                 'call_oi': stmt.excluded.call_oi,
                 'put_oi': stmt.excluded.put_oi,
-                'dte': stmt.excluded.dte
+                'dte': stmt.excluded.dte,
+                'underlying_price': stmt.excluded.underlying_price
             }
             
             stmt = stmt.on_conflict_do_update(

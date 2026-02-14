@@ -520,6 +520,9 @@ app.include_router(execution_flow_router, prefix="/api/v1")
 from app.routers.market import router as market_router
 app.include_router(market_router, prefix="/api/v1")
 
+from app.routers.gamma import router as gamma_router
+app.include_router(gamma_router, prefix="/api/v1")
+
 # Global Worker
 indicator_worker = None
 

@@ -394,8 +394,21 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # 2. Strategy Logic
     strategy_name = req.strategy_params.get("name", "ma_crossover")
     
-    # Try to get Sync Version (Plugin) first
-    strategy_func = get_strategy_sync(strategy_name)
+    # --- Special Case: OI Gamma Strategy ---
+    oi_history = None
+    if strategy_name == "oi_gamma_v1":
+        # Dynamic import to avoid circular dependency and keep it clean
+        from app.strategies.oi_gamma_v1.strategy import fetch_historical_oi, strategy_vectorized
+        
+        # 1. Fetch OI Data
+        logger.info(f"Fetching Historical OI for {req.symbol} from {req.start_date} to {req.end_date}")
+        oi_history = fetch_historical_oi(req.start_date, req.end_date)
+        
+        # 2. Use Vectorized Strategy
+        strategy_func = lambda c, params=None: strategy_vectorized(df, oi_history=oi_history, params=params)
+    else:
+        # Try to get Sync Version (Plugin) first
+        strategy_func = get_strategy_sync(strategy_name)
     if not strategy_func:
         # Fallback to standard (maybe it's a built-in like ma_crossover in app/strategy.py, which is sync)
         strategy_func = get_strategy(strategy_name)

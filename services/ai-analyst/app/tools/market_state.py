@@ -63,6 +63,43 @@ class MarketStateTool(BaseTool):
                              f"- **Dynamic Risk**: {risk_mult}x ({risk_advice})\n"
                              f"- Context: The market is {regime.split('_')[0].lower()} with {fakeout_text.lower() if fakeout else 'no'} traps."
                          )
+                         # Fetch Gamma Levels (Parallel or Sequential)
+                         gamma_report = "Unavailable"
+                         try:
+                             gamma_url = f"{settings.API_GATEWAY_URL}/api/v1/analysis/gamma/levels"
+                             async with session.get(gamma_url, params={"symbol": symbol}, headers=headers) as gamma_resp:
+                                 if gamma_resp.status == 200:
+                                     g_data = await gamma_resp.json()
+                                     g_ctx = g_data.get("data", {})
+                                     
+                                     if "error" in g_ctx:
+                                         gamma_report = g_ctx["error"]
+                                     else:
+                                         g_regime = g_ctx.get("regime", {})
+                                         g_levels = g_ctx.get("levels", [])
+                                         
+                                         # Find Walls
+                                         call_wall = next((l for l in g_levels if l["type"] == "CALL_WALL"), None)
+                                         put_wall = next((l for l in g_levels if l["type"] == "PUT_WALL"), None)
+                                         
+                                         gamma_report = (
+                                             f"{g_regime.get('regime', 'UNKNOWN')}\n"
+                                             f"  - Flip Level: {g_regime.get('gamma_flip_level', 'N/A')}\n"
+                                             f"  - Call Wall: {call_wall['strike'] if call_wall else 'N/A'}\n"
+                                             f"  - Put Wall: {put_wall['strike'] if put_wall else 'N/A'}"
+                                         )
+                         except Exception as e:
+                             logger.error(f"Gamma fetch failed: {e}")
+                             gamma_report = "Error fetching Gamma data"
+
+                         report = (
+                             f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"
+                             f"- Regime: {regime} (ADX: {score:.1f})\n"
+                             f"- Fakeout/Trap: {fakeout_text}\n"
+                             f"- **Dynamic Risk**: {risk_mult}x ({risk_advice})\n"
+                             f"- **Liquidity Profile (Gamma)**: {gamma_report}\n"
+                             f"- Context: The market is {regime.split('_')[0].lower()} with {fakeout_text.lower() if fakeout else 'no'} traps."
+                         )
                          return report
                      else:
                          return f"Market state unavailable ({resp.status}): {await resp.text()}"
