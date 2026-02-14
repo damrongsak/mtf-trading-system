@@ -415,12 +415,11 @@ async def run_trade_sync_job():
                     port=int(creds.get("port", 5035))
                 )
                 
-                # Range: Scan full history if requested or reasonable window for first-time.
-                # The user requested "all history".
+                # Range: Scan last 30 days for regular maintenance.
                 end_date = datetime.utcnow()
-                start_date = datetime(2020, 1, 1) # Capture all historical data
+                start_date = end_date - timedelta(days=30)
                 
-                logger.info(f"Syncing full trade history for account {account.id} ({start_date} - {end_date})")
+                logger.info(f"Syncing trade history for account {account.id} ({start_date} - {end_date})")
                 
                 trades = await client_adapter.fetch_trade_history(start_date, end_date)
                 logger.info(f"Fetched {len(trades)} trades from cTrader adapter.")
