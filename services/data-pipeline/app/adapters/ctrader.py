@@ -213,7 +213,7 @@ class CTraderClient:
 
             results = []
             for d in deals:
-                if d.closePositionDetail:
+                if d.HasField('closePositionDetail'):
                     sym_entity = symbol_map.get(d.symbolId)
                     
                     s_name = f"Unknown_{d.symbolId}"
@@ -242,19 +242,21 @@ class CTraderClient:
                     # Direction: If we SOLD to close, we were LONG.
                     # TradeSide: BUY=1, SELL=2
                     from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATradeSide
-                    direction = "LONG" if d.tradeSide == ProtoOATradeSide.SELL else "SHORT"
                     
-                    # Volume is in cents. Units = volume / 100.
+                    # Normalizing Lot Size
+                    # cTrader volume is in "cents" (units * 100)
                     units = d.volume / 100.0
+                    lot_size_divisor = 100000.0 # Default for FX
                     
-                    # We treat 'lot_size' as units because 'Standard Lot' depends on symbol
-                    # If we want standard lots, we need lotSize from symbol entity.
-                    # ProtoOASymbol has 'lotSize'? No. It has 'stepVolume'?
-                    # Usually 1 Lot = 100,000 units for FX.
-                    # We will store UNITS in lot_size for consistency with execution service logic or 
-                    # we can try to normalize. 
-                    # Let's check `execution` service implementation again? 
-                    # It used `d.volume / 100.0`. So "units".
+                    if sym_entity:
+                        # Check if it's a DB Model (MarketSymbol)
+                        if hasattr(sym_entity, "details") and sym_entity.details:
+                            lot_size_divisor = float(sym_entity.details.get("lotSize", 10000000.0)) / 100.0
+                        # Check if it's a ProtoOASymbol
+                        elif hasattr(sym_entity, "lotSize"):
+                            lot_size_divisor = float(sym_entity.lotSize) / 100.0
+                    
+                    normalized_lots = units / lot_size_divisor if lot_size_divisor > 0 else units
                     
                     results.append({
                         "trade_id": str(d.dealId), # Unique ID for this deal
@@ -264,12 +266,12 @@ class CTraderClient:
                         "strategy_name": "Imported", # Default
                         "signal_timestamp": datetime.fromtimestamp(d.createTimestamp / 1000.0),
                         "status": "CLOSED",
-                        "direction": direction,
+                        "direction": "LONG" if d.tradeSide == ProtoOATradeSide.SELL else "SHORT", # If we SELL to close, we were LONG
                         "entry_price": entry_p,
                         "exit_price": exit_p,
                         "sl_price": 0.0, # Not easily available in Deal
                         "tp_price": 0.0,
-                        "lot_size": units, 
+                        "lot_size": normalized_lots, 
                         "risk_usd": 0.0, # Unknown from history
                         "commission": commission,
                         "swap": swap,

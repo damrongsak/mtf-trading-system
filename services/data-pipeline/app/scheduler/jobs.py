@@ -1,25 +1,17 @@
 from app.adapters.oanda import OandaClient
 from app.database import SessionLocal
 from app.models.candle import Candle
-## Removed insert import as it's handled by repo
 from app.repositories.candle_repository import CandleRepository
 from app.repositories.market_repository import MarketRepository
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import logging
 import json
 import asyncio
 from app.streaming.publisher import RedisPublisher
 from app.utils.retry import async_retry
-
-import logging
-import json
-import asyncio
-from datetime import timedelta
-from sqlalchemy.dialects.postgresql import insert
-from app.streaming.publisher import RedisPublisher
-from app.utils.retry import async_retry
 from app.utils.crypto import decrypt_data
+from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
@@ -423,61 +415,68 @@ async def run_trade_sync_job():
                     port=int(creds.get("port", 5035))
                 )
                 
-                # Range: Last 24h to maintain hydration? Or last sync check?
-                # For safety, lookback 1 day. Duplicates handled by DB.
+                # Range: Scan full history if requested or reasonable window for first-time.
+                # The user requested "all history".
                 end_date = datetime.utcnow()
-                start_date = end_date - timedelta(days=1)
+                start_date = datetime(2020, 1, 1) # Capture all historical data
                 
-                logger.info(f"Syncing trades for account {account.id} ({start_date} - {end_date})")
+                logger.info(f"Syncing full trade history for account {account.id} ({start_date} - {end_date})")
                 
                 trades = await client_adapter.fetch_trade_history(start_date, end_date)
+                logger.info(f"Fetched {len(trades)} trades from cTrader adapter.")
                 
                 new_event_count = 0
                 
                 for t_data in trades:
-                    # Upsert to DB
-                    # We need a deterministic UUID for the Trade record itself if we want to store it.
-                    # Trade model has `trade_id` (PK).
-                    # t_data has `trade_id` (Deal ID).
                     import uuid
-                    # Create determinstic UUID for our DB
                     db_trade_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{account.id}_{t_data['trade_id']}")
                     
-                    # Check if exists to avoid re-publishing old events?
-                    # Or upsert and check 'created_at' or 'updated_at'?
-                    # Simpler: query existing.
-                    existing = db.query(Trade).filter(Trade.trade_id == db_trade_id).first()
-                    is_new = existing is None
+                    # Use PostgreSQL UPSERT (ON CONFLICT DO UPDATE)
+                    stmt = insert(Trade).values(
+                        trade_id=db_trade_id,
+                        broker_account_id=account.id,
+                        broker_trade_id=t_data.get("broker_trade_id"),
+                        broker_deal_id=t_data.get("broker_deal_id"),
+                        symbol=t_data["symbol"],
+                        strategy_name=t_data["strategy_name"],
+                        signal_timestamp=t_data["signal_timestamp"],
+                        status=t_data["status"],
+                        direction=t_data["direction"],
+                        entry_price=t_data["entry_price"],
+                        exit_price=t_data["exit_price"],
+                        sl_price=t_data["sl_price"],
+                        tp_price=t_data["tp_price"],
+                        lot_size=t_data["lot_size"],
+                        risk_usd=t_data["risk_usd"],
+                        commission=t_data.get("commission"),
+                        swap=t_data.get("swap"),
+                        gross_pnl=t_data.get("gross_pnl"),
+                        pnl_usd=t_data["pnl_usd"],
+                        exit_timestamp=t_data["exit_timestamp"],
+                        metadata_json=t_data["metadata_json"],
+                        updated_at=datetime.utcnow()
+                    )
                     
-                    if is_new:
-                        # Map to Model
-                        new_trade = Trade(
-                            trade_id=db_trade_id,
-                            broker_account_id=account.id,
-                            broker_trade_id=t_data.get("broker_trade_id"),
-                            broker_deal_id=t_data.get("broker_deal_id"),
-                            symbol=t_data["symbol"],
-                            strategy_name=t_data["strategy_name"],
-                            signal_timestamp=t_data["signal_timestamp"],
-                            status=t_data["status"],
-                            direction=t_data["direction"],
-                            entry_price=t_data["entry_price"],
-                            exit_price=t_data["exit_price"],
-                            sl_price=t_data["sl_price"],
-                            tp_price=t_data["tp_price"],
-                            lot_size=t_data["lot_size"],
-                            risk_usd=t_data["risk_usd"],
-                            commission=t_data.get("commission"),
-                            swap=t_data.get("swap"),
-                            gross_pnl=t_data.get("gross_pnl"),
-                            pnl_usd=t_data["pnl_usd"],
-                            exit_timestamp=t_data["exit_timestamp"],
-                            metadata_json=t_data["metadata_json"]
-                        )
-                        db.add(new_trade)
+                    # Update all fields on conflict
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=['trade_id'],
+                        set_={
+                            "exit_price": stmt.excluded.exit_price,
+                            "pnl_usd": stmt.excluded.pnl_usd,
+                            "commission": stmt.excluded.commission,
+                            "swap": stmt.excluded.swap,
+                            "gross_pnl": stmt.excluded.gross_pnl,
+                            "exit_timestamp": stmt.excluded.exit_timestamp,
+                            "metadata_json": stmt.excluded.metadata_json,
+                            "updated_at": stmt.excluded.updated_at
+                        }
+                    )
+                    
+                    res = db.execute(stmt)
+                    if res.rowcount > 0:
                         new_event_count += 1
                         
-                        # PUBLISH EVENT via STREAM (Persistence)
+                        # PUBLISH EVENT via STREAM
                         stream_payload = {
                             "event_type": "trade_closed",
                             "account_id": str(account.id),
@@ -488,16 +487,16 @@ async def run_trade_sync_job():
                             "commission": str(t_data.get("commission") or 0.0),
                             "swap": str(t_data.get("swap") or 0.0),
                             "gross_pnl": str(t_data.get("gross_pnl") or 0.0),
-                            "pnl": str(t_data["pnl_usd"] or 0.0), # XADD needs strings
+                            "pnl": str(t_data["pnl_usd"] or 0.0),
                             "close_time": t_data["exit_timestamp"].isoformat(),
                             "direction": t_data["direction"],
                             "lot_size": str(t_data["lot_size"])
                         }
                         await publisher.xadd("market.trade.stream", stream_payload)
                 
-                if new_event_count > 0:
+                if len(trades) > 0:
                     db.commit()
-                    logger.info(f"Synced {len(trades)} trades, {new_event_count} new events published.")
+                    logger.info(f"Synced {len(trades)} trades for account {account.id}, {new_event_count} events published.")
                 else:
                     db.rollback() # Nothing to save
                 
