@@ -211,36 +211,58 @@ class RAGService:
 
     async def ingest_document(self, filename: str, content: str, doc_type: str = "spec"):
         """Ingest a system documentation file (Spec or Guide) with chunking."""
-        
+        import asyncio
+
         splitter = SimpleTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = splitter.split_text(content)
         
         points = []
-        for i, chunk_text in enumerate(chunks):
-            embedding = await self._get_embedding(chunk_text)
-            
-            # Create a deterministic ID based on filename + chunk index
-            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_chunk_{i}"))
-            
-            point = models.PointStruct(
-                id=chunk_id,
-                vector=embedding,
-                payload={
-                    "filename": filename,
-                    "content": chunk_text,
-                    "doc_type": doc_type,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks)
-                }
-            )
-            points.append(point)
+        
+        # Limit concurrency to avoid rate limits
+        sem = asyncio.Semaphore(5)
+
+        async def process_chunk(i, chunk_text):
+            async with sem:
+                try:
+                    embedding = await self._get_embedding(chunk_text)
+                    
+                    # Create a deterministic ID based on filename + chunk index
+                    chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_chunk_{i}"))
+                    
+                    return models.PointStruct(
+                        id=chunk_id,
+                        vector=embedding,
+                        payload={
+                            "filename": filename,
+                            "content": chunk_text,
+                            "doc_type": doc_type,
+                            "chunk_index": i,
+                            "total_chunks": len(chunks)
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to generate embedding for chunk {i}: {e}")
+                    return None
+
+        tasks = [process_chunk(i, c) for i, c in enumerate(chunks)]
+        results = await asyncio.gather(*tasks)
+        
+        points = [p for p in results if p is not None]
         
         # Upsert in batch
         if points:
-            self.qdrant.upsert(
-                collection_name=self.docs_collection,
-                points=points
-            )
+            # Batch upsert to Qdrant (chunks of 100 to be safe)
+            batch_size = 100
+            for i in range(0, len(points), batch_size):
+                batch = points[i:i + batch_size]
+                try:
+                    self.qdrant.upsert(
+                        collection_name=self.docs_collection,
+                        points=batch
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to upsert batch {i}: {e}")
+
             logger.info(f"Ingested document: {filename} ({len(points)} chunks)")
         else:
             logger.warning(f"No chunks created for {filename}")
