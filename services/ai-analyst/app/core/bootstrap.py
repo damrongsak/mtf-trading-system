@@ -9,6 +9,8 @@ from app.tools.alpha_deployer import AlphaDeployerTool
 from app.tools.strategy_retriever import StrategyRetrieverTool
 from app.tools.open_interest import OpenInterestTool
 from app.tools.market_state import MarketStateTool
+from app.tools.smc import SMCAnalystTool
+from app.tools.oi_drift import OpenInterestDriftTool
 
 def bootstrap_tools():
     """
@@ -34,6 +36,8 @@ def bootstrap_tools():
     registry.register("list_active_strategies", StrategyRetrieverTool())
     registry.register("open_interest", OpenInterestTool())
     registry.register("market_state", MarketStateTool())
+    registry.register("smc_technical_analysis", SMCAnalystTool())
+    registry.register("oi_drift_analysis", OpenInterestDriftTool())
     
     print("All standard tools registered.")
 
@@ -55,7 +59,9 @@ async def run_diagnostics(auth_token: str = None) -> list:
         "deploy_alpha_strategy": None, # Skip risky or complex tools if needed
         "list_active_strategies": {"user_id": "diagnostic_user"},
         "open_interest": {},
-        "market_state": "XAUUSD"
+        "market_state": "XAUUSD",
+        "smc_technical_analysis": "XAUUSD",
+        "oi_drift_analysis": {}
     }
     
     for name, tool in registry._tools.items():

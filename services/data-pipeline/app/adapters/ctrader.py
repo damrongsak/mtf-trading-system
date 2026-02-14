@@ -96,30 +96,39 @@ class CTraderClient:
                 
                 candles = []
                 for b in res_payload.trendbar:
-                    low = b.low
-                    open_p = low + b.deltaOpen
-                    high_p = low + b.deltaHigh
-                    close_p = low + b.deltaClose
+                    low_raw = b.low
                     
+                    # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
+                    # This happens on some cTrader broker feeds where deltaOpen is actually Open price.
+                    if b.deltaOpen > (low_raw * 0.5):
+                        open_p = b.deltaOpen
+                        high_p = b.deltaHigh
+                        close_p = b.deltaClose
+                    else:
+                        open_p = low_raw + b.deltaOpen
+                        high_p = low_raw + b.deltaHigh
+                        close_p = low_raw + b.deltaClose
+                    
+                    open_p_norm = open_p / divisor
+                    high_p_norm = high_p / divisor
+                    low_p_norm = low_raw / divisor
+                    close_p_norm = close_p / divisor
+
+                    # cTrader Gold Quirk: Some feeds send doubled price (likely Bid+Ask aggregate)
+                    # If the price is > 3500 for Gold, it's likely doubled (market is ~2400-2600)
+                    if close_p_norm > 3500:
+                        open_p_norm /= 2.0
+                        high_p_norm /= 2.0
+                        low_p_norm /= 2.0
+                        close_p_norm /= 2.0
+
                     candles.append({
-                        # timestamp in cTrader is minutes/timestamp?
-                        # It has 'timestamp' field? No. it has 'utcTimestampInMinutes'?
-                        # Actually ProtoOATrendbar has no timestamp field directly inside the repeated delta?
-                        # Wait, cTrader Trendbars might be a list.
-                        # ProtoOATrendbar:
-                        # optional int64 volume = 1;
-                        # optional int64 period = 2; ?
-                        # optional int64 low = 3;
-                        # optional uint64 deltaOpen = 4;
-                        # ...
-                        # optional uint64 utcTimestampInMinutes = 7;
-                        
                         "timestamp": datetime.fromtimestamp(b.utcTimestampInMinutes * 60) if b.utcTimestampInMinutes else datetime.now(),
-                        "open": open_p / divisor,
-                        "high": high_p / divisor,
-                        "low": low / divisor,
-                        "close": close_p / divisor,
-                        "volume": b.volume # Volume in cents/units?
+                        "open": open_p_norm,
+                        "high": high_p_norm,
+                        "low": low_p_norm,
+                        "close": close_p_norm,
+                        "volume": b.volume
                     })
                 return candles
             else:

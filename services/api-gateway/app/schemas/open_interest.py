@@ -35,3 +35,22 @@ class AnalysisDistribution(BaseModel):
 class OpenInterestAnalysisResponse(BaseModel):
     summary: AnalysisSummary
     distribution: List[AnalysisDistribution]
+
+class DriftAnalysis(BaseModel):
+    pcr_drift: float
+    net_oi_drift: float
+    call_wall_shift: float
+    put_wall_shift: float
+    oiwap_shift: float
+    sentiment: str
+
+class UnifiedOIProfileResponse(BaseModel):
+    symbol: str
+    snapshot_at: datetime
+    prev_snapshot_at: Optional[datetime]
+    price: float
+    gamma_regime: str
+    crowding_regime: str
+    sentiment_drift: DriftAnalysis
+    gamma_levels: List[dict]
+    summary: AnalysisSummary

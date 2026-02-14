@@ -133,20 +133,22 @@ The data returned is REAL and should be trusted over any simulated/example data.
                     report.append(f"> **⚠️ Data Delay**: Analysis based on data from {self._format_age(data_age)} ago")
                     report.append(f"> Real-time streaming may be temporarily unavailable. Using latest database snapshot.")
                 
-                report.append(f"\n- **Current Rate**: {price:.2f}")
+                current_price_val = float(price or 0.0)
+                report.append(f"\n- **Current Rate**: {current_price_val:.2f}")
                 report.append(f"- **Institutional Bias**: {direction}")
                 report.append(f"- **Strategic Assessment**: {reason}")
                 
                 if global_meta:
-                    vol = global_meta.get("volatility_score", 0)
+                    vol = float(global_meta.get("volatility_score") or 0.0)
                     report.append(f"- **Volatility Environment**: {'High' if vol > 0.005 else 'Contracting'} (Index: {vol:.4f})")
 
                 if structure:
                     pivots = structure.get("labels", [])
                     if pivots:
                         last_p = pivots[-1]
+                        last_p_price = float(last_p.get('price') or 0.0)
                         report.append(f"\n#### 📈 Market Structure Phase")
-                        report.append(f"- **Current Milestone**: {last_p['text']} detected at {last_p['price']:.2f}")
+                        report.append(f"- **Current Milestone**: {last_p.get('text', 'Unknown')} detected at {last_p_price:.2f}")
 
                 if obs:
                     report.append("\n#### 🧱 Institutional Order Blocks (OB)")
@@ -157,8 +159,10 @@ The data returned is REAL and should be trusted over any simulated/example data.
                         ratio = meta.get("engulfing_ratio", 0)
                         mitigated = "✅ Mitigated" if ob.get("mitigated") else "⬜ FRESH/UNMITIGATED"
                         ob_type = "Supply (Bearish)" if ob.get("type") == "bearish" else "Demand (Bullish)"
+                        ob_bottom = float(ob.get('bottom') or 0.0)
+                        ob_top = float(ob.get('top') or 0.0)
                         
-                        ob_info = f"- **{ob_type}**: {ob.get('bottom'):.2f} - {ob.get('top'):.2f} [{mitigated}]"
+                        ob_info = f"- **{ob_type}**: {ob_bottom:.2f} - {ob_top:.2f} [{mitigated}]"
                         if ratio > 2.0:
                              ob_info += f" | 🔥 Strong Impulsive Move ({ratio:.1f}x)"
                         report.append(ob_info)
@@ -169,12 +173,17 @@ The data returned is REAL and should be trusted over any simulated/example data.
                     for fvg in recent_fvgs:
                          size = fvg.get("meta", {}).get("gap_size", 0)
                          fvg_type = "Inbalance (Bullish)" if fvg.get("type") == "bullish" else "Inbalance (Bearish)"
-                         report.append(f"- **{fvg_type}**: {fvg.get('bottom'):.2f} - {fvg.get('top'):.2f} | Size: {abs(size):.2f}")
+                         fvg_bottom = float(fvg.get('bottom') or 0.0)
+                         fvg_top = float(fvg.get('top') or 0.0)
+                         report.append(f"- **{fvg_type}**: {fvg_bottom:.2f} - {fvg_top:.2f} | Size: {abs(float(size or 0)):.2f}")
 
 
                 # Generate dynamic professional outlook based on actual market conditions
-                price_magnitude = "high-value" if price > 1000 else "standard"
-                confluence_count = len(global_meta.get("bullish_confluence", [])) + len(global_meta.get("bearish_confluence", []))
+                price_float = float(price or 0.0)
+                price_magnitude = "high-value" if price_float > 1000 else "standard"
+                bullish_confluence = global_meta.get("bullish_confluence") or []
+                bearish_confluence = global_meta.get("bearish_confluence") or []
+                confluence_count = len(bullish_confluence) + len(bearish_confluence)
                 
                 outlook_parts = []
                 outlook_parts.append("\n> [!TIP]")

@@ -215,6 +215,13 @@ export interface RootCauseAnalysis {
 }
 
 // Signal Types
+export interface SignalMetadata {
+    zone_type?: string;
+    basis_offset?: number;
+    confluence?: string[];
+    [key: string]: unknown;
+}
+
 export interface Signal {
     symbol: string;
     direction: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'LONG' | 'SHORT';
@@ -231,6 +238,7 @@ export interface Signal {
     rrr?: number;
     status?: SignalStatus;
     id?: string;
+    metadata?: SignalMetadata;
 }
 
 export enum SignalStatus {
@@ -269,6 +277,7 @@ export interface RecentSignal {
     reason?: string;
     broker?: string;
     status?: string;
+    metadata?: SignalMetadata;
 }
 
 // ========================================

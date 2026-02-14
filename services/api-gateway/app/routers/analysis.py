@@ -4,6 +4,7 @@ from app.database import get_db
 from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
 from app.utils.response import success_response
+from app.schemas.open_interest import UnifiedOIProfileResponse
 from typing import List, Optional
 import httpx
 import os
@@ -334,3 +335,76 @@ async def get_gamma_levels(symbol: str = "XAUUSD", current_price: Optional[float
     except Exception as e:
         logger.error(f"Gamma Levels Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/oi/unified-profile", status_code=200)
+async def get_unified_oi_profile(
+    symbol: str = "XAUUSD",
+    db: Session = Depends(get_db)
+):
+    """
+    Unified Endpoint for Gold OI Dashboard.
+    Combines: Sentiment (PCR), Gamma Levels (Walls), and Session Drift.
+    """
+    try:
+        repo = OpenInterestRepository(db)
+        
+        # 1. Get latest 2 snapshots
+        snapshots = repo.get_snapshots(limit=2)
+        if len(snapshots) < 1:
+            raise HTTPException(status_code=404, detail="No OI data snapshots found")
+            
+        latest_ts = snapshots[0].snapshot_at
+        prev_ts = snapshots[1].snapshot_at if len(snapshots) > 1 else None
+        
+        # 2. Proxy Gamma Levels from Strategy Core (contains confluence & regimes)
+        gamma_url = f"{STRATEGY_CORE_URL}/api/v1/analysis/gamma/levels"
+        gamma_resp = await http_client.get(gamma_url, params={"symbol": symbol})
+        
+        gamma_data = {}
+        if gamma_resp.status_code == 200:
+            gamma_data = gamma_resp.json()
+        
+        # 3. Calculate Drift Analysis (latest vs previous)
+        latest_analysis = repo.get_analysis_data(latest_ts)
+        pcr = latest_analysis.get("summary", {}).get("pcr", 1.0)
+        
+        # Determine Crowding Regime
+        crowding_regime = "Balanced"
+        if pcr > 1.5:
+            crowding_regime = "Short Crowded"
+        elif pcr < 0.7:
+            crowding_regime = "Long Crowded"
+
+        drift = {
+            "pcr_drift": 0.0,
+            "net_oi_drift": 0,
+            "call_wall_shift": 0.0,
+            "put_wall_shift": 0.0,
+            "oiwap_shift": 0.0,
+            "sentiment": "Neutral",
+            "latest_summary": latest_analysis.get("summary", {}),
+            "prev_summary": {}
+        }
+        
+        if prev_ts:
+            drift = repo.get_drift_analysis(latest_ts, prev_ts)
+
+        # 4. Final Aggregation
+        profile = {
+            "symbol": symbol,
+            "snapshot_at": latest_ts,
+            "prev_snapshot_at": prev_ts,
+            "price": gamma_data.get("underlying_price", 0.0),
+            "gamma_regime": gamma_data.get("regime", {}).get("regime", "UNKNOWN"),
+            "crowding_regime": crowding_regime,
+            "sentiment_drift": drift,
+            "gamma_levels": gamma_data.get("levels", []),
+            "summary": latest_analysis.get("summary", {})
+        }
+
+        return success_response(data=profile)
+
+    except Exception as e:
+        logger.error(f"Unified OI Profile failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to aggregate OI profile: {str(e)}")

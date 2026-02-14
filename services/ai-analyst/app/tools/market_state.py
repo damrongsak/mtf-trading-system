@@ -45,7 +45,10 @@ class MarketStateTool(BaseTool):
                          score = ctx.get("regime_score", 0.0)
                          fakeout = ctx.get("fakeout_type")
                          # Use multiplier if available, else fallback
-                         risk_mult = ctx.get("risk_multiplier", ctx.get("recommended_risk", 1.0))
+                         try:
+                             risk_mult = float(ctx.get("risk_multiplier") or ctx.get("recommended_risk") or 1.0)
+                         except (TypeError, ValueError):
+                             risk_mult = 1.0
                          
                          fakeout_text = "None"
                          if fakeout:

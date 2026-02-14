@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SignalMetadata } from '@/lib/api/types';
 
 interface SignalCardProps {
   symbol: string;
@@ -17,6 +18,7 @@ interface SignalCardProps {
   broker?: string;
   strategy_name?: string;
   rrr?: number;
+  metadata?: SignalMetadata;
 }
 
 export const SignalCard: React.FC<SignalCardProps> = (props) => {
@@ -131,6 +133,42 @@ export const SignalCard: React.FC<SignalCardProps> = (props) => {
            <p className="text-sm text-gray-400 line-clamp-2">
              {props.reason || props.reasoning || "No reasoning provided."}
            </p>
+
+           {props.metadata && (
+             <div className="mt-3 p-2 rounded bg-gray-900/50 border border-gray-700/50 space-y-2">
+               {props.metadata.zone_type && (
+                 <div className="flex justify-between items-center text-[10px]">
+                   <span className="text-gray-500 uppercase tracking-wider">Zone Level</span>
+                   <span className={`font-bold ${props.metadata.zone_type === 'MAJOR' ? 'text-orange-400' : 'text-blue-400'}`}>
+                     {props.metadata.zone_type}
+                   </span>
+                 </div>
+               )}
+               
+               {props.metadata.basis_offset !== undefined && (
+                 <div className="flex justify-between items-center text-[10px]">
+                   <span className="text-gray-500 uppercase tracking-wider">Futures Basis</span>
+                   <span className="text-gray-300 font-mono">
+                     {props.metadata.basis_offset > 0 ? '+' : ''}{Number(props.metadata.basis_offset).toFixed(2)}
+                   </span>
+                 </div>
+               )}
+
+               {props.metadata.confluence && props.metadata.confluence.length > 0 && (
+                 <div className="pt-1 border-t border-gray-800">
+                    <span className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1">Institutional Confluence</span>
+                    <div className="flex flex-wrap gap-1">
+                      {props.metadata.confluence.map((tag: string, i: number) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue border border-accent-blue/20 text-[9px] font-bold">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                 </div>
+               )}
+             </div>
+           )}
+
            <p className="text-xs text-gray-600 mt-2 font-mono text-right">
              Detected: {new Date(timestamp).toLocaleString()}
            </p>

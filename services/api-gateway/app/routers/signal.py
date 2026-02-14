@@ -114,6 +114,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         try:
             smc_payload = {
                 "symbol": symbol.upper(),
+                "timeframe": timeframe,
                 "open": opens, 
                 "high": highs, 
                 "low": lows, 

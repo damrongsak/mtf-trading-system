@@ -321,7 +321,7 @@ def _prepare_df(req: SMCRequest) -> pd.DataFrame:
 def get_smc(req: SMCRequest):
     try:
         df = _prepare_df(req)
-        result = analyze_smc(df, req.symbol)
+        result = analyze_smc(df, req.symbol, req.timeframe)
         return SMCResponse(**result)
     except HTTPException:
         raise
@@ -336,7 +336,7 @@ def get_smc_batch(req: SMCBatchRequest):
         for symbol, smc_req in req.requests.items():
             try:
                 df = _prepare_df(smc_req)
-                result = analyze_smc(df, smc_req.symbol)
+                result = analyze_smc(df, smc_req.symbol, smc_req.timeframe)
                 results[symbol] = SMCResponse(**result)
             except Exception as e:
                 logger.error(f"Error processing {symbol} in batch: {e}")

@@ -528,9 +528,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse'
-        '500':
-          description: Internal Server Error
-
+  /api/v1/analysis/oi/unified-profile:
+    get:
+      tags:
+        - Analysis
+      summary: Get Unified Open Interest Profile
+      description: Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XAUUSD
+      responses:
+        '200':
+          description: Unified OI Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_UnifiedOIProfile'
 
   /api/v1/ai/agent/observer/run:
     post:
@@ -4705,6 +4722,8 @@ components:
           type: number
         max_put_strike:
           type: number
+        oiwap:
+          type: number
 
     AnalysisDistribution:
       type: object
@@ -4735,6 +4754,57 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/OpenInterestAnalysisResponse'
+
+    DriftAnalysis:
+      type: object
+      properties:
+        pcr_drift:
+          type: number
+        net_oi_drift:
+          type: number
+        call_wall_shift:
+          type: number
+        put_wall_shift:
+          type: number
+        oiwap_shift:
+          type: number
+        sentiment:
+          type: string
+
+    UnifiedOIProfileResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        snapshot_at:
+          type: string
+          format: date-time
+        prev_snapshot_at:
+          type: string
+          format: date-time
+          nullable: true
+        price:
+          type: number
+        gamma_regime:
+          type: string
+        crowding_regime:
+          type: string
+        sentiment_drift:
+          $ref: '#/components/schemas/DriftAnalysis'
+        gamma_levels:
+          type: array
+          items:
+            type: object
+        summary:
+          $ref: '#/components/schemas/AnalysisSummary'
+
+    APIResponse_UnifiedOIProfile:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UnifiedOIProfileResponse'
 
     APIResponse_Agent:
       allOf:

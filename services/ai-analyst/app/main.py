@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 from app.services.equity_guardian import EquityGuardian
 from app.streaming.consumers import TradeEventConsumer
 from app.core.scheduler import scheduler
+from app.services.session_observer import session_observer
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -137,7 +138,12 @@ async def lifespan(app: FastAPI):
             # Start Scheduler & Schedule Job
             scheduler.start()
             scheduler.add_job(guardian.check_health, 'interval', minutes=5)
-            logger.info("✅ Scheduler Started (Equity Guardian Job Added)")
+            
+            # Gold OI Drift Session Reports
+            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'])
+            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'])
+            
+            logger.info("✅ Scheduler Started (Guardian & Session Jobs Added)")
             
         except Exception as e:
             logger.error(f"❌ Equity Guardian/Consumer Failed: {e}")

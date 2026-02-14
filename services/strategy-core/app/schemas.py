@@ -58,6 +58,7 @@ class SMCRequest(BaseModel):
     # For Correlation analysis
     second_close: Optional[List[float]] = None
     second_symbol: Optional[str] = None
+    timeframe: Optional[str] = "H1"
     # For Positioning analysis
     oi_call: Optional[List[float]] = None
     oi_put: Optional[List[float]] = None
@@ -72,6 +73,7 @@ class SMCResponse(BaseModel):
     institutional_bias: str = "NEUTRAL"
     strategic_reasoning: str = ""
     timestamp: Optional[datetime] = None  # Analysis snapshot time
+    timeframe: Optional[str] = "H1"
     meta: Dict[str, Any] = {}  # Global confluence or strength metrics
 
 class SMCBatchRequest(BaseModel):

@@ -35,8 +35,13 @@ class EquityCurveProjections:
              df.sort_values('timestamp', inplace=True)
         return df
 
-    async def update_curve(self, account_id: str, trade: dict):
+    async def update_curve(self, trade: dict):
         """Append a new trade to the equity curve."""
+        account_id = trade.get("account_id")
+        if not account_id:
+            logger.error(f"Cannot update curve: trade missing account_id: {trade}")
+            return
+            
         key = f"{self.curve_key_prefix}{account_id}"
         
         # We need running balance. 

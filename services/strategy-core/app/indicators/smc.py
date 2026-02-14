@@ -425,7 +425,7 @@ def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, floa
         "4.236": low_val + diff * 4.236
     }
 
-def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown") -> Dict[str, Any]:
+def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1") -> Dict[str, Any]:
     """
     Central orchestration for all SMC indicators and metadata.
     Includes Institutional Bias and Strategic Reasoning.
@@ -437,7 +437,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown") -> Dict[str, Any]:
             "order_blocks": [], "fvgs": [], "liquidity_sweeps": [], 
             "structure": {}, "auto_fibs": {}, 
             "institutional_bias": "NEUTRAL", "strategic_reasoning": "Insufficient data",
-            "timestamp": datetime.utcnow().isoformat(), "meta": {}
+            "timestamp": datetime.utcnow().isoformat(), "timeframe": timeframe, "meta": {}
         }
 
     obs = detect_order_blocks(df)
@@ -512,6 +512,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown") -> Dict[str, Any]:
     # Enhanced Metadata
     meta = {
         "symbol": symbol,
+        "timeframe": timeframe,
         "candle_count": len(df),
         "volatility_score": float(df['high'].max() - df['low'].min()) / float(df['close'].iloc[-1]) if not df.empty else 0,
         "bullish_confluence": bullish_confluence,
@@ -527,5 +528,6 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown") -> Dict[str, Any]:
         "institutional_bias": bias,
         "strategic_reasoning": reasoning,
         "timestamp": datetime.utcnow().isoformat(),
+        "timeframe": timeframe,
         "meta": meta
     }

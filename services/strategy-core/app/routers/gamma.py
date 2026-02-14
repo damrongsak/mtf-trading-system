@@ -8,6 +8,8 @@ import pandas as pd
 from app.database import get_db
 from app.models.open_interest import OpenInterest
 from app.analysis.liquidity_profile import LiquidityProfileAnalyzer, GammaLevel, MarketRegime
+from app.indicators.smc import analyze_smc
+from .market import fetch_candles_logic
 
 router = APIRouter(
     prefix="/analysis/gamma",
@@ -18,8 +20,11 @@ class GammaLevelResponse(BaseModel):
     price: float
     strike: float
     type: str
+    zone_type: str
     strength: float
     description: str
+    dte: Optional[int] = None
+    confluence: List[str] = []
 
 class MarketRegimeResponse(BaseModel):
     net_gex: float
@@ -34,7 +39,7 @@ class GammaAnalysisResponse(BaseModel):
     regime: MarketRegimeResponse
 
 @router.get("/levels", response_model=GammaAnalysisResponse)
-def get_gamma_levels(
+async def get_gamma_levels(
     symbol: str = "XAUUSD", 
     current_price: Optional[float] = None,
     db: Session = Depends(get_db)
@@ -88,9 +93,20 @@ def get_gamma_levels(
         # Default to 0 or handle gracefully?
         price_to_use = 0.0 
 
-    # 4. Analyze
+    # 4. Fetch SMC Data for Confluence
+    # We fetch H1 candles typically for institutional levels
+    smc_data = None
+    try:
+        df = await fetch_candles_logic(symbol, "H1", limit=200)
+        if not df.empty:
+            smc_data = analyze_smc(df, symbol=symbol)
+    except Exception as e:
+        logger.warning(f"Failed to fetch SMC confluence: {e}")
+
+    # 5. Analyze
     analyzer = LiquidityProfileAnalyzer()
-    result = analyzer.analyze_snapshot(data, current_spot_price=price_to_use)
+    # For now, if we can't get SMC easily in this sync context, we skip confluence or make it async
+    result = analyzer.analyze_snapshot(data, current_spot_price=price_to_use, smc_data=smc_data)
     
     return {
         "snapshot_at": snapshot_time,

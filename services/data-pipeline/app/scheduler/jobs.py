@@ -257,16 +257,54 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     to_timestamp=to_ts
                                 )
                                 for bar in trendbars:
-                                    low = bar.low
+                                    # cTrader V2 Trendbars: Open/High/Close are deltas relative to Low.
+                                    # BUG: Some broker feeds (or message sequences) send ABSOLUTE values in delta fields.
+                                    # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
+                                    low_raw = bar.low
+                                    
+                                    # Dynamic Divisor to avoid hard-coding
+                                    digits = int(ms.details.get('digits') or 5) if ms.details else 5
+                                    divisor = 10.0 ** digits
+                                    open_delta = bar.deltaOpen
+                                    high_delta = bar.deltaHigh
+                                    close_delta = bar.deltaClose
+                                    
+                                    # If any delta is suspiciously large (> 50% of low), the feed is sending absolute values.
+                                    if open_delta > (low_raw * 0.5):
+                                        open_p = open_delta
+                                        high_p = high_delta
+                                        close_p = close_delta
+                                    else:
+                                        open_p = low_raw + open_delta
+                                        high_p = low_raw + high_delta
+                                        close_p = low_raw + close_delta
+
+                                    open_p_norm = open_p / divisor
+                                    high_p_norm = high_p / divisor
+                                    low_p_norm = low_raw / divisor
+                                    close_p_norm = close_p / divisor
+
+                                    # cTrader Gold Quirk: Some feeds (e.g. IC Markets etc) send doubled price (likely Bid+Ask aggregate or scaling issue).
+                                    # If the price is > 3500 for Gold from CTRADER source, it's likely doubled.
+                                    # This is an anomaly detection threshold, not a fixed target.
+                                    # [USER CORRECTION]: Gold price is ~5000 in 2026. Do not normalize.
+                                    # if source.provider == "CTRADER" and symbol_name == 'XAUUSD' and close_p_norm > 3500:
+                                    #    open_p_norm /= 2.0
+                                    #    high_p_norm /= 2.0
+                                    #    low_p_norm /= 2.0
+                                    #    close_p_norm /= 2.0
+                                    #    if bar == trendbars[0]:
+                                    #        logger.info(f"NORMALIZATION [CTRADER/XAUUSD]: Detected doubled price in close ({close_p_norm * 2.0:.2f}). Applied 2x divisor. Final: {close_p_norm:.2f}")
+
                                     batch_data.append({
                                         "market_symbol_id": ms.id,
                                         "symbol": symbol_name,
                                         "timeframe": tf,
                                         "timestamp": datetime.utcfromtimestamp(bar.utcTimestampInMinutes * 60),
-                                        "open": (low + bar.deltaOpen) / 100000.0,
-                                        "high": (low + bar.deltaHigh) / 100000.0,
-                                        "low": low / 100000.0,
-                                        "close": (low + bar.deltaClose) / 100000.0,
+                                        "open": open_p_norm,
+                                        "high": high_p_norm,
+                                        "low": low_p_norm,
+                                        "close": close_p_norm,
                                         "volume": bar.volume,
                                         "is_complete": True 
                                     })

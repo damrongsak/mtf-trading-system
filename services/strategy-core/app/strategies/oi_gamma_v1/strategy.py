@@ -216,21 +216,16 @@ async def strategy(state, data_manager):
     # 2. Analyze
     analyzer = LiquidityProfileAnalyzer()
     
-    # We use the futures underlying price for the offset calculation if available
-    # But for the *Regime* and *Levels*, we need them mapped to SPOT.
-    # The analyzer does the mapping if we provide the current spot price.
-    # Wait, analyzer.analyze_snapshot takes 'current_spot_price'.
-    # It calculates levels relative to Spot using the Offset.
-    
+    # 2b. Fetch SMC data for confluence
+    smc_data = None
+    try:
+        from app.indicators.smc import analyze_smc
+        smc_data = analyze_smc(data, symbol)
+    except Exception as e:
+        logger.warning(f"Failed to calculate SMC for OI confluence: {e}")
+
     # Correct Usage:
-    # We pass the Raw Futures Strikes (in records).
-    # We pass the Current Spot Price.
-    # The Analyzer needs to know the Futures Price to calc offset. 
-    # The records contain 'underlying_price' (Futures Price).
-    # Analyzer internal logic:
-    #   offset = futures_price - spot_price
-    #   adjusted_strike = raw_strike - offset
-    analysis = analyzer.analyze_snapshot(oi_data['records'], current_spot_price=current_price)
+    analysis = analyzer.analyze_snapshot(oi_data['records'], current_spot_price=current_price, smc_data=smc_data)
     
     levels = analysis['levels']
     regime_info = analysis['regime']
@@ -320,7 +315,10 @@ async def strategy(state, data_manager):
                 "gamma_flip": gamma_flip,
                 "put_wall": put_wall.strike if put_wall else None,
                 "call_wall": call_wall.strike if call_wall else None,
-                "underlying_futures": oi_data.get('underlying_futures_price')
+                "underlying_futures": oi_data.get('underlying_futures_price'),
+                "basis_offset": oi_data.get('underlying_futures_price', 0) - current_price if oi_data.get('underlying_futures_price') else 0,
+                "confluence": (put_wall.confluence if direction == "BULLISH" and put_wall else (call_wall.confluence if call_wall else [])),
+                "zone_type": (put_wall.zone_type if direction == "BULLISH" and put_wall else (call_wall.zone_type if call_wall else "MAJOR"))
             }
         }
         

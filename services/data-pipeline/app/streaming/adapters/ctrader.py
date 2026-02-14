@@ -152,6 +152,12 @@ class CTraderStreamer(StreamAdapter):
             if current_state["bid"] == 0.0 and current_state["ask"] == 0.0:
                 return # Parsing or initialization issue
 
+            # Correct Doubled Price for XAUUSD (Feed Error)
+            # [USER CORRECTION]: Gold price is ~5000 in 2026. Do not normalize.
+            # if symbol_name == "XAUUSD" and current_state["bid"] > 3500:
+            #     current_state["bid"] /= 2.0
+            #     current_state["ask"] /= 2.0
+
             data = {
                 "type": "PRICE",
                 "source": "ctrader",

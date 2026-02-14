@@ -81,11 +81,46 @@ export function PendingSignalsList() {
                             </div>
                         </div>
                         
-                        <div className="text-sm text-gray-300 mb-4 space-y-1">
+                        <div className="text-sm text-gray-300 mb-2 space-y-1">
                             <p>Price: <span className="font-mono">{signal.entry_price}</span></p>
                             <p>Strategy: <span className="text-blue-300">{signal.strategy_name?.replace('Strategy-', '')}</span></p>
                             <p className="text-xs italic mt-2 opacity-70">"{signal.reason}"</p>
                         </div>
+
+                        {/* Rich Metadata Display */}
+                        {signal.metadata && (
+                            <div className="mb-4 p-2 rounded bg-black/30 border border-gray-700/30 space-y-1.5">
+                                {signal.metadata.zone_type && (
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-gray-500 uppercase tracking-wider">Zone</span>
+                                        <span className={`font-bold ${signal.metadata.zone_type === 'MAJOR' ? 'text-orange-400' : 'text-blue-400'}`}>
+                                            {signal.metadata.zone_type}
+                                        </span>
+                                    </div>
+                                )}
+                                
+                                {signal.metadata.basis_offset !== undefined && (
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-gray-500 uppercase tracking-wider">Basis</span>
+                                        <span className="text-gray-300 font-mono">
+                                            {signal.metadata.basis_offset > 0 ? '+' : ''}{Number(signal.metadata.basis_offset).toFixed(2)}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {signal.metadata.confluence && signal.metadata.confluence.length > 0 && (
+                                    <div className="pt-1 border-t border-gray-700/50">
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {signal.metadata.confluence.map((tag: string, i: number) => (
+                                                <span key={i} className="px-1 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[8px] font-bold uppercase">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex gap-2 mt-4 pt-3 border-t border-gray-700">
                             <button

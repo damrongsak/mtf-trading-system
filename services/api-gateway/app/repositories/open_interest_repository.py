@@ -178,3 +178,38 @@ class OpenInterestRepository:
             .order_by(OpenInterest.contract_symbol)\
             .all()
         return [r[0] for r in results]
+
+    def get_drift_analysis(self, latest_snapshot: datetime, prev_snapshot: datetime, contract_symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Calculates drift metrics between two OI snapshots.
+        """
+        latest = self.get_analysis_data(latest_snapshot, contract_symbol=contract_symbol)
+        prev = self.get_analysis_data(prev_snapshot, contract_symbol=contract_symbol)
+
+        lat_sum = latest.get("summary", {})
+        pre_sum = prev.get("summary", {})
+
+        # Sentiment Drift
+        pcr_drift = lat_sum.get("pcr", 1.0) - pre_sum.get("pcr", 1.0)
+        
+        lat_net = lat_sum.get("total_call_oi", 0) - lat_sum.get("total_put_oi", 0)
+        pre_net = pre_sum.get("total_call_oi", 0) - pre_sum.get("total_put_oi", 0)
+        net_drift = lat_net - pre_net
+
+        # Wall Migration
+        cw_shift = lat_sum.get("max_call_strike", 0.0) - pre_sum.get("max_call_strike", 0.0)
+        pw_shift = lat_sum.get("max_put_strike", 0.0) - pre_sum.get("max_put_strike", 0.0)
+        
+        # OIWAP Migration
+        oiwap_shift = lat_sum.get("oiwap", 0.0) - pre_sum.get("oiwap", 0.0)
+
+        return {
+            "pcr_drift": round(pcr_drift, 4),
+            "net_oi_drift": net_drift,
+            "call_wall_shift": cw_shift,
+            "put_wall_shift": pw_shift,
+            "oiwap_shift": round(oiwap_shift, 2),
+            "sentiment": "Bullish Shift" if net_drift > 0 else "Bearish Shift",
+            "latest_summary": lat_sum,
+            "prev_summary": pre_sum
+        }
