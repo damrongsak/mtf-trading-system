@@ -79,18 +79,18 @@ class MarketStateTool(BaseTool):
                                          g_levels = g_ctx.get("levels", [])
                                          
                                          # Find Walls
-                                         call_wall = next((l for l in g_levels if l["type"] == "CALL_WALL"), None)
-                                         put_wall = next((l for l in g_levels if l["type"] == "PUT_WALL"), None)
+                                         call_wall = next((l for l in g_levels if l.get("type") == "CALL_WALL"), None)
+                                         put_wall = next((l for l in g_levels if l.get("type") == "PUT_WALL"), None)
                                          
                                          gamma_report = (
-                                             f"{g_regime.get('regime', 'UNKNOWN')}\n"
-                                             f"  - Flip Level: {g_regime.get('gamma_flip_level', 'N/A')}\n"
+                                             f"**{g_regime.get('regime', 'UNKNOWN')} Gamma**\n"
+                                             f"  - Gamma Flip: {g_regime.get('gamma_flip_level', 'N/A')}\n"
                                              f"  - Call Wall: {call_wall['strike'] if call_wall else 'N/A'}\n"
                                              f"  - Put Wall: {put_wall['strike'] if put_wall else 'N/A'}"
                                          )
                          except Exception as e:
                              logger.error(f"Gamma fetch failed: {e}")
-                             gamma_report = "Error fetching Gamma data"
+                             gamma_report = "Gamma Data Unavailable"
 
                          report = (
                              f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"

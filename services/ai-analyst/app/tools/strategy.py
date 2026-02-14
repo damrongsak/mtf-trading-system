@@ -52,8 +52,10 @@ class StrategyBacktestTool(BaseTool):
                             f"Backtest Results for {symbol}:\n"
                             f"- Total Return: {metrics.get('total_return_percent', 0):.2f}%\n"
                             f"- Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.2f}\n"
-                            f"- Max Drawdown: {metrics.get('max_drawdown_percent', 0):.2f}%\n"
+                            f"- Profit Factor: {metrics.get('profit_factor', 0):.2f}\n"
                             f"- Win Rate: {metrics.get('win_rate', 0):.2f}%\n"
+                            f"- K-Ratio: {metrics.get('k_ratio', 0):.2f}\n"
+                            f"- Max Drawdown: {metrics.get('max_drawdown_percent', 0):.2f}%\n"
                             f"- Trades: {metrics.get('total_trades', 0)}"
                         )
                         return summary
