@@ -18,7 +18,15 @@ class MarketStateTool(BaseTool):
         if isinstance(input_data, str) and input_data:
             symbol = input_data
         elif isinstance(input_data, dict):
-            symbol = input_data.get("symbol", "XAUUSD")
+            # Robust extraction if sym is a full symbol object
+            symbol = input_data.get("symbol")
+            if not symbol:
+                symbol = "XAUUSD" # Final fallback
+            
+            # If the value itself is a dict (LLM passed full object as value), extract symbol name
+            if isinstance(symbol, dict):
+                symbol = symbol.get("symbol") or "XAUUSD"
+                
             timeframe = input_data.get("timeframe", "H1")
 
         async with aiohttp.ClientSession() as session:

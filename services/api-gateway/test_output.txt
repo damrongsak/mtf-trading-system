@@ -1,0 +1,309 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0 -- /app/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+configfile: pyproject.toml
+plugins: cov-7.0.0, asyncio-1.3.0, anyio-4.12.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/test_signal.py::test_get_latest_signal FAILED                      [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_get_latest_signal ____________________________
+
+client = <starlette.testclient.TestClient object at 0x724b17e3c380>
+
+    def test_get_latest_signal(client):
+        symbol = "XAUUSD"
+    
+        # Mock Data Pipeline and Strategy Core responses
+        mock_candles = {
+            "data": [
+                {"timestamp": "2023-01-01T00:00:00", "open": 2000, "high": 2010, "low": 1990, "close": 2005, "volume": 100}
+            ]
+        }
+        mock_smc = {
+            "order_blocks": [{"type": "bullish", "top": 2010, "bottom": 1990, "mitigated": False}]
+        }
+    
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
+             patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+    
+            mock_get.return_value = MagicMock(status_code=200)
+            mock_get.return_value.json = lambda: mock_candles
+            mock_get.return_value.raise_for_status = MagicMock()
+    
+            mock_post.return_value = MagicMock(status_code=200)
+            mock_post.return_value.json = lambda: mock_smc
+            mock_post.return_value.raise_for_status = MagicMock()
+    
+>           response = client.get(f"/api/v1/signal/latest/{symbol}")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_signal.py:28: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/starlette/testclient.py:514: in get
+    return super().get(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1053: in get
+    return self.request(
+.venv/lib/python3.12/site-packages/starlette/testclient.py:484: in request
+    return super().request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/starlette/testclient.py:377: in handle_request
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/testclient.py:374: in handle_request
+    portal.call(self.app, scope, receive, send)
+.venv/lib/python3.12/site-packages/anyio/from_thread.py:326: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+.venv/lib/python3.12/site-packages/anyio/from_thread.py:257: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/fastapi/applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:187: in __call__
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:165: in __call__
+    await self.app(scope, receive, _send)
+.venv/lib/python3.12/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py:62: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/starlette/routing.py:715: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:735: in app
+    await route.handle(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:288: in handle
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:76: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/starlette/routing.py:73: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/fastapi/routing.py:301: in app
+    raw_response = await run_endpoint_function(
+.venv/lib/python3.12/site-packages/fastapi/routing.py:212: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+symbol = 'XAUUSD', timeframe = 'H1'
+
+    @router.get("/latest/{symbol:path}", response_model=APIResponse[SignalResponse])
+    async def get_latest_signal(symbol: str, timeframe: str = "H1"):
+        """
+        Get the latest signal for a specific symbol by orchestrating:
+        1. Fetch candles from Data Pipeline
+        2. Analyze using Strategy Core (SMC)
+        3. Determine Signal
+        """
+        async with httpx.AsyncClient() as client:
+            try:
+                # 1. Fetch Candles
+                # We do NOT specify broker, letting data-pipeline pick the ACTIVE one (e.g. CTRADER).
+                # This follows the project rule: "check active flag is true".
+    
+                # Note: timeframe format mismatch might occur (H1 vs 1h).
+                # Assuming data-pipeline uses standard formats like 'H1'.
+                candles_resp = await client.get(
+                    f"{DATA_SERVICE_URL}/api/v1/candles",
+                    params={"symbol": symbol.upper(), "timeframe": timeframe, "page_size": 100},
+                    timeout=30.0
+                )
+                candles_resp.raise_for_status()
+                candles_data = candles_resp.json().get("data", [])
+    
+                if not candles_data:
+                     # Fallback/Empty
+                    return success_response(data=SignalResponse(
+                        symbol=symbol.upper(), timeframe=timeframe, timestamp=datetime.now(timezone.utc),
+                        direction=SignalDirection.NEUTRAL, entry_price=0, sl_price=0, tp_price=0,
+                        reason="No data available"
+                    ))
+    
+                # Sort candles by timestamp ascending for analysis (API returns desc usually)
+                # Check implementation of data-pipeline: order_by(Candle.timestamp.desc())
+                # So we need to reverse them.
+                candles_data.reverse()
+    
+                opens = [float(c["open"]) for c in candles_data]
+                highs = [float(c["high"]) for c in candles_data]
+                lows = [float(c["low"]) for c in candles_data]
+                closes = [float(c["close"]) for c in candles_data]
+                volumes = [float(c["volume"]) for c in candles_data]
+                last_close = closes[-1]
+                last_time = candles_data[-1]["timestamp"]
+    
+            except Exception as e:
+                 logger.error(f"Data Service Error for {symbol} @ {timeframe}: {str(e)} | URL: {DATA_SERVICE_URL}/api/v1/candles")
+                 raise HTTPException(status_code=503, detail=f"Data Service Error: {str(e)}")
+    
+            # 2. Analyze with Strategy Core
+            try:
+                smc_payload = {
+                    "symbol": symbol.upper(),
+                    "timeframe": timeframe,
+                    "open": opens,
+                    "high": highs,
+                    "low": lows,
+                    "close": closes,
+                    "volume": volumes,
+                    "timestamps": [c["timestamp"] for c in candles_data]
+                }
+                smc_resp = await client.post(
+                    f"{STRATEGY_SERVICE_URL}/api/v1/calculate/smc",
+                    json=smc_payload,
+                    timeout=30.0
+                )
+                smc_resp.raise_for_status()
+                analysis = smc_resp.json()
+    
+            except Exception as e:
+                logger.error(f"Strategy Service Error for {symbol} @ {timeframe}: {str(e)} | URL: {STRATEGY_SERVICE_URL}/api/v1/calculate/smc")
+                raise HTTPException(status_code=503, detail=f"Strategy Service Error: {str(e)}")
+    
+        # 3. Use Strategic Results from Strategy Core
+        direction = analysis.get("institutional_bias", "NEUTRAL")
+        reason = analysis.get("strategic_reasoning", "No clear signal")
+    
+        # Map to Enum
+        direction_enum = SignalDirection.NEUTRAL
+        if direction == "BULLISH":
+            direction_enum = SignalDirection.LONG
+        elif direction == "BEARISH":
+            direction_enum = SignalDirection.SHORT
+    
+        # 4. Calculate Market Status and Data Freshness
+        from app.services.market_status import MarketStatusService
+    
+        market_service = MarketStatusService()
+        status = await market_service.get_market_status(symbol)
+    
+        # Calculate data age
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        if isinstance(last_time, str):
+            last_candle_time = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+        else:
+            last_candle_time = last_time
+    
+>       age_seconds = int((now - last_candle_time).total_seconds())
+                           ^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: can't subtract offset-naive and offset-aware datetimes
+
+app/routers/signal.py:165: TypeError
+---------------------------- Captured stdout setup -----------------------------
+2026-02-15T12:17:40Z [INFO] app.streaming.manager: StreamManager background listener started.
+2026-02-15T12:17:40Z [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-15T12:17:40Z [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-15T12:17:40Z [INFO] app.scheduler: APScheduler started.
+2026-02-15T12:17:40Z [INFO] apscheduler.scheduler: Added job "check_and_refresh_tokens_job" to job store "default"
+2026-02-15T12:17:40Z [INFO] apscheduler.scheduler: Added job "cleanup_strategy_logs_job" to job store "default"
+2026-02-15T12:17:40Z [INFO] apscheduler.scheduler: Scheduler started
+2026-02-15T12:17:41Z [INFO] app.utils.redis_subscriber: Connected to Redis at redis://redis:6379/0
+2026-02-15T12:17:41Z [INFO] app.streaming.manager: StreamManager: Attempting to psubscribe to market_data:tick:* and market.features.*
+------------------------------ Captured log setup ------------------------------
+INFO     app.streaming.manager:manager.py:103 StreamManager background listener started.
+INFO     apscheduler.scheduler:base.py:507 Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO     apscheduler.scheduler:base.py:507 Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO     app.scheduler:scheduler.py:93 APScheduler started.
+INFO     apscheduler.scheduler:base.py:1090 Added job "check_and_refresh_tokens_job" to job store "default"
+INFO     apscheduler.scheduler:base.py:1090 Added job "cleanup_strategy_logs_job" to job store "default"
+INFO     apscheduler.scheduler:base.py:214 Scheduler started
+INFO     app.utils.redis_subscriber:redis_subscriber.py:19 Connected to Redis at redis://redis:6379/0
+INFO     app.streaming.manager:manager.py:122 StreamManager: Attempting to psubscribe to market_data:tick:* and market.features.*
+------------------------------ Captured log call -------------------------------
+INFO     app.utils.redis_subscriber:redis_subscriber.py:31 PSubscribed to pattern: market_data:tick:*
+INFO     app.utils.redis_subscriber:redis_subscriber.py:31 PSubscribed to pattern: market.features.*
+--------------------------- Captured stdout teardown ---------------------------
+2026-02-15T12:17:41Z [INFO] app.utils.redis_subscriber: PSubscribed to pattern: market_data:tick:*
+2026-02-15T12:17:41Z [INFO] app.utils.redis_subscriber: PSubscribed to pattern: market.features.*
+2026-02-15T12:17:41Z [INFO] app.utils.redis_subscriber: PSubscribed to pattern: market_data:info:*
+2026-02-15T12:17:41Z [INFO] app.streaming.manager: StreamManager: PSubscribed successfully.
+2026-02-15T12:17:43Z [INFO] app.streaming.manager: StreamManager background listener stopped.
+---------------------------- Captured log teardown -----------------------------
+INFO     app.streaming.manager:manager.py:116 StreamManager background listener stopped.
+=============================== warnings summary ===============================
+app/routers/analysis.py:71
+  /app/tests/../app/routers/analysis.py:71: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @router.on_event("startup")
+
+app/routers/analysis.py:76
+  /app/tests/../app/routers/analysis.py:76: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @router.on_event("shutdown")
+
+app/main.py:23
+  /app/tests/../app/main.py:23: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+.venv/lib/python3.12/site-packages/fastapi/applications.py:4495
+.venv/lib/python3.12/site-packages/fastapi/applications.py:4495
+  /app/.venv/lib/python3.12/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+app/main.py:34
+  /app/tests/../app/main.py:34: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:295
+.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:295
+  /app/.venv/lib/python3.12/site-packages/pydantic/_internal/_config.py:295: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.10/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_signal.py::test_get_latest_signal - TypeError: can't subtract offset-naive and offset-aware datetimes
+======================== 1 failed, 8 warnings in 3.16s =========================

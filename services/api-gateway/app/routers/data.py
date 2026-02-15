@@ -309,8 +309,14 @@ async def get_candles(
     """
     async with httpx.AsyncClient() as client:
         try:
+            # Normalize and validate symbol
+            clean_symbol = symbol.strip().upper()
+            if '{' in clean_symbol or '}' in clean_symbol:
+                logger.warning(f"Malformed symbol detected in request: {symbol}")
+                raise HTTPException(status_code=400, detail="Invalid symbol format")
+
             params = {
-                "symbol": symbol,
+                "symbol": clean_symbol,
                 "timeframe": timeframe,
                 "broker": broker,
                 "page": page,

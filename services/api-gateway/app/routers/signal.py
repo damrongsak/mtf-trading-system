@@ -158,9 +158,19 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     from datetime import timezone
     now = datetime.now(timezone.utc)
     if isinstance(last_time, str):
-        last_candle_time = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+        # Handle ISO format with or without timezone
+        if 'Z' in last_time:
+            last_candle_time = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+        elif '+' in last_time or last_time.count('-') > 2:  # Has timezone offset
+            last_candle_time = datetime.fromisoformat(last_time)
+        else:
+            # Naive datetime, add UTC timezone
+            last_candle_time = datetime.fromisoformat(last_time).replace(tzinfo=timezone.utc)
     else:
         last_candle_time = last_time
+        # Ensure datetime object has timezone
+        if last_candle_time.tzinfo is None:
+            last_candle_time = last_candle_time.replace(tzinfo=timezone.utc)
     
     age_seconds = int((now - last_candle_time).total_seconds())
     
@@ -336,11 +346,14 @@ async def get_batch_signals(req: SignalBatchRequest):
         
         async def fetch_candle(sym):
             try:
-                # Use default fallback behavior? No, we filter by broker so we should find it.
-                # Just call get_candles proxy we made in data.py? No, call direct data-pipeline
+                # sym might be a dict (from data-pipeline symbols endpoint) or a string
+                actual_symbol = sym.get("symbol") if isinstance(sym, dict) else sym
+                if not actual_symbol:
+                    return str(sym), []
+                
                 resp = await client.get(
                     f"{DATA_SERVICE_URL}/api/v1/candles",
-                    params={"symbol": sym, "timeframe": timeframe, "page_size": 100, "broker": req.broker},
+                    params={"symbol": actual_symbol, "timeframe": timeframe, "page_size": 100, "broker": req.broker},
                     timeout=5.0
                 )
                 if resp.status_code == 200:
@@ -349,10 +362,10 @@ async def get_batch_signals(req: SignalBatchRequest):
                         # Reverse needed? Data Pipeline usually returns DESC.
                         # Implementation check: yes it does order_by(desc)
                         data.reverse()
-                        return sym, data
+                        return actual_symbol, data
             except:
                 pass
-            return sym, []
+            return actual_symbol, []
 
         # Batch fetches
         tasks = [fetch_candle(sym) for sym in symbols]

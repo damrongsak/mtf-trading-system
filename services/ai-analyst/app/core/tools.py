@@ -184,6 +184,10 @@ class MarketDataTool(BaseTool):
                 include_news = True    # Default True
         elif isinstance(input_data, dict):
             symbol = input_data.get("symbol", symbol)
+            # Robust extraction if the value itself is a dict
+            if isinstance(symbol, dict):
+                symbol = symbol.get("symbol") or "XAUUSD"
+                
             timeframe = input_data.get("timeframe", timeframe)
             include_candles = input_data.get("include_candles", True) # Default True
             include_news = input_data.get("include_news", True)       # Default True

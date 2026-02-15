@@ -11,8 +11,12 @@ class GetMarketContextTool(BaseTool):
         symbol = "XAUUSD"
         if isinstance(input_data, str) and input_data:
             symbol = input_data
-        elif isinstance(input_data, dict) and "symbol" in input_data:
-            symbol = input_data["symbol"]
+        elif isinstance(input_data, dict):
+            symbol = input_data.get("symbol", "XAUUSD")
+            
+            # Robust extraction if the value itself is a dict
+            if isinstance(symbol, dict):
+                symbol = symbol.get("symbol") or "XAUUSD"
             
         async with aiohttp.ClientSession() as session:
             try:
