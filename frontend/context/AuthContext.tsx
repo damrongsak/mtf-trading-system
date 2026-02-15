@@ -67,7 +67,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Redirect unauthenticated users from protected routes
   useEffect(() => {
     if (!loading && !authToken && pathname !== "/login") {
-      const protectedRoutes = ['/dashboard', '/journal', '/signals', '/backtest', '/ai-analyst', '/settings'];
+      const protectedRoutes = [
+        '/dashboard', 
+        '/journal', 
+        '/signals', 
+        '/backtest', 
+        '/ai-analyst', 
+        '/settings',
+        '/deployments',
+        '/strategies',
+        '/analysis',
+        '/trading',
+        '/portfolio',
+        '/optimization',
+        '/simulation',
+        '/market',
+        '/data'
+      ];
       const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
       
       if (isProtectedRoute) {

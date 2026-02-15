@@ -34,6 +34,7 @@ services:
       - STRATEGY_CORE_URL=http://strategy-core:8000
       - REDIS_URL=redis://redis:6379/0
       - AI_ANALYST_URL=http://ai-analyst:8000
+      - PYTHONUNBUFFERED=1
     deploy:
       resources:
         limits:
@@ -127,6 +128,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - NUMBA_NUM_THREADS=1
       - OMP_NUM_THREADS=1
+      - PYTHONUNBUFFERED=1
     deploy:
       resources:
         limits:

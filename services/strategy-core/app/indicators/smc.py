@@ -1,6 +1,8 @@
-import pandas as pd
-import numpy as np
+from __future__ import annotations
 from typing import List, Dict, Any, TypedDict, Optional
+# Heavy imports moved inside functions to prevent hang during registration initialization
+# import pandas as pd
+# import numpy as np
 
 # --- Type Definitions ---
 
@@ -59,6 +61,8 @@ class SMCStructure(TypedDict):
 # --- Detection Logic ---
 
 def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
+    import pandas as pd
+    import numpy as np
     """
     Detect Order Blocks (OB) using Vectorized Vector Operations.
     Bullish OB: Last down candle before a strong up move (impulsive move).
@@ -177,6 +181,8 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
     return sorted(obs, key=lambda x: x['index'])
 
 def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
+    import pandas as pd
+    import numpy as np
     """
     Detect FVG using Vectorization.
     Bullish: Low[i] > High[i-2]
@@ -255,6 +261,8 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
     return sorted(fvgs, key=lambda x: x['index'])
 
 def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
+    import pandas as pd
+    import numpy as np
     """
     Detect Sweeps using Vectorization.
     """
@@ -317,6 +325,8 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
     return sorted(sweeps, key=lambda x: x['index'])
 
 def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
+    import pandas as pd
+    import numpy as np
     """
     Detect Structure using Rolling Window Vectorization (Local Max/Min).
     """
@@ -446,6 +456,7 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
     return structure
 
 def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, float]:
+    import pandas as pd
     """
     Calculate Fib levels.
     """
@@ -480,6 +491,7 @@ def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, floa
     }
 
 def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1") -> Dict[str, Any]:
+    import pandas as pd
     """
     Central orchestration for all SMC indicators and metadata.
     Includes Institutional Bias and Strategic Reasoning.

@@ -1,10 +1,10 @@
-import pandas as pd
-import numpy as np
+from __future__ import annotations
 from enum import Enum
 from typing import Optional, Dict, Any, Tuple
-from app.indicators import calculate_ema, calculate_atr
-from app.indicators.smc import detect_order_blocks, detect_fvg
-from app.features.quant_features import QuantreoFeatures
+# Heavy imports moved inside functions to prevent hang during registration initialization
+# from app.indicators import calculate_ema, calculate_atr
+# from app.indicators.smc import detect_order_blocks, detect_fvg
+# from app.features.quant_features import QuantreoFeatures
 
 class SignalDirection(str, Enum):
     BULLISH = "BULLISH"
@@ -12,7 +12,8 @@ class SignalDirection(str, Enum):
     NEUTRAL = "NEUTRAL"
 
 
-def check_macro_bias(df_h4: pd.DataFrame, ema_period: int = 200) -> SignalDirection:
+def check_macro_bias(df_h4, ema_period: int = 200) -> SignalDirection:
+    import pandas as pd
     """
     Rule A: Macro Bias
     - Bullish if Close > EMA200
@@ -25,6 +26,7 @@ def check_macro_bias(df_h4: pd.DataFrame, ema_period: int = 200) -> SignalDirect
     if len(df_h4) < ema_period + 2:
         return SignalDirection.NEUTRAL
 
+    from app.indicators import calculate_ema
     ema = calculate_ema(df_h4['close'], span=ema_period)
     
     # Strict Bias Prevention: Use -2 (Last Completed)
@@ -38,7 +40,8 @@ def check_macro_bias(df_h4: pd.DataFrame, ema_period: int = 200) -> SignalDirect
     
     return SignalDirection.NEUTRAL
 
-def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
+def check_setup_zone(df_h1, direction: SignalDirection) -> bool:
+    import pandas as pd
     """
     Rule B: Setup Zone (Confluence)
     - Bullish: Price in Discount Zone (Fib 0.5-0.618) of last swing + Bullish PD Array (OB/FVG)
@@ -52,6 +55,7 @@ def check_setup_zone(df_h1: pd.DataFrame, direction: SignalDirection) -> bool:
     if direction == SignalDirection.NEUTRAL:
         return False
 
+    from app.indicators.smc import detect_order_blocks
     # Get recent Order Blocks
     # We only care if CURRENT price is inside an OB.
     obs = detect_order_blocks(df_h1)
@@ -94,7 +98,8 @@ def check_market_regime(df_h1: pd.DataFrame, direction: SignalDirection) -> Dict
     
     return context
 
-def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
+def check_trigger(df_m15, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
+    import pandas as pd
     """
     Rule C: Trigger
     - Volatility Check (Quantreo)
@@ -106,6 +111,7 @@ def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold
     if len(df_m15) < 32: 
         return False
 
+    from app.features.quant_features import QuantreoFeatures
     # 1. Quantreo Volatility Filter
     df_vol = QuantreoFeatures.add_volatility_features(df_m15, window_size=30)
     # Check volatility of the CLOSED candle setup
@@ -166,11 +172,13 @@ def check_trigger(df_m15: pd.DataFrame, direction: SignalDirection, rv_threshold
         
     return False
 
-def calculate_stop_loss(df_m15: pd.DataFrame, direction: SignalDirection, atr_mult: float = 1.75) -> float:
+def calculate_stop_loss(df_m15, direction: SignalDirection, atr_mult: float = 1.75) -> float:
+    import pandas as pd
     """
     Rule D: Risk Management (Stop Loss)
     - SL = ATR(14) * M (Using Last Completed Candle)
     """
+    from app.indicators import calculate_atr
     atr = calculate_atr(df_m15['high'], df_m15['low'], df_m15['close'], window=14)
     last_atr = atr.iloc[-2]
     
@@ -183,7 +191,8 @@ def calculate_stop_loss(df_m15: pd.DataFrame, direction: SignalDirection, atr_mu
     else:
         return current_price + dist
 
-def calculate_target_price(df_h1: pd.DataFrame, direction: SignalDirection, entry_price: float, sl_price: float) -> float:
+def calculate_target_price(df_h1, direction: SignalDirection, entry_price: float, sl_price: float) -> float:
+    import pandas as pd
     """
     Calculate Target Price (TP) for RRR calculation.
     
@@ -200,6 +209,7 @@ def calculate_target_price(df_h1: pd.DataFrame, direction: SignalDirection, entr
     else:
         fallback_tp = entry_price - (risk_dist * 2.0)
         
+    from app.indicators.smc import detect_order_blocks
     # Get Order Blocks
     obs = detect_order_blocks(df_h1)
     

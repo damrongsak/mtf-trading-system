@@ -1,13 +1,10 @@
-
 import asyncio
 import logging
 import os
 import importlib
-from typing import Optional, Dict, Any
-import pandas as pd
+from typing import Optional, Dict, Any, List
+import sys
 from app.logic import check_macro_bias, check_setup_zone, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
-
-from app.indicators.smc import detect_order_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +35,21 @@ class StrategyRegistry:
         logger.info(f"Scanning for strategies in: {strategies_dir}")
 
         for item in os.listdir(strategies_dir):
+            if item == "__pycache__": continue
             strategy_path = os.path.join(strategies_dir, item)
             
             # Check if it's a directory and has strategy.py
             if os.path.isdir(strategy_path) and "strategy.py" in os.listdir(strategy_path):
+                logger.info(f"Found potential strategy directory: {item}")
                 try:
                     module_name = f"app.strategies.{item}.strategy"
+                    logger.info(f"Attempting to import {module_name}")
                     module = importlib.import_module(module_name)
                     
                     # 1. Get Metadata
                     if hasattr(module, "METADATA"):
                         metadata = module.METADATA
+                        logger.info(f"Found METADATA for {item}")
                     else:
                         logger.warning(f"Strategy {item} is missing METADATA dict. Skipping.")
                         continue
@@ -58,6 +59,7 @@ class StrategyRegistry:
                     func = None
                     if hasattr(module, "strategy"):
                         func = module.strategy
+                        logger.info(f"Found 'strategy' function for {item}")
                     else:
                         logger.warning(f"Strategy {item} is missing 'strategy' function.")
                         continue
@@ -91,6 +93,7 @@ class StrategyRegistry:
                                 # To get 1 year for a VBT strategy, we need to fetch from DB.
                                 # But wrapper runs inside 'strategy-core' service, so we can access DB.
                                 
+                                import pandas as pd
                                 df = pd.DataFrame()
                                 
                                 # 1a. Try Live Data Manager first (Priority for Real-Time)
@@ -172,6 +175,9 @@ class StrategyRegistry:
                                 return None
 
                         cls._strategies[item] = wrapper
+                    else:
+                        # Already async, register directly
+                        cls._strategies[item] = func
 
                     cls._metadata[item] = metadata
                     logger.info(f"Registered strategy: {item}")
@@ -252,6 +258,7 @@ class StrategyRegistry:
         WARNING: exec() is used. Ensure code is sandboxed or trusted in production.
         """
         try:
+            import pandas as pd
             # 1. Prepare Globals
             allowed_globals = {
                 "pd": pd,
@@ -293,8 +300,8 @@ class StrategyRegistry:
             logger.error(f"Failed to compile custom strategy {template_id}: {e}")
             raise e
 
-# Initial Load
-StrategyRegistry.load_strategies()
+# Initial Load (REMOVED - Loaded by FleetManager or on first access)
+# StrategyRegistry.load_strategies()
 
 
 

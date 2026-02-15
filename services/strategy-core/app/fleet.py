@@ -39,15 +39,38 @@ class FleetManager:
         Loads all active strategies and deployments from the database into memory.
         """
         logger.info("Loading Strategy Fleet...")
+        # Force re-scan of strategies
+        StrategyRegistry.load_strategies()
+        
         self.active_strategies = {}
         self.active_deployments = {}
         
-        db: Session = SessionLocal()
+        db = None
+        max_retries = 5
+        retry_delay = 5
+        
+        for attempt in range(max_retries):
+            try:
+                db = SessionLocal()
+                # Test connection
+                from sqlalchemy import text
+                db.execute(text("SELECT 1"))
+                break
+            except Exception as e:
+                if db: db.close()
+                if attempt < max_retries - 1:
+                    logger.warning(f"Database connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(f"Failed to connect to database after {max_retries} attempts. Aborting fleet load.")
+                    return
+
         try:
             # 1. Load Template Strategies (Legacy/Standard)
             strategies = db.execute(
                 select(Strategy).where(Strategy.is_active == True)
             ).scalars().all()
+            logger.info(f"FleetManager found {len(strategies)} active strategies in DB.")
 
             for strategy in strategies:
                 try:
@@ -107,7 +130,7 @@ class FleetManager:
         except Exception as e:
             logger.error(f"Error loading fleet: {e}")
         finally:
-            db.close()
+            if db: db.close()
 
     def get_active_symbols(self) -> List[str]:
         """Returns unique list of symbols tracked by active strategies."""

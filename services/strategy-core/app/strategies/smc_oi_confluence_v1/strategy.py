@@ -1,5 +1,5 @@
 import logging
-import pandas as pd
+# import pandas as pd # Moved inside strategy function
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -85,8 +85,8 @@ async def strategy(state, data_manager):
 
     analyzer = LiquidityProfileAnalyzer()
     # We analyze OI relative to current price to find Walls
-    oi_analysis = analyzer.analyze_snapshot(oi_data['records'], current_spot_price=current_price)
-    levels = oi_analysis['levels']
+    analysis = analyzer.analyze_snapshot(oi_data['records'], current_spot_price=current_price)
+    levels = analysis['levels']
     
     call_wall = next((l for l in levels if l.type == 'CALL_WALL'), None)
     put_wall = next((l for l in levels if l.type == 'PUT_WALL'), None)
@@ -95,6 +95,7 @@ async def strategy(state, data_manager):
     # analyze_smc returns a dict with sweeps, structure, ob, fvg
     smc = analyze_smc(data, symbol)
     
+    import pandas as pd
     entries = pd.Series(False, index=data.index)
     exits = pd.Series(False, index=data.index)
     signal_dict = None
@@ -107,12 +108,9 @@ async def strategy(state, data_manager):
     
     # --- BULLISH SETUP ---
     # Condition 1: Identify Put Wall (Support)
-    # We don't enforce current price proximity here, only that a wall exists
-    put_wall = next((level for level in oi_levels if level['type'] == 'PUT_WALL'), None)
-    call_wall = next((level for level in oi_levels if level['type'] == 'CALL_WALL'), None)
     
     near_put_wall = False
-    if put_wall and abs(current_price - put_wall['strike']) < (current_price * 0.05):
+    if put_wall and abs(current_price - put_wall.strike) < (current_price * 0.05):
         near_put_wall = True
 
         
@@ -130,10 +128,10 @@ async def strategy(state, data_manager):
         for s in reversed(recent_sweeps):
              sweep_price = s['price']
              # If sweep low is within tolerance of Put Wall
-             if abs(sweep_price - put_wall['strike']) < (current_price * 0.005): # 0.5% tolerance
+             if abs(sweep_price - put_wall.strike) < (current_price * 0.005): # 0.5% tolerance
                  valid_sweep = True
                  break
-    logger.debug(f"SMC Check: PutWall={put_wall['strike'] if put_wall else 'None'}, ValidSweep={valid_sweep}, Sweeps={len(recent_sweeps)}")
+    logger.debug(f"SMC Check: PutWall={put_wall.strike if put_wall else 'None'}, ValidSweep={valid_sweep}, Sweeps={len(recent_sweeps)}")
 
     # Condition 3: Market Structure Shift (MSS) - Bullish
     # We need to break the LAST High that preceded the sweep
@@ -183,9 +181,9 @@ async def strategy(state, data_manager):
         if current_price <= best_fvg['top'] * 1.0005: 
              entries.iloc[-1] = True
              bias = "BULLISH"
-             reason = f"Bullish Trap & Shift: Sweep of {recent_sweeps[-1]['level']} into Put Wall {put_wall['strike']} + MSS."
+             reason = f"Bullish Trap & Shift: Sweep of {recent_sweeps[-1]['level']} into Put Wall {put_wall.strike} + MSS."
              stop_loss = recent_sweeps[-1]['level'] - threshold # SL below sweep
-             take_profit = call_wall['strike'] if call_wall else current_price * 1.02
+             take_profit = call_wall.strike if call_wall else current_price * 1.02
 
     # --- BEARISH SETUP ---
     # Symetric logic for Call Wall
@@ -196,7 +194,7 @@ async def strategy(state, data_manager):
     valid_bull_sweep = False # valid_bear_sweep
     if call_wall and has_bull_sweep:
         last_sweep = recent_bull_sweeps[-1]
-        if abs(last_sweep['level'] - call_wall['strike']) < (threshold * 10):
+        if abs(last_sweep['level'] - call_wall.strike) < (threshold * 10):
             valid_bull_sweep = True
             
     last_low_pivot = next((p for p in reversed(pivots) if p['type'] == 'low'), None)
