@@ -38,8 +38,24 @@ class APIGatewayClient:
                 else:
                     logger.error(f"Failed to execute signal: {resp.status_code} {resp.text}")
                     return None
+    async def send_strategy_logs(self, deployment_id: str, output: Dict[str, Any]) -> bool:
+        """
+        Send essential strategy logs to API Gateway for persistence.
+        """
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.post(
+                    f"{self.base_url}/api/v1/internal/strategy-logs",
+                    json={
+                        "deployment_id": deployment_id,
+                        "output": output
+                    },
+                    headers=self.headers,
+                    timeout=2.0
+                )
+                return resp.status_code == 200
             except Exception as e:
-                logger.error(f"Error calling API Gateway: {e}")
-                return None
+                logger.error(f"Error sending strategy logs: {e}")
+                return False
 
 gateway_client = APIGatewayClient()

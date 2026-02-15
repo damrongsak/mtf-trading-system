@@ -71,6 +71,38 @@ def list_deployments(
         per_page=limit,
         total=total
     )
+@router.get("/{id}", response_model=DeploymentResponse)
+def get_deployment(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get a single deployment by ID.
+    """
+    deployment = db.query(Deployment).options(joinedload(Deployment.strategy)).filter(
+        Deployment.id == id, 
+        Deployment.user_id == current_user.id
+    ).first()
+    
+    if not deployment:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+        
+    # Calculate PnL (Copy-paste logic from list for now, or move to service)
+    from sqlalchemy import func
+    from app.models.trade import Trade
+    
+    total_pnl = db.query(func.sum(Trade.pnl_usd)).filter(
+        Trade.metadata_json['deployment_id'].astext == str(deployment.id)
+    ).scalar()
+    
+    dep_resp = DeploymentResponse.model_validate(deployment)
+    dep_resp.total_pnl_usd = float(total_pnl) if total_pnl is not None else 0.0
+    
+    if deployment.strategy:
+         dep_resp.strategy_name = deployment.strategy.name
+         
+    return dep_resp
 
 @router.post("/", response_model=DeploymentResponse)
 async def create_deployment(
@@ -239,3 +271,40 @@ async def stop_bot_instance(deployment_id: str):
             db.commit()
     finally:
         db.close()
+
+@router.get("/{id}/logs", response_model=PaginatedResponse[Any]) # Using Any to avoid circular imports if schema issue, or specific schema
+def get_deployment_logs(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """
+    Get execution logs for a deployment.
+    """
+    # Verify ownership
+    deployment = db.query(Deployment).filter(Deployment.id == id, Deployment.user_id == current_user.id).first()
+    if not deployment:
+         raise HTTPException(status_code=404, detail="Deployment not found")
+
+    from app.models.strategy_execution_log import StrategyExecutionLog
+    from app.schemas.deployment import StrategyLogResponse
+    
+    # Query Logs
+    total = db.query(StrategyExecutionLog).filter(StrategyExecutionLog.deployment_id == id).count()
+    
+    logs = db.query(StrategyExecutionLog).filter(
+        StrategyExecutionLog.deployment_id == id
+    ).order_by(StrategyExecutionLog.timestamp.desc()).offset(skip).limit(limit).all()
+    
+    results = [StrategyLogResponse.model_validate(log) for log in logs]
+    
+    page = (skip // limit) + 1
+    
+    return paginated_response(
+        data=results,
+        page=page,
+        per_page=limit,
+        total=total
+    )

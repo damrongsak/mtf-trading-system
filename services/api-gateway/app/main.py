@@ -8,7 +8,7 @@ from app.logging_config import setup_logging
 
 # Configure logging
 logger = setup_logging()
-from app.routers import signal, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features
+from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features
 # ... (existing code)
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
@@ -97,6 +97,7 @@ app.include_router(auth.router)
 app.include_router(fund.router, prefix="/api/v1/funds")
 app.include_router(settings.router)
 app.include_router(signal.router)
+app.include_router(signals.router)
 app.include_router(risk.router)
 app.include_router(strategy.router)
 app.include_router(journal.router)

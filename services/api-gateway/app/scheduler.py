@@ -50,9 +50,31 @@ async def check_and_refresh_tokens_job():
     finally:
         db.close()
 
+
+async def cleanup_strategy_logs_job():
+    """
+    Deletes strategy execution logs older than 6 hours.
+    """
+    logger.info("Starting Strategy Log Cleanup...")
+    db = SessionLocal()
+    try:
+        from app.models.strategy_execution_log import StrategyExecutionLog
+        from datetime import datetime, timedelta
+        
+        cutoff = datetime.now() - timedelta(hours=6)
+        deleted = db.query(StrategyExecutionLog).filter(
+            StrategyExecutionLog.timestamp < cutoff
+        ).delete()
+        
+        db.commit()
+        logger.info(f"Cleaned up {deleted} strategy execution logs.")
+    except Exception as e:
+        logger.error(f"Strategy Log Cleanup Failed: {e}")
+    finally:
+        db.close()
+
 def start_scheduler():
-    # Run once at startup? Or just schedule?
-    # Usually schedule daily at 00:00 UTC
+    # ... existing jobs ...
     scheduler.add_job(
         check_and_refresh_tokens_job,
         CronTrigger(hour=0, minute=0), # Daily midnight
@@ -60,22 +82,13 @@ def start_scheduler():
         replace_existing=True
     )
     
-    # Also run once immediately on startup (with slight delay) to catch up if needed?
-    # Or maybe user prefers strict schedule.
-    # Let's add a startup run after 60s
+    # Schedule Log Cleanup every hour
     scheduler.add_job(
-        check_and_refresh_tokens_job,
-        'date',
-        run_date=None, # run ASAP? No, APScheduler 'date' trigger without run_date needs args?
-        # To run ASAP:
-        # None defaults to now.
-        # But let's delay 30s to let server start
-        # scheduler.add_job(check_and_refresh_tokens_job, 'interval', seconds=10) # Testing
-        # Using a one-off date trigger in 30s
+        cleanup_strategy_logs_job,
+        IntervalTrigger(hours=1),
+        id="strategy_log_cleanup",
+        replace_existing=True
     )
-    
-    # Proper ASAP run:
-    # scheduler.add_job(check_and_refresh_tokens_job) -> Runs immediately.
-    
+
     logger.info("APScheduler started.")
     scheduler.start()

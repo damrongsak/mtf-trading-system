@@ -44,16 +44,19 @@ async def get_detected_signals(
             direction = SignalDirection.NEUTRAL
 
         results.append(SignalResponse(
+            id=str(log.id),
             symbol=log.symbol,
             timeframe=log.timeframe or "H1",
             timestamp=log.timestamp,
             direction=direction,
             entry_price=log.price or 0.0,
             sl_price=meta.get("stop_loss") or 0.0,
-            tp_price=meta.get("take_profit") or 0.0, # Might be missing in meta
+            tp_price=meta.get("take_profit") or 0.0,
             reason=log.reason,
             confidence=log.confidence or 0.0,
-            strategy_name=log.strategy_name
+            strategy_name=log.strategy_name,
+            status=log.status,
+            meta_data=log.meta_data
         ))
         
     return success_response(data=results)

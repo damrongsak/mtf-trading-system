@@ -24,3 +24,4 @@ from .plugins import Plugin, UserPlugin, AuditLog, PluginCategory
 from .open_interest import OpenInterest
 from .system_config import SystemConfig
 from .telegram_chat_mapping import TelegramChatMapping
+from .strategy_execution_log import StrategyExecutionLog

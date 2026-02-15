@@ -213,6 +213,19 @@ async def strategy(state, data_manager):
         stop_loss = recent_bull_sweeps[-1]['level'] + threshold
         take_profit = put_wall.strike if put_wall else current_price * 0.98
 
+    # Prepare Logs for the tick
+    logs = {
+        "put_wall": put_wall.strike if put_wall else None,
+        "call_wall": call_wall.strike if call_wall else None,
+        "near_put_wall": near_put_wall,
+        "near_call_wall": call_wall is not None and abs(current_price - call_wall.strike) < (current_price * 0.05),
+        "valid_sweep": valid_sweep,
+        "mss_confirmed": mss_confirmed,
+        "bias": bias,
+        "setup_phase": setup_phase,
+        "current_price": float(current_price)
+    }
+
     if bias != "NEUTRAL":
         signal_dict = {
             "direction": bias,
@@ -223,14 +236,14 @@ async def strategy(state, data_manager):
                 "put_wall": put_wall.strike if put_wall else None,
                 "call_wall": call_wall.strike if call_wall else None,
                 "sweep_level": recent_sweeps[-1]['level'] if bias == 'BULLISH' else recent_bull_sweeps[-1]['level'],
-                "mss_price": last_high_pivot['price'] if bias == 'BULLISH' else last_low_pivot['price']
+                "mss_price": last_high_pivot['price'] if bias == 'BULLISH' else (last_low_pivot['price'] if last_low_pivot else None)
             }
         }
         
         # If Bearish, set Exits=True for Long positions? 
         # Strategy interface expects: entries (Open), exits (Close).
         # Depending on engine, entries with direction='SHORT' opens a Short.
-        # But if we just return entries=True, we rely on signal_dict['direction'].
+        # But our execution engine reads signal_dict.
         
         if bias == "BEARISH":
             # For simplicity, if we trigger a Short signal, we mark it in entries too?
@@ -238,4 +251,4 @@ async def strategy(state, data_manager):
             # But our execution engine reads signal_dict.
             pass
 
-    return entries, exits, signal_dict
+    return entries, exits, signal_dict, logs

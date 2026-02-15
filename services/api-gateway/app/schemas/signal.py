@@ -22,6 +22,9 @@ class SignalResponse(BaseModel):
     confidence: Optional[float] = 0.0
     
     analysis: Optional[dict] = None
+    id: Optional[str] = None
+    status: Optional[str] = "CREATED"
+    meta_data: Optional[dict] = None
     
     # Market context fields
     market_status: Optional[str] = "unknown"  # "open", "closed", "unknown"

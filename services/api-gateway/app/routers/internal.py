@@ -13,6 +13,9 @@ import logging
 from uuid import UUID
 from datetime import datetime, timezone
 from app.models.signal_log import SignalLog
+from app.routers.telegram import send_telegram_message
+from app.models.telegram_chat_mapping import TelegramChatMapping
+from app.models.strategy_execution_log import StrategyExecutionLog
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,34 @@ async def receive_internal_signal(
              # Let's Require it to be in config_snapshot or provided in payload.
              raise HTTPException(status_code=400, detail="Broker Account ID not found in deployment config")
 
+        # 1.7 Check Execution Mode (HITL)
+        execution_mode = deployment.config_snapshot.get("execution_mode", "AUTO")
+        if execution_mode == "SEMI_AUTO":
+            # Stage for Approval
+            signal_log.status = "PENDING_APPROVAL"
+            db.commit()
+            
+            # Send Telegram Alert
+            try:
+                mapping = db.query(TelegramChatMapping).filter(
+                    TelegramChatMapping.user_id == user.id,
+                    TelegramChatMapping.is_active == True
+                ).first()
+                if mapping:
+                    msg = (
+                        f"🔔 **New Signal Pending Approval**\n\n"
+                        f"**Symbol**: {payload.get('symbol')}\n"
+                        f"**Direction**: {payload.get('direction')}\n"
+                        f"**Strategy**: {strat_name}\n"
+                        f"**Reason**: {payload.get('reason')}\n\n"
+                        f"Approve via Dashboard: http://localhost/signals"
+                    )
+                    await send_telegram_message(mapping.chat_id, msg)
+            except Exception as te:
+                logger.error(f"Failed to send HITL Telegram alert: {te}")
+                
+            return {"status": "pending_approval", "signal_id": str(signal_log.id)}
+
         # 2. Prepare Execution Payload (Smart Order)
         smart_order_payload = {
             "broker_account_id": str(broker_account_id),
@@ -157,6 +188,28 @@ async def receive_internal_signal(
 
     except HTTPException:
         raise
+@router.post("/strategy-logs")
+async def receive_strategy_logs(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """
+    Internal endpoint to receive essential strategy logs.
+    """
+    deployment_id = payload.get("deployment_id")
+    output = payload.get("output")
+    
+    if not deployment_id or not output:
+        return {"status": "ignored"}
+
+    try:
+        log = StrategyExecutionLog(
+            deployment_id=deployment_id,
+            essential_output=output
+        )
+        db.add(log)
+        db.commit()
     except Exception as e:
-        logger.error(f"Internal Signal Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to persist strategy log: {e}")
+        
+    return {"status": "success"}

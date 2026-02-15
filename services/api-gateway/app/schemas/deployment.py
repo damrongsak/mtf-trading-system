@@ -26,3 +26,11 @@ class DeploymentResponse(DeploymentBase):
     strategy_name: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+class StrategyLogResponse(BaseModel):
+    id: UUID
+    deployment_id: UUID
+    timestamp: datetime
+    essential_output: Dict[str, Any]
+
+    model_config = ConfigDict(from_attributes=True)

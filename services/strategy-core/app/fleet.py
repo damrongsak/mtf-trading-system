@@ -210,22 +210,32 @@ class FleetManager:
                 self.last_tick_times[dep_id] = now
                 
                 if result:
-                    logger.info(f"DYNAMIC SIGNAL {context['name']} (Live={context['is_live']}): {result}")
+                    signal = result.get("signal")
+                    logs = result.get("logs")
                     
                     from app.adapters.gateway import gateway_client
                     
-                    # Prepare Payload
-                    payload = {
-                        "deployment_id": context["id"],
-                        "symbol": result.get("symbol", context["symbol"]),
-                        "direction": result.get("direction"), 
-                        "stop_loss": result.get("stop_loss"),
-                        "risk_usd": result.get("risk_usd"),
-                        "reason": result.get("reason", "Dynamic Strategy Signal")
-                    }
-                    
-                    # Async dispatch
-                    asyncio.create_task(gateway_client.execute_signal(payload))
+                    # 1. Dispatch Logs (Essential Output)
+                    if logs:
+                        asyncio.create_task(gateway_client.send_strategy_logs(dep_id, logs))
+
+                    # 2. Dispatch Signal (if any)
+                    if signal:
+                        logger.info(f"DYNAMIC SIGNAL {context['name']} (Live={context['is_live']}): {signal}")
+                        
+                        # Prepare Payload for execution
+                        payload = {
+                            "deployment_id": context["id"],
+                            "symbol": signal.get("symbol", context["symbol"]),
+                            "direction": signal.get("direction"), 
+                            "stop_loss": signal.get("stop_loss"),
+                            "risk_usd": signal.get("risk_usd"),
+                            "reason": signal.get("reason", "Dynamic Strategy Signal"),
+                            "meta_data": signal.get("metadata", {})
+                        }
+                        
+                        # Async dispatch
+                        asyncio.create_task(gateway_client.execute_signal(payload))
             except Exception as e:
                 logger.error(f"Error ticking deployment {context['name']}: {e}")
 

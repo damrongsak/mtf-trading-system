@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Signal } from '@/lib/api/types';
-import { getBatchSignals } from '@/lib/api/signals';
+import { Signal, SignalStatus } from '@/lib/api/types';
+import { getBatchSignals, approveSignal, rejectSignal } from '@/lib/api/signals';
 import { TradeModal } from './TradeModal';
 import { logger } from '@/lib/api/app-logger';
 
@@ -39,6 +39,30 @@ export const RecentSignalsCard: React.FC = () => {
   const handleTradeClick = (signal: Signal) => {
     setSelectedSignal(signal);
     setIsModalOpen(true);
+  };
+
+  const handleApprove = async (signalId: string) => {
+    try {
+      setLoading(true);
+      await approveSignal(signalId);
+      await fetchSignals();
+    } catch (e) {
+      logger.error("Failed to approve signal", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReject = async (signalId: string) => {
+    try {
+      setLoading(true);
+      await rejectSignal(signalId);
+      await fetchSignals();
+    } catch (e) {
+      logger.error("Failed to reject signal", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getDirectionColor = (direction: string) => {
@@ -125,7 +149,22 @@ export const RecentSignalsCard: React.FC = () => {
                         <td className="py-3 px-4 font-mono text-green-300/80 text-sm hidden md:table-cell">{formatPrice(signal.tp_price)}</td>
                         <td className="py-3 px-4 text-gray-500 text-xs hidden lg:table-cell">{formatTime(signal.timestamp)}</td>
                         <td className="py-3 px-4 text-right">
-                            {signal.direction !== 'NEUTRAL' && (
+                            {signal.status === SignalStatus.PENDING_APPROVAL ? (
+                                <div className="flex gap-2 justify-end">
+                                    <button 
+                                        onClick={() => signal.id && handleApprove(signal.id)}
+                                        className="bg-accent-green/10 hover:bg-accent-green/20 text-accent-green border border-accent-green/50 rounded px-2 py-1 text-[10px] font-bold transition-colors"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button 
+                                        onClick={() => signal.id && handleReject(signal.id)}
+                                        className="bg-red-400/10 hover:bg-red-400/20 text-red-400 border border-red-400/50 rounded px-2 py-1 text-[10px] font-bold transition-colors"
+                                    >
+                                        Reject
+                                    </button>
+                                </div>
+                            ) : signal.direction !== 'NEUTRAL' && (
                                 <button 
                                     onClick={() => handleTradeClick(signal)}
                                     className="bg-accent-blue/10 hover:bg-accent-blue/20 text-accent-blue border border-accent-blue/50 rounded px-3 py-1.5 text-xs font-medium transition-colors"

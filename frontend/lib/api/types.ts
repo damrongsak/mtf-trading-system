@@ -712,12 +712,14 @@ export interface Deployment {
     strategy_name?: string;
 }
 
-export interface DeploymentCreate {
-    strategy_id: string;
-    stock_symbol: string;
-    timeframe: string;
-    config_snapshot: Record<string, unknown>;
-    is_live: boolean;
+is_live: boolean;
+}
+
+export interface StrategyLog {
+    id: string;
+    deployment_id: string;
+    timestamp: string;
+    essential_output: Record<string, any>;
 }
 
 // ========================================
