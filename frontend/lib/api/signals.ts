@@ -54,3 +54,12 @@ export async function approveSignal(signalId: string): Promise<void> {
 export async function rejectSignal(signalId: string): Promise<void> {
     await apiClient.post(`/api/v1/signals/${signalId}/reject`);
 }
+
+/**
+ * Reject all pending signals
+ */
+export async function rejectAllSignals(): Promise<{ cancelled: number }> {
+    const response = await apiClient.post<APIResponse<{ cancelled: number }>>('/api/v1/signal/cancel-all');
+    // Note: Backend returns data wrapped in APIResponse
+    return response.data.data!;
+}

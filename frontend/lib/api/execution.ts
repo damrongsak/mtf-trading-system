@@ -141,7 +141,47 @@ export async function getBrokerAccounts(): Promise<ExecutionBrokerAccount[]> {
     return response.data.data || [];
 }
 
+/**
+ * Get pending orders for an account
+ */
+export async function getPendingOrders(accountId: string): Promise<OrderResponse[]> {
+    const response = await apiClient.get<APIResponse<OrderResponse[]>>('/api/v1/execution/orders', {
+        params: { broker_account_id: accountId }
+    });
+    return response.data.data || [];
+}
+
+
 export async function placeSmartOrder(data: SmartOrderRequest): Promise<OrderResponse> {
     const response = await apiClient.post<OrderResponse>('/api/v1/execution/smart-orders', data);
+    return response.data;
+}
+
+/**
+ * Close all open trades for an account (Panic Button)
+ */
+export async function closeAllTrades(accountId: string, symbol?: string): Promise<{ count: number, errors: string[] }> {
+    const response = await apiClient.post<{ count: number, errors: string[] }>('/api/v1/execution/trades/close-all', {
+        broker_account_id: accountId,
+        symbol
+    });
+    return response.data;
+}
+
+/**
+ * Cancel a specific order
+ */
+export async function cancelOrder(orderId: string): Promise<void> {
+    await apiClient.delete(`/api/v1/execution/orders/${orderId}`);
+}
+
+/**
+ * Cancel all pending orders
+ */
+export async function cancelAllOrders(accountId: string, symbol?: string): Promise<{ cancelled: number, errors: string[] }> {
+    // Note: Axios delete with body is not standard, using query params
+    const response = await apiClient.delete<{ cancelled: number, errors: string[] }>('/api/v1/execution/orders', {
+        params: { broker_account_id: accountId, symbol }
+    });
     return response.data;
 }

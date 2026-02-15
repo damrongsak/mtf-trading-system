@@ -158,6 +158,18 @@ class ExecutionClient:
                 logger.error(f"Failed to cancel order: {e}", exc_info=True)
                 raise
 
+    async def get_pending_orders(self, broker_account_id: str) -> List[Dict[str, Any]]:
+        async with httpx.AsyncClient() as client:
+            try:
+                # execution service expects broker_account_id as query param for GET /orders
+                logger.info(f"Fetching pending orders from {EXECUTION_SERVICE_URL}/orders")
+                resp = await client.get(f"{EXECUTION_SERVICE_URL}/orders", params={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp.raise_for_status()
+                return resp.json().get("data", [])
+            except Exception as e:
+                logger.error(f"Failed to fetch pending orders: {e}", exc_info=True)
+                raise
+
     async def close_all_trades(self, broker_account_id: str, symbol: str = None) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:

@@ -106,6 +106,30 @@ async def place_order(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/orders")
+async def get_pending_orders(
+    broker_account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        data = await execution_client.get_pending_orders(str(account.id))
+        return success_response(data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pending orders: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/orders/{order_id}")
 async def cancel_order(
     order_id: str,

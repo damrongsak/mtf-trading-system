@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
-import { closeTrade } from '@/lib/api/execution';
+import { closeTrade, closeAllTrades } from '@/lib/api/execution';
 import { apiClient } from '@/lib/api/client';
 import { logger } from '@/lib/api/app-logger';
 import { APIResponse } from '@/lib/api/types';
@@ -25,6 +25,7 @@ interface OpenPositionsCardProps {
   onRefresh?: () => void;
   prices?: Record<string, PriceUpdate>;
   connected?: boolean;
+  accountId?: string; // Needed for Close All
 }
 // Removed useLivePrices import since it is passed as prop
 
@@ -40,10 +41,11 @@ interface OpenPositionDto {
   timestamp: string;
 }
 
-export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh, prices = {}, connected = false }) => {
+export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh, prices = {}, connected = false, accountId }) => {
   const [positions, setPositions] = useState<OpenPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [closingAll, setClosingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Connected state can be inferred if needed, or passed. For now, we assume if prices update, we are good.
@@ -57,7 +59,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
       setLoading(true);
       // Use DTO for strict type checking on the raw response
       const response = await apiClient.get<APIResponse<OpenPositionDto[]>>('/api/v1/execution/trades', {
-          params: { status: 'OPEN' }
+          params: { status: 'OPEN', account_id: accountId }
       });
       
       const rawData = response.data.data || [];
@@ -84,7 +86,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
 
   useEffect(() => {
     fetchOpenPositions();
-  }, []);
+  }, [accountId]); // Refresh when accountId changes
 
   const handleClose = async (tradeId: string, currentPrice: number) => {
     setClosingId(tradeId);
@@ -100,6 +102,31 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
       alert('Failed to close trade. Please try again.');
     } finally {
       setClosingId(null);
+    }
+  };
+
+  const handleCloseAll = async () => {
+    if (!accountId) {
+        alert("Account ID is required to close all trades.");
+        return;
+    }
+    if (!confirm("Are you sure you want to CLOSE ALL open positions? This action cannot be undone.")) return;
+
+    setClosingAll(true);
+    try {
+        const res = await closeAllTrades(accountId);
+        if (res.errors && res.errors.length > 0) {
+            alert(`Closed ${res.count} trades with errors: \n${res.errors.join('\n')}`);
+        } else {
+            // alert(`Successfully closed ${res.count} trades.`);
+        }
+        await fetchOpenPositions();
+        if (onRefresh) onRefresh();
+    } catch (err) {
+        logger.error('Failed to close all trades:', err);
+        alert('Failed to close all trades.');
+    } finally {
+        setClosingAll(false);
     }
   };
   
@@ -129,10 +156,27 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
         <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-gray-100">Open Positions</h2>
             {connected && <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"/>}
+            {positions.length > 0 && (
+                <span className="text-sm text-gray-400 ml-2">({positions.length})</span>
+            )}
         </div>
-        <Button variant="ghost" size="sm" onClick={fetchOpenPositions} disabled={loading}>
-            Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+            {positions.length > 0 && (
+                <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleCloseAll} 
+                    disabled={loading || closingAll}
+                    className="bg-red-600 hover:bg-red-700 text-white border border-red-500 shadow-sm"
+                >
+                    {closingAll ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                    Close All
+                </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={fetchOpenPositions} disabled={loading}>
+                Refresh
+            </Button>
+        </div>
       </div>
 
       {error && (
@@ -192,7 +236,7 @@ export const OpenPositionsCard: React.FC<OpenPositionsCardProps> = ({ onRefresh,
                       size="sm" 
                       variant="default"
                       className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50"
-                      disabled={closingId === pos.trade_id}
+                      disabled={closingId === pos.trade_id || closingAll}
                       onClick={() => handleClose(pos.trade_id, price)} 
                     >
                       {closingId === pos.trade_id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Close'}

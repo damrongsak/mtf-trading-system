@@ -3,13 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Signal, SignalStatus } from '@/lib/api/types';
-import { getBatchSignals, approveSignal, rejectSignal } from '@/lib/api/signals';
+import { getBatchSignals, approveSignal, rejectSignal, rejectAllSignals } from '@/lib/api/signals';
 import { TradeModal } from './TradeModal';
 import { logger } from '@/lib/api/app-logger';
+import { Button } from '@/components/ui/button';
+import { Loader2, Ban } from 'lucide-react';
 
 export const RecentSignalsCard: React.FC = () => {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rejectingAll, setRejectingAll] = useState(false);
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -64,6 +67,24 @@ export const RecentSignalsCard: React.FC = () => {
       setLoading(false);
     }
   };
+  
+  const handleRejectAll = async () => {
+      if (!confirm("Are you sure you want to REJECT ALL pending signals?")) return;
+      
+      setRejectingAll(true);
+      try {
+          const res = await rejectAllSignals();
+          // alert(`Rejected ${res.cancelled} signals.`);
+          await fetchSignals();
+      } catch (e) {
+          logger.error("Failed to reject all signals", e);
+          alert("Failed to reject all signals");
+      } finally {
+          setRejectingAll(false);
+      }
+  };
+
+  const hasPending = signals.some(s => s.status === SignalStatus.PENDING_APPROVAL);
 
   const getDirectionColor = (direction: string) => {
     switch (direction) {
@@ -77,16 +98,8 @@ export const RecentSignalsCard: React.FC = () => {
         return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
     }
   };
-
-  const formatPrice = (price?: number) => {
-    if (!price) return '-';
-    return price.toFixed(5);
-  };
   
-  const formatTime = (ts: string) => {
-    const date = new Date(ts);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  // ... helpers ...
 
   if (loading && signals.length === 0) {
      return (
@@ -106,7 +119,19 @@ export const RecentSignalsCard: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-100">Recent Signals</h2>
         <div className="flex gap-4 items-center">
-            <span className="text-xs text-gray-500">Source: OANDA (System Default)</span>
+            {hasPending && (
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRejectAll}
+                    disabled={rejectingAll}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-7 text-xs"
+                >
+                    {rejectingAll ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Ban className="w-3 h-3 mr-1" />}
+                    Reject All
+                </Button>
+            )}
+            <span className="text-xs text-gray-500">Source: OANDA</span>
             <button onClick={() => fetchSignals()} className="text-gray-400 hover:text-white transition">
                 ↻
             </button>

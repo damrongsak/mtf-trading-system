@@ -23,6 +23,7 @@ services:
       - "8000:8000"
     volumes:
       - ./services/api-gateway:/app
+      - ./specs:/specs
     depends_on:
       # - postgres
       # - qdrant

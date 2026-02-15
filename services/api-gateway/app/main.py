@@ -65,7 +65,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 # Attempt to load OpenAPI spec from file (SDD)
-SPEC_PATH = "../../specs/04_api_spec.yaml"
+SPEC_PATH = "/specs/04_api_spec.yaml"
 if os.path.exists(SPEC_PATH):
     with open(SPEC_PATH, "r") as f:
         app.openapi_schema = yaml.safe_load(f)

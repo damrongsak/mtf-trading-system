@@ -237,7 +237,54 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
         logger.error(f"Place Order Error: {e}", exc_info=True)
         # Expose error detail for debugging (in dev/test envs this is acceptable)
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
+
+
+@app.get("/orders", response_model=APIResponse[List[OrderResponse]])
+async def get_pending_orders_list(
+    broker_account_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        try:
+            account_uuid = uuid.UUID(broker_account_id)
+        except ValueError:
+             raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+        except Exception:
+             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
+        
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        if hasattr(adapter, 'get_pending_orders'):
+            orders = await adapter.get_pending_orders()
+            # Map to OrderResponse
+            mapped = []
+            for o in orders:
+                mapped.append(OrderResponse(
+                    id=str(o.get('id')),
+                    instrument=o.get('instrument'),
+                    units=str(o.get('units')),
+                    price=str(o.get('price')),
+                    time=str(o.get('time'))
+                ))
+            return success_response(data=mapped)
+        else:
+            # Fallback or empty if not supported
+            return success_response(data=[])
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Get Pending Orders Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 class CancelOrderRequest(BaseModel):
     broker_account_id: str

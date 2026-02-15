@@ -2060,14 +2060,39 @@ paths:
                 $ref: '#/components/schemas/APIResponse_Success'
     
   /api/v1/execution/orders:
+    get:
+      summary: List pending orders for a broker account
+      tags: [Execution]
+      parameters:
+        - name: broker_account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of pending orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderResponse'
     post:
       summary: Place a new order
+      tags: [Execution]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object # Simplify for now or look up OrderRequest
+              type: object # Simplify for now
       responses:
         '200':
           description: Order placed
@@ -2075,6 +2100,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_Success'
+
+    delete:
+      summary: Bulk cancel orders
+      tags: [Execution]
+      parameters:
+        - name: broker_account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bulk cancel command processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+
+  /api/v1/execution/trades/close-all:
+    post:
+      summary: Emergency close all positions
+      tags: [Execution]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+                symbol:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Close all command processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
 
   /api/v1/market/candles:
     get:

@@ -9,11 +9,9 @@ import { RecentSignalsCard } from '@/components/dashboard/RecentSignalsCard';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
-import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
-import { MarketWatchCard } from '@/components/dashboard/MarketWatchCard';
-import { DailyBriefingWidget } from '@/components/ai/DailyBriefingWidget';
+import { OrdersCard } from '@/components/dashboard/OrdersCard';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
-import { getAccountSummary, AccountSummary } from '@/lib/api/execution';
+import { getAccountSummary, AccountSummary, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
@@ -34,6 +32,7 @@ export default function DashboardPage() {
   const [equityData, setEquityData] = useState<EquityPoint[]>([]);
   const [equityLoading, setEquityLoading] = useState(true);
   const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
+  const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
   
@@ -87,7 +86,7 @@ export default function DashboardPage() {
             logger.warn("Failed to load user preferences, using defaults", e);
         }
 
-        const [eqData, accData, perfData] = await Promise.all([
+        const [eqData, accData, perfData, accsData] = await Promise.all([
             getEquityCurve(30, selectedStrategyId), // Pass ID
             getAccountSummary().catch(e => {
                 logger.warn("Failed to fetch account summary:", e);
@@ -96,11 +95,16 @@ export default function DashboardPage() {
             getStrategyPerformance().catch(e => {
                  logger.warn("Failed to fetch strategy performance:", e);
                  return [];
+            }),
+            getBrokerAccounts().catch(e => {
+                logger.warn("Failed to fetch broker accounts:", e);
+                return [];
             })
         ]);
         setEquityData(eqData);
         setAccountSummary(accData);
         setPerformance(perfData);
+        setAccounts(accsData);
       } catch (error) {
         logger.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -142,6 +146,9 @@ export default function DashboardPage() {
   // Calculate PnL trend
   const pnlTrend = stats && stats.total_pnl > 0 ? 'up' : stats && stats.total_pnl < 0 ? 'down' : 'neutral';
   const winRateTrend = stats && stats.win_rate >= 60 ? 'up' : stats && stats.win_rate >= 40 ? 'neutral' : 'down';
+
+  // Use primary account ID for orders/positions
+  const primaryAccountId = accounts.length > 0 ? accounts[0].id : undefined;
 
   return (
     <div className="space-y-6">
@@ -246,7 +253,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
             <EquityChart data={equityData} loading={equityLoading} />
-            <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} />
+            <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} accountId={primaryAccountId} />
+            <OrdersCard accountId={primaryAccountId} onRefresh={handleRefresh} />
             <RecentSignalsCard />
         </div>
         
