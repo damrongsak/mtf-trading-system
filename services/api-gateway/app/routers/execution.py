@@ -101,11 +101,70 @@ async def place_order(
                 logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
                 
         return success_response(data=execution_result, message="Order placed successfully")
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error placing order: {e}")
         logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/orders/{order_id}")
+async def cancel_order(
+    order_id: str,
+    broker_account_id: str, # Required to know where to cancel
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        result = await execution_client.cancel_order(order_id, str(account.id))
+        return success_response(data=result, message="Order cancelled successfully")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/trades/close-all")
+async def close_all_trades(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Emergency endpoint to close ALL open positions for a broker account.
+    Optional symbol filter.
+    """
+    try:
+        broker_account_id = payload.get("broker_account_id")
+        symbol = payload.get("symbol")
+        
+        if not broker_account_id:
+            raise HTTPException(status_code=400, detail="broker_account_id is required")
+            
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        result = await execution_client.close_all_trades(str(account.id), symbol)
+        return success_response(data=result, message="Close All command sent successfully")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error closing all trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/trades/{trade_id}/close")

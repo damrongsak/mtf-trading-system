@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **pcr** | **number** |  | [optional] [default to undefined]
 **max_call_strike** | **number** |  | [optional] [default to undefined]
 **max_put_strike** | **number** |  | [optional] [default to undefined]
+**oiwap** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -22,6 +23,7 @@ const instance: AnalysisSummary = {
     pcr,
     max_call_strike,
     max_put_strike,
+    oiwap,
 };
 ```
 

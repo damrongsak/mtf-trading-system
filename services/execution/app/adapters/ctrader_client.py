@@ -415,6 +415,24 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def cancel_order(self, account_id: int, order_id: int):
+        req = ProtoOACancelOrderReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.orderId = int(order_id)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Cancel Order Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
     async def get_reconcile(self, account_id: int):
         req = ProtoOAReconcileReq()
         req.ctidTraderAccountId = int(account_id)

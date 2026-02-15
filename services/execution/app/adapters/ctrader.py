@@ -431,3 +431,61 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader Trade History Error: {e}")
             raise e
 
+    async def cancel_order(self, order_id: str) -> Dict[str, Any]:
+        await self.client.connect()
+        try:
+            await self.client.authorize_app(self.client_id, self.client_secret)
+            await self.client.authorize_account(self.account_id, self.token)
+            
+            res = await self.client.cancel_order(self.account_id, int(order_id))
+            return {"status": "cancelled", "order_id": order_id}
+        except Exception as e:
+            logger.error(f"cTrader Cancel Order Error: {e}")
+            raise e
+
+    async def get_pending_orders(self) -> List[Dict[str, Any]]:
+        await self.client.connect()
+        try:
+            await self.client.authorize_app(self.client_id, self.client_secret)
+            await self.client.authorize_account(self.account_id, self.token)
+            
+            reconcile = await self.client.get_reconcile(self.account_id)
+            orders = []
+            
+            if not reconcile.order:
+                return []
+                
+            # Collect Symbol IDs
+            symbol_ids = set([o.tradeData.symbolId for o in reconcile.order])
+            
+            # Bulk lookup
+            from app.database import AsyncSessionLocal
+            from app.models import MarketSymbol, DataSource
+            from sqlalchemy import select
+            
+            symbol_map = {}
+            if symbol_ids:
+                async with AsyncSessionLocal() as db:
+                    q = select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
+                    result = await db.execute(q)
+                    all_syms = result.scalars().all()
+                    for s in all_syms:
+                        if s.details and 'symbolId' in s.details:
+                            symbol_map[int(s.details['symbolId'])] = s.symbol
+                            
+            for o in reconcile.order:
+                s_name = symbol_map.get(o.tradeData.symbolId, f"Unknown_{o.tradeData.symbolId}")
+                orders.append({
+                    "id": str(o.orderId),
+                    "instrument": s_name,
+                    "units": o.tradeData.volume / 100.0,
+                    "type": str(o.orderType),
+                    "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
+                    "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None
+                })
+                
+            return orders
+
+        except Exception as e:
+            logger.error(f"cTrader Get Pending Orders Error: {e}")
+            raise e

@@ -43,6 +43,7 @@ docs/APIResponseTradeList.md
 docs/APIResponseTransactionImportResponse.md
 docs/APIResponseTransactionImportResponseAllOfData.md
 docs/APIResponseTransactionResponse.md
+docs/APIResponseUnifiedOIProfile.md
 docs/APIResponseUserPreferencesResponse.md
 docs/APIResponseUserResponse.md
 docs/APIResponseWalkForwardResponse.md
@@ -69,6 +70,7 @@ docs/ApiV1DataSourcesIdBackfillPost202Response.md
 docs/ApiV1DataSourcesIdBackfillPostRequest.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
+docs/ApiV1ExecutionTradesCloseAllPostRequest.md
 docs/ApiV1ExecutionTradesOpenPostRequest.md
 docs/ApiV1ExecutionTradesSyncPost200Response.md
 docs/ApiV1ExecutionTradesSyncPost200ResponseData.md
@@ -79,6 +81,7 @@ docs/ApiV1PluginsIdActivatePost200Response.md
 docs/ApiV1PromptsIdRenderPost200Response.md
 docs/ApiV1PromptsIdRenderPostRequest.md
 docs/ApiV1SignalCheckPostRequest.md
+docs/ApiV1SignalsCancelAllPost200Response.md
 docs/ApiV1SignalsIdApprovePost200Response.md
 docs/ApiV1SignalsIdRejectPost200Response.md
 docs/AtrRequest.md
@@ -104,6 +107,7 @@ docs/DataSourceUpdate.md
 docs/DefaultApi.md
 docs/Deployment.md
 docs/DeploymentCreate.md
+docs/DriftAnalysis.md
 docs/EmaRequest.md
 docs/ErrorCode.md
 docs/ErrorDetail.md
@@ -165,6 +169,7 @@ docs/SavedStrategyCreate.md
 docs/SavedStrategyResponse.md
 docs/SavedStrategyUpdate.md
 docs/SensitivityMetrics.md
+docs/SignalApi.md
 docs/SignalBatchRequest.md
 docs/SignalRequest.md
 docs/SignalResponse.md
@@ -184,6 +189,7 @@ docs/TradeResponse.md
 docs/TradeStatus.md
 docs/TransactionCreate.md
 docs/TransactionResponse.md
+docs/UnifiedOIProfileResponse.md
 docs/UpdatePreferencesDto.md
 docs/UserCreate.md
 docs/UserPreferencesResponse.md

@@ -11,6 +11,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AnalysisCalculateEmaPost**](#apiv1analysiscalculateemapost) | **POST** /api/v1/analysis/calculate/ema | Calculate EMA|
 |[**apiV1AnalysisCalculateMacdPost**](#apiv1analysiscalculatemacdpost) | **POST** /api/v1/analysis/calculate/macd | Calculate MACD|
 |[**apiV1AnalysisCalculateRsiPost**](#apiv1analysiscalculatersipost) | **POST** /api/v1/analysis/calculate/rsi | Calculate RSI|
+|[**apiV1AnalysisOiUnifiedProfileGet**](#apiv1analysisoiunifiedprofileget) | **GET** /api/v1/analysis/oi/unified-profile | Get Unified Open Interest Profile|
 
 # **analysisDriftPost**
 > AnalysisDriftPost200Response analysisDriftPost()
@@ -114,7 +115,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Gamma Analysis Data |  -  |
-|**500** | Internal Server Error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -370,6 +370,57 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | RSI Calculation Result |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisOiUnifiedProfileGet**
+> APIResponseUnifiedOIProfile apiV1AnalysisOiUnifiedProfileGet()
+
+Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let symbol: string; // (optional) (default to 'XAUUSD')
+
+const { status, data } = await apiInstance.apiV1AnalysisOiUnifiedProfileGet(
+    symbol
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **symbol** | [**string**] |  | (optional) defaults to 'XAUUSD'|
+
+
+### Return type
+
+**APIResponseUnifiedOIProfile**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Unified OI Profile |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

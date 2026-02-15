@@ -62,3 +62,17 @@ class BrokerAdapter(ABC):
         Returns a list of dicts mapped to the system's Trade model fields.
         """
         pass
+
+    async def cancel_order(self, order_id: str) -> Dict[str, Any]:
+        """
+        Cancel a pending order.
+        Optional to implement.
+        """
+        raise NotImplementedError("Cancel order not implemented for this broker")
+
+    async def get_pending_orders(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all pending orders.
+        Optional to implement.
+        """
+        raise NotImplementedError("Get pending orders not implemented for this broker")

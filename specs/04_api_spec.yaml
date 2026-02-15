@@ -787,6 +787,84 @@ paths:
                     type: string
                     example: "rejected"
 
+  /api/v1/signals/cancel-all:
+    post:
+      summary: Bulk cancel pending signals
+      description: Reject all signals in PENDING_APPROVAL state.
+      tags: [Signal]
+      parameters:
+        - name: deployment_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Signals Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: integer
+
+  /api/v1/execution/orders/{id}:
+    delete:
+      summary: Cancel a pending order on broker
+      tags: [Execution]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: broker_account_id
+          in: query
+          required: true
+          schema:
+             type: string
+             format: uuid
+      responses:
+        '200':
+          description: Order Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/execution/trades/close-all:
+    post:
+      summary: Close all open trades for an account
+      tags: [Execution]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+                symbol:
+                  type: string
+      responses:
+        '200':
+           description: Command Sent
+           content:
+             application/json:
+               schema:
+                 $ref: '#/components/schemas/APIResponse'
+
   /api/v1/internal/signals:
     post:
       summary: Report a signal from an internal service

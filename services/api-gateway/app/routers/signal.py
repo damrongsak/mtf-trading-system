@@ -436,3 +436,34 @@ async def get_batch_signals(req: SignalBatchRequest):
             
         return success_response(data=final_response)
 
+@router.post("/cancel-all", response_model=APIResponse[Dict[str, int]])
+async def cancel_all_pending_signals(
+    deployment_id: Optional[str] = None,
+    symbol: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Reject all signals that are in PENDING_APPROVAL state.
+    Optional filters: deployment_id, symbol.
+    """
+    query = db.query(SignalLog).filter(SignalLog.status == "PENDING_APPROVAL")
+    
+    if deployment_id:
+        try:
+            dep_uuid = UUID(deployment_id)
+            query = query.filter(SignalLog.deployment_id == dep_uuid)
+        except ValueError:
+             raise HTTPException(status_code=400, detail="Invalid deployment_id")
+             
+    if symbol:
+        query = query.filter(SignalLog.symbol == symbol.upper())
+        
+    signals = query.all()
+    count = 0
+    for s in signals:
+        s.status = "REJECTED"
+        s.meta_data = {**(s.meta_data or {}), "rejection_reason": "Bulk Cancel"}
+        count += 1
+        
+    db.commit()
+    return success_response(data={"cancelled": count})

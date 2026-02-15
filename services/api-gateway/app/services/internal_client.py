@@ -146,6 +146,33 @@ class ExecutionClient:
                 logger.error(f"Failed to place smart order: {e}", exc_info=True)
                 raise
 
+    async def cancel_order(self, order_id: str, broker_account_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                # execution service expects broker_account_id as query param for DELETE
+                logger.info(f"Cancelling order {order_id} at {EXECUTION_SERVICE_URL}/orders/{order_id}")
+                resp = await client.delete(f"{EXECUTION_SERVICE_URL}/orders/{order_id}", params={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp.raise_for_status()
+                return resp.json().get("data", {})
+            except Exception as e:
+                logger.error(f"Failed to cancel order: {e}", exc_info=True)
+                raise
+
+    async def close_all_trades(self, broker_account_id: str, symbol: str = None) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                payload = {"broker_account_id": str(broker_account_id)}
+                if symbol:
+                    payload["symbol"] = symbol
+                    
+                logger.info(f"Closing all trades for {broker_account_id} at {EXECUTION_SERVICE_URL}/trades/close-all")
+                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/close-all", json=payload, timeout=60.0) # Longer timeout
+                resp.raise_for_status()
+                return resp.json().get("data", {})
+            except Exception as e:
+                logger.error(f"Failed to close all trades: {e}", exc_info=True)
+                raise
+
 
 
 strategy_client = StrategyClient()

@@ -463,6 +463,18 @@ export interface APIResponseTransactionResponse {
 }
 
 
+export interface APIResponseUnifiedOIProfile {
+    'status': ResponseStatus;
+    'data'?: UnifiedOIProfileResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseUserPreferencesResponse {
     'status': ResponseStatus;
     'data'?: UserPreferencesResponse;
@@ -574,6 +586,7 @@ export interface AnalysisSummary {
     'pcr'?: number;
     'max_call_strike'?: number;
     'max_put_strike'?: number;
+    'oiwap'?: number;
 }
 export interface ApiV1AiAgentObserverRunPost200Response {
     'status'?: string;
@@ -618,6 +631,10 @@ export interface ApiV1DataSyncPost202Response {
 export interface ApiV1DataUploadPost200Response {
     'message'?: string;
     'rows_processed'?: number;
+}
+export interface ApiV1ExecutionTradesCloseAllPostRequest {
+    'broker_account_id': string;
+    'symbol'?: string;
 }
 export interface ApiV1ExecutionTradesOpenPostRequest {
     'broker_account_id': string;
@@ -681,6 +698,9 @@ export const ApiV1SignalCheckPostRequestDirectionEnum = {
 
 export type ApiV1SignalCheckPostRequestDirectionEnum = typeof ApiV1SignalCheckPostRequestDirectionEnum[keyof typeof ApiV1SignalCheckPostRequestDirectionEnum];
 
+export interface ApiV1SignalsCancelAllPost200Response {
+    'cancelled'?: number;
+}
 export interface ApiV1SignalsIdApprovePost200Response {
     'status'?: string;
     'execution_response'?: object;
@@ -912,6 +932,14 @@ export interface DeploymentCreate {
     'timeframe': string;
     'is_live'?: boolean;
     'config_snapshot': object;
+}
+export interface DriftAnalysis {
+    'pcr_drift'?: number;
+    'net_oi_drift'?: number;
+    'call_wall_shift'?: number;
+    'put_wall_shift'?: number;
+    'oiwap_shift'?: number;
+    'sentiment'?: string;
 }
 export interface EmaRequest {
     'data': Array<number>;
@@ -1699,6 +1727,17 @@ export const TransactionResponseTypeEnum = {
 
 export type TransactionResponseTypeEnum = typeof TransactionResponseTypeEnum[keyof typeof TransactionResponseTypeEnum];
 
+export interface UnifiedOIProfileResponse {
+    'symbol'?: string;
+    'snapshot_at'?: string;
+    'prev_snapshot_at'?: string | null;
+    'price'?: number;
+    'gamma_regime'?: string;
+    'crowding_regime'?: string;
+    'sentiment_drift'?: DriftAnalysis;
+    'gamma_levels'?: Array<object>;
+    'summary'?: AnalysisSummary;
+}
 export interface UpdatePreferencesDto {
     'default_fund_id'?: string | null;
     'strategy_type'?: UpdatePreferencesDtoStrategyTypeEnum | null;
@@ -2195,6 +2234,41 @@ export const AnalysisApiAxiosParamCreator = function (configuration?: Configurat
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+         * @summary Get Unified Open Interest Profile
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisOiUnifiedProfileGet: async (symbol?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/oi/unified-profile`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -2296,6 +2370,19 @@ export const AnalysisApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisCalculateRsiPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+         * @summary Get Unified Open Interest Profile
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisOiUnifiedProfileGet(symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseUnifiedOIProfile>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisOiUnifiedProfileGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisOiUnifiedProfileGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -2375,6 +2462,16 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
         apiV1AnalysisCalculateRsiPost(requestParameters: AnalysisApiApiV1AnalysisCalculateRsiPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<IndicatorResponse> {
             return localVarFp.apiV1AnalysisCalculateRsiPost(requestParameters.rsiRequest, options).then((request) => request(axios, basePath));
         },
+        /**
+         * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+         * @summary Get Unified Open Interest Profile
+         * @param {AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisOiUnifiedProfileGet(requestParameters: AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUnifiedOIProfile> {
+            return localVarFp.apiV1AnalysisOiUnifiedProfileGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -2427,6 +2524,13 @@ export interface AnalysisApiApiV1AnalysisCalculateMacdPostRequest {
  */
 export interface AnalysisApiApiV1AnalysisCalculateRsiPostRequest {
     readonly rsiRequest?: RsiRequest
+}
+
+/**
+ * Request parameters for apiV1AnalysisOiUnifiedProfileGet operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest {
+    readonly symbol?: string
 }
 
 /**
@@ -2508,6 +2612,17 @@ export class AnalysisApi extends BaseAPI {
      */
     public apiV1AnalysisCalculateRsiPost(requestParameters: AnalysisApiApiV1AnalysisCalculateRsiPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).apiV1AnalysisCalculateRsiPost(requestParameters.rsiRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
+     * @summary Get Unified Open Interest Profile
+     * @param {AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisOiUnifiedProfileGet(requestParameters: AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisOiUnifiedProfileGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -10190,6 +10305,83 @@ export const ExecutionApiAxiosParamCreator = function (configuration?: Configura
     return {
         /**
          * 
+         * @summary Cancel a pending order on broker
+         * @param {string} id 
+         * @param {string} brokerAccountId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersIdDelete: async (id: string, brokerAccountId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersIdDelete', 'id', id)
+            // verify required parameter 'brokerAccountId' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersIdDelete', 'brokerAccountId', brokerAccountId)
+            const localVarPath = `/api/v1/execution/orders/{id}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (brokerAccountId !== undefined) {
+                localVarQueryParameter['broker_account_id'] = brokerAccountId;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Close all open trades for an account
+         * @param {ApiV1ExecutionTradesCloseAllPostRequest} apiV1ExecutionTradesCloseAllPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesCloseAllPost: async (apiV1ExecutionTradesCloseAllPostRequest: ApiV1ExecutionTradesCloseAllPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1ExecutionTradesCloseAllPostRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesCloseAllPost', 'apiV1ExecutionTradesCloseAllPostRequest', apiV1ExecutionTradesCloseAllPostRequest)
+            const localVarPath = `/api/v1/execution/trades/close-all`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesCloseAllPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Get open trades directly from broker
          * @param {ApiV1ExecutionTradesOpenPostRequest} apiV1ExecutionTradesOpenPostRequest 
          * @param {*} [options] Override http request option.
@@ -10339,6 +10531,33 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @summary Cancel a pending order on broker
+         * @param {string} id 
+         * @param {string} brokerAccountId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionOrdersIdDelete(id: string, brokerAccountId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersIdDelete(id, brokerAccountId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersIdDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Close all open trades for an account
+         * @param {ApiV1ExecutionTradesCloseAllPostRequest} apiV1ExecutionTradesCloseAllPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionTradesCloseAllPost(apiV1ExecutionTradesCloseAllPostRequest: ApiV1ExecutionTradesCloseAllPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesCloseAllPost(apiV1ExecutionTradesCloseAllPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionTradesCloseAllPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Get open trades directly from broker
          * @param {ApiV1ExecutionTradesOpenPostRequest} apiV1ExecutionTradesOpenPostRequest 
          * @param {*} [options] Override http request option.
@@ -10400,6 +10619,26 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
     return {
         /**
          * 
+         * @summary Cancel a pending order on broker
+         * @param {ExecutionApiApiV1ExecutionOrdersIdDeleteRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersIdDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersIdDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionOrdersIdDelete(requestParameters.id, requestParameters.brokerAccountId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Close all open trades for an account
+         * @param {ExecutionApiApiV1ExecutionTradesCloseAllPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesCloseAllPost(requestParameters: ExecutionApiApiV1ExecutionTradesCloseAllPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionTradesCloseAllPost(requestParameters.apiV1ExecutionTradesCloseAllPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Get open trades directly from broker
          * @param {ExecutionApiApiV1ExecutionTradesOpenPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -10442,6 +10681,22 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
 };
 
 /**
+ * Request parameters for apiV1ExecutionOrdersIdDelete operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionOrdersIdDeleteRequest {
+    readonly id: string
+
+    readonly brokerAccountId: string
+}
+
+/**
+ * Request parameters for apiV1ExecutionTradesCloseAllPost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionTradesCloseAllPostRequest {
+    readonly apiV1ExecutionTradesCloseAllPostRequest: ApiV1ExecutionTradesCloseAllPostRequest
+}
+
+/**
  * Request parameters for apiV1ExecutionTradesOpenPost operation in ExecutionApi.
  */
 export interface ExecutionApiApiV1ExecutionTradesOpenPostRequest {
@@ -10473,6 +10728,28 @@ export interface ExecutionApiApiV1SignalsIdRejectPostRequest {
  * ExecutionApi - object-oriented interface
  */
 export class ExecutionApi extends BaseAPI {
+    /**
+     * 
+     * @summary Cancel a pending order on broker
+     * @param {ExecutionApiApiV1ExecutionOrdersIdDeleteRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionOrdersIdDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersIdDeleteRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionOrdersIdDelete(requestParameters.id, requestParameters.brokerAccountId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Close all open trades for an account
+     * @param {ExecutionApiApiV1ExecutionTradesCloseAllPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionTradesCloseAllPost(requestParameters: ExecutionApiApiV1ExecutionTradesCloseAllPostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionTradesCloseAllPost(requestParameters.apiV1ExecutionTradesCloseAllPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Get open trades directly from broker
@@ -10698,6 +10975,123 @@ export class FoundryApi extends BaseAPI {
      */
     public foundryValidate(requestParameters: FoundryApiFoundryValidateRequest = {}, options?: RawAxiosRequestConfig) {
         return FoundryApiFp(this.configuration).foundryValidate(requestParameters.walkForwardRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * SignalApi - axios parameter creator
+ */
+export const SignalApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Reject all signals in PENDING_APPROVAL state.
+         * @summary Bulk cancel pending signals
+         * @param {string} [deploymentId] 
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsCancelAllPost: async (deploymentId?: string, symbol?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/signals/cancel-all`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (deploymentId !== undefined) {
+                localVarQueryParameter['deployment_id'] = deploymentId;
+            }
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * SignalApi - functional programming interface
+ */
+export const SignalApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = SignalApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Reject all signals in PENDING_APPROVAL state.
+         * @summary Bulk cancel pending signals
+         * @param {string} [deploymentId] 
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SignalsCancelAllPost(deploymentId?: string, symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1SignalsCancelAllPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SignalsCancelAllPost(deploymentId, symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SignalApi.apiV1SignalsCancelAllPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * SignalApi - factory interface
+ */
+export const SignalApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = SignalApiFp(configuration)
+    return {
+        /**
+         * Reject all signals in PENDING_APPROVAL state.
+         * @summary Bulk cancel pending signals
+         * @param {SignalApiApiV1SignalsCancelAllPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SignalsCancelAllPost(requestParameters: SignalApiApiV1SignalsCancelAllPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1SignalsCancelAllPost200Response> {
+            return localVarFp.apiV1SignalsCancelAllPost(requestParameters.deploymentId, requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1SignalsCancelAllPost operation in SignalApi.
+ */
+export interface SignalApiApiV1SignalsCancelAllPostRequest {
+    readonly deploymentId?: string
+
+    readonly symbol?: string
+}
+
+/**
+ * SignalApi - object-oriented interface
+ */
+export class SignalApi extends BaseAPI {
+    /**
+     * Reject all signals in PENDING_APPROVAL state.
+     * @summary Bulk cancel pending signals
+     * @param {SignalApiApiV1SignalsCancelAllPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SignalsCancelAllPost(requestParameters: SignalApiApiV1SignalsCancelAllPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return SignalApiFp(this.configuration).apiV1SignalsCancelAllPost(requestParameters.deploymentId, requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

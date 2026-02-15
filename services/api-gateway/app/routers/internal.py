@@ -61,6 +61,22 @@ async def receive_internal_signal(
         if deployment.status != "ACTIVE":
              raise HTTPException(status_code=400, detail="Deployment is not active")
 
+        # 1.2 Check for Existing Active Signals (Throttling)
+        # Prevent duplicate signals if one is already PENDING_APPROVAL or PLACED
+        active_signal = db.query(SignalLog).filter(
+            SignalLog.deployment_id == deployment.id,
+            SignalLog.symbol == payload.get("symbol"),
+            SignalLog.status.in_(["PENDING_APPROVAL", "PLACED", "OPEN"]),
+            SignalLog.direction == payload.get("direction")
+        ).order_by(SignalLog.timestamp.desc()).first()
+
+        if active_signal:
+            # Check recency (e.g. if > 1 hour maybe we allow re-signal? For now, strict no-duplicate)
+            # Or if it's the exact same candle time?
+            # Let's just return "ignored" to prevent spamming
+            logger.info(f"Signal throttled for {deployment.id}: Active signal {active_signal.id} exists.")
+            return {"status": "ignored", "reason": "Active signal exists", "signal_id": str(active_signal.id)}
+
         # 1.5 Persist Signal Log
         try:
             # Try to get strategy name

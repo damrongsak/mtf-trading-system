@@ -28,7 +28,9 @@ async def test_execute_smart_order_oanda_success():
         "symbol": "XAU_USD",
         "direction": "BULLISH",
         "stop_loss": 2000.0,
-        "risk_usd": 100.0
+        "risk_usd": 100.0,
+        "generated_by": "TestStrategy",
+        "signal_id": "sig-123"
     }
     
     with patch("app.services.order_service.BrokerFactory") as mock_factory, \

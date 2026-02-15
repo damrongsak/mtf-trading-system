@@ -22,9 +22,11 @@ async def override_get_db():
         
         mock_account = BrokerAccount(
             id=mock_account_id,
+            is_active=True, # Required for validation
             broker_name="OANDA",
-            credentials={"api_key": "xyz", "account_id": "123"},
-            account_id="123",
+            credentials_encrypted=b"encrypted_creds", # Correct field name
+            account_number="123", # Correct field name is account_number not account_id
+            environment="practice", # Correct field
             fund_id=mock_fund_id, # Link to Fund
             supported_symbols=["AUD_USD", "XAU_USD"] # Whitelist for strict check
         )
@@ -68,17 +70,19 @@ async def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
-@patch("app.main.BrokerFactory")
-def test_place_smart_order_dynamic_risk(mock_factory):
+@patch("app.services.order_service.BrokerFactory")
+@patch("app.services.order_service.decrypt_data")
+def test_place_smart_order_dynamic_risk(mock_decrypt, mock_factory):
     # Setup Mock Adapter
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
+    mock_decrypt.return_value = {"api_key": "xyz", "account_id": "123"}
     
     # 1. Mock Live Price (AUD_USD)
-    mock_adapter.get_current_price.return_value = 0.7000
+    mock_adapter.get_current_price = AsyncMock(return_value=0.7000)
     
     # 2. Mock Order Placement Response
-    mock_adapter.place_market_order.return_value = {
+    mock_adapter.place_market_order = AsyncMock(return_value={
         "orderFillTransaction": {
             "id": "555",
             "instrument": "AUD_USD",
@@ -86,11 +90,11 @@ def test_place_smart_order_dynamic_risk(mock_factory):
             "price": "0.7000",
             "time": "2024-01-01T12:00:00Z"
         }
-    }
+    })
     # Mock Summary for Risk Calc
-    mock_adapter.get_summary.return_value = {"NAV": "1000"}
+    mock_adapter.get_account_summary = AsyncMock(return_value={"NAV": "1000"})
     # Mock Order Book
-    mock_adapter.get_order_book.return_value = {"asks": [], "bids": []}
+    mock_adapter.get_order_book = AsyncMock(return_value={"asks": [], "bids": []})
 
     # 3. Request
     # We want Units = 10.
@@ -104,15 +108,16 @@ def test_place_smart_order_dynamic_risk(mock_factory):
         "stop_loss": 0.6000, 
         "risk_usd": 1.0,    
         "generated_by": "TestStrategy",
-        "reason": "Unit Test"
+        "reason": "Unit Test",
+        "signal_id": "sig-1"
     }
     
     response = client.post("/smart-orders", json=payload)
     
     # 4. Assertions
     assert response.status_code == 200, f"Response: {response.text}"
-    data = response.json()
-    assert data["id"] == "555"
+    resp_json = response.json()
+    assert resp_json["data"]["id"] == "555"
     
     # Verify Logic:
     # Dist = |0.7000 - 0.6000| = 0.1
@@ -123,15 +128,18 @@ def test_place_smart_order_dynamic_risk(mock_factory):
     assert call_kwargs["units"] == 10 # Integer units
     assert call_kwargs["sl_price"] == 0.6000
 
-@patch("app.main.BrokerFactory")
-def test_place_smart_order_default_risk(mock_factory):
+@patch("app.services.order_service.BrokerFactory")
+@patch("app.services.order_service.decrypt_data")
+def test_place_smart_order_default_risk(mock_decrypt, mock_factory):
     # Test fallback to default $10 risk
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
-    mock_adapter.get_summary.return_value = {"NAV": "1000"}
-    mock_adapter.get_order_book.return_value = {"asks": [], "bids": []}
-    mock_adapter.get_current_price.return_value = 0.7000
-    mock_adapter.place_market_order.return_value = {"orderFillTransaction": {"id": "1", "units": "100", "price": "0.7", "instrument": "AUD_USD", "time": "T"}}
+    mock_decrypt.return_value = {"api_key": "xyz", "account_id": "123"}
+    
+    mock_adapter.get_account_summary = AsyncMock(return_value={"NAV": "1000"})
+    mock_adapter.get_order_book = AsyncMock(return_value={"asks": [], "bids": []})
+    mock_adapter.get_current_price = AsyncMock(return_value=0.7000)
+    mock_adapter.place_market_order = AsyncMock(return_value={"orderFillTransaction": {"id": "1", "units": "100", "price": "0.7", "instrument": "AUD_USD", "time": "T"}})
 
     payload = {
         "broker_account_id": "12345678-1234-5678-1234-567812345678",
@@ -140,24 +148,27 @@ def test_place_smart_order_default_risk(mock_factory):
         "stop_loss": 0.6000, # Dist=0.10
         # NO risk_usd provided
         "generated_by": "TestStrategy",
-        "reason": "Test"
+        "reason": "Test",
+        "signal_id": "sig-2"
     }
     
     response = client.post("/smart-orders", json=payload)
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Response: {response.text}"
     
     # Logic: Risk $10 (default) / Dist 0.10 = 100 Units
     call_kwargs = mock_adapter.place_market_order.call_args[1]
     assert call_kwargs["units"] == 100
 
-@patch("app.main.BrokerFactory")
-def test_place_smart_order_price_fail(mock_factory):
+@patch("app.services.order_service.BrokerFactory")
+@patch("app.services.order_service.decrypt_data")
+def test_place_smart_order_price_fail(mock_decrypt, mock_factory):
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
+    mock_decrypt.return_value = {"api_key": "xyz", "account_id": "123"}
     
     # Mock Price Fetch Failure
-    mock_adapter.get_current_price.side_effect = Exception("API Error")
-    mock_adapter.get_summary.return_value = {"NAV": "1000"}
+    mock_adapter.get_current_price = AsyncMock(side_effect=Exception("API Error"))
+    mock_adapter.get_account_summary = AsyncMock(return_value={"NAV": "1000"})
 
     payload = {
         "broker_account_id": "12345678-1234-5678-1234-567812345678",
@@ -165,11 +176,12 @@ def test_place_smart_order_price_fail(mock_factory):
         "direction": "BULLISH",
         "stop_loss": 0.6000,
         "generated_by": "TestStrategy",
-        "reason": "Fail Test"
+        "reason": "Fail Test",
+        "signal_id": "sig-3"
     }
     
     response = client.post("/smart-orders", json=payload)
     
     # Should be 502 Bad Gateway or 500
-    assert response.status_code == 502
+    assert response.status_code == 500 # Internal Error
     assert "Failed to fetch live price" in response.json()["detail"]

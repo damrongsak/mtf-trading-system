@@ -263,3 +263,27 @@ class OandaOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"OANDA Trade History Error: {e}")
             raise e
+
+    async def cancel_order(self, order_id: str) -> Dict[str, Any]:
+        """
+        Cancel a pending order on OANDA.
+        """
+        try:
+            r = orders.OrderCancel(accountID=self.account_id, orderID=order_id)
+            await run_in_threadpool(self.client.request, r)
+            return r.response
+        except Exception as e:
+            logger.error(f"Failed to cancel OANDA order {order_id}: {e}")
+            raise e
+
+    async def get_pending_orders(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all pending orders (LIMIT, STOP, MARKET_IF_TOUCHED) from OANDA.
+        """
+        try:
+            r = orders.OrdersPending(accountID=self.account_id)
+            await run_in_threadpool(self.client.request, r)
+            return r.response.get("orders", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch pending OANDA orders: {e}")
+            raise e

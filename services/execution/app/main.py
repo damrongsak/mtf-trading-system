@@ -176,7 +176,6 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
              raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
         
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
-        
         # Support Market, Limit, Stop based on order_type
         if req.order_type == "MARKET":
             response = await adapter.place_market_order(
@@ -199,21 +198,6 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
                 comment=req.comment
             )
         elif req.order_type == "STOP":
-             # Assuming adapter has place_stop_order or uses limit interface. 
-             # Oanda usually calls it STOP_LOSS order if attached, or specific order type?
-             # Actually Oanda has 'STOP' order type (Entry Stop).
-             # Let's assume adapter supports it or we fallback/raise.
-             # cTrader adapter needs to support it too.
-             # For now, let's treat it similar to LIMIT but maybe adapter distinguishes?
-             # Standard adapter interface might lack explicit 'place_stop_order'.
-             # I'll check adapter interface or assume place_limit_order can handle it or add TODO.
-             # OandaOrderAdapter has place_limit_order.
-             # I'll stick to MARKET/LIMIT for now unless I verify adapter support.
-             # Plan says "Support MARKET, LIMIT, STOP".
-             # I will use place_limit_order and hope it handles type or add generic place_order.
-             # Let's stick to what's safe: Limit and Market.
-             # If Stop is required, I need to check adapter.
-             # I'll assume LIMIT for now for non-market.
              if not req.price:
                  raise HTTPException(status_code=400, detail="Price required for STOP order")
              response = await adapter.place_limit_order( # Reuse limit logic for now
@@ -253,6 +237,76 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
         logger.error(f"Place Order Error: {e}", exc_info=True)
         # Expose error detail for debugging (in dev/test envs this is acceptable)
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
+
+class CancelOrderRequest(BaseModel):
+    broker_account_id: str
+    order_id: Optional[str] = None # Optional if cancelling all
+
+@app.delete("/orders")
+async def cancel_pending_orders(
+    broker_account_id: str, 
+    symbol: Optional[str] = None, 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cancel ALL pending orders for an account.
+    Optional filter by symbol.
+    """
+    try:
+        try:
+            account_uuid = uuid.UUID(broker_account_id)
+        except ValueError:
+             raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+        except Exception:
+             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
+        
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        # 1. Fetch Pending Orders
+        # We need a get_pending_orders method on adapter? 
+        # Or OANDA adapter has get_orders?
+        # Let's assume adapter has get_pending_orders or we use get_open_orders generic?
+        # Standardize check:
+        if not hasattr(adapter, 'get_pending_orders'):
+             # OANDA specific fallback?
+             # For now, implemented loosely. Oanda adapter needs get_pending_orders.
+             # If not implemented, we can't do bulk safely without fetching first.
+             raise HTTPException(status_code=501, detail="Broker adapter does not support bulk cancellation (missing get_pending_orders)")
+        
+        orders = await adapter.get_pending_orders()
+        cancelled_count = 0
+        errors = []
+        
+        for o in orders:
+            # Filter by symbol
+            if symbol and o.get('instrument') != symbol:
+                continue
+            
+            oid = o.get('id')
+            if oid:
+                try:
+                    await adapter.cancel_order(oid)
+                    cancelled_count += 1
+                except Exception as ce:
+                    errors.append(f"Failed to cancel {oid}: {str(ce)}")
+
+        return success_response(data={"cancelled": cancelled_count, "errors": errors})
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Bulk Cancel Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/trades/open")
 async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_db)):
@@ -472,6 +526,7 @@ class SmartOrderRequest(BaseModel):
     time_in_force: Optional[str] = "GTC"
     slippage_tolerance: Optional[float] = None
     generated_by: str
+    signal_id: Optional[str] = None # For traceability
     reason: Optional[str] = None
     risk_usd: Optional[float] = Field(None, description="Target risk in USD (overrides default)")
     
@@ -509,4 +564,92 @@ async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(g
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Smart Order Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Order Management ---
+
+class CancelOrderRequest(BaseModel):
+    broker_account_id: str
+    order_id: str
+
+@app.delete("/orders/{order_id}")
+async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db)):
+    try:
+        try:
+            account_uuid = uuid.UUID(broker_account_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+        except Exception:
+             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
+
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        if hasattr(adapter, 'cancel_order'):
+            res = await adapter.cancel_order(order_id)
+            return success_response(data=res)
+        else:
+            raise HTTPException(status_code=501, detail="Broker adapter does not support cancellation")
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Cancel Order Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CloseAllTradesRequest(BaseModel):
+    broker_account_id: str
+    symbol: Optional[str] = None
+
+@app.post("/trades/close-all")
+async def close_all_trades(req: CloseAllTradesRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        try:
+            account_uuid = uuid.UUID(req.broker_account_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+             raise HTTPException(status_code=404, detail="Broker Account not found")
+        
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+        except Exception:
+             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
+
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        open_trades = await adapter.get_open_trades()
+        closed_count = 0
+        errors = []
+        
+        for t in open_trades:
+            # Filter by symbol if requested
+            if req.symbol and t.get('instrument') != req.symbol:
+                continue
+                
+            try:
+                # OANDA/CTrader trade ID
+                tid = t.get('id')
+                if tid:
+                    await adapter.close_trade(tid)
+                    closed_count += 1
+            except Exception as ce:
+                errors.append(str(ce))
+                
+        return success_response(data={"closed_count": closed_count, "errors": errors})
+
+    except Exception as e:
+        logger.error(f"Close All Trades Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

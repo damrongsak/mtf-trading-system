@@ -47,6 +47,13 @@ class OrderService:
         if not stop_loss:
             raise ValueError("Smart Order requires a Stop Loss price to calculate risk.")
 
+        if not req_data.get("generated_by"):
+            raise ValueError("Traceability Error: 'generated_by' (Strategy Name) is required.")
+
+        if not req_data.get("signal_id"):
+             # We can warn or auto-generate, but strict mode prefers explicit ID
+             logger.warning("Smart Order missing 'signal_id'. Traceability will be limited.")
+
         # 4. Hierarchical Risk Calculation
         if not account.fund_id:
             raise ValueError("Broker Account is not linked to a Fund")
@@ -147,7 +154,8 @@ class OrderService:
                 sl_price=stop_loss,
                 tp_price=take_profit,
                 time_in_force=req_data.get("time_in_force", "GTC"),
-                trade_id=None
+                trade_id=None,
+                comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}"
             )
         else:
             response = await adapter.place_market_order(
@@ -155,7 +163,8 @@ class OrderService:
                 units=units,
                 sl_price=stop_loss,
                 tp_price=take_profit,
-                trade_id=None
+                trade_id=None,
+                comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}"
             )
         
         fill = response.get("orderFillTransaction") or response.get("orderCreateTransaction") or {}
