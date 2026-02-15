@@ -23,6 +23,10 @@ from oandapyV20.exceptions import V20Error
 from app.services.order_service import OrderService
 from app.worker import worker
 from app.health import verify_dependencies
+from app.core.scheduler import scheduler
+from app.services.equity_guardian import EquityGuardian
+from app.core.config import settings
+import redis.asyncio as redis
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -40,10 +44,29 @@ async def startup_event():
     # Start background worker
     asyncio.create_task(worker.start())
 
+    # Initialize Equity Guardian
+    try:
+        redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        guardian = EquityGuardian(redis_client)
+        
+        # Schedule Health Check
+        scheduler.add_job(guardian.check_health, 'interval', minutes=5)
+        scheduler.start()
+        logger.info("✅ Equity Guardian & Scheduler Started")
+        
+        # Start Trade Consumer (Optional: if we want real-time updates)
+        # For now, let's rely on the scheduled hydration or add a listener if needed.
+        # The original implementation had a TradeEventConsumer. 
+        # We can add a simple redis pubsub listener here if needed, but for now strict polling + hydration is safer for migration.
+        
+    except Exception as e:
+        logger.error(f"❌ Equity Guardian Init Failed: {e}")
+
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Execution Service...")
     await worker.stop()
+    scheduler.stop()
     await CTraderConnectionManager.shutdown_all()
 
 app.add_middleware(
