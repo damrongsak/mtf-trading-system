@@ -42,26 +42,22 @@ export async function fetchDataSourceSymbols(id: string): Promise<string[]> {
 }
 
 export async function getBrokerSymbols(broker: string): Promise<MarketSymbol[]> {
-    const response = await apiClient.get<MarketSymbol[]>(`/api/v1/data/symbols`, {
+    const response = await apiClient.get<APIResponse<MarketSymbol[]>>(`/api/v1/data/symbols`, {
         params: { broker }
     });
-    return response.data;
+    return response.data.data || [];
 }
 
 export async function updateSymbol(id: string, updates: { is_active?: boolean, details?: Record<string, any> }): Promise<MarketSymbol> {
-    const response = await apiClient.patch<MarketSymbol>(`/api/v1/data/symbols/${id}`, updates);
-    return response.data;
+    const response = await apiClient.patch<APIResponse<MarketSymbol>>(`/api/v1/data/symbols/${id}`, updates);
+    if (!response.data.data) throw new Error("No data returned");
+    return response.data.data;
 }
 
 export async function createSymbol(broker: string, symbol: string): Promise<MarketSymbol> {
-    const response = await apiClient.post<MarketSymbol>(`/api/v1/data/symbols`, { broker, symbol });
-    // Handle APIResponse wrapper if present - wait, check backend return
-    // Backend returns MarketSymbolResponse directly in data-pipeline routes, 
-    // but api-gateway proxy might wrap it?
-    // api-gateway proxy: return response.json(). 
-    // data-pipeline routes: return MarketSymbolResponse model.
-    // So it returns JSON object directly.
-    return response.data;
+    const response = await apiClient.post<APIResponse<MarketSymbol>>(`/api/v1/data/symbols`, { broker, symbol });
+    if (!response.data.data) throw new Error("No data returned");
+    return response.data.data;
 }
 
 export async function fetchSymbolDetails(symbol: string): Promise<Record<string, any>> {

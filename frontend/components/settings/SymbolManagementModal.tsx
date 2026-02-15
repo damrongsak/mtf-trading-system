@@ -39,22 +39,30 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
             setLoading(true);
             setError(null);
             
+            logger.debug(`[SymbolManagement] Fetching symbols for broker: ${brokerName}, dataSourceId: ${dataSourceId}`);
+            
             // 1. Fetch Active Symbols from DB
+            logger.debug(`[SymbolManagement] Fetching active symbols from DB...`);
             const activeSymbols = await getBrokerSymbols(brokerName);
+            logger.debug(`[SymbolManagement] Fetched ${activeSymbols?.length || 0} active symbols from DB`);
             
             // 2. Fetch Available Symbols from Provider (may fail if not supported)
             let availableSymbols: string[] = [];
             try {
+                logger.debug(`[SymbolManagement] Fetching available symbols from provider...`);
                 availableSymbols = await fetchDataSourceSymbols(dataSourceId);
+                logger.debug(`[SymbolManagement] Fetched ${availableSymbols?.length || 0} symbols from provider`);
             } catch (e) {
-                logger.warn("Failed to fetch provider symbols", e);
+                logger.warn(`[SymbolManagement] Failed to fetch provider symbols:`, e);
+                // This is expected for some providers, continue with just active symbols
             }
 
             // 3. Merge
-            const activeMap = new Map(activeSymbols.map(s => [s.symbol, s]));
-            const merged: MarketSymbol[] = [...activeSymbols];
+            logger.debug(`[SymbolManagement] Merging symbols...`);
+            const activeMap = new Map((activeSymbols || []).map(s => [s.symbol, s]));
+            const merged: MarketSymbol[] = [...(activeSymbols || [])];
 
-            availableSymbols.forEach(sym => {
+            (availableSymbols || []).forEach(sym => {
                 if (!activeMap.has(sym)) {
                     merged.push({
                         id: `TEMP_${sym}`,
@@ -68,10 +76,13 @@ export function SymbolManagementModal({ isOpen, onClose, brokerName, dataSourceI
 
             // Sort alphabetically
             merged.sort((a, b) => a.symbol.localeCompare(b.symbol));
+            logger.debug(`[SymbolManagement] Successfully merged ${merged.length} total symbols`);
             setSymbols(merged);
 
         } catch (err) {
-            setError("Failed to load symbols");
+            const errorMessage = err instanceof Error ? err.message : "Unknown error";
+            logger.error(`[SymbolManagement] Failed to load symbols:`, err);
+            setError(`Failed to load symbols: ${errorMessage}`);
         } finally {
             setLoading(false);
         }
