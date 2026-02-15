@@ -371,10 +371,20 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
     # Label HH/LL - Linear pass is required as it's stateful (depends on previous pivot)
     # This is O(P) where P is number of pivots << N candles. Fast enough.
     
+    # Label HH/LL and Detect MSS
     if len(pivots) > 1:
         last_high = None
         last_low = None
         
+        # We also want to track the *confirmed* structure to detect shifts
+        # Simple MSS: 
+        # Bullish MSS: Price closes above the last Lower High (LH)
+        # Bearish MSS: Price closes below the last Higher Low (HL)
+        
+        # To do this correctly in a vectorized/batch way is complex.
+        # We will iterate pivots to label them, then check for breaks.
+        
+        # 1. Label Pivots
         for p in pivots:
             if p["type"] == "high":
                 label = "H"
@@ -389,6 +399,50 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
                 structure["labels"].append({"index": p["index"], "text": label, "price": p["price"]})
                 last_low = p
 
+        # 2. Detect MSS (Events)
+        # We scan the price array and check when it crosses the *most recent* contrarian pivot
+        # Optimization: limit to recent history or significant pivots?
+        # For this implementation, we will look for 'ChoCh' (Change of Character)
+        # A ChoCh is the first internal structure break.
+        
+        # Find the last LH and last HL
+        highs = [p for p in structure["labels"] if p["text"] in ["H", "HH", "LH"]]
+        lows = [p for p in structure["labels"] if p["text"] in ["L", "LL", "HL"]]
+        
+        if highs and lows:
+            # We only check for MSS in the most recent candles (last 50?) to keep it relevant
+            # This Avoids scanning the whole history for old MSS
+            scan_start = max(0, len(ohlc) - 50)
+            recent_highs = [h for h in highs if h["index"] < len(ohlc) - 1] # Valid completed pivots
+            recent_lows = [l for l in lows if l["index"] < len(ohlc) - 1]
+            
+            if recent_highs:
+                last_major_high = recent_highs[-1]
+                # Bullish MSS: Close > Last High
+                # We check candles AFTER the last high
+                for i in range(last_major_high["index"] + 1, len(ohlc)):
+                    if ohlc['close'].iloc[i] > last_major_high["price"]:
+                        structure["events"].append({
+                            "type": "mss_bullish",
+                            "index": i,
+                            "price": float(ohlc['close'].iloc[i]),
+                            "trigger_pivot": last_major_high
+                        })
+                        break # Only report the first break (Change of Character)
+
+            if recent_lows:
+                last_major_low = recent_lows[-1]
+                # Bearish MSS: Close < Last Low
+                for i in range(last_major_low["index"] + 1, len(ohlc)):
+                    if ohlc['close'].iloc[i] < last_major_low["price"]:
+                        structure["events"].append({
+                            "type": "mss_bearish",
+                            "index": i,
+                            "price": float(ohlc['close'].iloc[i]),
+                            "trigger_pivot": last_major_low
+                        })
+                        break
+    
     return structure
 
 def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, float]:

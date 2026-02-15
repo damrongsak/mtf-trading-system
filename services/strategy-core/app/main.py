@@ -47,9 +47,8 @@ router = APIRouter(prefix="/api/v1")
 def health_check():
     return {"status": "ok", "service": "strategy-core"}
 
-@router.get("/health")
-def health_check_v1():
-    return {"status": "ok", "service": "strategy-core"}
+# Original v1 health check removed to avoid duplicate routes
+
 
 @router.get("/market/candles")
 def get_candles(
