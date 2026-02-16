@@ -39,7 +39,7 @@ def test_get_stats_empty(client, local_mock_db):
     local_mock_db.query.return_value.filter.return_value.count.return_value = 0
     response = client.get("/api/v1/dashboard/stats")
     assert response.status_code == 200
-    assert response.json()["total_trades"] == 0
+    assert response.json()["data"]["total_trades"] == 0
 
 def test_get_stats_data(client, local_mock_db):
     mock_user_instance.id = uuid.uuid4()
@@ -69,8 +69,8 @@ def test_get_stats_data(client, local_mock_db):
         print(f"DEBUG: {response.json()}")
         
     assert response.status_code == 200
-    assert response.json()["total_trades"] == 10
-    assert response.json()["winning_trades"] == 6
+    assert response.json()["data"]["total_trades"] == 10
+    assert response.json()["data"]["winning_trades"] == 6
 
 def test_get_equity_curve(client, local_mock_db):
     mock_user_instance.id = uuid.uuid4()
@@ -83,8 +83,8 @@ def test_get_equity_curve(client, local_mock_db):
     
     response = client.get("/api/v1/dashboard/equity-curve")
     assert response.status_code == 200
-    assert len(response.json()) > 0
-    assert response.json()[-1]["daily_pnl"] == 50.0
+    assert len(response.json()["data"]) > 0
+    assert response.json()["data"][-1]["daily_pnl"] == 50.0
 
 def test_get_performance(client, local_mock_db):
     mock_user_instance.id = uuid.uuid4()
@@ -99,4 +99,4 @@ def test_get_performance(client, local_mock_db):
     
     response = client.get("/api/v1/dashboard/performance")
     assert response.status_code == 200
-    assert response.json()[0]["strategy_name"] == "Strat1"
+    assert response.json()["data"][0]["strategy_name"] == "Strat1"

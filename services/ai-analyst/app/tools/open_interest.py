@@ -17,9 +17,12 @@ class OpenInterestTool(BaseTool):
     """
 
     async def run(self, input_data: Any = None, auth_token: str = None) -> str:
-        url_base = f"{settings.API_GATEWAY_URL}/api/v1"
+        # We use direct service URLs instead of API Gateway to avoid potential deadlocks
+        # and reduce internal network roundtrips.
+        data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
+        strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
-        # Prepare Headers
+        # Prepare Headers (internal services might not need auth, but keeping for consistency)
         headers = {}
         if auth_token:
             if not auth_token.startswith("Bearer "):
@@ -29,28 +32,28 @@ class OpenInterestTool(BaseTool):
         
         async with aiohttp.ClientSession() as session:
             try:
-                # 1. Fetch Current Spot Price for XAUUSD (Dynamic from Candles)
+                # 1. Fetch Current Spot Price for XAUUSD (Direct from data-pipeline)
                 current_price = 0.0
                 try:
-                    # Fetch last H1 candle to get the most recent price (M1 might be sparse)
-                    price_url = f"{url_base}/market/candles"
-                    params = {"symbol": "XAUUSD", "timeframe": "H1", "count": 1, "data_source": "CTRADER"}
+                    # Fetch last D1/H1 candle to get the most recent price
+                    price_url = f"{data_pipeline_url}/candles"
+                    params = {"symbol": "XAUUSD", "timeframe": "H1", "page_size": 1}
                     async with session.get(price_url, params=params, headers=headers, timeout=5.0) as resp:
                         if resp.status == 200:
                             candle_data = await resp.json()
                             candles = candle_data.get("data", [])
                             if candles:
-                                # Use the close price of the most recent M1 candle as current spot
+                                # Data Pipeline usually returns DESC, so [0] is latest
                                 current_price = float(candles[0].get("close") or 0.0)
                                 logger.info(f"Fetched live spot price from candles: {current_price}")
                 except Exception as e:
                     logger.warning(f"Failed to fetch live spot price from candles: {e}")
 
-                # 2. Fetch Gamma Levels (Basis Adjusted)
-                gamma_url = f"{url_base}/analysis/gamma/levels"
+                # 2. Fetch Gamma Levels (Basis Adjusted) - Direct from strategy-core
+                gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
                 params = {"symbol": "XAUUSD"}
                 if current_price and current_price > 0:
-                    params["current_price"] = current_price
+                    params["current_price"] = str(current_price)
                 
                 gamma_levels = []
                 underlying_futures = 0.0
@@ -58,20 +61,20 @@ class OpenInterestTool(BaseTool):
                 
                 async with session.get(gamma_url, params=params, headers=headers, timeout=10.0) as resp:
                     if resp.status == 200:
-                        g_resp = await resp.json()
-                        g_data = g_resp.get("data", {})
+                        g_data = await resp.json()
                         gamma_levels = g_data.get("levels", [])
                         underlying_futures = float(g_data.get("underlying_price") or 0.0)
                         snapshot_at = g_data.get("snapshot_at", "Unknown")
 
-                # 3. Fetch Confirmation State (Market Regime)
+                # 3. Fetch Confirmation State (Market Regime) - Direct from strategy-core
                 confirmation_info = "RSI/EMA data unavailable"
                 try:
-                    regime_url = f"{url_base}/analysis/market-regime/XAUUSD"
-                    async with session.get(regime_url, headers=headers, timeout=5.0) as resp:
+                    # Strategy Core endpoint: POST /api/v1/market/regime
+                    regime_url = f"{strategy_core_url}/market/regime"
+                    regime_payload = {"symbol": "XAUUSD", "timeframe": "D1", "bias": "NEUTRAL"}
+                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=5.0) as resp:
                         if resp.status == 200:
-                            r_data = await resp.json()
-                            ctx = r_data.get("data", {})
+                            ctx = await resp.json()
                             regime = ctx.get("regime", "UNKNOWN")
                             r_score = float(ctx.get('regime_score') or 0.0)
                             confirmation_info = f"Current Regime: {regime} (ADX: {r_score:.1f})"

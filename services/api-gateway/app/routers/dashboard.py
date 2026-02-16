@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from datetime import datetime, timedelta, timezone
@@ -11,11 +11,14 @@ from app.models.trade import Trade, TradeStatus
 from app.models.strategy_run import StrategyRun
 from app.models.strategy import Strategy
 from app.utils.response import success_response
+from app.utils.cache import cached_response
 
 router = APIRouter()
 
 @router.get("/stats")
+@cached_response(ttl=300)
 async def get_dashboard_stats(
+    request: Request,
     strategy_id: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -77,7 +80,9 @@ async def get_dashboard_stats(
     })
 
 @router.get("/equity-curve")
+@cached_response(ttl=600)
 async def get_equity_curve(
+    request: Request,
     days: int = 30,
     strategy_id: str = None,
     db: Session = Depends(get_db),
@@ -130,7 +135,9 @@ async def get_equity_curve(
     return success_response(data=curve_data)
 
 @router.get("/performance")
+@cached_response(ttl=600)
 async def get_strategy_performance(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

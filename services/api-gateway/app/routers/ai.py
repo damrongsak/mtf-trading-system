@@ -1,17 +1,39 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from typing import Optional, List, Dict, Any
 from fastapi.security import OAuth2PasswordBearer
-from app.schemas.ai import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
-from app.schemas.response import APIResponse
-from app.utils.response import success_response
+from datetime import datetime, timezone
 import httpx
 import os
+import logging
+import uuid
+import pydantic
 
+logger = logging.getLogger(__name__)
+
+# Standard app imports
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.chat import ChatSession, ChatMessage
 from app.models.user import User
 from app.security import get_current_user
+from app.schemas.ai import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
+from app.schemas.response import APIResponse
+from app.utils.response import success_response
+from app.utils.cache import cached_response
+
+# Generated schemas
+from app.schemas.generated import (
+    APIResponseChatSessionList, 
+    APIResponseChatMessageList,
+    APIResponseChatSession,
+    APIResponseChatMessage,
+    APIResponseAIReport,
+    ChatSessionCreate, 
+    ChatMessageCreate, 
+    ChatSession as ChatSessionSchema, 
+    ChatMessage as ChatMessageSchema,
+    ResponseStatus
+)
 
 router = APIRouter(
     prefix="/api/v1/ai",
@@ -32,11 +54,12 @@ async def list_agents():
                 timeout=5.0
             )
             response.raise_for_status()
-            # Wrap in APIResponse structure if not already
-            return success_response(data=response.json().get("data", []))
+            return response.json()
         except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/market-analysis", response_model=APIResponse[AnalysisResponse])
@@ -52,10 +75,12 @@ async def analyze_market(req: MarketAnalysisRequest):
                 timeout=30.0 # LLMs can be slow
             )
             response.raise_for_status()
-            return success_response(data=response.json())
+            return response.json()
         except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/journal-analysis", response_model=APIResponse[AnalysisResponse])
@@ -71,14 +96,15 @@ async def analyze_journal(req: JournalAnalysisRequest):
                 timeout=30.0
             )
             response.raise_for_status()
-            return success_response(data=response.json())
+            return response.json()
         except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
-from pydantic import BaseModel
-class AgentRunRequest(BaseModel):
+class AgentRunRequest(pydantic.BaseModel):
     input_text: str
 
 @router.post("/agent/observer/run")
@@ -99,14 +125,18 @@ async def run_market_observer(
                 timeout=120.0 # Agents can be slow
             )
             response.raise_for_status()
-            return success_response(data=response.json())
+            return response.json()
         except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.get("/briefing")
+@cached_response(ttl=3600)
 async def get_daily_briefing(
+    request: Request,
     current_user: User = Depends(get_current_user),
     token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
 ):
@@ -122,20 +152,29 @@ async def get_daily_briefing(
                 timeout=120.0 
             )
             response.raise_for_status()
-            data = response.json()
+            resp_data = response.json()
             
-            # Transform to Briefing model format
+            # Extract data from AI Analyst's APIResponse wrapper
+            inner_data = resp_data.get("data", {})
+            if not inner_data and resp_data.get("status") == "error":
+                logger.error(f"AI Analyst returned error: {resp_data.get('message')}")
+                raise HTTPException(status_code=500, detail=resp_data.get("message"))
+
+            # Transform to Dashboard Briefing format
+            # AI Analyst run() returns {"response": "...", "thoughts": "..."}
             return success_response(data={
-                "content": data.get("report", ""),
-                "generated_at": data.get("timestamp"),
+                "content": inner_data.get("response") or inner_data.get("report") or "",
+                "generated_at": inner_data.get("timestamp") or datetime.now(timezone.utc).isoformat(),
                 "type": "DAILY"
             })
         except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed: {exc}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service returned {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
-class StrategyChatRequest(BaseModel):
+class StrategyChatRequest(pydantic.BaseModel):
     message: str
     user_id: str
     strategy_id: Optional[str] = None
@@ -167,26 +206,11 @@ async def chat_strategy(
             response.raise_for_status()
             return response.json()
         except httpx.RequestError as exc:
-            import logging
-            logging.error(f"AI Service Connection Failed: {exc} | URL: {AI_SERVICE_URL}")
+            logger.error(f"AI Service Connection Failed: {exc} | URL: {AI_SERVICE_URL}")
             raise HTTPException(status_code=503, detail=f"AI service unreachable: {type(exc).__name__} - {exc}")
         except httpx.HTTPStatusError as exc:
+            logger.error(f"AI Service Error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
-
-from app.schemas.generated import (
-    APIResponseChatSessionList, 
-    APIResponseChatMessageList,
-    APIResponseChatSession,
-    APIResponseChatMessage,
-    APIResponseAIReport,
-    ChatSessionCreate, 
-    ChatMessageCreate, 
-    ChatSession as ChatSessionSchema, 
-    ChatMessage as ChatMessageSchema,
-    ResponseStatus
-)
-from datetime import datetime, timezone
-import uuid
 
 @router.get("/chat/sessions", response_model=APIResponseChatSessionList)
 def list_chat_sessions(
@@ -253,7 +277,8 @@ async def send_chat_message(
     session_id: uuid.UUID,
     msg_in: ChatMessageCreate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    authorization: str = Header(None, alias="Authorization")
 ):
     # 1. Validate Session
     session = db.query(ChatSession).filter(
@@ -315,12 +340,13 @@ async def send_chat_message(
             
             if resp.status_code == 200:
                 data = resp.json()
-                ai_response_text = data.get("response", "")
+                # AI Analyst returns success_response with data={response: ...}
+                ai_response_text = data.get("data", {}).get("response", "")
             else:
                 ai_response_text = f"Error from AI Agent: {resp.text}"
                 
     except Exception as e:
-        print(f"AI Service Call Failed: {e}")
+        logger.error(f"AI Service Call Failed: {e}")
         ai_response_text = "I'm sorry, I'm currently unable to connect to the AI brain. Please try again later."
     
     # 4. Save AI Response

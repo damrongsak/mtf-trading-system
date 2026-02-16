@@ -49,6 +49,9 @@ class GeminiClient:
             except Exception as e:
                 print(f"Thought extraction warning: {e}")
 
+            if not response.text:
+                print(f"DEBUG: Gemini response.text is empty. Candidates: {len(response.candidates) if hasattr(response, 'candidates') else 'N/A'}")
+
             return {
                 "text": response.text,
                 "thoughts": "\n".join(thoughts) if thoughts else None,

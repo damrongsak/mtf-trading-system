@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 import sys
@@ -57,3 +57,11 @@ def mock_current_user():
     user.is_active = True
     user.avatar_url = None
     return user
+@pytest.fixture(autouse=True)
+def mock_redis():
+    """Mocks redis_client to avoid connection issues in tests"""
+    with patch("app.utils.cache.redis_client", new_callable=AsyncMock) as mock:
+        mock.get_client.return_value = AsyncMock()
+        mock.get_client.return_value.get.return_value = None
+        mock.get_client.return_value.setex.return_value = True
+        yield mock

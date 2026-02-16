@@ -629,36 +629,54 @@ class StrategyAdvisorAgent:
     async def node_generate_briefing(self, state: AgentState):
         """
         Consolidated DailyBriefing logic: Parallelized Personal Digest.
+        Now includes macro context via Google Search.
         """
         auth_token = state.get("auth_token")
         logger.info("Generating Daily Briefing...")
 
         # Select tools for briefing (Daily Briefing Parity)
-        tools = ["account_status", "get_economic_calendar", "journal_entries", "get_technical_signals", "get_market_context"]
+        tools = [
+            "account_status", 
+            "get_economic_calendar", 
+            "journal_entries", 
+            "get_technical_signals", 
+            "get_market_context",
+            "google_search"
+        ]
         
         async def run_briefing_tool(name):
              tool = self.tool_registry.get_tool(name)
-             if not tool: return f"Tool {name} not found."
+             if not tool:
+                 logger.warning(f"Briefing Tool {name} not found.")
+                 return f"Tool {name} not found."
              try:
                  inp = {}
                  if name == "get_economic_calendar": inp = {"currency": "USD", "days": 1}
                  elif name == "journal_entries": inp = {"limit": 5}
                  elif name == "get_technical_signals": inp = "XAUUSD"
                  elif name == "get_market_context": inp = "XAUUSD"
+                 elif name == "google_search": inp = "latest XAUUSD market sentiment and news"
                  
                  res = await tool.run(inp, auth_token=auth_token)
+                 logger.info(f"Briefing Tool {name} finished. Output size: {len(res)} chars")
                  return f"### {name.replace('_', ' ').title()}\n{res}"
              except Exception as e:
+                 logger.error(f"Error running briefing tool {name}: {e}")
                  return f"Error running {name}: {e}"
 
         results = await asyncio.gather(*[run_briefing_tool(t) for t in tools])
         
+        # Filter out empty or extremely small results to avoid polluting generation
+        valid_results = [r for r in results if len(r) > 50]
+        if len(valid_results) < len(results):
+            logger.warning(f"Some briefing tools returned empty or short results: {len(results) - len(valid_results)} failed/empty.")
+        
         return {
-            "scratchpad": results,
+            "scratchpad": valid_results if valid_results else results,
             "reasoning_trace": [
-                "System gathered account status, calendar events, and recent journal entries for the daily briefing.",
+                "System gathered comprehensive report context: account status, calendar events, recent journal entries, technical signals, and real-time market news.",
                 "Persona Instruction: Act as 'The Weaver' (Quant Fund Manager Assistant).",
-                "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure."
+                "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure with institutional formatting."
             ]
         }
 
@@ -731,13 +749,19 @@ class StrategyAdvisorAgent:
         """
         
         try:
+            logger.info(f"Generating terminal response for {state['intent']}. Prompt size: {len(prompt)} chars.")
             # Use Gemini 2.5 Flash for faster/reliable synthesis in test
             result = await self.gemini.generate_content(
                 model=settings.gemini.flash_model_id,
-                contents=prompt,
+                contents=[prompt], # Ensure it's a list for safety
                 thinking_config={"include_thoughts": True} 
             )
-            final = result.get("text") or "I processed your request but could not generate a narrative response."
+            final = result.get("text") or ""
+            if not final:
+                 logger.warning(f"Gemini returned EMPTY text for query: {state['optimized_query']}. Check safety filters or model state.")
+                 final = "I processed your request but the generator returned no text. This might be due to safety filters or a temporary service issue."
+            
+            logger.info(f"Generation successful. Final response size: {len(final)} chars.")
             thoughts = result.get("thoughts") or (reasoning_trace[0] if reasoning_trace else None)
         except Exception as e:
             logger.error(f"Generation failed: {e}")

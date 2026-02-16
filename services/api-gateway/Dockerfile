@@ -1,18 +1,29 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
+
+# Install uv via binary
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Install curl and procps
+RUN apt-get update && apt-get install -y curl procps
 
 WORKDIR /app
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Install curl
-RUN apt-get update && apt-get install -y curl
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Configure the virtual environment path
+ENV UV_PROJECT_ENVIRONMENT="/venv"
 
 # Install dependencies using uv
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+ENV PATH="/venv/bin:$PATH"
 
 # Copy application code
 COPY app ./app

@@ -31,6 +31,9 @@ class MarketStateTool(BaseTool):
 
         async with aiohttp.ClientSession() as session:
             try:
+                # We use direct service URLs instead of API Gateway
+                strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
+                
                 headers = {}
                 if auth_token:
                     if not auth_token.startswith("Bearer "):
@@ -38,15 +41,14 @@ class MarketStateTool(BaseTool):
                     else:
                         headers["Authorization"] = auth_token
                 
-                # Call API Gateway market-regime endpoint (Proxies to Strategy Core)
-                # Query param for timeframe
-                url = f"{settings.API_GATEWAY_URL}/api/v1/analysis/market-regime/{symbol}"
-                params = {"timeframe": timeframe}
+                # 1. Fetch Confirmation State (Market Regime) - Direct from strategy-core
+                # Strategy Core endpoint: POST /api/v1/market/regime
+                regime_url = f"{strategy_core_url}/market/regime"
+                regime_payload = {"symbol": symbol, "timeframe": timeframe, "bias": "NEUTRAL"}
                 
-                async with session.get(url, params=params, headers=headers) as resp:
+                async with session.post(regime_url, json=regime_payload, headers=headers) as resp:
                      if resp.status == 200:
-                         data = await resp.json()
-                         ctx = data.get("data", {})
+                         ctx = await resp.json()
                          
                          # Parse Adaptive Guardrails Data
                          regime = ctx.get("regime", "UNSTABLE")
@@ -67,21 +69,13 @@ class MarketStateTool(BaseTool):
                          if risk_mult < 1.0: risk_advice = "REDUCED SIZE (CAUTION)"
                          elif risk_mult > 1.0: risk_advice = "AGGRESSIVE (HIGH PROB)"
                          
-                         report = (
-                             f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"
-                             f"- Regime: {regime} (ADX: {score:.1f})\n"
-                             f"- Fakeout/Trap: {fakeout_text}\n"
-                             f"- **Dynamic Risk**: {risk_mult}x ({risk_advice})\n"
-                             f"- Context: The market is {regime.split('_')[0].lower()} with {fakeout_text.lower() if fakeout else 'no'} traps."
-                         )
-                         # Fetch Gamma Levels (Parallel or Sequential)
+                         # 2. Fetch Gamma Levels - Direct from strategy-core
                          gamma_report = "Unavailable"
                          try:
-                             gamma_url = f"{settings.API_GATEWAY_URL}/api/v1/analysis/gamma/levels"
+                             gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
                              async with session.get(gamma_url, params={"symbol": symbol}, headers=headers) as gamma_resp:
                                  if gamma_resp.status == 200:
-                                     g_data = await gamma_resp.json()
-                                     g_ctx = g_data.get("data", {})
+                                     g_ctx = await gamma_resp.json()
                                      
                                      if "error" in g_ctx:
                                          gamma_report = g_ctx["error"]
@@ -102,7 +96,7 @@ class MarketStateTool(BaseTool):
                          except Exception as e:
                              logger.error(f"Gamma fetch failed: {e}")
                              gamma_report = "Gamma Data Unavailable"
-
+ 
                          report = (
                              f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"
                              f"- Regime: {regime} (ADX: {score:.1f})\n"

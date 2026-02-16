@@ -17,7 +17,7 @@ services:
   api-gateway:
     build: ./services/api-gateway
     container_name: api-gateway
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
     env_file: .env
     ports:
       - "8000:8000"
