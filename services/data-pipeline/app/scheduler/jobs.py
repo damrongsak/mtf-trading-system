@@ -227,7 +227,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 # Supports both full (D1, W1, MN1) and short (D, W, M) formats
                                 tf_map = {
                                     "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
-                                    "D1": 11, "D": 11, "W1": 12, "W": 12, "MN1": 13, "M": 13
+                                    "D1": 12, "D": 12, "W1": 13, "W": 13, "MN1": 14, "M": 14
                                 }
                                 ct_period = tf_map.get(tf)
                                 if not ct_period: 
@@ -256,6 +256,12 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     from_timestamp=from_ts,
                                     to_timestamp=to_ts
                                 )
+                                
+                                if len(trendbars) > 0:
+                                    logger.info(f"Received {len(trendbars)} bars for {symbol_name} {tf}")
+                                else:
+                                    logger.warning(f"No bars returned for {symbol_name} {tf} (Period: {ct_period}, Range: {from_ts}-{to_ts})")
+
                                 for bar in trendbars:
                                     # cTrader V2 Trendbars: Open/High/Close are deltas relative to Low.
                                     # BUG: Some broker feeds (or message sequences) send ABSOLUTE values in delta fields.

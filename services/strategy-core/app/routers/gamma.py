@@ -41,25 +41,28 @@ class GammaAnalysisResponse(BaseModel):
 @router.get("/levels", response_model=GammaAnalysisResponse)
 async def get_gamma_levels(
     symbol: str = "XAUUSD", 
+    snapshot_at: Optional[datetime] = None,
     current_price: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
     """
     Get the latest Gamma Levels and Market Regime.
     """
-    # 1. Fetch latest snapshot time for symbol
-    # Note: open_interest table stores contract_symbol but we might need to map XAUUSD to futures symbol?
-    # For now, we assume the caller knows the symbol or we default to looking for anything recent.
-    # The current system stores records with 'contract_symbol' like 'GCG4' or similar.
-    # But usually we query by snapshot time.
-    
-    # Let's find the latest snapshot first
-    latest_snapshot = db.query(OpenInterest.snapshot_at).order_by(OpenInterest.snapshot_at.desc()).first()
-    
-    if not latest_snapshot:
-        raise HTTPException(status_code=404, detail="No Open Interest data found")
+    # 1. Determine snapshot time
+    if snapshot_at:
+        snapshot_time = snapshot_at
+    else:
+        # Find latest snapshot for SPECIFIC symbol mapping
+        # In this system, contract_symbol might be GCG4 (Gold) etc.
+        # But we mostly care about the primary asset data.
+        # If symbol is XAUUSD, we look for anything that maps to it or just the latest global OI if symbol isn't contract-specific.
+        latest_snapshot = db.query(OpenInterest.snapshot_at)\
+            .order_by(OpenInterest.snapshot_at.desc())\
+            .first()
         
-    snapshot_time = latest_snapshot[0]
+        if not latest_snapshot:
+            raise HTTPException(status_code=404, detail="No Open Interest data found")
+        snapshot_time = latest_snapshot[0]
     
     # 2. Fetch all records for this snapshot
     records = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).all()

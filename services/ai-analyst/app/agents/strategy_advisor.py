@@ -634,14 +634,17 @@ class StrategyAdvisorAgent:
         auth_token = state.get("auth_token")
         logger.info("Generating Daily Briefing...")
 
-        # Select tools for briefing (Daily Briefing Parity)
+        # Select tools for briefing (Daily Briefing Parity + Institutional Analysis)
         tools = [
-            "account_status", 
+            "get_account_status",  # Fixed: was "account_status"
             "get_economic_calendar", 
-            "journal_entries", 
+            "get_journal_entries",  # Fixed: was "journal_entries"
             "get_technical_signals", 
             "get_market_context",
-            "google_search"
+            "google_search",
+            "smc_technical_analysis",  # Added: SMC institutional analysis
+            "open_interest",  # Added: OI metrics
+            "market_state"  # Added: Market regime and risk multiplier
         ]
         
         async def run_briefing_tool(name):
@@ -651,11 +654,14 @@ class StrategyAdvisorAgent:
                  return f"Tool {name} not found."
              try:
                  inp = {}
-                 if name == "get_economic_calendar": inp = {"currency": "USD", "days": 1}
-                 elif name == "journal_entries": inp = {"limit": 5}
+                 if name == "get_economic_calendar": inp = {"currency": "USD", "days": 7}
+                 elif name == "get_journal_entries": inp = {"limit": 5}
                  elif name == "get_technical_signals": inp = "XAUUSD"
                  elif name == "get_market_context": inp = "XAUUSD"
                  elif name == "google_search": inp = "latest XAUUSD market sentiment and news"
+                 elif name == "smc_technical_analysis": inp = {"symbol": "XAUUSD", "timeframe": "H1"}
+                 elif name == "open_interest": inp = {}
+                 elif name == "market_state": inp = {"symbol": "XAUUSD", "timeframe": "H1"}
                  
                  res = await tool.run(inp, auth_token=auth_token)
                  logger.info(f"Briefing Tool {name} finished. Output size: {len(res)} chars")

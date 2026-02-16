@@ -129,9 +129,12 @@ The data returned is REAL and should be trusted over any simulated/example data.
                     report.append(f"> Markets are currently closed ({market_reason}). Analysis below uses the last available trading session from {self._format_age(data_age)} ago.")
                     report.append(f"> This historical data is valuable for reviewing market structure, identifying patterns, and planning future trades.")
                 elif freshness == "stale":
-                    report.append(f"\n> [!CAUTION]")
-                    report.append(f"> **⚠️ Data Delay**: Analysis based on data from {self._format_age(data_age)} ago")
-                    report.append(f"> Real-time streaming may be temporarily unavailable. Using latest database snapshot.")
+                    report.append(f"\n> [!IMPORTANT]")
+                    report.append(f"> **⚠️ Data Refresh Warning**: Latest analysis uses data from {self._format_age(data_age)} ago.")
+                    if data_age > 86400 * 2: # More than 2 days
+                         report.append(f"> Note: If this is a Monday, this may reflect the weekend market closure. Otherwise, please verify the data-pipeline ingestion status.")
+                    else:
+                         report.append(f"> Real-time data feed may be experiencing a temporary delay. Using the most recent verified database snapshot.")
                 
                 current_price_val = float(price or 0.0)
                 report.append(f"\n- **Current Rate**: {current_price_val:.2f}")

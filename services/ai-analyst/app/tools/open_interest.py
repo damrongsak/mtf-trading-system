@@ -17,12 +17,28 @@ class OpenInterestTool(BaseTool):
     """
 
     async def run(self, input_data: Any = None, auth_token: str = None) -> str:
-        # We use direct service URLs instead of API Gateway to avoid potential deadlocks
-        # and reduce internal network roundtrips.
+        # We use direct service URLs instead of API Gateway
         data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
-        # Prepare Headers (internal services might not need auth, but keeping for consistency)
+        # Parse Inputs
+        symbol = "XAUUSD"
+        snapshot_at = None
+        
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            snapshot_at = input_data.get("snapshot_at")
+        elif isinstance(input_data, str) and input_data.strip():
+            if input_data.startswith("{"):
+                try:
+                    data = json.loads(input_data)
+                    symbol = data.get("symbol", symbol)
+                    snapshot_at = data.get("snapshot_at")
+                except: pass
+            else:
+                symbol = input_data.strip().upper()
+
+        # Prepare Headers
         headers = {}
         if auth_token:
             if not auth_token.startswith("Bearer "):
@@ -32,39 +48,39 @@ class OpenInterestTool(BaseTool):
         
         async with aiohttp.ClientSession() as session:
             try:
-                # 1. Fetch Current Spot Price for XAUUSD (Direct from data-pipeline)
+                # 1. Fetch Current Spot Price for Symbol
                 current_price = 0.0
                 try:
-                    # Fetch last D1/H1 candle to get the most recent price
                     price_url = f"{data_pipeline_url}/candles"
-                    params = {"symbol": "XAUUSD", "timeframe": "H1", "page_size": 1}
+                    params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
                     async with session.get(price_url, params=params, headers=headers, timeout=5.0) as resp:
                         if resp.status == 200:
                             candle_data = await resp.json()
                             candles = candle_data.get("data", [])
                             if candles:
-                                # Data Pipeline usually returns DESC, so [0] is latest
                                 current_price = float(candles[0].get("close") or 0.0)
                                 logger.info(f"Fetched live spot price from candles: {current_price}")
                 except Exception as e:
                     logger.warning(f"Failed to fetch live spot price from candles: {e}")
 
-                # 2. Fetch Gamma Levels (Basis Adjusted) - Direct from strategy-core
+                # 2. Fetch Gamma Levels (Basis Adjusted)
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
-                params = {"symbol": "XAUUSD"}
+                params = {"symbol": symbol}
                 if current_price and current_price > 0:
                     params["current_price"] = str(current_price)
+                if snapshot_at:
+                    params["snapshot_at"] = snapshot_at
                 
                 gamma_levels = []
                 underlying_futures = 0.0
-                snapshot_at = "Unknown"
+                actual_snapshot_at = "Unknown"
                 
                 async with session.get(gamma_url, params=params, headers=headers, timeout=10.0) as resp:
                     if resp.status == 200:
                         g_data = await resp.json()
                         gamma_levels = g_data.get("levels", [])
                         underlying_futures = float(g_data.get("underlying_price") or 0.0)
-                        snapshot_at = g_data.get("snapshot_at", "Unknown")
+                        actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
 
                 # 3. Fetch Confirmation State (Market Regime) - Direct from strategy-core
                 confirmation_info = "RSI/EMA data unavailable"
@@ -85,7 +101,7 @@ class OpenInterestTool(BaseTool):
                 raw_spot = float(current_price or 0.0)
                 basis = raw_futures - raw_spot if raw_futures > 0 and raw_spot > 0 else 0
                 
-                report = [f"### 🎯 Gold Open Interest Strategy Report ({snapshot_at})"]
+                report = [f"### 🎯 Gold Open Interest Strategy Report ({actual_snapshot_at})"]
                 report.append(f"\n> **📊 Basis Adjustment**: Gold Futures ({raw_futures:.2f}) vs Spot ({raw_spot:.2f}) | **Offset**: {basis:.2f}")
                 
                 if gamma_levels:

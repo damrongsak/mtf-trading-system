@@ -63,6 +63,11 @@ class GetAccountStatusTool(BaseTool):
                          )
                          return report
                      else:
-                         return f"Error fetching account data ({resp.status}): {await resp.text()}"
+                         resp_text = await resp.text()
+                         if "INVALID_REQUEST" in resp_text or "not authorized" in resp_text:
+                             return "Account Summary: Unable to retrieve account status. This is likely due to an **Expired or Unauthorized cTrader Token**. \n\n**Action Required**: Please go to **Broker Settings** and re-authorize your cTrader account."
+                         elif "SRV_9001" in resp_text:
+                             return "Account Summary: Service encounterd an internal error (SRV_9001). This typically happens when the broker connection is unstable. Please retry in a few moments."
+                         return f"Account Summary: Error fetching account data ({resp.status}): {resp_text}"
             except Exception as e:
-                return f"Failed to connect to Execution Service: {e}"
+                return f"Account Summary: Failed to connect to Execution Service: {e}. Please ensure the system infrastructure is running."
