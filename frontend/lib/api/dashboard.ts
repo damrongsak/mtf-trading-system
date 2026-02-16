@@ -50,7 +50,7 @@ export async function getRecentSignals(limit: number = 5): Promise<RecentSignal[
     try {
         // Fetch from both sources in parallel
         const [scannerSignals, detectedSignals] = await Promise.all([
-            getBatchSignals("OANDA"),
+            getBatchSignals("CTRADER"),
             getDetectedSignals(limit * 2)
         ]);
 

@@ -39,9 +39,15 @@ class AddSymbolSchema(BaseModel):
 @router.get("/market/categories", response_model=List[CategorySchema])
 def get_categories(db: Session = Depends(get_db)):
     from sqlalchemy.orm import joinedload
+    from app.models.data_source import DataSource
     cats = db.query(MarketCategory).filter(MarketCategory.is_active == True).options(
         joinedload(MarketCategory.items).joinedload(MarketSymbol.data_source)
     ).order_by(MarketCategory.order_index).all()
+    
+    # Filter out symbols from inactive data sources
+    for cat in cats:
+        cat.items = [item for item in cat.items if item.data_source and item.data_source.is_active]
+    
     return cats
 
 @router.post("/market/categories", response_model=CategorySchema)

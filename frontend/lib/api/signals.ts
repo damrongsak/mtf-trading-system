@@ -23,7 +23,7 @@ export async function checkSignal(symbol: string): Promise<Signal> {
 /**
  * Batch fetch signals for all active symbols of a broker
  */
-export async function getBatchSignals(broker: string = "OANDA"): Promise<Signal[]> {
+export async function getBatchSignals(broker: string = "CTRADER"): Promise<Signal[]> {
     const response = await apiClient.post<APIResponse<Signal[]>>('/api/v1/signal/batch', { broker });
     return response.data.data || [];
 }

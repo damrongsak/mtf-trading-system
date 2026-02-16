@@ -32,7 +32,7 @@ async def get_candles(
     count: int = Query(500, description="Number of candles to return"),
     from_time: Optional[datetime] = Query(None, description="Start time"),
     to_time: Optional[datetime] = Query(None, description="End time"),
-    data_source: str = Query("OANDA", description="Data Source Preference"),
+    data_source: str = Query("CTRADER", description="Data Source Preference"),
     db: Session = Depends(get_db)
 ):
     # 1. Resolve MarketSymbol ID
@@ -78,7 +78,7 @@ async def get_candles(
 
 @router.get("/symbols", response_model=APIResponse[List[dict]])
 async def get_market_symbols(
-    data_source: str = Query("OANDA", description="Data Source Name"),
+    data_source: str = Query("CTRADER", description="Data Source Name"),
     db: Session = Depends(get_db)
 ):
     """

@@ -19,7 +19,7 @@ export const RecentSignalsCard: React.FC = () => {
   const fetchSignals = async () => {
     try {
       // setLoading(true); // Don't show loading spinner on refresh
-      const data = await getBatchSignals("OANDA");
+      const data = await getBatchSignals("CTRADER");
       // Sort logic if needed, but backend mostly returns recent. 
       // Let's sort by timestamp desc just in case.
       const sorted = data
@@ -99,7 +99,20 @@ export const RecentSignalsCard: React.FC = () => {
     }
   };
   
-  // ... helpers ...
+  const formatPrice = (price: number | undefined) => {
+    if (price === undefined || price === null) return '-';
+    return price.toLocaleString(undefined, { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 5 
+    });
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+  };
 
   if (loading && signals.length === 0) {
      return (
@@ -131,7 +144,7 @@ export const RecentSignalsCard: React.FC = () => {
                     Reject All
                 </Button>
             )}
-            <span className="text-xs text-gray-500">Source: OANDA</span>
+            <span className="text-xs text-gray-500">Source: CTRADER</span>
             <button onClick={() => fetchSignals()} className="text-gray-400 hover:text-white transition">
                 ↻
             </button>
