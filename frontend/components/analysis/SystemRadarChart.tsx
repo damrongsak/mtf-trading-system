@@ -29,42 +29,42 @@ export const SystemRadarChart: React.FC<SystemRadarChartProps> = ({ metrics, cla
   
   // Metric Definitions & Scaling Logic
   // 1. Reward (Sharpe Ratio) -> Target > 1.0, Max 3.0
-  const rewardScore = normalize(metrics.sharpeRatio ?? 0, 0, 3.0);
+  const rewardScore = normalize(metrics.sharpe_ratio ?? 0, 0, 3.0);
   
   // 2. Consistency (K-Ratio) -> Target > 0.5, Max 2.0 (Note: K-Ratio can be high for very consistent)
-  const consistencyScore = normalize(metrics.kRatio ?? 0, 0, 2.0);
+  const consistencyScore = normalize((metrics as any).k_ratio ?? 0, 0, 2.0);
   
   // 3. Efficiency (Profit Factor) -> Target > 1.5, Max 3.0
-  const efficiencyScore = normalize(metrics.profitFactor ?? 1.0, 1.0, 4.0);
+  const efficiencyScore = normalize((metrics as any).profit_factor ?? 1.0, 1.0, 4.0);
   
   // 4. Safety (Max Drawdown Inverse) -> Target < 20%, MaxScore at 0%
   // 10 - (DD% / 5) -> 50% DD = 0 score. 0% DD = 10 score.
-  // Using maxDrawdownPercent (e.g., 10.5 for 10.5%)
-  const safetyScore = Math.max(0, 10 - ((metrics.maxDrawdownPercent ?? 0)) / 4); // 40% DD = 0
+  // Using max_drawdown_percent (e.g., 10.5 for 10.5%)
+  const safetyScore = Math.max(0, 10 - ((metrics.max_drawdown_percent ?? 0)) / 4); // 40% DD = 0
   
   // 5. Reliability (Win Rate) -> Target 50%+, Max 80% (Too high might be overfitting)
   // Scale 30% to 80% -> 0 to 10
-  const reliabilityScore = normalize(metrics.winRate ?? 0, 30, 80);
+  const reliabilityScore = normalize(metrics.win_rate ?? 0, 30, 80);
   
   // 6. Payoff (Reward to Risk) -> Target 1:1 to 3:1
-  const payoffScore = normalize(metrics.rewardToRiskRatio ?? 0, 0.5, 4.0);
+  const payoffScore = normalize((metrics as any).reward_to_risk_ratio ?? 0, 0.5, 4.0);
 
   // 7. Tail Risk (Kurtosis) -> Lower is better (Normal dist = 3, Excess = 0)
   // High Kurtosis = Fat Tails (Risk of blowup). 
   // We want LOW Excess Kurtosis (close to 0 or negative).
   // Scale: 10 (Good) to 0 (Bad). 
   // Let's say Excess Kurtosis > 10 is bad (0 score). < 1 is good (10 score).
-  const kurtosisVal = metrics.kurtosis ?? 0;
+  const kurtosisVal = (metrics as any).kurtosis ?? 0;
   const tailRiskScore = Math.max(0, 10 - Math.max(0, kurtosisVal - 1)); 
 
   const data = [
-    { subject: 'Reward', A: rewardScore, fullMark: 10, val: metrics.sharpeRatio?.toFixed(2) },
-    { subject: 'Consistency', A: consistencyScore, fullMark: 10, val: metrics.kRatio?.toFixed(2) },
-    { subject: 'Efficiency', A: efficiencyScore, fullMark: 10, val: metrics.profitFactor?.toFixed(2) },
-    { subject: 'Safety', A: safetyScore, fullMark: 10, val: `${metrics.maxDrawdownPercent?.toFixed(1)}%` },
-    { subject: 'Reliability', A: reliabilityScore, fullMark: 10, val: `${metrics.winRate?.toFixed(1)}%` },
-    { subject: 'Payoff', A: payoffScore, fullMark: 10, val: metrics.rewardToRiskRatio?.toFixed(2) },
-    { subject: 'Tail Risk', A: tailRiskScore, fullMark: 10, val: metrics.kurtosis?.toFixed(2) },
+    { subject: 'Reward', A: rewardScore, fullMark: 10, val: metrics.sharpe_ratio?.toFixed(2) },
+    { subject: 'Consistency', A: consistencyScore, fullMark: 10, val: (metrics as any).k_ratio?.toFixed(2) },
+    { subject: 'Efficiency', A: efficiencyScore, fullMark: 10, val: (metrics as any).profit_factor?.toFixed(2) },
+    { subject: 'Safety', A: safetyScore, fullMark: 10, val: `${metrics.max_drawdown_percent?.toFixed(1)}%` },
+    { subject: 'Reliability', A: reliabilityScore, fullMark: 10, val: `${metrics.win_rate?.toFixed(1)}%` },
+    { subject: 'Payoff', A: payoffScore, fullMark: 10, val: (metrics as any).reward_to_risk_ratio?.toFixed(2) },
+    { subject: 'Tail Risk', A: tailRiskScore, fullMark: 10, val: (metrics as any).kurtosis?.toFixed(2) },
   ];
   
   // Calculate System Quality Score (Average Area)

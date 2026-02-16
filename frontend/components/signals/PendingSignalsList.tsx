@@ -84,7 +84,7 @@ export function PendingSignalsList() {
                         <div className="text-sm text-gray-300 mb-2 space-y-1">
                             <p>Price: <span className="font-mono">{signal.entry_price}</span></p>
                             <p>Strategy: <span className="text-blue-300">{signal.strategy_name?.replace('Strategy-', '')}</span></p>
-                            <p className="text-xs italic mt-2 opacity-70">"{signal.reason}"</p>
+                            <p className="text-xs italic mt-2 opacity-70">&quot;{signal.reason}&quot;</p>
                         </div>
 
                         {/* Rich Metadata Display */}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { analysisApi } from '@/lib/api/client';
 import { ChartPriceLine } from '@/components/charts/CandleChart';
 import { logger } from '@/lib/api/app-logger';
@@ -20,11 +21,11 @@ export function useGammaLevels(symbol: string, currentPrice: number, enabled: bo
         const fetchGamma = async () => {
             setLoading(true);
             try {
-                const response = await analysisApi.analysisGammaLevelsGet(symbol, currentPrice);
+                const response = await analysisApi.analysisGammaLevelsGet({ symbol, currentPrice });
 
 
                 if (response.data && response.data.status === 'success' && response.data.data) {
-                    const levels = response.data.data;
+                    const levels = response.data.data as any;
                     const lines: ChartPriceLine[] = [];
 
                     // Call Wall

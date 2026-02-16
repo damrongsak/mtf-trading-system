@@ -81,7 +81,7 @@ export function DailyBriefingWidget() {
                             </div>
                             <div className="text-center space-y-1">
                                 <p className="text-sm font-medium text-amber-200">Synthesizing Market Intelligence</p>
-                                <p className="text-[10px] text-gray-500 italic">"The Weaver is pattern-matching H4/D1 structures..."</p>
+                                <p className="text-[10px] text-gray-500 italic">&quot;The Weaver is pattern-matching H4/D1 structures...&quot;</p>
                             </div>
                         </div>
                     )}
@@ -143,7 +143,5 @@ export function DailyBriefingWidget() {
                 </div>
             </CardFooter>
         </Card>
-    );
-}
     );
 }
