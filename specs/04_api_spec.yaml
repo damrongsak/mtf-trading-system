@@ -454,9 +454,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Briefing'
 
-  /analyze/market:
+  /api/v1/ai/market-analysis:
     post:
       summary: Generate market outlook
+      tags: [AI]
       requestBody:
         content:
           application/json:
@@ -470,9 +471,10 @@ paths:
                schema:
                  $ref: '#/components/schemas/APIResponse_Analysis'
 
-  /analyze/journal:
+  /api/v1/ai/journal-analysis:
     post:
       summary: Analyze journal entry
+      tags: [AI]
       requestBody:
         content:
           application/json:
@@ -486,9 +488,10 @@ paths:
                 schema:
                   $ref: '#/components/schemas/APIResponse_Analysis'
 
-  /analyze/smc-narrative:
+  /api/v1/ai/smc-narrative:
     post:
       summary: Generate SMC Narrative
+      tags: [AI]
       requestBody:
          content:
            application/json:
@@ -502,7 +505,7 @@ paths:
                  schema:
                   $ref: '#/components/schemas/APIResponse_Analysis'
 
-  /analysis/gamma/levels:
+  /api/v1/analysis/gamma/levels:
     get:
       tags:
         - Analysis
@@ -585,7 +588,7 @@ paths:
                         type: string
                         format: date-time
 
-  /ai/chat/sessions/message:
+  /api/v1/ai/chat/sessions/message:
     post:
       summary: Chat with Strategy Advisor
       description: Direct chat endpoint for Strategy Advisor agent.
@@ -2129,37 +2132,6 @@ paths:
                   data:
                     type: object
 
-  /api/v1/execution/trades/close-all:
-    post:
-      summary: Emergency close all positions
-      tags: [Execution]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - broker_account_id
-              properties:
-                broker_account_id:
-                  type: string
-                  format: uuid
-                symbol:
-                  type: string
-                  nullable: true
-      responses:
-        '200':
-          description: Close all command processed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  data:
-                    type: object
 
   /api/v1/market/candles:
     get:
