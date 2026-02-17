@@ -70,7 +70,11 @@ async def strategy(state, data_manager):
     Phase D: Entry (Limit at FVG/OB)
     """
     symbol = state.symbol
-    data = data_manager.get_data(symbol) # Expecting M15 or M5 data
+    params = state.config_json if state.config_json else METADATA["defaults"]
+    timeframe = params.get("timeframe", "15m")
+    
+    # Use new get_candles with on-the-fly resampling
+    data = data_manager.get_candles(symbol, timeframe=timeframe)
 
     if data.empty or len(data) < 50:
         return None, None, None

@@ -14,14 +14,11 @@ METADATA = {
     "defaults": {
         "tf_trend": "1h",
         "tf_setup": "15min",
-        "ema_trend_fast": 50,
-        "ema_trend_slow": 200,
+        "ema_trend": 60,
         "ema_trigger": 20,
         "rr_ratio": 2.0
     }
 }
-
-
 
 async def strategy(state, data_manager):
     """
@@ -30,50 +27,45 @@ async def strategy(state, data_manager):
     params = state.config_json if state.config_json else METADATA["defaults"]
     symbol = state.symbol
     
-    # 1. Fetch & Resample Data
-    data = data_manager.get_data(symbol)
-    if data.empty or len(data) < 250: # Need enough for EMA 200
-        return None, None, None
-
+    # 1. Fetch Data (Legacy Resampling Removed)
+    # New Engine supports direct Timeframe requests
     try:
-        # Ensure DT index
-        if not isinstance(data.index, pd.DatetimeIndex):
-            data.index = pd.to_datetime(data.index)
-            
-        # Resample for HTF and MTF
         tf_trend = params.get("tf_trend", "1h")
         tf_setup = params.get("tf_setup", "15min")
-        
-        df_h1 = data.resample(tf_trend).agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
-        df_m15 = data.resample(tf_setup).agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
-        
-        # Current data is M5 (base)
-        df_m5 = data
+        tf_trigger = "5min" # Hardcoded or param
+
+        # Standardized MTF Access
+        df_h1 = data_manager.get_candles(symbol, timeframe=tf_trend)
+        df_m15 = data_manager.get_candles(symbol, timeframe=tf_setup)
+        df_m5 = data_manager.get_candles(symbol, timeframe=tf_trigger) # Base Trigger
+
+        if df_h1.empty or df_m15.empty or df_m5.empty:
+            return None, None, None
+            
+        # Use M5 as the 'primary' data for signal index
+        data = df_m5
         
     except Exception as e:
-        logger.warning(f"Resampling failed for {symbol}: {e}")
+        logger.warning(f"Data fetch failed for {symbol}: {e}")
         return None, None, None
 
     # 2. HTF Trend Bias (H1)
-    ema_fast_p = params.get("ema_trend_fast", 50)
-    ema_slow_p = params.get("ema_trend_slow", 200)
+    # Logic: Price > EMA 60 = BULLISH, Price < EMA 60 = BEARISH
+    ema_trend_p = params.get("ema_trend", 60)
     
-    ema_fast = calculate_ema(df_h1['close'], span=ema_fast_p)
-    ema_slow = calculate_ema(df_h1['close'], span=ema_slow_p)
+    ema_trend = calculate_ema(df_h1['close'], span=ema_trend_p)
     
-    if len(ema_fast) < 2 or len(ema_slow) < 2:
+    if len(ema_trend) < 2:
         return None, None, None
         
     # Use -1 for bias (latest completed H1)
-    # Note: If we are midway through H1, -1 is the last FULL candle.
     h1_close = df_h1['close'].iloc[-1]
-    h1_ema_fast = ema_fast.iloc[-1]
-    h1_ema_slow = ema_slow.iloc[-1]
+    h1_ema = ema_trend.iloc[-1]
     
     trend_bias = SignalDirection.NEUTRAL
-    if h1_ema_fast > h1_ema_slow:
+    if h1_close > h1_ema:
         trend_bias = SignalDirection.BULLISH
-    elif h1_ema_fast < h1_ema_slow:
+    elif h1_close < h1_ema:
         trend_bias = SignalDirection.BEARISH
         
     if trend_bias == SignalDirection.NEUTRAL:
@@ -157,14 +149,69 @@ async def strategy(state, data_manager):
         "take_profit": float(target_price),
         "target_price": float(target_price),
         "rrr": abs(target_price - curr_close) / abs(curr_close - stop_loss),
-        "reason": f"OB Smart Entry: {trend_bias.value} Trend + M15 OB + M5 EMA20 Trigger",
+        "reason": f"OB Smart Entry: {trend_bias.value} Trend (Price vs EMA{ema_trend_p}) + M15 OB + M5 EMA20 Trigger",
         "metadata": {
             "ob_id": active_ob['index'],
             "ob_top": active_ob['top'],
             "ob_bottom": active_ob['bottom'],
-            "ema_trend_fast": float(h1_ema_fast),
-            "ema_trend_slow": float(h1_ema_slow)
+            "ema_trend": float(h1_ema)
         }
     }
 
     return entries, exits, signal_dict
+
+# ---------------------------
+# Vectorized Backtesting Support
+# ---------------------------
+def strategy_vectorized(df, params=METADATA["defaults"]):
+    """
+    Vectorized version of OB Smart Entry for VBT Backtesting.
+    Approximates the logic: H1 Trend Bias + M5 Trigger.
+    """
+    # 1. Indicators
+    # H1 Trend Resampling
+    try:
+        tf_trend = params.get("tf_trend", "1h")
+        
+        # Resample to H1
+        # Use pandas 'B' business day or simple 'H'? 
+        # Better: use rule based on input. '1h' -> 'H'
+        rule = tf_trend.upper().replace("H", "H").replace("MIN", "T").replace("M", "T")
+        if not rule.endswith('T') and not rule.endswith('H') and not rule.endswith('D'):
+            rule = '1H'
+            
+        df_h1 = df.resample(rule).agg({
+            'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'
+        }).ffill()
+        
+        ema_trend_p = params.get("ema_trend", 60)
+        ema_h1 = calculate_ema(df_h1['close'], span=ema_trend_p)
+        
+        # Broadcast H1 EMA back to M5 index
+        # align creates NaN where H1 index doesn't match M5 exactly? Use reindex + ffill
+        ema_h1_aligned = ema_h1.reindex(df.index, method='ffill')
+        
+    except Exception as e:
+        # Fallback if resampling fails
+        ema_h1_aligned = calculate_ema(df['close'], span=60*12) # Approximate
+        
+    # Trend Bias
+    bullish_trend = df['close'] > ema_h1_aligned
+    bearish_trend = df['close'] < ema_h1_aligned
+    
+    # 2. Trigger (M5)
+    ema_trigger_p = params.get("ema_trigger", 20)
+    ema_trigger = calculate_ema(df['close'], span=ema_trigger_p)
+    
+    # Crossovers
+    close = df['close']
+    ema = ema_trigger
+    
+    long_trigger = (close > ema) & (close.shift(1) <= ema.shift(1))
+    short_trigger = (close < ema) & (close.shift(1) >= ema.shift(1))
+    
+    # 3. Signals (Trend Filtered)
+    entries = bullish_trend & long_trigger
+    exits = bearish_trend & short_trigger # Short Entry or Exit Long
+    
+    return entries, exits

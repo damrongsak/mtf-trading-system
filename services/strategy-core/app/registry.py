@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 class StrategyRegistry:
     _strategies: Dict[str, Any] = {}
+    _strategies_sync: Dict[str, Any] = {}
     _metadata: Dict[str, Dict] = {}
     _loaded = False
     _executor = None # ThreadPoolExecutor
@@ -64,11 +65,20 @@ class StrategyRegistry:
                         logger.warning(f"Strategy {item} is missing 'strategy' function.")
                         continue
 
-                    # 3. Auto-Adapter for Sync Functions (Vectorized)
+                    # 3. Check for dedicated Vectorized Strategy
+                    if hasattr(module, "strategy_vectorized"):
+                        logger.info(f"Found 'strategy_vectorized' for {item}")
+                        cls._strategies_sync[item] = module.strategy_vectorized
+
+                    # 4. Auto-Adapter for Sync Functions (Vectorized)
                     # If func is NOT async, we wrap it.
                     if not asyncio.iscoroutinefunction(func):
                         logger.info(f"Strategy {item} is SYNC (Vectorized). Wrapping in Async Adapter.")
                         
+                        # Store original as sync if not already set by strategy_vectorized
+                        if item not in cls._strategies_sync:
+                            cls._strategies_sync[item] = func
+
                         # Capture func in closure
                         original_func = func
                         

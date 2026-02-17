@@ -1,10 +1,43 @@
 
 import pandas as pd
-from typing import Dict, Optional, List
-from datetime import datetime
+import numpy as np
+from typing import Dict, Optional, List, Deque
+from datetime import datetime, timedelta
 import threading
+from collections import deque
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SymbolData:
+    """
+    Optimized Data Structure for a Single Symbol.
+    Stores raw M1 candles in a circular buffer (deque) for O(1) updates.
+    """
+    def __init__(self, symbol: str, max_len: int = 5000):
+        self.symbol = symbol
+        self.lock = threading.RLock()
+        
+        # Base Timeframe: 1 Minute
+        # Each element is dict: {timestamp, open, high, low, close, volume, delta}
+        self.candles_m1: Deque[dict] = deque(maxlen=max_len)
+        
+        # Current forming candle state
+        self.current_candle: Optional[dict] = None
+        
+        # Cache for recently requested DataFrames (Simple Memoization)
+        # Key: timeframe, Value: (last_update_ts, DataFrame)
+        self._df_cache: Dict[str, tuple] = {}
+
+from app.database import SessionLocal
+from app.models.candle import Candle
+from sqlalchemy import select, desc
 
 class SharedMarketDataManager:
+    """
+    High-Frequency Market Data Engine.
+    Uses 'Buffer-First' architecture with Lazy DataFrame Synthesis.
+    """
     _instance = None
     _lock = threading.Lock()
     
@@ -12,137 +45,211 @@ class SharedMarketDataManager:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super(SharedMarketDataManager, cls).__new__(cls)
-                cls._instance.data_buffers = {} # Dict[symbol, pd.DataFrame]
-                cls._instance.lock = threading.RLock()
+                cls._instance.symbols: Dict[str, SymbolData] = {}
+                cls._instance.global_lock = threading.RLock()
         return cls._instance
+
+    def _get_symbol_data(self, symbol: str) -> SymbolData:
+        """Get or Create SymbolData in a thread-safe way."""
+        if symbol not in self.symbols:
+            with self.global_lock:
+                if symbol not in self.symbols:
+                    self.symbols[symbol] = SymbolData(symbol)
+        return self.symbols[symbol]
+
+    def load_history(self, symbol: str, limit: int = 1000):
+        """
+        Hydrate buffer from Database (M1 Candles).
+        Crucial for eliminating 'warmup' time.
+        """
+        s_data = self._get_symbol_data(symbol)
+        
+        with s_data.lock:
+            if len(s_data.candles_m1) > 0:
+                logger.info(f"Symbol {symbol} already has data, skipping hydration.")
+                return
+
+            logger.info(f"Hydrating {symbol} from DB (M1)...")
+            db = SessionLocal()
+            try:
+                # Query M1 history
+                stmt = select(Candle).where(
+                    Candle.symbol == symbol,
+                    Candle.timeframe == 'M1'
+                ).order_by(desc(Candle.timestamp)).limit(limit)
+                
+                results = db.execute(stmt).scalars().all()
+                
+                if not results:
+                    logger.warning(f"No M1 history found for {symbol} in DB.")
+                    return
+
+                # Convert to dicts and append (Reverse order because we fetched DESC)
+                for c in reversed(results):
+                    candle = {
+                        'timestamp': c.timestamp.replace(tzinfo=None), # Normalize to naive if needed
+                        'open': float(c.open),
+                        'high': float(c.high),
+                        'low': float(c.low),
+                        'close': float(c.close),
+                        'volume': float(c.volume)
+                    }
+                    s_data.candles_m1.append(candle)
+                
+                logger.info(f"Hydrated {symbol}: {len(results)} M1 candles loaded.")
+                
+            except Exception as e:
+                logger.error(f"Hydration failed for {symbol}: {e}")
+            finally:
+                db.close()
 
     def update_tick(self, symbol: str, price: float, timestamp: datetime, bid: Optional[float] = None, ask: Optional[float] = None):
         """
-        Update the shared DataFrame for a symbol with a new tick.
-        Synthesizes M15 candles and builds Footprint/Delta data.
+        Ingest a tick in O(1).
+        Updates the current M1 candle in-place.
         """
-        with self.lock:
-            df = self.data_buffers.get(symbol)
-            if df is None:
-                # Initialize with empty DF with proper columns
-                # footprint: List of dicts (price ladder)
-                # delta: Net buying volume
-                df = pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'delta', 'footprint'])
-                self.data_buffers[symbol] = df
-
-            # Round timestamp to nearest 15m floor
+        # Ensure timestamp is TZ-naive or UTC normalized if needed
+        # Assuming input is valid datetime
+        
+        s_data = self._get_symbol_data(symbol)
+        
+        with s_data.lock:
+            # 1. Floor timestamp to M1
             ts_floor = timestamp.replace(second=0, microsecond=0)
-            minute = ts_floor.minute
-            minute_floor = (minute // 15) * 15
-            ts_floor = ts_floor.replace(minute=minute_floor)
             
-            # Determine Aggressor Side (Tick Rule)
-            # Default to Neutral/Unknown if no prior data
-            # Side: 1 (Buy), -1 (Sell), 0 (Neutral)
-            side = 0
-            # We need the last price of the *stream*, not just the candle.
-            # But here we only have the DF.
-            # Ideally we check the last close of the last row.
-            
-            last_price = price
-            if not df.empty:
-                last_price = df.iloc[-1]['close'] # This is the close of the *candle*, which is the last tick.
-            
-            if price > last_price:
-                side = 1
-            elif price < last_price:
-                side = -1
-            else:
-                # continuation (same as last tick? We don't track last tick side here explicitly, assume neutral or logic needed)
-                # For MVP, treat flat as neutral or ignore for delta
-                side = 0 
+            # 2. Rollover Check
+            if s_data.current_candle and ts_floor > s_data.current_candle['timestamp']:
+                # Commit completed candle to deque
+                s_data.candles_m1.append(s_data.current_candle.copy())
+                s_data.current_candle = None
+                
+                # Invalidate Caches because new H/L/C history exists
+                s_data._df_cache.clear()
 
-            # Volume for this tick
-            # OANDA doesn't give true volume, so we use 1 tick = 1 vol unit (or liquidity if provided elsewhere)
-            tick_vol = 1.0 
+            # 3. Create or Update Envelope
+            # Calculate Side/Delta (Primitive approximation without separate tick-stream)
+            # Ideal: Pass side explicitly from caller if available.
+            # Here we just treat volume=1 per tick.
             
-            # Build Footprint Entry Helper
-            def update_footprint(fp_list, price_level, s, vol):
-                if not isinstance(fp_list, list): fp_list = []
-                # Find existing level
-                found = False
-                for level in fp_list:
-                    if level['price'] == price_level:
-                        if s == 1: level['ask_vol'] = level.get('ask_vol', 0) + vol
-                        elif s == -1: level['bid_vol'] = level.get('bid_vol', 0) + vol
-                        found = True
-                        break
-                if not found:
-                    new_level = {'price': price_level, 'bid_vol': 0, 'ask_vol': 0}
-                    if s == 1: new_level['ask_vol'] = vol
-                    elif s == -1: new_level['bid_vol'] = vol
-                    fp_list.append(new_level)
-                return fp_list
-
-            if df.empty:
-                # First Candle
-                new_row = {
-                    'timestamp': ts_floor,
-                    'open': price,
-                    'high': price,
-                    'low': price,
-                    'close': price,
-                    'volume': tick_vol,
-                    'delta': tick_vol if side == 1 else (-tick_vol if side == -1 else 0),
-                    'footprint': update_footprint([], price, side, tick_vol)
-                }
-                self.data_buffers[symbol] = pd.DataFrame([new_row])
-                return
-
-            last_row_idx = df.index[-1]
-            last_ts = df.at[last_row_idx, 'timestamp']
-            
-            if ts_floor > last_ts:
+            if s_data.current_candle is None:
                 # New Candle
-                new_row = {
+                s_data.current_candle = {
                     'timestamp': ts_floor,
                     'open': price,
                     'high': price,
                     'low': price,
                     'close': price,
-                    'volume': tick_vol,
-                    'delta': tick_vol if side == 1 else (-tick_vol if side == -1 else 0),
-                    'footprint': update_footprint([], price, side, tick_vol)
+                    'volume': 1,
+                    # 'delta': 0 # TODO: Implement delta logic if needed
                 }
-                self.data_buffers[symbol] = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                
-            elif ts_floor == last_ts:
-                # Update existing candle
-                curr_high = df.at[last_row_idx, 'high']
-                curr_low = df.at[last_row_idx, 'low']
-                curr_delta = df.at[last_row_idx, 'delta']
-                if pd.isna(curr_delta): curr_delta = 0
-                
-                # Update OHLC
-                df.at[last_row_idx, 'high'] = max(curr_high, price)
-                df.at[last_row_idx, 'low'] = min(curr_low, price)
-                df.at[last_row_idx, 'close'] = price
-                df.at[last_row_idx, 'volume'] += tick_vol
-                
-                # Update Delta
-                if side == 1:
-                    df.at[last_row_idx, 'delta'] = curr_delta + tick_vol
-                elif side == -1:
-                    df.at[last_row_idx, 'delta'] = curr_delta - tick_vol
-                    
-                # Update Footprint
-                # Need to be careful with pandas cell update for mutable objects (list/dict)
-                # It's safer to read, modify, write back
-                curr_fp = df.at[last_row_idx, 'footprint']
-                updated_fp = update_footprint(curr_fp, price, side, tick_vol)
-                df.at[last_row_idx, 'footprint'] = updated_fp
+            else:
+                # Update Existing
+                c = s_data.current_candle
+                c['high'] = max(c['high'], price)
+                c['low'] = min(c['low'], price)
+                c['close'] = price
+                c['volume'] += 1
 
     def get_data(self, symbol: str) -> pd.DataFrame:
-        with self.lock:
-            return self.data_buffers.get(symbol, pd.DataFrame()).copy()
+        """
+        Legacy Compatibility: Returns M1 DataFrame.
+        Prefer get_candles(symbol, timeframe) for new strategies.
+        """
+        return self.get_candles(symbol, timeframe="1min")
+
+    def get_candles(self, symbol: str, timeframe: str = "1min", limit: int = 1000) -> pd.DataFrame:
+        """
+        Standardized Accessor.
+        Returns Pandas DataFrame [open, high, low, close, volume] indexed by timestamp.
+        Lazy Resampling from M1 base.
+        """
+        s_data = self._get_symbol_data(symbol)
+        
+        with s_data.lock:
+            # 1. Prepare Base M1 Data
+            # Combine history + current incomplete candle for latest view
+            data_source = list(s_data.candles_m1)
+            if s_data.current_candle:
+                data_source.append(s_data.current_candle)
+            
+            if not data_source:
+                return pd.DataFrame()
+            
+            # 2. Check Cache (Optimization)
+            # If requesting "1min" and we just built it, return copy
+            # if timeframe == "1min" and ... (Skip for MVP, do raw construct)
+
+            # 3. Construct DataFrame
+            df = pd.DataFrame(data_source)
+            df.set_index('timestamp', inplace=True)
+            df.sort_index(inplace=True)
+            
+            # 4. Resample if needed
+            if timeframe != "1min":
+                try:
+                    # Map common strings to Pandas offset aliases
+                    # "1min" -> "1T", "5min" -> "5T", "1h" -> "1H"
+                    tf_map = {
+                        "1min": "1T", "5min": "5T", "15min": "15T", "30min": "30T",
+                        "1h": "1H", "4h": "4H", "1d": "1D"
+                    }
+                    freq = tf_map.get(timeframe, timeframe)
+                    
+                    df_resampled = df.resample(freq).agg({
+                        'open': 'first',
+                        'high': 'max',
+                        'low': 'min',
+                        'close': 'last',
+                        'volume': 'sum'
+                    }).dropna()
+                    
+                    if limit:
+                        return df_resampled.iloc[-limit:].copy()
+                    return df_resampled
+                    
+                except Exception as e:
+                    logger.error(f"Resampling error for {symbol} {timeframe}: {e}")
+                    # Fallback to M1
+                    return df.iloc[-limit:].copy() if limit else df.copy()
+
+            if limit:
+                return df.iloc[-limit:].copy()
+            return df.copy()
 
     def set_data(self, symbol: str, df: pd.DataFrame):
-        with self.lock:
-            self.data_buffers[symbol] = df
+        """
+        Backfill/Seed Data.
+        Replaces internal M1 buffer with data from DataFrame.
+        Assumes DF is M1 data.
+        """
+        s_data = self._get_symbol_data(symbol)
+        with s_data.lock:
+            s_data.candles_m1.clear()
+            s_data.current_candle = None
+            
+            if df.empty:
+                return
+
+            # Ensure sorted M1
+            df_sorted = df.sort_index()
+            
+            # Convert to dict records
+            records = df_sorted.reset_index().to_dict('records')
+            
+            # Populate deque
+            for r in records:
+                # Map DF columns to candle dict
+                # Assuming index is timestamp name, or reset_index made it 'timestamp' or 'index'
+                ts_key = 'timestamp' if 'timestamp' in r else 'index'
+                
+                candle = {
+                    'timestamp': r.get(ts_key),
+                    'open': r.get('open'),
+                    'high': r.get('high'),
+                    'low': r.get('low'),
+                    'close': r.get('close'),
+                    'volume': r.get('volume', 0)
+                }
+                s_data.candles_m1.append(candle)
 
 market_data_manager = SharedMarketDataManager()

@@ -127,6 +127,14 @@ class FleetManager:
 
             logger.info(f"Fleet Loaded: {len(self.active_strategies)} templates, {len(self.active_deployments)} dynamic bots.")
             
+            # 3. Hydrate Market Data for Active Symbols
+            if self.active_strategies or self.active_deployments:
+                from app.market_data import market_data_manager
+                active_symbols = self.get_active_symbols()
+                logger.info(f"Hydrating market data for {len(active_symbols)} symbols: {active_symbols}")
+                for sym in active_symbols:
+                    market_data_manager.load_history(sym)
+                    
         except Exception as e:
             logger.error(f"Error loading fleet: {e}")
         finally:

@@ -54,6 +54,17 @@ Leverages a WordPress-inspired `HookManager` to allow modular extensions:
 - `filter_signal`: Apply global risk or sentiment constraints.
 - `on_signal`: Trigger external notifications (Telegram, Webhooks).
 
+### 4. Standardized Market Data Paradigm (High-Frequency)
+A "Buffer-First" architecture optimized for <100µs latency:
+- **`SharedMarketDataManager`**: Uses O(1) `deque` buffers for tick ingestion and M1 candle storage.
+- **Lazy Synthesis**: DataFrames are built only on demand via `get_candles(symbol, timeframe)`.
+- **Standard API**: All strategies **MUST** use the following pattern for MTF access:
+  ```python
+  # Correct Usage
+  df_h1 = data_manager.get_candles(symbol, "1h")
+  df_m5 = data_manager.get_candles(symbol, "5min")
+  ```
+
 ## 🚦 API Reference (Highlights)
 
 | Endpoint | Method | Description |

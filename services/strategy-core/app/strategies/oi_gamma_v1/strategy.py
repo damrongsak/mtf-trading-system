@@ -195,9 +195,11 @@ async def strategy(state, data_manager):
     4. Generate Signals based on proximity to levels or flip crossovers.
     """
     symbol = state.symbol
-    # data_manager.get_data(symbol) returns a DataFrame with 'close', 'high', 'low', 'open'
-    # index is datetime
-    data = data_manager.get_data(symbol)
+    params = state.config_json if state.config_json else METADATA["defaults"]
+    timeframe = params.get("timeframe", "1h")
+    
+    # Use get_candles for correct timeframe (lazy resampling)
+    data = data_manager.get_candles(symbol, timeframe=timeframe)
 
     if data.empty or len(data) < 20:
         return None, None, None

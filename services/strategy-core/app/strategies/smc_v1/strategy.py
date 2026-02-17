@@ -20,44 +20,33 @@ async def strategy(state, data_manager):
     params = state.config_json if state.config_json else {}
     symbol = state.symbol
     
-    # Get Data from Manager
-    # data_manager.get_data(symbol) returns a DataFrame
-    data = data_manager.get_data(symbol)
-
-    if data.empty or len(data) < 100:
-        return None, None, None
-
-    # Resampling Logic (Sync)
+    # Timeframe Config
+    tf_macro = params.get("tf_macro", "4h")
+    tf_setup = params.get("tf_setup", "1h")
+    
+    # Efficient MTF Fetching using Manager's Lazy Resampling
     try:
-        # Timeframe Config
-        tf_macro = params.get("tf_macro", "4h")
-        tf_setup = params.get("tf_setup", "1h")
+        # 1. Base Data (M1 or whatever base is active, trigger timeframe)
+        # Using M5 or M1 as base? Original used 'get_data' -> M1
+        df_base = data_manager.get_candles(symbol, timeframe="1min")
         
-        # data index must be datetime
-        if not isinstance(data.index, pd.DatetimeIndex):
-             # Try to convert if possible or return
-             df_base = data.copy()
-             df_base['timestamp'] = pd.to_datetime(df_base['timestamp']) if 'timestamp' in df_base.columns else pd.to_datetime(df_base.index)
-             df_base = df_base.set_index('timestamp')
-        else:
-             df_base = data
+        # 2. Setup Data
+        df_setup = data_manager.get_candles(symbol, timeframe=tf_setup)
+        
+        # 3. Macro Data
+        df_macro = data_manager.get_candles(symbol, timeframe=tf_macro)
+        
+        if df_base.empty or df_setup.empty or df_macro.empty:
+             return None, None, None
              
-        df_setup = df_base.resample(tf_setup).agg({
-            'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-        }).dropna()
-        
-        df_macro = df_base.resample(tf_macro).agg({
-            'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'
-        }).dropna()
-        
     except Exception as e:
-        logger.warning(f"Resampling failed: {e}")
+        logger.warning(f"Data fetch failed in SMC V1: {e}")
         return None, None, None
 
     # Logic (Scalar/Live mostly)
     # We construct empty series for entries/exits
-    entries = pd.Series(False, index=data.index)
-    exits = pd.Series(False, index=data.index)
+    entries = pd.Series(False, index=df_base.index)
+    exits = pd.Series(False, index=df_base.index)
     
     direction = None
     reason = ""
