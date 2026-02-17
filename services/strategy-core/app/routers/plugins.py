@@ -110,6 +110,11 @@ def inspect_hooks():
             result.append(HookInfo(tag=tag, callbacks=cb_names))
         return result
 
+    return SystemHooks(
+        actions=serialize_callbacks(hm.actions),
+        filters=serialize_callbacks(hm.filters)
+    )
+
 
 class NotifyRequest(BaseModel):
     message: str
