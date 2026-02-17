@@ -387,7 +387,14 @@ async def get_batch_signals(req: SignalBatchRequest):
             volumes = [float(c["volume"]) for c in candles]
             
             smc_requests[sym] = {
-                "open": opens, "high": highs, "low": lows, "close": closes, "volume": volumes
+                "symbol": sym,
+                "timeframe": timeframe,
+                "open": opens,
+                "high": highs,
+                "low": lows,
+                "close": closes,
+                "volume": volumes,
+                "timestamps": [c["timestamp"] for c in candles]
             }
             candle_map[sym] = candles[-1] # Last candle for price info
             
