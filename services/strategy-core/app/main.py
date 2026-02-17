@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import traceback
 import logging
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -527,24 +528,21 @@ indicator_worker = None
 
 @app.on_event("startup")
 async def startup_event():
+    startup_start_time = time.time()
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
 
-    # TODO: Disable Indicator Worker for now
-    # Start Indicator Worker
-    # from app.workers.indicator_worker import IndicatorWorker
-    # global indicator_worker
-    # indicator_worker = IndicatorWorker()
-    # await indicator_worker.start()
-    
     # Ensure LiveRunner (Tick Stream) is active
     await live_runner.start()
     
     # Initialize and load Fleet
-    # Initialize and load Fleet
     from app.fleet import FleetManager
     fleet = FleetManager.get_instance()
     await fleet.load_fleet()
+
+    # Resource Monitoring Baseline (Simple Timing)
+    startup_duration = time.time() - startup_start_time
+    logger.info(f"PERFORMANCE BASELINE: Fleet Load completed in {startup_duration:.2f}s")
 
 @app.on_event("shutdown")
 async def shutdown_event():

@@ -160,7 +160,11 @@ class FleetManager:
 
         # 1. Tick Template Strategies
         for strat_id, context in self.active_strategies.items():
-            if symbol_filter and context["symbol"] != symbol_filter:
+            # Normalize symbols for comparison (e.g. XAU/USD vs XAUUSD)
+            strat_sym = context["symbol"].replace("/", "").replace("_", "").upper()
+            filter_sym = symbol_filter.replace("/", "").replace("_", "").upper() if symbol_filter else None
+            
+            if filter_sym and strat_sym != filter_sym:
                 continue
             
             # Throttle check
