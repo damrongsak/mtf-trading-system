@@ -12,10 +12,8 @@ import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { DailyBriefingWidget } from '@/components/ai/DailyBriefingWidget';
 import { OrdersCard } from '@/components/dashboard/OrdersCard';
 import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
-import { MarketWatchCard } from '@/components/dashboard/MarketWatchCard';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
-import { getPreferences } from '@/lib/api/settings';
 import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 import { logger } from '@/lib/api/app-logger';
@@ -36,20 +34,16 @@ export default function DashboardPage() {
   const [equityLoading, setEquityLoading] = useState(true);
   const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
-  const [watchlist, setWatchlist] = useState<string[]>([]);
   const [performance, setPerformance] = useState<StrategyPerformance[]>([]);
   
   // Note: signals hook removed as Card is autonomous
 
   // Live Prices Hook
   const allSymbols = useMemo(() => {
-      // Create comprehensive symbol list for live pricing
-      const symbols = new Set([
-          ...watchlist.map(s => s.replace('/', '_')), 
-          'EUR_USD', 'XAU_USD', 'GBP_USD', 'USD_JPY'
-      ]);
-      return Array.from(symbols);
-  }, [watchlist]);
+      // Focus on Gold and core majors for dashboard dashboard
+      // Note: CTRADER data source defaults to symbols without delimiters (e.g. XAUUSD)
+      return ['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY'];
+  }, []);
   
   const { prices, connected } = useLivePrices(allSymbols);
   
@@ -79,15 +73,7 @@ export default function DashboardPage() {
       setEquityLoading(true); // Set loading when strategy changes
       try {
         // ... (existing preferences logic) ...
-        try {
-            const prefs = await getPreferences();
-             if (prefs.default_symbol) {
-                 // Initialize watchlist with default symbol if empty
-                 setWatchlist(prev => prev.length === 0 ? [prefs.default_symbol] : prev);
-             }
-        } catch (e) {
-            logger.warn("Failed to load user preferences, using defaults", e);
-        }
+        // Initial data fetch
 
         const [eqData, accData, perfData, accsData] = await Promise.all([
             getEquityCurve(30, selectedStrategyId), // Pass ID
@@ -268,7 +254,6 @@ export default function DashboardPage() {
         
         {/* Righht Column: AI & Performance */}
         <div className="space-y-6">
-            <MarketWatchCard symbols={allSymbols} />
             <AIAnalystCard />
             
             <div className="bg-gray-950/50 backdrop-blur-md border border-gray-800 rounded-xl p-6">
