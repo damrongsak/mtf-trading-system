@@ -44,4 +44,3 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_U
     except Exception as e:
         print(f"WebSocket error: {e}")
         await stream_manager.disconnect(websocket, requested_symbols)
-

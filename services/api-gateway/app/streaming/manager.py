@@ -35,63 +35,70 @@ class ConnectionManager:
         self.listen_task = None
         self.initialized = True
 
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol for consistent matching (e.g., 'EUR_USD' -> 'EURUSD')."""
+        if not symbol:
+            return ""
+        return symbol.replace("_", "").replace("/", "").upper()
+
     async def connect(self, websocket: WebSocket, symbols: List[str], source: str = None):
         """Register a new websocket connection for specific symbols."""
         await websocket.accept()
         for symbol in symbols:
-            self.active_connections[symbol].add((websocket, source))
+            norm_symbol = self._normalize_symbol(symbol)
+            self.active_connections[norm_symbol].add((websocket, source))
         logger.info(f"Client connected. Active symbols: {len(self.active_connections)}")
 
     async def disconnect(self, websocket: WebSocket, symbols: List[str]):
         """Unregister a websocket connection."""
         for symbol in symbols:
-            if symbol in self.active_connections:
+            norm_symbol = self._normalize_symbol(symbol)
+            if norm_symbol in self.active_connections:
                 # Need to find and remove the tuple containing this websocket
                 to_remove = set()
-                for conn in self.active_connections[symbol]:
+                for conn in self.active_connections[norm_symbol]:
                     if conn[0] == websocket:
                         to_remove.add(conn)
                 
                 for item in to_remove:
-                    self.active_connections[symbol].remove(item)
+                    self.active_connections[norm_symbol].remove(item)
 
-                if not self.active_connections[symbol]:
-                    del self.active_connections[symbol]
+                if not self.active_connections[norm_symbol]:
+                    del self.active_connections[norm_symbol]
         logger.info(f"Client disconnected. Active symbols: {len(self.active_connections)}")
 
-    async def broadcast(self, symbol: str, message: str):
+    async def broadcast(self, symbol: str, message_data: str):
         """Send message to all websockets subscribed to this symbol."""
-        if symbol not in self.active_connections:
+        norm_symbol = self._normalize_symbol(symbol)
+        if norm_symbol not in self.active_connections:
             return
 
+        # Parse message once if it's a string, to avoid redundant parsing in the subscriber loop
+        parsed_message = None
+        if isinstance(message_data, str):
+            try:
+                parsed_message = json.loads(message_data)
+            except json.JSONDecodeError:
+                pass
+        else:
+            parsed_message = message_data
+
         # Create a copy to avoid runtime errors if set changes during iteration
-        for connection, source_filter in list(self.active_connections[symbol]):
+        for connection, source_filter in list(self.active_connections[norm_symbol]):
             try:
                 # Filter logic
                 # 1. If client requested specific source (source_filter is set), ONLY send matching source
-                # 2. If client didn't specify (source_filter is None), send EVERYTHING (or default?) 
-                #    Let's assume None means "All" or "Aggregated" for now, but strict matching is safer.
+                # 2. If client didn't specify (source_filter is None), send EVERYTHING
                 
-                # Check data for source
-                msg_source = None
-                if isinstance(message, dict):
-                    msg_source = message.get("source")
-                elif isinstance(message, str):
-                    try:
-                        import json
-                        parsed = json.loads(message)
-                        msg_source = parsed.get("source")
-                    except:
-                        pass
+                msg_source = parsed_message.get("source") if isinstance(parsed_message, dict) else None
                 
                 if source_filter:
                     if not msg_source or msg_source.upper() != source_filter.upper():
                         continue
                 
-                await connection.send_text(message)
+                await connection.send_text(message_data if isinstance(message_data, str) else json.dumps(message_data))
             except Exception as e:
                 logger.warning(f"Failed to send to client: {e}")
-                # We could cleanup here, but disconnect() usually handles it
 
     async def start(self):
         """Start the background Redis listener."""
@@ -143,6 +150,8 @@ class ConnectionManager:
                     symbol = None
                     if "market_data:tick:" in channel or "market_data:info:" in channel:
                         symbol = channel.split(":")[-1]
+                        if "tick:" in channel:
+                            logger.debug(f"Broadcasting tick for {symbol}")
                     elif "market.features." in channel:
                         symbol = channel.split(".")[-1]
                         # Populate Feature Cache
@@ -151,7 +160,8 @@ class ConnectionManager:
                             feature_cache.update(symbol, features)
                         except Exception as ce:
                             logger.error(f"Failed to cache features for {symbol}: {ce}")
-                        
+                    
+                    if symbol:
                         await self.broadcast(symbol, data)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")

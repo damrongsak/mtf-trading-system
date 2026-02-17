@@ -16,13 +16,23 @@ export function MarketWatchCard({ symbols }: { symbols?: string[] }) {
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // Set default tab when categories load
+    // Set default tab when categories load: pick the first non-empty one if possible
     useEffect(() => {
         if (categories && categories.length > 0 && !activeTab) {
-            // eslint-disable-next-line
-            setActiveTab(categories[0].id);
+            const firstWithItems = categories.find(c => {
+                const items = symbols && symbols.length > 0 
+                    ? c.items.filter(item => symbols.includes(item.symbol))
+                    : c.items;
+                return items.length > 0;
+            });
+            
+            if (firstWithItems) {
+                setActiveTab(firstWithItems.id);
+            } else {
+                setActiveTab(categories[0].id);
+            }
         }
-    }, [categories, activeTab]);
+    }, [categories, activeTab, symbols]);
 
     // Handle Tab Change
     const handleTabChange = (categoryId: string) => {

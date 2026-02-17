@@ -23,6 +23,7 @@ services:
       - "8000:8000"
     volumes:
       - ./services/api-gateway:/app
+      - /app/.venv
       - ./specs:/specs
     depends_on:
       # - postgres
