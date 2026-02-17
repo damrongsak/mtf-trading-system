@@ -40,12 +40,6 @@ class MarketDataHandler:
                 ms = query.first()
                 
                 if ms:
-                    # [HOTFIX] Override digits for XAU (Gold) to avoid 5-decimal display
-                    # Standard display for Gold is 2 decimals.
-                    if "XAU" in symbol.upper() and details.get("digits") == 5:
-                        details["digits"] = 2
-                        logger.info(f"ECST: Overriding XAU digits to 2 for {symbol}")
-
                     ms.details = details
                     db.commit()
                     logger.info(f"ECST: Updated cache for {symbol} ({source_provider})")
