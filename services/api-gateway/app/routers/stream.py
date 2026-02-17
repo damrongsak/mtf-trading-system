@@ -17,9 +17,13 @@ async def websocket_endpoint(websocket: WebSocket, symbols: str = "EUR_USD,XAU_U
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
+            import logging
+            logging.getLogger("uvicorn.error").error(f"WebSocket Auth Failed: No username in token for {symbols}")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
-    except (JWTError, Exception):
+    except (JWTError, Exception) as e:
+        import logging
+        logging.getLogger("uvicorn.error").error(f"WebSocket Auth Failed: {str(e)} for symbols {symbols}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
