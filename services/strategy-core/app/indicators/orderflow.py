@@ -22,37 +22,67 @@ def calculate_delta(candle: Dict[str, Any]) -> float:
     # 2. Fallback to pre-calculated field
     return float(candle.get('delta', 0.0))
 
-def detect_imbalance(candle: Dict[str, Any], ratio: float = 3.0) -> List[float]:
+from numba import njit
+import numpy as np
+
+@njit(cache=True)
+def detect_imbalance_nb(levels_array, ratio=3.0, min_vol=10.0):
     """
-    Identify price levels with aggressive Buying/Selling Imbalance.
-    Returns list of price levels where Imbalance detected.
+    Numba-accelerated diagonal imbalance detection.
+    levels_array: [N, 3] where cols are [price, bid_vol, ask_vol]
     """
-    imbalance_levels = []
+    n = len(levels_array)
+    if n < 2:
+        return np.zeros(0), np.zeros(0)
+        
+    buying_imbalances = []
+    selling_imbalances = []
+    
+    # 1. Buying Imbalance: Ask[i+1] vs Bid[i]
+    for i in range(n - 1):
+        bid_vol = levels_array[i, 1]
+        ask_vol = levels_array[i+1, 2]
+        
+        if ask_vol > min_vol and (bid_vol == 0 or (ask_vol / bid_vol >= ratio)):
+            buying_imbalances.append(levels_array[i+1, 0])
+            
+    # 2. Selling Imbalance: Bid[i+1] vs Ask[i]
+    for i in range(n - 1):
+        ask_vol = levels_array[i, 2]
+        bid_vol = levels_array[i+1, 1]
+        
+        if bid_vol > min_vol and (ask_vol == 0 or (bid_vol / ask_vol >= ratio)):
+            selling_imbalances.append(levels_array[i+1, 0])
+            
+    return np.array(buying_imbalances), np.array(selling_imbalances)
+
+def detect_imbalance(candle: Dict[str, Any], ratio: float = 3.0, min_vol: float = 10) -> Dict[str, List[float]]:
+    """
+    Identify price levels with aggressive Buying/Selling Diagonal Imbalance.
+    Wraps the Numba-accelerated core.
+    """
     footprint = candle.get('footprint')
-    
     if not footprint or not isinstance(footprint, list):
-        return []
+        return {'buying': [], 'selling': []}
         
-    # Sort by price ascending
-    # Logic: Diagonal comparison is standard for Footprint, but for simple MVP
-    # we can do horizontal imbalance or just Check for large Ask vs Bid at same level
-    # Standard Imbalance is often Ask[i] vs Bid[i+1] (Diagonal). 
-    # Let's Implement 'Aggressive Side' dominance at a level for simplicity first.
-    
-    for level in footprint:
-        bid_vol = float(level.get('bid_vol', 0))
-        ask_vol = float(level.get('ask_vol', 0))
+    # Prepare array for Numba: [price, bid_vol, ask_vol]
+    try:
+        data = []
+        for f in footprint:
+            data.append([float(f['price']), float(f.get('bid_vol', 0)), float(f.get('ask_vol', 0))])
         
-        # Avoid division by zero
-        # If bid_vol is 0, any ask_vol > 0 is technically infinite imbalance.
-        # We assume if ask_vol > 0 and bid_vol == 0, it is an imbalance.
-        if (bid_vol > 0 and (ask_vol / bid_vol >= ratio)) or (bid_vol == 0 and ask_vol > 0):
-            imbalance_levels.append(level['price'])
-        elif ask_vol > 0 and (bid_vol / ask_vol >= ratio):
-            # Selling imbalance (not used for this Buy-Only strategy but good to have)
-             pass 
-             
-    return imbalance_levels
+        # Sort by price
+        data.sort(key=lambda x: x[0])
+        levels_array = np.array(data)
+        
+        buying, selling = detect_imbalance_nb(levels_array, ratio, min_vol)
+        
+        return {
+            'buying': buying.tolist(),
+            'selling': selling.tolist()
+        }
+    except Exception:
+        return {'buying': [], 'selling': []}
 
 def is_absorption(candle: Dict[str, Any], avg_vol: float) -> bool:
     """
