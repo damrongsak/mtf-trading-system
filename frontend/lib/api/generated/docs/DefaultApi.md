@@ -4,10 +4,6 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**aiChatSessionsMessagePost**](#aichatsessionsmessagepost) | **POST** /ai/chat/sessions/message | Chat with Strategy Advisor|
-|[**analyzeJournalPost**](#analyzejournalpost) | **POST** /analyze/journal | Analyze journal entry|
-|[**analyzeMarketPost**](#analyzemarketpost) | **POST** /analyze/market | Generate market outlook|
-|[**analyzeSmcNarrativePost**](#analyzesmcnarrativepost) | **POST** /analyze/smc-narrative | Generate SMC Narrative|
 |[**apiV1AccountsAccountIdDelete**](#apiv1accountsaccountiddelete) | **DELETE** /api/v1/accounts/{account_id} | Delete a broker account|
 |[**apiV1AccountsAccountIdPut**](#apiv1accountsaccountidput) | **PUT** /api/v1/accounts/{account_id} | Update a broker account|
 |[**apiV1AccountsGet**](#apiv1accountsget) | **GET** /api/v1/accounts/ | List broker accounts|
@@ -18,6 +14,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AiBriefingGet**](#apiv1aibriefingget) | **GET** /api/v1/ai/briefing | Get latest daily briefing|
 |[**apiV1AiBriefingPost**](#apiv1aibriefingpost) | **POST** /api/v1/ai/briefing | Trigger generation of a new briefing|
 |[**apiV1AiChatSessionsGet**](#apiv1aichatsessionsget) | **GET** /api/v1/ai/chat/sessions | List chat sessions|
+|[**apiV1AiChatSessionsMessagePost**](#apiv1aichatsessionsmessagepost) | **POST** /api/v1/ai/chat/sessions/message | Chat with Strategy Advisor|
 |[**apiV1AiChatSessionsPost**](#apiv1aichatsessionspost) | **POST** /api/v1/ai/chat/sessions | Create a new chat session|
 |[**apiV1AiChatSessionsSessionIdMessagesGet**](#apiv1aichatsessionssessionidmessagesget) | **GET** /api/v1/ai/chat/sessions/{session_id}/messages | Get messages for a session|
 |[**apiV1AiChatSessionsSessionIdMessagesPost**](#apiv1aichatsessionssessionidmessagespost) | **POST** /api/v1/ai/chat/sessions/{session_id}/messages | Send a message to the AI|
@@ -49,7 +46,6 @@ All URIs are relative to *http://localhost*
 |[**apiV1DeploymentsIdStopPost**](#apiv1deploymentsidstoppost) | **POST** /api/v1/deployments/{id}/stop | Stop a deployment|
 |[**apiV1DeploymentsPost**](#apiv1deploymentspost) | **POST** /api/v1/deployments/ | Create a new deployment|
 |[**apiV1ExecutionAccountSummaryGet**](#apiv1executionaccountsummaryget) | **GET** /api/v1/execution/account/summary | Get account summary|
-|[**apiV1ExecutionOrdersPost**](#apiv1executionorderspost) | **POST** /api/v1/execution/orders | Place a new order|
 |[**apiV1ExecutionTradesSyncGet**](#apiv1executiontradessyncget) | **GET** /api/v1/execution/trades/sync | List trades with filtering and pagination|
 |[**apiV1ExecutionTradesTradeIdClosePost**](#apiv1executiontradestradeidclosepost) | **POST** /api/v1/execution/trades/{trade_id}/close | Manually close a trade|
 |[**apiV1FoundryValidatePost**](#apiv1foundryvalidatepost) | **POST** /api/v1/foundry/validate | Run Walk-Forward Validation (Proving Ground)|
@@ -102,212 +98,6 @@ All URIs are relative to *http://localhost*
 |[**savedStrategiesIdGet**](#savedstrategiesidget) | **GET** /saved-strategies/{id} | Get saved strategy|
 |[**savedStrategiesIdPut**](#savedstrategiesidput) | **PUT** /saved-strategies/{id} | Update saved strategy|
 |[**savedStrategiesPost**](#savedstrategiespost) | **POST** /saved-strategies | Create a saved strategy|
-
-# **aiChatSessionsMessagePost**
-> AiChatSessionsMessagePost200Response aiChatSessionsMessagePost()
-
-Direct chat endpoint for Strategy Advisor agent.
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    StrategyChatRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let strategyChatRequest: StrategyChatRequest; // (optional)
-
-const { status, data } = await apiInstance.aiChatSessionsMessagePost(
-    strategyChatRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **strategyChatRequest** | **StrategyChatRequest**|  | |
-
-
-### Return type
-
-**AiChatSessionsMessagePost200Response**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | AI Response |  -  |
-|**503** | Agent Unavailable |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **analyzeJournalPost**
-> APIResponseAnalysis analyzeJournalPost()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    JournalAnalysisRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let journalAnalysisRequest: JournalAnalysisRequest; // (optional)
-
-const { status, data } = await apiInstance.analyzeJournalPost(
-    journalAnalysisRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **journalAnalysisRequest** | **JournalAnalysisRequest**|  | |
-
-
-### Return type
-
-**APIResponseAnalysis**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Journal Analysis |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **analyzeMarketPost**
-> APIResponseAnalysis analyzeMarketPost()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    MarketAnalysisRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let marketAnalysisRequest: MarketAnalysisRequest; // (optional)
-
-const { status, data } = await apiInstance.analyzeMarketPost(
-    marketAnalysisRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **marketAnalysisRequest** | **MarketAnalysisRequest**|  | |
-
-
-### Return type
-
-**APIResponseAnalysis**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Market Analysis |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **analyzeSmcNarrativePost**
-> APIResponseAnalysis analyzeSmcNarrativePost()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    SMCNarrativeRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let sMCNarrativeRequest: SMCNarrativeRequest; // (optional)
-
-const { status, data } = await apiInstance.analyzeSmcNarrativePost(
-    sMCNarrativeRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **sMCNarrativeRequest** | **SMCNarrativeRequest**|  | |
-
-
-### Return type
-
-**APIResponseAnalysis**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | SMC Narrative |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1AccountsAccountIdDelete**
 > APIResponse apiV1AccountsAccountIdDelete()
@@ -785,6 +575,59 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | List of chat sessions |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiChatSessionsMessagePost**
+> ApiV1AiChatSessionsMessagePost200Response apiV1AiChatSessionsMessagePost()
+
+Direct chat endpoint for Strategy Advisor agent.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    StrategyChatRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let strategyChatRequest: StrategyChatRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AiChatSessionsMessagePost(
+    strategyChatRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **strategyChatRequest** | **StrategyChatRequest**|  | |
+
+
+### Return type
+
+**ApiV1AiChatSessionsMessagePost200Response**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | AI Response |  -  |
+|**503** | Agent Unavailable |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -2382,56 +2225,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Account summary |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **apiV1ExecutionOrdersPost**
-> APIResponse apiV1ExecutionOrdersPost(body)
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let body: object; //
-
-const { status, data } = await apiInstance.apiV1ExecutionOrdersPost(
-    body
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **body** | **object**|  | |
-
-
-### Return type
-
-**APIResponse**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Order placed |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

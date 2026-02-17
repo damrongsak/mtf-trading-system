@@ -4,6 +4,7 @@ api.ts
 base.ts
 common.ts
 configuration.ts
+docs/AIApi.md
 docs/APIResponse.md
 docs/APIResponseAIReport.md
 docs/APIResponseAgent.md
@@ -50,7 +51,6 @@ docs/APIResponseWalkForwardResponse.md
 docs/AdxRequest.md
 docs/AdxResponse.md
 docs/Agent.md
-docs/AiChatSessionsMessagePost200Response.md
 docs/AlphaApi.md
 docs/AlphaRequest.md
 docs/AlphaResponse.md
@@ -62,6 +62,7 @@ docs/AnalysisSummary.md
 docs/ApiV1AiAgentObserverRunPost200Response.md
 docs/ApiV1AiAgentObserverRunPost200ResponseData.md
 docs/ApiV1AiAgentObserverRunPostRequest.md
+docs/ApiV1AiChatSessionsMessagePost200Response.md
 docs/ApiV1AiIngestUploadPost200Response.md
 docs/ApiV1DataIngestManualPost202Response.md
 docs/ApiV1DataOpenInterestSnapshotsGet200ResponseInner.md
@@ -70,6 +71,8 @@ docs/ApiV1DataSourcesIdBackfillPost202Response.md
 docs/ApiV1DataSourcesIdBackfillPostRequest.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
+docs/ApiV1ExecutionOrdersDelete200Response.md
+docs/ApiV1ExecutionOrdersGet200Response.md
 docs/ApiV1ExecutionTradesCloseAllPostRequest.md
 docs/ApiV1ExecutionTradesOpenPostRequest.md
 docs/ApiV1ExecutionTradesSyncPost200Response.md
