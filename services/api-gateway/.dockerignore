@@ -13,8 +13,6 @@ scripts
 static
 *.log
 *.txt
-uv.lock
-pyproject.toml
 Dockerfile
 README.md
 04_api_spec.yaml
