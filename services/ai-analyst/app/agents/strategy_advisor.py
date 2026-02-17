@@ -204,11 +204,16 @@ class StrategyAdvisorAgent:
         
         **Intents:**
         - **MARKET_ANALYSIS**: User asks for market outlook, price analysis, or a trading PLAN/STRATEGY for a specific symbol and timeframe.
+        - **TOOL_USE**: User asks to PERFORM an action, get account data (balanced, equity, positions), place orders, or check risk.
+        - **RESEARCH**: User asks a complex quantitative question or "How to" about the system, requiring retrieval from documentation or past strategies.
+        - **STRATEGY_DESIGN**: User wants to CREATE, modify, or optimize a trading strategy or code.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
-        - **CHAT**: General conversation, project questions, or simple questions not requiring real-time data.
+        - **CHAT**: General conversation, project questions, or simple questions not requiring real-time data or specialized tools.
         
-        **CRITICAL**: If the user mentions a timeframe (e.g. 5min, H1, etc.) or a specific symbol (XAUUSD, Gold), ALWAYS classify as **MARKET_ANALYSIS**.
+        **CRITICAL**: 
+        1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
+        2. If the user asks for a trading plan, outlook, or price analysis for a specific symbol/timeframe (and it is NOT an account request), classify as **MARKET_ANALYSIS**.
         
         **Output JSON only:**
         {{

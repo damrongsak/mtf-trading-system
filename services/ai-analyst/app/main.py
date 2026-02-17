@@ -114,8 +114,8 @@ async def lifespan(app: FastAPI):
             logger.info("✅ Sentiment Service Ready")
         except Exception as e:
             logger.error(f"❌ Sentiment Service Failed: {e}")
-            logger.error(f"❌ Sentiment Service Failed: {e}")
 
+        try:
             # Start Scheduler & Schedule Job
             scheduler.start()
             
@@ -124,9 +124,9 @@ async def lifespan(app: FastAPI):
             scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'])
             
             logger.info("✅ Scheduler Started (Guardian & Session Jobs Added)")
-            
         except Exception as e:
-            logger.error(f"❌ Equity Guardian/Consumer Failed: {e}")
+            logger.error(f"❌ Scheduler/Session Observer Failed: {e}")
+            
         logger.info("\n" + "="*50)
         logger.info("✨ Service Startup Complete")
         logger.info("="*50 + "\n")
