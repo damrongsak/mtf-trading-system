@@ -2,6 +2,7 @@ import redis.asyncio as redis
 import json
 import logging
 import os
+import msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +13,18 @@ class RedisPublisher:
 
     async def connect(self):
         if not self.redis:
-            self.redis = redis.from_url(self.redis_url, decode_responses=True)
+            self.redis = redis.from_url(self.redis_url, decode_responses=False) # Use binary responses
             logger.info(f"Connected to Redis at {self.redis_url}")
+
+    async def publish_binary(self, channel: str, message: dict):
+        """Publish a message as binary using msgpack."""
+        if not self.redis:
+            await self.connect()
+        try:
+            payload = msgpack.packb(message, use_bin_type=True)
+            await self.redis.publish(channel, payload)
+        except Exception as e:
+            logger.error(f"Failed to publish binary to {channel}: {e}")
 
     async def publish(self, channel: str, message: dict):
         if not self.redis:

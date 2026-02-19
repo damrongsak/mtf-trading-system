@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     
     REDIS_URL: str = "redis://redis:6379/0"
     DATA_PIPELINE_URL: str = "http://data-pipeline:8000"
+    INTERNAL_API_KEY: str = "dev-internal-key"
     TELEGRAM_BOT_TOKEN: Optional[str] = None
 
     @property

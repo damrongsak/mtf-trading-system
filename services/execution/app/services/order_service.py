@@ -175,3 +175,38 @@ class OrderService:
             "price": fill.get("price", str(entry_ref)),
             "time": fill.get("time", "")
         }
+    @staticmethod
+    async def update_market_quotes(req_data: dict, db: AsyncSession):
+        """
+        Market Making: Update both Bid and Ask quotes for a symbol.
+        Optimized to replace existing quotes.
+        """
+        symbol = req_data.get("symbol")
+        bid = req_data.get("bid")
+        ask = req_data.get("ask")
+        bid_vol = req_data.get("bid_volume", 1000)
+        ask_vol = req_data.get("ask_volume", 1000)
+        
+        # 1. Resolve Account (Same as execute_smart_order)
+        account_id = req_data.get("broker_account_id")
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(account_id)))
+        account = result.scalars().first()
+        
+        credentials = decrypt_data(account.credentials_encrypted)
+        credentials["environment"] = account.environment
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        # 2. Update Quotes (Broker Specific)
+        # For cTrader, this usually means cancelling pending orders of same type/label and placing new ones.
+        # Or using the specialized Mass Order API if implemented.
+        
+        # Simplified: Call adapter's update_quotes
+        logger.info(f"Updating Quotes for {symbol}: Bid={bid}, Ask={ask}")
+        return await adapter.update_quotes(
+            symbol=symbol,
+            bid_price=bid,
+            ask_price=ask,
+            bid_units=bid_vol,
+            ask_units=ask_vol,
+            comment=f"MM-{req_data.get('generated_by')}"
+        )

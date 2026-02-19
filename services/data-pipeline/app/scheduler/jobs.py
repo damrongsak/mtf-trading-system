@@ -201,7 +201,54 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                             if source.provider == "OANDA":
                                  await process_oanda_backfill(client, ms, tf, from_date, to_date, task_db, logger)
                             elif source.provider == "CTRADER":
-                                 pass # Implement if needed
+                                # cTrader Backfill using get_trendbars
+                                tf_map = {
+                                    "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
+                                    "D1": 12, "W1": 13, "MN1": 14
+                                }
+                                ct_period = tf_map.get(tf)
+                                if not ct_period: return
+                                
+                                symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+                                if not symbol_id: return
+                                
+                                from_ts = int(from_date.timestamp() * 1000)
+                                to_ts = int(to_date.timestamp() * 1000)
+                                
+                                logger.info(f"Triggering cTrader backfill for {ms.symbol} {tf} from {from_date} to {to_date}")
+                                
+                                trendbars = await client.get_trendbars(
+                                    account_id=int(source.config_json.get("account_id")),
+                                    symbol_id=symbol_id,
+                                    period=ct_period,
+                                    count=2000, # Max allowed usually
+                                    from_timestamp=from_ts,
+                                    to_timestamp=to_ts
+                                )
+                                
+                                for bar in trendbars:
+                                    low_raw = bar.low
+                                    # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
+                                    divisor = 100000.0
+                                    
+                                    # Delta handling logic (same as real-time)
+                                    if bar.deltaOpen > (low_raw * 0.5):
+                                        open_p, high_p, close_p = bar.deltaOpen, bar.deltaHigh, bar.deltaClose
+                                    else:
+                                        open_p, high_p, close_p = low_raw + bar.deltaOpen, low_raw + bar.deltaHigh, low_raw + bar.deltaClose
+
+                                    batch_data.append({
+                                        "market_symbol_id": ms.id,
+                                        "symbol": ms.symbol,
+                                        "timeframe": tf,
+                                        "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60),
+                                        "open": open_p / divisor,
+                                        "high": high_p / divisor,
+                                        "low": low_raw / divisor,
+                                        "close": close_p / divisor,
+                                        "volume": bar.volume,
+                                        "is_complete": True 
+                                    })
                         else:
                             # REAL-TIME CATCHUP
                             if source.provider == "OANDA":
@@ -268,9 +315,9 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                     # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
                                     low_raw = bar.low
                                     
-                                    # Dynamic Divisor to avoid hard-coding
-                                    digits = int(ms.details.get('digits') or 5) if ms.details else 5
-                                    divisor = 10.0 ** digits
+                                    # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
+                                    # regardless of 'digits' for most price fields to maintain proto consistency.
+                                    divisor = 100000.0
                                     open_delta = bar.deltaOpen
                                     high_delta = bar.deltaHigh
                                     close_delta = bar.deltaClose

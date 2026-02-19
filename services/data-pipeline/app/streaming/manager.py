@@ -4,7 +4,9 @@ from app.streaming.adapters.oanda import OandaStreamer
 from app.streaming.adapters.ctrader import CTraderStreamer
 from app.streaming.publisher import RedisPublisher
 from app.repositories.market_repository import MarketRepository
+from app.streaming.efp_engine import EFPEngine
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +14,11 @@ class StreamManager:
     def __init__(self):
         self.publisher = RedisPublisher()
         self.adapters = {} # name -> adapter instance
+        self.efp_engine = EFPEngine()
+        self.last_spot = {"bid": 0.0, "ask": 0.0}
+        self.last_futures = {"bid": 0.0, "ask": 0.0}
+        self.spot_symbol = "XAUUSD"
+        self.futures_symbol = "GCJ26" # COMEX Gold April 2026
 
     async def start(self):
         logger.info("Starting StreamManager...")
@@ -61,12 +68,43 @@ class StreamManager:
         event_type = data.get("type", "tick").lower()
         symbol = data.get("instrument", "UNKNOWN")
         
+        # --- High-Performance EFP Path ---
+        if event_type == "price":
+            if symbol == self.spot_symbol:
+                self.last_spot["bid"] = data["bid"]
+                self.last_spot["ask"] = data["ask"]
+                await self._update_efp()
+            elif symbol == self.futures_symbol:
+                self.last_futures["bid"] = data["bid"]
+                self.last_futures["ask"] = data["ask"]
+                await self._update_efp()
+
         if event_type == "symbol_details":
             channel = f"market_data:info:{symbol}"
         else:
             channel = f"market_data:tick:{symbol}"
             
         await self.publisher.publish(channel, data)
+
+    async def _update_efp(self):
+        """Update EFP spread and publish via binary channel."""
+        if self.last_spot["bid"] > 0 and self.last_futures["bid"] > 0:
+            ts = time.time()
+            spread = self.efp_engine.update(
+                self.last_spot["bid"], self.last_spot["ask"],
+                self.last_futures["bid"], self.last_futures["ask"],
+                ts
+            )
+            
+            # Binary Fast Path
+            await self.publisher.publish_binary("market_data:efp:XAUUSD", {
+                "s": spread,
+                "t": ts,
+                "b": self.last_spot["bid"],
+                "a": self.last_spot["ask"],
+                "fb": self.last_futures["bid"],
+                "fa": self.last_futures["ask"]
+            })
 
     async def refresh_subscriptions(self):
         """

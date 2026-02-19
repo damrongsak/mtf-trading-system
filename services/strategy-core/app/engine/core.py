@@ -183,6 +183,21 @@ class StrategyEngine:
         Triggers strategies that rely on this symbol.
         """
         try:
+            # --- Binary EFP Path ---
+            if "s" in data and "t" in data:
+                # This is an EFP spread tick from tick-streamer (Binary Path)
+                symbol = "XAUUSD" # Implicit for now, or use data.get('symbol')
+                spread = data["s"]
+                ts = data["t"]
+                
+                # Update Manager with EFP state
+                market_data_manager.update_efp(symbol, spread, ts, data)
+                
+                # Tick Fleet
+                from app.fleet import FleetManager
+                await FleetManager.get_instance().tick(market_data_manager, symbol_filter=symbol, event_type="EFP")
+                return
+
             # Data format from Oanda Streamer: 
             # {'type': 'PRICE', 'time': '...', 'bids': [...], 'asks': [...], 'instrument': 'EUR_USD'}
             

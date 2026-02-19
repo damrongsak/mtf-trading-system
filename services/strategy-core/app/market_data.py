@@ -25,6 +25,9 @@ class SymbolData:
         # Current forming candle state
         self.current_candle: Optional[dict] = None
         
+        # EFP Spread Buffers
+        self.efp_spreads: Deque[dict] = deque(maxlen=max_len)
+        
         # Cache for recently requested DataFrames (Simple Memoization)
         # Key: timeframe, Value: (last_update_ts, DataFrame)
         self._df_cache: Dict[str, tuple] = {}
@@ -149,6 +152,27 @@ class SharedMarketDataManager:
                 c['low'] = min(c['low'], price)
                 c['close'] = price
                 c['volume'] += 1
+
+    def update_efp(self, symbol: str, spread: float, timestamp: float, raw_data: dict):
+        """Update EFP spread for a symbol."""
+        s_data = self._get_symbol_data(symbol)
+        with s_data.lock:
+            s_data.efp_spreads.append({
+                't': timestamp,
+                's': spread,
+                'b': raw_data.get('b'),
+                'a': raw_data.get('a'),
+                'fb': raw_data.get('fb'),
+                'fa': raw_data.get('fa')
+            })
+
+    def get_latest_efp(self, symbol: str) -> Optional[dict]:
+        """Get latest EFP state."""
+        s_data = self._get_symbol_data(symbol)
+        with s_data.lock:
+            if s_data.efp_spreads:
+                return s_data.efp_spreads[-1]
+            return None
 
     def get_data(self, symbol: str) -> pd.DataFrame:
         """

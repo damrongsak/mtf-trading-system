@@ -53,8 +53,13 @@ class ExecutionWorker:
             
             async with AsyncSessionLocal() as db:
                 try:
-                    result = await OrderService.execute_smart_order(req_data, db)
-                    logger.info(f"Async Execution Success for {req_data.get('symbol')}: {result.get('id')}")
+                    command_type = req_data.get("type", "order")
+                    if command_type == "update_quotes":
+                        result = await OrderService.update_market_quotes(req_data, db)
+                        logger.info(f"Quote Update Success for {req_data.get('symbol')}")
+                    else:
+                        result = await OrderService.execute_smart_order(req_data, db)
+                        logger.info(f"Async Execution Success for {req_data.get('symbol')}: {result.get('id')}")
                 except Exception as biz_e:
                     logger.error(f"Async Execution Biz Logic Error: {biz_e}")
         except json.JSONDecodeError:

@@ -1,5 +1,7 @@
 FROM python:3.11-slim-bookworm
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Install uv via pip to avoid ghcr.io key issues
+RUN pip install uv
 
 # Install curl and top (procps)
 RUN apt-get update && apt-get install -y curl procps
@@ -16,10 +18,12 @@ ENV UV_LINK_MODE=copy
 ENV UV_PROJECT_ENVIRONMENT="/venv"
 
 # Install the project's dependencies using the lockfile and settings
+# Copy configuration files
+COPY --chown=trader:trader pyproject.toml uv.lock ./
+
+# Install dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --no-install-project --no-dev
 
 ENV PATH="/venv/bin:$PATH"
 
@@ -28,4 +32,4 @@ ENTRYPOINT []
 
 COPY . .
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

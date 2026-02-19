@@ -31,5 +31,21 @@ class ExecutionClient:
             self._redis = None
             print(f"Redis Queue Error: {e}")
             raise
+    async def update_quotes(self, **kwargs) -> Dict[str, Any]:
+        """
+        Update Bid/Ask quotes via Redis Queue.
+        """
+        try:
+            r = await self._get_redis()
+            payload = {
+                "type": "update_quotes",
+                **kwargs
+            }
+            await r.lpush(self.queue_name, json.dumps(payload))
+            return {"status": "queued", "command": "update_quotes"}
+        except Exception as e:
+            self._redis = None
+            print(f"Redis Queue Error (update_quotes): {e}")
+            raise
 
 execution_client = ExecutionClient()

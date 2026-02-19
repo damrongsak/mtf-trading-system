@@ -1,7 +1,7 @@
 FROM python:3.12-slim-bookworm
 
-# Install uv via binary
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Install uv via pip to avoid ghcr.io key issues
+RUN pip install uv
 
 # Install curl and procps
 RUN apt-get update && apt-get install -y curl procps
@@ -21,7 +21,7 @@ ENV UV_PROJECT_ENVIRONMENT="/venv"
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --no-install-project --no-dev
 
 ENV PATH="/venv/bin:$PATH"
 

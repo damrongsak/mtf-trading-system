@@ -16,6 +16,7 @@ from app.models.signal_log import SignalLog
 from app.routers.telegram import send_telegram_message
 from app.models.telegram_chat_mapping import TelegramChatMapping
 from app.models.strategy_execution_log import StrategyExecutionLog
+from app.models.market import MarketSymbol
 
 logger = logging.getLogger(__name__)
 
@@ -229,3 +230,30 @@ async def receive_strategy_logs(
         logger.error(f"Failed to persist strategy log: {e}")
         
     return {"status": "success"}
+
+@router.patch("/symbols/{symbol}/details")
+async def update_symbol_details(
+    symbol: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    # _ = Depends(verify_internal_key) # Enable in prod
+):
+    """
+    Internal endpoint to update symbol details (e.g. calibrated EFP params).
+    """
+    ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
+    if not ms:
+        # Try cleaning
+        alt_symbol = symbol.replace("_", "/").replace("-", "/")
+        ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == alt_symbol).first()
+        
+    if not ms:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
+
+    # Merge details (using a copy to ensure SQLAlchemy detects the change)
+    current_details = (ms.details or {}).copy()
+    current_details.update(payload)
+    ms.details = current_details
+    
+    db.commit()
+    return {"status": "success", "symbol": symbol, "details": ms.details}

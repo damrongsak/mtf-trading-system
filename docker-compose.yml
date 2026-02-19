@@ -120,6 +120,7 @@ services:
   strategy-core:
     build: ./services/strategy-core
     container_name: strategy-core
+    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./services/strategy-core:/app
       - /app/.venv
@@ -147,7 +148,7 @@ services:
     volumes:
       - ./services/ai-analyst:/app
       - /app/.venv
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - REDIS_URL=redis://redis:6379/0

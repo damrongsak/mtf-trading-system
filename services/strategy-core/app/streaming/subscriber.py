@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import asyncio
+import msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +48,32 @@ class RedisSubscriber:
             async for message in self.pubsub.listen():
                 if message['type'] in ('message', 'pmessage'):
                     channel = message['channel']
+                    raw_data = message['data']
+                    data = None
+                    
+                    # Try msgpack first (Binary Path)
                     try:
-                        data = json.loads(message['data'])
-                        await self.callback(channel, data)
-                    except json.JSONDecodeError:
-                        logger.error(f"Failed to decode JSON from {channel}")
-                    except Exception as e:
-                        logger.error(f"Error processing message from {channel}: {e}")
+                        data = msgpack.unpackb(raw_data, raw=False)
+                    except Exception:
+                        # Fallback to JSON
+                        if isinstance(raw_data, bytes):
+                            try:
+                                data = json.loads(raw_data.decode('utf-8'))
+                            except Exception:
+                                pass
+                        elif isinstance(raw_data, str):
+                            try:
+                                data = json.loads(raw_data)
+                            except Exception:
+                                pass
+                    
+                    if data is not None:
+                        try:
+                            await self.callback(channel, data)
+                        except Exception as e:
+                            logger.error(f"Error in subscriber callback for {channel}: {e}")
+                    else:
+                        logger.error(f"Failed to decode message from {channel}")
         except Exception as e:
             if self.is_running:
                 logger.error(f"Redis listener loop error: {e}")
