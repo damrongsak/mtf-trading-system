@@ -1,6 +1,22 @@
+import math
+from typing import Any
 from sqlalchemy.orm import Session
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
+
+def sanitize_numeric_dict(obj: Any) -> Any:
+    """
+    Recursively replaces NaN and Inf with None for JSON compliance.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_numeric_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_numeric_dict(x) for x in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    return obj
 
 def resolve_market_symbol(db: Session, symbol: str, data_source: str = None) -> MarketSymbol:
     """

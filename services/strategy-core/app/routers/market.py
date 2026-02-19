@@ -13,6 +13,7 @@ from app.backtest import fetch_data_from_db
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
 from app.database import SessionLocal
+from app.utils.helpers import sanitize_numeric_dict
 
 router = APIRouter(
     prefix="/market",
@@ -89,4 +90,4 @@ async def check_market_regime_endpoint(req: RegimeRequest):
     # 3. Augment with input info
     context["meta"]["timeframe"] = req.timeframe
     
-    return context
+    return sanitize_numeric_dict(context)

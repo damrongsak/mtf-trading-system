@@ -11,6 +11,7 @@ from app.indicators import (
 )
 from app.backtest import run_historical_backtest
 from app.indicators.smc import analyze_smc
+from app.utils.helpers import sanitize_numeric_dict
 from app.simulation import run_grid_simulation_logic
 from app.analysis.optimization import run_grid_search
 from app.analysis.monte_carlo import run_monte_carlo
@@ -322,7 +323,8 @@ def get_smc(req: SMCRequest):
     try:
         df = _prepare_df(req)
         result = analyze_smc(df, req.symbol, req.timeframe)
-        return SMCResponse(**result)
+        sanitized_result = sanitize_numeric_dict(result)
+        return SMCResponse(**sanitized_result)
     except HTTPException:
         raise
     except Exception as e:
@@ -522,6 +524,9 @@ app.include_router(market_router, prefix="/api/v1")
 
 from app.routers.gamma import router as gamma_router
 app.include_router(gamma_router, prefix="/api/v1")
+
+from app.routers.risk import router as risk_router
+app.include_router(risk_router, prefix="/api/v1")
 
 # Global Worker
 indicator_worker = None

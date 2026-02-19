@@ -104,13 +104,15 @@ class TradeResponse(TradeBase):
 
 class RiskCheckRequest(BaseModel):
     """Schema for risk validation endpoint (US3)."""
-    risk_usd: Decimal = Field(..., description="Maximum risk in USD allowed for this trade")
-    sl_distance_usd: Decimal = Field(..., description="Distance to stop loss in USD (per unit/contract)")
-    min_lot: Decimal = Field(..., description="Minimum allowed lot size (e.g., 0.01)")
+    symbol: str
+    entry_price: float
+    stop_loss: float
+    take_profit: Optional[float] = None
+    account_balance: Optional[float] = Field(None, description="Account Balance in USD")
+    risk_percentage: Optional[float] = Field(1.0, description="Risk per trade in % (default 1%)")
+    risk_usd: Optional[float] = Field(None, description="Risk in USD (overrides percentage)")
 
 
 class RiskCheckResponse(BaseModel):
     """Schema for risk validation response."""
-    can_execute: bool = Field(..., description="Whether the trade passes all risk checks")
-    lot: Decimal = Field(..., description="Calculated lot size")
-    reason: str = Field(..., description="Reason for decision")
+    data: Dict[str, Any]

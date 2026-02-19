@@ -10,18 +10,18 @@ router = APIRouter(
     tags=["risk"]
 )
 EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:8000")
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
 @router.post("/check", response_model=APIResponse[RiskCheckResponse])
 async def check_risk(req: RiskCheckRequest):
     """
-    Proxy risk check to the Execution Service.
+    Proxy risk check to the Strategy Core Service.
     """
     async with httpx.AsyncClient() as client:
         try:
-            # Forward request to execution service
-            # We assume the execution service accepts the same JSON structure
+            # Forward request to strategy-core service
             response = await client.post(
-                f"{EXECUTION_SERVICE_URL}/check", 
+                f"{STRATEGY_CORE_URL}/api/v1/risk/check", 
                 json=req.model_dump(mode='json'),
                 timeout=5.0
             )

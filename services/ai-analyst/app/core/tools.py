@@ -23,6 +23,7 @@ from app.tools.search import GoogleSearchTool
 from app.tools.market import GetMarketContextTool
 from app.tools.cot import COTAnalystTool
 from app.tools.heatmap import LiquidityHeatmapTool
+from app.tools.efp import EFPCalibrationTool
 
 
 logger = logging.getLogger(__name__)
@@ -283,7 +284,7 @@ class MarketDataTool(BaseTool):
 
 class RiskCheckTool(BaseTool):
     name: str = "risk_check"
-    description: str = "Pre-validate a trade idea against risk rules. Input JSON: {symbol, risk_usd, stop_loss...}"
+    description: str = "Calculate trade parameters including Risk-Reward (R:R) ratio, Position Size, and Risk Amount. Use to validate trade ideas or suggest sizing."
 
     async def run(self, input_data: Any, auth_token: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
@@ -396,7 +397,8 @@ class ToolRegistry:
             "get_market_context": GetMarketContextTool(),
             "list_active_strategies": StrategyRetrieverTool(),
             "cot_analyst": COTAnalystTool(),
-            "liquidity_heatmap": LiquidityHeatmapTool()
+            "liquidity_heatmap": LiquidityHeatmapTool(),
+            "calibrate_efp_parameters": EFPCalibrationTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

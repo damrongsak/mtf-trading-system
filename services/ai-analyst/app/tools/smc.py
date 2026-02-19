@@ -25,7 +25,8 @@ ALWAYS use this tool when users ask about:
 - Gold/Forex analysis
 - Technical analysis requests
 
-The data returned is REAL and should be trusted over any simulated/example data."""
+The data returned is REAL and should be trusted over any simulated/example data.
+Provides Institutional Bias and Market Structure for defining Risk-Reward (R:R) parameters."""
 
     async def run(self, input_data: Any, auth_token: str = None) -> Any:
         import logging
