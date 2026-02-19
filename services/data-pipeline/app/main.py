@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job
+from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job, run_cot_sync_job
 from app.logging_config import setup_logging
 import logging
 
@@ -32,8 +32,13 @@ async def start_scheduler():
     # Schedule Trade Sync every 5 minutes (cTrader Rate Limit Friendly)
     scheduler.add_job(run_trade_sync_job, 'interval', minutes=5, id='trade_sync_job', misfire_grace_time=60)
 
+    # Schedule COT Sync every 1 day
+    scheduler.add_job(run_cot_sync_job, 'interval', days=1, id='cot_sync_job', misfire_grace_time=3600)
     
     scheduler.start()
+    
+    # Trigger COT once on startup to ensure data is current
+    asyncio.create_task(run_cot_sync_job())
     
     # Start Stream Manager
     from app.streaming.manager import stream_manager

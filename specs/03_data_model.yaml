@@ -1598,6 +1598,115 @@ validation_rules:
       - name: category
         type: enum
         enum_values: ["ALPHA", "RISK", "EXECUTION", "UTILITY"]
+
+  OpenInterest:
+    description: "Option Open Interest snapshots for options-based sentiment and levels"
+    table_name: "open_interest"
+    indexes:
+      - fields: ["snapshot_at"]
+      - fields: ["contract_symbol"]
+      - fields: ["contract_symbol", "strike", "snapshot_at"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: snapshot_at
+        type: datetime
+        required: true
+      - name: contract_symbol
+        type: string
+        max_length: 50
+        required: true
+      - name: dte
+        type: integer
+        required: true
+      - name: strike
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+      - name: call_oi
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: put_oi
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: underlying_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  COTRecord:
+    description: "Commitment of Traders (COT) report data for long-term sentiment"
+    table_name: "cot_records"
+    indexes:
+      - fields: ["report_date"]
+      - fields: ["symbol"]
+      - fields: ["symbol", "report_date"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: report_date
+        type: datetime
+        required: true
+      - name: symbol
+        type: string
+        max_length: 20
+        required: true
+      - name: commercials_long
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: commercials_short
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: non_commercials_long
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: non_commercials_short
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: managed_money_long
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: managed_money_short
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: non_reportable_long
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: non_reportable_short
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
   Plugin:
     description: "System extension module (Olympus Plugin Architecture)"
     table_name: "plugins"

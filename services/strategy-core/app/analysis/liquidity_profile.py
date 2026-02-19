@@ -148,8 +148,62 @@ class LiquidityProfileAnalyzer:
             summary=f"Market is in {regime_type} regime. Net OI Delta: {total_call_oi - total_put_oi:,.0f}"
         )
 
+        # 4. Calculate Max Pain
+        max_pain_strike = self.calculate_max_pain(df)
+        mapped_max_pain = map_price(max_pain_strike)
+        levels.append(GammaLevel(
+            price=mapped_max_pain,
+            strike=max_pain_strike,
+            type='MAX_PAIN',
+            zone_type=get_zone_type(max_pain_strike),
+            strength=0,
+            description=f"Max Pain (Options Gravity) at {max_pain_strike}",
+            confluence=check_confluence(mapped_max_pain)
+        ))
+
         return {
             "levels": levels,
             "regime": regime,
+            "max_pain": max_pain_strike,
+            "mapped_max_pain": mapped_max_pain,
+            "heatmap": self.calculate_oi_heatmap_data(df, basis),
             "raw_data": df.to_dict(orient='records')
         }
+
+    def calculate_max_pain(self, df: pd.DataFrame) -> float:
+        """
+        Calculates the Max Pain strike price (where total loss for option buyers is minimized).
+        """
+        strikes = df['strike'].unique()
+        best_strike = strikes[0]
+        min_loss = float('inf')
+
+        # Vectorized calculation for each potential settlement strike
+        for spot in strikes:
+            # Call Loss: max(0, spot - strike) * call_oi
+            call_loss = np.maximum(0, spot - df['strike']) * df['call_oi']
+            # Put Loss: max(0, strike - spot) * put_oi
+            put_loss = np.maximum(0, df['strike'] - spot) * df['put_oi']
+            
+            total_loss = float(call_loss.sum() + put_loss.sum())
+            
+            if total_loss < min_loss:
+                min_loss = total_loss
+                best_strike = spot
+                
+        return float(best_strike)
+
+    def calculate_oi_heatmap_data(self, df: pd.DataFrame, basis: float = 0.0) -> List[Dict[str, Any]]:
+        """
+        Generates data for spatial representation of Open Interest.
+        """
+        heatmap_df = df.copy()
+        heatmap_df['total_oi'] = heatmap_df['call_oi'] + heatmap_df['put_oi']
+        heatmap_df['pcr'] = heatmap_df['put_oi'] / heatmap_df['call_oi'].replace(0, np.nan)
+        heatmap_df['pcr'] = heatmap_df['pcr'].fillna(0)
+        heatmap_df['mapped_price'] = heatmap_df['strike'] - basis
+        
+        # Sort by strike for consistent heatmap ordering
+        heatmap_df = heatmap_df.sort_values('strike')
+        
+        return heatmap_df[['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr']].to_dict(orient='records')

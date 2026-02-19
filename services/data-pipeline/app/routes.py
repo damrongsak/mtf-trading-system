@@ -11,6 +11,7 @@ from app.database import get_db
 from app.services.market_service import MarketService
 from app.services.candle_service import CandleService
 from app.services.open_interest_service import OpenInterestService
+from app.services.cot_service import COTService
 from app.services.news_service import NewsApiService
 from app.scheduler.jobs import run_ingestion_job
 
@@ -29,6 +30,7 @@ from app.schemas import (
     SymbolDiscoveryRequest,
     SentimentCreate,
     SentimentResponse,
+    COTResponse,
     EconomicEventResponse
 )
 
@@ -143,6 +145,35 @@ def get_open_interest_contracts(
     Get list of available contracts (expiries) for a specific snapshot.
     """
     return OpenInterestService.get_contracts(db, snapshot_at)
+
+@router.post("/ingest/cot", status_code=201)
+async def ingest_cot_report(
+    file: UploadFile = File(...),
+    symbol: str = Query("GOLD", description="Market symbol (e.g. GOLD)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Ingest CFTC COT Report (Excel/CSV).
+    """
+    try:
+        content = await file.read()
+        import asyncio
+        result = await asyncio.to_thread(COTService.parse_and_store, content, db, symbol)
+        return result
+    except Exception as e:
+        logger.error(f"COT Ingestion failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"COT Ingestion failed: {str(e)}")
+
+@router.get("/ingest/cot/latest", response_model=Optional[dict])
+def get_latest_cot_sentiment(
+    symbol: str = Query("GOLD"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get latest COT sentiment for a symbol.
+    """
+    return COTService.get_latest_sentiment(db, symbol)
 
 async def upload_candles(
     file: UploadFile = File(...),

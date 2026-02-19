@@ -553,3 +553,27 @@ async def run_trade_sync_job():
     finally:
         await publisher.close()
         db.close()
+async def run_cot_sync_job():
+    """Scheduled job to fetch and store COT reports from CFTC."""
+    logger.info("Starting scheduled COT Sync job...")
+    from app.services.cot_service import cot_service
+    import aiohttp
+    
+    url = "https://www.cftc.gov/dea/newcot/f_disagg.txt"
+    db = SessionLocal()
+    try:
+        async with aiohttp.ClientSession() as session:
+            logger.info(f"Fetching COT data from {url}")
+            async with session.get(url, timeout=30.0) as response:
+                response.raise_for_status()
+                content = await response.read()
+                
+                # Using Gold as default symbol for this job
+                # The parser handles filtering for 'GOLD - COMMODITY EXCHANGE INC.'
+                records = await cot_service.parse_and_store(db, content, symbol="GOLD")
+                logger.info(f"COT sync job completed. Processed {len(records)} records for GOLD.")
+            
+    except Exception as e:
+        logger.error(f"COT sync job failed: {e}")
+    finally:
+        db.close()

@@ -144,6 +144,22 @@ class SentimentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class COTResponse(BaseModel):
+    id: UUID
+    report_date: datetime
+    symbol: str
+    commercials_long: float
+    commercials_short: float
+    non_commercials_long: float
+    non_commercials_short: float
+    managed_money_long: Optional[float] = None
+    managed_money_short: Optional[float] = None
+    non_reportable_long: Optional[float] = None
+    non_reportable_short: Optional[float] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 # -------------------------------------------------------------------------
 # Economic Calendar Schemas
 # -------------------------------------------------------------------------

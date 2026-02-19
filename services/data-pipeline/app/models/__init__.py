@@ -6,3 +6,4 @@ from .open_interest import OpenInterest
 from .economic_event import EconomicEvent
 from .sentiment import SentimentScore
 from .news import NewsArticle
+from .cot import COTRecord
