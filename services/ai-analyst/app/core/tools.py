@@ -21,6 +21,8 @@ from app.tools.open_interest import OpenInterestTool
 from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.search import GoogleSearchTool
 from app.tools.market import GetMarketContextTool
+from app.tools.cot import COTAnalystTool
+from app.tools.heatmap import LiquidityHeatmapTool
 
 
 logger = logging.getLogger(__name__)
@@ -392,7 +394,9 @@ class ToolRegistry:
             "get_technical_signals": GetTechnicalSignalsTool(),
             "google_search": GoogleSearchTool(),
             "get_market_context": GetMarketContextTool(),
-            "list_active_strategies": StrategyRetrieverTool()
+            "list_active_strategies": StrategyRetrieverTool(),
+            "cot_analyst": COTAnalystTool(),
+            "liquidity_heatmap": LiquidityHeatmapTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

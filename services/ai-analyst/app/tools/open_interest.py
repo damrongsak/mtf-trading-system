@@ -99,10 +99,13 @@ class OpenInterestTool(BaseTool):
                 # 4. Build the Professional Report
                 raw_futures = float(underlying_futures or 0.0)
                 raw_spot = float(current_price or 0.0)
+                max_pain = float(g_data.get("max_pain", 0.0))
                 basis = raw_futures - raw_spot if raw_futures > 0 and raw_spot > 0 else 0
                 
                 report = [f"### 🎯 Gold Open Interest Strategy Report ({actual_snapshot_at})"]
-                report.append(f"\n> **📊 Basis Adjustment**: Gold Futures ({raw_futures:.2f}) vs Spot ({raw_spot:.2f}) | **Offset**: {basis:.2f}")
+                report.append(f"\n- **Futures Price**: {raw_futures:.2f} | **Spot Base**: {raw_spot:.2f}")
+                report.append(f"- **Institutional Anchor (Max Pain)**: {max_pain:.2f}")
+                report.append(f"\n> **📊 Basis Adjustment**: Offset is {basis:+.2f} pts")
                 
                 if gamma_levels:
                     report.append("\n#### 🧱 Zones of Interest (Basis Adjusted)")
@@ -122,13 +125,15 @@ class OpenInterestTool(BaseTool):
                         report.append(f"{prefix}**{z_type} {l_type}**: Spot **{mapped_price:.2f}** (Futures {strike:.2f}){dte_str}{conf_str}")
                 else:
                     report.append("\n⚠️ No major OI liquidity zones detected for the current session.")
-
+ 
                 report.append(f"\n#### 🛡️ Confirmation Checklist")
                 at_zone = any(abs(float(l.get('price') or 0) - raw_spot) < 2.0 for l in gamma_levels) if raw_spot > 0 else False
                 smc_aligned = any(l.get('confluence') for l in gamma_levels if abs(float(l.get('price') or 0) - raw_spot) < 2.0) if raw_spot > 0 else False
-                
+                at_max_pain = abs(raw_spot - max_pain) < 5.0 if raw_spot > 0 and max_pain > 0 else False
+
                 report.append(f"- **Zone Status**: {'✅ PRICE AT ZONE' if at_zone else '⬜ APPROACHING'}")
                 report.append(f"- **Institutional Alignment**: {'✅ SMC AT ZONE' if smc_aligned else '⬜ WAITING'}")
+                report.append(f"- **Max Pain Gravity**: {'🧲 AT ANCHOR' if at_max_pain else '⬜ CLEAR'}")
                 report.append(f"- **Indicator Filter**: {confirmation_info}")
                 
                 report.append(f"\n> [!IMPORTANT]\n> **Execution Strategy**: Use the **Basis Adjusted Spot Levels** for your limit orders. Do not enter unless **RSI crossover** or **structure shift** occurs at these levels.")

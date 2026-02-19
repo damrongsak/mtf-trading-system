@@ -37,6 +37,9 @@ class GammaAnalysisResponse(BaseModel):
     underlying_price: Optional[float]
     levels: List[GammaLevelResponse]
     regime: MarketRegimeResponse
+    max_pain: float
+    mapped_max_pain: float
+    heatmap: List[dict]
 
 @router.get("/levels", response_model=GammaAnalysisResponse)
 async def get_gamma_levels(
@@ -115,5 +118,8 @@ async def get_gamma_levels(
         "snapshot_at": snapshot_time,
         "underlying_price": snapshot_underlying,
         "levels": result['levels'],
-        "regime": result['regime']
+        "regime": result['regime'],
+        "max_pain": result['max_pain'],
+        "mapped_max_pain": result['mapped_max_pain'],
+        "heatmap": result['heatmap']
     }

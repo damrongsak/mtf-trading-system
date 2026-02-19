@@ -1,5 +1,6 @@
 import logging
 import traceback
+import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -24,7 +25,7 @@ class COTService:
             stored_count = 0
             for rec in records:
                 stmt = insert(COTRecord).values(
-                    id=COTRecord().id, # Generate new UUID if insert
+                    id=uuid.uuid4(),
                     report_date=rec['report_date'],
                     symbol=rec['symbol'],
                     commercials_long=rec['commercials_long'],
@@ -88,7 +89,11 @@ class COTService:
             "report_date": latest.report_date,
             "symbol": latest.symbol,
             "net_non_commercial": net_non_comm,
-            "commercial_long": float(latest.commercials_long),
-            "commercial_short": float(latest.commercials_short),
+            "non_commercials_long": float(latest.non_commercials_long),
+            "non_commercials_short": float(latest.non_commercials_short),
+            "commercials_long": float(latest.commercials_long),
+            "commercials_short": float(latest.commercials_short),
             "managed_money_net": float((latest.managed_money_long or 0) - (latest.managed_money_short or 0))
         }
+
+cot_service = COTService()

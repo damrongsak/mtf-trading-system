@@ -570,7 +570,7 @@ async def run_cot_sync_job():
                 
                 # Using Gold as default symbol for this job
                 # The parser handles filtering for 'GOLD - COMMODITY EXCHANGE INC.'
-                records = await cot_service.parse_and_store(db, content, symbol="GOLD")
+                records = await asyncio.to_thread(cot_service.parse_and_store, content, db, symbol="GOLD")
                 logger.info(f"COT sync job completed. Processed {len(records)} records for GOLD.")
             
     except Exception as e:

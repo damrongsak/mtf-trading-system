@@ -203,7 +203,11 @@ class LiquidityProfileAnalyzer:
         heatmap_df['pcr'] = heatmap_df['pcr'].fillna(0)
         heatmap_df['mapped_price'] = heatmap_df['strike'] - basis
         
+        # Calculate Relative Density (0.0 to 1.0)
+        max_oi = heatmap_df['total_oi'].max()
+        heatmap_df['relative_density'] = (heatmap_df['total_oi'] / max_oi) if max_oi > 0 else 0.0
+        
         # Sort by strike for consistent heatmap ordering
         heatmap_df = heatmap_df.sort_values('strike')
         
-        return heatmap_df[['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr']].to_dict(orient='records')
+        return heatmap_df[['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr', 'relative_density']].to_dict(orient='records')

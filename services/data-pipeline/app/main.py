@@ -4,6 +4,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job, run_cot_sync_job
 from app.logging_config import setup_logging
 import logging
+import asyncio
 
 # Configure logging
 logger = setup_logging()
