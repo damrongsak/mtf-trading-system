@@ -44,7 +44,7 @@ class ResidualLSTM(nn.Module):
 class HybridPredictor:
     def __init__(self, model_dir="/app/models"):
         self.model_dir = model_dir
-        self.lookback = 20 # Sequence length for LSTM
+        self.lookback = 60 # Increased sequence length for real data
         os.makedirs(model_dir, exist_ok=True)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -56,9 +56,11 @@ class HybridPredictor:
         
         # Components
         self.feature_engine = FeatureEngine(model_dir)
+        self.exog_scaler_path = os.path.join(model_dir, "exog_scaler.pkl")
         self.sarimax_model = None
         self.lstm_model = None
         self.scaler = None
+        self.exog_scaler = None
         
         # Config
         self.exog_features = [] # List of selected feature names
@@ -70,6 +72,9 @@ class HybridPredictor:
             
         if os.path.exists(self.scaler_path):
             self.scaler = joblib.load(self.scaler_path)
+            
+        if os.path.exists(self.exog_scaler_path):
+            self.exog_scaler = joblib.load(self.exog_scaler_path)
         
         # Load feature selector state
         self.feature_engine.load_selector()
@@ -141,10 +146,12 @@ class HybridPredictor:
             # We need a separate scaler for exog or scale together
             # For simplicity using MinMax on exog columns
             exog_values = selected_exog.values
-            exog_scaler = MinMaxScaler(feature_range=(-1, 1))
-            exog_scaled = exog_scaler.fit_transform(exog_values)
+            self.exog_scaler = MinMaxScaler(feature_range=(-1, 1))
+            exog_scaled = self.exog_scaler.fit_transform(exog_values)
+            joblib.dump(self.exog_scaler, self.exog_scaler_path)
+            
             # Persist exog scaler? 
-            # For MVP simplicity, we might skip saving exog scaler and refit on inference (bad practice)
+            # Yes, now we do.
             # OR just assume inputs are reasonably scaled roughly. 
             # Let's simple concat for now to demonstrate architecture
             lstm_input_data = np.hstack([residuals_scaled, exog_scaled])
@@ -216,10 +223,20 @@ class HybridPredictor:
             if macro_df is not None and not macro_df.empty:
                  # Ensure features exist
                  exog_tail = macro_df[self.exog_features].tail(self.lookback).values
-                 # Scale exog (using same logic as train - assumes MinMax(-1,1))
-                 # Again, missing ExogScaler persistence here is a shortcut to be fixed in hardening
-                 exog_scaler = MinMaxScaler(feature_range=(-1, 1))
-                 exog_scaled = exog_scaler.fit_transform(exog_tail) 
+                 # Load persistent scaler
+                 if not self.exog_scaler and os.path.exists(self.exog_scaler_path):
+                     try:
+                         self.exog_scaler = joblib.load(self.exog_scaler_path)
+                     except Exception as e:
+                         logger.warning(f"Failed to load exog_scaler: {e}")
+
+                 if self.exog_scaler:
+                     exog_scaled = self.exog_scaler.transform(exog_tail)
+                 else:
+                     logger.warning("No ExogScaler found. Fitting new one (Inference skew risk!)")
+                     exog_scaler = MinMaxScaler(feature_range=(-1, 1))
+                     exog_scaled = exog_scaler.fit_transform(exog_tail)
+
                  lstm_input_np = np.hstack([recent_scaled, exog_scaled])
             else:
                  # Fallback to Zeros for exog if missing

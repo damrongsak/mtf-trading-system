@@ -23,7 +23,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "tenacity>=8.2.3",
     "msgpack>=1.0.7",
-    "watchfiles>=0.21.0"
+    "watchfiles>=0.21.0",
+    "arch>=7.0.0"
 ]
 
 [dependency-groups]
@@ -34,7 +35,9 @@ dev = [
     "httpx>=0.26.0",
     "mypy>=1.8.0",
     "black>=24.1.0",
-    "ruff>=0.1.15"
+    "ruff>=0.1.15",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0"
 ]
 
 [tool.pytest.ini_options]

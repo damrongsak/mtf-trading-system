@@ -26,8 +26,8 @@ class DataLoader:
         # We assume XAUUSD is the symbol name in stored DB
         query = """
             SELECT timestamp, open, high, low, close, volume 
-            FROM market_candles 
-            WHERE symbol = 'XAUUSD' AND timeframe = '1h'
+            FROM candles 
+            WHERE symbol = 'XAUUSD' AND timeframe = 'M15'
             ORDER BY timestamp DESC 
             LIMIT $1
         """
@@ -49,13 +49,17 @@ class DataLoader:
             df.set_index('timestamp', inplace=True)
             df.sort_index(inplace=True)
             
+            # Ensure native float types for ML models (asyncpg returns Decimal)
+            cols = ['open', 'high', 'low', 'close', 'volume']
+            df[cols] = df[cols].astype(float)
+            
             return df
             
         except Exception as e:
             logger.error(f"Failed to fetch Gold data: {e}")
             raise e
 
-    async def get_macro_data(self, lookback_days: int = 365) -> pd.DataFrame:
+    async def get_macro_data(self, lookback_days: int = 50) -> pd.DataFrame:
         """
         Fetch Macro indicators from yfinance with Redis caching.
         Assets:
@@ -64,37 +68,34 @@ class DataLoader:
         - ^TNX (10Y Treasury Yield)
         """
         tickers = ['CL=F', 'EURUSD=X', '^TNX']
-        cache_key = f"macro_data_{datetime.now().strftime('%Y-%m-%d_%H')}" # Cache key valid for the hour
+        cache_key = f"macro_data_m15_{datetime.now().strftime('%Y-%m-%d_%H')}" # Cache key valid for the hour
         
         cached = await self.redis.get(cache_key)
         if cached:
             logger.info("Serving Macro data from Redis cache")
-            # Deserialize from JSON/msgpack/parquet
-            # Using JSON for simplicity here, Parquet would be faster for large data
             return pd.read_json(BytesIO(cached.encode()))
 
         logger.info("Fetching Macro data from yfinance...")
         
         try:
-            # We must run this in a thread pool as yfinance is synchronous
             loop = asyncio.get_event_loop()
             df = await loop.run_in_executor(None, self._fetch_yfinance, tickers, lookback_days)
             
             if not df.empty:
-                # Cache it
                 await self.redis.set(cache_key, df.to_json(), ex=self.macro_cache_ttl)
                 
             return df
             
         except Exception as e:
             logger.error(f"Failed to fetch Macro data: {e}")
-            # Fallback? Return empty or cached stale if implemented
             return pd.DataFrame()
 
     def _fetch_yfinance(self, tickers: list, lookback_days: int) -> pd.DataFrame:
         """Blocking yfinance call"""
         start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
-        data = yf.download(tickers, start=start_date, interval='1h', progress=False)
+        # Use 15m interval to match M15 candles
+        # Note: 15m data is only available for last 60 days
+        data = yf.download(tickers, start=start_date, interval='15m', progress=False)
         
         # yfinance returns MultiIndex columns (Price, Ticker) -> Flatten or extract Close
         # We start by taking 'Close' or 'Adj Close'
