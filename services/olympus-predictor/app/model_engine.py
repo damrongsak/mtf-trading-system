@@ -100,17 +100,45 @@ class HybridPredictor:
         logger.info("Starting Hybrid Training...")
         target = df['close'].values
         
+        # 0. Feature Engineering (Technicals + GARCH)
+        # This matches paper_experiments.py logic
+        df_tech = self.feature_engine.compute_technicals(df)
+        
+        # Align indexes
+        # Drop NaN caused by technicals
+        df_tech = df_tech.dropna()
+        common_idx = df.index.intersection(df_tech.index)
+        if macro_df is not None:
+            common_idx = common_idx.intersection(macro_df.index)
+        
+        df = df.loc[common_idx]
+        if macro_df is not None:
+             macro_df = macro_df.loc[common_idx]
+        
+        # Merge technicals into macro_df for selection
+        # Identify technical columns (newly added)
+        tech_cols = ['stoch_k', 'stoch_d', 'stoch_d_smooth', 'williams_r', 'rsi', 'macd', 'macd_signal', 'atr', 'ema_5', 'ema_10', 'garch_vol']
+        # Filter only existing
+        tech_cols = [c for c in tech_cols if c in df_tech.columns]
+        
+        if macro_df is None:
+            combined_features = df_tech[tech_cols]
+        else:
+            combined_features = macro_df.join(df_tech[tech_cols])
+            
+        target = df['close'].values
+        
         # Feature Selection
         selected_exog = pd.DataFrame()
-        if macro_df is not None and not macro_df.empty:
+        if not combined_features.empty:
             # Align macro data with target
             # Ensure index alignment
             common_idx = df.index.intersection(macro_df.index)
             if len(common_idx) < 50:
                 logger.warning("Not enough overlapping data for Macro features. Skipping exog.")
             else:
-                y_aligned = df.loc[common_idx, 'close']
-                X_aligned = macro_df.loc[common_idx]
+                y_aligned = df['close']
+                X_aligned = combined_features
                 
                 # Run Boruta
                 self.feature_engine.select_features(X_aligned, y_aligned)
@@ -118,7 +146,7 @@ class HybridPredictor:
                 
                 # Prepare aligned features for full dataset
                 # We need to reindex macro_df to df.index, ffilling
-                selected_exog = macro_df[self.exog_features].reindex(df.index).ffill().bfill()
+                selected_exog = combined_features[self.exog_features].reindex(df.index).ffill().bfill()
         
         # 1. SARIMAX (Univariate for Price Trend)
         order = (1, 1, 1)
@@ -208,6 +236,25 @@ class HybridPredictor:
         # 1. Linear Forecast
         linear_forecast = self.sarimax_model.forecast(steps=steps)
         
+        # 1.5 Calculate Technicals for Inference Context
+        # We need the recent history to compute technicals (e.g. RSI 14 needs 14 candles)
+        # Ideally, df passed to predict should have enough history.
+        # If macro_df is passed, we assume it matches the steps? 
+        # Actually, predict is usually called with recent market data context.
+        # BUT here, the signature is predict(steps, macro_df). feature_engine needs PRICE data to compute technicals.
+        # This implies we need access to recent price history here.
+        # The SARIMAX model stores history? self.sarimax_model.data.endog ?
+        # Yes, but that's training data.
+        # For production inference, the Caller (API) should pass the recent 'df' context.
+        # Current API design: POST /predict payload has 'prices'. 
+        # Let's assume we can't compute dynamic technicals easily in this pure 'predict' method without the context df.
+        # HOWEVER, the `train` method used `feature_engine.compute_technicals`.
+        # If we selected 'rsi', we need 'rsi' for inference.
+        # The `macro_df` argument MUST include these technicals if they were selected.
+        # START MODIFICATION:
+        # We assume `macro_df` passed to predict ALREADY contains the computed technicals (computed by the API handler from the input candles).
+        # So we just need to ensure we pick them up.
+        
         # 2. Residual Forecast
         # Prepare input: last 'lookback' residuals + exog features
         recent_residuals = self.sarimax_model.resid[-self.lookback:]
@@ -221,7 +268,15 @@ class HybridPredictor:
             # We need recent exog values corresponding to the lookback window
             # Simplification: Use provided macro_df tail or 0s if missing
             if macro_df is not None and not macro_df.empty:
-                 # Ensure features exist
+                 # Align columns
+                 # Check if we have all needed features
+                 missing = [f for f in self.exog_features if f not in macro_df.columns]
+                 if missing:
+                     logger.warning(f"Inference missing features: {missing}. Filling with 0.")
+                     for m in missing:
+                         macro_df[m] = 0
+                 
+                 # Access features
                  exog_tail = macro_df[self.exog_features].tail(self.lookback).values
                  # Load persistent scaler
                  if not self.exog_scaler and os.path.exists(self.exog_scaler_path):

@@ -12,8 +12,19 @@ def sample_data():
     seasonal = 10 * np.sin(x)
     y = trend + seasonal + np.random.normal(0, 1, 200)
     
+    y = trend + seasonal + np.random.normal(0, 1, 200)
+    
+    # Create synthetic OHLC
+    close = y + 2000
+    high = close + np.random.rand(200) * 5
+    low = close - np.random.rand(200) * 5
+    open_p = (high + low) / 2
+    
     df = pd.DataFrame({
-        'close': y
+        'open': open_p,
+        'high': high,
+        'low': low,
+        'close': close
     }, index=pd.date_range('2023-01-01', periods=200, freq='D'))
     return df
 

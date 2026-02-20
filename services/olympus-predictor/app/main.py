@@ -80,9 +80,41 @@ async def predict_gold(request: PredictionRequest):
     try:
         # Fetch latest macro data for context (inference lookback)
         # We need roughly 'lookback' days + steps
-        macro_df = await data_loader.get_macro_data(lookback_days=60)
+        # Also need recent PRICE data to compute technicals (RSI, GARCH, etc.)
+        lookback_rows = 200 # Sufficient for GARCH/RSI calculation
         
-        result = predictor.predict(steps=request.steps, macro_df=macro_df)
+        gold_task = data_loader.get_gold_data(limit=lookback_rows)
+        macro_task = data_loader.get_macro_data(lookback_days=60)
+        
+        gold_df, macro_df = await asyncio.gather(gold_task, macro_task)
+        
+        if gold_df.empty:
+             raise HTTPException(status_code=503, detail="No Gold data available for inference")
+             
+        # Compute Technicals on recent price history
+        # This adds 'rsi', 'garch_vol', etc. to the dataframe
+        gold_df_tech = predictor.feature_engine.compute_technicals(gold_df)
+        
+        # Merge Technicals into Macro DF (or just combine them)
+        # The predictor expects a single 'macro_df' containing ALL exog features (Macro + Tech)
+        # We align them on index
+        
+        # Align indexes (intersection)
+        common_idx = gold_df_tech.index.intersection(macro_df.index)
+        
+        # If macro data is lagging or missing, we might have issues.
+        # For inference, we prioritize the LATEST info.
+        # If intersection is empty (e.g. macro data delayed), we should ffill/bfill macro to match gold
+        
+        # Reindex macro to gold index (ffill to propagate last known macro values to current time)
+        macro_aligned = macro_df.reindex(gold_df_tech.index).ffill().bfill()
+        
+        # Combine
+        # gold_df_tech has [open, high, low, close, rsi, garch...]
+        # macro_aligned has [CL=F, ...]
+        combined_context = macro_aligned.join(gold_df_tech[['stoch_k', 'stoch_d', 'stoch_d_smooth', 'williams_r', 'rsi', 'macd', 'macd_signal', 'atr', 'ema_5', 'ema_10', 'garch_vol']])
+        
+        result = predictor.predict(steps=request.steps, macro_df=combined_context)
         
         return PredictionResponse(
             symbol=request.symbol,
