@@ -1,73 +1,50 @@
-
 import pytest
 import pandas as pd
 import numpy as np
-from app.model_engine import HybridPredictor
+from src.app.domain.models import HybridPredictor
+from src.app.domain.transformers import LogReturnTransformer
 from unittest.mock import MagicMock, patch
 
 @pytest.fixture
 def sample_data():
-    x = np.linspace(0, 100, 200)
-    trend = 0.5 * x
-    seasonal = 10 * np.sin(x)
-    y = trend + seasonal + np.random.normal(0, 1, 200)
-    
-    y = trend + seasonal + np.random.normal(0, 1, 200)
-    
-    # Create synthetic OHLC
-    close = y + 2000
-    high = close + np.random.rand(200) * 5
-    low = close - np.random.rand(200) * 5
-    open_p = (high + low) / 2
+    # Create fake price series that is trending up
+    dates = pd.date_range('2023-01-01', periods=300, freq='15min')
+    x = np.linspace(0, 1, 300)
+    close = 2000 + 100 * x + 5 * np.sin(20 * x) + np.random.normal(0, 1, 300)
+    high = close + 2
+    low = close - 2
+    open_p = close + 0.5
     
     df = pd.DataFrame({
         'open': open_p,
         'high': high,
         'low': low,
-        'close': close
-    }, index=pd.date_range('2023-01-01', periods=200, freq='D'))
+        'close': close,
+        'volume': 1000 * np.random.rand(300)
+    }, index=dates)
     return df
 
 @pytest.fixture
-def sample_macro():
-    x = np.linspace(0, 100, 200)
-    # Feature correlated with residual (sine wave)
-    feat1 = np.sin(x) # Highly correlated with seasonal residual
-    feat2 = np.random.normal(0, 1, 200) # Random noise
-    
+def sample_macro(sample_data):
     df = pd.DataFrame({
-        'OIL': feat1,
-        'RANDOM': feat2
-    }, index=pd.date_range('2023-01-01', periods=200, freq='D'))
+        'OIL': 70 + 5 * np.sin(np.linspace(0, 1, 300)),
+        'RANDOM': np.random.normal(0, 1, 300)
+    }, index=sample_data.index)
     return df
 
-def test_feature_selection_integration(sample_data, sample_macro, tmp_path):
-    # Setup
+def test_full_hybrid_pipeline(sample_data, sample_macro, tmp_path):
     model_dir = tmp_path / "models"
     predictor = HybridPredictor(model_dir=str(model_dir))
     
-    # Train with Macro data
-    # Boruta should pick 'OIL' and ignore 'RANDOM'
-    result = predictor.train(sample_data, macro_df=sample_macro)
-    
-    assert result['status'] == "success"
-    # Check if features were selected
-    selected = result['selected_features']
-    # Boruta is robust but sometimes on small synthetic data it might behave differently or fallback
-    # But it should return a list
-    assert isinstance(selected, list)
-    
-    # Verify artifacts created
-    assert (model_dir / "boruta_selector.pkl").exists()
-
-def test_prediction_with_features(sample_data, sample_macro, tmp_path):
-    # Setup & Train
-    model_dir = tmp_path / "models"
-    predictor = HybridPredictor(model_dir=str(model_dir))
-    predictor.train(sample_data, macro_df=sample_macro)
+    # Train
+    train_res = predictor.train(sample_data, macro_df=sample_macro)
+    assert train_res['status'] == "success"
     
     # Predict
-    forecast = predictor.predict(steps=5, macro_df=sample_macro)
+    last_price = sample_data['close'].iloc[-1]
+    pred_res = predictor.predict(steps=5, macro_df=sample_macro, last_price=last_price)
     
-    assert len(forecast['total']) == 5
-    assert 'used_features' in forecast
+    assert len(pred_res['prices']) == 5
+    assert len(pred_res['sigma_lr']) == 5
+    assert pred_res['prices'][0] > 0
+    assert 'total_lr' in pred_res

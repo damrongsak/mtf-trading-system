@@ -39,4 +39,4 @@ ENV PATH="/venv/bin:$PATH"
 ENV PYTHONPATH=/app
 
 # Run the application with uvloop (handled by uvicorn[standard] or explicit policy)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "uvloop"]
+CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "uvloop"]
