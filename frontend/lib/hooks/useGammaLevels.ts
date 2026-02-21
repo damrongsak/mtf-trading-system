@@ -21,7 +21,7 @@ export function useGammaLevels(symbol: string, currentPrice: number, enabled: bo
         const fetchGamma = async () => {
             setLoading(true);
             try {
-                const response = await analysisApi.analysisGammaLevelsGet({ symbol, currentPrice });
+                const response = await analysisApi.apiV1AnalysisGammaLevelsGet({ symbol, currentPrice });
 
 
                 if (response.data && response.data.status === 'success' && response.data.data) {
