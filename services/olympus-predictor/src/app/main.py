@@ -1,15 +1,22 @@
 from contextlib import asynccontextmanager
 import asyncio
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends
 import redis.asyncio as redis
 import asyncpg
 from datetime import datetime
+from typing import Optional
 
 from src.app.core.config import settings
 from src.app.core.logging import setup_logging
 from src.app.domain.models import HybridPredictor
 from src.app.infrastructure.data_loader import DataLoader
-from src.app.api.schemas import PredictionRequest, PredictionResponse, TrainingResponse
+from src.app.infrastructure.feature_store import FeatureStore
+from src.app.api.schemas import (
+    PredictionRequest, PredictionResponse, 
+    TrainRequest, TrainResponse, JobStatusResponse,
+    SignalResponse
+)
+from src.app.core.queue import task_queue
 import logging
 
 setup_logging()
@@ -21,19 +28,27 @@ redis_client = None
 predictor = None
 data_loader = None
 
+# Mock user for internal consistency (standard MTF pattern)
+async def get_current_user():
+    return {"id": "internal-admin"}
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global db_pool, redis_client, predictor, data_loader
-    logger.info("Initializing Olympus Predictor (New Structure)...")
+    logger.info("Initializing Olympus Predictor (Phase 3 Infrastructure)...")
     
     # Initialize Infrastructure
     redis_client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
     if settings.DATABASE_URL:
-        db_pool = await asyncpg.create_pool(settings.DATABASE_URL)
-        logger.info("Connected to PostgreSQL")
+        try:
+            db_pool = await asyncpg.create_pool(settings.DATABASE_URL)
+            logger.info("Connected to PostgreSQL")
+        except Exception as e:
+            logger.error(f"PostgreSQL Connection Failed: {e}")
     
+    feature_store = FeatureStore(redis_client)
     data_loader = DataLoader(db_pool, redis_client)
-    predictor = HybridPredictor(model_dir=settings.MODEL_DIR)
+    predictor = HybridPredictor(model_dir=settings.MODEL_DIR, feature_store=feature_store)
     
     # Load Models
     try:
@@ -53,13 +68,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan
 )
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "version": "2.0.0"}
+    return {"status": "healthy", "version": "2.1.0"}
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(req: PredictionRequest):
@@ -69,7 +84,7 @@ async def predict(req: PredictionRequest):
     try:
         # Fetch context data
         gold_df = await data_loader.get_gold_data(limit=100)
-        macro_df = await data_loader.get_macro_data(lookback_days=30)
+        macro_df = await data_loader.get_macro_data(lookback_days=settings.MACRO_LOOKBACK_DAYS if hasattr(settings, 'MACRO_LOOKBACK_DAYS') else 59)
         
         if gold_df.empty:
              raise HTTPException(status_code=503, detail="No market data available")
@@ -80,13 +95,12 @@ async def predict(req: PredictionRequest):
         # Align macro to gold index
         macro_aligned = macro_df.reindex(df_tech.index).ffill().bfill()
         
-        # Combined context: join everything, predictor will pick what it needs
+        # Combined context
         combined_context = macro_aligned.join(df_tech, rsuffix='_tech') 
-        # Note: we might need to handle column name collisions if exog features overlap
         
         last_price = gold_df['close'].iloc[-1]
         
-        result = predictor.predict(
+        result = await predictor.predict(
             steps=req.steps, 
             macro_df=combined_context, 
             last_price=last_price
@@ -95,32 +109,84 @@ async def predict(req: PredictionRequest):
         return PredictionResponse(
             symbol=req.symbol,
             forecast_date=datetime.now(),
-            predictions=result['prices'],
-            model_version="2.0.0",
+            prices=result['prices'],
+            sigma_lr=result['sigma_lr'],
+            model_version="2.1.0-alpha",
             breakdown=result
         )
     except Exception as e:
         logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/train", response_model=TrainingResponse)
-async def train(background_tasks: BackgroundTasks):
+@app.post("/signal", response_model=SignalResponse)
+async def get_signal(
+    req: PredictionRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Generate a Confidence-Weighted Signal for Strategy Alignment.
+    Phase 4: Creative Alpha integration.
+    """
     try:
-        # Fetch training data
-        gold_df = await data_loader.get_gold_data(limit=50000)
-        macro_df = await data_loader.get_macro_data(lookback_days=59)
+        # 1. Pipeline: Context Fetch -> Predict -> Signal Generation
+        gold_df = await data_loader.get_gold_data(limit=1000)
+        macro_df = await data_loader.get_macro_data(lookback_days=settings.MACRO_LOOKBACK)
         
-        if gold_df.empty:
-            raise HTTPException(status_code=404, detail="No training data")
-            
-        # Offload to background
-        background_tasks.add_task(predictor.train, gold_df, macro_df)
+        last_price = gold_df['close'].iloc[-1]
         
-        return TrainingResponse(
-            status="started",
-            metrics={},
+        # 2. Predict
+        prediction = await predictor.predict(
+            steps=req.steps, 
+            macro_df=macro_df, 
+            last_price=last_price
+        )
+        
+        # 3. Generate Signal
+        signal = await predictor.generate_signal(prediction)
+        return SignalResponse(**signal)
+        
+    except Exception as e:
+        logger.exception("Signal generation failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/train", response_model=TrainResponse)
+async def train(
+    req: TrainRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Trigger model training.
+    Phase 3: Now asynchronous. Returns a job_id.
+    """
+    try:
+        job_id = await task_queue.push_training_job(
+            symbol=req.symbol,
+            lookback=req.lookback,
+            macro_lookback=req.macro_lookback
+        )
+        return TrainResponse(
+            status="queued",
+            message=f"Training job {job_id} has been queued.",
+            job_id=job_id,
             trained_at=datetime.now()
         )
     except Exception as e:
-        logger.exception("Training trigger failed")
+        logger.exception("Training job queuing failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/train/status/{job_id}", response_model=JobStatusResponse)
+async def get_train_status(
+    job_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Check the status of a training job."""
+    try:
+        status_data = await task_queue.get_job_status(job_id)
+        if status_data["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="Job not found")
+        return JobStatusResponse(**status_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch job status: {e}")
         raise HTTPException(status_code=500, detail=str(e))

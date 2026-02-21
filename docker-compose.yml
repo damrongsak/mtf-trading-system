@@ -186,6 +186,31 @@ services:
       - default
       - external
 
+  predictor-worker:
+    build: ./services/olympus-predictor
+    container_name: predictor-worker
+    command: python -m src.app.core.worker
+    env_file: .env
+    volumes:
+      - ./services/olympus-predictor:/app
+      - /app/.venv
+      - ./trained_models:/app/models
+    depends_on:
+      - redis
+      - olympus-predictor
+    environment:
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    networks:
+      - default
+      - external
+
   mtf-postgres:
     image: postgres:15
     container_name: mtf-postgres

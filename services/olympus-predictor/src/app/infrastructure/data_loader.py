@@ -83,6 +83,47 @@ class DataLoader:
             logger.error(f"Failed to fetch Macro data: {e}")
             return pd.DataFrame()
 
+    async def get_sentiment_data(self, symbol: str = 'XAUUSD', lookback_days: int = 30) -> pd.DataFrame:
+        """
+        Fetch Sentiment scores from DB with Redis caching.
+        Phase 4: Multi-tier retrieval (Redis -> DB -> Fallback).
+        """
+        cache_key = f"sentiment_data_{symbol}_{datetime.now().strftime('%Y-%m-%d_%H')}"
+        
+        # 1. Redis Cache
+        cached = await self.redis.get(cache_key)
+        if cached:
+            try:
+                data = json.loads(cached)
+                return pd.DataFrame(data).set_index('timestamp')
+            except Exception:
+                pass
+
+        # 2. Database
+        query = """
+            SELECT created_at as timestamp, score
+            FROM sentiment_scores
+            WHERE symbol = $1 AND created_at >= NOW() - $2 * INTERVAL '1 day'
+            ORDER BY created_at ASC
+        """
+        try:
+            records = await self.db.fetch(query, symbol, lookback_days)
+            if records:
+                data = [dict(r) for r in records]
+                df = pd.DataFrame(data)
+                df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+                df.set_index('timestamp', inplace=True)
+                
+                # Cache results
+                await self.redis.set(cache_key, df.reset_index().to_json(orient='records'), ex=3600)
+                return df
+        except Exception as e:
+            logger.error(f"Database sentiment fetch failed: {e}")
+
+        # 3. Fallback (Neutral)
+        logger.warning(f"Sentiment data unavailable for {symbol}, falling back to neutral (0.0)")
+        return pd.DataFrame()
+
     def _fetch_yfinance(self, tickers: list, lookback_days: int) -> pd.DataFrame:
         """Blocking yfinance call"""
         start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')

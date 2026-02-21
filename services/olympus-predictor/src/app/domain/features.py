@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
+import asyncio
 from sklearn.ensemble import RandomForestRegressor
 from boruta import BorutaPy
 import logging
 import joblib
 import os
+from typing import Optional
+from src.app.infrastructure.feature_store import FeatureStore
 
 logger = logging.getLogger("olympus-predictor.domain.features")
 
@@ -15,18 +18,24 @@ except ImportError:
     arch_model = None
 
 class FeatureEngine:
-    def __init__(self, model_dir="/app/models"):
+    def __init__(self, model_dir="/app/models", feature_store: Optional[FeatureStore] = None):
         self.model_dir = model_dir
         os.makedirs(model_dir, exist_ok=True)
         self.selector_path = os.path.join(model_dir, "boruta_selector.pkl")
         self.selected_features = []
+        self.store = feature_store
         
-    def compute_technicals(self, df: pd.DataFrame) -> pd.DataFrame:
+    async def compute_technicals(self, df: pd.DataFrame, symbol: str = "XAUUSD", timeframe: str = "M15") -> pd.DataFrame:
         """
-        Compute SOTA technical indicators
-        - Stoch, Williams, RSI, MACD, ATR, EMA(5,10)
-        - GARCH(1,1) Volatility
+        Compute SOTA technical indicators with optional Redis caching.
         """
+        # Phase 3: Check cache first
+        if self.store:
+             cached_df = await self.store.get_features(symbol, timeframe)
+             if cached_df is not None:
+                  return cached_df
+
+        df_orig = df.copy()
         df = df.copy()
         
         # 1. Stochastic Oscillator (9, 3, 3)
@@ -79,6 +88,10 @@ class FeatureEngine:
                 logger.warning(f"GARCH calc failed: {e}")
                 df['garch_vol'] = 0
         
+        # Phase 3: Save to cache
+        if self.store:
+             await self.store.save_features(symbol, timeframe, df)
+             
         return df
 
     def load_selector(self):

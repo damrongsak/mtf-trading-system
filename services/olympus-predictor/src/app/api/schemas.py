@@ -9,11 +9,33 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     symbol: str
     forecast_date: datetime
-    predictions: List[float]
+    prices: List[float] # Updated to match predict output
+    sigma_lr: List[float]
     model_version: str
     breakdown: Dict[str, Any]
 
-class TrainingResponse(BaseModel):
+class TrainRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    lookback: int = 2000
+    macro_lookback: int = 59
+
+class TrainResponse(BaseModel):
     status: str
-    metrics: Dict[str, Any]
-    trained_at: datetime
+    message: str
+    job_id: Optional[str] = None
+    trained_at: datetime = datetime.now()
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    checked_at: datetime = datetime.now()
+
+class SignalResponse(BaseModel):
+    direction: str
+    target: float
+    stop_loss: float
+    confidence: float
+    sentiment_score: float
+    timestamp: datetime = datetime.now()
