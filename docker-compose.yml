@@ -69,7 +69,6 @@ services:
 
   data-pipeline:
     build: ./services/data-pipeline
-    image: mtf-data-pipeline
     container_name: data-pipeline
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     env_file: .env
@@ -93,7 +92,7 @@ services:
       - external
 
   tick-streamer:
-    image: mtf-data-pipeline
+    build: ./services/data-pipeline
     container_name: tick-streamer
     command: python run_stream.py
     volumes:
@@ -106,7 +105,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
-      - STREAM_SYMBOLS=EUR_USD,USD_JPY,XAU_USD
+      - STREAM_SYMBOLS=EURUSD,USDJPY,XAUUSD
     deploy:
       resources:
         limits:
@@ -164,28 +163,28 @@ services:
       - default
       - external
 
-  olympus-predictor:
-    build: ./services/olympus-predictor
-    container_name: olympus-predictor
-    # shm_size/ipc removed for debugging
-    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop uvloop
-    env_file: .env
-    volumes:
-      - ./services/olympus-predictor:/app
-      - /app/.venv
-      - olympus_models:/app/models
-    environment:
-      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
-      - REDIS_URL=redis://redis:6379/0
-      - PYTHONUNBUFFERED=1
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-    networks:
-      - default
-      - external
+  # olympus-predictor:
+  #   build: ./services/olympus-predictor
+  #   container_name: olympus-predictor
+  #   # shm_size/ipc removed for debugging
+  #   command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop uvloop
+  #   env_file: .env
+  #   volumes:
+  #     - ./services/olympus-predictor:/app
+  #     - /app/.venv
+  #     - ./trained_models:/app/models
+  #   environment:
+  #     - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - PYTHONUNBUFFERED=1
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2.0'
+  #         memory: 4G
+  #   networks:
+  #     - default
+  #     - external
 
   mtf-postgres:
     image: postgres:15
@@ -235,9 +234,6 @@ services:
     networks:
       - default
       - external
-
-volumes:
-  olympus_models:
 
 networks:
   external:
