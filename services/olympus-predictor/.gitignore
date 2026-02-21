@@ -20,6 +20,12 @@ trained_models/
 *.joblib
 *.pth
 
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+
 # IDE
 .vscode/
 .idea/
