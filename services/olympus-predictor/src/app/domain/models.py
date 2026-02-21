@@ -8,6 +8,8 @@ import os
 import logging
 from sklearn.preprocessing import MinMaxScaler
 from typing import Tuple, Optional, Dict, List
+from hmmlearn.hmm import GaussianHMM
+from statsmodels.tsa.vector_ar.var_model import VAR
 from src.app.domain.features import FeatureEngine
 from src.app.domain.transformers import LogReturnTransformer
 
@@ -16,26 +18,146 @@ logger = logging.getLogger("olympus-predictor.domain.models")
 class ResidualLSTM(nn.Module):
     """
     LSTM that predicts the residual of SARIMAX.
-    Updated to output (Mean, Standard Deviation) for Uncertainty Quantification.
+    Enhanced with Self-Attention and Distributional Head for Uncertainty.
     """
-    def __init__(self, input_dim=1, hidden_dim=50, layer_dim=1, output_dim=2, dropout=0.3):
+    def __init__(self, input_dim=1, hidden_dim=64, layer_dim=2, output_dim=2, dropout=0.3):
         super(ResidualLSTM, self).__init__()
         self.hidden_dim = hidden_dim
         self.layer_dim = layer_dim
+        
         self.lstm = nn.LSTM(input_dim, hidden_dim, layer_dim, batch_first=True, dropout=dropout if layer_dim > 1 else 0)
+        
+        # Scaled Dot-Product Attention
+        self.query = nn.Linear(hidden_dim, hidden_dim)
+        self.key = nn.Linear(hidden_dim, hidden_dim)
+        self.value = nn.Linear(hidden_dim, hidden_dim)
+        
         self.fc = nn.Linear(hidden_dim, output_dim) # Output: [mean, log_var]
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+        # x shape: (batch, seq_len, input_dim)
         h0 = torch.zeros(self.layer_dim, x.size(0), self.hidden_dim).to(x.device)
         c0 = torch.zeros(self.layer_dim, x.size(0), self.hidden_dim).to(x.device)
-        out, (hn, cn) = self.lstm(x, (h0, c0))
-        out = self.fc(self.dropout(out[:, -1, :]))
+        
+        lstm_out, _ = self.lstm(x, (h0, c0)) # lstm_out: (batch, seq_len, hidden_dim)
+        
+        # Self-Attention Mechanism
+        q = self.query(lstm_out)
+        k = self.key(lstm_out)
+        v = self.value(lstm_out)
+        
+        # attention weights: (batch, seq_len, seq_len)
+        d_k = q.size(-1)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / (d_k ** 0.5)
+        attn_weights = torch.softmax(scores, dim=-1)
+        
+        # context vector: (batch, seq_len, hidden_dim)
+        context = torch.matmul(attn_weights, v)
+        
+        # Take the context of the last time step for prediction
+        attended_out = context[:, -1, :]
+        
+        out = self.fc(self.dropout(attended_out))
+        
         # Mean is unbounded, Std must be positive
         mean = out[:, 0:1]
         log_var = out[:, 1:2]
         std = torch.exp(0.5 * log_var)
         return mean, std
+
+class MacroForecaster:
+    """
+    Sub-model to forecast exogenous macro inputs for multi-step prediction.
+    Replaces naive last-value assumption.
+    """
+    def __init__(self, model_dir="/app/models"):
+        self.model_dir = model_dir
+        self.var_model = None
+        self.var_path = os.path.join(model_dir, "macro_var.pkl")
+        self.columns_path = os.path.join(model_dir, "macro_cols.pkl")
+        self.columns = []
+
+    def train(self, df: pd.DataFrame):
+        """Train VAR model on macro features"""
+        if df is None or df.empty or len(df) < 50: 
+            logger.warning("Not enough macro data for VAR training. Fallback to Naive.")
+            return
+            
+        self.columns = df.columns.tolist()
+        try:
+             # Train simple VAR(1) for speed and stability
+             model = VAR(df)
+             self.var_model = model.fit(maxlags=1)
+             joblib.dump(self.var_model, self.var_path)
+             joblib.dump(self.columns, self.columns_path)
+             logger.info(f"MacroForecaster trained successfully on columns: {self.columns}")
+        except Exception as e:
+             logger.error(f"Failed to train Macro VAR: {e}")
+
+    def load(self):
+        if os.path.exists(self.var_path):
+            try:
+                self.var_model = joblib.load(self.var_path)
+                self.columns = joblib.load(self.columns_path)
+            except Exception as e:
+                logger.error(f"Failed to load MacroForecaster: {e}")
+
+    def forecast(self, steps=5, last_values: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+        """Forecast future macro values"""
+        if self.var_model is None or last_values is None or last_values.empty:
+            if last_values is not None and not last_values.empty:
+                logger.debug("Macro VAR not available, falling back to Naive forecast.")
+                return pd.DataFrame([last_values.iloc[-1]] * steps, columns=last_values.columns)
+            return pd.DataFrame()
+
+        try:
+            # Ensure we only use columns the model was trained on
+            forecast_input = last_values[self.columns].values[-1:] 
+            forecast_np = self.var_model.forecast(y=forecast_input, steps=steps)
+            return pd.DataFrame(forecast_np, columns=self.columns)
+        except Exception as e:
+            logger.warning(f"Macro VAR forecasting failed: {e}. Falling back to Naive.")
+            return pd.DataFrame([last_values.iloc[-1]] * steps, columns=last_values.columns)
+
+class RegimeDetector:
+    """
+    HMM-based Market Regime detector (Trend/Range/Volatile).
+    """
+    def __init__(self, model_dir="/app/models", n_components=3):
+        self.model_dir = model_dir
+        self.n_components = n_components
+        self.model = None
+        self.path = os.path.join(model_dir, "regime_hmm.pkl")
+
+    def train(self, df: pd.DataFrame):
+        """Train HMM on Log-Returns and GARCH Volatility"""
+        if df.empty or 'garch_vol' not in df.columns:
+            return
+            
+        returns = np.log(df['close'] / df['close'].shift(1)).dropna()
+        vol = df.loc[returns.index, 'garch_vol']
+        X = np.column_stack([returns.values, vol.values])
+        
+        try:
+            self.model = GaussianHMM(n_components=self.n_components, covariance_type="diag", n_iter=100)
+            self.model.fit(X)
+            joblib.dump(self.model, self.path)
+            logger.info(f"RegimeDetector trained with {self.n_components} regimes.")
+        except Exception as e:
+            logger.error(f"RegimeDetector training failed: {e}")
+
+    def load(self):
+        if os.path.exists(self.path):
+            self.model = joblib.load(self.path)
+
+    def predict_regime(self, returns: float, vol: float) -> int:
+        if self.model is None: return 0
+        try:
+            X = np.array([[returns, vol]])
+            return int(self.model.predict(X)[0])
+        except:
+            return 0
 
 class HybridPredictor:
     def __init__(self, model_dir="/app/models"):
@@ -53,6 +175,9 @@ class HybridPredictor:
         
         # Components
         self.feature_engine = FeatureEngine(model_dir)
+        self.macro_forecaster = MacroForecaster(model_dir)
+        self.regime_detector = RegimeDetector(model_dir)
+        
         self.sarimax_model = None
         self.lstm_model = None
         self.scaler = None
@@ -72,9 +197,13 @@ class HybridPredictor:
         
         self.feature_engine.load_selector()
         self.exog_features = self.feature_engine.selected_features
+        
+        self.macro_forecaster.load()
+        self.regime_detector.load()
             
         if os.path.exists(self.lstm_path):
-            input_dim = 1 + len(self.exog_features)
+            # Input dim: Residual + Exog + Regime
+            input_dim = 1 + len(self.exog_features) + 1
             self.lstm_model = ResidualLSTM(input_dim=input_dim).to(self.device)
             self.lstm_model.load_state_dict(torch.load(self.lstm_path, map_location=self.device))
             self.lstm_model.eval()
@@ -146,13 +275,29 @@ class HybridPredictor:
         self.scaler = scaler
         joblib.dump(self.scaler, self.scaler_path)
         
+        # NEW Phase 2: Macro Forecasting & Regime Awareness during training
+        # We'll calculate regimes for all training samples to use as features
+        returns = np.log(df_aligned['close'] / df_aligned['close'].shift(1)).fillna(0)
+        self.regime_detector.train(df_aligned)
+        
+        regimes = []
+        for r, v in zip(returns.loc[common_idx].values, df_tech.loc[common_idx, 'garch_vol'].values):
+            regimes.append(self.regime_detector.predict_regime(r, v))
+        
+        # Convert regimes to categorical/one-hot or just a scaled feature? 
+        # For simplicity in this upgrade, let's treat it as a scaled feature [0, 1]
+        regimes_scaled = np.array(regimes).reshape(-1, 1) / (self.regime_detector.n_components - 1)
+        
         if not selected_exog.empty:
+            self.macro_forecaster.train(macro_df) # Train dynamic macro forecaster
+            
             self.exog_scaler = MinMaxScaler(feature_range=(-1, 1))
             exog_scaled = self.exog_scaler.fit_transform(selected_exog.values)
             joblib.dump(self.exog_scaler, self.exog_scaler_path)
-            lstm_input_data = np.hstack([residuals_scaled, exog_scaled])
+            # Input = [Residual, Exog..., Regime]
+            lstm_input_data = np.hstack([residuals_scaled, exog_scaled, regimes_scaled])
         else:
-            lstm_input_data = residuals_scaled
+            lstm_input_data = np.hstack([residuals_scaled, regimes_scaled])
             
         input_dim = lstm_input_data.shape[1]
         X, y = self._create_sequences(lstm_input_data, self.lookback)
@@ -161,7 +306,7 @@ class HybridPredictor:
         X_tensor = torch.from_numpy(X).float().to(self.device)
         y_tensor = torch.from_numpy(y).float().to(self.device)
         
-        # 7. Train Residual LSTM (Distributional)
+        # 7. Train Residual LSTM (Distributional + Attention)
         self.lstm_model = ResidualLSTM(input_dim=input_dim).to(self.device)
         # NLL Loss for Gaussian Uncertainty
         def gaussian_nll_loss(mean, std, target):
@@ -197,27 +342,31 @@ class HybridPredictor:
         recent_residuals = self.sarimax_model.resid[-self.lookback:]
         recent_scaled = self.scaler.transform(recent_residuals.reshape(-1, 1))
         
+        # NEW Phase 2: Dynamic Macro Forecast
+        macro_forecast_df = pd.DataFrame()
         if self.exog_features and macro_df is not None:
-             # Ensure we prioritize macro_df but check for missing columns
-             available_features = [f for f in self.exog_features if f in macro_df.columns]
-             missing_features = [f for f in self.exog_features if f not in macro_df.columns]
+             macro_forecast_df = self.macro_forecaster.forecast(steps=steps, last_values=macro_df)
              
-             if missing_features:
-                  logger.warning(f"Predictor needs features {missing_features} but they are missing from provided dataframe. Filling with 0.")
-                  
-             exog_tail_df = macro_df[available_features].tail(self.lookback).copy()
-             for f in missing_features:
-                  exog_tail_df[f] = 0
-                  
-             # Reorder to match exog_features exactly
-             exog_tail = exog_tail_df[self.exog_features].values
-             exog_scaled = self.exog_scaler.transform(exog_tail)
-             lstm_input_np = np.hstack([recent_scaled, exog_scaled])
-             last_exog = torch.from_numpy(exog_scaled[-1:]).float().to(self.device)
+             # Prep history for sequence window
+             available_f = [f for f in self.exog_features if f in macro_df.columns]
+             missing_f = [f for f in self.exog_features if f not in macro_df.columns]
+             
+             exog_history_df = macro_df[available_f].tail(self.lookback).copy()
+             for f in missing_f: exog_history_df[f] = 0
+             exog_history = exog_history_df[self.exog_features].values
+             exog_scaled_history = self.exog_scaler.transform(exog_history)
+             
+             # Calculate current regime
+             # We need return and vol of the last step
+             # Let's approximate from history or provided macro_df (which usually has price data if it's the combined one)
+             # but here macro_df is normally the one from data_loader.get_macro_data which is just CL=F etc.
+             # We need XAUUSD price for regime. If not provided, we use regime 0.
+             current_regime = 0
+             
+             lstm_input_np = np.hstack([recent_scaled, exog_scaled_history, np.full((self.lookback, 1), current_regime/2.0)])
         else:
-             lstm_input_np = recent_scaled
-             last_exog = None
-
+             lstm_input_np = np.hstack([recent_scaled, np.zeros((self.lookback, 1))]) # Placeholder for regime
+ 
         curr_input = torch.from_numpy(lstm_input_np).float().view(1, self.lookback, -1).to(self.device)
         
         residual_means = []
@@ -225,17 +374,35 @@ class HybridPredictor:
         self.lstm_model.eval()
         
         with torch.no_grad():
-            for _ in range(steps):
+            for i in range(steps):
                 mean, std = self.lstm_model(curr_input)
                 residual_means.append(mean.item())
                 residual_stds.append(std.item())
                 
-                # Iterative update
-                new_residual = mean.view(1, 1, 1)
-                if last_exog is not None:
-                    new_step = torch.cat([new_residual, last_exog.unsqueeze(1)], dim=2)
+                # Iterative update with Dynamic Macro
+                new_residual_scaled = mean.view(1, 1, 1)
+                
+                if not macro_forecast_df.empty:
+                    # Get the exog forecast for this specific step i.
+                    # macro_forecast_df only has columns from self.macro_forecaster.columns
+                    exog_step_df = macro_forecast_df.iloc[i:i+1].copy()
+                    
+                    # Ensure all exog_features (including technicals) exist
+                    for f in self.exog_features:
+                        if f not in exog_step_df.columns:
+                            exog_step_df[f] = 0 # Padding technicals as 0 in log-return space
+                            
+                    # Reorder to match exog_scaler expectation
+                    exog_step_scaled = self.exog_scaler.transform(exog_step_df[self.exog_features].values)
+                    new_exog = torch.from_numpy(exog_step_scaled).float().to(self.device).unsqueeze(0)
+                    
+                    # Regime remains fairly stable over short horizons
+                    new_regime = torch.full((1, 1, 1), current_regime/2.0).to(self.device)
+                    new_step = torch.cat([new_residual_scaled, new_exog, new_regime], dim=2)
                 else:
-                    new_step = new_residual
+                    new_regime = torch.full((1, 1, 1), current_regime/2.0).to(self.device)
+                    new_step = torch.cat([new_residual_scaled, new_regime], dim=2)
+                
                 curr_input = torch.cat((curr_input[:, 1:, :], new_step), dim=1)
                 
         # Inverse Scale Residual Mean

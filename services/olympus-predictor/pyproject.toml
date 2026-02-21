@@ -24,7 +24,8 @@ dependencies = [
     "tenacity>=8.2.3",
     "msgpack>=1.0.7",
     "watchfiles>=0.21.0",
-    "arch>=7.0.0"
+    "arch>=7.0.0",
+    "hmmlearn>=0.3.2"
 ]
 
 [dependency-groups]
