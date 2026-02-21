@@ -26,8 +26,7 @@ dependencies = [
     "watchfiles>=0.21.0",
     "arch>=7.0.0",
     "hmmlearn>=0.3.2",
-    "rq>=1.16.2",
-    "redis>=5.0.1"
+    "rq>=1.16.2"
 ]
 
 [dependency-groups]

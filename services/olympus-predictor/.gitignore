@@ -30,6 +30,5 @@ trained_models/
 .vscode/
 .idea/
 
-# Experiments
-paper_results/
-!paper_results/metrics_comparison.csv
+# uv
+!uv.lock

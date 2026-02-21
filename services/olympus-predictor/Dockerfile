@@ -24,7 +24,7 @@ ENV UV_LINK_MODE=copy
 ENV UV_PROJECT_ENVIRONMENT="/venv"
 
 # Copy configuration files
-COPY --chown=trader:trader pyproject.toml ./
+COPY --chown=trader:trader pyproject.toml uv.lock ./
 
 # Install dependencies
 # Using --mount=type=cache to speed up re-builds
