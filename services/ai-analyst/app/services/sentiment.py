@@ -1,9 +1,13 @@
 import aiohttp
 import json
 import redis.asyncio as redis
+import logging
 from app.core.config import settings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from datetime import datetime, timedelta
+from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class SentimentService:
     def __init__(self):
@@ -27,7 +31,7 @@ class SentimentService:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def get_sentiment(self, symbol: str = "XAU/USD") -> dict:
+    async def get_sentiment(self, symbol: str = "XAUUSD") -> dict:
         # ... (rest of the method remains same, but uses self.get_session())
         if not settings.GOOGLE_API_KEY:
             return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
@@ -39,7 +43,7 @@ class SentimentService:
             if cached:
                  return json.loads(cached)
         except Exception as e:
-            print(f"Redis cache read failed: {e}")
+            logger.error(f"Redis cache read failed: {e}")
 
         # 2. Fetch News (if cache miss)
         headlines = await self._fetch_news(symbol)
@@ -56,7 +60,7 @@ class SentimentService:
         try:
             await self.redis.setex(cache_key, self.cache_ttl, json.dumps(result))
         except Exception as e:
-            print(f"Redis cache write failed: {e}")
+            logger.error(f"Redis cache write failed: {e}")
             
         return result
 
@@ -74,9 +78,9 @@ class SentimentService:
             session = await self.get_session()
             async with session.post(url, json=payload) as resp:
                  if resp.status not in [200, 201]:
-                     print(f"Failed to save sentiment to DB: {resp.status}")
+                     logger.error(f"Failed to save sentiment to DB: {resp.status} - {await resp.text()}")
         except Exception as e:
-            print(f"Error saving sentiment to DB: {e}")
+            logger.error(f"Error saving sentiment to DB: {e}")
 
     async def _fetch_news(self, symbol: str) -> list[str]:
         """
@@ -93,10 +97,10 @@ class SentimentService:
                     # Headlines are list of dicts: {title, source, url, publishedAt}
                     return [f"- {h['title']} ({h['source']})" for h in headlines]
                 else:
-                    print(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
+                    logger.error(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
                     return []
         except Exception as e:
-            print(f"Failed to fetch news from pipeline: {e}")
+            logger.error(f"Failed to fetch news from pipeline: {e}")
             return []
 
     async def _analyze_headlines(self, symbol: str, headlines: list[str]) -> dict:
@@ -130,5 +134,5 @@ class SentimentService:
                 "reason": data.get("reason", "Analysis failed")
             }
         except Exception as e:
-            print(f"LLM Analysis Error: {e}")
+            logger.error(f"LLM Analysis Error: {e}")
             return {"score": 0.0, "reason": "Error parsing sentiment analysis."}

@@ -123,7 +123,13 @@ async def lifespan(app: FastAPI):
             scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'])
             scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'])
             
-            logger.info("✅ Scheduler Started (Guardian & Session Jobs Added)")
+            # Gold Sentiment Analysis (Every 4 hours)
+            from app.core.scheduler_tasks import update_gold_sentiment
+            scheduler.add_job(update_gold_sentiment, 'interval', hours=4)
+            # Run once on startup to ensure fresh data
+            scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now())
+            
+            logger.info("✅ Scheduler Started (Guardian, Session & Sentiment Jobs Added)")
         except Exception as e:
             logger.error(f"❌ Scheduler/Session Observer Failed: {e}")
             

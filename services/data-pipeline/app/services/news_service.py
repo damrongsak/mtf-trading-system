@@ -36,10 +36,15 @@ class NewsApiService(BaseService):
         """Map symbol to news query."""
         query_map = {
             "XAU/USD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
+            "XAUUSD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
             "EUR/USD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
+            "EURUSD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
             "BTC/USD": "Bitcoin OR BTC price OR Crypto regulation",
+            "BTCUSD": "Bitcoin OR BTC price OR Crypto regulation",
             "USD/JPY": "USDJPY OR Bank of Japan OR Yen",
+            "USDJPY": "USDJPY OR Bank of Japan OR Yen",
             "GBP/USD": "GBPUSD OR Bank of England OR UK economy",
+            "GBPUSD": "GBPUSD OR Bank of England OR UK economy",
         }
         return query_map.get(symbol, symbol)
 
