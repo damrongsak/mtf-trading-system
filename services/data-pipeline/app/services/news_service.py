@@ -71,7 +71,7 @@ class NewsApiService(BaseService):
             results = await self._fetch_from_api(symbol)
             if results:
                  await self.increment_quota()
-                 await self._cache_set(cache_key, results, ttl=14400) # 4 hours
+                 await self._cache_set(cache_key, results, ttl=86400) # 24 hours (ECST)
             return results
         except Exception as e:
             logger.error(f"News fetch failed: {e}")

@@ -45,6 +45,10 @@ async def start_scheduler():
     from app.streaming.manager import stream_manager
     await stream_manager.start()
 
+    # Start Sentiment Worker (Decoupled Persistence)
+    from app.workers.sentiment_worker import sentiment_worker
+    await sentiment_worker.start()
+
     # Feature Worker (MOVED TO STRATEGY-CORE)
     # from app.workers.feature_worker import FeatureWorker
     # global feature_worker

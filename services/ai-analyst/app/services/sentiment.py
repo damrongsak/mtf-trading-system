@@ -1,4 +1,3 @@
-import aiohttp
 import json
 import redis.asyncio as redis
 import logging
@@ -18,21 +17,13 @@ class SentimentService:
         )
         self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
         self.cache_ttl = 3600 # 1 hour
-        self._session: Optional[aiohttp.ClientSession] = None
-
-    async def get_session(self) -> aiohttp.ClientSession:
-        """Lazy initialization of persistent aiohttp session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
 
     async def close(self):
-        """Close the persistent session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
+        """Close Redis connection."""
+        if self.redis:
+            await self.redis.close()
 
     async def get_sentiment(self, symbol: str = "XAUUSD") -> dict:
-        # ... (rest of the method remains same, but uses self.get_session())
         if not settings.GOOGLE_API_KEY:
             return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
 
@@ -65,42 +56,38 @@ class SentimentService:
         return result
 
     async def _save_sentiment_to_db(self, symbol: str, result: dict):
-        """Persist sentiment score to Data Pipeline."""
-        url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/sentiment"
+        """Publish sentiment score to Redis Stream for persistence (Async RPC)."""
         payload = {
             "symbol": symbol,
-            "score": result.get("score"),
-            "reason": result.get("reason"),
-            "source_breakdown": {} # Placeholder
+            "score": str(result.get("score", 0.0)),
+            "reason": result.get("reason", ""),
+            "source_breakdown": json.dumps({}) # Placeholder
         }
         
         try:
-            session = await self.get_session()
-            async with session.post(url, json=payload) as resp:
-                 if resp.status not in [200, 201]:
-                     logger.error(f"Failed to save sentiment to DB: {resp.status} - {await resp.text()}")
+            # Publish to stream - maxlen 1000 for history
+            await self.redis.xadd("market.sentiment.stream", payload, maxlen=1000, approximate=True)
+            logger.info(f"Published sentiment event for {symbol} to Redis Stream.")
         except Exception as e:
-            logger.error(f"Error saving sentiment to DB: {e}")
+            logger.error(f"Error publishing sentiment to stream: {e}")
 
     async def _fetch_news(self, symbol: str) -> list[str]:
         """
-        Fetches news headlines from Data Pipeline service.
+        Fetches news headlines from Redis (ECST pattern).
+        The data-pipeline service is responsible for populating this cache.
         """
-        url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines"
-        params = {"symbol": symbol}
-
+        cache_key = f"news:headlines:{symbol}"
         try:
-            session = await self.get_session()
-            async with session.get(url, params=params) as resp:
-                if resp.status == 200:
-                    headlines = await resp.json()
-                    # Headlines are list of dicts: {title, source, url, publishedAt}
-                    return [f"- {h['title']} ({h['source']})" for h in headlines]
-                else:
-                    logger.error(f"Data Pipeline News Error: {resp.status} {await resp.text()}")
-                    return []
+            cached = await self.redis.get(cache_key)
+            if cached:
+                headlines = json.loads(cached)
+                # Headlines are list of dicts: {title, source, url, publishedAt}
+                return [f"- {h['title']} ({h['source']})" for h in headlines]
+            
+            logger.warning(f"No headlines found in Redis for {symbol}. Ensure news-sync is running.")
+            return []
         except Exception as e:
-            logger.error(f"Failed to fetch news from pipeline: {e}")
+            logger.error(f"Failed to fetch news from Redis: {e}")
             return []
 
     async def _analyze_headlines(self, symbol: str, headlines: list[str]) -> dict:
