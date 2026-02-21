@@ -8,5 +8,6 @@ class Settings(BaseSettings):
     MODEL_DIR: str = os.getenv("MODEL_DIR", "/app/models")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     MACRO_LOOKBACK: int = int(os.getenv("MACRO_LOOKBACK", "59"))
+    OPERATIONAL_MODE: str = os.getenv("OPERATIONAL_MODE", "ACTIVE") # SHADOW or ACTIVE
 
 settings = Settings()
