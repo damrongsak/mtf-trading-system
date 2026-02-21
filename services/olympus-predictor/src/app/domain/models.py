@@ -5,13 +5,17 @@ import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 import joblib
 import os
+import json
 import logging
 from sklearn.preprocessing import MinMaxScaler
 from typing import Tuple, Optional, Dict, List
+from datetime import datetime, timezone
 from hmmlearn.hmm import GaussianHMM
 from statsmodels.tsa.vector_ar.var_model import VAR
 from src.app.domain.features import FeatureEngine
 from src.app.domain.transformers import LogReturnTransformer
+from src.app.infrastructure.feature_store import FeatureStore
+from src.app.infrastructure.data_loader import DataLoader
 
 logger = logging.getLogger("olympus-predictor.domain.models")
 
@@ -160,7 +164,7 @@ class RegimeDetector:
             return 0
 
 class HybridPredictor:
-    def __init__(self, model_dir="/app/models", feature_store: Optional[FeatureStore] = None):
+    def __init__(self, model_dir="/app/models", feature_store: Optional["FeatureStore"] = None):
         self.model_dir = model_dir
         self.lookback = 60
         os.makedirs(model_dir, exist_ok=True)

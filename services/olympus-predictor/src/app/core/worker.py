@@ -3,6 +3,7 @@ import json
 import asyncio
 import os
 import redis.asyncio as redis
+import asyncpg
 from src.app.domain.models import HybridPredictor
 from src.app.infrastructure.data_loader import DataLoader
 from src.app.infrastructure.feature_store import FeatureStore
@@ -15,28 +16,46 @@ class TrainingWorker:
         self.redis_url = settings.REDIS_URL
         self.queue_name = "queue:predictor:training"
         self.redis = None
+        self.db_pool = None
         self._running = False
         
         # Phase 3: Shared Infrastructure
-        self.store = FeatureStore()
-        self.predictor = HybridPredictor(settings.MODEL_DIR, feature_store=self.store)
+        # Note: We'll initialize these in start() to ensure async loop is ready
+        self.store = None
+        self.predictor = None
+        self.loader = None
+
+    async def _init_infra(self):
+        """Initialize all infrastructure components within the async loop"""
+        if not self.redis:
+            self.redis = redis.from_url(self.redis_url, decode_responses=True)
+            logger.info("Connected to Redis")
+            
+        if not self.db_pool and settings.DATABASE_URL:
+            self.db_pool = await asyncpg.create_pool(settings.DATABASE_URL)
+            logger.info("Connected to PostgreSQL")
+            
+        if not self.store:
+            self.store = FeatureStore(self.redis)
+            
+        if not self.predictor:
+            self.predictor = HybridPredictor(settings.MODEL_DIR, feature_store=self.store)
+            
+        if not self.loader:
+            self.loader = DataLoader(self.db_pool, self.redis)
 
     async def start(self):
         logger.info(f"Starting Predictor Training Worker, listening on {self.queue_name}...")
+        
+        await self._init_infra()
         self._running = True
         
         while self._running:
             try:
-                if not self.redis:
-                    self.redis = redis.from_url(self.redis_url, decode_responses=True)
-                
                 result = await self.redis.brpop(self.queue_name, timeout=5)
                 if result:
                     _, message_json = result
                     logger.info(f"Received training task: {message_json}")
-                    # Offload to a task to allow concurrent training if needed, 
-                    # but usually training is resource intensive, so maybe serial is better? 
-                    # Let's do serial for now to avoid OOM.
                     await self._process_task(message_json)
             except asyncio.CancelledError:
                 break
@@ -44,6 +63,7 @@ class TrainingWorker:
                 logger.error(f"Redis Connection Error: {ce}. Retrying in 5s...")
                 self.redis = None
                 await asyncio.sleep(5)
+                await self._init_infra()
             except Exception as e:
                 logger.error(f"Worker Loop Error: {e}")
                 await asyncio.sleep(1)
@@ -52,6 +72,8 @@ class TrainingWorker:
         self._running = False
         if self.redis:
             await self.redis.close()
+        if self.db_pool:
+            await self.db_pool.close()
         logger.info("Predictor Training Worker stopped.")
 
     async def _process_task(self, message_json: str):
@@ -68,10 +90,9 @@ class TrainingWorker:
             await self.redis.set(f"job:{job_id}:status", "processing", ex=3600)
             
             try:
-                loader = DataLoader()
-                # 1. Fetch Data
-                df_gold = await loader.get_gold_data(symbol=symbol, days=lookback)
-                df_macro = await loader.get_macro_data(days=macro_lookback)
+                # 1. Fetch Data using established loader
+                df_gold = await self.loader.get_gold_data(limit=lookback)
+                df_macro = await self.loader.get_macro_data(lookback_days=macro_lookback)
                 
                 # 2. Train Model
                 result = await self.predictor.train(df_gold, macro_df=df_macro)
@@ -92,8 +113,6 @@ class TrainingWorker:
             logger.error(f"Unexpected error in _process_task: {e}", exc_info=True)
 
 if __name__ == "__main__":
-    # Simple standalone execution logic
-    import sys
     logging.basicConfig(level=logging.INFO)
     worker = TrainingWorker()
     try:

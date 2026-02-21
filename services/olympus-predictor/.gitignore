@@ -16,6 +16,7 @@ build/
 
 # Model Artifacts (Too large for git)
 paper_models/
+trained_models/
 *.joblib
 *.pth
 

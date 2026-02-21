@@ -7,5 +7,6 @@ class Settings(BaseSettings):
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
     MODEL_DIR: str = os.getenv("MODEL_DIR", "/app/models")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    MACRO_LOOKBACK: int = int(os.getenv("MACRO_LOOKBACK", "59"))
 
 settings = Settings()

@@ -100,25 +100,28 @@ class DataLoader:
                 pass
 
         # 2. Database
-        query = """
-            SELECT created_at as timestamp, score
-            FROM sentiment_scores
-            WHERE symbol = $1 AND created_at >= NOW() - $2 * INTERVAL '1 day'
-            ORDER BY created_at ASC
-        """
-        try:
-            records = await self.db.fetch(query, symbol, lookback_days)
-            if records:
-                data = [dict(r) for r in records]
-                df = pd.DataFrame(data)
-                df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-                df.set_index('timestamp', inplace=True)
-                
-                # Cache results
-                await self.redis.set(cache_key, df.reset_index().to_json(orient='records'), ex=3600)
-                return df
-        except Exception as e:
-            logger.error(f"Database sentiment fetch failed: {e}")
+        if self.db is not None:
+            query = """
+                SELECT created_at as timestamp, score
+                FROM sentiment_scores
+                WHERE symbol = $1 AND created_at >= NOW() - $2 * INTERVAL '1 day'
+                ORDER BY created_at ASC
+            """
+            try:
+                records = await self.db.fetch(query, symbol, lookback_days)
+                if records:
+                    data = [dict(r) for r in records]
+                    df = pd.DataFrame(data)
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+                    df.set_index('timestamp', inplace=True)
+                    
+                    # Cache results
+                    await self.redis.set(cache_key, df.reset_index().to_json(orient='records'), ex=3600)
+                    return df
+            except Exception as e:
+                logger.error(f"Database sentiment fetch failed: {e}")
+        else:
+             logger.debug("Database pool not available, skipping DB sentiment fetch.")
 
         # 3. Fallback (Neutral)
         logger.warning(f"Sentiment data unavailable for {symbol}, falling back to neutral (0.0)")
