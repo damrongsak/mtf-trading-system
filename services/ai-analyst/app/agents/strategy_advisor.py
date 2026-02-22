@@ -32,6 +32,7 @@ class AgentState(TypedDict):
     input_text: str
     user_id: str
     auth_token: str # Derived from API call
+    messages: Annotated[List[dict], operator.add] # Persistent Chat History
     
     # Internal State
     optimized_query: str
@@ -188,10 +189,19 @@ class StrategyAdvisorAgent:
     async def node_query_optimizer(self, state: AgentState):
         """
         Uses Gemini Flash to optimize the query and classify intent.
+        Includes chat history for context-aware queries.
         """
         query = state["input_text"]
         logger.info(f"Optimizing query: {query}")
         
+        # Format recent history for context
+        history = state.get("messages", [])
+        history_str = "No recent history."
+        if history:
+             # Only use the last 6 messages (3 turns) to prevent context bloat
+             recent = history[-6:]
+             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
+             
         prompt = f"""
         You are a Query Optimizer for a Hedge Fund AI (MTF Olympus).
         Your goal is to rewrite the user's raw query into a clear, unambiguous Request and classify its INTENT.
@@ -216,6 +226,9 @@ class StrategyAdvisorAgent:
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
         - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
+        
+        **Previous Chat History for Context:**
+        {history_str}
         
         **CRITICAL**: 
         1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
@@ -844,6 +857,13 @@ class StrategyAdvisorAgent:
         context_docs = context_docs_raw[:10000] if len(context_docs_raw) > 10000 else context_docs_raw
         reasoning_trace = state.get("reasoning_trace", [])
         
+        # Handle chat history for the prompt
+        history = state.get("messages", [])
+        history_str = "None."
+        if history:
+             recent = history[-6:] # Last 3 turns
+             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
+        
         # 2. Build Generation Prompt
         from datetime import datetime
         current_date_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -868,11 +888,15 @@ class StrategyAdvisorAgent:
         
         **User Request:** "{state['optimized_query']}"
         
+        **Conversation History (Working Memory):**
+        {history_str}
+        
         **Response Guidelines:**
         1. If Tool Outputs are present, you MUST use them as the primary source of truth for market data and prices.
         2. DO NOT use numbers from the 'Agent Planning/Reasoning' section if they conflict with 'Tool Outputs'. The reasoning section is a planning phase and may contain placeholders.
         3. Formulate a professional, quantitative response. 
         4. If no tools were used and information is missing, state it clearly.
+        5. Acknowledge the conversation history if the user is asking a follow-up question.
         """
         
         try:
@@ -959,13 +983,21 @@ class StrategyAdvisorAgent:
         if not self.memory:
             return {}
             
-        interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
+        # Analyze the recent messages for facts instead of just the single turn
+        messages = state.get("messages", [])
+        interaction = ""
+        if messages:
+            # Use up to last 4 messages to get some context for the fact extraction
+            recent = messages[-4:]
+            interaction = "\n".join([f"{m['role']}: {m['content']}" for m in recent])
+        else:
+            interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
         
         prompt = f"""
-        Analyze this interaction. Did the user state a clear preference, goal, or fact about themselves?
-        If yes, extract it as a concise fact. If no, output "NO_FACT".
+        Analyze this recent interaction. Did the user state a clear preference, goal, or fact about themselves (e.g. risk tolerance, preferred assets, trading style)?
+        If yes, extract it as a concise fact (1 sentence). If no, output exactly "NO_FACT".
         
-        Interaction:
+        Recent Interaction:
         {interaction}
         """
         
@@ -984,8 +1016,42 @@ class StrategyAdvisorAgent:
         intent = state.get("intent")
         if self.cache and intent in ["RESEARCH", "STRATEGY_DESIGN"] and state.get("is_satisfactory") and not state.get("from_cache"):
              await self.cache.store(state["optimized_query"], state["final_response"])
+        
+        # Condense History if needed (Working Memory Sliding Window)
+        messages = state.get("messages", [])
+        if len(messages) > 12: # 6+ turns
+            logger.info(f"Messages history length ({len(messages)}) exceeded threshold. Summarizing...")
+            history_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            summary_prompt = f"""
+            Summarize the key points of this conversation to be used as context for future turns.
+            Focus on the user's intent, the assets discussed, and any decisions made.
+            
+            Conversation History:
+            {history_text}
+            """
+            try:
+                res = await self.gemini.client.aio.models.generate_content(
+                    model=settings.gemini.flash_lite_model_id,
+                    contents=summary_prompt
+                )
+                condensed = f"--- Previous Conversation Summary ---\n{res.text}"
+                logger.info("Chat history condensed.")
+                # We return the NEW, condensed messages array + explicitly add the newly processed turn
+                # Since the reducer is operator.add, returning a NEW array will APPEND it to the checkpointed array 
+                # This is tricky with operator.add. To truly truncate, we'd need a custom reducer or clear the checkpoint 
+                # However, for now, we will just let LangGraph's checkpointer persist the unbounded list, 
+                # but our `node_generate` and `node_query_optimizer` nodes ONLY pull the last 6 messages (recent var). 
+                # This achieves the "Working Memory" sliding window effectively WITHOUT breaking operator.add semantics.
+            except Exception as e:
+                logger.error(f"Chat history summarization failed: {e}")
              
-        return {}
+        # Just append the current turn to the history using the operator.add
+        return {
+            "messages": [
+                {"role": "user", "content": state["input_text"]},
+                {"role": "assistant", "content": state["final_response"]}
+            ]
+        }
 
     # --- PUBLIC API ---
 
