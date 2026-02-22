@@ -34,12 +34,13 @@ LOGIN_ENDPOINT = "/api/v1/auth/token"
 HEALTH_ENDPOINT = "/health"
 USER_ID_FILE = ".cli_user_id"
 TOKEN_FILE = ".cli_token"
+THREAD_ID_FILE = ".cli_thread_id"
 
 class ChatApp:
     def __init__(self):
         self.console = Console()
         self.user_id = self.get_or_create_user_id()
-        self.session_id = f"sess_{uuid.uuid4().hex[:12]}" # Unique for this CLI run
+        self.session_id = self.get_or_create_thread_id()
         self.auth_token = self.load_token()
         self.client = httpx.AsyncClient(timeout=120.0)
         self.running = True
@@ -52,6 +53,22 @@ class ChatApp:
         new_id = f"cli_user_{uuid.uuid4().hex[:8]}"
         with open(USER_ID_FILE, "w") as f:
             f.write(new_id)
+        return new_id
+
+    def get_or_create_thread_id(self):
+        if os.path.exists(THREAD_ID_FILE):
+            with open(THREAD_ID_FILE, "r") as f:
+                return f.read().strip()
+        new_id = f"sess_{uuid.uuid4().hex[:12]}"
+        with open(THREAD_ID_FILE, "w") as f:
+            f.write(new_id)
+        return new_id
+
+    def initialize_new_thread(self):
+        new_id = f"sess_{uuid.uuid4().hex[:12]}"
+        with open(THREAD_ID_FILE, "w") as f:
+            f.write(new_id)
+        self.session_id = new_id
         return new_id
 
     def load_token(self):
@@ -120,7 +137,7 @@ class ChatApp:
         self.console.print(Panel(title, border_style="blue", expand=False))
         
         # Info
-        self.console.print(f"[dim]User ID: {self.user_id}[/dim]")
+        self.console.print(f"[dim]User ID: {self.user_id} | Session: {self.session_id}[/dim]")
         
         if self.auth_token:
             self.console.print("[bold green]Authenticated[/bold green]")
@@ -139,6 +156,17 @@ class ChatApp:
             self.console.clear()
             self.print_welcome()
             return True
+        if cmd == "/new":
+            self.initialize_new_thread()
+            self.console.clear()
+            self.print_welcome()
+            self.console.print("[bold green]Started a new conversation session.[/bold green]")
+            return True
+        if cmd == "/session":
+            self.console.print(f"[bold cyan]Current Session Details:[/bold cyan]")
+            self.console.print(f"User ID: {self.user_id}")
+            self.console.print(f"Thread ID: {self.session_id}")
+            return True
         if cmd == "/login":
             await self.login()
             self.print_welcome()
@@ -155,6 +183,8 @@ class ChatApp:
                 [bold]Commands:[/bold]
                 /login        - Authenticate
                 /logout       - Clear session
+                /new          - Start a fresh interaction (clear AI memory)
+                /session      - View current thread info
                 /quit, /exit  - Exit application
                 /clear        - Clear screen
                 

@@ -1,6 +1,7 @@
 import json
 import redis.asyncio as redis
 import logging
+import hashlib
 from app.core.config import settings
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -23,27 +24,40 @@ class SentimentService:
         if not settings.gemini.api_key:
             return {"score": 0.0, "reason": "Gemini API Key not configured."}
 
-        # 1. Check Cache
-        cache_key = f"sentiment:{symbol}"
-        try:
-            cached = await self.redis.get(cache_key)
-            if cached:
-                 logger.info(f"💾 Sentiment Cache Hit for {symbol}")
-                 return json.loads(cached)
-        except Exception as e:
-            logger.error(f"Redis cache read failed: {e}")
-
-        # 2. Fetch News (if cache miss)
+        # 1. Fetch News
         headlines = await self._fetch_news(symbol)
         if not headlines:
             return {"score": 0.0, "reason": "No recent news found."}
 
+        # Calculate Headline Hash to avoid redundant analysis if news hasn't changed
+        headlines_text = "".join(headlines)
+        headlines_hash = hashlib.md5(headlines_text.encode()).hexdigest()
+        
+        # 2. Check Cache (with Hash)
+        cache_key = f"sentiment:{symbol}"
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached:
+                cached_data = json.loads(cached)
+                # If news hash matches, return cached result immediately
+                if cached_data.get("headlines_hash") == headlines_hash:
+                    logger.info(f"✨ Sentiment Cache HIT (Hash Match) for {symbol}. Skipping LLM.")
+                    # Remove hash from response before returning to client
+                    cached_data.pop("headlines_hash", None)
+                    return cached_data
+        except Exception as e:
+            logger.error(f"Redis cache read failed: {e}")
+
         # 3. Analyze with Gemini (using GeminiClient with Tier 1 fallback)
         result = await self._analyze_headlines_optimized(symbol, headlines)
         
+        # Add hash to result for caching
+        cached_result = {**result, "headlines_hash": headlines_hash}
+
         # 4. Save to Cache (before DB to ensure fast subsequent reads)
         try:
-            await self.redis.setex(cache_key, self.cache_ttl, json.dumps(result))
+            await self.redis.setex(cache_key, self.cache_ttl, json.dumps(cached_result))
+            logger.info(f"💾 Cached new sentiment for {symbol} (Hash: {headlines_hash[:8]}...)")
         except Exception as e:
             logger.error(f"Redis cache write failed: {e}")
 

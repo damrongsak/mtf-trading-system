@@ -14,6 +14,9 @@ class MarketRegime(str, Enum):
 class MarketContext(TypedDict):
     regime: MarketRegime
     regime_score: float  # ADX value
+    adx_slope: float
+    plus_di: float
+    minus_di: float
     is_fakeout: bool
     fakeout_type: Optional[str] # 'SFP_HIGH', 'SFP_LOW'
     recommended_risk: float
@@ -128,19 +131,41 @@ def get_market_context(df: pd.DataFrame, bias_direction: str = "NEUTRAL") -> Mar
     fakeout_type = detect_fakeout_alignment(df, bias_direction)
     is_fakeout = fakeout_type is not None
     
-    # Get numeric score (ADX)
-    structure_df = detect_trend_structure(df['high'], df['low'], df['close'])
-    adx_score = float(structure_df['adx'].iloc[-1]) if not structure_df.empty else 0.0
+    # Get numeric score (ADX) and components
+    adx_df = detect_trend_structure(df['high'], df['low'], df['close'])
+    if adx_df.empty:
+        adx_score = 0.0
+        adx_slope = 0.0
+        plus_di = 0.0
+        minus_di = 0.0
+    else:
+        # We need the DI components from calculate_adx directly for full precision
+        from app.indicators.trend import calculate_adx
+        full_adx = calculate_adx(df['high'], df['low'], df['close'])
+        
+        last_row = full_adx.iloc[-1]
+        adx_score = float(last_row['adx'])
+        plus_di = float(last_row['dmp'])
+        minus_di = float(last_row['dmn'])
+        
+        # Calculate Slope (last 3 bars)
+        if len(full_adx) >= 3:
+            adx_series = full_adx['adx']
+            adx_slope = float(adx_series.iloc[-1] - adx_series.iloc[-3])
+        else:
+            adx_slope = 0.0
     
     risk_mult = calculate_dynamic_risk(regime, is_fakeout)
     
     return {
         "regime": regime,
         "regime_score": adx_score,
+        "adx_slope": adx_slope,
+        "plus_di": plus_di,
+        "minus_di": minus_di,
         "is_fakeout": is_fakeout,
         "fakeout_type": fakeout_type,
-        "recommended_risk": risk_mult, # Now returns multiplier (kept key name for compat, or semantic change?)
-        # Let's add a clear key for AI
+        "recommended_risk": risk_mult,
         "risk_multiplier": risk_mult,
         "meta": {
             "bias_input": bias_direction,

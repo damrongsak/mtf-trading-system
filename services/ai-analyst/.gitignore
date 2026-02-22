@@ -1,3 +1,4 @@
 docs/*.md
 .cli_token
 .cli_user_id
+.cli_thread_id

@@ -11,6 +11,8 @@ from app.tools.open_interest import OpenInterestTool
 from app.tools.market_state import MarketStateTool
 from app.tools.smc import SMCAnalystTool
 from app.tools.oi_drift import OpenInterestDriftTool
+from app.tools.trading_plan import TradingPlanTool
+from app.tools.notification import SendNotificationTool
 
 def bootstrap_tools():
     """
@@ -38,6 +40,8 @@ def bootstrap_tools():
     registry.register("market_state", MarketStateTool())
     registry.register("smc_technical_analysis", SMCAnalystTool())
     registry.register("oi_drift_analysis", OpenInterestDriftTool())
+    registry.register("generate_trading_plan", TradingPlanTool())
+    registry.register("send_notification", SendNotificationTool())
     
     print("All standard tools registered.")
 

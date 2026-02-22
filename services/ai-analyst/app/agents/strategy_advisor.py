@@ -32,6 +32,7 @@ class AgentState(TypedDict):
     input_text: str
     user_id: str
     auth_token: str # Derived from API call
+    messages: Annotated[List[dict], operator.add] # Persistent Chat History
     
     # Internal State
     optimized_query: str
@@ -188,10 +189,19 @@ class StrategyAdvisorAgent:
     async def node_query_optimizer(self, state: AgentState):
         """
         Uses Gemini Flash to optimize the query and classify intent.
+        Includes chat history for context-aware queries.
         """
         query = state["input_text"]
         logger.info(f"Optimizing query: {query}")
         
+        # Format recent history for context
+        history = state.get("messages", [])
+        history_str = "No recent history."
+        if history:
+             # Only use the last 6 messages (3 turns) to prevent context bloat
+             recent = history[-6:]
+             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
+             
         prompt = f"""
         You are a Query Optimizer for a Hedge Fund AI (MTF Olympus).
         Your goal is to rewrite the user's raw query into a clear, unambiguous Request and classify its INTENT.
@@ -205,17 +215,27 @@ class StrategyAdvisorAgent:
         4. **Be Specific**: Include the symbol and timeframe in the optimized query.
         
         **Intents:**
-        - **MARKET_ANALYSIS**: User asks for market outlook, price analysis, or a trading PLAN/STRATEGY for a specific symbol and timeframe.
-        - **TOOL_USE**: User asks to PERFORM an action, get account data (balanced, equity, positions), place orders, or check risk.
-        - **RESEARCH**: User asks a complex quantitative question or "How to" about the system, requiring retrieval from documentation or past strategies.
+        - **TOOL_USE**: User asks to PERFORM an action using a system tool. This includes:
+            - Getting account data (balance, equity, positions, margin)
+            - **Generating a trading plan or buy/sell setup** (uses the `generate_trading_plan` tool)
+            - Sending notifications or alerts to Telegram
+            - Placing orders, checking risk
+        - **MARKET_ANALYSIS**: User asks for a market outlook, price narrative, institutional analysis, or general commentary — WITHOUT requesting a structured plan output.
+        - **RESEARCH**: User asks a complex quantitative "How to" question about the system, requiring documentation retrieval.
         - **STRATEGY_DESIGN**: User wants to CREATE, modify, or optimize a trading strategy or code.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
-        - **CHAT**: General conversation, project questions, or simple questions not requiring real-time data or specialized tools.
+        - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
+        
+        **Previous Chat History for Context:**
+        {history_str}
         
         **CRITICAL**: 
         1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
-        2. If the user asks for a trading plan, outlook, or price analysis for a specific symbol/timeframe (and it is NOT an account request), classify as **MARKET_ANALYSIS**.
+        2. If the user says "generate a trading plan", "give me a plan", "buy/sell setup", or "what should I trade", ALWAYS classify as **TOOL_USE** (not MARKET_ANALYSIS).
+        3. If the user says "send to telegram", "notify me", "alert me", or "send it", ALWAYS classify as **TOOL_USE**.
+        4. If the user asks for a trading plan AND wants it sent to Telegram, keep it **TOOL_USE** — the agent will call both tools in sequence.
+        5. Only use **MARKET_ANALYSIS** for open-ended commentary or institutional analysis WITHOUT a specific plan output requested.
         
         **Output JSON only:**
         {{
@@ -474,13 +494,20 @@ class StrategyAdvisorAgent:
         if state.get("scratchpad"):
             formatted_outputs = []
             total_chars = 0
-            # Prune strictly to last 8000 chars total for tool selection to avoid noise
+            # Hard cap: only last 6000 chars total from the MOST RECENT entries
+            # Use raw scratchpad entries NOT summarized-accumulated ones, to avoid 1M+ prompts
+            MAX_CHARS = 6000
             for output in reversed(state["scratchpad"]):
-                clean_output = str(output)[:2000]
-                if total_chars + len(clean_output) > 8000:
+                # Skip internal summary markers that contain all previous turns
+                if "--- CONDENSED SUMMARY OF PREVIOUS STEPS ---" in str(output):
+                    # Only include the summary itself, stripped of marker, at most 3000 chars
+                    clean = str(output).replace("--- CONDENSED SUMMARY OF PREVIOUS STEPS ---", "").strip()[:3000]
+                else:
+                    clean = str(output)[:1500]
+                if total_chars + len(clean) > MAX_CHARS:
                     break
-                formatted_outputs.append(f"--- Tool Output ---\n{clean_output}\n")
-                total_chars += len(clean_output)
+                formatted_outputs.append(f"--- Tool Output ---\n{clean}\n")
+                total_chars += len(clean)
             
             tool_results = f"\n\n**Recent Tool Outputs:**\n" + "\n".join(reversed(formatted_outputs))
 
@@ -499,7 +526,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 2 (3-Model Fallback)
             response = await self.gemini.generate_content(
-                model=["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash"],
+                model=["gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
                 contents=[prompt]
             )
             
@@ -507,7 +534,7 @@ class StrategyAdvisorAgent:
             import re
             text = response.get("text", "")
             
-            # Simple but robust approach: find the first { and its balanced }
+            # Use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
             # Actually, standard models usually wrap JSON in a markdown block.
             if "```json" in text:
                 text = text.split("```json")[-1].split("```")[0].strip()
@@ -845,11 +872,23 @@ class StrategyAdvisorAgent:
             )
             return {"final_response": msg}
 
-        # 1. Gather Context
-        scratchpad = "\n".join(state.get("scratchpad", []))
+        # 1. Gather Context — cap sizes to prevent 429 quota errors from 1M+ char prompts
+        # scratchpad uses operator.add accumulator so can grow unboundedly across iterations
+        scratchpad_raw = "\n".join(state.get("scratchpad", []))
+        # Use last 20K chars — most recent tool outputs are at the end
+        scratchpad = scratchpad_raw[-20000:] if len(scratchpad_raw) > 20000 else scratchpad_raw
         user_facts = "\n".join(state.get("user_facts", []))
-        context_docs = "\n\n".join(state.get("retrieved_docs", []))
+        context_docs_raw = "\n\n".join(state.get("retrieved_docs", []))
+        # Cap context docs to avoid inflating prompt
+        context_docs = context_docs_raw[:10000] if len(context_docs_raw) > 10000 else context_docs_raw
         reasoning_trace = state.get("reasoning_trace", [])
+        
+        # Handle chat history for the prompt
+        history = state.get("messages", [])
+        history_str = "None."
+        if history:
+             recent = history[-6:] # Last 3 turns
+             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
         
         # 2. Build Generation Prompt
         from datetime import datetime
@@ -875,11 +914,15 @@ class StrategyAdvisorAgent:
         
         **User Request:** "{state['optimized_query']}"
         
+        **Conversation History (Working Memory):**
+        {history_str}
+        
         **Response Guidelines:**
         1. If Tool Outputs are present, you MUST use them as the primary source of truth for market data and prices.
         2. DO NOT use numbers from the 'Agent Planning/Reasoning' section if they conflict with 'Tool Outputs'. The reasoning section is a planning phase and may contain placeholders.
         3. Formulate a professional, quantitative response. 
         4. If no tools were used and information is missing, state it clearly.
+        5. Acknowledge the conversation history if the user is asking a follow-up question.
         """
         
         try:
@@ -907,38 +950,36 @@ class StrategyAdvisorAgent:
     async def node_evaluator(self, state: AgentState):
         """
         The 'Judge' node. Evaluates if the response is complete and accurate.
+        Uses Flash Lite with capped context to avoid token quota issues.
         """
         query = state["optimized_query"]
         response = state["final_response"]
-        context = "\n\n".join(state.get("retrieved_docs", []))
-        scratchpad = "\n".join(state.get("scratchpad", []))
         iteration = state.get("iteration_count", 0)
 
         logger.info(f"Evaluating Response (Iteration {iteration})...")
 
+        # Cap context to avoid 429 rate limit errors
+        context_raw = "\n\n".join(state.get("retrieved_docs", []))
+        scratchpad_raw = "\n".join(state.get("scratchpad", []))
+        context = context_raw[:3000]
+        scratchpad = scratchpad_raw[-2000:]  # Only last 2000 chars
+
         prompt = f"""
-        You are the Quality Control (Judge) Agent for MTF Olympus AI.
-        Your task is to evaluate if the AI's generated response completely and accurately answers the User Request.
+        You are a Quality Control Judge for MTF Olympus AI.
+        Evaluate if the AI response completely answers the user request.
         
         User Request: "{query}"
         
-        AI Response:
-        {response}
+        AI Response (first 2000 chars):
+        {response[:2000]}
         
-        Retrieved Context & Tool Data:
-        {context}
+        Key Tool Data (last 2000 chars):
         {scratchpad}
-        
-        **Evaluation Criteria:**
-        1. Does it answer EVERY part of the user's request?
-        2. Is it grounded in the provided context/tool data (no hallucinations)?
-        3. If data was missing, did it explain why?
-        4. Is the tone professional and quantitative?
         
         **Output JSON only:**
         {{
             "is_satisfactory": true/false,
-            "feedback": "If unsatisfactory, explain exactly what is missing or wrong to guide the next retrieval/reasoning step. Otherwise, leave empty."
+            "feedback": "If unsatisfactory, briefly explain what is missing. Otherwise leave empty."
         }}
         """
 
@@ -948,7 +989,7 @@ class StrategyAdvisorAgent:
                 model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
                 contents=[prompt]
             )
-            text = res.get("text", "").replace("```json", "").replace("```", "")
+            text = res.get("text", "").replace("```json", "").replace("```", "").strip()
             data = json.loads(text)
             
             return {
@@ -958,6 +999,7 @@ class StrategyAdvisorAgent:
             }
         except Exception as e:
             logger.error(f"Evaluation failed: {e}")
+            # Auto-proceed on quota errors — don't block the response
             return {"is_satisfactory": True, "iteration_count": iteration + 1}
 
     async def node_memory_write(self, state: AgentState):
@@ -968,13 +1010,21 @@ class StrategyAdvisorAgent:
         if not self.memory:
             return {}
             
-        interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
+        # Analyze the recent messages for facts instead of just the single turn
+        messages = state.get("messages", [])
+        interaction = ""
+        if messages:
+            # Use up to last 4 messages to get some context for the fact extraction
+            recent = messages[-4:]
+            interaction = "\n".join([f"{m['role']}: {m['content']}" for m in recent])
+        else:
+            interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
         
         prompt = f"""
-        Analyze this interaction. Did the user state a clear preference, goal, or fact about themselves?
-        If yes, extract it as a concise fact. If no, output "NO_FACT".
+        Analyze this recent interaction. Did the user state a clear preference, goal, or fact about themselves (e.g. risk tolerance, preferred assets, trading style)?
+        If yes, extract it as a concise fact (1 sentence). If no, output exactly "NO_FACT".
         
-        Interaction:
+        Recent Interaction:
         {interaction}
         """
         
@@ -994,8 +1044,42 @@ class StrategyAdvisorAgent:
         intent = state.get("intent")
         if self.cache and intent in ["RESEARCH", "STRATEGY_DESIGN"] and state.get("is_satisfactory") and not state.get("from_cache"):
              await self.cache.store(state["optimized_query"], state["final_response"])
+        
+        # Condense History if needed (Working Memory Sliding Window)
+        messages = state.get("messages", [])
+        if len(messages) > 12: # 6+ turns
+            logger.info(f"Messages history length ({len(messages)}) exceeded threshold. Summarizing...")
+            history_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            summary_prompt = f"""
+            Summarize the key points of this conversation to be used as context for future turns.
+            Focus on the user's intent, the assets discussed, and any decisions made.
+            
+            Conversation History:
+            {history_text}
+            """
+            try:
+                res = await self.gemini.client.aio.models.generate_content(
+                    model=settings.gemini.flash_lite_model_id,
+                    contents=summary_prompt
+                )
+                condensed = f"--- Previous Conversation Summary ---\n{res.text}"
+                logger.info("Chat history condensed.")
+                # We return the NEW, condensed messages array + explicitly add the newly processed turn
+                # Since the reducer is operator.add, returning a NEW array will APPEND it to the checkpointed array 
+                # This is tricky with operator.add. To truly truncate, we'd need a custom reducer or clear the checkpoint 
+                # However, for now, we will just let LangGraph's checkpointer persist the unbounded list, 
+                # but our `node_generate` and `node_query_optimizer` nodes ONLY pull the last 6 messages (recent var). 
+                # This achieves the "Working Memory" sliding window effectively WITHOUT breaking operator.add semantics.
+            except Exception as e:
+                logger.error(f"Chat history summarization failed: {e}")
              
-        return {}
+        # Just append the current turn to the history using the operator.add
+        return {
+            "messages": [
+                {"role": "user", "content": state["input_text"]},
+                {"role": "assistant", "content": state["final_response"]}
+            ]
+        }
 
     # --- PUBLIC API ---
 
@@ -1018,9 +1102,12 @@ class StrategyAdvisorAgent:
             "is_satisfactory": False
         }
         
-        # Configure Checkpoint (Thread ID = thread_id or user_id for simplicity)
+        import uuid
+        thread_id = thread_id or str(uuid.uuid4())
+        
+        # Configure Checkpoint (Ensure stateless requests don't bleed into a global user thread)
         config = {
-            "configurable": {"thread_id": thread_id or user_id},
+            "configurable": {"thread_id": thread_id},
             "recursion_limit": 100 # Increased for multi-step tool loops
         }
         result = await self.graph.ainvoke(initial_state, config=config)

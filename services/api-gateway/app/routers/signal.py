@@ -7,6 +7,7 @@ from app.database import get_db
 from sqlalchemy.orm import Session
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
+from app.services.market_status import MarketStatusService
 import httpx
 import os
 import asyncio
@@ -165,13 +166,10 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         direction_enum = SignalDirection.SHORT
 
     # 4. Calculate Market Status and Data Freshness
-    from app.services.market_status import MarketStatusService
-    
     market_service = MarketStatusService()
     status = await market_service.get_market_status(symbol)
     
     # Calculate data age
-    from datetime import timezone
     now = datetime.now(timezone.utc)
     if isinstance(last_time, str):
         # Handle ISO format with or without timezone
