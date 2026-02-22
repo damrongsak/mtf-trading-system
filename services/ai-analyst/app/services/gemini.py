@@ -1,5 +1,11 @@
+from typing import Union
 from google import genai
 from app.core.config import settings
+import time
+import asyncio
+import logging
+
+logger = logging.getLogger("ai-analyst")
 
 class GeminiClient:
     def __init__(self, client_factory=None):
@@ -13,53 +19,100 @@ class GeminiClient:
         self.client = self.client_factory(api_key=settings.gemini.api_key)
         # Using configured model
         self.model_id = settings.gemini.model_id
+        
+        # Circuit Breaker state: model_name -> expiration_timestamp (float)
+        self._rate_limit_lockouts = {}
 
-    async def generate_content(self, model: str, contents: list, config: dict = None, thinking_config: dict = None) -> dict:
+    async def generate_content(self, model: Union[str, list], contents: list, config: dict = None, thinking_config: dict = None, api_key: str = None) -> dict:
         """
-        Generic generation with support for Thinking models.
+        Generic generation with support for Thinking models and Active Fallback for Rate Limits.
+        Implements a Circuit Breaker to instantly skip models currently under a 429 lockout.
         Returns dict with 'text' and 'thoughts' (if available).
         """
-        try:
-            # Merge config
-            if thinking_config:
-                if config is None:
-                    config = {}
-                config['thinking_config'] = thinking_config
+        models = [model] if isinstance(model, str) else model
+        last_error = None
+        
+        current_time = time.time()
+        
+        for i, current_model in enumerate(models):
+            # 1. Circuit Breaker Check
+            lockout_expiry = self._rate_limit_lockouts.get(current_model, 0)
+            if current_time < lockout_expiry:
+                remaining_lockout = int(lockout_expiry - current_time)
+                logger.warning(f"Circuit Breaker: Skipping {current_model} (Locked out for {remaining_lockout}s)")
+                continue # Instantly try the next fallback
 
-            response = await self.client.aio.models.generate_content(
-                model=model,
-                contents=contents,
-                config=config
-            )
-            
-            # Extract thoughts if present (Gemini 2.5/3.0 style)
-            thoughts = []
             try:
-                # Iterate through candidates and parts to find thought/reasoning
-                if hasattr(response, 'candidates'):
-                    for candidate in response.candidates:
-                         if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                            for part in candidate.content.parts:
-                                # Check for thought attribute
-                                if hasattr(part, "thought") and part.thought:
-                                    if isinstance(part.thought, str):
-                                        thoughts.append(part.thought)
-                                    elif isinstance(part.thought, bool) and part.thought and hasattr(part, "text"):
-                                        thoughts.append(part.text)
+                # Merge config
+                current_config = dict(config) if config else {}
+                if thinking_config:
+                    current_config['thinking_config'] = thinking_config
+
+                # Transient client for BYOK if key provided
+                active_client = self.client
+                if api_key and api_key != settings.gemini.api_key:
+                    active_client = self.client_factory(api_key=api_key)
+
+                response = await active_client.aio.models.generate_content(
+                    model=current_model,
+                    contents=contents,
+                    config=current_config if current_config else None
+                )
+                
+                # Extract thoughts if present (Gemini 2.5/3.0 style)
+                thoughts = []
+                try:
+                    # Iterate through candidates and parts to find thought/reasoning
+                    if hasattr(response, 'candidates'):
+                        for candidate in response.candidates:
+                             if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                                for part in candidate.content.parts:
+                                    # Check for thought attribute
+                                    if hasattr(part, "thought") and part.thought:
+                                        if isinstance(part.thought, str):
+                                            thoughts.append(part.thought)
+                                        elif isinstance(part.thought, bool) and part.thought and hasattr(part, "text"):
+                                            thoughts.append(part.text)
+                except Exception as e:
+                    logger.warning(f"Thought extraction warning: {e}")
+
+                if not response.text:
+                    logger.debug(f"DEBUG: Gemini response.text is empty. Candidates: {len(response.candidates) if hasattr(response, 'candidates') else 'N/A'}")
+
+                return {
+                    "text": response.text,
+                    "thoughts": "\n".join(thoughts) if thoughts else None,
+                    "usage": getattr(response, 'usage_metadata', None)
+                }
             except Exception as e:
-                print(f"Thought extraction warning: {e}")
-
-            if not response.text:
-                print(f"DEBUG: Gemini response.text is empty. Candidates: {len(response.candidates) if hasattr(response, 'candidates') else 'N/A'}")
-
-            return {
-                "text": response.text,
-                "thoughts": "\n".join(thoughts) if thoughts else None,
-                "usage": getattr(response, 'usage_metadata', None)
-            }
-        except Exception as e:
-            print(f"Gemini Generation Error: {e}")
-            raise e
+                last_error = e
+                error_str = str(e).upper()
+                
+                # Detect recoverable infrastructural errors
+                is_quota_error = "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "QUOTA" in error_str
+                is_unavailable_error = "404" in error_str or "NOT_FOUND" in error_str or "503" in error_str
+                
+                if is_quota_error or is_unavailable_error:
+                    # Apply Circuit Breaker lock out (e.g., 60 seconds)
+                    lockout_duration = 60
+                    self._rate_limit_lockouts[current_model] = time.time() + lockout_duration
+                    
+                    if i < len(models) - 1:
+                        reason = "Rate Limit (429)" if is_quota_error else "Unavailable (404/503)"
+                        logger.warning(f"Model {current_model} hit {reason}. Locked out for {lockout_duration}s. Falling back to {models[i+1]}...")
+                        await asyncio.sleep(0.5) # Brief pause before next attempt
+                        continue
+                
+                logger.error(f"Gemini Generation Error on {current_model}: {e}")
+                if i == len(models) - 1:
+                    # If we exhausted all fallback models, raise the last encountered error
+                    raise e
+                    
+        # If all models were skipped via Circuit Breaker and no API call was even attempted
+        if last_error:
+            raise last_error
+        else:
+            raise RuntimeError(f"All requested models ({models}) are currently locked out by the Circuit Breaker due to Rate Limits.")
 
     async def generate_market_outlook(self, context: dict, api_key: str = None, model_id: str = None, thinking_config: dict = None) -> str:
         """
@@ -111,18 +164,14 @@ class GeminiClient:
                 return f"Error processing image: {str(e)}"
 
         try:
-            # Use transient client for BYOK if key provided
-            client = self.client
-            if api_key:
-                client = self.client_factory(api_key=api_key)
-            
-            response = await client.aio.models.generate_content(
-                model=model_id or self.model_id,
+            # Use Tier 3 fallback for Market Outlook (Pro/Logic heavy)
+            response = await self.generate_content(
+                model=[active_model, "gemini-2.5-pro", "gemini-2.0-pro"],
                 contents=contents
             )
-            return response.text
+            return response.get("text", "")
         except Exception as e:
-            print(f"Gemini Error: {e}")
+            logger.error(f"Gemini Error in generate_market_outlook: {e}")
             return f"Error generating outlook: {str(e)}"
 
     async def analyze_journal_entry(self, entry_content: str, similar_entries: list = None, user_id: str = None) -> str:
@@ -159,12 +208,14 @@ class GeminiClient:
         """
         
         try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model_id,
-                contents=prompt
+            # Tier 3 fallback for Journal Analysis
+            response = await self.generate_content(
+                model=[self.model_id, "gemini-2.5-pro", "gemini-2.0-pro"],
+                contents=[prompt]
             )
-            return response.text
+            return response.get("text", "")
         except Exception as e:
+            logger.error(f"Error analyzing journal: {e}")
             return f"Error analyzing journal: {str(e)}"
 
     async def generate_smc_analysis(self, smc_data: dict, api_key: str = None, model_id: str = None) -> str:
@@ -182,17 +233,17 @@ class GeminiClient:
         """
         
         try:
-            client = self.client
-            if api_key:
-                client = self.client_factory(api_key=api_key)
-
-            response = await client.aio.models.generate_content(
-                model=model_id or self.model_id,
-                contents=prompt
+            # Tier 2 fallback for SMC Analysis
+            # Remove thinking_config from here if not supported by Flash 1.5/2.5
+            response = await self.generate_content(
+                model=[model_id or self.model_id, "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt],
+                api_key=api_key
             )
-            return response.text
+            return response.get("text", "")
         except Exception as e:
-            return f"Error generating narrative: {str(e)}"
+            logger.error(f"Error generating SMC analysis: {e}")
+            return f"Error generating SMC analysis: {str(e)}"
 
     async def generate_smc_narrative(self, smc_data: dict, price_context: dict, api_key: str = None, model_id: str = None) -> str:
         """
@@ -228,12 +279,14 @@ class GeminiClient:
         """
         
         try:
-             response = await client.aio.models.generate_content(
-                model=active_model,
-                contents=prompt
+            # Tier 2 fallback for SMC Narrative
+            response = await self.generate_content(
+                model=[active_model, "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt]
             )
-             return response.text
+            return response.get("text", "")
         except Exception as e:
+            logger.error(f"Error generating narrative: {e}")
             return f"Error generating narrative: {str(e)}"
 
     async def generate_research_report(self, query: str, context: str, model_id: str = None) -> str:
@@ -248,10 +301,12 @@ class GeminiClient:
                 context=context
             )
             
-            response = await self.client.aio.models.generate_content(
-                model=model_id or self.model_id,
-                contents=prompt
+            # Tier 3 fallback for Research Report
+            response = await self.generate_content(
+                model=[model_id or self.model_id, "gemini-2.5-pro", "gemini-2.0-pro"],
+                contents=[prompt]
             )
-            return response.text
+            return response.get("text", "")
         except Exception as e:
+            logger.error(f"Error generating research report: {e}")
             return f"Error generating research report: {str(e)}"

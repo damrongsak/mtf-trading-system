@@ -67,6 +67,13 @@ class LiquidityHeatmapTool(BaseTool):
                         # Sort heatmap by strike for better visualization
                         sorted_heatmap = sorted(heatmap, key=lambda x: x['strike'], reverse=True)
                         
+                        # Prune: Only show ±15 strikes around spot to save space (approx 30 rows max)
+                        if underlying > 0:
+                            sorted_heatmap = [
+                                h for h in sorted_heatmap 
+                                if abs(h['strike'] - underlying) <= 50 # 50 points = 10-20 strikes for Gold
+                            ]
+                        
                         for entry in sorted_heatmap:
                             density = entry.get('relative_density', 0.0)
                             strike = entry.get('strike', 0.0)

@@ -8,25 +8,11 @@ import json
 class SMCInput(BaseModel):
     symbol: str = Field(..., description="Symbol to analyze (e.g. XAU/USD, EUR/USD)")
     timeframe: str = Field(default="H1", description="Timeframe for analysis (e.g. H1, 15m, 4H)")
+    include_distant_zones: bool = Field(default=False, description="Set to True ONLY if macro/long-term zones are explicitly needed. False by default to save tokens.")
 
 class SMCAnalystTool(BaseTool):
     name: str = "smc_technical_analysis"
-    description: str = """CRITICAL: Use this tool for institutional-grade market analysis with REAL historical data from the database.
-
-This tool provides:
-- ACTUAL price data from the trading database (not simulated)
-- Real-time market status (open/closed)
-- Data freshness indicators
-- Institutional SMC analysis (Order Blocks, FVGs, Liquidity Sweeps)
-
-ALWAYS use this tool when users ask about:
-- Historical market data ("last week", "recent", "past")
-- Current market conditions
-- Gold/Forex analysis
-- Technical analysis requests
-
-The data returned is REAL and should be trusted over any simulated/example data.
-Provides Institutional Bias and Market Structure for defining Risk-Reward (R:R) parameters."""
+    description: str = "Perform institutional Smart Money Concepts (SMC) technical analysis on a specific trading symbol."
 
     async def run(self, input_data: Any, auth_token: str = None) -> Any:
         import logging
@@ -35,70 +21,47 @@ Provides Institutional Bias and Market Structure for defining Risk-Reward (R:R) 
         # Parse Input
         symbol = "XAUUSD"
         timeframe = "H1"
+        include_distant = False
         
         if isinstance(input_data, str):
             try:
                 data = json.loads(input_data)
                 symbol = data.get("symbol", symbol)
                 timeframe = data.get("timeframe", timeframe)
+                include_distant = data.get("include_distant_zones", False)
             except:
                 symbol = input_data.strip().upper()
         elif isinstance(input_data, dict):
             symbol = input_data.get("symbol", symbol)
             timeframe = input_data.get("timeframe", timeframe)
+            include_distant = input_data.get("include_distant_zones", False)
 
-        logger.info(f"--- SMC TOOL CALLED for {symbol} @ {timeframe} ---")
+        logger.info(f"--- SMC TOOL CALLED for {symbol} @ {timeframe} (Distant: {include_distant}) ---")
         
-        
-        # Normalize symbol - remove slashes and underscores
+        # Normalize symbol
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         
         # Normalize Timeframe 
-        # API expects M1, M5, M15, M30, H1, H4, D1, W1, MN1
-        if timeframe.lower() in ["15m", "15min", "m15"]:
-            timeframe = "M15"
-        elif timeframe.lower() in ["1h", "1hr", "h1"]:
-            timeframe = "H1"
-        elif timeframe.lower() in ["4h", "4hr", "h4"]:
-            timeframe = "H4"
-        elif timeframe.lower() in ["1d", "daily", "d1"]:
-            timeframe = "D1"
+        if timeframe.lower() in ["15m", "15min", "m15"]: timeframe = "M15"
+        elif timeframe.lower() in ["1h", "1hr", "h1"]: timeframe = "H1"
+        elif timeframe.lower() in ["4h", "4hr", "h4"]: timeframe = "H4"
+        elif timeframe.lower() in ["1d", "daily", "d1"]: timeframe = "D1"
 
-        # Use internal URL for api-gateway
-        # Wait, the tool is inside ai-analyst. It should call api-gateway.
-        # But api-gateway calls ai-analyst? No, circular dependency?
-        # api-gateway -> ai-analyst (for /chat)
-        # ai-analyst -> api-gateway (for tools)
-        # This is strictly OK as long as it's not a blocking synchronous loop for the same request.
-        # The user Chat request comes to API Gateway -> AI Analyst.
-        # AI Analyst -> Tool -> API Gateway (/signal/latest).
-        # This is a new request to API Gateway. It should be fine.
-        
-        # However, `api-gateway` is defined as `http://api-gateway:8000` in docker-compose?
-        # Let's check docker-compose.yml.
-        # `api-gateway` service name is `api-gateway`.
-        
         base_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
         url = f"{base_url}/api/v1/signal/latest/{normalized_symbol}"
         
         params = {"timeframe": timeframe}
-
         headers = {}
         if auth_token:
-            if not auth_token.startswith("Bearer "):
-                headers["Authorization"] = f"Bearer {auth_token}"
-            else:
-                headers["Authorization"] = auth_token
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.get(url, params=params, headers=headers, timeout=15.0)
-                if resp.status_code != 200:
-                    return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
+                if resp.status_code != 200: return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
                 
                 data = resp.json().get("data")
-                if not data:
-                    return "No data returned for SMC analysis."
+                if not data: return "No data returned for SMC analysis."
                 
                 # Extract market context
                 market_status = data.get("market_status", "unknown")
@@ -111,39 +74,60 @@ Provides Institutional Bias and Market Structure for defining Risk-Reward (R:R) 
                 direction = data.get("direction", "NEUTRAL")
                 reason = data.get("reason", "Consolidating at structural levels.")
                 price = data.get("entry_price", 0)
+                current_price_val = float(price or 0.0)
                 
-                obs = analysis.get("order_blocks", [])
-                fvgs = analysis.get("fvgs", [])
+                global_meta = analysis.get("meta", {})
+                
+                # --- Dynamic Volatility Filtering ---
+                # Default to 0.5% if ATR is missing, but preferably use the structural/volatility info
+                atr_baseline = float(global_meta.get("atr", current_price_val * 0.005) or current_price_val * 0.005)
+                # Max range is +/- 3 ATR from current price
+                max_range = atr_baseline * 3.0
+                upper_bound = current_price_val + max_range
+                lower_bound = current_price_val - max_range
+
+                def is_in_range(top, bottom):
+                    if include_distant: return True
+                    if current_price_val == 0: return True # Fallback if price missing
+                    # Check if the zone overlaps with our defined ATR bounds
+                    return not (bottom > upper_bound or top < lower_bound)
+
+                raw_obs = analysis.get("order_blocks", [])
+                raw_fvgs = analysis.get("fvgs", [])
+                
+                obs = [ob for ob in raw_obs if is_in_range(float(ob.get('top') or 0), float(ob.get('bottom') or 0))]
+                fvgs = [fvg for fvg in raw_fvgs if is_in_range(float(fvg.get('top') or 0), float(fvg.get('bottom') or 0))]
+                
+                filtered_out = (len(raw_obs) - len(obs)) + (len(raw_fvgs) - len(fvgs))
+                
                 sweeps = analysis.get("liquidity_sweeps", [])
                 structure = analysis.get("structure", {})
-                global_meta = analysis.get("meta", {})
                 
                 # Build the professional report
                 report = []
                 report.append(f"### 🏛️ SMC Institutional Analysis: {symbol} ({timeframe})")
                 report.append(f"\n> **📊 Data Source:** Real-time database feed from active broker connection")
                 
+                if not include_distant and filtered_out > 0:
+                   report.append(f"> **✂️ Relevance Filter ACTIVE:** {filtered_out} distant zones hidden to save tokens. Range: {lower_bound:.2f} to {upper_bound:.2f} (+/- 3x ATR). Pass `include_distant_zones=True` for full map.")
+
                 # Market status banner
                 if market_status == "closed":
                     report.append(f"\n> [!NOTE]")
                     report.append(f"> **📊 Analysis Mode**: Historical Data Analysis")
                     report.append(f"> Markets are currently closed ({market_reason}). Analysis below uses the last available trading session from {self._format_age(data_age)} ago.")
-                    report.append(f"> This historical data is valuable for reviewing market structure, identifying patterns, and planning future trades.")
                 elif freshness == "stale":
                     report.append(f"\n> [!IMPORTANT]")
                     report.append(f"> **⚠️ Data Refresh Warning**: Latest analysis uses data from {self._format_age(data_age)} ago.")
-                    if data_age > 86400 * 2: # More than 2 days
-                         report.append(f"> Note: If this is a Monday, this may reflect the weekend market closure. Otherwise, please verify the data-pipeline ingestion status.")
-                    else:
-                         report.append(f"> Real-time data feed may be experiencing a temporary delay. Using the most recent verified database snapshot.")
+                    if data_age > 86400 * 2:
+                         report.append(f"> Note: If this is a Monday, this may reflect the weekend closure.")
                 
-                current_price_val = float(price or 0.0)
                 report.append(f"\n- **Current Rate**: {current_price_val:.2f}")
                 report.append(f"- **Institutional Bias**: {direction}")
                 report.append(f"- **Strategic Assessment**: {reason}")
                 
+                vol = float(global_meta.get("volatility_score") or 0.0)
                 if global_meta:
-                    vol = float(global_meta.get("volatility_score") or 0.0)
                     report.append(f"- **Volatility Environment**: {'High' if vol > 0.005 else 'Contracting'} (Index: {vol:.4f})")
 
                 if structure:

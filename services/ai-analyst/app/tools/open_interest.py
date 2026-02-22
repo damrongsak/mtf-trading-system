@@ -112,71 +112,60 @@ class OpenInterestTool(BaseTool):
                             confirmation_info = f"Current Regime: {regime} (ADX: {r_score:.1f})"
                 except: pass
 
-                # 4. Build the Professional Report
+                # 4. Build the Concise Report
                 raw_futures = float(underlying_futures or 0.0)
                 raw_spot = float(current_price or 0.0)
                 max_pain = float(g_data.get("max_pain", 0.0))
                 basis = raw_futures - raw_spot if raw_futures > 0 and raw_spot > 0 else 0
                 
-                report = [f"### 🎯 Gold Open Interest Strategy Report ({actual_snapshot_at})"]
+                report = [f"**OI Snapshot ({actual_snapshot_at})**"]
                 if horizon:
-                    report.append(f"**Horizon Focus**: {horizon.capitalize()}-Term")
+                    report.append(f"Horizon: {horizon.capitalize()}-Term")
 
-                report.append(f"\n- **Futures Price**: {raw_futures:.2f} | **Spot Base**: {raw_spot:.2f}")
-                report.append(f"- **Institutional Anchor (Max Pain)**: {max_pain:.2f}")
-                report.append(f"\n> **📊 Basis Adjustment**: Offset is {basis:+.2f} pts")
+                report.append(f"Spot: {raw_spot:.2f} | Futures: {raw_futures:.2f} | Max Pain: {max_pain:.2f} | Basis: {basis:+.2f}")
                 
                 if gamma_levels:
-                    report.append("\n#### 🧱 Significant Liquidity Zones (Basis Adjusted)")
+                    report.append("\n**Key Liquidity Zones**:")
                     # Group by term for display
                     terms = ["SHORT_TERM", "MEDIUM_TERM", "LONG_TERM"]
                     for t in terms:
                         term_levels = [l for l in gamma_levels if l.get('term') == t]
                         if term_levels:
-                            t_display = t.replace("_", " ").title()
-                            report.append(f"\n**{t_display}**:")
+                            # Prune: Sort by significance score and take top 15 per term
+                            term_levels = sorted(term_levels, key=lambda x: x.get("significance_score", 0), reverse=True)[:15]
+                            
+                            report.append(f"[{t}]")
                             for lvl in term_levels:
                                 z_type = lvl.get("zone_type", "MAJOR")
-                                l_type = lvl.get("type", "LEVEL")
                                 action = lvl.get("market_action", "PIVOT")
                                 score = lvl.get("significance_score", 0.5)
                                 mapped_price = lvl.get("price", 0.0)
-                                strike = lvl.get("strike", 0.0)
                                 dte = lvl.get("dte")
                                 confluence = lvl.get("confluence", [])
                                 zone_v2 = lvl.get("zone_type_v2", "NEUTRAL")
 
-                                # Highlighting
-                                prefix = "🔥 " if z_type == "MAJOR" else "⚡ "
-                                if zone_v2 == "DEMAND_ZONE": prefix = "🟢 "
-                                if zone_v2 == "SUPPLY_ZONE": prefix = "🔴 "
+                                # Concise Highlighting
+                                prefix = "*" if z_type == "MAJOR" else ""
+                                p_type = ""
+                                if zone_v2 == "DEMAND_ZONE": p_type = " [D]"
+                                elif zone_v2 == "SUPPLY_ZONE": p_type = " [S]"
                                 
-                                action_str = f" [{action}]" if action != "PIVOT" else ""
-                                conf_str = f" | [Conf: {', '.join(confluence)}]" if confluence else ""
-                                dte_str = f" [DTE: {dte}]" if dte is not None else ""
-                                score_str = f" (Significance: {score:.2f})"
+                                conf_str = f" | Conf: {','.join(confluence)}" if confluence else ""
+                                dte_str = f" | DTE:{dte}" if dte is not None else ""
                                 
-                                report.append(f"{prefix}**{mapped_price:.2f}** (Futures {strike:.2f}){action_str}{dte_str}{score_str}{conf_str}")
+                                report.append(f"- {prefix}{mapped_price:.2f}{p_type} [{action}] {dte_str} | Sig:{score:.2f}{conf_str}")
                 else:
-                    report.append("\n⚠️ No major OI liquidity zones detected for the current session/horizon.")
+                    report.append("\nNo major OI liquidity zones detected.")
  
-                report.append(f"\n#### 🛡️ Tactical Execution Checklist")
-                at_zone = any(abs(float(l.get('price') or 0) - raw_spot) < 2.0 for l in gamma_levels) if raw_spot > 0 else False
-                smc_aligned = any(l.get('confluence') for l in gamma_levels if abs(float(l.get('price') or 0) - raw_spot) < 2.0) if raw_spot > 0 else False
-                at_max_pain = abs(raw_spot - max_pain) < 5.0 if raw_spot > 0 and max_pain > 0 else False
-
-                report.append(f"- **Zone Proximity**: {'✅ PRICE AT ZONE' if at_zone else '⬜ APPROACHING'}")
-                report.append(f"- **SMC Alignment**: {'✅ SMC CONFLUENCE' if smc_aligned else '⬜ WAITING'}")
-                report.append(f"- **Max Pain Gravity**: {'🧲 AT ANCHOR' if at_max_pain else '⬜ CLEAR'}")
-                report.append(f"- **Trend Filter**: {confirmation_info}")
+                report.append(f"\nExecution: {confirmation_info}")
                 
                 # Dynamic advice based on horizon
                 if horizon == "short":
-                    report.append(f"\n> [!TIP]\n> **Short-Term Tactical**: Focus on 0-7 DTE gamma spikes. Watch for 'pinning' near Max Pain as expiry approaches.")
+                    report.append(f"Focus: 0-7 DTE gamma spikes, pinning near Max Pain.")
                 elif horizon == "long":
-                    report.append(f"\n> [!NOTE]\n> **Long-Term Strategic**: These levels are institutional anchors. Use them to define major macro boundaries.")
+                    report.append(f"Focus: Institutional anchors for macro boundaries.")
                 else:
-                    report.append(f"\n> [!IMPORTANT]\n> **Execution Strategy**: Use the **Basis Adjusted Spot Levels** for your limit orders. Do not enter unless **structure shift** occurs at these levels.")
+                    report.append(f"Focus: Use Basis Adjusted Spot Levels. Await structure shift.")
 
                 return "\n".join(report)
 

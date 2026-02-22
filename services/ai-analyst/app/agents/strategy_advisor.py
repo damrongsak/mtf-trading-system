@@ -40,7 +40,7 @@ class AgentState(TypedDict):
     tool_calls: List[dict] # Selected tools to run
     
     # Context
-    retrieved_docs: Annotated[List[str], operator.add]
+    retrieved_docs: List[str]
     user_facts: List[str]
     market_context: str
     strategy_code: str
@@ -54,7 +54,7 @@ class AgentState(TypedDict):
     pending_tool_call: dict # Tool call waiting for confirmation
     
     # Scratchpad for tool outputs
-    scratchpad: Annotated[List[str], operator.add]
+    scratchpad: List[str]
     
     # Agentic RAG / Iterative Refinement
     iteration_count: int
@@ -225,12 +225,12 @@ class StrategyAdvisorAgent:
         """
         
         try:
-            # Use Flash model for speed
-            response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id, 
-                contents=prompt
+            # Tier 1 (3-Model Fallback)
+            response = await self.gemini.generate_content(
+                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"], 
+                contents=[prompt]
             )
-            text = response.text.replace("```json", "").replace("```", "")
+            text = response.get("text", "").replace("```json", "").replace("```", "")
             data = json.loads(text)
             
             logger.info(f"Optimization Result - Intent: {data.get('intent')}, Query: {data.get('optimized_query')}")
@@ -280,8 +280,11 @@ class StrategyAdvisorAgent:
             return "confirmation_check"
             
         intent = state.get("intent", "CHAT")
+        query_text = state.get("input_text", "").lower()
         
         if intent == "TOOL_USE":
+            # Direct Tool Request bypasses reasoning (e.g., "what is my balance")
+            # If it's a simple command, go straight to tool selection to save tokens
             return "tool_use"
         elif intent == "RESEARCH":
             return "research"
@@ -345,11 +348,12 @@ class StrategyAdvisorAgent:
         ["Step 1...", "Step 2..."]
         """
         try:
-            response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id, # Optimized: Use Flash for decomposition
-                contents=prompt
+            # Tier 1: High-Volume / Reductive
+            response = await self.gemini.generate_content(
+                model=["gemini-2.5-flash-lite", settings.gemini.flash_model_id],
+                contents=[prompt]
             )
-            text = response.text.replace("```json", "").replace("```", "")
+            text = response.get("text", "").replace("```json", "").replace("```", "")
             steps = json.loads(text)
             return {"plan_steps": steps}
         except:
@@ -390,9 +394,15 @@ class StrategyAdvisorAgent:
         if state.get("evaluation_feedback"):
              refinement_ctx.append(f"**Previous Evaluation Feedback (Reason to refine search):**\n{state['evaluation_feedback']}")
         
+        # Merge and Prune: Only keep latest 10 chunks to avoid context ballooning
+        existing_docs = state.get("retrieved_docs", []) or []
+        combined_docs = existing_docs + doc_texts + strat_texts + [tool_ctx] + refinement_ctx
+        # Unique and latest 10
+        pruned_docs = list(dict.fromkeys(combined_docs))[-10:]
+        
         return {
             "user_facts": user_facts,
-            "retrieved_docs": doc_texts + strat_texts + [tool_ctx] + refinement_ctx
+            "retrieved_docs": pruned_docs
         }
 
     async def node_reason(self, state: AgentState):
@@ -415,15 +425,18 @@ class StrategyAdvisorAgent:
         )
         
         try:
-            response = await self.gemini.client.aio.models.generate_content(
-                model="gemini-2.5-pro",
-                contents=prompt
+            # Tier 3 (3-Model Fallback)
+            response = await self.gemini.generate_content(
+                model=["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.0-pro"],
+                contents=[prompt]
             )
-            trace = [response.text]
+            new_trace_item = response.get("text", "")
         except:
-            trace = ["Reasoning failed."]
+            new_trace_item = "Reasoning failed."
         
-        return {"reasoning_trace": trace}
+        # Prune reasoning_trace manually (keep latest 5)
+        existing_trace = state.get("reasoning_trace", []) or []
+        return {"reasoning_trace": (existing_trace + [new_trace_item])[-5:]}
 
     async def node_tool_selection(self, state: AgentState):
         """
@@ -477,16 +490,22 @@ class StrategyAdvisorAgent:
         )
         
         logger.info(f"Tool Selection - Query: {query} | Context/Trace: {len(reasoning_context)} chars | Scratchpad: {len(tool_results)} chars")
-        
+        # 2. Reasoning Loop Hard Cap
+        loop_count = state.get("tool_loop_count", 0)
+        if loop_count >= 5:
+            logger.warning(f"Reasoning Loop Hard Cap reached ({loop_count}). Forcing generation.")
+            return {"intent": "CHAT", "tool_calls": []} # Transition to generate
+            
         try:
-            response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.model_id, # Use Pro
-                contents=prompt
+            # Tier 2 (3-Model Fallback)
+            response = await self.gemini.generate_content(
+                model=["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt]
             )
             
             # Robust JSON Extraction
             import re
-            text = response.text
+            text = response.get("text", "")
             
             # Simple but robust approach: find the first { and its balanced }
             # Actually, standard models usually wrap JSON in a markdown block.
@@ -628,7 +647,14 @@ class StrategyAdvisorAgent:
                 
         # Increment loop count
         loop_count = state.get("tool_loop_count", 0)
-        return {"scratchpad": outputs, "tool_calls": [], "tool_loop_count": loop_count + 1}
+        
+        # Append to existing scratchpad manually
+        existing_scratchpad = state.get("scratchpad", []) or []
+        return {
+            "scratchpad": existing_scratchpad + outputs, 
+            "tool_calls": [], 
+            "tool_loop_count": loop_count + 1
+        }
 
     async def node_scratchpad_summarizer(self, state: AgentState):
         """
@@ -638,9 +664,16 @@ class StrategyAdvisorAgent:
         scratchpad = state.get("scratchpad", [])
         total_text = "\n".join(scratchpad)
         
-        # Threshold: 6000 chars (approx 1500 tokens)
-        if len(total_text) < 6000:
+        # Threshold: 2000 chars (approx 500 tokens)
+        if len(total_text) < 2000:
             return {}
+
+        # Prevent 400 INVALID_ARGUMENT on Flash Lite (1M token limit) 
+        # JSON is dense (~1 token per 1.5-2 chars), so 1M tokens approx 1.5M chars.
+        # We cap at 1M chars to be extremely safe.
+        if len(total_text) > 1000000:
+            logger.warning(f"Scratchpad extremely large ({len(total_text)} chars). Truncating to fit Flash Lite 1M token limit.")
+            total_text = total_text[-1000000:] # Keep the most recent 1M chars
 
         logger.info(f"Scratchpad size ({len(total_text)}) exceeds threshold. Summarizing...")
         
@@ -657,28 +690,19 @@ class StrategyAdvisorAgent:
         """
         
         try:
-            # Use Flash for fast summarization
-            response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id,
-                contents=prompt
+            # Tier 1 (3-Model Fallback)
+            response = await self.gemini.generate_content(
+                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt]
             )
-            summary = response.text
+            summary = response.get("text", "")
             
             logger.info("Scratchpad summarized successfully.")
-            # We explicitly override the scratchpad for the next state
-            # Note: Since scratchpad is operator.add, we might need a way to CLEAR it.
-            # In LangGraph, if we return the same key with a new value, it might append depending on the reducer.
-            # AgentState defines scratchpad as operator.add.
-            # To "clear" it, we would need a node that doesn't use the add reducer or use a different field.
-            
-            # Since we can't easily clear operator.add without changing the state definition, 
-            # let's instead append a "CLEARED_MARKER" and have subsequent nodes ignore everything before it.
-            # Or better: let's use a 'market_context' field to store the condensed summary and clear the scratchpad 
-            # by using a custom reducer or just leaving it as is but prioritizing the summary.
-            
+            # We explicitly REPLACE the scratchpad to clear the raw outputs and reset context size.
+            # This works because we removed the operator.add reducer from AgentState.
             return {
                 "scratchpad": [f"--- CONDENSED SUMMARY OF PREVIOUS STEPS ---\n{summary}"],
-                "market_context": summary # Store for generation
+                "market_context": summary 
             }
         except Exception as e:
             logger.error(f"Summarizer failed: {e}")
@@ -860,10 +884,10 @@ class StrategyAdvisorAgent:
         
         try:
             logger.info(f"Generating terminal response for {state['intent']}. Prompt size: {len(prompt)} chars.")
-            # Use Gemini 2.5 Flash for faster/reliable synthesis in test
+            # Tier 2 (3-Model Fallback)
             result = await self.gemini.generate_content(
-                model=settings.gemini.flash_model_id,
-                contents=[prompt], # Ensure it's a list for safety
+                model=["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt],
                 thinking_config={"include_thoughts": True} 
             )
             final = result.get("text") or ""
@@ -919,11 +943,12 @@ class StrategyAdvisorAgent:
         """
 
         try:
-            res = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id,
-                contents=prompt
+            # Tier 1 (3-Model Fallback)
+            res = await self.gemini.generate_content(
+                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+                contents=[prompt]
             )
-            text = res.text.replace("```json", "").replace("```", "")
+            text = res.get("text", "").replace("```json", "").replace("```", "")
             data = json.loads(text)
             
             return {
@@ -954,11 +979,12 @@ class StrategyAdvisorAgent:
         """
         
         try:
-            response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id,
-                contents=prompt
+            # Tier 1 task
+            response = await self.gemini.generate_content(
+                model=["gemini-2.5-flash-lite", settings.gemini.flash_model_id],
+                contents=[prompt]
             )
-            fact = response.text.strip()
+            fact = response.get("text", "").strip()
             if "NO_FACT" not in fact and len(fact) < 200:
                 await self.memory.add_user_fact(state["user_id"], fact)
         except:
