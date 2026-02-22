@@ -24,6 +24,8 @@ from app.tools.market import GetMarketContextTool
 from app.tools.cot import COTAnalystTool
 from app.tools.heatmap import LiquidityHeatmapTool
 from app.tools.efp import EFPCalibrationTool
+from app.tools.predictor import PredictorForecastTool, PredictorSignalTool
+from app.tools.stability import SystemHealthTool
 
 
 logger = logging.getLogger(__name__)
@@ -314,7 +316,7 @@ class RiskCheckTool(BaseTool):
 
 class PythonSandboxTool(BaseTool):
     name: str = "python_sandbox"
-    description: str = "\n    Execute Python code for data analysis. \n    Context includes 'pd', 'np'. \n    Input: Python code string. \n    Output: Standard Output of the code.\n    "
+    description: str = "\n    Execute Python code for custom quantitative calculations and validation. \n    DO NOT use this tool for standard market analysis, SMC, or price forecasts if specialized tools exist.\n    Context includes 'pd', 'np'. \n    Input: Python code string. \n    Output: Standard Output of the code.\n    "
 
     async def run(self, code: str, auth_token: str = None) -> str:
         # Security Warning: In production, this must be sandboxed (e.g. e2b, gvisor).
@@ -398,7 +400,10 @@ class ToolRegistry:
             "list_active_strategies": StrategyRetrieverTool(),
             "cot_analyst": COTAnalystTool(),
             "liquidity_heatmap": LiquidityHeatmapTool(),
-            "calibrate_efp_parameters": EFPCalibrationTool()
+            "calibrate_efp_parameters": EFPCalibrationTool(),
+            "get_predictor_forecast": PredictorForecastTool(),
+            "get_predictor_signal": PredictorSignalTool(),
+            "get_system_health": SystemHealthTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

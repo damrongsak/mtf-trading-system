@@ -14,7 +14,7 @@ from src.app.infrastructure.feature_store import FeatureStore
 from src.app.api.schemas import (
     PredictionRequest, PredictionResponse, 
     TrainRequest, TrainResponse, JobStatusResponse,
-    SignalResponse
+    SignalResponse, BatchPredictionRequest, BatchPredictionResponse
 )
 from src.app.core.queue import task_queue
 import logging
@@ -74,7 +74,53 @@ app = FastAPI(
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "version": "2.1.0"}
+    health_status = {
+        "status": "healthy",
+        "version": "2.1.0",
+        "timestamp": datetime.now().isoformat(),
+        "dependencies": {
+            "redis": "unknown",
+            "postgresql": "unknown",
+            "models_loaded": False
+        }
+    }
+    
+    # Check Redis
+    try:
+        if redis_client:
+            await redis_client.ping()
+            health_status["dependencies"]["redis"] = "connected"
+        else:
+            health_status["dependencies"]["redis"] = "not_initialized"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["dependencies"]["redis"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check PostgreSQL
+    try:
+        if db_pool:
+            async with db_pool.acquire() as conn:
+                await conn.execute("SELECT 1")
+            health_status["dependencies"]["postgresql"] = "connected"
+        else:
+            health_status["dependencies"]["postgresql"] = "not_initialized"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["dependencies"]["postgresql"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check Models
+    if predictor and predictor.sarimax_model and predictor.lstm_model:
+        health_status["dependencies"]["models_loaded"] = True
+    else:
+        health_status["status"] = "degraded"
+
+    if health_status["status"] == "degraded":
+        # If any critical component is missing, we are not fully healthy
+        pass 
+
+    return health_status
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(req: PredictionRequest):
@@ -90,7 +136,7 @@ async def predict(req: PredictionRequest):
              raise HTTPException(status_code=503, detail="No market data available")
              
         # Compute technicals for inference
-        df_tech = predictor.feature_engine.compute_technicals(gold_df)
+        df_tech = await predictor.feature_engine.compute_technicals(gold_df)
         
         # Align macro to gold index
         macro_aligned = macro_df.reindex(df_tech.index).ffill().bfill()
@@ -116,6 +162,54 @@ async def predict(req: PredictionRequest):
         )
     except Exception as e:
         logger.exception("Prediction failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/batch", response_model=BatchPredictionResponse)
+async def predict_batch(req: BatchPredictionRequest):
+    """
+    Batch Inference for multiple symbols.
+    Optimization: Shares macro feature calculation overhead.
+    """
+    if not predictor.sarimax_model:
+        raise HTTPException(status_code=503, detail="Model not trained")
+        
+    try:
+        # Optimization: Fetch Macro data ONCE for the entire batch
+        macro_df = await data_loader.get_macro_data(lookback_days=settings.MACRO_LOOKBACK_DAYS if hasattr(settings, 'MACRO_LOOKBACK_DAYS') else 59)
+        results = {}
+
+        for symbol in req.symbols:
+            try:
+                # Fetch gold data (currently only XAUUSD supported in data_loader)
+                gold_df = await data_loader.get_gold_data(limit=100)
+                if gold_df.empty:
+                    continue
+                
+                df_tech = await predictor.feature_engine.compute_technicals(gold_df)
+                macro_aligned = macro_df.reindex(df_tech.index).ffill().bfill()
+                combined_context = macro_aligned.join(df_tech, rsuffix='_tech') 
+                last_price = gold_df['close'].iloc[-1]
+                
+                pred = await predictor.predict(
+                    steps=req.steps, 
+                    macro_df=combined_context, 
+                    last_price=last_price
+                )
+                
+                results[symbol] = PredictionResponse(
+                    symbol=symbol,
+                    forecast_date=datetime.now(),
+                    prices=pred['prices'],
+                    sigma_lr=pred['sigma_lr'],
+                    model_version="2.1.0-alpha",
+                    breakdown=pred
+                )
+            except Exception as se:
+                logger.error(f"Batch prediction failed for {symbol}: {se}")
+                
+        return BatchPredictionResponse(results=results)
+    except Exception as e:
+        logger.exception("Batch prediction pipeline failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/signal", response_model=SignalResponse)

@@ -64,14 +64,30 @@ async def get_detected_signals(
 DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 STRATEGY_SERVICE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
+# In-Memory Buffer: { "symbol:timeframe": (data, expiry_timestamp) }
+SIGNAL_BUFFER = {}
+BUFFER_TTL = 5.0 # 5 seconds
+
 @router.get("/latest/{symbol:path}", response_model=APIResponse[SignalResponse])
 async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     """
     Get the latest signal for a specific symbol by orchestrating:
-    1. Fetch candles from Data Pipeline
-    2. Analyze using Strategy Core (SMC)
-    3. Determine Signal
+    1. Check 5s in-memory buffer (Optimization)
+    2. Fetch candles from Data Pipeline
+    3. Analyze using Strategy Core (SMC)
+    4. Determine Signal
     """
+    symbol_norm = symbol.upper()
+    cache_key = f"{symbol_norm}:{timeframe}"
+    
+    # 1. Buffer Check
+    now = datetime.now(timezone.utc).timestamp()
+    if cache_key in SIGNAL_BUFFER:
+        data, expiry = SIGNAL_BUFFER[cache_key]
+        if now < expiry:
+            logger.debug(f"🔥 Signal Buffer HIT for {cache_key}")
+            return success_response(data=data)
+    
     async with httpx.AsyncClient() as client:
         try:
             # 1. Fetch Candles
@@ -182,7 +198,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     else:
         freshness = "stale"
 
-    return success_response(data=SignalResponse(
+    response_data = SignalResponse(
         symbol=symbol.upper(),
         timeframe=timeframe,
         timestamp=last_time,
@@ -198,7 +214,12 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
         market_reason=status["reason"],
         data_age_seconds=age_seconds,
         data_freshness=freshness
-    ))
+    )
+    
+    # Update Buffer
+    SIGNAL_BUFFER[cache_key] = (response_data, now.timestamp() + BUFFER_TTL)
+    
+    return success_response(data=response_data)
 
 @router.get("/market-state/{symbol}")
 async def get_market_state(symbol: str, timeframe: str = "H1", compare_with: Optional[str] = None, include_positioning: bool = True):

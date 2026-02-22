@@ -55,13 +55,17 @@ class SimpleTextSplitter:
 
 class RAGService:
     def __init__(self, gemini_client: GeminiClient = None):
-        self.qdrant = QdrantClient(
-            host=settings.qdrant.host,
-            port=settings.qdrant.port,
-            api_key=settings.qdrant.api_key,
-            https=settings.qdrant.grpc_https,
-            timeout=5.0
-        )
+        import warnings
+        with warnings.catch_warnings():
+            # Suppress "Api key is used with an insecure connection" warning for interior Docker network
+            warnings.filterwarnings("ignore", message=".*Api key is used with an insecure connection.*")
+            self.qdrant = QdrantClient(
+                host=settings.qdrant.host,
+                port=settings.qdrant.port,
+                api_key=settings.qdrant.api_key,
+                https=settings.qdrant.grpc_https,
+                timeout=5.0
+            )
         self.gemini = gemini_client or GeminiClient()
         self.journal_collection = "journal_entries"
         self.strategy_collection = "strategies"

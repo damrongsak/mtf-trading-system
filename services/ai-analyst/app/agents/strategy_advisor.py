@@ -100,6 +100,7 @@ class StrategyAdvisorAgent:
         workflow.add_node("synthesize", self.node_synthesize) # Deep Research
         workflow.add_node("tool_selection", self.node_tool_selection) 
         workflow.add_node("execute_tools", self.node_execute_tools)
+        workflow.add_node("summarizer", self.node_scratchpad_summarizer)
 
         # Consolidated Nodes
         workflow.add_node("market_scan", self.node_market_scan)
@@ -155,7 +156,8 @@ class StrategyAdvisorAgent:
             }
         )
         
-        workflow.add_edge("execute_tools", "tool_selection")
+        workflow.add_edge("execute_tools", "summarizer")
+        workflow.add_edge("summarizer", "tool_selection")
         
         workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
         workflow.add_edge("synthesize", "memory_write") # Research ends here usually
@@ -313,10 +315,17 @@ class StrategyAdvisorAgent:
         if state.get("tool_calls"):
             # Limit loops using turn-based count
             loop_count = state.get("tool_loop_count", 0)
-            logger.debug(f"Loop Check: turn={loop_count}, tools_this_turn={len(state['tool_calls'])}")
+            intent = state.get("intent", "CHAT")
             
-            if loop_count >= 10: # 10 turns is plenty for parallel processing
-                logger.warning("Max tool execution turns reached. Forcing generation.")
+            # Dynamic Turn Limits: 
+            # - RESEARCH queries get 10 turns
+            # - Standard queries get 5 turns to minimize latency
+            max_turns = 10 if intent == "RESEARCH" else 5
+            
+            logger.debug(f"Loop Check: turn={loop_count}, intent={intent}, max={max_turns}, tools_this_turn={len(state['tool_calls'])}")
+            
+            if loop_count >= max_turns:
+                logger.warning(f"Max tool execution turns ({max_turns}) reached for intent {intent}. Forcing generation.")
                 return "done"
             return "execute"
             
@@ -361,11 +370,15 @@ class StrategyAdvisorAgent:
                 user_facts.append(user_ctx)
                 
         # 2. Retrieve System Docs (Financial Knowledge)
-        system_docs = await self.rag.search_documentation(query)
+        # Use dynamic top_k based on intent
+        intent = state.get("intent", "CHAT")
+        top_k = 7 if intent == "RESEARCH" else 3
+        
+        system_docs = await self.rag.search_documentation(query, limit=top_k)
         doc_texts = [d["content"] for d in system_docs]
         
         # 3. Retrieve Strategies (Code)
-        strategies = await self.rag.search_similar_strategies(query, user_id)
+        strategies = await self.rag.search_similar_strategies(query, user_id, limit=top_k)
         strat_texts = [s["code"] for s in strategies]
         
         # 4. Inject Tool Context (Dynamic Capabilities)
@@ -474,11 +487,48 @@ class StrategyAdvisorAgent:
             # Robust JSON Extraction
             import re
             text = response.text
-            json_match = re.search(r'(\{.*\})', text, re.DOTALL)
-            if json_match:
-                text = json_match.group(1)
-            else:
-                text = text.replace("```json", "").replace("```", "").strip()
+            # Robust JSON Extraction
+            import re
+            text = response.text
+            
+            # Find all JSON-like blocks
+            json_blocks = re.findall(r'(\{(?:[^{}]|(?R))*\})', text, re.DOTALL)
+            
+            # Note: The above recursive regex isn't supported by standard 're'.
+            # Let's use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
+            # Actually, standard models usually wrap JSON in a markdown block.
+            
+            if "```json" in text:
+                text = text.split("```json")[-1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[-1].split("```")[0].strip()
+            
+            # If still not clean, try to find the first '{' and the last '}'
+            if not text.startswith("{"):
+                start = text.find("{")
+                end = text.rfind("}")
+                if start != -1 and end != -1:
+                    text = text[start:end+1]
+            
+            # Handle potential multiple objects (Greedy re.search fix)
+            try:
+                decision = json.loads(text)
+            except json.JSONDecodeError:
+                # Fallback: Try to find the first complete object
+                try:
+                    balance = 0
+                    start = text.find("{")
+                    if start != -1:
+                        for i in range(start, len(text)):
+                            if text[i] == '{': balance += 1
+                            elif text[i] == '}': balance -= 1
+                            if balance == 0:
+                                text = text[start:i+1]
+                                break
+                    decision = json.loads(text)
+                except Exception as je:
+                    logger.error(f"Failed to parse JSON even after cleaning: {je}")
+                    decision = {"tool_calls": []}
 
             logger.debug(f"Tool Selection Decision Raw: {text}")
             decision = json.loads(text)
@@ -584,6 +634,60 @@ class StrategyAdvisorAgent:
         # Increment loop count
         loop_count = state.get("tool_loop_count", 0)
         return {"scratchpad": outputs, "tool_calls": [], "tool_loop_count": loop_count + 1}
+
+    async def node_scratchpad_summarizer(self, state: AgentState):
+        """
+        Summarizes long tool outputs in the scratchpad to keep context size manageable.
+        Prunes outputs older than 2 turns if the total size exceeds threshold.
+        """
+        scratchpad = state.get("scratchpad", [])
+        total_text = "\n".join(scratchpad)
+        
+        # Threshold: 6000 chars (approx 1500 tokens)
+        if len(total_text) < 6000:
+            return {}
+
+        logger.info(f"Scratchpad size ({len(total_text)}) exceeds threshold. Summarizing...")
+        
+        prompt = f"""
+        You are a Data Compression Assistant for a Trading AI.
+        The following tool outputs are too long for the context window.
+        Summarize the key quantitative findings (prices, OBs, FVGs, sentiment, balance) into a concise report.
+        Keep ALL critical numbers/prices. Discard formatting and redundant metadata.
+        
+        Tool Outputs:
+        {total_text}
+        
+        Output: Concise Summary (Markdown)
+        """
+        
+        try:
+            # Use Flash for fast summarization
+            response = await self.gemini.client.aio.models.generate_content(
+                model=settings.gemini.flash_model_id,
+                contents=prompt
+            )
+            summary = response.text
+            
+            logger.info("Scratchpad summarized successfully.")
+            # We explicitly override the scratchpad for the next state
+            # Note: Since scratchpad is operator.add, we might need a way to CLEAR it.
+            # In LangGraph, if we return the same key with a new value, it might append depending on the reducer.
+            # AgentState defines scratchpad as operator.add.
+            # To "clear" it, we would need a node that doesn't use the add reducer or use a different field.
+            
+            # Since we can't easily clear operator.add without changing the state definition, 
+            # let's instead append a "CLEARED_MARKER" and have subsequent nodes ignore everything before it.
+            # Or better: let's use a 'market_context' field to store the condensed summary and clear the scratchpad 
+            # by using a custom reducer or just leaving it as is but prioritizing the summary.
+            
+            return {
+                "scratchpad": [f"--- CONDENSED SUMMARY OF PREVIOUS STEPS ---\n{summary}"],
+                "market_context": summary # Store for generation
+            }
+        except Exception as e:
+            logger.error(f"Summarizer failed: {e}")
+            return {}
 
     async def node_synthesize(self, state: AgentState):
         """

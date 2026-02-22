@@ -79,9 +79,10 @@ class FeatureEngine:
         
         # 7. GARCH(1,1) Volatility
         if arch_model:
+            # Use auto-rescaling (rescale=True) for better convergence
             returns = 100 * df['close'].pct_change()
             try:
-                am = arch_model(returns.dropna(), vol='Garch', p=1, o=0, q=1, dist='Normal')
+                am = arch_model(returns.dropna(), vol='Garch', p=1, o=0, q=1, dist='Normal', rescale=True)
                 res = am.fit(disp='off')
                 df.loc[returns.index, 'garch_vol'] = res.conditional_volatility
             except Exception as e:

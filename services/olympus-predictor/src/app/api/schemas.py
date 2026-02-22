@@ -39,3 +39,11 @@ class SignalResponse(BaseModel):
     confidence: float
     sentiment_score: float
     timestamp: datetime = datetime.now()
+
+class BatchPredictionRequest(BaseModel):
+    symbols: List[str] = ["XAUUSD"]
+    steps: int = 5
+
+class BatchPredictionResponse(BaseModel):
+    results: Dict[str, PredictionResponse]
+    computed_at: datetime = datetime.now()

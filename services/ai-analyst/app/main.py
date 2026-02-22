@@ -21,6 +21,7 @@ from langgraph.checkpoint.redis import RedisSaver
 from redis.asyncio import Redis
 from app.core.scheduler import scheduler
 from app.services.session_observer import session_observer
+from app.services.stability_observer import stability_observer
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -129,7 +130,10 @@ async def lifespan(app: FastAPI):
             # Run once on startup to ensure fresh data
             scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now())
             
-            logger.info("✅ Scheduler Started (Guardian, Session & Sentiment Jobs Added)")
+            # Predictor Stability Check (Every 15 minutes)
+            scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=15)
+            
+            logger.info("✅ Scheduler Started (Guardian, Session, Sentiment & Stability Jobs Added)")
         except Exception as e:
             logger.error(f"❌ Scheduler/Session Observer Failed: {e}")
             
