@@ -1,6 +1,7 @@
 import json
 import redis.asyncio as redis
 import logging
+import hashlib
 from app.core.config import settings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 class SentimentService:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL_ID,
+            model=settings.GEMINI_FLASH_MODEL_ID,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.1
         )
@@ -27,29 +28,43 @@ class SentimentService:
         if not settings.GOOGLE_API_KEY:
             return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
 
-        # 1. Check Cache
-        cache_key = f"sentiment:{symbol}"
-        try:
-            cached = await self.redis.get(cache_key)
-            if cached:
-                 return json.loads(cached)
-        except Exception as e:
-            logger.error(f"Redis cache read failed: {e}")
-
-        # 2. Fetch News (if cache miss)
+        # 1. Fetch News
         headlines = await self._fetch_news(symbol)
         if not headlines:
             return {"score": 0.0, "reason": "No recent news found."}
 
-        # 3. Analyze with Gemini
+        # Calculate Headline Hash to avoid redundant analysis if news hasn't changed
+        headlines_text = "".join(headlines)
+        headlines_hash = hashlib.md5(headlines_text.encode()).hexdigest()
+        
+        # 2. Check Cache (with Hash)
+        cache_key = f"sentiment:{symbol}"
+        try:
+            cached = await self.redis.get(cache_key)
+            if cached:
+                cached_data = json.loads(cached)
+                # If news hash matches, return cached result immediately
+                if cached_data.get("headlines_hash") == headlines_hash:
+                    logger.info(f"✨ Sentiment Cache HIT (Hash Match) for {symbol}. Skipping LLM.")
+                    # Remove hash from response before returning to client
+                    cached_data.pop("headlines_hash", None)
+                    return cached_data
+        except Exception as e:
+            logger.error(f"Redis cache read failed: {e}")
+
+        # 3. Analyze with Gemini (if cache miss or hash mismatch)
         result = await self._analyze_headlines(symbol, headlines)
         
+        # Add hash to result for caching
+        cached_result = {**result, "headlines_hash": headlines_hash}
+
         # 4. Persist to DB
         await self._save_sentiment_to_db(symbol, result)
 
         # 5. Save to Cache
         try:
-            await self.redis.setex(cache_key, self.cache_ttl, json.dumps(result))
+            await self.redis.setex(cache_key, self.cache_ttl, json.dumps(cached_result))
+            logger.info(f"💾 Cached new sentiment for {symbol} (Hash: {headlines_hash[:8]}...)")
         except Exception as e:
             logger.error(f"Redis cache write failed: {e}")
             
