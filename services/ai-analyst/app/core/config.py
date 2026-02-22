@@ -8,6 +8,7 @@ class GeminiSettings(BaseModel):
     api_key: str
     model_id: str
     flash_model_id: str = "gemini-2.5-flash"
+    flash_lite_model_id: str = "gemini-2.5-flash-lite"
     embedding_dim: int = 768
 
 class QdrantSettings(BaseModel):
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str
     GEMINI_MODEL_ID: str = "gemini-2.5-pro"
     GEMINI_FLASH_MODEL_ID: str = "gemini-2.5-flash"
+    GEMINI_FLASH_LITE_MODEL_ID: str = "gemini-2.5-flash-lite"
     GEMINI_EMBEDDING_DIM: int = 3072
     SERPAPI_API_KEY: Optional[str] = None
     
@@ -67,6 +69,7 @@ class Settings(BaseSettings):
             api_key=self.GOOGLE_API_KEY,
             model_id=self.GEMINI_MODEL_ID,
             flash_model_id=self.GEMINI_FLASH_MODEL_ID,
+            flash_lite_model_id=self.GEMINI_FLASH_LITE_MODEL_ID,
             embedding_dim=self.GEMINI_EMBEDDING_DIM
         )
 

@@ -662,9 +662,9 @@ class StrategyAdvisorAgent:
         """
         
         try:
-            # Use Flash for fast summarization
+            # Use Flash Lite for fast summarization
             response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id,
+                model=settings.gemini.flash_lite_model_id,
                 contents=prompt
             )
             summary = response.text

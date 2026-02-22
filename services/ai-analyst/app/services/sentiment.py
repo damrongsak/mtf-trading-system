@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class SentimentService:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_FLASH_MODEL_ID,
+            model=settings.GEMINI_FLASH_LITE_MODEL_ID,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.1
         )
