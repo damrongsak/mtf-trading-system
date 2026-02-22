@@ -18,6 +18,8 @@ class OpenInterest(Base):
 
     __table_args__ = (
         UniqueConstraint('contract_symbol', 'strike', 'snapshot_at', name='uq_open_interest_contract_strike_snapshot'),
+        Index('ix_open_interest_snapshot_at_symbol', 'snapshot_at', 'contract_symbol'),
+        Index('ix_open_interest_dte', 'dte'),
         Index('ix_open_interest_snapshot_at', 'snapshot_at'),
         Index('ix_open_interest_contract_symbol', 'contract_symbol'),
     )

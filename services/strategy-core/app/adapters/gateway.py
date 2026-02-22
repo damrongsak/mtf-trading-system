@@ -38,7 +38,12 @@ class APIGatewayClient:
                 else:
                     logger.error(f"Failed to execute signal: {resp.status_code} {resp.text}")
                     return None
+            except Exception as e:
+                logger.error(f"Exception during signal execution: {e}")
+                return None
+                
     async def send_strategy_logs(self, deployment_id: str, output: Dict[str, Any]) -> bool:
+
         """
         Send essential strategy logs to API Gateway for persistence.
         """

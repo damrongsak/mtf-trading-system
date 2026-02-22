@@ -24,19 +24,30 @@ class OpenInterestTool(BaseTool):
         # Parse Inputs
         symbol = "XAUUSD"
         snapshot_at = None
+        horizon = None # "short", "medium", "long"
         
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", symbol)
             snapshot_at = input_data.get("snapshot_at")
+            horizon = input_data.get("horizon")
         elif isinstance(input_data, str) and input_data.strip():
             if input_data.startswith("{"):
                 try:
                     data = json.loads(input_data)
                     symbol = data.get("symbol", symbol)
                     snapshot_at = data.get("snapshot_at")
+                    horizon = data.get("horizon")
                 except: pass
             else:
                 symbol = input_data.strip().upper()
+
+        # Map horizon to term
+        horizon_map = {
+            "short": "SHORT_TERM",
+            "medium": "MEDIUM_TERM",
+            "long": "LONG_TERM"
+        }
+        target_term = horizon_map.get(str(horizon).lower())
 
         # Prepare Headers
         headers = {}
@@ -74,13 +85,18 @@ class OpenInterestTool(BaseTool):
                 gamma_levels = []
                 underlying_futures = 0.0
                 actual_snapshot_at = "Unknown"
+                g_data = {} # Initialize to avoid UnboundLocalError
                 
-                async with session.get(gamma_url, params=params, headers=headers, timeout=10.0) as resp:
+                async with session.get(gamma_url, params=params, headers=headers, timeout=30.0) as resp:
                     if resp.status == 200:
                         g_data = await resp.json()
                         gamma_levels = g_data.get("levels", [])
                         underlying_futures = float(g_data.get("underlying_price") or 0.0)
                         actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
+
+                # Filter by horizon if requested
+                if target_term:
+                    gamma_levels = [l for l in gamma_levels if l.get('term') == target_term]
 
                 # 3. Fetch Confirmation State (Market Regime) - Direct from strategy-core
                 confirmation_info = "RSI/EMA data unavailable"
@@ -103,43 +119,70 @@ class OpenInterestTool(BaseTool):
                 basis = raw_futures - raw_spot if raw_futures > 0 and raw_spot > 0 else 0
                 
                 report = [f"### 🎯 Gold Open Interest Strategy Report ({actual_snapshot_at})"]
+                if horizon:
+                    report.append(f"**Horizon Focus**: {horizon.capitalize()}-Term")
+
                 report.append(f"\n- **Futures Price**: {raw_futures:.2f} | **Spot Base**: {raw_spot:.2f}")
                 report.append(f"- **Institutional Anchor (Max Pain)**: {max_pain:.2f}")
                 report.append(f"\n> **📊 Basis Adjustment**: Offset is {basis:+.2f} pts")
                 
                 if gamma_levels:
-                    report.append("\n#### 🧱 Zones of Interest (Basis Adjusted)")
-                    for lvl in gamma_levels:
-                        z_type = lvl.get("zone_type", "MAJOR")
-                        l_type = lvl.get("type", "LEVEL")
-                        mapped_price = lvl.get("price", 0.0)
-                        strike = lvl.get("strike", 0.0)
-                        dte = lvl.get("dte")
-                        confluence = lvl.get("confluence", [])
-                        
-                        # Highlighting
-                        prefix = "🔥 " if z_type == "MAJOR" else "⚡ "
-                        conf_str = f" | [Confluence: {', '.join(confluence)}]" if confluence else ""
-                        dte_str = f" [DTE: {dte}]" if dte is not None else ""
-                        
-                        report.append(f"{prefix}**{z_type} {l_type}**: Spot **{mapped_price:.2f}** (Futures {strike:.2f}){dte_str}{conf_str}")
+                    report.append("\n#### 🧱 Significant Liquidity Zones (Basis Adjusted)")
+                    # Group by term for display
+                    terms = ["SHORT_TERM", "MEDIUM_TERM", "LONG_TERM"]
+                    for t in terms:
+                        term_levels = [l for l in gamma_levels if l.get('term') == t]
+                        if term_levels:
+                            t_display = t.replace("_", " ").title()
+                            report.append(f"\n**{t_display}**:")
+                            for lvl in term_levels:
+                                z_type = lvl.get("zone_type", "MAJOR")
+                                l_type = lvl.get("type", "LEVEL")
+                                action = lvl.get("market_action", "PIVOT")
+                                score = lvl.get("significance_score", 0.5)
+                                mapped_price = lvl.get("price", 0.0)
+                                strike = lvl.get("strike", 0.0)
+                                dte = lvl.get("dte")
+                                confluence = lvl.get("confluence", [])
+                                zone_v2 = lvl.get("zone_type_v2", "NEUTRAL")
+
+                                # Highlighting
+                                prefix = "🔥 " if z_type == "MAJOR" else "⚡ "
+                                if zone_v2 == "DEMAND_ZONE": prefix = "🟢 "
+                                if zone_v2 == "SUPPLY_ZONE": prefix = "🔴 "
+                                
+                                action_str = f" [{action}]" if action != "PIVOT" else ""
+                                conf_str = f" | [Conf: {', '.join(confluence)}]" if confluence else ""
+                                dte_str = f" [DTE: {dte}]" if dte is not None else ""
+                                score_str = f" (Significance: {score:.2f})"
+                                
+                                report.append(f"{prefix}**{mapped_price:.2f}** (Futures {strike:.2f}){action_str}{dte_str}{score_str}{conf_str}")
                 else:
-                    report.append("\n⚠️ No major OI liquidity zones detected for the current session.")
+                    report.append("\n⚠️ No major OI liquidity zones detected for the current session/horizon.")
  
-                report.append(f"\n#### 🛡️ Confirmation Checklist")
+                report.append(f"\n#### 🛡️ Tactical Execution Checklist")
                 at_zone = any(abs(float(l.get('price') or 0) - raw_spot) < 2.0 for l in gamma_levels) if raw_spot > 0 else False
                 smc_aligned = any(l.get('confluence') for l in gamma_levels if abs(float(l.get('price') or 0) - raw_spot) < 2.0) if raw_spot > 0 else False
                 at_max_pain = abs(raw_spot - max_pain) < 5.0 if raw_spot > 0 and max_pain > 0 else False
 
-                report.append(f"- **Zone Status**: {'✅ PRICE AT ZONE' if at_zone else '⬜ APPROACHING'}")
-                report.append(f"- **Institutional Alignment**: {'✅ SMC AT ZONE' if smc_aligned else '⬜ WAITING'}")
+                report.append(f"- **Zone Proximity**: {'✅ PRICE AT ZONE' if at_zone else '⬜ APPROACHING'}")
+                report.append(f"- **SMC Alignment**: {'✅ SMC CONFLUENCE' if smc_aligned else '⬜ WAITING'}")
                 report.append(f"- **Max Pain Gravity**: {'🧲 AT ANCHOR' if at_max_pain else '⬜ CLEAR'}")
-                report.append(f"- **Indicator Filter**: {confirmation_info}")
+                report.append(f"- **Trend Filter**: {confirmation_info}")
                 
-                report.append(f"\n> [!IMPORTANT]\n> **Execution Strategy**: Use the **Basis Adjusted Spot Levels** for your limit orders. Do not enter unless **RSI crossover** or **structure shift** occurs at these levels.")
+                # Dynamic advice based on horizon
+                if horizon == "short":
+                    report.append(f"\n> [!TIP]\n> **Short-Term Tactical**: Focus on 0-7 DTE gamma spikes. Watch for 'pinning' near Max Pain as expiry approaches.")
+                elif horizon == "long":
+                    report.append(f"\n> [!NOTE]\n> **Long-Term Strategic**: These levels are institutional anchors. Use them to define major macro boundaries.")
+                else:
+                    report.append(f"\n> [!IMPORTANT]\n> **Execution Strategy**: Use the **Basis Adjusted Spot Levels** for your limit orders. Do not enter unless **structure shift** occurs at these levels.")
 
                 return "\n".join(report)
 
             except Exception as e:
-                logger.error(f"OI Tool Failed: {e}")
-                return f"OI Tool Error: {str(e)}"
+                import traceback
+                traceback.print_exc()
+                logger.error(f"OI Tool Failed: {repr(e)}")
+                return f"OI Tool Error: {repr(e)}"
+

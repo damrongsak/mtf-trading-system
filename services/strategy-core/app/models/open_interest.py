@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, Numeric, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID as Uuid
 import uuid
 from datetime import datetime
@@ -16,3 +16,11 @@ class OpenInterest(Base):
     put_oi = Column(Numeric(18, 2), nullable=True)
     underlying_price = Column(Numeric(18, 8), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('contract_symbol', 'strike', 'snapshot_at', name='uq_open_interest_contract_strike_snapshot'),
+        Index('ix_open_interest_snapshot_at_symbol', 'snapshot_at', 'contract_symbol'),
+        Index('ix_open_interest_dte', 'dte'),
+        Index('ix_open_interest_snapshot_at', 'snapshot_at'),
+        Index('ix_open_interest_contract_symbol', 'contract_symbol'),
+    )

@@ -24,6 +24,10 @@ class GammaLevelResponse(BaseModel):
     strength: float
     description: str
     dte: Optional[int] = None
+    term: Optional[str] = None
+    market_action: Optional[str] = None
+    zone_type_v2: Optional[str] = None
+    significance_score: Optional[float] = None
     confluence: List[str] = []
 
 class MarketRegimeResponse(BaseModel):
@@ -81,6 +85,7 @@ async def get_gamma_levels(
             'strike': float(r.strike),
             'call_oi': float(r.call_oi or 0),
             'put_oi': float(r.put_oi or 0),
+            'dte': r.dte,
             'underlying_price': float(r.underlying_price) if r.underlying_price else None
         })
         if r.underlying_price:
