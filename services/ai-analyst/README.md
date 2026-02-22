@@ -13,6 +13,15 @@ The service orchestrates AI agents and analysis tools using a modular architectu
 *   **Tools**: Specialized functions for market data, search, and system state.
 *   **Persistence**: Redis (Short-term/Checkpoints) and Qdrant (Long-term/RAG).
 
+### ⚡ High-Performance Features
+The service is optimized for low-latency institutional analysis:
+*   **Routing Precision**: Uses dynamic intent classification to minimize reasoning loops (resolved in 1-2 turns).
+*   **Parallel Execution**: Tools are executed concurrently using `asyncio.gather`.
+*   **Context & Token Pruning**:
+    *   **Scratchpad Summarization**: Lengthy tool outputs (>= 6000 chars) are automatically summarized by Gemini Flash.
+    *   **Dynamic RAG**: Adjustable `top_k` retrieval based on query complexity.
+*   **Signal Buffering**: API Gateway level caching reduces redundant calculation load.
+
 ### Agent Workflows
 
 #### Strategy Advisor (`StateGraph`)
@@ -33,6 +42,12 @@ A standard ReAct (Reason + Act) loop for autonomous market monitoring:
 3.  **Tools**: `MarketStateTool`, `GetTechnicalSignalsTool`, `GoogleSearchTool`.
 4.  **Loop**: Iteratively calls tools and feeds output back into LLM until analysis is complete.
 5.  **Output**: Structured markdown report.
+
+#### 🤖 Autonomous Monitoring Agents
+Beyond interactive chat, the service runs background tasks to ensure system health:
+1.  **Stability Observer**: Periodically checks predictor and data-pipeline health; alerts via Telegram on degradation.
+2.  **Session Drift Monitor**: Analyzes the rejection/execution rate of live signals and generates drift reports.
+3.  **Gold Sentiment Guardian**: Schedules real-time geopolitical and macro sentiment updates for XAUUSD.
 
 ## 🛠️ Tech Stack
 *   **Python 3.11+**
@@ -123,6 +138,35 @@ uv run python scripts/chat_cli.py
 | `POST` | `/agent/observer/run` | Triggers the Market Observer Agent for deep research. |
 | `POST` | `/agent/briefing` | Triggers the Daily Briefing Agent. |
 | `POST` | `/ai/chat/sessions/message` | Helper endpoint for Strategy Advisor chat. |
+
+## 🛠️ System Toolset (Capabilities)
+The AI Analyst can interact with the following system domains:
+*   **Institutional SMC**: `smc_technical_analysis` (Order Blocks, FVGs, Bias).
+*   **Machine Learning**: `get_predictor_forecast`, `get_predictor_signal`.
+*   **Market Sentiment**: `market_state` (PCR, Regimes), `cot_analyst`.
+*   **Economics**: `get_economic_calendar`, `google_search` (Real-time news).
+*   **System Controls**: `smart_order`, `strategy_manager`, `get_system_health`.
+*   **Quantitative**: `python_sandbox` (Custom correlation/modeling).
+
+## 💡 Best Practices: Effective Prompting
+
+To get the most out of the **Strategy Advisor Agent**, use "High-Fidelity Prompts" that combine multiple data dimensions.
+
+### 🔑 The 4-Pillar Prompt Structure
+1.  **Context**: Specify the date, symbol, and relevant timeframes (e.g., "H4 and D1").
+2.  **Multidimensional Objective**: Ask for different analytical perspectives simultaneously (SMC, ML, Macro).
+3.  **Constraint/Reference**: Reference your current portfolio, specific POIs, or system health.
+4.  **Delivery Channel**: Explicitly request notifications if you want the result on Telegram.
+
+### 📝 Example: Weekly Preparation Briefing
+Use this prompt on Sunday/Monday morning to prepare for the session:
+> "Tomorrow is Monday 2026-02-23. Help me prepare for the gold trading week ahead. Please perform the following analysis: 1. Macro structural bias for XAUUSD on 4H/Daily. 2. Key POIs (Order Blocks/FVGs) for the week. 3. ML price forecast for the next 5 steps from Olympus Predictor. 4. Market state and any significant news/sentiment drivers. Summarize these into a 'Weekly Preparation Briefing' and send it to my Telegram."
+
+### 📝 Example: Deep Institutional Research
+> "Perform a deep dive into Gold's institutional sentiment. Check the latest COT data, analyze the Open Interest drift between the Asia and London sessions, and correlate this with the current ML confidence score. Send a detailed technical report to my Telegram."
+
+### 📝 Example: Strategy Development
+> "I want to design a new strategy based on Volatility Mean Reversion. Can you look at our existing `smc_v1` strategy code, suggest how to add a GARCH-based filter, and provide the updated Python logic?"
 
 ## 📂 Project Structure
 
