@@ -97,9 +97,24 @@ class MarketStateTool(BaseTool):
                              logger.error(f"Gamma fetch failed: {e}")
                              gamma_report = "Gamma Data Unavailable"
  
+                         # Parse ADX granular data
+                         adx_slope = float(ctx.get("adx_slope", 0.0))
+                         p_di = float(ctx.get("plus_di", 0.0))
+                         m_di = float(ctx.get("minus_di", 0.0))
+                         
+                         slope_text = "Steady"
+                         if adx_slope > 1.5: slope_text = "Strengthening 📈"
+                         elif adx_slope < -1.5: slope_text = "Weakening 📉"
+                         
+                         di_text = "Neutral"
+                         if p_di > m_di + 5: di_text = "Bullish Dominance (DI+ > DI-)"
+                         elif m_di > p_di + 5: di_text = "Bearish Dominance (DI- > DI+)"
+                         
                          report = (
                              f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"
-                             f"- Regime: {regime} (ADX: {score:.1f})\n"
+                             f"- Regime: {regime}\n"
+                             f"- **Trend Strength (ADX)**: {score:.1f} ({slope_text})\n"
+                             f"- **Directional Index**: {di_text} [+DI: {p_di:.1f}, -DI: {m_di:.1f}]\n"
                              f"- Fakeout/Trap: {fakeout_text}\n"
                              f"- **Dynamic Risk**: {risk_mult}x ({risk_advice})\n"
                              f"- **Liquidity Profile (Gamma)**: {gamma_report}\n"
