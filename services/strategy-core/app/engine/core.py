@@ -312,15 +312,22 @@ class StrategyEngine:
             logger.info(f"Signal for {strategy_id} filtered out by plugin.")
             return
 
-        # --- SENTIMENT CHECK (New) ---
+        # --- SENTIMENT CHECK (Optimized) ---
         sentiment_data = None
-        # Only check if we are about to trade (AUTO) or notify (MANUAL)
-        # For efficiency, maybe only check strictly before 'place_order' or saving signal.
-        # Let's check it now to include in the log.
-        try:
-            sentiment_data = await get_market_sentiment(state.symbol)
-        except Exception as e:
-            logger.warning(f"Sentiment check failed/skipped: {e}")
+        # Only check if enabled in config OR if it's the primary supervised symbol (XAUUSD)
+        current_config = config_cache.get_config(strategy_id) or {}
+        use_sentiment = current_config.get("use_sentiment_filter", state.symbol == "XAU_USD" or state.symbol == "XAUUSD")
+        
+        if use_sentiment:
+            try:
+                # Optimized: Only call if we are about to trade or log
+                sentiment_data = await get_market_sentiment(state.symbol)
+            except Exception as e:
+                logger.warning(f"Sentiment check failed/skipped for {state.symbol}: {e}")
+                # Fail-soft: continue with neutral sentiment
+                sentiment_data = {"score": 0.0, "reason": "Sentiment service unavailable (fail-soft)"}
+        else:
+            logger.debug(f"Skipping sentiment check for {state.symbol} (not enabled in config)")
 
         # Block if sentiment opposes direction strong?
         # Threshold: Score < -0.5 for invalidating LONG, Score > 0.5 for invalidating SHORT

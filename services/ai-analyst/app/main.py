@@ -127,7 +127,7 @@ async def lifespan(app: FastAPI):
             # Gold Sentiment Analysis (Every 4 hours)
             from app.core.scheduler_tasks import update_gold_sentiment
             scheduler.add_job(update_gold_sentiment, 'interval', hours=4)
-            # Run once on startup to ensure fresh data
+            # Run once on startup IF cache is missing/stale handled inside get_sentiment via SentimentService
             scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now())
             
             # Predictor Stability Check (Every 15 minutes)

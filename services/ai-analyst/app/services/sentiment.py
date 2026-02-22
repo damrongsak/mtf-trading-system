@@ -2,21 +2,17 @@ import json
 import redis.asyncio as redis
 import logging
 from app.core.config import settings
-from langchain_google_genai import ChatGoogleGenerativeAI
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
+from app.core.globals import services
 
 logger = logging.getLogger(__name__)
 
 class SentimentService:
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL_ID,
-            google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.1
-        )
-        self.redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
-        self.cache_ttl = 3600 # 1 hour
+        # We now use the global gemini client from services dict
+        self.redis = redis.from_url(settings.redis.url, decode_responses=True)
+        self.cache_ttl = 14400 # 4 hours (synced with scheduler frequency)
 
     async def close(self):
         """Close Redis connection."""
@@ -24,14 +20,15 @@ class SentimentService:
             await self.redis.close()
 
     async def get_sentiment(self, symbol: str = "XAUUSD") -> dict:
-        if not settings.GOOGLE_API_KEY:
-            return {"score": 0.0, "reason": "GOOGLE_API_KEY not configured."}
+        if not settings.gemini.api_key:
+            return {"score": 0.0, "reason": "Gemini API Key not configured."}
 
         # 1. Check Cache
         cache_key = f"sentiment:{symbol}"
         try:
             cached = await self.redis.get(cache_key)
             if cached:
+                 logger.info(f"💾 Sentiment Cache Hit for {symbol}")
                  return json.loads(cached)
         except Exception as e:
             logger.error(f"Redis cache read failed: {e}")
@@ -41,17 +38,17 @@ class SentimentService:
         if not headlines:
             return {"score": 0.0, "reason": "No recent news found."}
 
-        # 3. Analyze with Gemini
-        result = await self._analyze_headlines(symbol, headlines)
+        # 3. Analyze with Gemini (using GeminiClient with Tier 1 fallback)
+        result = await self._analyze_headlines_optimized(symbol, headlines)
         
-        # 4. Persist to DB
-        await self._save_sentiment_to_db(symbol, result)
-
-        # 5. Save to Cache
+        # 4. Save to Cache (before DB to ensure fast subsequent reads)
         try:
             await self.redis.setex(cache_key, self.cache_ttl, json.dumps(result))
         except Exception as e:
             logger.error(f"Redis cache write failed: {e}")
+
+        # 5. Persist to DB (using Redis Stream)
+        await self._save_sentiment_to_db(symbol, result)
             
         return result
 
@@ -74,14 +71,15 @@ class SentimentService:
     async def _fetch_news(self, symbol: str) -> list[str]:
         """
         Fetches news headlines from Redis (ECST pattern).
-        The data-pipeline service is responsible for populating this cache.
+        Truncates to latest 20 headlines to save tokens.
         """
         cache_key = f"news:headlines:{symbol}"
         try:
             cached = await self.redis.get(cache_key)
             if cached:
                 headlines = json.loads(cached)
-                # Headlines are list of dicts: {title, source, url, publishedAt}
+                # Truncate to save context window/tokens
+                headlines = headlines[:20]
                 return [f"- {h['title']} ({h['source']})" for h in headlines]
             
             logger.warning(f"No headlines found in Redis for {symbol}. Ensure news-sync is running.")
@@ -90,36 +88,45 @@ class SentimentService:
             logger.error(f"Failed to fetch news from Redis: {e}")
             return []
 
-    async def _analyze_headlines(self, symbol: str, headlines: list[str]) -> dict:
+    async def _analyze_headlines_optimized(self, symbol: str, headlines: list[str]) -> dict:
+        """Analyzes sentiment using the Tier 1 Gemini fallback chain."""
         headlines_text = "\n".join(headlines)
         prompt = (
-            f"Analyze the following news headlines for {symbol} sentiment.\n"
-            f"Headlines:\n{headlines_text}\n\n"
-            "Task:\n"
-            "1. Determine the overall market sentiment for this asset.\n"
-            "2. Assign a score from -1.0 (Very Bearish) to 1.0 (Very Bullish).\n"
-            "3. Provide a concise 1-sentence reason.\n\n"
-            "Output Format (JSON only):\n"
-            '{"score": 0.0, "reason": "..."}'
+            f"Analyze {symbol} sentiment from these news headlines. "
+            "Return JSON only: {'score': float (-1.0 to 1.0), 'reason': '1-sentence string'}.\n"
+            f"Headlines:\n{headlines_text}"
         )
         
+        gemini = services.get("gemini")
+        if not gemini:
+            logger.error("GeminiClient not found in global services.")
+            return {"score": 0.0, "reason": "AI Service Unavailable"}
+
         try:
-            response = await self.llm.ainvoke(prompt)
-            content = response.content.strip()
+            # Use Tier 1 models (Flash Lite) for background cost efficiency
+            models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"]
+            content = await gemini.generate_content(
+                prompt=prompt,
+                model_name=models[0],
+                fallback_models=models[1:]
+            )
             
-            # Simple parsing (robustness improvement: use structured output or PydanticOutputParser later)
-            import json
-            # Handle potential markdown fence
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].strip()
-            
-            data = json.loads(content)
+            if not content:
+                return {"score": 0.0, "reason": "Empty AI response"}
+
+            # Robust JSON parsing
+            clean_content = content.replace("```json", "").replace("```", "").strip()
+            # Find first { and last } to isolate JSON if extra text exists
+            start = clean_content.find("{")
+            end = clean_content.rfind("}")
+            if start != -1 and end != -1:
+                clean_content = clean_content[start:end+1]
+
+            data = json.loads(clean_content)
             return {
                 "score": float(data.get("score", 0.0)),
-                "reason": data.get("reason", "Analysis failed")
+                "reason": data.get("reason", "Analysis generated successfully")
             }
         except Exception as e:
-            logger.error(f"LLM Analysis Error: {e}")
-            return {"score": 0.0, "reason": "Error parsing sentiment analysis."}
+            logger.error(f"Sentiment LLM Analysis Error: {e}")
+            return {"score": 0.0, "reason": "Error parsing sentiment result."}
