@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     
     feature_store = FeatureStore(redis_client)
     data_loader = DataLoader(db_pool, redis_client)
-    predictor = HybridPredictor(model_dir=settings.MODEL_DIR, feature_store=feature_store)
+    predictor = HybridPredictor(model_dir=settings.MODEL_DIR, feature_store=feature_store, db_pool=db_pool)
     
     # Load Models
     try:

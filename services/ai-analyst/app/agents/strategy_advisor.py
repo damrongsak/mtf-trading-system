@@ -487,17 +487,9 @@ class StrategyAdvisorAgent:
             # Robust JSON Extraction
             import re
             text = response.text
-            # Robust JSON Extraction
-            import re
-            text = response.text
             
-            # Find all JSON-like blocks
-            json_blocks = re.findall(r'(\{(?:[^{}]|(?R))*\})', text, re.DOTALL)
-            
-            # Note: The above recursive regex isn't supported by standard 're'.
-            # Let's use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
+            # Simple but robust approach: find the first { and its balanced }
             # Actually, standard models usually wrap JSON in a markdown block.
-            
             if "```json" in text:
                 text = text.split("```json")[-1].split("```")[0].strip()
             elif "```" in text:
@@ -508,30 +500,33 @@ class StrategyAdvisorAgent:
                 start = text.find("{")
                 end = text.rfind("}")
                 if start != -1 and end != -1:
-                    text = text[start:end+1]
+                    text_blob = text[start:end+1]
+                else:
+                    text_blob = text
+            else:
+                text_blob = text
             
             # Handle potential multiple objects (Greedy re.search fix)
             try:
-                decision = json.loads(text)
+                decision = json.loads(text_blob)
             except json.JSONDecodeError:
                 # Fallback: Try to find the first complete object
                 try:
                     balance = 0
-                    start = text.find("{")
+                    start = text_blob.find("{")
                     if start != -1:
-                        for i in range(start, len(text)):
-                            if text[i] == '{': balance += 1
-                            elif text[i] == '}': balance -= 1
+                        for i in range(start, len(text_blob)):
+                            if text_blob[i] == '{': balance += 1
+                            elif text_blob[i] == '}': balance -= 1
                             if balance == 0:
-                                text = text[start:i+1]
+                                text_blob = text_blob[start:i+1]
                                 break
-                    decision = json.loads(text)
+                    decision = json.loads(text_blob)
                 except Exception as je:
                     logger.error(f"Failed to parse JSON even after cleaning: {je}")
                     decision = {"tool_calls": []}
 
-            logger.debug(f"Tool Selection Decision Raw: {text}")
-            decision = json.loads(text)
+            logger.debug(f"Tool Selection Decision Raw: {text_blob}")
             
             # Validate that decision is a dictionary
             if not isinstance(decision, dict):

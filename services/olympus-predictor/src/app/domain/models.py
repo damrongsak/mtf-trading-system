@@ -1,3 +1,4 @@
+import asyncpg
 import torch
 import torch.nn as nn
 import numpy as np
@@ -164,11 +165,12 @@ class RegimeDetector:
             return 0
 
 class HybridPredictor:
-    def __init__(self, model_dir="/app/models", feature_store: Optional["FeatureStore"] = None):
+    def __init__(self, model_dir="/app/models", feature_store: Optional["FeatureStore"] = None, db_pool: Optional[asyncpg.Pool] = None):
         self.model_dir = model_dir
         self.lookback = 60
         os.makedirs(model_dir, exist_ok=True)
         self.feature_store = feature_store
+        self.db = db_pool
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
@@ -401,7 +403,7 @@ class HybridPredictor:
         recent_scaled = self.scaler.transform(recent_residuals.reshape(-1, 1))
         
         # NEW Phase 4: Fetch Latest Sentiment
-        loader = DataLoader(None, self.feature_store.redis if self.feature_store else None)
+        loader = DataLoader(self.db, self.feature_store.redis if self.feature_store else None)
         df_sent = await loader.get_sentiment_data(symbol='XAUUSD', lookback_days=1)
         latest_sentiment = df_sent['score'].iloc[-1] if not df_sent.empty else 0.0
         

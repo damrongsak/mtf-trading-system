@@ -99,7 +99,21 @@ class DataLoader:
             except Exception:
                 pass
 
-        # 2. Database
+        # 2. High-Frequency Cache (Populated by AI-Analyst)
+        hf_cache_key = f"sentiment:{symbol}"
+        hf_cached = await self.redis.get(hf_cache_key)
+        if hf_cached:
+            try:
+                data = json.loads(hf_cached)
+                # data is expected to be a dict: {"score": 0.0, "reason": "..."}
+                score = float(data.get("score", 0.0))
+                # Create a single-row dataframe for current time
+                df_hf = pd.DataFrame([{"timestamp": datetime.now(timezone.utc), "score": score}])
+                return df_hf.set_index('timestamp')
+            except Exception as e:
+                logger.debug(f"Failed to parse HF sentiment cache: {e}")
+
+        # 3. Database
         if self.db is not None:
             query = """
                 SELECT created_at as timestamp, score
