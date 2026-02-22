@@ -66,9 +66,9 @@ class SendNotificationTool(BaseTool):
                     "Please go to Settings → Integrations → Link Telegram on the web dashboard."
                 )
             elif resp.status_code == 503:
+                logger.warning("Notification failed: 503 Bot not configured.")
                 return "❌ Notification failed: Telegram bot not configured on this server."
             else:
-                logger.error(f"Telegram send failed: {resp.status_code} - {resp.text}")
                 return f"❌ Notification failed (HTTP {resp.status_code}): {resp.text}"
 
         except Exception as e:
