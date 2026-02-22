@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     OLYMPUS_PREDICTOR_URL: str = "http://olympus-predictor:8000"
     INTERNAL_API_KEY: str = "dev-internal-key"
     TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_CHAT_ID: Optional[int] = None
 
     @property
     def gemini(self) -> GeminiSettings:

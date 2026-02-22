@@ -205,17 +205,24 @@ class StrategyAdvisorAgent:
         4. **Be Specific**: Include the symbol and timeframe in the optimized query.
         
         **Intents:**
-        - **MARKET_ANALYSIS**: User asks for market outlook, price analysis, or a trading PLAN/STRATEGY for a specific symbol and timeframe.
-        - **TOOL_USE**: User asks to PERFORM an action, get account data (balanced, equity, positions), place orders, or check risk.
-        - **RESEARCH**: User asks a complex quantitative question or "How to" about the system, requiring retrieval from documentation or past strategies.
+        - **TOOL_USE**: User asks to PERFORM an action using a system tool. This includes:
+            - Getting account data (balance, equity, positions, margin)
+            - **Generating a trading plan or buy/sell setup** (uses the `generate_trading_plan` tool)
+            - Sending notifications or alerts to Telegram
+            - Placing orders, checking risk
+        - **MARKET_ANALYSIS**: User asks for a market outlook, price narrative, institutional analysis, or general commentary — WITHOUT requesting a structured plan output.
+        - **RESEARCH**: User asks a complex quantitative "How to" question about the system, requiring documentation retrieval.
         - **STRATEGY_DESIGN**: User wants to CREATE, modify, or optimize a trading strategy or code.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
-        - **CHAT**: General conversation, project questions, or simple questions not requiring real-time data or specialized tools.
+        - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
         
         **CRITICAL**: 
         1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
-        2. If the user asks for a trading plan, outlook, or price analysis for a specific symbol/timeframe (and it is NOT an account request), classify as **MARKET_ANALYSIS**.
+        2. If the user says "generate a trading plan", "give me a plan", "buy/sell setup", or "what should I trade", ALWAYS classify as **TOOL_USE** (not MARKET_ANALYSIS).
+        3. If the user says "send to telegram", "notify me", "alert me", or "send it", ALWAYS classify as **TOOL_USE**.
+        4. If the user asks for a trading plan AND wants it sent to Telegram, keep it **TOOL_USE** — the agent will call both tools in sequence.
+        5. Only use **MARKET_ANALYSIS** for open-ended commentary or institutional analysis WITHOUT a specific plan output requested.
         
         **Output JSON only:**
         {{
@@ -461,13 +468,20 @@ class StrategyAdvisorAgent:
         if state.get("scratchpad"):
             formatted_outputs = []
             total_chars = 0
-            # Prune strictly to last 8000 chars total for tool selection to avoid noise
+            # Hard cap: only last 6000 chars total from the MOST RECENT entries
+            # Use raw scratchpad entries NOT summarized-accumulated ones, to avoid 1M+ prompts
+            MAX_CHARS = 6000
             for output in reversed(state["scratchpad"]):
-                clean_output = str(output)[:2000]
-                if total_chars + len(clean_output) > 8000:
+                # Skip internal summary markers that contain all previous turns
+                if "--- CONDENSED SUMMARY OF PREVIOUS STEPS ---" in str(output):
+                    # Only include the summary itself, stripped of marker, at most 3000 chars
+                    clean = str(output).replace("--- CONDENSED SUMMARY OF PREVIOUS STEPS ---", "").strip()[:3000]
+                else:
+                    clean = str(output)[:1500]
+                if total_chars + len(clean) > MAX_CHARS:
                     break
-                formatted_outputs.append(f"--- Tool Output ---\n{clean_output}\n")
-                total_chars += len(clean_output)
+                formatted_outputs.append(f"--- Tool Output ---\n{clean}\n")
+                total_chars += len(clean)
             
             tool_results = f"\n\n**Recent Tool Outputs:**\n" + "\n".join(reversed(formatted_outputs))
 
@@ -480,22 +494,15 @@ class StrategyAdvisorAgent:
         
         try:
             response = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.model_id, # Use Pro
+                model=settings.gemini.model_id, # Revert to Pro for complex instruction adherence
                 contents=prompt
             )
             
             # Robust JSON Extraction
             import re
             text = response.text
-            # Robust JSON Extraction
-            import re
-            text = response.text
             
-            # Find all JSON-like blocks
-            json_blocks = re.findall(r'(\{(?:[^{}]|(?R))*\})', text, re.DOTALL)
-            
-            # Note: The above recursive regex isn't supported by standard 're'.
-            # Let's use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
+            # Use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
             # Actually, standard models usually wrap JSON in a markdown block.
             
             if "```json" in text:
@@ -826,10 +833,15 @@ class StrategyAdvisorAgent:
             )
             return {"final_response": msg}
 
-        # 1. Gather Context
-        scratchpad = "\n".join(state.get("scratchpad", []))
+        # 1. Gather Context — cap sizes to prevent 429 quota errors from 1M+ char prompts
+        # scratchpad uses operator.add accumulator so can grow unboundedly across iterations
+        scratchpad_raw = "\n".join(state.get("scratchpad", []))
+        # Use last 20K chars — most recent tool outputs are at the end
+        scratchpad = scratchpad_raw[-20000:] if len(scratchpad_raw) > 20000 else scratchpad_raw
         user_facts = "\n".join(state.get("user_facts", []))
-        context_docs = "\n\n".join(state.get("retrieved_docs", []))
+        context_docs_raw = "\n\n".join(state.get("retrieved_docs", []))
+        # Cap context docs to avoid inflating prompt
+        context_docs = context_docs_raw[:10000] if len(context_docs_raw) > 10000 else context_docs_raw
         reasoning_trace = state.get("reasoning_trace", [])
         
         # 2. Build Generation Prompt
@@ -888,47 +900,45 @@ class StrategyAdvisorAgent:
     async def node_evaluator(self, state: AgentState):
         """
         The 'Judge' node. Evaluates if the response is complete and accurate.
+        Uses Flash Lite with capped context to avoid token quota issues.
         """
         query = state["optimized_query"]
         response = state["final_response"]
-        context = "\n\n".join(state.get("retrieved_docs", []))
-        scratchpad = "\n".join(state.get("scratchpad", []))
         iteration = state.get("iteration_count", 0)
 
         logger.info(f"Evaluating Response (Iteration {iteration})...")
 
+        # Cap context to avoid 429 rate limit errors
+        context_raw = "\n\n".join(state.get("retrieved_docs", []))
+        scratchpad_raw = "\n".join(state.get("scratchpad", []))
+        context = context_raw[:3000]
+        scratchpad = scratchpad_raw[-2000:]  # Only last 2000 chars
+
         prompt = f"""
-        You are the Quality Control (Judge) Agent for MTF Olympus AI.
-        Your task is to evaluate if the AI's generated response completely and accurately answers the User Request.
+        You are a Quality Control Judge for MTF Olympus AI.
+        Evaluate if the AI response completely answers the user request.
         
         User Request: "{query}"
         
-        AI Response:
-        {response}
+        AI Response (first 2000 chars):
+        {response[:2000]}
         
-        Retrieved Context & Tool Data:
-        {context}
+        Key Tool Data (last 2000 chars):
         {scratchpad}
-        
-        **Evaluation Criteria:**
-        1. Does it answer EVERY part of the user's request?
-        2. Is it grounded in the provided context/tool data (no hallucinations)?
-        3. If data was missing, did it explain why?
-        4. Is the tone professional and quantitative?
         
         **Output JSON only:**
         {{
             "is_satisfactory": true/false,
-            "feedback": "If unsatisfactory, explain exactly what is missing or wrong to guide the next retrieval/reasoning step. Otherwise, leave empty."
+            "feedback": "If unsatisfactory, briefly explain what is missing. Otherwise leave empty."
         }}
         """
 
         try:
             res = await self.gemini.client.aio.models.generate_content(
-                model=settings.gemini.flash_model_id,
+                model=settings.gemini.flash_lite_model_id,  # Use Flash Lite for efficiency
                 contents=prompt
             )
-            text = res.text.replace("```json", "").replace("```", "")
+            text = res.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(text)
             
             return {
@@ -938,6 +948,7 @@ class StrategyAdvisorAgent:
             }
         except Exception as e:
             logger.error(f"Evaluation failed: {e}")
+            # Auto-proceed on quota errors — don't block the response
             return {"is_satisfactory": True, "iteration_count": iteration + 1}
 
     async def node_memory_write(self, state: AgentState):
@@ -997,9 +1008,12 @@ class StrategyAdvisorAgent:
             "is_satisfactory": False
         }
         
-        # Configure Checkpoint (Thread ID = thread_id or user_id for simplicity)
+        import uuid
+        thread_id = thread_id or str(uuid.uuid4())
+        
+        # Configure Checkpoint (Ensure stateless requests don't bleed into a global user thread)
         config = {
-            "configurable": {"thread_id": thread_id or user_id},
+            "configurable": {"thread_id": thread_id},
             "recursion_limit": 100 # Increased for multi-step tool loops
         }
         result = await self.graph.ainvoke(initial_state, config=config)

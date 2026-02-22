@@ -69,6 +69,7 @@ class SMCResponse(BaseModel):
     fvgs: List[Dict[str, Any]]
     liquidity_sweeps: List[Dict[str, Any]] = []
     structure: Dict[str, Any] = {}
+    setups: List[Dict[str, Any]] = []
     auto_fibs: Dict[str, float] = {}
     institutional_bias: str = "NEUTRAL"
     strategic_reasoning: str = ""

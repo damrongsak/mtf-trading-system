@@ -282,17 +282,61 @@ async def telegram_status(
         }
 
 
-async def send_telegram_message(chat_id: int, text: str):
+class SendMessageRequest(BaseModel):
+    """Request model for sending a message to the user's linked Telegram."""
+    message: str
+
+
+@router.post("/send")
+async def send_message_to_user(
+    request: SendMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Sends a message to the authenticated user's linked Telegram chat.
+    Used by the AI Analyst's send_notification tool.
+    Looks up the user's chat_id from telegram_chat_mappings.
+    """
+    mapping = db.query(TelegramChatMapping).filter(
+        TelegramChatMapping.user_id == current_user.id,
+        TelegramChatMapping.is_active == True
+    ).first()
+
+    if not mapping:
+        raise HTTPException(
+            status_code=404,
+            detail="No linked Telegram account found. Please link via Settings → Integrations."
+        )
+
+    if not TELEGRAM_BOT_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="Telegram bot not configured on this server."
+        )
+
+    await send_telegram_message(mapping.chat_id, request.message, parse_mode=None)
+    logger.info(f"Sent Telegram message to user={current_user.username} chat_id={mapping.chat_id}")
+    return {
+        "success": True,
+        "chat_id": mapping.chat_id,
+        "username": current_user.username
+    }
+
+
+async def send_telegram_message(chat_id: int, text: str, parse_mode: str = "Markdown"):
     """
     Helper function to send a message via Telegram Bot API.
+    Set parse_mode=None for plain text (safe for tables and complex formatting).
     """
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": "Markdown"
     }
-    
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload)

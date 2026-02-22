@@ -478,17 +478,101 @@ def calculate_auto_fibs(ohlc: pd.DataFrame, window: int = 100) -> Dict[str, floa
         "0.65": low_val + diff * 0.65,
         "0.705": low_val + diff * 0.705,
         "0.786": low_val + diff * 0.786,
-        "0.886": low_val + diff * 0.886,
         "1.0": high_val,
-        "1.13": low_val + diff * 1.13,
-        "1.272": low_val + diff * 1.272,
-        "1.414": low_val + diff * 1.414,
-        "1.618": low_val + diff * 1.618,
-        "2.0": low_val + diff * 2.0,
-        "2.618": low_val + diff * 2.618,
-        "3.618": low_val + diff * 3.618,
-        "4.236": low_val + diff * 4.236
     }
+
+def generate_setups(df: pd.DataFrame, obs: List[SMCOrderBlock], fvgs: List[SMCFVG], symbol: str = "Unknown") -> List[Dict[str, Any]]:
+    import pandas as pd
+    import numpy as np
+    """
+    Generate actionable trade setups based on SMC levels.
+    """
+    if df.empty: return []
+    
+    last_close = float(df['close'].iloc[-1])
+    setups = []
+    
+    # 1. Calculate ATR for structural offsets
+    if len(df) >= 14:
+        # Standard ATR
+        tr = pd.concat([
+            (df['high'] - df['low']),
+            (df['high'] - df['close'].shift(1)).abs(),
+            (df['low'] - df['close'].shift(1)).abs()
+        ], axis=1).max(axis=1)
+        atr = float(tr.rolling(window=14).mean().iloc[-1])
+    else:
+        atr = last_close * 0.001 # 0.1% volatility fallback
+        
+    # 2. Extract unmitigated institutional zones
+    unmitigated_obs = [ob for ob in obs if not ob.get("mitigated", False)]
+    
+    # Symbol-specific pip offset (e.g., 5 pips)
+    # XAUUSD: $1 move = 100 pips. 5 pips = $0.05.
+    is_gold = "XAU" in symbol.upper()
+    pip_offset = (0.05 if is_gold else 0.0005) # Simplified
+    
+    # 3. Process Bullish Setups (Buy Zones)
+    # We look for price approaching or inside a bullish OB
+    for ob in unmitigated_obs:
+        if ob["type"] == "bullish":
+            entry = ob["top"]
+            # Structural SL below OB bottom with ATR-derived buffer
+            sl = ob["bottom"] - (atr * 0.25) - pip_offset 
+            
+            # Initial Target: 2.0 RR or next Bearish OB
+            tp = entry + (entry - sl) * 2.0
+            
+            # Refine TP with Bearish OB resistance
+            bear_obs = [b for b in obs if b["type"] == "bearish" and b["bottom"] > entry]
+            if bear_obs:
+                # Target the nearest Bearish OB
+                tp = bear_obs[0]["bottom"]
+            
+            rr = (tp - entry) / (entry - sl) if (entry - sl) > 0 else 0
+            
+            if rr >= 1.5:
+                setups.append({
+                    "id": f"SMC_LONG_{ob['index']}",
+                    "type": "LONG",
+                    "reason": f"Structural Bullish OB at {ob['top']:.2f}",
+                    "entry": round(entry, 2 if is_gold else 5),
+                    "stop_loss": round(sl, 2 if is_gold else 5),
+                    "take_profit": round(tp, 2 if is_gold else 5),
+                    "rr": round(rr, 2),
+                    "status": "POTENTIAL" if last_close > entry else "ACTIVE"
+                })
+
+    # 4. Process Bearish Setups (Sell Zones)
+    for ob in unmitigated_obs:
+        if ob["type"] == "bearish":
+            entry = ob["bottom"]
+            # Structural SL above OB top
+            sl = ob["top"] + (atr * 0.25) + pip_offset
+            
+            tp = entry - (sl - entry) * 2.0
+            
+            # Refine TP with Bullish OB support
+            bull_obs = [b for b in obs if b["type"] == "bullish" and b["top"] < entry]
+            if bull_obs:
+                # Target the nearest Bullish OB below us (which is the last one in the sorted list)
+                tp = bull_obs[-1]["top"]
+                
+            rr = (entry - tp) / (sl - entry) if (sl - entry) > 0 else 0
+            
+            if rr >= 1.5:
+                setups.append({
+                    "id": f"SMC_SHORT_{ob['index']}",
+                    "type": "SHORT",
+                    "reason": f"Structural Bearish OB at {ob['bottom']:.2f}",
+                    "entry": round(entry, 2 if is_gold else 5),
+                    "stop_loss": round(sl, 2 if is_gold else 5),
+                    "take_profit": round(tp, 2 if is_gold else 5),
+                    "rr": round(rr, 2),
+                    "status": "POTENTIAL" if last_close < entry else "ACTIVE"
+                })
+                
+    return setups
 
 def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1") -> Dict[str, Any]:
     import pandas as pd
@@ -511,6 +595,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
     sweeps = detect_liquidity_sweeps(df)
     structure = detect_structure(df)
     fibs = calculate_auto_fibs(df)
+    setups = generate_setups(df, obs, fvgs, symbol)
     
     last_close = float(df['close'].iloc[-1])
     
@@ -590,6 +675,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
         "fvgs": fvgs,
         "liquidity_sweeps": sweeps,
         "structure": structure,
+        "setups": setups,
         "auto_fibs": fibs,
         "institutional_bias": bias,
         "strategic_reasoning": reasoning,
