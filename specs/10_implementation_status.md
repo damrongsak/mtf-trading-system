@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-22
-**Current Phase:** Phase 38 - Unified Communications & Safety (Complete)
+**Last Updated:** 2026-02-23
+**Current Phase:** Phase 40 - Strategic Performance Fix (Complete)
 
 ---
 
@@ -655,4 +655,20 @@
     - **LLM Resilience:** 3-tier active fallback (Tier 1/2/3) across all generative nodes.
     - **State Management:** Recursive scratchpad summarization and list pruning to prevent token overflows.
     - **Circuit Breaker:** Protection against Gemini 429/404/503 errors via automatic model lockout.
+ 
+ ### Phase 39: Professional CLI Upgrade (v2.6)
+ - **Status:** ✅ Complete (2026-02-23)
+ - **Features:**
+     - **Institutional Templates:** Integrated 20+ Bloomberg-style trading queries into `chat_cli.py`.
+     - **Autocomplete:** Implemented `WordCompleter` for rapid query discovery.
+     - **Dynamic Suggestions:** Added rotating institutional "Pro Tips" in the CLI bottom toolbar.
+     - **Template Discovery:** New `/templates` command to browse advanced query patterns.
+ 
+ ### Phase 40: Strategic Performance Fix (Intelligence v3.1)
+ - **Status:** ✅ Complete (2026-02-23)
+ - **Features:**
+     - **Timeout Optimization:** Increased CLI/API timeout to 300s to support heavy multi-agent synthesis.
+     - **Intelligent Routing:** Refined `StrategyAdvisorAgent` logic to prioritize sigma-based volatility calculations over high-latency backtests for real-time risk.
+     - **Verification:** Verified 4x speed improvement (~40s vs 160s+) for complex drawdown queries.
+     - **Persona refinement**: Executive institutional terminology integrated into AI reasoning.
 

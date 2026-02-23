@@ -107,8 +107,14 @@ graph TD
 - **Loop (OODA):**
     - **Observe:** Fetch data via tools.
     - **Orient:** Retrieve similar historical contexts or specs.
-    - **Decide:** Formulate an opinion.
+    - **Decide:** Formulate an opinion based on **Institutional Synthesis Protocols**.
     - **Act:** Output analysis or alert.
+
+### 3.3. Institutional Synthesis Protocols (v2.6)
+To ensure high-fidelity responses for institutional-grade queries, the following routing logic is enforced:
+1.  **Strategic Decisions** (e.g., "Long or Flat?"): **MANDATORY** multi-tool call: `smc_technical_analysis` + `cot_analyst` + `market_state`.
+2.  **Real-Time Risk Audit** (e.g., "Max Drawdown"): **DO NOT** use `backtest_runner`. Instead, use `calibrate_efp_parameters` to fetch `sigma` (volatility) and compute via `python_sandbox`.
+3.  **Liquidity Depth**: Use `market_state` to identify Gamma Walls and institutional sell walls.
 
 ## 4. Data Models
 

@@ -85,6 +85,8 @@ The system is organized into five decoupled layers of responsibility:
     - **Strategy Advisor**: "Co-pilot" aware of Alpha Engine syntax for creating factors logic.
     - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration.
     - **Self-Awareness (Doc-RAG)**: Ingests system documentation.
+    - **Professional CLI (v2.6)**: Bloomberg-style terminal with institutional autocompletion and rotating pro-tips.
+    - **Strategic Synthesis**: Multi-source mandatory confluence logic (SMC + COT + Heatmap) for high-net-worth decisions.
     - **Psychological MRI**: Analyzes execution patterns for "Tilt".
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
