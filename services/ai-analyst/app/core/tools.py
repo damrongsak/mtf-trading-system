@@ -27,6 +27,7 @@ from app.tools.efp import EFPCalibrationTool
 from app.tools.predictor import PredictorForecastTool, PredictorSignalTool
 from app.tools.stability import SystemHealthTool
 from app.tools.notification import SendNotificationTool
+from app.tools.volatility import VolatilityStructureTool
 
 
 logger = logging.getLogger(__name__)
@@ -388,7 +389,8 @@ class ToolRegistry:
             "calibrate_efp_parameters": EFPCalibrationTool(),
             "get_predictor_forecast": PredictorForecastTool(),
             "get_predictor_signal": PredictorSignalTool(),
-            "get_system_health": SystemHealthTool()
+            "get_system_health": SystemHealthTool(),
+            "volatility_structure_analysis": VolatilityStructureTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

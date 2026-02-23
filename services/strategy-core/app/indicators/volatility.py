@@ -1,5 +1,39 @@
 import pandas as pd
 import vectorbt as vbt
+import numpy as np
+
+def calculate_yang_zhang(open_s: pd.Series, high_s: pd.Series, low_s: pd.Series, close_s: pd.Series, window: int = 20) -> pd.Series:
+    """
+    Calculate Yang-Zhang Volatility (2000).
+    Combines overnight volatility, open-to-close volatility, and Rogers-Satchell.
+    """
+    # 1. Component log-returns
+    log_ho = np.log(high_s / open_s)
+    log_lo = np.log(low_s / open_s)
+    log_co = np.log(close_s / open_s)
+    
+    # Overnight returns (Open_t / Close_t-1)
+    log_oc = np.log(open_s / close_s.shift(1))
+    
+    # 2. Rogers-Satchell Variance
+    rs = log_ho * (log_ho - log_co) + log_lo * (log_lo - log_co)
+    rs_var = rs.rolling(window=window).mean()
+    
+    # 3. Open-to-Close Variance
+    oc_var = log_co.rolling(window=window).var()
+    
+    # 4. Overnight Variance
+    overnight_var = log_oc.rolling(window=window).var()
+    
+    # 5. Weighted average constant k
+    k = 0.34 / (1.34 + (window + 1) / (window - 1))
+    
+    # 6. Combined Variance
+    yz_var = overnight_var + k * oc_var + (1 - k) * rs_var
+    
+    # Return Annualized Std Dev (Assuming M15 data, or keep as raw for PIV?)
+    # PIV usually expects raw standard deviation for the period, which is what we have here.
+    return np.sqrt(yz_var)
 
 def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
     """

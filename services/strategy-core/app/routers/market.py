@@ -7,6 +7,9 @@ from datetime import datetime
 
 # Import Analysis Logic
 from app.analysis.market_regime import get_market_context
+from app.indicators.piv import calculate_n_bands, calculate_piv_levels
+from app.indicators.garch_engine import garch_engine
+from app.indicators.volatility import calculate_atr
 
 # Import DB/Data Utilities
 from app.backtest import fetch_data_from_db
@@ -91,3 +94,73 @@ async def check_market_regime_endpoint(req: RegimeRequest):
     context["meta"]["timeframe"] = req.timeframe
     
     return sanitize_numeric_dict(context)
+
+@router.post("/volatility/piv")
+async def get_piv_analysis(req: RegimeRequest):
+    """
+    Returns PIV analysis including N-Bands, VBSR levels, and GARCH forecast.
+    INPUT: Symbol, Timeframe (M5, M15, H1, H4, etc.)
+    """
+    symbol = req.symbol
+    timeframe = req.timeframe or "H1"
+    
+    # Logic for secondary (context) timeframe
+    # M5 -> M15/H1 context
+    # H1 -> H4 context
+    # H4 -> Daily context
+    if timeframe == "M5":
+        tf_setup = "M15"
+    elif timeframe == "M15":
+        tf_setup = "H1"
+    elif timeframe == "H1":
+        tf_setup = "H4"
+    elif timeframe == "H4":
+        tf_setup = "D1"
+    else:
+        tf_setup = "H4" # Default fallback
+        
+    try:
+        from app.routers.market import fetch_candles_logic
+        
+        # Fetch data for both timeframes
+        # Limit 100 for N-Bands/Volatility calculation
+        df_primary = await fetch_candles_logic(symbol, timeframe, limit=100)
+        # Limit 200 for VBSR levels / GARCH on higher timeframe
+        df_setup = await fetch_candles_logic(symbol, tf_setup, limit=200)
+        
+        if df_primary.empty or df_setup.empty:
+            raise HTTPException(status_code=404, detail=f"No data for {symbol} on {timeframe}/{tf_setup}")
+
+        # 1. Projected Volatility (GARCH / GVZ Fallback)
+        returns = df_setup['close'].pct_change().dropna()
+        proj_vol = garch_engine.get_projected_volatility(returns)
+        
+        # 2. Daily N-Bands (Calculated on primary TF for current range)
+        bands = calculate_n_bands(df_primary, multiplier=1.5, gvz=proj_vol)
+        
+        # 3. VBSR Structural Levels (on setup TF)
+        # We take latest 100 for structure finding
+        piv_levels = calculate_piv_levels(df_setup.tail(100), gvz=proj_vol)
+        
+        # Cleanup levels: remove duplicates and sort
+        piv_levels = sorted(list(set(np.round(piv_levels, 2).tolist())))
+
+        context = {
+            "symbol": symbol,
+            "projected_volatility": float(proj_vol),
+            "current_price": float(df_primary['close'].iloc[-1]),
+            "n_bands": bands,
+            "piv_levels": piv_levels,
+            "volatility_regime": "High" if proj_vol > 25 else "Normal" if proj_vol > 15 else "Low",
+            "meta": {
+                "primary_tf": timeframe,
+                "setup_tf": tf_setup
+            }
+        }
+        
+        return sanitize_numeric_dict(context)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

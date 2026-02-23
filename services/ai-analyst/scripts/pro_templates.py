@@ -26,6 +26,7 @@ INSTITUTIONAL_TEMPLATES = [
     "FOMC/CPI De-risking Strategy: Should we reduce exposure based on current volatility and liquidity depth?",
     "Synthesize Alpha: Combine Elliott Wave counts with Fibonacci confluence and CME Gamma levels for XAUUSD.",
     "Identify the 'Magnet Zone' (Max Pain): To which price level is Gold likely to be 'pinned' for the current expiry?",
+    "Volatility Structural Audit (PIV): Map GARCH-based projected volatility, N-Bands, and VBSR structural levels for Gold.",
 ]
 
 
@@ -38,5 +39,6 @@ PRO_TIPS = [
     "SMC: HTF (H1/H4) Market Structure dominates LTF (M5/M15) noise.",
     "Risk: Institutional traders prioritize 'Capital Preservation' over 'Profit Maximization'.",
     "Pro: Use /templates to see all high-conviction institutional query patterns.",
+    "PIV: Projected Implied Volatility (GARCH/GVZ) identifies when the price is 'Overextended' relative to institutional range.",
 ]
 
