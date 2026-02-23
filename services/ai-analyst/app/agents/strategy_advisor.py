@@ -885,6 +885,7 @@ class StrategyAdvisorAgent:
         3. Formulate a professional, quantitative response. 
         4. If no tools were used and information is missing, state it clearly.
         5. Acknowledge the conversation history if the user is asking a follow-up question.
+        6. **STRICT REQUIREMENT**: You have ALREADY executed the necessary tools in a previous step. The results are in the 'CRITICAL Tool Outputs' section. DO NOT under any circumstances attempt to call or mention a tool call again. Provide a PURE TEXT response based on the results provided.
         """
         
         try:
@@ -903,13 +904,26 @@ class StrategyAdvisorAgent:
                 thinking_config=thinking
             )
             final = result.get("text") or ""
+            finish_reason = result.get("finish_reason", "STOP")
+            
             if not final:
-                 logger.warning(f"Gemini returned EMPTY text for query: {state['optimized_query']}. Check safety filters or model state.")
-                 final = (
-                     "I'm sorry, I was unable to generate a text response for your request. "
-                     "This can happen if the content triggers AI safety filters (e.g., specific financial advice restrictions) "
-                     "or if there is a temporary service issue. Please try rephrasing your request."
-                 )
+                 logger.warning(f"Gemini returned EMPTY text for query: {state['optimized_query']}. Finish Reason: {finish_reason}")
+                 if finish_reason == "SAFETY":
+                     final = (
+                         "I'm sorry, I was unable to generate a response. The content triggered a safety filter "
+                         "(likely related to financial advice restrictions). Please try rephรasing or asking for technical data only."
+                     )
+                 elif finish_reason == "UNEXPECTED_TOOL_CALL":
+                     final = (
+                         "I encountered a structural error (Unexpected Tool Call) during generation. "
+                         "This happens when the model tries to call a tool in text-only mode. "
+                         "Please try re-submitting your request or simplify the prompt."
+                     )
+                 else:
+                     final = (
+                         "I'm sorry, I was unable to generate a response due to a model error or service timeout. "
+                         "Please try rephrasing your request."
+                     )
             
             logger.info(f"Generation successful. Final response size: {len(final)} chars.")
             thoughts = result.get("thoughts") or (reasoning_trace[0] if reasoning_trace else None)

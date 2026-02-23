@@ -161,12 +161,9 @@ class GeminiClient:
                     if reason != "STOP":
                         # If blocked by safety, we TRY to extract any text if it exists (partial blocking)
                         logger.warning(f"Gemini response finished with reason: {reason}. Text may be truncated or blocked.")
-                        if reason == "SAFETY":
-                             logger.error(f"CRITICAL: Gemini blocked response due to SAFETY filters despite BLOCK_NONE settings.")
-                             # If we have fallback models, maybe they won't block it
-                             if i < len(models) - 1:
-                                 logger.info(f"Retrying with fallback model due to safety block...")
-                                 continue 
+                        if i < len(models) - 1:
+                            logger.info(f"Retrying with fallback model due to {reason} block...")
+                            continue 
                 
                 # Safe response extraction
                 text_content = ""
@@ -199,7 +196,8 @@ class GeminiClient:
                     "text": text_content,
                     "thoughts": "\n".join(thoughts) if thoughts else None,
                     "tool_calls": tool_calls_found, # Optional: if we ever want to use SDK-native tools
-                    "usage": getattr(response, 'usage_metadata', None)
+                    "usage": getattr(response, 'usage_metadata', None),
+                    "finish_reason": getattr(response.candidates[0], 'finish_reason', 'STOP') if response.candidates else 'NO_CANDIDATE'
                 }
             except Exception as e:
                 import traceback
