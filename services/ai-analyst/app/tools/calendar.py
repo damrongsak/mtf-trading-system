@@ -90,7 +90,7 @@ class GetEconomicCalendarTool(BaseTool):
                 
         return "\n".join(summary) if summary else "No events match the criteria."
 
-    async def run(self, input_data: Any, auth_token: str = None):
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None):
         currency = None
         impact = None
         days = 7

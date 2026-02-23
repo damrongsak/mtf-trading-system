@@ -10,15 +10,15 @@ class PlanDecomposition(BaseModel):
     """Schema for breaking down complex requests into steps."""
     plan_steps: List[str] = Field(description="A list of 3-5 logical reasoning steps.")
 
-class ToolCall(BaseModel):
+class SystemToolCall(BaseModel):
     """Schema for an individual tool call."""
     tool_name: str = Field(description="The name of the tool to execute.")
     tool_input: Union[dict, str, list] = Field(description="The parameters or input for the tool.")
     reasoning: str = Field(description="Brief explanation of why this tool is needed.")
 
-class ToolSelection(BaseModel):
+class SystemToolSelection(BaseModel):
     """Schema for selecting multiple tools or providing a direct answer."""
-    tool_calls: List[ToolCall] = Field(default_factory=list, description="List of tools to execute.")
+    tool_calls: List[SystemToolCall] = Field(default_factory=list, description="List of tools to execute.")
     direct_answer: Optional[str] = Field(None, description="A direct response if no tools are needed.")
 
 class SentimentResult(BaseModel):

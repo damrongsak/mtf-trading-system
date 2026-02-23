@@ -15,7 +15,7 @@ class LiquidityHeatmapTool(BaseTool):
     Input JSON: {"symbol": "XAUUSD"}
     """
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         symbol = "XAUUSD"
         

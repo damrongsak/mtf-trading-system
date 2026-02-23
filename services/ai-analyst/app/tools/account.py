@@ -10,7 +10,7 @@ class GetAccountStatusTool(BaseTool):
     name: str = "get_account_status"
     description: str = "Fetches comprehensive account health including balance, equity, margin, open positions, and risk metrics. REQUIRED for calculating position size."
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 headers = {}

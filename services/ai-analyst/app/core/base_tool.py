@@ -28,7 +28,7 @@ class BaseTool(BaseModel):
             return f"❌ Tool '{self.name}' is currently unavailable (Circuit Breaker OPEN)."
 
         try:
-            result = await self._run_with_retry(input_data, auth_token, request_id)
+            result = await self._run_with_retry(input_data, auth_token=auth_token, request_id=request_id)
             self._failure_count = 0 # Reset on success
             return result
         except Exception as e:
@@ -43,4 +43,4 @@ class BaseTool(BaseModel):
         reraise=True
     )
     async def _run_with_retry(self, input_data: Any, auth_token: str = None, request_id: str = None) -> Any:
-        return await self.run(input_data, auth_token, request_id)
+        return await self.run(input_data, auth_token=auth_token, request_id=request_id)

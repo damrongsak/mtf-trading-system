@@ -7,7 +7,7 @@ class PredictorForecastTool(BaseTool):
     name: str = "get_predictor_forecast"
     description: str = "Fetches price forecasts and volatility metrics from the Olympus Predictor model for XAUUSD."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         steps = 5
         if isinstance(input_data, dict):
@@ -46,7 +46,7 @@ class PredictorSignalTool(BaseTool):
     name: str = "get_predictor_signal"
     description: str = "Gets a confidence-weighted trading signal (Direction, Target, Stop Loss) from the Olympus Predictor."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", "XAUUSD")

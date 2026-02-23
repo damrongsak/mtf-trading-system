@@ -21,7 +21,7 @@ class OpenInterestDriftTool(BaseTool):
     Use this during session opens (London/NY) to see how positioning has changed overnight.
     """
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         url_base = f"{settings.API_GATEWAY_URL}/api/v1/data/open-interest"
         
         # Prepare Headers

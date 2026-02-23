@@ -13,7 +13,7 @@ class GetMarketContextTool(BaseTool):
     name: str = "get_market_context"
     description: str = "Fetches current market price, trends, and limited technical historical candles for a symbol."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         count = 15
         

@@ -16,7 +16,7 @@ class OpenInterestTool(BaseTool):
     Returns total OI, Net OI, Put/Call Ratio, Max Pain, and OIWAP.
     """
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         # We use direct service URLs instead of API Gateway
         data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"

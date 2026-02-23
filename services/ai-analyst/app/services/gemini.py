@@ -8,6 +8,7 @@ class GeminiSchemaMapper:
     """
     Utility to transform Pydantic/JSON schemas into strict Gemini-compatible formats.
     Gemini API is picky about 'additionalProperties', '$defs', and certain naming conventions.
+    This version recursively resolves $refs to support nested models.
     """
     @staticmethod
     def to_gemini_schema(schema: Any) -> Dict[str, Any]:
@@ -18,30 +19,46 @@ class GeminiSchemaMapper:
         else:
             return schema
 
-        return GeminiSchemaMapper._cleanup_node(schema_dict)
+        # 1. Extract definitions if any
+        definitions = schema_dict.get("$defs", schema_dict.get("definitions", {}))
+        
+        # 2. Recursively resolve refs and cleanup
+        return GeminiSchemaMapper._process_node(schema_dict, definitions)
 
     @staticmethod
-    def _cleanup_node(node: Any) -> Any:
+    def _process_node(node: Any, definitions: Dict[str, Any]) -> Any:
+        if isinstance(node, list):
+            return [GeminiSchemaMapper._process_node(item, definitions) for item in node]
+        
         if not isinstance(node, dict):
-            if isinstance(node, list):
-                return [GeminiSchemaMapper._cleanup_node(item) for item in node]
             return node
+
+        # Handle References
+        if "$ref" in node:
+            ref_path = node["$ref"]
+            ref_key = ref_path.split("/")[-1]
+            if ref_key in definitions:
+                 # Resolve the reference and process the resolved node
+                 return GeminiSchemaMapper._process_node(definitions[ref_key], definitions)
+            else:
+                 logger.warning(f"Schema Mapper: Could not resolve reference {ref_path}")
+                 return node
 
         # Remove unsupported Gemini fields
         unsupported = ["additionalProperties", "additional_properties", "title", "description", "$defs", "definitions"]
         
-        # Build new dict with only supported fields
         cleaned = {}
-        
-        # Mapping rules
         for k, v in node.items():
             if k in unsupported:
                 continue
-                
-            # Recursive cleanup
-            cleaned[k] = GeminiSchemaMapper._cleanup_node(v)
+            
+            # Special case for "anyOf" or "oneOf" (Gemini is picky, usually prefers just one type or simpler union)
+            # For now, we'll keep them and hope Gemini handles the standard ones
+            
+            cleaned[k] = GeminiSchemaMapper._process_node(v, definitions)
 
         return cleaned
+
 from app.core.config import settings
 import time
 import asyncio
@@ -92,9 +109,13 @@ class GeminiClient:
                 # Configure Structured Output
                 if response_schema:
                     current_config['response_mime_type'] = "application/json"
-                    current_config['response_schema'] = GeminiSchemaMapper.to_gemini_schema(response_schema)
+                    gemini_schema = GeminiSchemaMapper.to_gemini_schema(response_schema)
+                    logger.debug(f"DEBUG: Generated Gemini Schema for {response_schema.__name__}: {json.dumps(gemini_schema)}")
+                    current_config['response_schema'] = gemini_schema
 
-                # Configure Safety Settings (Prevent blocking legitimate financial advice)
+                # Configure Safety Settings (Prevent blocking legitimate institutional analysis)
+                # CRITICAL: Even if BLOCK_NONE is set, Gemini may block if the prompt is flagged by internal filters.
+                # However, providing NONE explicitly is the best we can do.
                 if safety_settings:
                     current_config['safety_settings'] = safety_settings
                 else:
@@ -112,46 +133,77 @@ class GeminiClient:
                 if api_key and api_key != settings.gemini.api_key:
                     active_client = self.client_factory(api_key=api_key)
 
-                response = await active_client.aio.models.generate_content(
-                    model=current_model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(**current_config) if current_config else None
-                )
+                import traceback
+                logger.debug(f"DEBUG: Calling generate_content on {current_model}...")
+                
+                try:
+                    # Resolve config into the right type
+                    # FORCE: tool_config to NONE to prevent UNEXPECTED_TOOL_CALL errors
+                    if 'tool_config' not in current_config:
+                         current_config['tool_config'] = types.ToolConfig(
+                             function_calling_config=types.FunctionCallingConfig(mode='NONE')
+                         )
+                    
+                    gen_config = types.GenerateContentConfig(**current_config)
+                    
+                    response = await active_client.aio.models.generate_content(
+                        model=current_model,
+                        contents=contents,
+                        config=gen_config
+                    )
+                except Exception as e:
+                    logger.error(f"DEBUG: CRASH in google-genai SDK call: {e}\n{traceback.format_exc()}")
+                    raise e
 
                 # Check for safety blocks
                 if response.candidates and response.candidates[0].finish_reason:
                     reason = response.candidates[0].finish_reason
                     if reason != "STOP":
+                        # If blocked by safety, we TRY to extract any text if it exists (partial blocking)
                         logger.warning(f"Gemini response finished with reason: {reason}. Text may be truncated or blocked.")
                         if reason == "SAFETY":
                              logger.error(f"CRITICAL: Gemini blocked response due to SAFETY filters despite BLOCK_NONE settings.")
+                             # If we have fallback models, maybe they won't block it
+                             if i < len(models) - 1:
+                                 logger.info(f"Retrying with fallback model due to safety block...")
+                                 continue 
                 
-                # Extract thoughts if present
+                # Safe response extraction
+                text_content = ""
                 thoughts = []
-                try:
-                    # Iterate through candidates and parts to find thought/reasoning
-                    if hasattr(response, 'candidates'):
-                        for candidate in response.candidates:
-                             if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                                for part in candidate.content.parts:
-                                    # Check for thought attribute
-                                    if hasattr(part, "thought") and part.thought:
-                                        if isinstance(part.thought, str):
-                                            thoughts.append(part.thought)
-                                        elif isinstance(part.thought, bool) and part.thought and hasattr(part, "text"):
-                                            thoughts.append(part.text)
-                except Exception as e:
-                    logger.warning(f"Thought extraction warning: {e}")
+                tool_calls_found = []
 
-                if not response.text:
-                    logger.debug(f"DEBUG: Gemini response.text is empty. Candidates: {len(response.candidates) if hasattr(response, 'candidates') else 'N/A'}")
+                if response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                text_content += part.text
+                            if hasattr(part, 'thought') and part.thought:
+                                thoughts.append(str(part.thought))
+                            # Check for tool_call in part (SDK specific)
+                            if hasattr(part, 'tool_call') and part.tool_call:
+                                tool_calls_found.append(part.tool_call)
+
+                # Fallback to .text if my manual extraction is empty but .text works
+                if not text_content:
+                    try:
+                        text_content = response.text or ""
+                    except Exception:
+                        pass
+
+                if not text_content and not tool_calls_found:
+                    logger.debug(f"DEBUG: Gemini response is empty of both text and tools. Finish Reason: {getattr(response.candidates[0], 'finish_reason', 'UNKNOWN') if response.candidates else 'NO_CANDIDATE'}")
 
                 return {
-                    "text": response.text,
+                    "text": text_content,
                     "thoughts": "\n".join(thoughts) if thoughts else None,
+                    "tool_calls": tool_calls_found, # Optional: if we ever want to use SDK-native tools
                     "usage": getattr(response, 'usage_metadata', None)
                 }
             except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
                 last_error = e
                 error_str = str(e).upper()
                 
@@ -170,7 +222,7 @@ class GeminiClient:
                         await asyncio.sleep(0.5) # Brief pause before next attempt
                         continue
                 
-                logger.error(f"Gemini Generation Error on {current_model}: {e}")
+                logger.error(f"Gemini Generation Error on {current_model}: {e}\n{error_trace}")
                 if i == len(models) - 1:
                     # If we exhausted all fallback models, raise the last encountered error
                     raise e

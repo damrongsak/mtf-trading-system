@@ -14,8 +14,8 @@ from app.core.config import settings
 from app.core.schemas import (
     QueryOptimization,
     PlanDecomposition,
-    ToolCall,
-    ToolSelection,
+    SystemToolCall,
+    SystemToolSelection,
     EvaluationResult
 )
 
@@ -541,11 +541,17 @@ class StrategyAdvisorAgent:
             response = await self.gemini.generate_content(
                 model=[settings.gemini.flash_model_id, settings.gemini.model_id, "gemini-2.5-flash"],
                 contents=[prompt],
-                response_schema=ToolSelection
+                response_schema=SystemToolSelection
             )
             
             text = response.get("text", "")
-            decision = ToolSelection.model_validate_json(text)
+            # Clean up potential markdown formatting if not using schema
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            
+            decision = SystemToolSelection.model_validate_json(text)
 
             logger.info(f"Selected {len(decision.tool_calls)} tools: {[t.tool_name for t in decision.tool_calls]}")
             
@@ -577,25 +583,26 @@ class StrategyAdvisorAgent:
         from app.utils.middleware import get_request_id
         from app.utils.token_monitor import TokenMonitor
         request_id = get_request_id()
+        auth_token = state.get("auth_token")
         
         # Check for context saturation to trigger "Slim Mode"
         scratchpad_text = "\n".join(state.get("scratchpad", []))
         is_saturated = TokenMonitor.is_saturated(scratchpad_text)
 
-        async def exec_tool(call):
+        async def exec_tool(call, current_auth_token, current_request_id):
             tool_name = call.get("tool_name")
             tool_input = call.get("tool_input")
             
             # Inject auth_token/user_id/request_id into input context
             if isinstance(tool_input, dict):
-                if auth_token:
+                if current_auth_token:
                     if "auth_token" not in tool_input or not tool_input["auth_token"]:
-                        tool_input["auth_token"] = auth_token
+                        tool_input["auth_token"] = current_auth_token
                     if "user_id" not in tool_input or not tool_input["user_id"]:
                         tool_input["user_id"] = state.get("user_id")
                 
-                if request_id and ("request_id" not in tool_input or not tool_input["request_id"]):
-                    tool_input["request_id"] = request_id
+                if current_request_id and ("request_id" not in tool_input or not tool_input["request_id"]):
+                    tool_input["request_id"] = current_request_id
                 
                 # Token-Aware Routing: Force slim mode if saturated
                 if is_saturated and "slim" not in tool_input:
@@ -607,7 +614,7 @@ class StrategyAdvisorAgent:
                     # Handle both local BaseTool and Langchain BaseTool
                     if hasattr(tool, "run") and not hasattr(tool, "_arun"):
                         # Local BaseTool
-                        result = await tool.run_resilient(tool_input, auth_token=auth_token, request_id=request_id)
+                        result = await tool.run_resilient(tool_input, auth_token=current_auth_token, request_id=current_request_id)
                     else:
                         # Langchain Tool
                         if isinstance(tool_input, dict):
@@ -624,7 +631,7 @@ class StrategyAdvisorAgent:
 
         # Execute all tools in parallel
         if calls:
-             results = await asyncio.gather(*[exec_tool(call) for call in calls])
+             results = await asyncio.gather(*[exec_tool(call, auth_token, request_id) for call in calls])
              outputs.extend(results)
                 
         # Increment loop count

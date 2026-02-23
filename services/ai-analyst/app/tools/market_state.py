@@ -10,7 +10,7 @@ class MarketStateTool(BaseTool):
     name: str = "market_state"
     description: str = "Fetches institutional-grade market state features (Regime, Fakeout, Risk) for XAUUSD. Input: {'symbol': 'XAUUSD', 'timeframe': 'H1'}."
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         

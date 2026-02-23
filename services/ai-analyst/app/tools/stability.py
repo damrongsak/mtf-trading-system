@@ -8,7 +8,7 @@ class SystemHealthTool(BaseTool):
     name: str = "get_system_health"
     description: str = "Checks the health status of all MTF Olympus backend services (Predictor, Analyst, Gateway)."
 
-    async def run(self, input_data: Any = None, auth_token: str = None) -> str:
+    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         services_to_check = {
             "Olympus Predictor": f"{settings.OLYMPUS_PREDICTOR_URL}/health",
             "API Gateway": f"{settings.API_GATEWAY_URL}/health",

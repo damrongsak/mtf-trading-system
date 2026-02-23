@@ -7,7 +7,7 @@ class GetTechnicalSignalsTool(BaseTool):
     name: str = "get_technical_signals"
     description: str = "Checks for active technical trading signals (SMC, Order Blocks) for a symbol."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         if isinstance(input_data, str) and input_data:
             symbol = input_data

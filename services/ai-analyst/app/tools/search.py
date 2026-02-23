@@ -15,7 +15,7 @@ class GoogleSearchTool(BaseTool):
     name: str = "google_search"
     description: str = "Searches the web for real-time information and news. Use this to find reasons for market movements."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         query = ""
         if isinstance(input_data, str):
             query = input_data

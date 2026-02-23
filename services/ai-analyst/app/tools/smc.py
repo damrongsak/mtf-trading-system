@@ -14,7 +14,7 @@ class SMCAnalystTool(BaseTool):
     name: str = "smc_technical_analysis"
     description: str = "Perform institutional Smart Money Concepts (SMC) technical analysis on a specific trading symbol."
 
-    async def run(self, input_data: Any, auth_token: str = None) -> Any:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> Any:
         import logging
         logger = logging.getLogger("ai-analyst")
         

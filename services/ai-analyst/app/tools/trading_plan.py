@@ -18,7 +18,7 @@ class TradingPlanTool(BaseTool):
     description: str = "Generates a professional trading plan for a symbol including Entry, SL, TP, and Lot Size based on Fund Risk Profile. Use this when the user asks for a 'trading plan' or 'buy/sell setup'."
     args_schema: Any = TradingPlanInput
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = input_data.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
         timeframe = input_data.get("timeframe", "M15")
         override_risk = input_data.get("risk_percentage")
