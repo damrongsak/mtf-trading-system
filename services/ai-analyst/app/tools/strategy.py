@@ -1,66 +1,59 @@
-from langchain.tools import BaseTool
-from pydantic import BaseModel, Field
-from typing import Type
+from app.core.base_tool import BaseTool
+from typing import Any
 import aiohttp
 from app.core.config import settings
 import json
 
-class StrategyInput(BaseModel):
-    symbol: str = Field(description="The trading symbol to test, e.g., 'XAU/USD'.")
-    code: str = Field(description="The Python code implementing the strategy. Must use 'vectorbt' and define 'strategy(data)' or similar.")
-    timeframe: str = Field(default="1h", description="Timeframe for the backtest (e.g. '15m', '1h').")
 
 class StrategyBacktestTool(BaseTool):
-    name: str = "run_strategy_backtest"
-    description: str = "Executes a Python strategy using vectorbt on historical data and returns performance metrics (Sharpe, PnL)."
-    args_schema: Type[BaseModel] = StrategyInput
+    name: str = "backtest_runner"
+    description: str = "Executes a Python strategy using vectorbt on historical data and returns performance metrics (Sharpe, PnL, MDD). WARNING: This is a high-latency tool for historical auditing only. NEVER use for real-time risk or immediate drawdown queries."
 
-    def _run(self, symbol: str, code: str, timeframe: str = "1h"):
-        raise NotImplementedError("Use _arun instead")
-
-    async def _arun(self, symbol: str, code: str, timeframe: str = "1h"):
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         url = f"{settings.STRATEGY_CORE_URL}/api/v1/backtest/custom"
-        
-        from datetime import datetime, timedelta
-        end_dt = datetime.now()
-        start_dt = end_dt - timedelta(days=365)
 
-        # Prepare payload for Strategy Core
-        payload = {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "code": code,
-            "start_date": start_dt.isoformat(),
-            "end_date": end_dt.isoformat(),
-            "initial_capital": 10000.0,
-            "fees": 0.0001,
-            "slippage": 0.0001
-        }
-        
+        payload = {}
+        if isinstance(input_data, str):
+            try:
+                payload = json.loads(input_data)
+            except Exception:
+                return "Error: invalid JSON input for backtest."
+        elif isinstance(input_data, dict):
+            payload = input_data
+
+        if not payload:
+            return "Error: Backtest configuration required (symbol, timeframe, code)."
+
+        from datetime import datetime, timedelta
+        if "start_date" not in payload:
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=30)
+            payload.setdefault("start_date", start_dt.isoformat())
+            payload.setdefault("end_date", end_dt.isoformat())
+        payload.setdefault("initial_capital", 10000.0)
+        payload.setdefault("fees", 0.0001)
+        payload.setdefault("slippage", 0.0001)
+
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.post(url, json=payload, timeout=60) as resp:
+                async with session.post(url, json=payload, timeout=120) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         metrics = data.get("metrics", {})
                         status = data.get("status", "UNKNOWN")
-                        
+
                         if status != "COMPLETED":
-                             return f"Backtest Failed: {status}"
-                        
-                        summary = (
-                            f"Backtest Results for {symbol}:\n"
+                            return f"Backtest Failed: {status}"
+
+                        return (
+                            f"**Backtest Results** for {payload.get('symbol', 'N/A')}:\n"
                             f"- Total Return: {metrics.get('total_return_percent', 0):.2f}%\n"
                             f"- Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.2f}\n"
-                            f"- Profit Factor: {metrics.get('profit_factor', 0):.2f}\n"
-                            f"- Win Rate: {metrics.get('win_rate', 0):.2f}%\n"
-                            f"- K-Ratio: {metrics.get('k_ratio', 0):.2f}\n"
-                            f"- Reward-to-Risk: {metrics.get('reward_to_risk_ratio', 0):.2f}\n"
-                            f"- Kurtosis: {metrics.get('kurtosis', 0):.2f}\n"
                             f"- Max Drawdown: {metrics.get('max_drawdown_percent', 0):.2f}%\n"
-                            f"- Trades: {metrics.get('total_trades', 0)}"
+                            f"- Win Rate: {metrics.get('win_rate', 0):.2f}%\n"
+                            f"- Profit Factor: {metrics.get('profit_factor', 0):.2f}\n"
+                            f"- Total Trades: {metrics.get('total_trades', 0)}"
                         )
-                        return summary
                     else:
                         err_text = await resp.text()
                         return f"Strategy Core Error ({resp.status}): {err_text}"

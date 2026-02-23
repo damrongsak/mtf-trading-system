@@ -51,7 +51,8 @@ class GoogleSearchTool(BaseTool):
         }
         
         try:
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(total=15.0, connect=5.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(url, params=params) as resp:
                     if resp.status == 429:
                         return "Error: SerpApi rate limit exceeded (Free plan: 50 throughput/hour)."
@@ -80,6 +81,9 @@ class GoogleSearchTool(BaseTool):
                         return "No results found on SerpApi for this query."
                         
                     return "\n---\n".join(results)
+        except aiohttp.ServerTimeoutError:
+            logger.warning(f"SerpApi timeout for query: {query[:50]}")
+            return f"⚠️ Web search timed out for '{query}'. Using knowledge base as fallback."
         except Exception as e:
             logger.error(f"SerpApi execution failed: {e}")
-            return f"SerpApi search failed due to internal error."
+            return f"⚠️ Web search unavailable: {type(e).__name__}. Please rely on knowledge base or market tools."

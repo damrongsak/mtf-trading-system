@@ -53,8 +53,18 @@ class COTAnalystTool(BaseTool):
                         comm_sentiment = "BULLISH" if net_comm > 0 else "BEARISH" # Commercials usually opposite
                         
                         report = [f"### 📈 Smart Money Sentiment (COT Report: {data.get('report_date', 'N/A')})"]
-                        report.append(f"\n- **Non-Commercials (Speculators)**: {nc_sentiment} (Net: {net_nc:,.0f} contracts)")
-                        report.append(f"- **Commercials (Hedgers)**: {comm_sentiment} (Net: {net_comm:,.0f} contracts)")
+                        
+                        # Detect if all values are zero (parser issue or no data ingested yet)
+                        if nc_long == 0 and nc_short == 0 and comm_long == 0 and comm_short == 0:
+                            report.append("\n⚠️ **Data Integrity Alert**: COT position values are all zero.")
+                            report.append("This typically means the latest CFTC report has not been ingested yet, or the parser encountered a format change.")
+                            report.append(f"\n- **Report Date**: {data.get('report_date', 'N/A')}")
+                            report.append("- **Action**: Run the COT sync job to refresh data from CFTC.")
+                            report.append("\n> COT data is published weekly by the CFTC (every Tuesday for the prior week).")
+                            return "\n".join(report)
+
+                        report.append(f"\n- **Non-Commercials (Speculators)**: {nc_sentiment} (Long: {nc_long:,.0f} | Short: {nc_short:,.0f} | Net: {net_nc:+,.0f} contracts)")
+                        report.append(f"- **Commercials (Hedgers)**: {comm_sentiment} (Long: {comm_long:,.0f} | Short: {comm_short:,.0f} | Net: {net_comm:+,.0f} contracts)")
                         
                         # Institutional Interpretation
                         bias_desc = "Neutral"

@@ -23,6 +23,16 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style as PromptStyle
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.completion import WordCompleter
+import random
+
+# Import professional templates
+try:
+    from pro_templates import INSTITUTIONAL_TEMPLATES, PRO_TIPS
+except ImportError:
+    INSTITUTIONAL_TEMPLATES = []
+    PRO_TIPS = []
+
 
 # Install rich traceback handler
 install()
@@ -45,6 +55,15 @@ class ChatApp:
         self.client = httpx.AsyncClient(timeout=120.0)
         self.running = True
         self.session = None # Delay init
+        
+        # Pro Features
+        self.completer = WordCompleter(
+            INSTITUTIONAL_TEMPLATES + ["/help", "/login", "/logout", "/new", "/session", "/clear", "/templates"],
+            ignore_case=True,
+            match_middle=True
+        )
+        self.current_tip = random.choice(PRO_TIPS) if PRO_TIPS else "Welcome to MTF Olympus"
+
 
     def get_or_create_user_id(self):
         if os.path.exists(USER_ID_FILE):
@@ -146,7 +165,14 @@ class ChatApp:
             
         self.console.print("[dim]Type [bold]/help[/bold] for commands. [bold]Alt+Enter[/bold] for new line.[/dim]\n")
 
+    def get_bottom_toolbar(self):
+        """Returns the dynamic suggestion toolbar."""
+        import html
+        escaped_tip = html.escape(self.current_tip)
+        return HTML(f'<ansiyellow fg="ansiblack"><b> PRO </b></ansiyellow> <ansicyan><i>{escaped_tip}</i></ansicyan>')
+
     async def handle_command(self, text: str) -> bool:
+
         """Returns True if command handled, False if regular message"""
         cmd = text.strip().lower()
         if cmd in ["/quit", "/exit"]:
@@ -177,7 +203,16 @@ class ChatApp:
             self.auth_token = None
             self.console.print("[yellow]Logged out.[/yellow]")
             return True
+        if cmd == "/templates":
+            self.console.print(Panel(
+                "\n".join([f"• {t}" for t in INSTITUTIONAL_TEMPLATES]),
+                title="[bold cyan]Institutional Query Templates[/bold cyan]",
+                border_style="cyan",
+                expand=False
+            ))
+            return True
         if cmd == "/help":
+
             self.console.print(Panel(
                 """
                 [bold]Commands:[/bold]
@@ -219,13 +254,20 @@ class ChatApp:
 
         while self.running:
             try:
+                # Rotate tip for each turn
+                if PRO_TIPS:
+                    self.current_tip = random.choice(PRO_TIPS)
+
                 # Prompt Input
                 with patch_stdout():
                     user_input = await self.session.prompt_async(
                         HTML("<b><cyan>You</cyan></b>: "),
                         multiline=False,
-                        is_password=False
+                        is_password=False,
+                        completer=self.completer,
+                        bottom_toolbar=self.get_bottom_toolbar
                     )
+
 
                 if not user_input.strip():
                     continue
@@ -258,7 +300,7 @@ class ChatApp:
                              f"{API_URL}{AGENT_ENDPOINT}", 
                              json=payload,
                              headers=headers,
-                             timeout=120.0
+                             timeout=300.0
                         )
                         
                         if response.status_code == 401 or response.status_code == 403:

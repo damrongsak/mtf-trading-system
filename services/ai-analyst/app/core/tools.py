@@ -319,19 +319,28 @@ class PythonSandboxTool(BaseTool):
     name: str = "python_sandbox"
     description: str = "\n    Execute Python code for custom quantitative calculations and validation. \n    DO NOT use this tool for standard market analysis, SMC, or price forecasts if specialized tools exist.\n    Context includes 'pd', 'np'. \n    Input: Python code string. \n    Output: Standard Output of the code.\n    "
 
-    async def run(self, code: str, auth_token: str = None, request_id: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         # Security Warning: In production, this must be sandboxed (e.g. e2b, gvisor).
         # For this MVP/Project, we run it with restricted globals.
+        
+        # Accept both direct code strings and dict {"code": "..."} from the AI router
+        if isinstance(input_data, dict):
+            code = input_data.get("code") or input_data.get("expression") or str(input_data)
+        else:
+            code = str(input_data)
+        
+        if not code.strip():
+            return "Error: No code provided to execute."
         
         buffer = io.StringIO()
         sys.stdout = buffer
         
         try:
-            # Prepare context
+            # Prepare context with math-friendly libraries
             local_vars = {}
-            # Allow pandas and numpy
             exec("import pandas as pd", {}, local_vars)
             exec("import numpy as np", {}, local_vars)
+            exec("import math, statistics", {}, local_vars)
             try:
                 exec("from tabulate import tabulate", {}, local_vars)
             except: pass
