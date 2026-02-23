@@ -43,14 +43,18 @@ router = APIRouter(
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 
 @router.get("/agents")
-async def list_agents():
+async def list_agents(request: Request):
     """
     Proxy list agents request to AI Analyst service.
     """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
                 f"{AI_SERVICE_URL}/api/v1/ai/agents",
+                headers=headers,
                 timeout=5.0
             )
             response.raise_for_status()
@@ -63,15 +67,19 @@ async def list_agents():
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/market-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_market(req: MarketAnalysisRequest):
+async def analyze_market(req: MarketAnalysisRequest, request: Request):
     """
     Proxy market analysis request to AI Analyst service.
     """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/analyze/market", 
                 json=req.model_dump(mode='json'),
+                headers=headers,
                 timeout=30.0 # LLMs can be slow
             )
             response.raise_for_status()
@@ -84,15 +92,19 @@ async def analyze_market(req: MarketAnalysisRequest):
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/journal-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_journal(req: JournalAnalysisRequest):
+async def analyze_journal(req: JournalAnalysisRequest, request: Request):
     """
     Proxy journal analysis request to AI Analyst service.
     """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/analyze/journal", 
                 json=req.model_dump(mode='json'),
+                headers=headers,
                 timeout=30.0
             )
             response.raise_for_status()
@@ -110,18 +122,24 @@ class AgentRunRequest(pydantic.BaseModel):
 @router.post("/agent/observer/run")
 async def run_market_observer(
     req: AgentRunRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
 ):
     """
     Proxy agent run request to AI Analyst service with authentication.
     """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": f"Bearer {token}"}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+        
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
                 json=req.model_dump(),
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
                 timeout=120.0 # Agents can be slow
             )
             response.raise_for_status()
@@ -146,9 +164,14 @@ async def get_daily_briefing(
     async with httpx.AsyncClient() as client:
         try:
             # We call the POST endpoint on AI Analyst to generate/fetch
+            request_id = getattr(request.state, "request_id", None)
+            headers = {"Authorization": f"Bearer {token}"}
+            if request_id:
+                headers["X-Request-ID"] = request_id
+
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/briefing",
-                headers={"Authorization": f"Bearer {token}"},
+                headers=headers,
                 timeout=120.0 
             )
             response.raise_for_status()
@@ -187,20 +210,26 @@ class StrategyChatRequest(pydantic.BaseModel):
 
 @router.post("/chat/sessions/message")
 async def chat_strategy(
-    request: StrategyChatRequest, 
+    request: Request,
+    chat_req: StrategyChatRequest, 
     authorization: str = Header(None, alias="Authorization")
 ):
     """
     Direct chat with Strategy Advisor (Stateless wrapper for CLI/Quick Chat).
     Proxies to AI Analyst service.
     """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization} if authorization else {}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+
     async with httpx.AsyncClient() as client:
         try:
             # Forward to AI Analyst
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message", 
-                json=request.model_dump(),
-                headers={"Authorization": authorization} if authorization else None,
+                json=chat_req.model_dump(),
+                headers=headers,
                 timeout=180.0 # Very Long timeout for CoT
             )
             response.raise_for_status()
@@ -327,9 +356,12 @@ async def send_chat_message(
         
         async with httpx.AsyncClient() as client:
             # Pass the Authorization header from the incoming request if it exists
+            request_id = getattr(request.state, "request_id", None)
             headers = {}
             if authorization:
                 headers["Authorization"] = authorization
+            if request_id:
+                headers["X-Request-ID"] = request_id
                 
             resp = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message",

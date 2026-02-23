@@ -24,8 +24,8 @@ from app.services.session_observer import session_observer
 from app.services.stability_observer import stability_observer
 
 # Setup Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("ai-analyst")
+from app.utils.middleware import setup_tracing_logging
+logger = setup_tracing_logging()
 
 from app.core.globals import services
 
@@ -158,6 +158,9 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+from app.utils.middleware import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(ingest.router, prefix="/api/v1/ai/ingest", tags=["Ingest"])
 app.include_router(agents.router, prefix="/api/v1/ai", tags=["Agents"])

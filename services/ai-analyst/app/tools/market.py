@@ -41,12 +41,12 @@ class GetMarketContextTool(BaseTool):
                 
                 async with session.get(url, params=params) as resp:
                      if resp.status == 200:
-                         data = await resp.json()
-                         candles = data.get("data", [])
-                         summary = [
-                             f"Time: {c['timestamp']}, Close: {c['close']}" for c in candles
-                         ]
-                         return f"Recent {symbol} Price History (H1): {summary}"
+                          data = await resp.json()
+                          candles = data.get("data", [])
+                          
+                          from app.utils.distiller import DataDistiller
+                          distilled = DataDistiller.distill_candles(candles, count=10)
+                          return f"Distilled Market Context for {symbol}: {distilled}"
                      else:
                          return f"Error fetching market data: {resp.status}"
             except Exception as e:

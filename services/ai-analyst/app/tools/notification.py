@@ -24,7 +24,7 @@ class SendNotificationTool(BaseTool):
     )
     args_schema: Any = NotificationInput
 
-    async def run(self, input_data: Any, auth_token: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         # Handle both dict and direct string input
         if isinstance(input_data, str):
             message = input_data
@@ -42,6 +42,8 @@ class SendNotificationTool(BaseTool):
         headers = {
             "Authorization": auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
         }
+        if request_id:
+            headers["X-Request-ID"] = request_id
 
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
         send_url = f"{base_url}/api/v1/telegram/send"

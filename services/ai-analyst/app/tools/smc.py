@@ -103,6 +103,11 @@ class SMCAnalystTool(BaseTool):
                 sweeps = analysis.get("liquidity_sweeps", [])
                 structure = analysis.get("structure", {})
                 
+                if isinstance(input_data, dict) and input_data.get("slim"):
+                     from app.utils.distiller import DataDistiller
+                     slim_json = DataDistiller.distill_smc_raw(data)
+                     return f"Slim SMC Analysis for {symbol}: {json.dumps(slim_json)}"
+
                 # Build the professional report
                 report = []
                 report.append(f"### 🏛️ SMC Institutional Analysis: {symbol} ({timeframe})")

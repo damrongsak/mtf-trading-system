@@ -11,9 +11,10 @@ def setup_logging(level=logging.INFO):
     # Console Handler
     handler = logging.StreamHandler(sys.stdout)
     
-    # Standard format
-    formatter = logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    # Standard format with request_id
+    from app.middleware import TracingFormatter
+    formatter = TracingFormatter(
+        '%(asctime)s [%(levelname)s] %(request_id)s%(name)s: %(message)s',
         datefmt='%Y-%m-%dT%H:%M:%SZ'
     )
     

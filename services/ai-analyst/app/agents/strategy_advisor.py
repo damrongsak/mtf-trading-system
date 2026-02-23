@@ -574,19 +574,32 @@ class StrategyAdvisorAgent:
         calls = state.get("tool_calls", [])
         outputs = []
         
-        auth_token = state.get("auth_token")
+        from app.utils.middleware import get_request_id
+        from app.utils.token_monitor import TokenMonitor
+        request_id = get_request_id()
         
-        # Helper function for individual tool execution
+        # Check for context saturation to trigger "Slim Mode"
+        scratchpad_text = "\n".join(state.get("scratchpad", []))
+        is_saturated = TokenMonitor.is_saturated(scratchpad_text)
+
         async def exec_tool(call):
             tool_name = call.get("tool_name")
             tool_input = call.get("tool_input")
             
-            # Inject auth_token/user_id into input context if it's a dict
-            if isinstance(tool_input, dict) and auth_token:
-                if "auth_token" not in tool_input or not tool_input["auth_token"]:
-                    tool_input["auth_token"] = auth_token
-                if "user_id" not in tool_input or not tool_input["user_id"]:
-                    tool_input["user_id"] = state.get("user_id")
+            # Inject auth_token/user_id/request_id into input context
+            if isinstance(tool_input, dict):
+                if auth_token:
+                    if "auth_token" not in tool_input or not tool_input["auth_token"]:
+                        tool_input["auth_token"] = auth_token
+                    if "user_id" not in tool_input or not tool_input["user_id"]:
+                        tool_input["user_id"] = state.get("user_id")
+                
+                if request_id and ("request_id" not in tool_input or not tool_input["request_id"]):
+                    tool_input["request_id"] = request_id
+                
+                # Token-Aware Routing: Force slim mode if saturated
+                if is_saturated and "slim" not in tool_input:
+                    tool_input["slim"] = True
 
             tool = self.tool_registry.get_tool(tool_name)
             if tool:
@@ -594,10 +607,11 @@ class StrategyAdvisorAgent:
                     # Handle both local BaseTool and Langchain BaseTool
                     if hasattr(tool, "run") and not hasattr(tool, "_arun"):
                         # Local BaseTool
-                        result = await tool.run(tool_input, auth_token=auth_token)
+                        result = await tool.run_resilient(tool_input, auth_token=auth_token, request_id=request_id)
                     else:
                         # Langchain Tool
                         if isinstance(tool_input, dict):
+                            # Inject request_id into kwargs if possible for Langchain tools
                             result = await tool.arun(**tool_input)
                         else:
                             result = await tool.arun(tool_input)
@@ -907,6 +921,10 @@ class StrategyAdvisorAgent:
         query = state["optimized_query"]
         response = state["final_response"]
         iteration = state.get("iteration_count", 0)
+
+        if iteration >= 3:
+            logger.warning(f"⚠️ Hard Safety Cap reached (Iteration {iteration}). Forcing satisfactory=True.")
+            return {"is_satisfactory": True, "iteration_count": iteration + 1}
 
         logger.info(f"Evaluating Response (Iteration {iteration})...")
 

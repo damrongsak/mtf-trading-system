@@ -85,6 +85,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.middleware import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
+
 # Mount static files
 static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
 if not os.path.exists(static_path):
