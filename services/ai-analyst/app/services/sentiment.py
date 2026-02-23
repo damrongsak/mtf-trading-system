@@ -3,6 +3,7 @@ import redis.asyncio as redis
 import logging
 import hashlib
 from app.core.config import settings
+from app.core.schemas import SentimentResult
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from app.core.globals import services
@@ -119,27 +120,20 @@ class SentimentService:
         try:
             # Use Tier 1 models (Flash Lite) for background cost efficiency
             models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"]
-            content = await gemini.generate_content(
-                prompt=prompt,
-                model_name=models[0],
-                fallback_models=models[1:]
+            response = await gemini.generate_content(
+                contents=[prompt],
+                model=models,
+                response_schema=SentimentResult
             )
             
-            if not content:
+            if not response or not response.get("text"):
                 return {"score": 0.0, "reason": "Empty AI response"}
 
-            # Robust JSON parsing
-            clean_content = content.replace("```json", "").replace("```", "").strip()
-            # Find first { and last } to isolate JSON if extra text exists
-            start = clean_content.find("{")
-            end = clean_content.rfind("}")
-            if start != -1 and end != -1:
-                clean_content = clean_content[start:end+1]
-
-            data = json.loads(clean_content)
+            # Robust JSON parsing using Pydantic
+            data = SentimentResult.model_validate_json(response["text"])
             return {
-                "score": float(data.get("score", 0.0)),
-                "reason": data.get("reason", "Analysis generated successfully")
+                "score": data.score,
+                "reason": data.reason
             }
         except Exception as e:
             logger.error(f"Sentiment LLM Analysis Error: {e}")

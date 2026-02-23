@@ -1,5 +1,47 @@
-from typing import Union
+from typing import Union, List, Optional, Dict, Any
 from google import genai
+from google.genai import types
+import json
+import re
+
+class GeminiSchemaMapper:
+    """
+    Utility to transform Pydantic/JSON schemas into strict Gemini-compatible formats.
+    Gemini API is picky about 'additionalProperties', '$defs', and certain naming conventions.
+    """
+    @staticmethod
+    def to_gemini_schema(schema: Any) -> Dict[str, Any]:
+        if hasattr(schema, "model_json_schema"):
+            schema_dict = schema.model_json_schema()
+        elif isinstance(schema, dict):
+            schema_dict = schema
+        else:
+            return schema
+
+        return GeminiSchemaMapper._cleanup_node(schema_dict)
+
+    @staticmethod
+    def _cleanup_node(node: Any) -> Any:
+        if not isinstance(node, dict):
+            if isinstance(node, list):
+                return [GeminiSchemaMapper._cleanup_node(item) for item in node]
+            return node
+
+        # Remove unsupported Gemini fields
+        unsupported = ["additionalProperties", "additional_properties", "title", "description", "$defs", "definitions"]
+        
+        # Build new dict with only supported fields
+        cleaned = {}
+        
+        # Mapping rules
+        for k, v in node.items():
+            if k in unsupported:
+                continue
+                
+            # Recursive cleanup
+            cleaned[k] = GeminiSchemaMapper._cleanup_node(v)
+
+        return cleaned
 from app.core.config import settings
 import time
 import asyncio
@@ -23,11 +65,10 @@ class GeminiClient:
         # Circuit Breaker state: model_name -> expiration_timestamp (float)
         self._rate_limit_lockouts = {}
 
-    async def generate_content(self, model: Union[str, list], contents: list, config: dict = None, thinking_config: dict = None, api_key: str = None) -> dict:
+    async def generate_content(self, model: Union[str, list], contents: list, config: dict = None, thinking_config: dict = None, api_key: str = None, response_schema: type = None, safety_settings: Optional[List[types.SafetySetting]] = None) -> dict:
         """
-        Generic generation with support for Thinking models and Active Fallback for Rate Limits.
+        Generic generation with support for Thinking models, Structured Output, and Active Fallback.
         Implements a Circuit Breaker to instantly skip models currently under a 429 lockout.
-        Returns dict with 'text' and 'thoughts' (if available).
         """
         models = [model] if isinstance(model, str) else model
         last_error = None
@@ -47,6 +88,24 @@ class GeminiClient:
                 current_config = dict(config) if config else {}
                 if thinking_config:
                     current_config['thinking_config'] = thinking_config
+                
+                # Configure Structured Output
+                if response_schema:
+                    current_config['response_mime_type'] = "application/json"
+                    current_config['response_schema'] = GeminiSchemaMapper.to_gemini_schema(response_schema)
+
+                # Configure Safety Settings (Prevent blocking legitimate financial advice)
+                if safety_settings:
+                    current_config['safety_settings'] = safety_settings
+                else:
+                    # Default permissive safety settings for trading analysis
+                    current_config['safety_settings'] = [
+                        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+                        types.SafetySetting(category="HARM_CATEGORY_CIVIC_INTEGRITY", threshold="BLOCK_NONE")
+                    ]
 
                 # Transient client for BYOK if key provided
                 active_client = self.client
@@ -56,10 +115,18 @@ class GeminiClient:
                 response = await active_client.aio.models.generate_content(
                     model=current_model,
                     contents=contents,
-                    config=current_config if current_config else None
+                    config=types.GenerateContentConfig(**current_config) if current_config else None
                 )
+
+                # Check for safety blocks
+                if response.candidates and response.candidates[0].finish_reason:
+                    reason = response.candidates[0].finish_reason
+                    if reason != "STOP":
+                        logger.warning(f"Gemini response finished with reason: {reason}. Text may be truncated or blocked.")
+                        if reason == "SAFETY":
+                             logger.error(f"CRITICAL: Gemini blocked response due to SAFETY filters despite BLOCK_NONE settings.")
                 
-                # Extract thoughts if present (Gemini 2.5/3.0 style)
+                # Extract thoughts if present
                 thoughts = []
                 try:
                     # Iterate through candidates and parts to find thought/reasoning

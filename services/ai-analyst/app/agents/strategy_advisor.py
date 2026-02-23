@@ -11,6 +11,13 @@ from app.services.rag import RAGService
 from app.services.memory import MemoryService
 from app.services.semantic_cache import SemanticCache
 from app.core.config import settings
+from app.core.schemas import (
+    QueryOptimization,
+    PlanDecomposition,
+    ToolCall,
+    ToolSelection,
+    EvaluationResult
+)
 
 
 from app.core.prompts import (
@@ -245,18 +252,22 @@ class StrategyAdvisorAgent:
         """
         
         try:
-            # Tier 1 (3-Model Fallback)
+            # Tier 1 fallback logic
             response = await self.gemini.generate_content(
-                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"], 
-                contents=[prompt]
+                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"], 
+                contents=[prompt],
+                response_schema=QueryOptimization
             )
-            text = response.get("text", "").replace("```json", "").replace("```", "")
-            data = json.loads(text)
             
-            logger.info(f"Optimization Result - Intent: {data.get('intent')}, Query: {data.get('optimized_query')}")
+            # The SDK will return a parsed object if response_schema is provided
+            # and our wrapper returns response.text (which should be the JSON string)
+            text = response.get("text", "")
+            data = QueryOptimization.model_validate_json(text)
+            
+            logger.info(f"Optimization Result - Intent: {data.intent}, Query: {data.optimized_query}")
             return {
-                "optimized_query": data.get("optimized_query", query),
-                "intent": data.get("intent", "CHAT")
+                "optimized_query": data.optimized_query,
+                "intent": data.intent
             }
         except Exception as e:
             logger.error(f"Optimizer failed: {e}")
@@ -369,13 +380,15 @@ class StrategyAdvisorAgent:
         """
         try:
             # Tier 1: High-Volume / Reductive
+            # Tier 1 fallback logic
             response = await self.gemini.generate_content(
-                model=["gemini-2.5-flash-lite", settings.gemini.flash_model_id],
-                contents=[prompt]
+                model=[settings.gemini.flash_model_id, settings.gemini.model_id, "gemini-2.0-flash"],
+                contents=[prompt],
+                response_schema=PlanDecomposition
             )
-            text = response.get("text", "").replace("```json", "").replace("```", "")
-            steps = json.loads(text)
-            return {"plan_steps": steps}
+            text = response.get("text", "")
+            data = PlanDecomposition.model_validate_json(text)
+            return {"plan_steps": data.plan_steps}
         except:
              return {"plan_steps": ["Analyze Request", "Retrieve Data", "Formulate Answer"]}
 
@@ -445,9 +458,9 @@ class StrategyAdvisorAgent:
         )
         
         try:
-            # Tier 3 (3-Model Fallback)
+            # High-fidelity Reasoning (Pro models only)
             response = await self.gemini.generate_content(
-                model=["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.0-pro"],
+                model=[settings.gemini.model_id, "gemini-2.5-pro", "gemini-3.1-pro-preview"],
                 contents=[prompt]
             )
             new_trace_item = response.get("text", "")
@@ -526,113 +539,26 @@ class StrategyAdvisorAgent:
         try:
             # Tier 2 (3-Model Fallback)
             response = await self.gemini.generate_content(
-                model=["gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
-                contents=[prompt]
+                model=[settings.gemini.flash_model_id, settings.gemini.model_id, "gemini-2.5-flash"],
+                contents=[prompt],
+                response_schema=ToolSelection
             )
             
-            # Robust JSON Extraction
-            import re
             text = response.get("text", "")
-            
-            # Use a simpler but more robust approach: find the FIRST { and its BALANCED } or just the largest block.
-            # Actually, standard models usually wrap JSON in a markdown block.
-            if "```json" in text:
-                text = text.split("```json")[-1].split("```")[0].strip()
-            elif "```" in text:
-                text = text.split("```")[-1].split("```")[0].strip()
-            
-            # If still not clean, try to find the first '{' and the last '}'
-            if not text.startswith("{"):
-                start = text.find("{")
-                end = text.rfind("}")
-                if start != -1 and end != -1:
-                    text_blob = text[start:end+1]
-                else:
-                    text_blob = text
-            else:
-                text_blob = text
-            
-            # Handle potential multiple objects (Greedy re.search fix)
-            try:
-                decision = json.loads(text_blob)
-            except json.JSONDecodeError:
-                # Fallback: Try to find the first complete object
-                try:
-                    balance = 0
-                    start = text_blob.find("{")
-                    if start != -1:
-                        for i in range(start, len(text_blob)):
-                            if text_blob[i] == '{': balance += 1
-                            elif text_blob[i] == '}': balance -= 1
-                            if balance == 0:
-                                text_blob = text_blob[start:i+1]
-                                break
-                    decision = json.loads(text_blob)
-                except Exception as je:
-                    logger.error(f"Failed to parse JSON even after cleaning: {je}")
-                    decision = {"tool_calls": []}
+            decision = ToolSelection.model_validate_json(text)
 
-            logger.debug(f"Tool Selection Decision Raw: {text_blob}")
+            logger.info(f"Selected {len(decision.tool_calls)} tools: {[t.tool_name for t in decision.tool_calls]}")
             
-            # Validate that decision is a dictionary
-            if not isinstance(decision, dict):
-                logger.warning(f"Tool selection returned {type(decision)}. Falling back.")
-                return {}
-            
-            # Robust Extraction for multiple tools
-            tool_calls = []
-            if "tool_calls" in decision:
-                tool_calls = decision["tool_calls"]
-            elif "tool_name" in decision:
-                # Compatibility with single-tool or partial outputs
-                tool_calls = [{
-                    "tool_name": decision["tool_name"],
-                    "tool_input": decision.get("tool_input"),
-                    "reasoning": decision.get("reasoning", "")
-                }]
-            
-            # Map parameters for each tool (handling variations like 'tool_parameters')
-            for call in tool_calls:
-                 if "tool_input" not in call:
-                     call["tool_input"] = call.get("tool_parameters") or call.get("parameters") or call.get("arguments")
-
-            # --- De-duplication Logic ---
-            unique_calls = []
-            seen_signatures = set()
-            for call in tool_calls:
-                name = call.get("tool_name")
-                # Normalize input for signature comparison
-                inp = call.get("tool_input")
-                inp_str = json.dumps(inp, sort_keys=True) if isinstance(inp, dict) else str(inp)
-                sig = f"{name}:{inp_str}"
-                
-                if sig not in seen_signatures:
-                    unique_calls.append(call)
-                    seen_signatures.add(sig)
-                else:
-                    logger.info(f"De-duplicated redundant tool call: {name} with input {inp_str}")
-            
-            tool_calls = unique_calls
-            # ----------------------------
-
-            logger.info(f"Selected {len(tool_calls)} tools: {[t.get('tool_name') for t in tool_calls]}")
-            
-            if not tool_calls and not decision.get("direct_answer"):
+            if not decision.tool_calls and not decision.direct_answer:
                 return {"tool_calls": []}
 
             # Populate scratchpad if direct answer exists
             res_ext = {}
-            if decision.get("direct_answer"):
-                res_ext["scratchpad"] = [f"System Observation: {decision['direct_answer']}"]
+            if decision.direct_answer:
+                res_ext["scratchpad"] = [f"System Observation: {decision.direct_answer}"]
 
-            # 3. Safety Check for High-Risk Tools (Currently only applies to first tool for simplicity)
-            if tool_calls:
-                first_tool = tool_calls[0]
-                tool_name = first_tool.get("tool_name")
-                
-                if tool_name in ["smart_order", "strategy_manager"]:
-                    # (Safety logic preserved but omitted for conciseness)
-                    pass
+            # Helper for executing tools (mapping Pydantic to list of dicts)
+            tool_calls = [t.model_dump() for t in decision.tool_calls]
             
             return {**res_ext, "tool_calls": tool_calls}
             
@@ -655,14 +581,29 @@ class StrategyAdvisorAgent:
             tool_name = call.get("tool_name")
             tool_input = call.get("tool_input")
             
+            # Inject auth_token/user_id into input context if it's a dict
+            if isinstance(tool_input, dict) and auth_token:
+                if "auth_token" not in tool_input or not tool_input["auth_token"]:
+                    tool_input["auth_token"] = auth_token
+                if "user_id" not in tool_input or not tool_input["user_id"]:
+                    tool_input["user_id"] = state.get("user_id")
+
             tool = self.tool_registry.get_tool(tool_name)
             if tool:
                 try:
-                    # Execute tool
-                    # Always pass auth_token
-                    result = await tool.run(tool_input, auth_token=auth_token)
+                    # Handle both local BaseTool and Langchain BaseTool
+                    if hasattr(tool, "run") and not hasattr(tool, "_arun"):
+                        # Local BaseTool
+                        result = await tool.run(tool_input, auth_token=auth_token)
+                    else:
+                        # Langchain Tool
+                        if isinstance(tool_input, dict):
+                            result = await tool.arun(**tool_input)
+                        else:
+                            result = await tool.arun(tool_input)
                     return f"Tool '{tool_name}' output:\n{result}"
                 except Exception as e:
+                    logger.error(f"Tool execution failed: {tool_name}, error: {e}")
                     return f"Tool '{tool_name}' failed: {e}"
             else:
                 return f"Tool '{tool_name}' not found."
@@ -719,7 +660,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 (3-Model Fallback)
             response = await self.gemini.generate_content(
-                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"],
                 contents=[prompt]
             )
             summary = response.get("text", "")
@@ -927,16 +868,27 @@ class StrategyAdvisorAgent:
         
         try:
             logger.info(f"Generating terminal response for {state['intent']}. Prompt size: {len(prompt)} chars.")
-            # Tier 2 (3-Model Fallback)
+            # Tier 2 (3-Model Fallback) - Final response heavy lifting
+            models = [settings.gemini.flash_model_id, settings.gemini.model_id, "gemini-2.0-flash"]
+            
+            # Thinking mode only if first model is a "pro" model
+            thinking = None
+            if "pro" in str(models[0]).lower():
+                thinking = {"include_thoughts": True}
+                
             result = await self.gemini.generate_content(
-                model=["gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.0-flash"],
+                model=models,
                 contents=[prompt],
-                thinking_config={"include_thoughts": True} 
+                thinking_config=thinking
             )
             final = result.get("text") or ""
             if not final:
                  logger.warning(f"Gemini returned EMPTY text for query: {state['optimized_query']}. Check safety filters or model state.")
-                 final = "I processed your request but the generator returned no text. This might be due to safety filters or a temporary service issue."
+                 final = (
+                     "I'm sorry, I was unable to generate a text response for your request. "
+                     "This can happen if the content triggers AI safety filters (e.g., specific financial advice restrictions) "
+                     "or if there is a temporary service issue. Please try rephrasing your request."
+                 )
             
             logger.info(f"Generation successful. Final response size: {len(final)} chars.")
             thoughts = result.get("thoughts") or (reasoning_trace[0] if reasoning_trace else None)
@@ -984,17 +936,18 @@ class StrategyAdvisorAgent:
         """
 
         try:
-            # Tier 1 (3-Model Fallback)
+            # Tier 1 fallback logic
             res = await self.gemini.generate_content(
-                model=["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
-                contents=[prompt]
+                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash-lite"],
+                contents=[prompt],
+                response_schema=EvaluationResult
             )
-            text = res.get("text", "").replace("```json", "").replace("```", "").strip()
-            data = json.loads(text)
+            text = res.get("text", "")
+            data = EvaluationResult.model_validate_json(text)
             
             return {
-                "is_satisfactory": data.get("is_satisfactory", True),
-                "evaluation_feedback": data.get("feedback", ""),
+                "is_satisfactory": data.is_satisfactory,
+                "evaluation_feedback": data.feedback or "",
                 "iteration_count": iteration + 1
             }
         except Exception as e:
@@ -1031,7 +984,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 task
             response = await self.gemini.generate_content(
-                model=["gemini-2.5-flash-lite", settings.gemini.flash_model_id],
+                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash-lite"],
                 contents=[prompt]
             )
             fact = response.get("text", "").strip()

@@ -102,14 +102,49 @@ async def test_sentiment_hashing_unit():
 
     await service.close()
 
+async def test_agent_structured_output():
+    print("\n--- Testing Agent Structured Output (Unit Test) ---")
+    from app.agents.strategy_advisor import StrategyAdvisorAgent
+    from app.services.gemini import GeminiClient
+    from app.core.schemas import QueryOptimization
+    
+    # Mock dependencies
+    mock_rag = MagicMock()
+    mock_gemini = MagicMock(spec=GeminiClient)
+    
+    agent = StrategyAdvisorAgent(rag_service=mock_rag, gemini_client=mock_gemini)
+    
+    # Mock generate_content to return a schema-compliant string
+    mock_response = {
+        "text": '{"optimized_query": "What is the trend for XAUUSD?", "intent": "MARKET_ANALYSIS"}',
+        "thoughts": "Thinking about the query..."
+    }
+    mock_gemini.generate_content = AsyncMock(return_value=mock_response)
+    
+    # Test Query Optimizer Node
+    state = {"input_text": "gold trend", "user_id": "user123"}
+    result = await agent.node_query_optimizer(state)
+    
+    print(f"Optimized Query: {result.get('optimized_query')}")
+    print(f"Intent: {result.get('intent')}")
+    
+    # Verify gemini was called with the correct schema
+    args, kwargs = mock_gemini.generate_content.call_args
+    if kwargs.get('response_schema') == QueryOptimization:
+        print("✅ Success: node_query_optimizer used QueryOptimization schema.")
+    else:
+        print("❌ Failure: node_query_optimizer did not use correct schema.")
+    
+    if result.get('intent') == "MARKET_ANALYSIS":
+        print("✅ Success: Intent correctly extracted from structured output.")
+    else:
+        print("❌ Failure: Intent extraction failed.")
+
 if __name__ == "__main__":
-    # Run integration-style tests if API is reachable
+    # Run unit tests
     print("Starting verification...")
-    try:
-        import httpx
-        loop = asyncio.get_event_loop()
-        # We try to see if the API is up
-        # This is optional and will fail gracefully if not in docker/not running
-        loop.run_until_complete(test_sentiment_hashing_unit())
-    except Exception as e:
-        print(f"Verification script error: {e}")
+    async def run_tests():
+        await test_sentiment_hashing_unit()
+        await test_agent_structured_output()
+    
+    asyncio.run(run_tests())
