@@ -549,7 +549,7 @@ async def run_trade_sync_job():
                     
                     # Update all fields on conflict
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=['trade_id'],
+                        index_elements=['broker_deal_id'],
                         set_={
                             "exit_price": stmt.excluded.exit_price,
                             "pnl_usd": stmt.excluded.pnl_usd,

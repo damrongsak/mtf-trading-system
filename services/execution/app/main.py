@@ -50,7 +50,7 @@ async def startup_event():
         guardian = EquityGuardian(redis_client)
         
         # Schedule Health Check
-        scheduler.add_job(guardian.check_health, 'interval', minutes=5)
+        scheduler.add_job(guardian.check_health, 'interval', minutes=5, misfire_grace_time=60)
         scheduler.start()
         logger.info("✅ Equity Guardian & Scheduler Started")
         

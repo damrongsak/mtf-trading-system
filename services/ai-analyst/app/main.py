@@ -121,17 +121,17 @@ async def lifespan(app: FastAPI):
             scheduler.start()
             
             # Gold OI Drift Session Reports
-            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'])
-            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'])
+            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'], misfire_grace_time=3600)
+            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'], misfire_grace_time=3600)
             
             # Gold Sentiment Analysis (Every 4 hours)
             from app.core.scheduler_tasks import update_gold_sentiment
-            scheduler.add_job(update_gold_sentiment, 'interval', hours=4)
+            scheduler.add_job(update_gold_sentiment, 'interval', hours=4, misfire_grace_time=600)
             # Run once on startup IF cache is missing/stale handled inside get_sentiment via SentimentService
-            scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now())
+            scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now(), misfire_grace_time=60)
             
             # Predictor Stability Check (Every 15 minutes)
-            scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=15)
+            scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=15, misfire_grace_time=300)
             
             logger.info("✅ Scheduler Started (Guardian, Session, Sentiment & Stability Jobs Added)")
         except Exception as e:
