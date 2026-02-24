@@ -40,6 +40,24 @@ class RedisPublisher:
         except Exception as e:
             logger.error(f"Failed to publish to {channel}: {e}")
 
+    async def publish_with_cache(self, channel: str, cache_key: str, message: dict, cache_mapping: dict):
+        """Publish a message and update a hash cache atomically using a pipeline."""
+        if not self.redis:
+            await self.connect()
+        try:
+            def json_serial(obj):
+                if hasattr(obj, 'isoformat'):
+                    return obj.isoformat()
+                return str(obj)
+
+            msg_str = json.dumps(message, default=json_serial)
+            pipe = self.redis.pipeline()
+            pipe.publish(channel, msg_str)
+            pipe.hset(cache_key, mapping=cache_mapping)
+            await pipe.execute()
+        except Exception as e:
+            logger.error(f"Failed to publish and cache to {channel}/{cache_key}: {e}")
+
     async def xadd(self, stream_key: str, fields: dict, id="*", maxlen: int = 10000):
         """Append a message to a stream."""
         if not self.redis:

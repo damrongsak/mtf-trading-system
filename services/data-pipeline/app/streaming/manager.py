@@ -68,16 +68,27 @@ class StreamManager:
         event_type = data.get("type", "tick").lower()
         symbol = data.get("instrument", "UNKNOWN")
         
-        # --- High-Performance EFP Path ---
+        # --- High-Performance Path ---
         if event_type == "price":
             if symbol == self.spot_symbol:
-                self.last_spot["bid"] = data["bid"]
-                self.last_spot["ask"] = data["ask"]
+                self.last_spot["bid"] = data.get("bid", 0.0)
+                self.last_spot["ask"] = data.get("ask", 0.0)
                 await self._update_efp()
             elif symbol == self.futures_symbol:
-                self.last_futures["bid"] = data["bid"]
-                self.last_futures["ask"] = data["ask"]
+                self.last_futures["bid"] = data.get("bid", 0.0)
+                self.last_futures["ask"] = data.get("ask", 0.0)
                 await self._update_efp()
+            
+            # L2 Cache Pipeline
+            channel = f"market_data:tick:{symbol}"
+            cache_key = f"market_data:spot:{symbol}"
+            cache_mapping = {
+                "bid": float(data.get("bid", 0.0)),
+                "ask": float(data.get("ask", 0.0)),
+                "ts": time.time()
+            }
+            await self.publisher.publish_with_cache(channel, cache_key, data, cache_mapping)
+            return
 
         if event_type == "symbol_details":
             channel = f"market_data:info:{symbol}"
