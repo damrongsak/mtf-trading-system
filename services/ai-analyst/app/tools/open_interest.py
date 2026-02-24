@@ -64,21 +64,32 @@ class OpenInterestTool(BaseTool):
                 # 1. Fetch Current Spot Price for Symbol
                 current_price = 0.0
                 
-                # Layer 0: Direct Redis Fetch (Fastest)
+                # Layer 0: Direct Redis Fetch (Fastest - New Hash Cache)
                 try:
                     redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
                     redis_client = redis.from_url(redis_url, decode_responses=True)
-                    features_json = await redis_client.get(f"features:{symbol}:M15")
+                    
+                    # New L2 Cache: market_data:spot:{symbol} (Hash)
+                    spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
+                    if spot_data and "bid" in spot_data:
+                        bid = float(spot_data.get("bid", 0))
+                        ask = float(spot_data.get("ask", 0))
+                        current_price = (bid + ask) / 2.0 if ask > 0 else bid
+                        logger.info(f"Fetched live spot price from L2 Cache: {current_price}")
+                    else:
+                        # Legacy Fallback
+                        features_json = await redis_client.get(f"features:{symbol}:M15")
+                        if features_json:
+                            features_data = json.loads(features_json)
+                            close_array = features_data.get("columns", [])
+                            if "close" in close_array:
+                                close_idx = close_array.index("close")
+                                data_index = features_data.get("data", [])
+                                if data_index and len(data_index) > 0:
+                                    current_price = float(data_index[-1][close_idx])
+                                    logger.info(f"Fetched price from legacy Redis (features): {current_price}")
+                    
                     await redis_client.close()
-                    if features_json:
-                        features_data = json.loads(features_json)
-                        close_array = features_data.get("columns", [])
-                        if "close" in close_array:
-                            close_idx = close_array.index("close")
-                            data_index = features_data.get("data", [])
-                            if data_index and len(data_index) > 0:
-                                current_price = float(data_index[-1][close_idx])
-                                logger.info(f"Fetched live spot price from Redis (features): {current_price}")
                 except Exception as e:
                     logger.warning(f"Layer 0 (Redis) price fetch failed: {e}")
 

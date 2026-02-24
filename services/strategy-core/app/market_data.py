@@ -101,10 +101,42 @@ class SharedMarketDataManager:
                 
                 logger.info(f"Hydrated {symbol}: {len(results)} M1 candles loaded.")
                 
-            except Exception as e:
-                logger.error(f"Hydration failed for {symbol}: {e}")
             finally:
                 db.close()
+
+    async def hydrate_from_cache(self, symbol: str):
+        """
+        Fetch latest price from Redis L2 Cache (market_data:spot:{symbol}).
+        Seeds the initial price context for immediate strategy readiness.
+        """
+        import os
+        import redis.asyncio as redis
+        from datetime import datetime
+        
+        try:
+            redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            r = redis.from_url(redis_url, decode_responses=True)
+            
+            # Fetch from new L2 Cache
+            cache = await r.hgetall(f"market_data:spot:{symbol}")
+            await r.close()
+            
+            if cache and "bid" in cache:
+                bid = float(cache.get("bid", 0))
+                ask = float(cache.get("ask", 0))
+                # Use ISO format from cache or fallback to now
+                try:
+                    ts = datetime.fromisoformat(cache.get("ts", "").replace("Z", "+00:00"))
+                except:
+                    ts = datetime.utcnow()
+                
+                mid = (bid + ask) / 2.0 if ask > 0 else bid
+                self.update_tick(symbol, mid, ts, bid=bid, ask=ask)
+                logger.info(f"Successfully seeded {symbol} from Redis Cache (Bid: {bid}, Ask: {ask})")
+                return True
+        except Exception as e:
+            logger.warning(f"Failed to hydrate {symbol} from cache: {e}")
+        return False
 
     def update_tick(self, symbol: str, price: float, timestamp: datetime, bid: Optional[float] = None, ask: Optional[float] = None):
         """

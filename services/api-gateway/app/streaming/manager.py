@@ -47,6 +47,34 @@ class ConnectionManager:
         for symbol in symbols:
             norm_symbol = self._normalize_symbol(symbol)
             self.active_connections[norm_symbol].add((websocket, source))
+            
+            # --- Instant Snapshot Optimization ---
+            # Fetch latest price from Redis (L2 Cache) and send immediately
+            try:
+                # We need a redis client here. subscriber.redis is available if started.
+                # However, ConnectionManager might not be started yet or we can use the same URL.
+                import os
+                import redis.asyncio as aioredis
+                temp_redis = aioredis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"), decode_responses=True)
+                snapshot = await temp_redis.hgetall(f"market_data:spot:{norm_symbol}")
+                await temp_redis.close()
+                
+                if snapshot and "bid" in snapshot:
+                    logger.info(f"Sending instant snapshot for {norm_symbol} to new client")
+                    # Match the format expected by the frontend (same as tick events)
+                    data = {
+                        "type": "PRICE",
+                        "source": snapshot.get("source", "ctrader"),
+                        "instrument": norm_symbol,
+                        "time": snapshot.get("ts"),
+                        "bid": float(snapshot["bid"]),
+                        "ask": float(snapshot["ask"]),
+                        "status": "tradeable"
+                    }
+                    await websocket.send_text(json.dumps(data))
+            except Exception as e:
+                logger.warning(f"Failed to send instant snapshot for {norm_symbol}: {e}")
+                
         logger.info(f"Client connected. Active symbols: {len(self.active_connections)}")
 
     async def disconnect(self, websocket: WebSocket, symbols: List[str]):

@@ -112,6 +112,10 @@ class StrategyEngine:
         
         # Subscribe to required channels (via RedisSubscriber)
         symbol = state.symbol
+        
+        # 0. Hydrate from Cache for instant Price Context
+        await market_data_manager.hydrate_from_cache(symbol)
+        
         # In a real shared data model, we'd ensure the *System* is subscribed to this symbol.
         # For now, we just ensure the engine is listening to the Redis channel for this symbol.
         timeframes = ["M5", "M15", "H1", "H4", "D1"] 
