@@ -1,185 +1,117 @@
-# AI Analyst Service
+# 🧠 AI Analyst Service (ระบบผู้ช่วยวิเคราะห์และให้คำปรึกษาด้วย AI)
 
-## 🧠 Overview
-The **AI Analyst Service** is a specialized microservice within the MTF Trading System. It leverages **Google Gemini 2.5 Pro** and **RAG (Retrieval-Augmented Generation)** to provide semantic market analysis and psychological insights for trading journals.
+## 📌 ภาพรวม (Overview)
+**AI Analyst Service** เป็นไมโครเซอร์วิสหัวใจหลักใน MTF Trading System ที่ทำหน้าที่เปรียบเสมือนนักวิเคราะห์และผู้จัดการความเสี่ยงระดับสถาบัน โดยใช้พลังของ **Google Gemini 2.5 (Pro/Flash)** ผสานกับสถาปัตยกรรม **Agentic RAG (Retrieval-Augmented Generation)** ผ่านการทำ Orchestration ด้วย **LangGraph** สำหรับการแจกแจงวิเคราะห์ตลาด, โครงสร้างราคา, จิตวิทยาการเทรด และวางแผนกลยุทธ์.
 
-## 🏗️ Architecture & Dataflow
+## 🏗️ สถาปัตยกรรมและการไหลของข้อมูล (Architecture & Dataflow)
 
-### System Overview
-The service orchestrates AI agents and analysis tools using a modular architecture:
-*   **FastAPI**: Entry point and router management (`main.py`).
-*   **Agents**: Autonomous workers (`MarketObserver`, `StrategyAdvisor`, `DailyBriefing`).
-*   **Services**: Core logic providers (`GeminiClient`, `RAGService`, `MemoryService`, `SentimentService`).
-*   **Tools**: Specialized functions for market data, search, and system state.
-*   **Persistence**: Redis (Short-term/Checkpoints) and Qdrant (Long-term/RAG).
+### ส่วนประกอบหลัก (System Components)
+บริการนี้จัดการเวิร์กโฟลว์ของ AI Agents และ Tools แบบโมดูลาร์:
+*   **FastAPI**: เป็น Entry point สำหรับรับ Request และ Routing (`main.py`)
+*   **LangGraph Orchestration**: การจัดการ State และ Node ของ Agent (`StrategyAdvisor`, `MarketObserver`, `DailyBriefing`)
+*   **Services**: คอร์ลอจิก เช่น `GeminiClient`, `RAGService`, `MemoryService` (Qdrant), และ `SentimentService`
+*   **Tools**: เครื่องมือเฉพาะทางสำหรับดึงข้อมูล เช่น SMC, กราฟราคา, ข่าว, และระบบเทรด
+*   **Persistence**: ใช้ **Redis** สำหรับหน่วยความจำระยะสั้น (Checkpoints/Semantic Cache) และ **Qdrant** สำหรับระยะยาว (Vector DB)
 
-### ⚡ High-Performance Features
-The service is optimized for low-latency institutional analysis:
-*   **Routing Precision**: Uses dynamic intent classification to minimize reasoning loops (resolved in 1-2 turns).
-*   **Parallel Execution**: Tools are executed concurrently using `asyncio.gather`.
-*   **Context & Token Pruning**:
-    *   **Scratchpad Summarization**: Lengthy tool outputs (>= 6000 chars) are automatically summarized by Gemini Flash.
-    *   **Dynamic RAG**: Adjustable `top_k` retrieval based on query complexity.
-*   **Signal Buffering**: API Gateway level caching reduces redundant calculation load.
+### ⚡ ฟีเจอร์ที่ปรับแต่งเพื่อประสิทธิภาพสูง (High-Performance Features)
+*   **Layer 0 Redis Spot Fetching**: อ่านข้อมูลราคาปัจจุบัน (`features:XAUUSD:M15`) จาก Redis โดยตรง (ความหน่วง < 2ms) เพื่อป้องกัน HTTP Timeouts
+*   **Programmatic Tool Deduplication**: สกัดกั้นและลดการเรียก Tools ซ้ำซ้อนของ LLM อัตโนมัติ เพื่อลดโหลดของ Backend Services
+*   **Semantic Caching**: จดจำคำตอบและบริบทคำถามที่เหมือนกันจาก Redis ทำให้ตอบกลับได้ทันทีโดยไม่ต้องเรียก LLM ซ้ำ
+*   **Parallel Execution**: รันเครื่องมือตรวจสอบตลาด (Market Scan) และสรุปข่าวพร้อมกันในแบบ Asynchronous (`asyncio.gather`)
+*   **Context & Token Pruning**: มีกลไก Node `Summarizer` เพื่อย่อขนาด Scratchpad หากข้อมูลดิบยาวเกินไป ป้องกันการชน Context Window Limit (โดยเฉพาะ Flash Lite)
 
-### Agent Workflows
+### 🤖 เวิร์กโฟลว์ของเอเจนต์ (Agent Workflows)
 
-#### Strategy Advisor (`StateGraph`)
-The most complex flow, designed for interactive coaching and strategy design:
-1.  **Query Optimizer**: `Gemini Flash` rewrites query and classifies INTENT (e.g., `RESEARCH`, `TOOL_USE`).
-2.  **Router**: Splits logic based on intent (Research, Tool Use, etc.).
-3.  **Retrieval (RAG)**: Fetches User Facts, System Docs, and Strategy Code from `Qdrant`.
-4.  **Reasoning**: `Gemini Pro` generates a "Chain of Thought" plan.
-5.  **Tool Selection**: `Gemini Flash` selects tools based on plan + tool registry.
-6.  **Execution**: Runs selected tools (e.g., `GetAccountStatus`) in parallel.
-7.  **Generation**: Synthesizes all context, tool outputs, and reasoning into a final response.
-8.  **Memory**: Updates User Facts (Long-term) and Redis Checkpoint (Short-term).
+#### 1. Strategy Advisor (`StateGraph`)
+Flow หลักสำหรับการสนทนา (Chat) ตลอดจนการออกแบบกลยุทธ์ และให้คำแนะนำ:
+1.  **Query Optimizer**: ใช้ `Gemini Flash` ปรับแต่งคำถาม และแยกแยะ Intent (เช่น `TOOL_USE`, `MARKET_ANALYSIS`, `RESEARCH`)
+2.  **Router**: แยกเส้นทางตาม Intent หากเป็น Tool Use ให้เข้าวงจรค้นหาเครื่องมือทันที
+3.  **Retrieval (RAG)**: ค้นหา User Facts (จำได้ว่าผู้ใช้เคยเทรดอะไร), System Docs, และ Code กลยุทธ์ จาก `Qdrant`
+4.  **Reasoning**: ใช้ โมเดลแกนหลัก สร้างแผนการวิเคราะห์แบบ Chain of Thought
+5.  **Tool Selection**: เลือกเครื่องมือที่ต้องใช้ (พร้อมกลไก Deduplication ทิ้งเครื่องมือที่เลือกมาซ้ำ)
+6.  **Execute Tools**: รันเครื่องมือแบบ Async (ควบคู่ไปกับ "Slim mode" หาก Token ใกล้เต็ม)
+7.  **Generate**: นำข้อมูลทั้งหมดมาสังเคราะห์เป็นคำตอบหรือแผนการเทรดสุดท้าย
+8.  **Memory Write**: บันทึกความจำระยะยาวลง Qdrant และระยะสั้นลง Redis Checkpoint
 
-#### Market Observer (`ReAct`)
-A standard ReAct (Reason + Act) loop for autonomous market monitoring:
-1.  **Input**: "Generate market report for XAUUSD".
-2.  **LLM**: `Gemini Flash` decides which tool to call.
-3.  **Tools**: `MarketStateTool`, `GetTechnicalSignalsTool`, `GoogleSearchTool`.
-4.  **Loop**: Iteratively calls tools and feeds output back into LLM until analysis is complete.
-5.  **Output**: Structured markdown report.
+#### 2. Background Autonomous Observers (เอเจนต์ทำงานเบื้องหลัง)
+*   **Stability Observer**: ตรวจสอบสถานะของโมเดล `Predictor` และ `Data Pipeline` ทุกๆ 15 นาที หากระบบล่มจะส่ง **Telegram Alert** ผ่าน `TELEGRAM_CHAT_ID` ทันที
+*   **Gold Sentiment Guardian**: อัปเดตข้อมูลข่าวและ Sentiment ของคู่งานแบบ Real-time โดยมีการ Hash-match เพื่อตรวจสอบความเปลี่ยนแปลงก่อนเรียก LLM
+*   **Session Drift Monitor**: ประเมินคุณภาพของ Signal เมื่อจบแต่ละ Session เพื่อดูว่ากลยุทธ์เริ่มออกนอกลู่นอกทาง (Drift) หรือไม่
 
-#### 🤖 Autonomous Monitoring Agents
-Beyond interactive chat, the service runs background tasks to ensure system health:
-1.  **Stability Observer**: Periodically checks predictor and data-pipeline health; alerts via Telegram on degradation.
-2.  **Session Drift Monitor**: Analyzes the rejection/execution rate of live signals and generates drift reports.
-3.  **Gold Sentiment Guardian**: Schedules real-time geopolitical and macro sentiment updates for XAUUSD.
+## 🛠️ เครื่องมือระบบที่ AI เรียกใช้ได้ (System Toolset)
+AI Analyst สามารถเชื่อมต่อกับ Services อื่นๆ ได้ผ่านเครื่องมือเหล่านี้:
+*   **Institutional SMC**: `smc_technical_analysis` (หา Order Blocks, FVGs, เทรนด์ Bias), `liquidity_heatmap`
+*   **Market Sentiment & Regime**: `market_state` (ดึง Risk Multiplier จาก Gamma), `cot_analyst`, `open_interest`
+*   **Machine Learning**: `get_predictor_forecast`, `get_predictor_signal`
+*   **Execution & Risk**: `risk_check` (คำนวณ Lot Size & ความเสี่ยงเทียบกับพอร์ต), `generate_trading_plan`
+*   **Macro & Search**: `get_economic_calendar`, `google_search` (ค้นหาข่าวเรียลไทม์)
+*   **Comms**: `send_notification` (ส่งอัปเดตแผนและคำเตือนเข้า Telegram)
 
-## 🛠️ Tech Stack
-*   **Python 3.11+**
-*   **FastAPI**: High-performance web framework.
-*   **Google GenAI SDK**: Official Python client for Gemini API (`google-genai`).
-*   **Qdrant**: Vector database integration for RAG.
-*   **uv**: Fast Python package installer and resolver.
+## 💻 การติดตั้งและใช้งาน (Setup & Installation)
 
-## 🚀 Setup & Installation
-
-### 1. Prerequisites
-Ensure you have `uv` installed:
+### 1. ความต้องการของระบบ (Prerequisites)
+ควรมีตัวจัดการแพ็กเกจ `uv` ที่มีความเร็วสูง:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 2. Install Dependencies
-Navigate to the service directory and sync dependencies:
+### 2. ติดตั้ง Dependencies
 ```bash
 cd services/ai-analyst
 uv sync
 ```
 
-### 3. Environment Variables
-Create a `.env` file in the service root or set the variables in your shell:
-
+### 3. ตัวแปรสภาพแวดล้อม (Environment Variables)
+ตั้งค่า `.env` (ที่ Root ของโปรเจกต์):
 ```bash
-# Required
-GOOGLE_API_KEY=your_gemini_api_key_here
+# พาร์ท AI
+GOOGLE_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash
 
-# Optional (for RAG)
-QDRANT_HOST=localhost
+# พาร์ท Database & Memory
+QDRANT_HOST=qdrant
 QDRANT_PORT=6333
+REDIS_URL=redis://redis:6379/0
+
+# พาร์ท Notification
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-## 🏃‍♂️ Running the Service
+## 🏃‍♂️ การรันเซอร์วิส (Running the Service)
 
-Start the development server with hot-reload:
+รันในระบบ Docker (แนะนำ) หรือรันแยกเฉพาะ Backend ได้ด้วย:
+```bash
+uv run uvicorn app.main:app --reload --port 8000
+```
+*   **API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+## 💬 การทดสอบผ่าน CLI (Professional AI Term)
+สามารถใช้ CLI เพอร์มินัลที่มีสไตล์สำหรับทดสอบแชตกับ Agentic RAG:
 
 ```bash
-uv run uvicorn app.main:app --reload --port 8002
+# ทำงานข้าม Docker Container (เพื่อเลียนแบบ Environment จริง)
+docker compose exec ai-analyst python3 scripts/chat_cli.py
 ```
+> **Tip:** ในหน้าต่าง CLI พิมพ์คำว่า `/new` เพื่อล้างความจำและเริ่ม Context ใหม่
 
-The API will be available at:
-*   **Docs:** [http://localhost:8002/docs](http://localhost:8002/docs)
-*   **Health Check:** [http://localhost:8002/health](http://localhost:8002/health)
+## 💡 โครงสร้าง Prompt เพื่อการวิเคราะห์ (Effective Prompting)
+เพื่อให้ AI Analyst ทำงานได้อย่างเต็มประสิทธิภาพที่สุด ควรใช้คำสั่งที่ครอบคลุม (High-Fidelity):
 
-## 🧪 Testing
+**ตัวอย่าง:**
+> "Execute Institutional SMC Screening (H1/H4): Map HTF liquidity traps, Order Blocks, and current Phase Displacement. Use market_state to assess CME Gamma Wall context and send the final risk assessment to my Telegram."
 
-This service uses `pytest` for unit testing, with `pytest-asyncio` for async support.
-
-To run the tests:
-
-```bash
-# Ensure PYTHONPATH is set to resolve 'app' module
-uv run env PYTHONPATH=. pytest tests/
-```
-
-## 🖥️ CLI Chat
-The service includes a professional CLI for interacting with the Agentic RAG system.
-
-### Running with Docker (Recommended)
-You can run the CLI directly inside the container. This ensures all dependencies (Rich, HTTPX) are present.
-
-```bash
-# 1. Update Lockfile (if needed) & Rebuild
-docker compose run --rm ai-analyst uv lock
-docker compose build ai-analyst
-
-# 2. Run the CLI script (Connects to the running ai-analyst service)
-docker compose run --rm -e API_URL=http://ai-analyst:8000 ai-analyst python scripts/chat_cli.py
-```
-
-### Running Locally
-```bash
-uv sync
-uv run python scripts/chat_cli.py
-```
-
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Check service health and connection to AI/RAG providers. |
-| `POST` | `/analyze/market` | Generates a narrative market outlook. |
-| `POST` | `/analyze/journal` | Analyzes a trading journal entry. |
-| `POST` | `/analyze/smc-narrative` | Generates a narrative from SMC data (OBs, FVGs). |
-| `POST` | `/agent/observer/run` | Triggers the Market Observer Agent for deep research. |
-| `POST` | `/agent/briefing` | Triggers the Daily Briefing Agent. |
-| `POST` | `/ai/chat/sessions/message` | Helper endpoint for Strategy Advisor chat. |
-
-## 🛠️ System Toolset (Capabilities)
-The AI Analyst can interact with the following system domains:
-*   **Institutional SMC**: `smc_technical_analysis` (Order Blocks, FVGs, Bias).
-*   **Machine Learning**: `get_predictor_forecast`, `get_predictor_signal`.
-*   **Market Sentiment**: `market_state` (PCR, Regimes), `cot_analyst`.
-*   **Economics**: `get_economic_calendar`, `google_search` (Real-time news).
-*   **System Controls**: `smart_order`, `strategy_manager`, `get_system_health`.
-*   **Quantitative**: `python_sandbox` (Custom correlation/modeling).
-
-## 💡 Best Practices: Effective Prompting
-
-To get the most out of the **Strategy Advisor Agent**, use "High-Fidelity Prompts" that combine multiple data dimensions.
-
-### 🔑 The 4-Pillar Prompt Structure
-1.  **Context**: Specify the date, symbol, and relevant timeframes (e.g., "H4 and D1").
-2.  **Multidimensional Objective**: Ask for different analytical perspectives simultaneously (SMC, ML, Macro).
-3.  **Constraint/Reference**: Reference your current portfolio, specific POIs, or system health.
-4.  **Delivery Channel**: Explicitly request notifications if you want the result on Telegram.
-
-### 📝 Example: Weekly Preparation Briefing
-Use this prompt on Sunday/Monday morning to prepare for the session:
-> "Tomorrow is Monday 2026-02-23. Help me prepare for the gold trading week ahead. Please perform the following analysis: 1. Macro structural bias for XAUUSD on 4H/Daily. 2. Key POIs (Order Blocks/FVGs) for the week. 3. ML price forecast for the next 5 steps from Olympus Predictor. 4. Market state and any significant news/sentiment drivers. Summarize these into a 'Weekly Preparation Briefing' and send it to my Telegram."
-
-### 📝 Example: Deep Institutional Research
-> "Perform a deep dive into Gold's institutional sentiment. Check the latest COT data, analyze the Open Interest drift between the Asia and London sessions, and correlate this with the current ML confidence score. Send a detailed technical report to my Telegram."
-
-### 📝 Example: Strategy Development
-> "I want to design a new strategy based on Volatility Mean Reversion. Can you look at our existing `smc_v1` strategy code, suggest how to add a GARCH-based filter, and provide the updated Python logic?"
-
-## 📂 Project Structure
-
-```
+## 📂 โครงสร้างโปรเจกต์ (Project Structure)
+```text
 services/ai-analyst/
 ├── app/
-│   ├── core/           # Configuration settings
-│   ├── schemas/        # Pydantic models for Request/Response
-│   ├── services/
-│   │   ├── gemini.py   # Google GenAI Client wrapper
-│   │   └── rag.py      # Vector store logic
-│   └── main.py         # FastAPI entry point
-├── tests/              # Unit tests
-├── pyproject.toml      # Dependency and project config
-└── README.md           # This file
+│   ├── agents/         # LangGraph Nodes & State Definitions (Strategy Advisor)
+│   ├── core/           # Prompts แม่แบบ, Pydantic Schemas และ System Configs
+│   ├── services/       # GeminiClient, Qdrant/Memory, Sentiment, Observers
+│   ├── tools/          # คลาส BaseTool, การเชื่อมต่อ Redis (Layer 0) และ HTTP API (Layer 1)
+│   └── main.py         # FastAPI Entry (Endpoints, Middlewares)
+├── scripts/            # CLI และสคริปต์ Benchmark สำหรับทดสอบ RAG
+├── tests/              # Pytest Suite
+├── pyproject.toml      # ไฟล์ Dependencies Setup
+└── README.md           # ไฟล์เอกสารนี้ (อัปเดตล่าสุด)
 ```
