@@ -1,12 +1,16 @@
-
+import os
 from ctrader_open_api import Client, Protobuf, TcpProtocol, Auth, EndPoints
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from twisted.internet import reactor
 
-appClientId = "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B"
-appClientSecret = "Ba7u0sGyBKrGjzIC3jYMvLGqBQP6q2ofYiE4pFy1BPQtG6GFFW"
+appClientId = os.getenv("CTRADER_CLIENT_ID")
+appClientSecret = os.getenv("CTRADER_CLIENT_SECRET")
+
+if not appClientId or not appClientSecret:
+    print("Error: CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET environment variables not set.")
+    exit(1)
 
 # Try Demo first
 host = EndPoints.PROTOBUF_DEMO_HOST

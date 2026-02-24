@@ -48,3 +48,4 @@ host_runner.py
 do_test.sh
 run_docker_test.sh
 services/ai-analyst/.cli_user_id
+services/api-gateway/scripts/*.json
