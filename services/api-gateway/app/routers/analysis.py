@@ -59,6 +59,20 @@ class SMCRequest(BaseModel):
     close: List[float]
     volume: Optional[List[float]] = None
 
+class QuantAnalyzeRequest(BaseModel):
+    symbol: str
+    timeframe: str = "H1"
+    limit: int = 1000
+
+class QuantSizingRequest(BaseModel):
+    symbol: str
+    entry_price: float
+    stop_loss: float
+    equity: float
+    strategy_id: Optional[str] = None
+    timeframe: str = "H1"
+    limit: int = 1000
+
 # ... (imports)
 import httpx
 from contextlib import asynccontextmanager
@@ -408,3 +422,43 @@ async def get_unified_oi_profile(
         logger.error(f"Unified OI Profile failed: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to aggregate OI profile: {str(e)}")
+
+@router.post("/quant/analyze", status_code=200)
+async def proxy_quant_analyze(req: QuantAnalyzeRequest):
+    """
+    Proxy Quant Map analysis to Strategy Core.
+    """
+    try:
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/quant/analyze",
+            json=req.model_dump()
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        return success_response(data=response.json())
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
+        logger.error(f"Quant Analyze Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/quant/size", status_code=200)
+async def proxy_quant_sizing(req: QuantSizingRequest):
+    """
+    Proxy Quant Positioning/Sizing to Strategy Core.
+    """
+    try:
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/quant/size",
+            json=req.model_dump()
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        return success_response(data=response.json())
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
+        logger.error(f"Quant Sizing Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -266,3 +266,35 @@ class WalkForwardResponse(BaseModel):
     robustness_score: int
     avg_sharpe_test: float
     details: List[Dict[str, Any]]
+
+# ==========================
+# Quant Layer Schemas
+# ==========================
+
+class QuantAnalyzeRequest(BaseModel):
+    symbol: str
+    timeframe: str = "H1"
+    limit: int = 1000
+
+class QuantSizingRequest(BaseModel):
+    symbol: str
+    entry_price: float
+    stop_loss: float
+    equity: float
+    strategy_id: Optional[str] = None
+    timeframe: str = "H1"
+    limit: int = 1000
+
+class QuantAnalyzeResponse(BaseModel):
+    symbol: str
+    timeframe: str
+    price: float
+    composite_risk_score: float
+    edge_score: float
+    layers: Dict[str, Any]
+    context: Dict[str, Any]
+    timestamp: datetime
+
+class QuantSizingResponse(BaseModel):
+    risk_map: QuantAnalyzeResponse
+    sizing: Dict[str, Any]

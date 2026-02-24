@@ -71,37 +71,58 @@ class TradingPlanTool(BaseTool):
                 if override_risk is not None:
                     risk_pct = override_risk
 
-                # 4. Calculate Lot Sizes for each setup using RiskCheckTool logic or direct calc
-                # Lot = (Equity * Risk%) / (SL Distance * ContractSize)
-                # ContractSize for XAUUSD is 100. For others usually 100,000 (standard lot).
-                contract_size = 100 if "XAU" in symbol else 100000
-                
+                # 4. Institutional Sizing & Risk Map Integration
                 plan_table = [
                     f"### 🛡️ Institutional Trading Plan: {symbol} ({timeframe})",
                     f"- **Fund**: {fund_name}",
                     f"- **Equity**: ${equity:,.2f}",
-                    f"- **Risk per Trade**: {risk_pct:.1f}%",
+                    f"- **Risk Target**: {risk_pct:.1f}%",
                     "",
-                    "| Direction | Type | Entry | Stop Loss | Take Profit | R:R | Lot Size |",
-                    "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+                    "| Direction | Type | Entry | Stop Loss | Take Profit | R:R | Lot Size | Quant Score |",
+                    "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
                 ]
 
+                # We iterate setups and call the institutional sizing API for each
+                quant_size_url = f"{base_url}/api/v1/quant/size"
+                
                 for setup in setups:
-                    entry = setup["entry"]
-                    sl = setup["stop_loss"]
-                    tp = setup["take_profit"]
-                    rr = setup["rr"]
+                    entry = float(setup["entry"])
+                    sl = float(setup["stop_loss"])
+                    tp = float(setup["take_profit"])
+                    rr = float(setup["rr"])
                     
-                    sl_dist = abs(entry - sl)
-                    if sl_dist > 0:
-                        risk_usd = equity * (risk_pct / 100.0)
-                        lots = risk_usd / (sl_dist * contract_size)
-                        lots = round(lots, 2)
-                    else:
-                        lots = 0.01
+                    # Call Quant Layer for intelligent sizing
+                    sizing_payload = {
+                        "symbol": symbol,
+                        "entry_price": entry,
+                        "stop_loss": sl,
+                        "equity": equity,
+                        "timeframe": timeframe
+                    }
                     
+                    try:
+                        sz_resp = await client.post(quant_size_url, json=sizing_payload, headers=headers, timeout=10.0)
+                        if sz_resp.status_code == 200:
+                            sz_data = sz_resp.json().get("data", {})
+                            lots = sz_data.get("sizing", {}).get("lot_size_units", 0.01)
+                            quant_risk = sz_data.get("risk_map", {}).get("composite_risk_score", 0.5)
+                            
+                            # Quant Score visualization
+                            score_emoji = "🟢" if quant_risk < 0.4 else "🟡" if quant_risk < 0.7 else "🔴"
+                            score_text = f"{score_emoji} {quant_risk:.2f}"
+                        else:
+                            # Fallback if quant layer fails
+                            sl_dist = abs(entry - sl)
+                            lots = (equity * (risk_pct / 100.0)) / (sl_dist * contract_size) if sl_dist > 0 else 0.01
+                            score_text = "N/A"
+                    except Exception as e:
+                        logger.warning(f"Quant sizing failed, using fallback: {e}")
+                        sl_dist = abs(entry - sl)
+                        lots = (equity * (risk_pct / 100.0)) / (sl_dist * contract_size) if sl_dist > 0 else 0.01
+                        score_text = "N/A"
+
                     plan_table.append(
-                        f"| {setup['type']} | {setup['status']} | {entry} | {sl} | {tp} | {rr} | **{lots}** |"
+                        f"| {setup['type']} | {setup['status']} | {entry} | {sl} | {tp} | {rr} | **{lots:.2f}** | {score_text} |"
                     )
 
                 plan_table.append("\n**Reasoning**: " + sig_data.get("reason", "Based on SMC structural confluence."))

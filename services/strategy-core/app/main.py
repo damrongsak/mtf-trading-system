@@ -507,7 +507,9 @@ async def stop_strategy_instance(deployment_id: str):
 
 app.include_router(router)
 from app.foundry.router import router as foundry_router
+from app.routers.quant import router as quant_router
 app.include_router(foundry_router, prefix="/api/v1")
+app.include_router(quant_router, prefix="/api/v1/quant", tags=["Quant Layer"])
 from app.engine.router import router as alpha_router
 app.include_router(alpha_router, prefix="/api/v1")
 from app.routers.plugins import router as plugins_internal_router

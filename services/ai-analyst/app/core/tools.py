@@ -28,6 +28,8 @@ from app.tools.predictor import PredictorForecastTool, PredictorSignalTool
 from app.tools.stability import SystemHealthTool
 from app.tools.notification import SendNotificationTool
 from app.tools.volatility import VolatilityStructureTool
+from app.tools.quant_analysis import RiskMapTool
+from app.tools.trading_plan import TradingPlanTool
 
 
 logger = logging.getLogger(__name__)
@@ -293,8 +295,9 @@ class RiskCheckTool(BaseTool):
     async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
-        url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/risk/check"
-        headers = {"Authorization": f"Bearer {auth_token}"}
+        base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
+        url = f"{base_url}/api/v1/quant/size"
+        headers = {"Authorization": auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"}
         
         payload = {}
         if isinstance(input_data, str):
@@ -303,14 +306,35 @@ class RiskCheckTool(BaseTool):
         elif isinstance(input_data, dict):
             payload = input_data
             
-        if not payload: return "Error: Trade details required for risk check."
+        if not payload: return "Error: Trade details required for risk check (symbol, entry_price, stop_loss, equity)."
 
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.post(url, json=payload, headers=headers, timeout=5.0) as resp:
+                # Map old keys to new API keys if necessary
+                request_payload = {
+                    "symbol": payload.get("symbol", "XAUUSD"),
+                    "entry_price": float(payload.get("entry_price") or payload.get("entry") or 0),
+                    "stop_loss": float(payload.get("stop_loss") or payload.get("sl") or 0),
+                    "equity": float(payload.get("equity") or 10000),
+                    "strategy_id": payload.get("strategy_id")
+                }
+                
+                async with session.post(url, json=request_payload, headers=headers, timeout=10.0) as resp:
                      data = await resp.json()
                      if resp.status == 200:
-                         return f"Risk Check PASSED.\nDetails: {json.dumps(data.get('data'), indent=2)}"
+                         sz = data.get("data", {}).get("sizing", {})
+                         rm = data.get("data", {}).get("risk_map", {})
+                         
+                         report = [
+                             "### ✅ Institutional Risk Check PASSED",
+                             f"- **Position Size**: **{sz.get('lot_size_units', 0):.4f} units**",
+                             f"- **Effective Risk**: ${sz.get('effective_risk_usd', 0):.2f}",
+                             f"- **Composite Risk Score**: {rm.get('composite_risk_score', 0):.2f}",
+                             f"- **Edge Score**: {rm.get('edge_score', 0):.2f}",
+                             f"- **Regime Multiplier**: {sz.get('multipliers', {}).get('regime', 1.0)}x",
+                             f"- **Risk Source**: {sz.get('risk_profile_source', 'default')}"
+                         ]
+                         return "\n".join(report)
                      else:
                          return f"Risk Check FAILED ({resp.status}):\n{json.dumps(data, indent=2)}"
             except Exception as e:
@@ -390,7 +414,9 @@ class ToolRegistry:
             "get_predictor_forecast": PredictorForecastTool(),
             "get_predictor_signal": PredictorSignalTool(),
             "get_system_health": SystemHealthTool(),
-            "volatility_structure_analysis": VolatilityStructureTool()
+            "volatility_structure_analysis": VolatilityStructureTool(),
+            "get_risk_map": RiskMapTool(),
+            "generate_trading_plan": TradingPlanTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

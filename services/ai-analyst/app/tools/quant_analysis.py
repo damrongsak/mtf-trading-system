@@ -1,61 +1,75 @@
-import pandas as pd
-from typing import List, Dict, Optional
-from langchain.tools import tool
-import aiohttp
-import asyncio
-import numpy as np
+import os
+import httpx
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel, Field
+from app.core.base_tool import BaseTool
+from app.core.config import settings
+import logging
 
-# Note: Ideally we import QuantreoFeatures from sibling service or shared lib.
-# In a microservice, AI Analyst shouldn't directly import Strategy Core code.
-# However, if 'quantreo' library is installed, we can use it directly.
+logger = logging.getLogger(__name__)
 
-try:
-    import quantreo.features_engineering as fe
-except ImportError:
-    fe = None
+class RiskMapInput(BaseModel):
+    symbol: str = Field(description="Trading symbol, e.g., 'XAUUSD'.")
+    timeframe: str = Field(default="H1", description="Timeframe for analysis (M15, H1, H4, D1).")
 
-@tool
-def analyze_market_regime(symbol: str) -> str:
-    """
-    Analyzes the market regime for a given symbol using Quantreo metrics.
-    Returns: 'Trending', 'Mean Reverting', 'High Volatility', or 'Stable'.
-    
-    Args:
-        symbol: Ticker symbol (e.g. 'BTC/USD')
-    """
-    # Mock Data Fetching
-    try:
-        # Create dummy data resembling a regime
-        dates = pd.date_range(start='2024-01-01', periods=100)
-        data = {
-            'open': np.random.normal(100, 1, 100),
-            'high': np.random.normal(102, 1, 100),
-            'low': np.random.normal(98, 1, 100),
-            'close': np.random.normal(100, 1, 100),
-            'volume': np.random.normal(1000, 200, 100)
-        }
-        df = pd.DataFrame(data, index=dates)
-        
-        # Calculate Volatility (Parkinson)
-        # Using pure implementation if quantreo not available or use library
-        if fe:
-             # Assuming standard API
-             # df['vol'] = fe.volatility.parkinson_volatility(...)
-             # For robustness in this MVP tool, we'll manually calc or use mock 
-             pass
-             
-        # Simple Volatility Metric (Parkinson Proxy)
-        # 1 / (4 * ln(2)) * (ln(High/Low))^2
-        df['log_hl'] = np.log(df['high'] / df['low']) ** 2
-        vol = np.sqrt((1 / (4 * np.log(2))) * df['log_hl'].mean())
-        
-        # Classification
-        if vol > 0.02:
-            return f"High Volatility (Vol={vol:.4f})"
-        elif vol < 0.005:
-            return f"Stable (Vol={vol:.4f})"
-        else:
-            return f"Normal (Vol={vol:.4f})"
+class RiskMapTool(BaseTool):
+    name: str = "get_risk_map"
+    description: str = (
+        "Fetches the institutional Quant Risk Map for a symbol. "
+        "Provides a composite risk score (0-1) and breaks down Structural, Volatility, "
+        "and Regime risk layers. Use this for deep risk assessment before suggesting trades."
+    )
+    args_schema: Any = RiskMapInput
 
-    except Exception as e:
-        return f"Error analyzing regime: {str(e)}"
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+        symbol = input_data.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
+        timeframe = input_data.get("timeframe", "H1")
+
+        headers = {}
+        if auth_token:
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
+
+        base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
+        url = f"{base_url}/api/v1/quant/analyze"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url, 
+                    json={"symbol": symbol, "timeframe": timeframe}, 
+                    headers=headers, 
+                    timeout=15.0
+                )
+                
+                if response.status_code != 200:
+                    return f"Error fetching Risk Map: {response.status_code} - {response.text}"
+                
+                data = response.json().get("data", {})
+                risk_score = data.get("composite_risk_score", 0.0)
+                edge_score = data.get("edge_score", 0.0)
+                layers = data.get("layers", {})
+                ctx = data.get("context", {})
+
+                # Emoji-based visualization
+                risk_emoji = "🟢" if risk_score < 0.4 else "🟡" if risk_score < 0.7 else "🔴"
+                edge_emoji = "🔥" if edge_score > 0.8 else "✅" if edge_score > 0.6 else "⚪"
+
+                report = [
+                    f"### 📊 Institutional Risk Map: {symbol} ({timeframe})",
+                    f"- **Composite Risk Score**: {risk_emoji} **{risk_score:.2f}**",
+                    f"- **Edge Probabilty**: {edge_emoji} **{edge_score:.2f}**",
+                    "",
+                    "#### 🛡️ Layer Analysis",
+                    f"- **Structural Risk**: {layers.get('structural_risk', 0.5):.2f} (SMC Demand/Supply proximity)",
+                    f"- **Volatility Risk**: {layers.get('volatility_risk', 0.5):.2f} ({ctx.get('volatility_regime', 'N/A')})",
+                    f"- **Regime Risk**: {layers.get('regime_risk', 0.5):.2f} ({ctx.get('regime', 'N/A')})",
+                    f"- **Gamma Bias (Liquidity)**: {layers.get('gamma_bias', 'NEUTRAL')}",
+                    "",
+                    f"**Verdict**: {ctx.get('institutional_bias', 'NEUTRAL')} bias with {ctx.get('volatility_regime', 'stable')} volatility."
+                ]
+                
+                return "\n".join(report)
+
+        except Exception as e:
+            logger.error(f"Risk Map Tool error: {e}")
+            return f"Error generating Risk Map: {str(e)}"
