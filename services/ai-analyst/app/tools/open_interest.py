@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import redis.asyncio as redis
 from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
@@ -61,18 +63,39 @@ class OpenInterestTool(BaseTool):
             try:
                 # 1. Fetch Current Spot Price for Symbol
                 current_price = 0.0
+                
+                # Layer 0: Direct Redis Fetch (Fastest)
                 try:
-                    price_url = f"{data_pipeline_url}/candles"
-                    params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
-                    async with session.get(price_url, params=params, headers=headers, timeout=5.0) as resp:
-                        if resp.status == 200:
-                            candle_data = await resp.json()
-                            candles = candle_data.get("data", [])
-                            if candles:
-                                current_price = float(candles[0].get("close") or 0.0)
-                                logger.info(f"Fetched live spot price from candles: {current_price}")
+                    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                    redis_client = redis.from_url(redis_url, decode_responses=True)
+                    features_json = await redis_client.get(f"features:{symbol}:M15")
+                    await redis_client.close()
+                    if features_json:
+                        features_data = json.loads(features_json)
+                        close_array = features_data.get("columns", [])
+                        if "close" in close_array:
+                            close_idx = close_array.index("close")
+                            data_index = features_data.get("data", [])
+                            if data_index and len(data_index) > 0:
+                                current_price = float(data_index[-1][close_idx])
+                                logger.info(f"Fetched live spot price from Redis (features): {current_price}")
                 except Exception as e:
-                    logger.warning(f"Failed to fetch live spot price from candles: {e}")
+                    logger.warning(f"Layer 0 (Redis) price fetch failed: {e}")
+
+                # Layer 1: data-pipeline candles (primary fallback)
+                if current_price <= 0:
+                    try:
+                        price_url = f"{data_pipeline_url}/candles"
+                        params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
+                        async with session.get(price_url, params=params, headers=headers, timeout=15.0) as resp:
+                            if resp.status == 200:
+                                candle_data = await resp.json()
+                                candles = candle_data.get("data", [])
+                                if candles:
+                                    current_price = float(candles[0].get("close") or 0.0)
+                                    logger.info(f"Fetched live spot price from candles: {current_price}")
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch live spot price from candles: {e}")
 
                 # 2. Fetch Gamma Levels (Basis Adjusted)
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
@@ -87,7 +110,7 @@ class OpenInterestTool(BaseTool):
                 actual_snapshot_at = "Unknown"
                 g_data = {} # Initialize to avoid UnboundLocalError
                 
-                async with session.get(gamma_url, params=params, headers=headers, timeout=30.0) as resp:
+                async with session.get(gamma_url, params=params, headers=headers, timeout=120.0) as resp:
                     if resp.status == 200:
                         g_data = await resp.json()
                         gamma_levels = g_data.get("levels", [])
@@ -104,7 +127,7 @@ class OpenInterestTool(BaseTool):
                     # Strategy Core endpoint: POST /api/v1/market/regime
                     regime_url = f"{strategy_core_url}/market/regime"
                     regime_payload = {"symbol": "XAUUSD", "timeframe": "D1", "bias": "NEUTRAL"}
-                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=5.0) as resp:
+                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=15.0) as resp:
                         if resp.status == 200:
                             ctx = await resp.json()
                             regime = ctx.get("regime", "UNKNOWN")

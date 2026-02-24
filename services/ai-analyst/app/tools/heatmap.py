@@ -1,5 +1,7 @@
 import logging
 import json
+import os
+import redis.asyncio as redis
 from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
@@ -31,18 +33,39 @@ class LiquidityHeatmapTool(BaseTool):
                 # 1. Fetch Current Spot Price — Multi-layer fallback for reliability
                 # Layer 1: data-pipeline candles (primary)
                 current_price = 0.0
+                
+                # Layer 0: Direct Redis Fetch (Fastest)
                 try:
-                    data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
-                    price_url = f"{data_pipeline_url}/candles"
-                    price_params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
-                    async with session.get(price_url, params=price_params, headers=headers, timeout=aiohttp.ClientTimeout(total=5.0)) as resp:
-                        if resp.status == 200:
-                            candle_data = await resp.json()
-                            candles = candle_data.get("data", [])
-                            if candles:
-                                current_price = float(candles[0].get("close") or 0.0)
+                    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                    redis_client = redis.from_url(redis_url, decode_responses=True)
+                    features_json = await redis_client.get(f"features:{symbol}:M15")
+                    await redis_client.close()
+                    if features_json:
+                        features_data = json.loads(features_json)
+                        close_array = features_data.get("columns", [])
+                        if "close" in close_array:
+                            close_idx = close_array.index("close")
+                            data_index = features_data.get("data", [])
+                            if data_index and len(data_index) > 0:
+                                current_price = float(data_index[-1][close_idx])
+                                logger.info(f"Fetched live spot price from Redis (features): {current_price}")
                 except Exception as e:
-                    logger.warning(f"Layer 1 (data-pipeline) price fetch failed: {e}")
+                    logger.warning(f"Layer 0 (Redis) price fetch failed: {e}")
+
+                # Layer 1: data-pipeline candles (primary fallback)
+                if current_price <= 0:
+                    try:
+                        data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
+                        price_url = f"{data_pipeline_url}/candles"
+                        price_params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
+                        async with session.get(price_url, params=price_params, headers=headers, timeout=aiohttp.ClientTimeout(total=5.0)) as resp:
+                            if resp.status == 200:
+                                candle_data = await resp.json()
+                                candles = candle_data.get("data", [])
+                                if candles:
+                                    current_price = float(candles[0].get("close") or 0.0)
+                    except Exception as e:
+                        logger.warning(f"Layer 1 (data-pipeline) price fetch failed: {e}")
 
                 # Layer 2: strategy-core candles (fallback)
                 if current_price <= 0:
@@ -69,7 +92,7 @@ class LiquidityHeatmapTool(BaseTool):
                 if current_price > 0:
                     params["current_price"] = str(current_price)
 
-                async with session.get(url, params=params, headers=headers, timeout=10.0) as resp:
+                async with session.get(url, params=params, headers=headers, timeout=120.0) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         heatmap = data.get("heatmap") or []
@@ -123,5 +146,5 @@ class LiquidityHeatmapTool(BaseTool):
                     else:
                         return f"Failed to fetch heatmap data ({resp.status})"
             except Exception as e:
-                logger.error(f"Heatmap Tool Failed: {e}")
-                return f"Heatmap Tool Error: {str(e)}"
+                logger.error(f"Heatmap Tool Failed: {repr(e)}")
+                return f"Heatmap Tool Error: {repr(e)}"

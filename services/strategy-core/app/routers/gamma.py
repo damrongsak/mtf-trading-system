@@ -4,6 +4,14 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
 import pandas as pd
+import os
+import json
+import logging
+import asyncio
+import redis.asyncio as redis
+from dataclasses import asdict
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.open_interest import OpenInterest
@@ -71,16 +79,56 @@ async def get_gamma_levels(
             raise HTTPException(status_code=404, detail="No Open Interest data found")
         snapshot_time = latest_snapshot[0]
     
-    # 2. Fetch all records for this snapshot
-    records = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).all()
-    
-    if not records:
-        raise HTTPException(status_code=404, detail="No records found for latest snapshot")
-        
-    # Convert to list of dicts
-    data = []
+    # 2. Determine base price for filtering and cache key
     snapshot_underlying = None
-    for r in records:
+    if not current_price:
+        usd_rec = db.query(OpenInterest.underlying_price).filter(
+            OpenInterest.snapshot_at == snapshot_time,
+            OpenInterest.underlying_price.isnot(None)
+        ).first()
+        if usd_rec:
+            snapshot_underlying = float(usd_rec[0])
+
+    price_to_use = current_price if current_price else snapshot_underlying
+    if not price_to_use:
+        price_to_use = 0.0
+
+    # 3. Redis Caching
+    cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}"
+    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    redis_client = None
+    try:
+        redis_client = redis.from_url(redis_url, decode_responses=True)
+        cached_result = await redis_client.get(cache_key)
+        if cached_result:
+            await redis_client.close()
+            return json.loads(cached_result)
+    except Exception as e:
+        logger.warning(f"Redis cache read failed: {e}")
+
+    # 4. Database Query Pushdown (Filter DB side instead of fetching all)
+    max_call_record = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).order_by(OpenInterest.call_oi.desc()).first()
+    max_put_record = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).order_by(OpenInterest.put_oi.desc()).first()
+    
+    filter_range = 300.0
+    filtered_records = db.query(OpenInterest).filter(
+        OpenInterest.snapshot_at == snapshot_time,
+        OpenInterest.strike >= price_to_use - filter_range,
+        OpenInterest.strike <= price_to_use + filter_range
+    ).all()
+
+    if not filtered_records and not max_call_record:
+        if redis_client: await redis_client.close()
+        raise HTTPException(status_code=404, detail="No records found for specified parameters")
+
+    combined_records_dict = {}
+    if max_call_record: combined_records_dict[max_call_record.id] = max_call_record
+    if max_put_record: combined_records_dict[max_put_record.id] = max_put_record
+    for r in filtered_records:
+        combined_records_dict[r.id] = r
+
+    data = []
+    for r in combined_records_dict.values():
         data.append({
             'strike': float(r.strike),
             'call_oi': float(r.call_oi or 0),
@@ -88,43 +136,38 @@ async def get_gamma_levels(
             'dte': r.dte,
             'underlying_price': float(r.underlying_price) if r.underlying_price else None
         })
-        if r.underlying_price:
-            snapshot_underlying = float(r.underlying_price)
-            
-    # 3. Determine 'current' price for analysis
-    # Strategy: 
-    # - If 'current_price' provided, use it.
-    # - Else if snapshot has underlying, use it.
-    # - Else fail or return error (offset calc impossible without price)
-    
-    price_to_use = current_price if current_price else snapshot_underlying
-    
-    if not price_to_use:
-        # Without price, we can still return levels based on strikes, but regime might be wrong
-        # Default to 0 or handle gracefully?
-        price_to_use = 0.0 
 
-    # 4. Fetch SMC Data for Confluence
-    # We fetch H1 candles typically for institutional levels
+    # 5. Decoupled SMC Data Fetching (Graceful Fallback)
     smc_data = None
     try:
-        df = await fetch_candles_logic(symbol, "H1", limit=200)
+        # Wrap in timeout to prevent blocking if provider is slow
+        df = await asyncio.wait_for(fetch_candles_logic(symbol, "H1", limit=200), timeout=2.0)
         if not df.empty:
             smc_data = analyze_smc(df, symbol=symbol)
     except Exception as e:
-        logger.warning(f"Failed to fetch SMC confluence: {e}")
+        logger.warning(f"SMC data fallback used due to timeout/error: {e}")
 
-    # 5. Analyze
+    # 6. Analyze
     analyzer = LiquidityProfileAnalyzer()
-    # For now, if we can't get SMC easily in this sync context, we skip confluence or make it async
     result = analyzer.analyze_snapshot(data, current_spot_price=price_to_use, smc_data=smc_data)
     
-    return {
-        "snapshot_at": snapshot_time,
+    response_data = {
+        "snapshot_at": snapshot_time.isoformat(),
         "underlying_price": snapshot_underlying,
-        "levels": result['levels'],
-        "regime": result['regime'],
-        "max_pain": result['max_pain'],
-        "mapped_max_pain": result['mapped_max_pain'],
-        "heatmap": result['heatmap']
+        "levels": [asdict(l) for l in result.get('levels', [])],
+        "regime": asdict(result['regime']) if 'regime' in result else {},
+        "max_pain": result.get('max_pain', 0.0),
+        "mapped_max_pain": result.get('mapped_max_pain', 0.0),
+        "heatmap": result.get('heatmap', [])
     }
+
+    # 7. Write to Cache (15 min TTL)
+    if redis_client:
+        try:
+            await redis_client.setex(cache_key, 900, json.dumps(response_data))
+        except Exception as e:
+            logger.warning(f"Redis cache write failed: {e}")
+        finally:
+            await redis_client.close()
+
+    return response_data

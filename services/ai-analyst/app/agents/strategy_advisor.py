@@ -564,7 +564,18 @@ class StrategyAdvisorAgent:
                 res_ext["scratchpad"] = [f"System Observation: {decision.direct_answer}"]
 
             # Helper for executing tools (mapping Pydantic to list of dicts)
-            tool_calls = [t.model_dump() for t in decision.tool_calls]
+            raw_tool_calls = [t.model_dump() for t in decision.tool_calls]
+            
+            # Enforce uniqueness programmatically to prevent redundant execution
+            seen_tools = set()
+            tool_calls = []
+            for tc in raw_tool_calls:
+                name = tc.get("tool_name")
+                if name not in seen_tools:
+                    seen_tools.add(name)
+                    tool_calls.append(tc)
+                else:
+                    logger.warning(f"Discarding redundant tool call: {name}")
             
             return {**res_ext, "tool_calls": tool_calls}
             

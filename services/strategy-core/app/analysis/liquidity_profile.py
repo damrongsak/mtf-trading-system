@@ -62,9 +62,9 @@ class LiquidityProfileAnalyzer:
             return {}
 
         df = pd.DataFrame(records)
-        df['strike'] = df['strike'].astype(float)
-        df['call_oi'] = df['call_oi'].astype(float)
-        df['put_oi'] = df['put_oi'].astype(float)
+        df['strike'] = df['strike'].astype('float32')
+        df['call_oi'] = df['call_oi'].astype('float32')
+        df['put_oi'] = df['put_oi'].astype('float32')
         
         # 1. First, identify global Call/Put walls BEFORE filtering
         # This ensures we don't lose major levels that are far from the spot
@@ -78,7 +78,7 @@ class LiquidityProfileAnalyzer:
         df_filtered = df[
             (df['strike'] >= current_spot_price - filter_range) & 
             (df['strike'] <= current_spot_price + filter_range)
-        ].copy()
+        ]
 
         # If filtering is too aggressive, fallback to a wider range or full data
         if len(df_filtered) < 10:
@@ -291,23 +291,9 @@ class LiquidityProfileAnalyzer:
         # Sort by strike for consistent heatmap ordering
         heatmap_df = heatmap_df.sort_values('strike')
         
+        # Convert float32 back to native float for JSON serialization
+        for col in ['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr', 'relative_density']:
+            heatmap_df[col] = heatmap_df[col].astype(float)
+            
         return heatmap_df[['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr', 'relative_density']].to_dict(orient='records')
 
-    def calculate_oi_heatmap_data(self, df: pd.DataFrame, basis: float = 0.0) -> List[Dict[str, Any]]:
-        """
-        Generates data for spatial representation of Open Interest.
-        """
-        heatmap_df = df.copy()
-        heatmap_df['total_oi'] = heatmap_df['call_oi'] + heatmap_df['put_oi']
-        heatmap_df['pcr'] = heatmap_df['put_oi'] / heatmap_df['call_oi'].replace(0, np.nan)
-        heatmap_df['pcr'] = heatmap_df['pcr'].fillna(0)
-        heatmap_df['mapped_price'] = heatmap_df['strike'] - basis
-        
-        # Calculate Relative Density (0.0 to 1.0)
-        max_oi = heatmap_df['total_oi'].max()
-        heatmap_df['relative_density'] = (heatmap_df['total_oi'] / max_oi) if max_oi > 0 else 0.0
-        
-        # Sort by strike for consistent heatmap ordering
-        heatmap_df = heatmap_df.sort_values('strike')
-        
-        return heatmap_df[['strike', 'mapped_price', 'call_oi', 'put_oi', 'total_oi', 'pcr', 'relative_density']].to_dict(orient='records')

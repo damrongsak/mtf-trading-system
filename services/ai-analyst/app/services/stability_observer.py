@@ -37,7 +37,7 @@ class StabilityObserver:
             if self.consecutive_failures > 0:
                 logger.info("✅ Predictor service recovered.")
                 await send_telegram_message(
-                    settings.TELEGRAM_ADMIN_ID or 0, 
+                    settings.TELEGRAM_CHAT_ID or 0, 
                     "✅ **Olympus Predictor Recovered**\nStandard inference operations resumed."
                 )
             self.consecutive_failures = 0
@@ -80,9 +80,9 @@ class StabilityObserver:
 
     async def _trigger_alert(self, health: dict, inference: dict):
         """Sends a critical alert to the admin via Telegram."""
-        admin_id = settings.TELEGRAM_ADMIN_ID or 0
+        admin_id = settings.TELEGRAM_CHAT_ID or 0
         if not admin_id:
-            logger.error("Cannot send stability alert: TELEGRAM_ADMIN_ID not set.")
+            logger.error("Cannot send stability alert: TELEGRAM_CHAT_ID not set.")
             return
 
         msg = (
