@@ -532,7 +532,7 @@ class StrategyAdvisorAgent:
         logger.info(f"Tool Selection - Query: {query} | Context/Trace: {len(reasoning_context)} chars | Scratchpad: {len(tool_results)} chars")
         # 2. Reasoning Loop Hard Cap
         loop_count = state.get("tool_loop_count", 0)
-        if loop_count >= 5:
+        if loop_count >= 7:
             logger.warning(f"Reasoning Loop Hard Cap reached ({loop_count}). Forcing generation.")
             return {"intent": "CHAT", "tool_calls": []} # Transition to generate
             

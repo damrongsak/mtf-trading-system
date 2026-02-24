@@ -3,32 +3,29 @@ import aiohttp
 import logging
 from app.core.config import settings
 from app.core.base_tool import BaseTool
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+class MarketStateInput(BaseModel):
+    symbol: str = Field(default="XAUUSD", description="Symbol to fetch market state for.")
+    timeframe: str = Field(default="H1", description="Anchor timeframe for state analysis (M15, H1, H4, D1).")
+
 class MarketStateTool(BaseTool):
     name: str = "market_state"
-    description: str = "Fetches institutional-grade market state features (Regime, Fakeout, Risk) for XAUUSD. Input: {'symbol': 'XAUUSD', 'timeframe': 'H1'}."
+    description: str = "Fetches comprehensive institutional market state including PCR, Max Pain, and Volatility projected from strategy-core."
+    args_schema: Any = MarketStateInput
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         
-        # Handle flexible input (string or dict)
-        if isinstance(input_data, str) and input_data:
-            symbol = input_data
-        elif isinstance(input_data, dict):
-            # Robust extraction if sym is a full symbol object
-            symbol = input_data.get("symbol")
-            if not symbol:
-                symbol = "XAUUSD" # Final fallback
-            
-            # If the value itself is a dict (LLM passed full object as value), extract symbol name
-            if isinstance(symbol, dict):
-                symbol = symbol.get("symbol") or "XAUUSD"
-                
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", "XAUUSD")
             timeframe = input_data.get("timeframe", "H1")
-
+        elif isinstance(input_data, str) and input_data:
+            symbol = input_data
+        
         async with aiohttp.ClientSession() as session:
             try:
                 # We use direct service URLs instead of API Gateway

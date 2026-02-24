@@ -10,8 +10,10 @@ class PredictorForecastTool(BaseTool):
     async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         steps = 5
+        timeframe = "M15"
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", "XAUUSD")
+            timeframe = input_data.get("timeframe", "M15")
             try:
                 steps = int(input_data.get("steps", 5))
             except (ValueError, TypeError):
@@ -22,7 +24,7 @@ class PredictorForecastTool(BaseTool):
         async with aiohttp.ClientSession() as session:
             try:
                 url = f"{settings.OLYMPUS_PREDICTOR_URL}/predict"
-                payload = {"symbol": symbol, "steps": steps}
+                payload = {"symbol": symbol, "steps": steps, "timeframe": timeframe}
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -31,7 +33,7 @@ class PredictorForecastTool(BaseTool):
                         # Format prices for readability (2 decimal places)
                         prices_fmt = [f"{p:.2f}" for p in prices]
                         return (
-                            f"Forecast for {symbol} (next {len(prices)} steps):\n"
+                            f"Forecast for {symbol} ({timeframe}) (next {len(prices)} steps):\n"
                             f"Price Path: {', '.join(prices_fmt)}\n"
                             f"Volatility (Sigma): {sigma}\n"
                             f"Model Version: {data.get('model_version')}"
@@ -44,19 +46,21 @@ class PredictorForecastTool(BaseTool):
 
 class PredictorSignalTool(BaseTool):
     name: str = "get_predictor_signal"
-    description: str = "Gets a confidence-weighted trading signal (Direction, Target, Stop Loss) from the Olympus Predictor."
+    description: str = "Gets a confidence-weighted trading signal (Direction, Target, Stop Loss) from the Olympus Predictor for a specific timeframe."
 
     async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
+        timeframe = "M15"
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", "XAUUSD")
+            timeframe = input_data.get("timeframe", "M15")
         elif isinstance(input_data, str) and input_data:
             symbol = input_data
         
         async with aiohttp.ClientSession() as session:
             try:
                 url = f"{settings.OLYMPUS_PREDICTOR_URL}/signal"
-                payload = {"symbol": symbol}
+                payload = {"symbol": symbol, "timeframe": timeframe}
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 200:
                         data = await resp.json()
