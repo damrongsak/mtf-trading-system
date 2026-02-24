@@ -41,19 +41,35 @@ async def strategy(state, data_manager):
         # M15 for Trigger logic
         df_trigger = data_manager.get_candles(symbol, timeframe=tf_trigger, limit=500)
         # H1 for Context & GARCH
-        df_setup = data_manager.get_candles(symbol, timeframe=tf_setup, limit=100)
+        df_setup = data_manager.get_candles(symbol, timeframe=tf_setup, limit=250) # Increased for EMA 200
         
-        if df_trigger.empty or df_setup.empty or len(df_trigger) < 50:
+        if df_trigger.empty or df_setup.empty or len(df_trigger) < 50 or len(df_setup) < 200:
             return None
             
     except Exception as e:
         logger.warning(f"Data fetch failed for {symbol} in Gold PIV: {e}")
         return None
 
+    # Performance Optimization: Skip if we've already processed this candle
+    current_idx_trigger = df_trigger.index[-1]
+    last_idx = state.state.get("last_processed_idx")
+    if last_idx == current_idx_trigger:
+        return None
+    state.state["last_processed_idx"] = current_idx_trigger
+
     # 2. Volatility Analysis
-    h1_returns = df_setup['close'].pct_change().dropna()
-    # Projected Volatility (Live GVZ or GARCH fallback)
-    projected_vol = garch_engine.get_projected_volatility(h1_returns)
+    # Optimization: Cache GARCH result for the current H1 candle
+    current_idx_setup = df_setup.index[-1]
+    cached_vol = state.state.get("cached_projected_vol")
+    cached_setup_idx = state.state.get("last_setup_idx")
+
+    if cached_vol is not None and cached_setup_idx == current_idx_setup:
+        projected_vol = cached_vol
+    else:
+        h1_returns = df_setup['close'].pct_change().dropna()
+        projected_vol = garch_engine.get_projected_volatility(h1_returns)
+        state.state["cached_projected_vol"] = projected_vol
+        state.state["last_setup_idx"] = current_idx_setup
     
     # Intraday Precision Volatility (Yang-Zhang)
     yz_vol = calculate_yang_zhang(df_trigger['open'], df_trigger['high'], df_trigger['low'], df_trigger['close'])
@@ -121,6 +137,4 @@ async def strategy(state, data_manager):
     if signal:
         logger.info(f"PIV SIGNAL: {symbol} {signal['direction']} at {signal['price']}")
 
-    # Structure compatibility for StrategyEngine: (entries, exits, signal_dict)
-    # We'll just return the signal_dict as per StrategyEngine logic (index 2 or dict)
     return signal

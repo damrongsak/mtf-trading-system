@@ -4,7 +4,7 @@ from scipy.signal import find_peaks
 from typing import Dict, List, Tuple, Optional
 from app.indicators.volatility import calculate_atr
 
-def calculate_n_bands(df: pd.DataFrame, gvz: float = 20.0, multiplier: float = 2.0) -> Dict[str, List[float]]:
+def calculate_n_bands(df: pd.DataFrame, gvz: float = 20.0, multiplier: float = 2.0, multipliers: Optional[List[float]] = None) -> Dict[str, List[float]]:
     """
     Calculate Dynamic N Bands based on ATR and Gold Volatility (GVZ).
     GVZ is expected as a raw percentage (e.g., 20.0).
@@ -15,9 +15,10 @@ def calculate_n_bands(df: pd.DataFrame, gvz: float = 20.0, multiplier: float = 2
     # Normalize GVZ (e.g., 20.0 -> 0.20)
     gvz_norm = gvz / 100.0
     
-    multipliers = [1.0, 2.0, 3.0]
-    # If a specific multiplier is requested, we use it for the primary bands, 
-    # but we return the standard set too.
+    if multipliers is None:
+        multipliers = [1.0, 2.0, 3.0]
+        if multiplier not in multipliers:
+            multipliers.append(multiplier)
     
     bands = {}
     for m in multipliers:
