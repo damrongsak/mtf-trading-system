@@ -66,7 +66,25 @@ class LiquidityProfileAnalyzer:
         df['call_oi'] = df['call_oi'].astype(float)
         df['put_oi'] = df['put_oi'].astype(float)
         
-        # 1. Calculate Basis Offset (Futures - Spot)
+        # 1. First, identify global Call/Put walls BEFORE filtering
+        # This ensures we don't lose major levels that are far from the spot
+        max_call_row = df.loc[df['call_oi'].idxmax()]
+        max_put_row = df.loc[df['put_oi'].idxmax()]
+        max_oi_overall = max(df['call_oi'].max(), df['put_oi'].max()) or 1.0
+
+        # 2. Filter strikes near current_spot_price to optimize Max Pain and Heatmap
+        # Range: +/- $300 (Standard for Gold)
+        filter_range = 300.0
+        df_filtered = df[
+            (df['strike'] >= current_spot_price - filter_range) & 
+            (df['strike'] <= current_spot_price + filter_range)
+        ].copy()
+
+        # If filtering is too aggressive, fallback to a wider range or full data
+        if len(df_filtered) < 10:
+             df_filtered = df
+
+        # 3. Calculate Basis Offset (Futures - Spot)
         snapshot_futures_price = df['underlying_price'].iloc[0] if 'underlying_price' in df.columns and pd.notnull(df['underlying_price'].iloc[0]) else None
         
         basis = 0.0
@@ -104,53 +122,48 @@ class LiquidityProfileAnalyzer:
             
             return list(set(tags))
 
-        # 2. Identify Gamma Walls (Strikes with Max OI)
-        max_call_oi = df.loc[df['call_oi'].idxmax()]
-        max_put_oi = df.loc[df['put_oi'].idxmax()]
-        
+        # 4. Construct Gamma Levels
         levels = []
-        max_oi_overall = max(df['call_oi'].max(), df['put_oi'].max()) or 1.0
         
         # Major Call Wall (Resistance)
-        mapped_call = map_price(max_call_oi['strike'])
+        mapped_call = map_price(max_call_row['strike'])
         call_conf = check_confluence(mapped_call)
-        dte_val = int(max_call_oi['dte']) if 'dte' in max_call_oi and pd.notnull(max_call_oi['dte']) else None
+        dte_val = int(max_call_row['dte']) if 'dte' in max_call_row and pd.notnull(max_call_row['dte']) else None
         levels.append(GammaLevel(
             price=mapped_call,
-            strike=max_call_oi['strike'],
+            strike=max_call_row['strike'],
             type='CALL_WALL',
-            zone_type=get_zone_type(max_call_oi['strike']),
-            strength=max_call_oi['call_oi'],
-            description=f"Major Resistance (Call Wall) at {max_call_oi['strike']}",
+            zone_type=get_zone_type(max_call_row['strike']),
+            strength=float(max_call_row['call_oi']),
+            description=f"Major Resistance (Call Wall) at {max_call_row['strike']}",
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="RESISTANCE",
-            zone_type_v2="SUPPLY_ZONE" if max_call_oi['call_oi'] > max_call_oi['put_oi'] * 1.5 else "NEUTRAL",
-            significance_score=self.calculate_significance('CALL_WALL', get_zone_type(max_call_oi['strike']), call_conf, max_call_oi['call_oi']/max_oi_overall),
+            zone_type_v2="SUPPLY_ZONE" if max_call_row['call_oi'] > max_call_row['put_oi'] * 1.5 else "NEUTRAL",
+            significance_score=self.calculate_significance('CALL_WALL', get_zone_type(max_call_row['strike']), call_conf, max_call_row['call_oi']/max_oi_overall),
             confluence=call_conf
         ))
 
         # Major Put Wall (Support)
-        mapped_put = map_price(max_put_oi['strike'])
+        mapped_put = map_price(max_put_row['strike'])
         put_conf = check_confluence(mapped_put)
-        dte_val = int(max_put_oi['dte']) if 'dte' in max_put_oi and pd.notnull(max_put_oi['dte']) else None
+        dte_val = int(max_put_row['dte']) if 'dte' in max_put_row and pd.notnull(max_put_row['dte']) else None
         levels.append(GammaLevel(
             price=mapped_put,
-            strike=max_put_oi['strike'],
+            strike=max_put_row['strike'],
             type='PUT_WALL',
-            zone_type=get_zone_type(max_put_oi['strike']),
-            strength=max_put_oi['put_oi'],
-            description=f"Major Support (Put Wall) at {max_put_oi['strike']}",
+            zone_type=get_zone_type(max_put_row['strike']),
+            strength=float(max_put_row['put_oi']),
+            description=f"Major Support (Put Wall) at {max_put_row['strike']}",
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="SUPPORT",
-            zone_type_v2="DEMAND_ZONE" if max_put_oi['put_oi'] > max_put_oi['call_oi'] * 1.5 else "NEUTRAL",
-            significance_score=self.calculate_significance('PUT_WALL', get_zone_type(max_put_oi['strike']), put_conf, max_put_oi['put_oi']/max_oi_overall),
+            zone_type_v2="DEMAND_ZONE" if max_put_row['put_oi'] > max_put_row['call_oi'] * 1.5 else "NEUTRAL",
+            significance_score=self.calculate_significance('PUT_WALL', get_zone_type(max_put_row['strike']), put_conf, max_put_row['put_oi']/max_oi_overall),
             confluence=put_conf
         ))
 
-        # 3. Calculate Gamma Exposure (GEX) Profile
-        # simplified Net OI (Call - Put) as proxy
+        # 5. GEX Regime
         total_call_oi = df['call_oi'].sum()
         total_put_oi = df['put_oi'].sum()
         
@@ -176,14 +189,14 @@ class LiquidityProfileAnalyzer:
         regime_type = 'POSITIVE_GAMMA' if current_spot_price > (gamma_flip_level or 0) else 'NEGATIVE_GAMMA'
         
         regime = MarketRegime(
-            net_gex=total_call_oi - total_put_oi, # Raw Net OI as proxy
+            net_gex=total_call_oi - total_put_oi,
             regime=regime_type,
             gamma_flip_level=gamma_flip_level,
             summary=f"Market is in {regime_type} regime. Net OI Delta: {total_call_oi - total_put_oi:,.0f}"
         )
 
-        # 4. Calculate Max Pain
-        max_pain_strike = self.calculate_max_pain(df)
+        # 6. Optimized Max Pain (on filtered data)
+        max_pain_strike = self.calculate_max_pain(df_filtered)
         mapped_max_pain = map_price(max_pain_strike)
         pain_conf = check_confluence(mapped_max_pain)
         levels.append(GammaLevel(
@@ -203,33 +216,63 @@ class LiquidityProfileAnalyzer:
             "regime": regime,
             "max_pain": max_pain_strike,
             "mapped_max_pain": mapped_max_pain,
-            "heatmap": self.calculate_oi_heatmap_data(df, basis),
-            "raw_data": df.to_dict(orient='records')
+            "heatmap": self.calculate_oi_heatmap_data(df_filtered, basis),
+            "raw_data": df_filtered.to_dict(orient='records')
         }
 
     def calculate_max_pain(self, df: pd.DataFrame) -> float:
         """
-        Calculates the Max Pain strike price (where total loss for option buyers is minimized).
-        Uses O(N) memory by iterating over potential spots.
+        Calculates the Max Pain strike price with O(N) complexity using cumulative sums.
+        This is mathematically equivalent to the loop-based approach but far more efficient.
         """
-        strikes = df['strike'].unique()
-        best_strike = strikes[0]
-        min_loss = float('inf')
+        if df.empty: return 0.0
 
-        # Vectorized calculation for each potential settlement strike
-        for spot in strikes:
-            # Call Loss: max(0, spot - strike) * call_oi
-            call_loss = np.maximum(0, spot - df['strike']) * df['call_oi']
-            # Put Loss: max(0, strike - spot) * put_oi
-            put_loss = np.maximum(0, df['strike'] - spot) * df['put_oi']
-            
-            total_loss = float(call_loss.sum() + put_loss.sum())
-            
-            if total_loss < min_loss:
-                min_loss = total_loss
-                best_strike = spot
-                
-        return float(best_strike)
+        # 1. Sort by strike to enable cumulative sum logic
+        df_sorted = df.sort_values('strike')
+        strikes = df_sorted['strike'].values
+        call_oi = df_sorted['call_oi'].values
+        put_oi = df_sorted['put_oi'].values
+
+        # 2. Pre-calculate values for Calls (Loss when Price > Strike)
+        # Call Loss at price S = S * sum(OI_i) - sum(K_i * OI_i) for all K_i < S
+        call_oi_cumsum = np.cumsum(call_oi)
+        call_ko_oi_cumsum = np.cumsum(strikes * call_oi)
+
+        # 3. Pre-calculate values for Puts (Loss when Price < Strike)
+        # Put Loss at price S = sum(K_i * OI_i) - S * sum(OI_i) for all K_i > S
+        # We use reversed cumsums for Puts (summing from right to left)
+        put_oi_sum = np.sum(put_oi)
+        put_ko_oi_sum = np.sum(strikes * put_oi)
+        
+        # Cumulative sum from right to left: sum(K_i * OI_i) for all K_i >= S
+        put_oi_cumsum_rev = put_oi_sum - call_oi_cumsum + call_oi # Includes current strike
+        # Note: we need sum of OI for K_i > S. 
+        # Actually, let's use a simpler way:
+        put_oi_rev_cumsum = np.cumsum(put_oi[::-1])[::-1]
+        put_ko_oi_rev_cumsum = np.cumsum((strikes * put_oi)[::-1])[::-1]
+
+        # 4. Calculate total loss for EACH strike being the settlement price
+        # For a strike S[j]:
+        # Call loss = S[j] * call_oi_cumsum[j-1] - call_ko_oi_cumsum[j-1]
+        # Put loss = put_ko_oi_rev_cumsum[j+1] - S[j] * put_oi_rev_cumsum[j+1]
+        
+        # We can vectorize this across all j
+        # Shifted cumsums to handle "less than" and "greater than"
+        c_oi_prev = np.concatenate([[0], call_oi_cumsum[:-1]])
+        c_ko_prev = np.concatenate([[0], call_ko_oi_cumsum[:-1]])
+        
+        p_oi_next = np.concatenate([put_oi_rev_cumsum[1:], [0]])
+        p_ko_next = np.concatenate([put_ko_oi_rev_cumsum[1:], [0]])
+
+        call_losses = strikes * c_oi_prev - c_ko_prev
+        put_losses = p_ko_next - strikes * p_oi_next
+        
+        total_losses = call_losses + put_losses
+
+        # 5. Find the minimum loss
+        best_index = np.argmin(total_losses)
+        
+        return float(strikes[best_index])
 
     def calculate_oi_heatmap_data(self, df: pd.DataFrame, basis: float = 0.0) -> List[Dict[str, Any]]:
         """
