@@ -41,6 +41,7 @@ router = APIRouter(
 )
 
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
+AI_SERVICE_TIMEOUT = float(os.getenv("AI_SERVICE_TIMEOUT", "300.0"))
 
 @router.get("/agents")
 async def list_agents(request: Request):
@@ -80,7 +81,7 @@ async def analyze_market(req: MarketAnalysisRequest, request: Request):
                 f"{AI_SERVICE_URL}/api/v1/analyze/market", 
                 json=req.model_dump(mode='json'),
                 headers=headers,
-                timeout=30.0 # LLMs can be slow
+                timeout=AI_SERVICE_TIMEOUT # Production-grade timeout
             )
             response.raise_for_status()
             return response.json()
@@ -105,7 +106,7 @@ async def analyze_journal(req: JournalAnalysisRequest, request: Request):
                 f"{AI_SERVICE_URL}/api/v1/analyze/journal", 
                 json=req.model_dump(mode='json'),
                 headers=headers,
-                timeout=30.0
+                timeout=AI_SERVICE_TIMEOUT
             )
             response.raise_for_status()
             return response.json()
@@ -140,7 +141,7 @@ async def run_market_observer(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
                 json=req.model_dump(),
                 headers=headers,
-                timeout=120.0 # Agents can be slow
+                timeout=AI_SERVICE_TIMEOUT # Agents can be slow
             )
             response.raise_for_status()
             return response.json()
@@ -172,7 +173,7 @@ async def get_daily_briefing(
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/briefing",
                 headers=headers,
-                timeout=120.0 
+                timeout=AI_SERVICE_TIMEOUT 
             )
             response.raise_for_status()
             resp_data = response.json()
@@ -230,7 +231,7 @@ async def chat_strategy(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message", 
                 json=chat_req.model_dump(),
                 headers=headers,
-                timeout=180.0 # Very Long timeout for CoT
+                timeout=AI_SERVICE_TIMEOUT # Long timeout for CoT
             )
             response.raise_for_status()
             return response.json()
@@ -240,6 +241,44 @@ async def chat_strategy(
         except httpx.HTTPStatusError as exc:
             logger.error(f"AI Service Error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+
+@router.post("/chat/sessions/stream")
+async def chat_strategy_stream(
+    request: Request,
+    chat_req: StrategyChatRequest, 
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Streaming proxy for Strategy Advisor.
+    """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization, "Accept": "application/x-ndjson"} if authorization else {"Accept": "application/x-ndjson"}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+
+    from fastapi.responses import StreamingResponse
+
+    async def stream_proxy():
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                "POST",
+                f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/stream",
+                json=chat_req.model_dump(),
+                headers=headers,
+                timeout=AI_SERVICE_TIMEOUT
+            ) as response:
+                # Check for errors before streaming
+                if response.status_code >= 400:
+                    await response.aread()
+                    yield json.dumps({"type": "error", "content": f"AI Service Error {response.status_code}: {response.text}"}) + "\n"
+                    return
+
+                async for chunk in response.aiter_lines():
+                    if chunk:
+                        yield chunk + "\n"
+
+    return StreamingResponse(stream_proxy(), media_type="application/x-ndjson")
+
 
 @router.get("/chat/sessions", response_model=APIResponseChatSessionList)
 def list_chat_sessions(
@@ -367,7 +406,7 @@ async def send_chat_message(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message",
                 json=payload,
                 headers=headers,
-                timeout=180.0 # Very Long timeout for CoT and Multi-Step Reasoning
+                timeout=AI_SERVICE_TIMEOUT # Long timeout for CoT and Multi-Step Reasoning
             )
             
             if resp.status_code == 200:

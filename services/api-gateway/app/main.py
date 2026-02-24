@@ -42,6 +42,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         403: ErrorCode.FORBIDDEN,
         404: ErrorCode.NOT_FOUND,
         429: ErrorCode.RATE_LIMIT_EXCEEDED,
+        503: ErrorCode.SERVICE_UNAVAILABLE,
         500: ErrorCode.INTERNAL_ERROR,
     }
     

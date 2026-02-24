@@ -1086,6 +1086,68 @@ class StrategyAdvisorAgent:
 
     # --- PUBLIC API ---
 
+    async def stream(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None):
+        """
+        Streaming entry point using LangGraph astream_events (v2).
+        Yields events as they occur in the graph.
+        """
+        initial_state = {
+            "input_text": input_text,
+            "user_id": user_id,
+            "auth_token": auth_token,
+            "scratchpad": [],
+            "retrieved_docs": [],
+            "user_facts": [],
+            "tool_calls": [],
+            "plan_steps": [],
+            "iteration_count": 0,
+            "tool_loop_count": 0,
+            "evaluation_feedback": "",
+            "is_satisfactory": False,
+            "context_code": context_code,
+            "image_b64": image_b64
+        }
+        
+        import uuid
+        thread_id = thread_id or str(uuid.uuid4())
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 100
+        }
+
+        # Use version="v2" for latest event schema
+        async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
+            # Only yield relevant events to reduce bandwidth
+            kind = event["event"]
+            name = event["name"]
+            
+            # 1. Capture Node Starts (Thinking)
+            if kind == "on_chain_start" and name == "LangGraph":
+                 yield {"type": "status", "content": "Initializing..."}
+            
+            elif kind == "on_chain_start" and name in ["query_optimizer", "router", "tool_selection", "reasoning", "generate"]:
+                 yield {"type": "status", "content": f"Agent {name.replace('_', ' ').title()}..."}
+
+            # 2. Capture Tool Starts
+            elif kind == "on_tool_start":
+                 yield {"type": "tool_start", "tool": name, "input": event.get("data", {}).get("input")}
+
+            # 3. Capture Token Streams (Gemini)
+            elif kind == "on_chat_model_stream":
+                 content = event["data"]["chunk"].content
+                 if content:
+                      yield {"type": "token", "content": content}
+
+            # 4. Capture Final State (Thoughts/Response)
+            elif kind == "on_chain_end" and name == "LangGraph":
+                 final_state = event["data"]["output"]
+                 yield {
+                     "type": "final", 
+                     "response": final_state.get("final_response"),
+                     "thoughts": final_state.get("thoughts"),
+                     "thread_id": thread_id
+                 }
+
     async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None):
         """
         Main entry point.

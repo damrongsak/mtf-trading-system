@@ -40,6 +40,7 @@ install()
 # Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 AGENT_ENDPOINT = "/api/v1/ai/chat/sessions/message"
+AGENT_STREAM_ENDPOINT = "/api/v1/ai/chat/sessions/stream"
 LOGIN_ENDPOINT = "/api/v1/auth/token"
 HEALTH_ENDPOINT = "/health"
 USER_ID_FILE = ".cli_user_id"
@@ -52,7 +53,7 @@ class ChatApp:
         self.user_id = self.get_or_create_user_id()
         self.session_id = self.get_or_create_thread_id()
         self.auth_token = self.load_token()
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(timeout=300.0)
         self.running = True
         self.session = None # Delay init
         
@@ -293,35 +294,78 @@ class ChatApp:
                 error_msg = None
                 start_time = datetime.now()
 
-                # Spinner Context
-                with Live(Spinner("dots", text="[italic cyan]Thinking...[/italic cyan]", style="cyan"), refresh_per_second=10, transient=True):
+                # Spinner Context (deprecated - nested in Live)
+                with Live(Panel(Text("Thinking...", style="italic cyan"), title="[bold violet]MTF Olympus AI[/bold violet]", border_style="violet", expand=False), refresh_per_second=10, transient=True) as live:
                     try:
-                        response = await self.client.post(
-                             f"{API_URL}{AGENT_ENDPOINT}", 
-                             json=payload,
-                             headers=headers,
-                             timeout=300.0
-                        )
-                        
-                        if response.status_code == 401 or response.status_code == 403:
-                            error_msg = "[bold red]Authentication Failed (401). Please /login again.[/bold red]"
-                            # Invalidate token
-                            if os.path.exists(TOKEN_FILE):
-                                os.remove(TOKEN_FILE)
-                            self.auth_token = None
-                        else:
-                            response.raise_for_status()
-                            data = response.json()
-                            
-                            response_content = data.get("data", {}).get("response", "")
-                            thoughts_content = data.get("data", {}).get("thoughts")
-                        
+                        async with self.client.stream(
+                            "POST",
+                            f"{API_URL}{AGENT_STREAM_ENDPOINT}",
+                            json=payload,
+                            headers=headers,
+                            timeout=300.0
+                        ) as response:
+                            if response.status_code == 401 or response.status_code == 403:
+                                error_msg = "[bold red]Authentication Failed (401). Please /login again.[/bold red]"
+                                # Invalidate token
+                                if os.path.exists(TOKEN_FILE):
+                                    os.remove(TOKEN_FILE)
+                                self.auth_token = None
+                            else:
+                                response.raise_for_status()
+                                async for line in response.aiter_lines():
+                                    if not line:
+                                        continue
+                                    
+                                    try:
+                                        event = json.loads(line)
+                                        event_type = event.get("type")
+                                        
+                                        if event_type == "status":
+                                            current_status = event.get("content", "")
+                                        elif event_type == "token":
+                                            response_content += event.get("content", "")
+                                        elif event_type == "tool_start":
+                                            current_status = f"Using tool: {event.get('tool')}..."
+                                        elif event_type == "final":
+                                            response_content = event.get("response") or response_content
+                                            thoughts_content = event.get("thoughts") or ""
+                                        elif event_type == "error":
+                                            error_msg = f"[bold red]AI Error[/bold red]: {event.get('content')}"
+                                            break
+                                        
+                                        # Update Live Display
+                                        elapsed = (datetime.now() - start_time).total_seconds()
+                                        
+                                        display_text = Text()
+                                        if response_content:
+                                            # Convert Markdown to Rich for rendering
+                                            md = Markdown(response_content)
+                                            # We just show the raw markdown during stream for performance, or partial MD
+                                            # For simplicity in CLI, we'll just show the text and re-render final later
+                                            display_text.append(response_content)
+                                        else:
+                                            display_text.append(current_status, style="italic cyan")
+
+                                        live.update(Panel(
+                                            display_text,
+                                            title=f"[bold violet]MTF Olympus AI ({elapsed:.1f}s)[/bold violet]",
+                                            border_style="violet",
+                                            expand=False
+                                        ))
+                                        
+                                    except Exception as e:
+                                        self.console.print(f"[dim red]Stream Parse Error: {e}[/dim red]")
+
                     except httpx.HTTPStatusError as e:
-                        error_msg = f"[bold red]API Error {e.response.status_code}[/bold red]: {e.response.text}"
+                        try:
+                            await e.response.aread()
+                            error_msg = f"[bold red]API Error {e.response.status_code}[/bold red]: {e.response.text}"
+                        except:
+                            error_msg = f"[bold red]API Error {e.response.status_code}[/bold red]"
                     except Exception as e:
                         error_msg = f"[bold red]Request Failed[/bold red]: {str(e)}"
                         
-                # ─── RENDER OUTPUT ──────────────────────────────────────────────
+                # ─── FINAL RENDER ──────────────────────────────────────────────
                 
                 elapsed = (datetime.now() - start_time).total_seconds()
 

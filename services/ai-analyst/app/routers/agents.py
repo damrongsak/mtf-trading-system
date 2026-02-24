@@ -151,6 +151,39 @@ async def run_daily_briefing(authorization: str = Header(None, alias="Authorizat
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/chat/sessions/stream")
+async def chat_strategy_stream(
+    request: StrategyChatRequest,
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Streaming chat with Strategy Advisor Agent.
+    """
+    if not services["strategy_advisor"]:
+        raise HTTPException(status_code=503, detail="Strategy Advisor unavailable")
+    
+    from fastapi.responses import StreamingResponse
+    import json
+
+    async def event_generator():
+        auth_token = extract_auth_token(authorization)
+        try:
+            async for event in services["strategy_advisor"].stream(
+                input_text=request.message,
+                user_id=request.user_id,
+                auth_token=auth_token,
+                context_code=request.context_code,
+                image_b64=request.image_b64,
+                thread_id=request.thread_id
+            ):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield json.dumps({"type": "error", "content": str(e)}) + "\n"
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
 @router.post("/chat/sessions/message")
 async def chat_strategy(
     request: StrategyChatRequest,
