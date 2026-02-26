@@ -10,10 +10,14 @@ import httpx
 import os
 import logging
 import time
+import json
+import redis.asyncio as redis
 from app.repositories.open_interest_repository import OpenInterestRepository
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 router = APIRouter(
     tags=["analysis"]
@@ -462,3 +466,29 @@ async def proxy_quant_sizing(req: QuantSizingRequest):
     except Exception as e:
         logger.error(f"Quant Sizing Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sentiment/cached", status_code=200)
+async def get_cached_sentiment(symbol: str = "XAUUSD"):
+    """
+    Fetches the sub-millisecond AI sentiment score and reason from Redis.
+    """
+    try:
+        r = redis.from_url(REDIS_URL, decode_responses=True)
+        cached_data = await r.get(f"sentiment:{symbol}")
+        await r.aclose()
+        
+        if cached_data:
+            sentiment_data = json.loads(cached_data)
+        else:
+            sentiment_data = {"score": 0.0, "reason": "No cached sentiment"}
+            
+        return success_response(data={
+            "symbol": symbol,
+            "sentiment": sentiment_data
+        })
+    except Exception as e:
+        logger.error(f"Failed to fetch cached sentiment: {e}")
+        return success_response(data={
+            "symbol": symbol,
+            "sentiment": {"score": 0.0, "reason": "Error fetching sentiment"}
+        })

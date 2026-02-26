@@ -24,29 +24,31 @@ class AsyncCTraderClient:
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._message_handler = None
         self._auth_lock = asyncio.Lock()
+        self._connect_lock = asyncio.Lock()
 
     def set_message_handler(self, handler):
         """Set a callback for unsolicited messages (e.g. Spot Events)"""
         self._message_handler = handler
 
     async def connect(self):
-        if self._connected:
-            return
+        async with self._connect_lock:
+            if self._connected:
+                return
 
-        logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
-        try:
-            self.reader, self.writer = await asyncio.open_connection(
-                self.host, self.port, ssl=self.ssl
-            )
-            self._connected = True
-            logger.info("Connected to cTrader.")
-            
-            # Start reader loop
-            self._reader_task = asyncio.create_task(self._read_loop())
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-        except Exception as e:
-            logger.error(f"Failed to connect to cTrader: {e}")
-            raise
+            logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
+            try:
+                self.reader, self.writer = await asyncio.open_connection(
+                    self.host, self.port, ssl=self.ssl
+                )
+                self._connected = True
+                logger.info("Connected to cTrader.")
+                
+                # Start reader loop
+                self._reader_task = asyncio.create_task(self._read_loop())
+                self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            except Exception as e:
+                logger.error(f"Failed to connect to cTrader: {e}")
+                raise
 
     async def disconnect(self):
         self._connected = False

@@ -2535,6 +2535,41 @@ export const AnalysisApiAxiosParamCreator = function (configuration?: Configurat
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Fetches the sub-millisecond AI sentiment score and reason from Redis.
+         * @summary Get Cached Sentiment from Redis
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisSentimentCachedGet: async (symbol?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/sentiment/cached`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -2649,6 +2684,19 @@ export const AnalysisApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisOiUnifiedProfileGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Fetches the sub-millisecond AI sentiment score and reason from Redis.
+         * @summary Get Cached Sentiment from Redis
+         * @param {string} [symbol] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisSentimentCachedGet(symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisSentimentCachedGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisSentimentCachedGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -2738,6 +2786,16 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
         apiV1AnalysisOiUnifiedProfileGet(requestParameters: AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseUnifiedOIProfile> {
             return localVarFp.apiV1AnalysisOiUnifiedProfileGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
         },
+        /**
+         * Fetches the sub-millisecond AI sentiment score and reason from Redis.
+         * @summary Get Cached Sentiment from Redis
+         * @param {AnalysisApiApiV1AnalysisSentimentCachedGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisSentimentCachedGet(requestParameters: AnalysisApiApiV1AnalysisSentimentCachedGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1AnalysisSentimentCachedGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -2796,6 +2854,13 @@ export interface AnalysisApiApiV1AnalysisGammaLevelsGetRequest {
  * Request parameters for apiV1AnalysisOiUnifiedProfileGet operation in AnalysisApi.
  */
 export interface AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest {
+    readonly symbol?: string
+}
+
+/**
+ * Request parameters for apiV1AnalysisSentimentCachedGet operation in AnalysisApi.
+ */
+export interface AnalysisApiApiV1AnalysisSentimentCachedGetRequest {
     readonly symbol?: string
 }
 
@@ -2889,6 +2954,17 @@ export class AnalysisApi extends BaseAPI {
      */
     public apiV1AnalysisOiUnifiedProfileGet(requestParameters: AnalysisApiApiV1AnalysisOiUnifiedProfileGetRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).apiV1AnalysisOiUnifiedProfileGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Fetches the sub-millisecond AI sentiment score and reason from Redis.
+     * @summary Get Cached Sentiment from Redis
+     * @param {AnalysisApiApiV1AnalysisSentimentCachedGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisSentimentCachedGet(requestParameters: AnalysisApiApiV1AnalysisSentimentCachedGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisSentimentCachedGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -3235,7 +3311,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Direct chat endpoint for Strategy Advisor agent.
+         * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {StrategyChatRequest} [strategyChatRequest] 
          * @param {*} [options] Override http request option.
@@ -6504,7 +6580,7 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Direct chat endpoint for Strategy Advisor agent.
+         * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {StrategyChatRequest} [strategyChatRequest] 
          * @param {*} [options] Override http request option.
@@ -7729,7 +7805,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.apiV1AiChatSessionsGet(requestParameters.strategyId, options).then((request) => request(axios, basePath));
         },
         /**
-         * Direct chat endpoint for Strategy Advisor agent.
+         * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {DefaultApiApiV1AiChatSessionsMessagePostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -9340,7 +9416,7 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * Direct chat endpoint for Strategy Advisor agent.
+     * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
      * @summary Chat with Strategy Advisor
      * @param {DefaultApiApiV1AiChatSessionsMessagePostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -11297,6 +11373,100 @@ export class SignalApi extends BaseAPI {
      */
     public apiV1SignalsCancelAllPost(requestParameters: SignalApiApiV1SignalsCancelAllPostRequest = {}, options?: RawAxiosRequestConfig) {
         return SignalApiFp(this.configuration).apiV1SignalsCancelAllPost(requestParameters.deploymentId, requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * SystemApi - axios parameter creator
+ */
+export const SystemApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * @summary Get Async Execution Queue Health
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemQueueHealthGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/system/queue-health`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * SystemApi - functional programming interface
+ */
+export const SystemApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = SystemApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * @summary Get Async Execution Queue Health
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SystemQueueHealthGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1SystemQueueHealthGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * SystemApi - factory interface
+ */
+export const SystemApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = SystemApiFp(configuration)
+    return {
+        /**
+         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * @summary Get Async Execution Queue Health
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1SystemQueueHealthGet(options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * SystemApi - object-oriented interface
+ */
+export class SystemApi extends BaseAPI {
+    /**
+     * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+     * @summary Get Async Execution Queue Health
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig) {
+        return SystemApiFp(this.configuration).apiV1SystemQueueHealthGet(options).then((request) => request(this.axios, this.basePath));
     }
 }
 

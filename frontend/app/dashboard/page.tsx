@@ -12,6 +12,9 @@ import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { DailyBriefingWidget } from '@/components/ai/DailyBriefingWidget';
 import { OrdersCard } from '@/components/dashboard/OrdersCard';
 import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
+import { QueueHealthMonitor } from '@/components/execution/QueueHealthMonitor';
+import { CachedSentimentPulse } from '@/components/analysis/CachedSentimentPulse';
+import { KellyRiskWidget } from '@/components/risk/KellyRiskWidget';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { useState, useEffect, useMemo } from 'react';
@@ -183,6 +186,9 @@ export default function DashboardPage() {
           <MarketStatusBadge />
         </div>
       </div>
+      
+      {/* Execution Queue Health */}
+      <QueueHealthMonitor />
 
       {/* Error States */}
       {statsError && (
@@ -238,7 +244,15 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Daily Briefing Section - Promoted to Top */}
+      {/* Daily Briefing & Alpha Sentiment Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CachedSentimentPulse />
+          <KellyRiskWidget 
+            winRate={stats?.win_rate || 50} 
+            profitFactor={stats && stats.total_trades > 0 && stats.win_rate > 0 ? (stats.win_rate / (100 - stats.win_rate)) * 1.5 : 1.2} 
+          />
+      </div>
+
       <div className="grid grid-cols-1 gap-6">
           <DailyBriefingWidget />
       </div>

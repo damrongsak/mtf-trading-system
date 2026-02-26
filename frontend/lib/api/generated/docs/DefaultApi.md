@@ -581,7 +581,7 @@ No authorization required
 # **apiV1AiChatSessionsMessagePost**
 > ApiV1AiChatSessionsMessagePost200Response apiV1AiChatSessionsMessagePost()
 
-Direct chat endpoint for Strategy Advisor agent.
+Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
 
 ### Example
 

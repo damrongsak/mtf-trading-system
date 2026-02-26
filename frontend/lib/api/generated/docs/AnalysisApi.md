@@ -12,6 +12,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AnalysisCalculateRsiPost**](#apiv1analysiscalculatersipost) | **POST** /api/v1/analysis/calculate/rsi | Calculate RSI|
 |[**apiV1AnalysisGammaLevelsGet**](#apiv1analysisgammalevelsget) | **GET** /api/v1/analysis/gamma/levels | Get Gamma Levels and Market Regime|
 |[**apiV1AnalysisOiUnifiedProfileGet**](#apiv1analysisoiunifiedprofileget) | **GET** /api/v1/analysis/oi/unified-profile | Get Unified Open Interest Profile|
+|[**apiV1AnalysisSentimentCachedGet**](#apiv1analysissentimentcachedget) | **GET** /api/v1/analysis/sentiment/cached | Get Cached Sentiment from Redis|
 
 # **analysisDriftPost**
 > AnalysisDriftPost200Response analysisDriftPost()
@@ -421,6 +422,57 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Unified OI Profile |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisSentimentCachedGet**
+> APIResponse apiV1AnalysisSentimentCachedGet()
+
+Fetches the sub-millisecond AI sentiment score and reason from Redis.
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+let symbol: string; // (optional) (default to 'XAUUSD')
+
+const { status, data } = await apiInstance.apiV1AnalysisSentimentCachedGet(
+    symbol
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **symbol** | [**string**] |  | (optional) defaults to 'XAUUSD'|
+
+
+### Return type
+
+**APIResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Cached Sentiment Data |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

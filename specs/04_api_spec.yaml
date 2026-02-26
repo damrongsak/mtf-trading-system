@@ -552,6 +552,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_UnifiedOIProfile'
 
+  /api/v1/analysis/sentiment/cached:
+    get:
+      tags:
+        - Analysis
+      summary: Get Cached Sentiment from Redis
+      description: Fetches the sub-millisecond AI sentiment score and reason from Redis.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XAUUSD
+      responses:
+        '200':
+          description: Cached Sentiment Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/system/queue-health:
+    get:
+      tags:
+        - System
+      summary: Get Async Execution Queue Health
+      description: Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+      responses:
+        '200':
+          description: Queue Health Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   /api/v1/ai/agent/observer/run:
     post:
       summary: Run Market Observer Agent
