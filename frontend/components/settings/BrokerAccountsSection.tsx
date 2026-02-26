@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2, ShieldCheck, AlertCircle, Edit2, RefreshCw, CheckCheck, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { getAccounts, createAccount, deleteAccount, updateAccount, fetchBrokerSymbols, testAccountConnection } from '@/lib/api/accounts';
@@ -52,8 +53,7 @@ import { logger } from "@/lib/api/app-logger";
     // Edit State
     const [editingAccount, setEditingAccount] = useState<BrokerAccount | null>(null);
     const [editSymbols, setEditSymbols] = useState<string[]>([]);
-    const [editAccessToken, setEditAccessToken] = useState('');
-    const [editRefreshToken, setEditRefreshToken] = useState('');
+    const [editCredentialsJson, setEditCredentialsJson] = useState('{}');
     const [lastFetchedSymbols, setLastFetchedSymbols] = useState<string[]>([]);
     const [isFetchingSymbols, setIsFetchingSymbols] = useState(false);
     
@@ -311,19 +311,18 @@ import { logger } from "@/lib/api/app-logger";
             };
 
             // Include credentials if updated
-            if (editingAccount.broker_name === 'CTRADER' && (editAccessToken || editRefreshToken)) {
-                updates.credentials = {
-                    ...((editingAccount as any).credentials || {}), 
-                    token: editAccessToken || undefined,
-                    refresh_token: editRefreshToken || undefined
-                };
+            if (editCredentialsJson.trim() && editCredentialsJson !== '{}') {
+                try {
+                    updates.credentials = JSON.parse(editCredentialsJson);
+                } catch (e) {
+                    throw new Error("Invalid format in Credentials Configuration (JSON)");
+                }
             }
 
             await updateAccount(editingAccount.id, updates);
             await fetchAccounts();
             setEditingAccount(null);
-            setEditAccessToken('');
-            setEditRefreshToken('');
+            setEditCredentialsJson('{}');
             setSuccess("Account updated successfully");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update account");
@@ -416,10 +415,10 @@ import { logger } from "@/lib/api/app-logger";
                                 </p>
                             </div>
 
-                            {editingAccount.broker_name === 'CTRADER' && (
-                                <div className="pt-4 border-t border-gray-800 space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-medium text-gray-400">Update Credentials</h4>
+                            <div className="pt-4 border-t border-gray-800 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-medium text-gray-400">Update Credentials</h4>
+                                    {editingAccount.broker_name === 'CTRADER' && (
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -430,27 +429,21 @@ import { logger } from "@/lib/api/app-logger";
                                             <RefreshCw className={`h-3 w-3 mr-1 ${submitting ? 'animate-spin' : ''}`} />
                                             Refresh Token
                                         </Button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>New Access Token (Optional)</Label>
-                                        <Input
-                                            type="password"
-                                            placeholder="Paste new token to update"
-                                            value={editAccessToken}
-                                            onChange={(e) => setEditAccessToken(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>New Refresh Token (Optional)</Label>
-                                        <Input
-                                            type="password"
-                                            placeholder="Paste new refresh token"
-                                            value={editRefreshToken}
-                                            onChange={(e) => setEditRefreshToken(e.target.value)}
-                                        />
-                                    </div>
+                                    )}
                                 </div>
-                            )}
+                                <div className="space-y-2">
+                                    <Label>Configuration (JSON)</Label>
+                                    <Textarea
+                                        value={editCredentialsJson}
+                                        onChange={(e) => setEditCredentialsJson(e.target.value)}
+                                        className="font-mono text-xs h-32 bg-gray-950/50"
+                                        placeholder='{"token": "..."}'
+                                    />
+                                    <p className="text-xs text-gray-500">
+                                        Edit the raw credentials object. Invalid JSON will be rejected. 
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-2 mt-6">
@@ -684,8 +677,8 @@ import { logger } from "@/lib/api/app-logger";
                                             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-blue-400" onClick={() => {
                                                 setEditingAccount(acc);
                                                 setEditSymbols(acc.supported_symbols || []);
-                                                setEditAccessToken('');
-                                                setEditRefreshToken('');
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                setEditCredentialsJson(JSON.stringify((acc as any).credentials || {}, null, 2));
                                             }}>
                                                 <Edit2 className="h-4 w-4" />
                                             </Button>

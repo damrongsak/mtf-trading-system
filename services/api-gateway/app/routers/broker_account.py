@@ -204,6 +204,7 @@ class BrokerAccountResponse(BaseModel):
     broker_name: str
     account_name: str
     account_number: Optional[str] = None
+    credentials: Optional[Dict[str, Any]] = None
     supported_symbols: Optional[List[str]] = None
     risk_settings: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = True
@@ -317,8 +318,12 @@ async def create_account(
     db.commit()
     db.refresh(new_account)
     
+    
+    resp_data = BrokerAccountResponse.model_validate(new_account)
+    resp_data.credentials = account.credentials
+    
     return success_response(
-        data=BrokerAccountResponse.model_validate(new_account),
+        data=resp_data,
         message="Broker account added successfully"
     )
 
@@ -332,8 +337,18 @@ async def list_accounts(
         UserFund.user_id == current_user.id
     ).all()
     
+    resp_list = []
+    for a in accounts:
+        item = BrokerAccountResponse.model_validate(a)
+        if a.credentials_encrypted:
+            try:
+                item.credentials = decrypt_data(a.credentials_encrypted)
+            except Exception as e:
+                logger.error(f"Failed to decrypt credentials for account {a.id}: {e}")
+        resp_list.append(item)
+    
     return success_response(
-        data=[BrokerAccountResponse.model_validate(a) for a in accounts]
+        data=resp_list
     )
 
 @router.put("/{account_id}", response_model=APIResponse[BrokerAccountResponse])
@@ -376,8 +391,15 @@ async def update_account(
     db.commit()
     db.refresh(account)
     
+    resp_data = BrokerAccountResponse.model_validate(account)
+    if account.credentials_encrypted:
+        try:
+            resp_data.credentials = decrypt_data(account.credentials_encrypted)
+        except Exception as e:
+            logger.error(f"Failed to decrypt credentials for account {account.id}: {e}")
+            
     return success_response(
-        data=BrokerAccountResponse.model_validate(account),
+        data=resp_data,
         message="Broker account updated successfully"
     )
 

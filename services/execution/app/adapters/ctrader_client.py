@@ -88,12 +88,12 @@ class AsyncCTraderClient:
                     
         except asyncio.IncompleteReadError:
             logger.warning("Connection closed by peer (IncompleteRead).")
-            self._connected = False
+            await self.disconnect()
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error(f"Error in read loop: {e}")
-            self._connected = False
+            await self.disconnect()
 
     async def _process_message(self, data: bytes):
         try:
@@ -139,7 +139,7 @@ class AsyncCTraderClient:
                 break
             except Exception as e:
                 logger.error(f"Heartbeat error: {e}")
-                self._connected = False
+                await self.disconnect()
                 break
 
     async def send_heartbeat(self):
