@@ -314,8 +314,8 @@ export default function MarketPage() {
 
   // --- Effect: SMC ---
   useEffect(() => {
-    const smcActive = indicators.some(i => i.type === 'SMC' && i.visible);
-    if (!smcActive || candles.length === 0) {
+    const smcIndicator = indicators.find(i => i.type === 'SMC' && i.visible);
+    if (!smcIndicator || candles.length === 0) {
         setSmcMarkers([]);
         setSmcPriceLines([]);
         return;
@@ -341,7 +341,9 @@ export default function MarketPage() {
              
              // Structure Labels
              if (res.structure && res.structure.labels) {
-                 res.structure.labels.forEach((l: SMCStructureLabel) => {
+                 const lookbackStructure = Number(smcIndicator.params.lookbackStructure) || 15;
+                 const recentLabels = res.structure.labels.slice(-lookbackStructure);
+                 recentLabels.forEach((l: SMCStructureLabel) => {
                      // Generated type puts optional on everything, so safe check
                      if (l.index === undefined || l.text === undefined) return;
 
@@ -360,7 +362,9 @@ export default function MarketPage() {
 
              // Order Blocks
              if (res.order_blocks) {
-                 res.order_blocks.forEach((ob: SMCOrderBlock) => {
+                 const lookbackOB = Number(smcIndicator.params.lookbackOB) || 5;
+                 const recentOBs = res.order_blocks.slice(-lookbackOB);
+                 recentOBs.forEach((ob: SMCOrderBlock) => {
                      if (ob.top === undefined || ob.bottom === undefined || ob.type === undefined) return;
 
                      newPriceLines.push({

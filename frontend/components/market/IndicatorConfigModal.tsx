@@ -14,7 +14,7 @@ const INDICATOR_TEMPLATES: Record<IndicatorType, { name: string, defaultParams: 
     'MACD': { name: 'MACD', defaultParams: { fast: 12, slow: 26, signal: 9 }, defaultColor: '#06b6d4' },
     'ATR': { name: 'Average True Range', defaultParams: { period: 14 }, defaultColor: '#ec4899' },
     'ADX': { name: 'Average Directional Index', defaultParams: { period: 14 }, defaultColor: '#eab308' },
-    'SMC': { name: 'Smart Money Concepts', defaultParams: {}, defaultColor: '#22c55e' },
+    'SMC': { name: 'Smart Money Concepts', defaultParams: { lookbackOB: 5, lookbackStructure: 15 }, defaultColor: '#22c55e' },
     'GAMMA': { name: 'Gamma Levels', defaultParams: {}, defaultColor: '#f97316' }
 };
 
