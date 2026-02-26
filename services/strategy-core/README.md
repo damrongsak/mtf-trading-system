@@ -7,9 +7,10 @@ The **Strategy Core** is the high-performance analytical engine and execution hu
 Strategy Core transforms raw market data into actionable trading signals using a decoupled, event-driven architecture. It supports both predefined "Institutional Templates" and dynamic, user-coded bots, all while maintaining a low-latency execution pipeline.
 
 ### Key Capabilities:
-- **Real-Time Execution**: Processes live tick and candle data via Redis streams.
+- **Real-Time Async Execution**: Ultra-low latency `LPUSH` message queue via Redis for non-blocking execution with Circuit Breakers.
 - **Vectorized Backtesting**: High-speed historical simulations leveraging [VectorBT](https://vectorbt.dev/).
 - **Institutional Indicators**: Numba-accelerated implementations of Market Profile (TPO), SMC, and Multi-Timeframe Pivots.
+- **Dynamic Risk Engine**: HFT-optimized `PositioningEngine` utilizing Fractional Kelly Criterion (bounded edge sizing) with cached hierarchical limits.
 - **Extensible Plugin System**: A hook-based architecture (Actions & Filters) for risk filters, sentiment guards, and notifications.
 - **MTF Awareness**: Native support for Multi-Timeframe analysis (M1 to Monthly).
 
@@ -54,7 +55,12 @@ Leverages a WordPress-inspired `HookManager` to allow modular extensions:
 - `filter_signal`: Apply global risk or sentiment constraints.
 - `on_signal`: Trigger external notifications (Telegram, Webhooks).
 
-### 4. Standardized Market Data Paradigm (High-Frequency)
+### 4. Risk & Execution (Institutional Grade)
+- **Async Execution Queue**: Strategy Core operates as a pure publisher. Signals are injected into `queue:execution:commands` with Idempotency Keys (UUID) to strictly prevent race conditions.
+- **Circuit Breaker**: Drop mechanisms kick in if queue depths exceed safe limits, preventing slippage.
+- **Kelly Criterion Positioning**: The `PositioningEngine` sizes positions dynamically using `W - ((1 - W) / R)` derived from `last_backtest_result`, safeguarded by a Half-Kelly fraction and cached Fund/Account hard limits.
+
+### 5. Standardized Market Data Paradigm (High-Frequency)
 A "Buffer-First" architecture optimized for <100µs latency:
 - **`SharedMarketDataManager`**: Uses O(1) `deque` buffers for tick ingestion and M1 candle storage.
 - **Lazy Synthesis**: DataFrames are built only on demand via `get_candles(symbol, timeframe)`.

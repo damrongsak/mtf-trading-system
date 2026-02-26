@@ -82,10 +82,10 @@ mtf-trading-system/
 
 ## 📡 Real-Time Data Streaming
 
-The system includes a high-performance **Tick Streamer** built on the OANDA v20 SDK and Redis Pub/Sub.
+The system includes a high-performance **Tick Streamer** built on the cTrader and Redis Pub/Sub.
 
 - **Service**: `tick-streamer` (Dockerized)
-- **Mechanism**: Dedicated background worker fetching ticks from OANDA.
+- **Mechanism**: Dedicated background worker fetching ticks from cTrader.
 - **Data Distribution**: Publishes to Redis channels `market_data:tick:{SYMBOL}`.
 - **Dynamic Configuration**: Automatically loads active symbols from the `market_symbols` database table.
 

@@ -324,51 +324,60 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
         
     return sorted(sweeps, key=lambda x: x['index'])
 
-def detect_structure(ohlc: pd.DataFrame, window: int = 5) -> SMCStructure:
+def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
     import pandas as pd
     import numpy as np
     """
-    Detect Structure using Rolling Window Vectorization (Local Max/Min).
+    Detect Structure using Rolling Window Vectorization (Lagging, Non-Repainting).
     """
-    if len(ohlc) < window * 2:
+    if len(ohlc) < window * 2 + 1:
         return SMCStructure(pivots=[], labels=[], events=[])
 
     high = ohlc['high']
     low = ohlc['low']
     
-    # 1. Local Maxima/Minima detection
-    # A point i is a max if high[i] == max(high[i-w : i+w+1])
-    # We use centered rolling window
+    # 1. Non-repainting pivot detection (Lagging by `window` bars)
+    # A point i is a max if it's strictly greater than `window` bars before and after it.
+    # We evaluate at index `i` (current bar), looking back to `i - 2*window`.
+    # The pivot itself is at `i - window`.
     
-    # Note: shift(-window) is not strictly possible with standard rolling unless we use 'center=True'
-    # Rolling center=True looks at [i-w, i+w] roughly.
-    # window size for lookback w and lookforward w is 2*w + 1
+    # left_max evaluates [i - 2*window, i - window - 1]
+    left_max = high.shift(window + 1).rolling(window=window).max()
     
-    roll_window = 2 * window + 1
+    # right_max evaluates [i - window + 1, i]
+    # Note: rolling(window) includes the current bar, so it looks back `window - 1` bars.
+    # We want [i - window + 1, i], which is exactly `window` bars ending at `i`.
+    right_max = high.rolling(window=window).max()
     
-    # rolling max (centered)
-    local_max = high.rolling(window=roll_window, center=True).max()
-    local_min = low.rolling(window=roll_window, center=True).min()
+    # center is the bar at `i - window`
+    center_high = high.shift(window)
     
-    # Identifying Pivots
-    # Pivot High: High == Local Max
-    # Pivot Low: Low == Local Min
-    # Note: 'center=True' in pandas might result in NaN at tail/head correctly.
+    # Condition: center > left and center > right
+    is_pivot_high = (center_high > left_max) & (center_high > right_max)
     
-    is_pivot_high = (high == local_max)
-    is_pivot_low = (low == local_min)
+    # Same for lows
+    left_min = low.shift(window + 1).rolling(window=window).min()
+    right_min = low.rolling(window=window).min()
+    center_low = low.shift(window)
     
-    # Extract
-    pivot_high_indices = np.where(is_pivot_high)[0]
-    pivot_low_indices = np.where(is_pivot_low)[0]
+    is_pivot_low = (center_low < left_min) & (center_low < right_min)
+    
+    # Extract indices. The boolean masks align with index `i`.
+    # The actual pivot occurred at `i - window`.
+    pivot_high_eval_indices = np.where(is_pivot_high)[0]
+    pivot_low_eval_indices = np.where(is_pivot_low)[0]
     
     pivots: List[Dict[str, Any]] = []
     
-    for idx in pivot_high_indices:
-        pivots.append({"index": int(idx), "type": "high", "price": float(high.iloc[idx])})
+    for idx_eval in pivot_high_eval_indices:
+        idx_pivot = int(idx_eval - window)
+        if idx_pivot < 0: continue
+        pivots.append({"index": idx_pivot, "type": "high", "price": float(high.iloc[idx_pivot])})
         
-    for idx in pivot_low_indices:
-        pivots.append({"index": int(idx), "type": "low", "price": float(low.iloc[idx])})
+    for idx_eval in pivot_low_eval_indices:
+        idx_pivot = int(idx_eval - window)
+        if idx_pivot < 0: continue
+        pivots.append({"index": idx_pivot, "type": "low", "price": float(low.iloc[idx_pivot])})
         
     pivots.sort(key=lambda x: x['index'])
     
@@ -507,18 +516,17 @@ def generate_setups(df: pd.DataFrame, obs: List[SMCOrderBlock], fvgs: List[SMCFV
     # 2. Extract unmitigated institutional zones
     unmitigated_obs = [ob for ob in obs if not ob.get("mitigated", False)]
     
-    # Symbol-specific pip offset (e.g., 5 pips)
-    # XAUUSD: $1 move = 100 pips. 5 pips = $0.05.
     is_gold = "XAU" in symbol.upper()
-    pip_offset = (0.05 if is_gold else 0.0005) # Simplified
     
     # 3. Process Bullish Setups (Buy Zones)
-    # We look for price approaching or inside a bullish OB
+    # Volatility-Adjusted 100% Stop Loss Buffer
+    sl_buffer = atr * 0.5
+    
     for ob in unmitigated_obs:
         if ob["type"] == "bullish":
             entry = ob["top"]
-            # Structural SL below OB bottom with ATR-derived buffer
-            sl = ob["bottom"] - (atr * 0.25) - pip_offset 
+            # Structural SL below OB bottom with Volatility-Adjusted buffer
+            sl = ob["bottom"] - sl_buffer 
             
             # Initial Target: 2.0 RR or next Bearish OB
             tp = entry + (entry - sl) * 2.0
@@ -547,8 +555,8 @@ def generate_setups(df: pd.DataFrame, obs: List[SMCOrderBlock], fvgs: List[SMCFV
     for ob in unmitigated_obs:
         if ob["type"] == "bearish":
             entry = ob["bottom"]
-            # Structural SL above OB top
-            sl = ob["top"] + (atr * 0.25) + pip_offset
+            # Structural SL above OB top with Volatility-Adjusted buffer
+            sl = ob["top"] + sl_buffer
             
             tp = entry - (sl - entry) * 2.0
             
@@ -593,7 +601,12 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
     obs = detect_order_blocks(df)
     fvgs = detect_fvg(df)
     sweeps = detect_liquidity_sweeps(df)
-    structure = detect_structure(df)
+    # Use a dynamic N based on timeframe if available, otherwise default to 2
+    structure_window = 2
+    if timeframe in ["M1", "M5", "M15"]:
+        structure_window = 3
+        
+    structure = detect_structure(df, window=structure_window)
     fibs = calculate_auto_fibs(df)
     setups = generate_setups(df, obs, fvgs, symbol)
     

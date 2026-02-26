@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Dict, Any, Optional
 from sqlalchemy import text
 from app.database import SessionLocal
+from app.config_cache import config_cache
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +27,18 @@ class PositioningEngine:
         config = {
             "risk_percentage": self.default_risk_percentage,
             "max_risk_usd": self.default_max_risk_usd,
-            "source": "system_default"
+            "source": "system_default",
+            "kelly_fraction_used": None,
+            "historical_metrics": None
         }
 
         if not strategy_id:
             return config
+
+        # 1. HFT Optimization: Check Cache First
+        cached_profile = config_cache.get_config(f"risk_profile_{strategy_id}")
+        if cached_profile:
+            return cached_profile
 
         try:
             with SessionLocal() as db:
@@ -39,6 +47,7 @@ class PositioningEngine:
                 query = text("""
                     SELECT 
                         s.risk_settings as strategy_risk,
+                        s.last_backtest_result as strategy_backtest,
                         f.risk_percentage as fund_risk_pct,
                         f.max_risk_per_trade as fund_max_risk,
                         ba.risk_settings as account_risk
@@ -75,6 +84,19 @@ class PositioningEngine:
                     if strategy_risk.get("max_risk_usd"):
                         config["max_risk_usd"] = float(strategy_risk["max_risk_usd"])
 
+                    # Extract Historical Metrics for Kelly
+                    if result.strategy_backtest:
+                        bt = result.strategy_backtest
+                        config["historical_metrics"] = {
+                            "win_rate": float(bt.get("win_rate", 0)),
+                            "profit_factor": float(bt.get("profit_factor", 0)),
+                            "avg_win": float(bt.get("avg_win", 0)),
+                            "avg_loss": abs(float(bt.get("avg_loss", 0))) if bt.get("avg_loss") else 0
+                        }
+
+                # Cache the compiled profile to save DB hits in HFT path (5 mins TTL emulation)
+                config_cache.set_config(f"risk_profile_{strategy_id}", config)
+
         except Exception as e:
             logger.error(f"Error fetching hierarchical risk profile: {e}")
             # Fallback to system defaults already in 'config'
@@ -92,12 +114,44 @@ class PositioningEngine:
         Dynamic Position Sizing:
         Size = BaseSize * RegimeMultiplier * EdgeScore * GammaFactor
         """
-        # 1. Get Risk Profile
+        # 1. Get Risk Profile (Cached)
         risk_profile = self.get_risk_profile(strategy_id)
+        
+        # 2. Base Risk Calculation (Default vs Kelly)
         risk_pct = risk_profile["risk_percentage"]
+        kelly_fraction_used = None
+        
+        historical = risk_profile.get("historical_metrics")
+        if historical:
+            w = historical.get("win_rate", 0)
+            avg_win = historical.get("avg_win", 0)
+            avg_loss = historical.get("avg_loss", 0)
+            
+            # Kelly = W - [ (1 - W) / R ]
+            if avg_loss > 0 and w > 0:
+                r = avg_win / avg_loss
+                if r > 0:
+                    kelly_pct = w - ((1 - w) / r)
+                    if kelly_pct > 0:
+                        # Apply Fractional Kelly (Half-Kelly for safety)
+                        fractional_multiplier = 0.5 
+                        dynamic_risk = kelly_pct * fractional_multiplier
+                        
+                        # Use Kelly if it's less aggressive than the hardcoded risk, 
+                        # or allow it to override up to a safe cap (e.g. max 5%)
+                        safe_cap = 0.05
+                        risk_pct = min(dynamic_risk, safe_cap)
+                        kelly_fraction_used = fractional_multiplier
+                        logger.info(f"Applying Kelly Criterion: W={w:.2f}, R={r:.2f} -> Raw K={kelly_pct:.3f}, Fraction={fractional_multiplier}, Final %={risk_pct:.3f}")
+                    else:
+                        logger.warning(f"Negative Kelly Edge (W={w:.2f}, R={r:.2f}). Fallback to minimum risk 0.1%")
+                        risk_pct = 0.001 # Absolute minimum
+            else:
+                logger.debug("Incomplete historical metrics for Kelly. Using static risk_percentage.")
+
         max_risk_usd = risk_profile["max_risk_usd"]
 
-        # 2. Base Risk Amount (USD)
+        # 3. Base Risk Amount (USD)
         risk_amount_usd = equity * risk_pct
         
         # Hard Cap by Fund/Account Limit
@@ -149,7 +203,8 @@ class PositioningEngine:
                 "edge": edge_score,
                 "gamma": gamma_factor
             },
-            "risk_profile_source": risk_profile["source"]
+            "risk_profile_source": risk_profile["source"],
+            "kelly_fraction_used": kelly_fraction_used
         }
 
 positioning_engine = PositioningEngine()

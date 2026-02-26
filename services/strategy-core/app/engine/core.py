@@ -402,6 +402,7 @@ class StrategyEngine:
                 
                 # Payload for Execution Service
                 order_payload = {
+                    "client_order_id": str(new_signal.id), # Added for Idempotency
                     "broker_account_id": str(state.broker_account_id), # Passed from Config
                     "symbol": state.symbol,
                     "direction": signal['direction'], # BULLISH/BEARISH
@@ -437,19 +438,18 @@ class StrategyEngine:
                 # This logic is best in Execution Service.
                 
                 response = await execution_client.place_order(order_payload)
-                logger.info(f"Executed AUTO order for {strategy_id}: {response}")
+                logger.info(f"Queued AUTO order for {strategy_id}: {response}")
 
-                # Update SignalLog to EXECUTED
+                # Update SignalLog to PENDING (Awaiting Event Stream)
                 try:
                     db_update = SessionLocal()
                     sig_to_update = db_update.query(SignalLog).filter(SignalLog.id == new_signal.id).first()
                     if sig_to_update:
-                        sig_to_update.status = "EXECUTED"
-                        # sig_to_update.execution_id = response.get("id") # If response has ID
+                        sig_to_update.status = "PENDING"
                         db_update.commit()
                     db_update.close()
                 except Exception as update_ex:
-                    logger.error(f"Failed to update signal status to EXECUTED: {update_ex}")
+                    logger.error(f"Failed to update signal status to PENDING: {update_ex}")
                     
             except Exception as e:
                 logger.error(f"Execution failed: {e}")

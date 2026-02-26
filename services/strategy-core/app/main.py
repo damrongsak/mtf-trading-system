@@ -547,6 +547,10 @@ async def startup_event():
     fleet = FleetManager.get_instance()
     await fleet.load_fleet()
 
+    # Start Reconciliation Worker (Watchdog & Event Listener)
+    from app.workers.reconciliation import reconciliation_worker
+    await reconciliation_worker.start()
+
     # Resource Monitoring Baseline (Simple Timing)
     startup_duration = time.time() - startup_start_time
     logger.info(f"PERFORMANCE BASELINE: Fleet Load completed in {startup_duration:.2f}s")
@@ -554,6 +558,9 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await live_runner.stop()
+    
+    from app.workers.reconciliation import reconciliation_worker
+    await reconciliation_worker.stop()
     
     # TODO: Disable Indicator Worker for now
     # global indicator_worker

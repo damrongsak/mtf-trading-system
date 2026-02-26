@@ -11,6 +11,7 @@ class ExecutionClient:
         self.base_url = EXECUTION_SERVICE_URL
         self.redis_url = REDIS_URL
         self.queue_name = "queue:execution:commands"
+        self.max_queue_size = int(os.getenv("EXECUTION_MAX_QUEUE_SIZE", "50"))
         self._redis = None
         
     async def _get_redis(self):
@@ -24,6 +25,12 @@ class ExecutionClient:
         """
         try:
             r = await self._get_redis()
+            
+            # Circuit Breaker: Check Queue Length
+            queue_len = await r.llen(self.queue_name)
+            if queue_len >= self.max_queue_size:
+                raise Exception(f"CIRCUIT BREAKER: Execution queue is full ({queue_len}/{self.max_queue_size}). Order dropped.")
+                
             await r.lpush(self.queue_name, json.dumps(order_data))
             return {"status": "queued", "queue": self.queue_name}
         except Exception as e:
