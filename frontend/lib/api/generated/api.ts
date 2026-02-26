@@ -1407,11 +1407,17 @@ export const SMCOrderBlockTypeEnum = {
 export type SMCOrderBlockTypeEnum = typeof SMCOrderBlockTypeEnum[keyof typeof SMCOrderBlockTypeEnum];
 
 export interface SMCRequest {
+    'symbol': string;
+    'timeframe'?: string;
     'open': Array<number>;
     'high': Array<number>;
     'low': Array<number>;
     'close': Array<number>;
     'volume'?: Array<number> | null;
+    'timestamps'?: Array<string> | null;
+    'oi_call'?: Array<number> | null;
+    'oi_put'?: Array<number> | null;
+    'oi_strikes'?: Array<number> | null;
 }
 export interface SMCResponse {
     'order_blocks'?: Array<SMCOrderBlock>;

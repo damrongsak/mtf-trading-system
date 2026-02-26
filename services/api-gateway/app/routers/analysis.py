@@ -57,11 +57,17 @@ class ADXRequest(BaseModel):
     length: int = 14
 
 class SMCRequest(BaseModel):
+    symbol: str
+    timeframe: str = "H1"
     open: List[float]
     high: List[float]
     low: List[float]
     close: List[float]
     volume: Optional[List[float]] = None
+    timestamps: Optional[List[str]] = None
+    oi_call: Optional[List[float]] = None
+    oi_put: Optional[List[float]] = None
+    oi_strikes: Optional[List[float]] = None
 
 class QuantAnalyzeRequest(BaseModel):
     symbol: str

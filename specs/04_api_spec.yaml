@@ -4594,11 +4594,19 @@ components:
     SMCRequest:
       type: object
       required:
+        - symbol
         - open
         - high
         - low
         - close
       properties:
+        symbol:
+          type: string
+          example: "XAUUSD"
+        timeframe:
+          type: string
+          example: "H1"
+          default: "H1"
         open:
           type: array
           items:
@@ -4616,6 +4624,26 @@ components:
           items:
             type: number
         volume:
+          type: array
+          items:
+            type: number
+          nullable: true
+        timestamps:
+          type: array
+          items:
+            type: string
+          nullable: true
+        oi_call:
+          type: array
+          items:
+            type: number
+          nullable: true
+        oi_put:
+          type: array
+          items:
+            type: number
+          nullable: true
+        oi_strikes:
           type: array
           items:
             type: number

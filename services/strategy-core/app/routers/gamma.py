@@ -161,10 +161,21 @@ async def get_gamma_levels(
         "heatmap": result.get('heatmap', [])
     }
 
+    class NpEncoder(json.JSONEncoder):
+        def default(self, obj):
+            import numpy as np
+            if isinstance(obj, np.integer):
+                return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return super(NpEncoder, self).default(obj)
+
     # 7. Write to Cache (15 min TTL)
     if redis_client:
         try:
-            await redis_client.setex(cache_key, 900, json.dumps(response_data))
+            await redis_client.setex(cache_key, 900, json.dumps(response_data, cls=NpEncoder))
         except Exception as e:
             logger.warning(f"Redis cache write failed: {e}")
         finally:

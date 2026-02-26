@@ -27,87 +27,96 @@ class CTraderStreamer(StreamAdapter):
         
     async def start(self, instruments: List[str]):
         logger.info(f"Starting cTrader Stream for {instruments}...")
-        try:
-            await self.client.connect()
-            await self.client.authorize_app(self.client_id, self.client_secret)
-            await self.client.authorize_account(self.account_id, self.token)
+        while not self._stop_event.is_set():
+            try:
+                await self.client.connect()
+                await self.client.authorize_app(self.client_id, self.client_secret)
+                await self.client.authorize_account(self.account_id, self.token)
             
-            # 1. Resolve Symbol IDs and Digits
-            # We first need the list to find IDs
-            symbols_list = await self.client.get_symbols_list(self.account_id)
-            # Create Map: Name -> ID
-            sym_map = {s.symbolName: s.symbolId for s in symbols_list}
-            
-            ids_to_subscribe = []
-            ids_for_details = []
-
-            for instr in instruments:
-                # Handle mapping (e.g. XAU/USD -> XAUUSD)
-                clean_instr = instr.replace("/", "").replace("_", "")
+                # 1. Resolve Symbol IDs and Digits
+                # We first need the list to find IDs
+                symbols_list = await self.client.get_symbols_list(self.account_id)
+                # Create Map: Name -> ID
+                sym_map = {s.symbolName: s.symbolId for s in symbols_list}
                 
-                sid = None
-                # Try exact match, then clean match
-                for s_name, s_id in sym_map.items():
-                    if s_name == instr or s_name == clean_instr:
-                        sid = s_id
-                        break
-                
-                if sid:
-                    ids_to_subscribe.append(sid)
-                    ids_for_details.append(sid)
-                    self._subscription_map[sid] = instr # Map ID back to requested name
-                else:
-                    logger.warning(f"Symbol {instr} not found in cTrader account.")
-            
-            if not ids_to_subscribe:
-                logger.error("No valid symbols to subscribe.")
-                return
-
-            # 2. Fetch Symbol Details (Digits)
-            # cTrader requires fetching details to know precision (digits)
-            if ids_for_details:
-                full_symbols = await self.client.get_symbols_full(self.account_id, ids_for_details)
-                for fs in full_symbols:
-                    # Default to 5 digits if missing, but usually present
-                    digits = fs.digits if fs.HasField('digits') else 5
-                    self._digits_map[fs.symbolId] = digits
-                    logger.debug(f"Symbol {fs.symbolId} digits: {digits}")
+                ids_to_subscribe = []
+                ids_for_details = []
+    
+                for instr in instruments:
+                    # Handle mapping (e.g. XAU/USD -> XAUUSD)
+                    clean_instr = instr.replace("/", "").replace("_", "")
                     
-                    # Publish Symbol Details for ECST
-                    symbol_name = self._subscription_map.get(fs.symbolId)
-                    if symbol_name:
-                        # Convert Protobuf to dict for serialization
-                        details = {}
-                        for field, value in fs.ListFields():
-                            details[field.name] = value
+                    sid = None
+                    # Try exact match, then clean match
+                    for s_name, s_id in sym_map.items():
+                        if s_name == instr or s_name == clean_instr:
+                            sid = s_id
+                            break
+                    
+                    if sid:
+                        ids_to_subscribe.append(sid)
+                        ids_for_details.append(sid)
+                        self._subscription_map[sid] = instr # Map ID back to requested name
+                    else:
+                        logger.warning(f"Symbol {instr} not found in cTrader account.")
+                
+                if not ids_to_subscribe:
+                    logger.error("No valid symbols to subscribe.")
+                    return
+    
+                # 2. Fetch Symbol Details (Digits)
+                # cTrader requires fetching details to know precision (digits)
+                if ids_for_details:
+                    full_symbols = await self.client.get_symbols_full(self.account_id, ids_for_details)
+                    for fs in full_symbols:
+                        # Default to 5 digits if missing, but usually present
+                        digits = fs.digits if fs.HasField('digits') else 5
+                        self._digits_map[fs.symbolId] = digits
+                        logger.debug(f"Symbol {fs.symbolId} digits: {digits}")
                         
-                        await self.callback({
-                            "type": "SYMBOL_DETAILS",
-                            "source": "ctrader",
-                            "instrument": symbol_name,
-                            "details": details
-                        })
-
-            # 3. Subscribe
-            req = ProtoOASubscribeSpotsReq()
-            req.ctidTraderAccountId = self.account_id
-            req.symbolId.extend(ids_to_subscribe)
-            req.subscribeToSpotTimestamp = True
-            
-            await self.client.send(req)
-            logger.info(f"Subscribed to {len(ids_to_subscribe)} symbols.")
-            
-            # 4. Set Message Handler
-            self.client.set_message_handler(self._on_message)
-            
-            await self._stop_event.wait()
-            
-        except Exception as e:
-            logger.error(f"cTrader Streamer Error: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-        finally:
-            await self.client.disconnect()
+                        # Publish Symbol Details for ECST
+                        symbol_name = self._subscription_map.get(fs.symbolId)
+                        if symbol_name:
+                            # Convert Protobuf to dict for serialization
+                            details = {}
+                            for field, value in fs.ListFields():
+                                details[field.name] = value
+                            
+                            await self.callback({
+                                "type": "SYMBOL_DETAILS",
+                                "source": "ctrader",
+                                "instrument": symbol_name,
+                                "details": details
+                            })
+    
+                # 3. Subscribe
+                req = ProtoOASubscribeSpotsReq()
+                req.ctidTraderAccountId = self.account_id
+                req.symbolId.extend(ids_to_subscribe)
+                req.subscribeToSpotTimestamp = True
+                
+                await self.client.send(req)
+                logger.info(f"Subscribed to {len(ids_to_subscribe)} symbols.")
+                
+                # 4. Set Message Handler
+                self.client.set_message_handler(self._on_message)
+                
+                # 5. Monitor connection
+                while not self._stop_event.is_set() and self.client._connected:
+                    await asyncio.sleep(1)
+                    
+                if not self._stop_event.is_set():
+                    logger.warning("cTrader stream disconnected. Reconnecting in 5 seconds...")
+                    await asyncio.sleep(5)
+                
+            except Exception as e:
+                logger.error(f"cTrader Streamer Error: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                if not self._stop_event.is_set():
+                    await asyncio.sleep(5)
+            finally:
+                await self.client.disconnect()
 
     async def stop(self):
         logger.info("Stopping cTrader Stream...")

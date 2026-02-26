@@ -17,7 +17,7 @@ import { ChartPriceLine } from '@/components/charts/CandleChart';
 import { SeriesMarker } from 'lightweight-charts';
 
 import { cn } from '@/lib/utils';
-import { RefreshCcw, Activity, TrendingUp, LayoutTemplate } from 'lucide-react';
+import { RefreshCcw, Activity, TrendingUp, LayoutTemplate, Settings2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OpenInterestAnalytics } from '@/components/data/OpenInterestAnalytics';
 import { useBrokerReference } from '@/context/BrokerReferenceContext';
@@ -27,6 +27,8 @@ import { OrderPanel } from '@/components/market/OrderPanel';
 import { AccountPanel } from '@/components/market/AccountPanel';
 import { usePersistentState } from '@/lib/hooks/usePersistentState';
 import { useGammaLevels } from '@/lib/hooks/useGammaLevels';
+import { useIndicatorStore, ActiveIndicator } from '@/lib/store/indicatorStore';
+import { IndicatorConfigModal } from '@/components/market/IndicatorConfigModal';
 
 // Dynamic Imports for Heavy Charts
 const CandleChart = dynamic(() => import('@/components/charts/CandleChart').then(mod => mod.CandleChart), { ssr: false });
@@ -47,15 +49,8 @@ export default function MarketPage() {
 
 
   // --- State: Indicators ---
-  const [showEMA, setShowEMA] = usePersistentState<boolean>('mtf_show_ema', false);
-  const [showEMA50] = usePersistentState<boolean>('mtf_show_ema50', true);
-  const [showRSI, setShowRSI] = usePersistentState<boolean>('mtf_show_rsi', false);
-  const [showATR, setShowATR] = usePersistentState<boolean>('mtf_show_atr', true);
-  const [showMACD, setShowMACD] = usePersistentState<boolean>('mtf_show_macd', true);
-  const [showADX, setShowADX] = usePersistentState<boolean>('mtf_show_adx', false);
+  const { indicators } = useIndicatorStore();
   const [chartIndicators, setChartIndicators] = useState<IndicatorData[]>([]);
-  const [showSMC, setShowSMC] = usePersistentState<boolean>('mtf_show_smc', false);
-  const [showGamma, setShowGamma] = usePersistentState<boolean>('mtf_show_gamma', false);
   const [smcMarkers, setSmcMarkers] = useState<SeriesMarker<Time>[]>([]);
   const [smcPriceLines, setSmcPriceLines] = useState<ChartPriceLine[]>([]);
   const [orderLines, setOrderLines] = useState<ChartPriceLine[]>([]);
@@ -244,7 +239,7 @@ export default function MarketPage() {
     if (candles.length === 0) return;
     updateIndicators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles.length, showEMA, showRSI, showATR, showMACD, showADX, symbol, timeframe]); 
+  }, [candles.length, indicators, symbol, timeframe]); 
 
   const updateIndicators = async () => {
 
@@ -261,56 +256,56 @@ export default function MarketPage() {
           } catch(e) { logger.error("Indicator Calc Failed", e); }
       };
 
-      // Queue all enabled indicators for parallel execution
-      if (showEMA) {
-          promises.push(tryCalc(
-              () => calculateEMA({ data: closes, span: 200 }), 
-              (res: number[]) => newInds.push({ name: 'EMA 200', data: res, color: '#3b82f6' })
-          ));
-      }
-      if (showRSI) {
-          promises.push(tryCalc(
-              () => calculateRSI({ close: closes, window: 14 }), 
-              (res: number[]) => newInds.push({ name: 'RSI 14', data: res, color: '#a855f7', priceScaleId: 'left' })
-          ));
-      }
-      if (showATR) {
-          promises.push(tryCalc(
-              () => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: 14 }), 
-              (res: number[]) => newInds.push({ name: 'ATR 14', data: res, color: '#ec4899', priceScaleId: 'left' })
-          ));
-      }
-      if (showMACD) {
-           promises.push(tryCalc(
-               () => calculateMACD({ close: closes }), 
-               (res) => {
-                   // Zip MACD components; generated type properties might be undefined
-                   if (!res.macd || !res.signal || !res.hist) return;
+      // Map through active indicators from DB/State
+      for (const ind of indicators) {
+          if (!ind.visible) continue;
 
-                   const macdData = res.macd.map((v: number | null | undefined, i: number) => ({
-                       value: v ?? 0,
-                       signal: res.signal?.[i] ?? 0,
-                       hist: res.hist?.[i] ?? 0
-                   }));
-                   newInds.push({ name: 'MACD', data: macdData, color: '#06b6d4', priceScaleId: 'left' });
-               }
-           ));
-      }
-      if (showADX) {
-          promises.push(tryCalc(
-              () => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: 14 }), 
-              (res) => {
-                  if (!res.adx) return;
-                  
-                  // Zip ADX components
-                  const adxData = res.adx.map((v: number | null, i: number) => ({
-                      value: v ?? 0,
-                      dmp: res.dmp?.[i] ?? 0,
-                      dmn: res.dmn?.[i] ?? 0
-                  }));
-                  newInds.push({ name: 'ADX', data: adxData, color: '#eab308', priceScaleId: 'left' });
-              }
-           ));
+          if (ind.type === 'EMA') {
+              promises.push(tryCalc(
+                  () => calculateEMA({ data: closes, span: Number(ind.params.period) || 200 }), 
+                  (res: number[]) => newInds.push({ name: `${ind.id}_EMA_${ind.params.period}`, data: res, color: ind.color || '#3b82f6' })
+              ));
+          }
+          if (ind.type === 'RSI') {
+              promises.push(tryCalc(
+                  () => calculateRSI({ close: closes, window: Number(ind.params.period) || 14 }), 
+                  (res: number[]) => newInds.push({ name: `${ind.id}_RSI_${ind.params.period}`, data: res, color: ind.color || '#3b82f6', priceScaleId: 'left' })
+              ));
+          }
+          if (ind.type === 'ATR') {
+              promises.push(tryCalc(
+                  () => calculateATR({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, window: Number(ind.params.period) || 14 }), 
+                  (res: number[]) => newInds.push({ name: `${ind.id}_ATR_${ind.params.period}`, data: res, color: ind.color || '#3b82f6', priceScaleId: 'left' })
+              ));
+          }
+          if (ind.type === 'MACD') {
+               promises.push(tryCalc(
+                   () => calculateMACD({ close: closes }), 
+                   (res) => {
+                       if (!res.macd || !res.signal || !res.hist) return;
+                       const macdData = res.macd.map((v: number | null | undefined, i: number) => ({
+                           value: v ?? 0,
+                           signal: res.signal?.[i] ?? 0,
+                           hist: res.hist?.[i] ?? 0
+                       }));
+                       newInds.push({ name: `${ind.id}_MACD`, data: macdData, color: ind.color || '#3b82f6', priceScaleId: 'left' });
+                   }
+               ));
+          }
+          if (ind.type === 'ADX') {
+              promises.push(tryCalc(
+                  () => calculateADX({ high: candles.map(c => c.high), low: candles.map(c => c.low), close: closes, length: Number(ind.params.period) || 14 }), 
+                  (res) => {
+                      if (!res.adx) return;
+                      const adxData = res.adx.map((v: number | null, i: number) => ({
+                          value: v ?? 0,
+                          dmp: res.dmp?.[i] ?? 0,
+                          dmn: res.dmn?.[i] ?? 0
+                      }));
+                      newInds.push({ name: `${ind.id}_ADX`, data: adxData, color: ind.color || '#3b82f6', priceScaleId: 'left' });
+                  }
+               ));
+          }
       }
       
       await Promise.all(promises);
@@ -319,7 +314,8 @@ export default function MarketPage() {
 
   // --- Effect: SMC ---
   useEffect(() => {
-    if (!showSMC || candles.length === 0) {
+    const smcActive = indicators.some(i => i.type === 'SMC' && i.visible);
+    if (!smcActive || candles.length === 0) {
         setSmcMarkers([]);
         setSmcPriceLines([]);
         return;
@@ -329,6 +325,9 @@ export default function MarketPage() {
          try {
              // 1. Fetch
              const res = await calculateSMC({
+                 symbol: symbol,
+                 timeframe: timeframe,
+                 timestamps: candles.map(c => c.timestamp),
                  open: candles.map(c => c.open),
                  high: candles.map(c => c.high),
                  low: candles.map(c => c.low),
@@ -409,7 +408,7 @@ export default function MarketPage() {
     
     loadSMC();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showSMC, candles.length, symbol, timeframe]); // Re-calc on data update (new candle only) or toggle
+  }, [indicators, candles.length, symbol, timeframe]); // Re-calc on data update (new candle only) or toggle
   
   // --- Derived Data ---
   const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 0;
@@ -419,7 +418,8 @@ export default function MarketPage() {
   const isUp = change >= 0;
 
   // --- Gamma Levels ---
-  const { gammaPriceLines } = useGammaLevels(symbol, currentPrice, showGamma);
+  const gammaActive = indicators.some(i => i.type === 'GAMMA' && i.visible);
+  const { gammaPriceLines } = useGammaLevels(symbol, currentPrice, gammaActive);
 
 
   // Trigger refresh function
@@ -541,28 +541,12 @@ export default function MarketPage() {
                                 </div>
 
                                 <div className="flex items-center gap-4 ml-4">
-                                    <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-                                        {[
-                                            { id: 'ADX', label: 'ADX', state: showADX, set: setShowADX },
-                                            { id: 'EMA', label: 'EMA', state: showEMA, set: setShowEMA },
-                                            { id: 'RSI', label: 'RSI', state: showRSI, set: setShowRSI },
-                                            { id: 'MACD', label: 'MACD', state: showMACD, set: setShowMACD },
-                                            { id: 'ATR', label: 'ATR', state: showATR, set: setShowATR },
-                                            { id: 'SMC', label: 'SMC', state: showSMC, set: setShowSMC },
-                                            { id: 'GMA', label: 'GAMMA', state: showGamma, set: setShowGamma },
-                                        ].map(btn => (
-                                            <button
-                                                key={btn.id}
-                                                onClick={() => btn.set(!btn.state)}
-                                                className={cn(
-                                                    "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
-                                                    btn.state ? "bg-white/10 text-white border border-white/10" : "text-gray-600 hover:text-gray-400"
-                                                )}
-                                            >
-                                                {btn.label}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <IndicatorConfigModal>
+                                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                                            <Settings2 size={14} />
+                                            Indicators {indicators.length > 0 && `(${indicators.filter(i=>i.visible).length})`}
+                                        </button>
+                                    </IndicatorConfigModal>
                                     <button onClick={loadData} className="p-2 hover:bg-white/10 rounded-md text-gray-500 hover:text-white transition-colors">
                                         <RefreshCcw size={16} className={cn(loading && "animate-spin")} />
                                     </button>
@@ -593,7 +577,7 @@ export default function MarketPage() {
                                             precision={Number(getInstrument(symbol)?.details?.digits ?? getInstrument(symbol)?.details?.displayPrecision ?? 5)}
                                         />
                                         {chartIndicators.filter(i => i.priceScaleId === 'left').map(ind => {
-                                            if (ind.name.startsWith('RSI')) {
+                                            if (ind.name.includes('RSI')) {
                                                 return (
                                                     <IndicatorChart 
                                                         key={ind.name}
@@ -604,7 +588,7 @@ export default function MarketPage() {
                                                     />
                                                 );
                                             }
-                                            if (ind.name.startsWith('ATR')) {
+                                            if (ind.name.includes('ATR')) {
                                                 return (
                                                     <IndicatorChart 
                                                         key={ind.name}
@@ -615,7 +599,7 @@ export default function MarketPage() {
                                                     />
                                                 );
                                             }
-                                            if (ind.name === 'MACD') {
+                                            if (ind.name.includes('MACD')) {
                                                 return (
                                                     <IndicatorChart 
                                                         key={ind.name}
@@ -631,7 +615,7 @@ export default function MarketPage() {
                                                     />
                                                 );
                                             }
-                                            if (ind.name.startsWith('ADX')) {
+                                            if (ind.name.includes('ADX')) {
                                                 return (
                                                     <IndicatorChart 
                                                         key={ind.name}
