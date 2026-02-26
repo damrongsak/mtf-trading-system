@@ -14,7 +14,7 @@ class SentimentService:
     def __init__(self):
         # We now use the global gemini client from services dict
         self.redis = redis.from_url(settings.redis.url, decode_responses=True)
-        self.cache_ttl = 14400 # 4 hours (synced with scheduler frequency)
+        self.cache_ttl = 900 # 15 minutes (synced with scheduler frequency)
 
     async def close(self):
         """Close Redis connection."""

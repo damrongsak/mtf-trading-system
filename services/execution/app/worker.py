@@ -51,6 +51,17 @@ class ExecutionWorker:
         try:
             req_data = json.loads(message_json)
             
+            # 1. Idempotency Check (SETNX)
+            client_order_id = req_data.get("client_order_id")
+            if client_order_id and self.redis:
+                idempotency_key = f"processed_order:{client_order_id}"
+                # nx=True means "Set if Not eXists", ex=86400 means 24 hours TTL
+                is_new = await self.redis.set(idempotency_key, "1", ex=86400, nx=True)
+                if not is_new:
+                    logger.warning(f"🚨 Idempotency Reject: Order {client_order_id} already processed. Dropping duplicate message from queue.")
+                    return
+            
+            # 2. Process Command
             async with AsyncSessionLocal() as db:
                 try:
                     command_type = req_data.get("type", "order")

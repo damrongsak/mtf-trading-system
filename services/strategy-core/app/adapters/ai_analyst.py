@@ -1,30 +1,33 @@
-import httpx
 import os
+import json
 import logging
+import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 
-AI_ANALYST_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 async def get_market_sentiment(symbol: str) -> dict:
     """
-    Call AI Analyst to get sentiment score.
+    Read AI Analyst sentiment score from Redis (Async/Fast).
     Returns: {"score": float, "reason": str} or None on failure.
     """
+    r = None
     try:
-        async with httpx.AsyncClient() as client:
-            payload = {"symbol": symbol}
-            response = await client.post(
-                f"{AI_ANALYST_URL}/analyze/sentiment",
-                json=payload,
-                timeout=10.0
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return data # Expects {score: float, reason: str}
-            else:
-                logger.warning(f"AI Analyst Sentiment Check failed: {response.text}")
-                return None
+        r = redis.from_url(REDIS_URL, decode_responses=True)
+        # Using a standard cache key for sentiment
+        cache_key = f"sentiment:{symbol}"
+        data_str = await r.get(cache_key)
+        
+        if data_str:
+            data = json.loads(data_str)
+            return data
+        else:
+            logger.debug(f"Sentiment cache miss for {symbol}. Returning neutral fallback.")
+            return {"score": 0.0, "reason": "Sentiment cache miss (fallback to neutral)"}
     except Exception as e:
-        logger.error(f"Failed to connect to AI Analyst: {e}")
-        return None
+        logger.error(f"Failed to read sentiment from Redis for {symbol}: {e}")
+        return {"score": 0.0, "reason": f"Redis read error: {e}"}
+    finally:
+        if r:
+            await r.aclose()
