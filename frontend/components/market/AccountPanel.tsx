@@ -1,13 +1,58 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getTrades, Trade, getAccountSummary, AccountSummary, getOpenPositions } from '@/lib/api/execution';
-import { TradesTable } from '@/components/trades/TradesTable'; // Reuse existing table
-import { Pagination } from '@/components/common/Pagination';
-import { logger } from '@/lib/api/app-logger';
-
-import { Wallet, History, Radio, RefreshCcw, Maximize2, ChevronDown } from 'lucide-react';
+import { Wallet, History, Radio, RefreshCcw, Maximize2, ChevronDown, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Helper component for Orders (can be moved to its own file later)
+const OrdersTable = ({ orders, loading }: { orders: any[], loading: boolean }) => {
+    if (loading && !orders.length) return <div className="p-4 text-center text-gray-500">Loading Orders...</div>;
+    if (!orders.length) return <div className="p-8 text-center text-gray-500">No pending orders</div>;
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-gray-300">
+                <thead className="bg-white/5 text-gray-500 uppercase font-bold">
+                    <tr>
+                        <th className="px-4 py-2">ID</th>
+                        <th className="px-4 py-2">Symbol</th>
+                        <th className="px-4 py-2">Type</th>
+                        <th className="px-4 py-2">Side</th>
+                        <th className="px-4 py-2">Size</th>
+                        <th className="px-4 py-2">Price</th>
+                        <th className="px-4 py-2">Time</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                    {orders.map((o: any) => (
+                        <tr key={o.id} className="hover:bg-white/5">
+                            <td className="px-4 py-2 font-mono text-gray-500">{o.id}</td>
+                            <td className="px-4 py-2 font-bold text-gray-200">{o.instrument}</td>
+                            <td className="px-4 py-2 text-gray-400">{o.type || 'LIMIT'}</td>
+                            <td className="px-4 py-2">
+                                <span className={cn(
+                                    "px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                    parseFloat(o.units) > 0 ? "bg-blue-500/10 text-blue-400" : "bg-rose-500/10 text-rose-400"
+                                )}>
+                                    {parseFloat(o.units) > 0 ? 'BUY' : 'SELL'}
+                                </span>
+                            </td>
+                            <td className="px-4 py-2 font-mono">{o.units}</td>
+                            <td className="px-4 py-2 font-mono text-white">{o.price}</td>
+                            <td className="px-4 py-2 text-gray-500">{o.time ? new Date(o.time).toLocaleTimeString() : '-'}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+import { getTrades, Trade, getAccountSummary, AccountSummary, getOpenPositions, getPendingOrders } from '@/lib/api/execution';
+import { logger } from '@/lib/api/app-logger';
+import { TradesTable } from '@/components/trades/TradesTable';
+import { Pagination } from '@/components/common';
+import { useAccount } from '@/context/AccountContext';
 
 // Simple mocked tabs if shadcn not fully available or for simplicity in this file
 interface PanelTabProps {
@@ -30,8 +75,6 @@ const PanelTab = ({ active, onClick, icon: Icon, label }: PanelTabProps) => (
     </button>
 );
 
-import { useAccount } from '@/context/AccountContext';
-
 interface AccountPanelProps {
     refreshTrigger: number;
     onMaximize: () => void;
@@ -42,8 +85,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
     const { selectedAccount } = useAccount();
     const accountId = selectedAccount?.id;
     
-    const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY'>('POSITIONS');
+    const [activeTab, setActiveTab] = useState<'POSITIONS' | 'HISTORY' | 'SUMMARY' | 'ORDERS'>('POSITIONS');
     const [trades, setTrades] = useState<Trade[]>([]);
+    const [orders, setOrders] = useState<any[]>([]); // Using any for now, or define Order type
     const [history, setHistory] = useState<Trade[]>([]);
     
     // Pagination State
@@ -60,10 +104,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
         setLoading(true);
         try {
             // Parallel fetch
-            const [openRes, closedRes, sumRes] = await Promise.all([
+            const [openRes, closedRes, sumRes, pendingRes] = await Promise.all([
                 getOpenPositions(accountId),
                 getTrades({ status: 'CLOSED', page: historyPage, per_page: historyPerPage, account_id: accountId }),
-                getAccountSummary(accountId)
+                getAccountSummary(accountId),
+                getPendingOrders(accountId)
             ]);
 
             setTrades(openRes || []);
@@ -72,8 +117,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
                 setHistoryTotal(closedRes.meta.total);
             }
             setSummary(sumRes);
+            setOrders(pendingRes || []);
         } catch (e) {
-          logger.error("Failed to parse sidebar categories", e);
+            logger.error("Failed to load account panel data", e);
         }
  finally {
             setLoading(false);
@@ -99,6 +145,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
                         icon={Radio} 
                         active={activeTab === 'POSITIONS'} 
                         onClick={() => setActiveTab('POSITIONS')} 
+                    />
+                    <PanelTab 
+                        label={`Orders (${orders.length})`} 
+                        icon={Activity} 
+                        active={activeTab === 'ORDERS'} 
+                        onClick={() => setActiveTab('ORDERS')} 
                     />
                     <PanelTab 
                         label="History" 
@@ -132,6 +184,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({ refreshTrigger, onMa
                 {activeTab === 'POSITIONS' && (
                     <div className="h-full">
                          <TradesTable trades={trades} loading={loading} />
+                    </div>
+                )}
+
+                {activeTab === 'ORDERS' && (
+                    <div className="h-full">
+                         <OrdersTable orders={orders} loading={loading} />
                     </div>
                 )}
                 
