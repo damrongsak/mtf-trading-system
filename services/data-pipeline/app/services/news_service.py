@@ -35,8 +35,8 @@ class NewsApiService(BaseService):
     def _get_query_for_symbol(self, symbol: str) -> str:
         """Map symbol to news query."""
         query_map = {
-            "XAU/USD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
-            "XAUUSD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics",
+            "XAU/USD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics OR Middle East OR War OR Central Bank OR China economy",
+            "XAUUSD": "Gold price OR XAUUSD OR Fed rate OR US Inflation OR Geopolitics OR Middle East OR War OR Central Bank OR China economy",
             "EUR/USD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
             "EURUSD": "EURUSD OR ECB OR Eurozone economy OR Fed rate",
             "BTC/USD": "Bitcoin OR BTC price OR Crypto regulation",
@@ -59,7 +59,7 @@ class NewsApiService(BaseService):
         
         # 1. Check Cache
         cached = await self._cache_get(cache_key)
-        if cached:
+        if cached is not None:
             return cached
 
         # 2. Check Quota
@@ -69,9 +69,12 @@ class NewsApiService(BaseService):
         # 3. Fetch from API
         try:
             results = await self._fetch_from_api(symbol)
-            if results:
+            if results is not None:
                  await self.increment_quota()
-                 await self._cache_set(cache_key, results, ttl=86400) # 24 hours (ECST)
+                 ttl = 86400
+                 if not results or (len(results) == 1 and results[0].get("source") == "System"):
+                     ttl = 10800 # 3 hours for empty or errors
+                 await self._cache_set(cache_key, results, ttl=ttl)
             return results
         except Exception as e:
             logger.error(f"News fetch failed: {e}")
@@ -85,8 +88,7 @@ class NewsApiService(BaseService):
             "apiKey": settings.NEWS_API_KEY,
             "language": "en",
             "sortBy": "publishedAt",
-            "pageSize": 15,
-            "domains": self.vip_domains
+            "pageSize": 15
         }
 
         session = await self.get_session()
