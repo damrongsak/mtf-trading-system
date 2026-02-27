@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, APIRouter, WebSocket, WebSocketDisconnect, Query
+print("DEBUG: Starting app/main.py loading...")
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import (
     IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
@@ -6,18 +7,17 @@ from app.schemas import (
     SMCRequest, SMCResponse, SMCBatchRequest, SMCBatchResponse, SimulationRequest, SimulationResponse,
     OptimizationResponse, MonteCarloRequest, MonteCarloResponse, StrategyBacktestRequest
 )
-from app.indicators import (
-    calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
-)
-from app.backtest import run_historical_backtest
-from app.indicators.smc import analyze_smc
-from app.utils.helpers import sanitize_numeric_dict
-from app.simulation import run_grid_simulation_logic
-from app.analysis.optimization import run_grid_search
-from app.analysis.monte_carlo import run_monte_carlo
-from app.analysis.monte_carlo import run_monte_carlo
-from app.engine import strategy_engine
-from app.runner.live import live_runner
+# from app.indicators import (
+#     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
+# )
+# from app.backtest import run_historical_backtest
+# from app.indicators.smc import analyze_smc
+# from app.utils.helpers import sanitize_numeric_dict
+# from app.simulation import run_grid_simulation_logic
+# from app.analysis.optimization import run_grid_search
+# from app.analysis.monte_carlo import run_monte_carlo
+# from app.engine import strategy_engine
+# from app.runner.live import live_runner
 # from app.adapters.oanda_history import OandaHistoryAdapter
 import pandas as pd
 import numpy as np
@@ -121,6 +121,7 @@ def get_candles(
 @router.post("/calculate/ema", response_model=IndicatorResponse)
 def get_ema(req: IndicatorRequest):
     try:
+        from app.indicators import calculate_ema
         data = pd.Series(req.data)
         span = req.params.get("span", 14)
         ema = calculate_ema(data, span=span)
@@ -139,6 +140,7 @@ def get_ema(req: IndicatorRequest):
 @router.post("/calculate/atr", response_model=IndicatorResponse)
 def get_atr(req: ATRRequest):
     try:
+        from app.indicators import calculate_atr
         high = pd.Series(req.high)
         low = pd.Series(req.low)
         close = pd.Series(req.close)
@@ -166,6 +168,7 @@ def get_atr(req: ATRRequest):
 @router.post("/calculate/rsi", response_model=IndicatorResponse)
 def get_rsi(req: RSIRequest):
     try:
+        from app.indicators import calculate_rsi
         close = pd.Series(req.close)
         rsi = calculate_rsi(close, window=req.window)
         values = []
@@ -181,6 +184,7 @@ def get_rsi(req: RSIRequest):
 @router.post("/calculate/macd", response_model=MACDResponse)
 def get_macd(req: MACDRequest):
     try:
+        from app.indicators import calculate_macd
         close = pd.Series(req.close)
         macd_res = calculate_macd(close, fast=req.fast, slow=req.slow, signal=req.signal)
         
@@ -204,6 +208,7 @@ def get_macd(req: MACDRequest):
 @router.post("/calculate/bbands", response_model=BBandsResponse)
 def get_bbands(req: BBandsRequest):
     try:
+        from app.indicators import calculate_bbands
         close = pd.Series(req.close)
         bb = calculate_bbands(close, window=req.window, alpha=req.alpha)
         
@@ -312,7 +317,7 @@ def _prepare_df(req: SMCRequest) -> pd.DataFrame:
         
     df = pd.DataFrame(data)
     if req.timestamps and len(req.timestamps) == len(df):
-        df.index = pd.to_datetime(req.timestamps)
+        df.index = pd.to_datetime(req.timestamps, format='ISO8601')
         
     if len(df) < 3:
          raise HTTPException(status_code=400, detail="Not enough data points")
@@ -321,6 +326,8 @@ def _prepare_df(req: SMCRequest) -> pd.DataFrame:
 @router.post("/calculate/smc", response_model=SMCResponse)
 def get_smc(req: SMCRequest):
     try:
+        from app.indicators.smc import analyze_smc
+        from app.utils.helpers import sanitize_numeric_dict
         df = _prepare_df(req)
         result = analyze_smc(df, req.symbol, req.timeframe)
         sanitized_result = sanitize_numeric_dict(result)
@@ -334,6 +341,7 @@ def get_smc(req: SMCRequest):
 @router.post("/calculate/smc/batch", response_model=SMCBatchResponse)
 def get_smc_batch(req: SMCBatchRequest):
     try:
+        from app.indicators.smc import analyze_smc
         results = {}
         for symbol, smc_req in req.requests.items():
             try:
@@ -351,6 +359,7 @@ def get_smc_batch(req: SMCBatchRequest):
 @router.post("/simulate", response_model=SimulationResponse)
 def run_simulation(req: SimulationRequest):
     try:
+        from app.simulation import run_grid_simulation_logic
         return run_grid_simulation_logic(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -358,6 +367,7 @@ def run_simulation(req: SimulationRequest):
 @router.post("/backtest", response_model=BacktestResponse)
 def run_backtest_endpoint(req: BacktestRequest):
     try:
+        from app.backtest import run_historical_backtest
         return run_historical_backtest(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -378,11 +388,14 @@ def run_custom_backtest_endpoint(req: StrategyBacktestRequest):
 @router.post("/strategies/{strategy_id}/start")
 async def start_strategy_endpoint(strategy_id: str, config: dict):
     # Ensure LiveRunner is active
+    from app.runner.live import live_runner
+    from app.engine import strategy_engine
     await live_runner.start()
     return await strategy_engine.start_strategy(strategy_id, config)
 
 @router.post("/strategies/{strategy_id}/stop")
 async def stop_strategy_endpoint(strategy_id: str):
+    from app.engine import strategy_engine
     return await strategy_engine.stop_strategy(strategy_id)
 
 @router.post("/backtest/optimize", response_model=OptimizationResponse)
@@ -535,6 +548,9 @@ indicator_worker = None
 
 @app.on_event("startup")
 async def startup_event():
+    print("DEBUG: Entering startup_event")
+    from app.engine import strategy_engine
+    from app.runner.live import live_runner
     startup_start_time = time.time()
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
@@ -557,6 +573,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    from app.runner.live import live_runner
     await live_runner.stop()
     
     from app.workers.reconciliation import reconciliation_worker

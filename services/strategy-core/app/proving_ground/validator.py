@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
-import vectorbt as vbt
+# import vectorbt as vbt
 from datetime import timedelta
 from app.foundry.factory import StrategyAssembler
 from app.analysis.optimization import run_grid_search
@@ -145,6 +145,7 @@ class WalkForwardValidator:
         
         entries, exits = pipeline.run_vector(context)
         
+        import vectorbt as vbt
         portfolio = vbt.Portfolio.from_signals(
             data['close'],
             entries,

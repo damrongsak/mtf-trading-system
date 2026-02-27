@@ -9,10 +9,9 @@ from app.adapters.oanda import OandaAdapter
 from app.adapters.execution import execution_client
 from app.schemas import ExecutionMode
 # # from app.adapters.oanda_history import OandaHistoryAdapter
-from app.indicators import calculate_ema, calculate_atr, calculate_rsi
-from app.indicators import calculate_ema, calculate_atr, calculate_rsi
-from app.indicators.smc import detect_order_blocks
-from app.adapters.ai_analyst import get_market_sentiment
+# from app.indicators import calculate_ema, calculate_atr, calculate_rsi
+# from app.indicators.smc import detect_order_blocks
+# from app.adapters.ai_analyst import get_market_sentiment
 from app.database import SessionLocal
 from app.models.signal_log import SignalLog
 from app.models.opportunity_log import OpportunityLog
@@ -276,6 +275,7 @@ class StrategyEngine:
                  high = df['high']
                  low = df['low']
                  close = df['close']
+                 from app.indicators import calculate_atr
                  atr_series = calculate_atr(high, low, close, window=14)
                  current_atr = atr_series.iloc[-1]
                  
@@ -325,6 +325,7 @@ class StrategyEngine:
         if use_sentiment:
             try:
                 # Optimized: Only call if we are about to trade or log
+                from app.adapters.ai_analyst import get_market_sentiment
                 sentiment_data = await get_market_sentiment(state.symbol)
             except Exception as e:
                 logger.warning(f"Sentiment check failed/skipped for {state.symbol}: {e}")

@@ -1,5 +1,5 @@
 
-import vectorbt as vbt
+# import vectorbt as vbt
 import pandas as pd
 import numpy as np
 from app.indicators.orderflow import detect_imbalance, is_absorption
@@ -66,6 +66,7 @@ def strategy(data: pd.DataFrame, params: dict = None):
     close = data['close']
     
     # 1. Macro Filter: Price > EMA(200)
+    import vectorbt as vbt
     ema = vbt.MA.run(close, ema_period)
     trend_filter = close > ema.ma
     

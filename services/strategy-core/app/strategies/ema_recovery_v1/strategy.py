@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import vectorbt as vbt
+# import vectorbt as vbt
 
 METADATA = {
     "name": "5-EMA Recovery",
@@ -39,10 +39,12 @@ def strategy(data, params=None):
     # 1. Indicators
     # Calculate 5 EMAs
     emas = {}
+    import vectorbt as vbt
     for p in ema_periods:
         emas[p] = vbt.MA.run(close, window=p, ewm=True).ma
 
     # RSI
+    import vectorbt as vbt
     rsi = vbt.RSI.run(close, window=rsi_period).rsi
 
     # 2. Logic Definitions

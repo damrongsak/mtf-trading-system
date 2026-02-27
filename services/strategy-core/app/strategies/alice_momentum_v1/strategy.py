@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import vectorbt as vbt
+# import vectorbt as vbt
 from app.indicators import calculate_atr, calculate_macd
 
 METADATA = {
@@ -40,6 +40,7 @@ def strategy(data, params=None):
     low = data['low']
     
     # --- 1. Indicators ---
+    import vectorbt as vbt
     ema_fast = vbt.MA.run(close, window=p_fast, ewm=True).ma
     ema_med = vbt.MA.run(close, window=p_med, ewm=True).ma
     ema_slow = vbt.MA.run(close, window=p_slow, ewm=True).ma
@@ -51,6 +52,7 @@ def strategy(data, params=None):
     atr_avg = vbt.MA.run(atr, window=100).ma # Long term average for spike check
     
     # MACD for Filter
+    import vectorbt as vbt
     macd = vbt.MACD.run(close)
     macd_hist = macd.hist
     

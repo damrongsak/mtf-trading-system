@@ -1,10 +1,14 @@
 import logging
+import asyncio
 import pandas as pd
 import numpy as np
 from app.market_data import SharedMarketDataManager
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
-import vectorbt as vbt
+if TYPE_CHECKING:
+    from app.analysis.market_regime import MarketRegime
+
+# import vectorbt as vbt
 from app import indicators
 
 logger = logging.getLogger(__name__)
@@ -22,6 +26,7 @@ class DynamicBotExecutor:
     def _initialize_strategy(self):
         """Initializes the strategy scope and extracts the strategy function."""
         try:
+            import vectorbt as vbt
             local_scope = {
                 "pd": pd,
                 "np": np,
@@ -36,6 +41,18 @@ class DynamicBotExecutor:
         except Exception as e:
             logger.error(f"Initialization Error in Deployment {self.deployment_id}: {e}")
             return None
+
+    def calculate_dynamic_risk(self, regime: 'MarketRegime', is_fakeout: bool, base_risk: float = 1.0) -> float:
+        """
+        Calculates dynamic risk based on market regime and fakeout status.
+        This is a placeholder implementation.
+        """
+        from app.analysis.market_regime import MarketRegime
+        if regime == MarketRegime.TRENDING and not is_fakeout:
+            return base_risk * 1.2  # Increase risk in strong trends
+        elif regime == MarketRegime.RANGE_BOUND and is_fakeout:
+            return base_risk * 0.5  # Decrease risk on fakeouts in range-bound markets
+        return base_risk
 
     async def execute(self, state: Any, data_manager: SharedMarketDataManager) -> Dict[str, Any]:
         """

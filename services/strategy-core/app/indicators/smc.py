@@ -76,8 +76,8 @@ def detect_order_blocks(ohlc: pd.DataFrame) -> List[SMCOrderBlock]:
     # We need to look at "Previous" (candidate OB) and "Current" (Impulsive Move)
     # So we align everything to the "Current" index (i), referring to i-1 as prev.
     
-    close = ohlc['close']
-    open_ = ohlc['open']
+    close = pd.to_numeric(ohlc['close'], errors='coerce')
+    open_ = pd.to_numeric(ohlc['open'], errors='coerce')
     
     # Body calculations
     body = (close - open_).abs()
@@ -188,8 +188,8 @@ def detect_fvg(ohlc: pd.DataFrame) -> List[SMCFVG]:
     Bullish: Low[i] > High[i-2]
     Bearish: High[i] < Low[i-2]
     """
-    low = ohlc['low']
-    high = ohlc['high']
+    low = pd.to_numeric(ohlc['low'], errors='coerce')
+    high = pd.to_numeric(ohlc['high'], errors='coerce')
     
     # Shifted values
     high_minus_2 = high.shift(2)
@@ -267,9 +267,9 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
     Detect Sweeps using Vectorization.
     """
     window = 5
-    high = ohlc['high']
-    low = ohlc['low']
-    close = ohlc['close']
+    high = pd.to_numeric(ohlc['high'], errors='coerce')
+    low = pd.to_numeric(ohlc['low'], errors='coerce')
+    close = pd.to_numeric(ohlc['close'], errors='coerce')
     
     # 1. Recent Highs/Lows (Looking back 'window' bars EXCLUDING current)
     # We use shift(1) to move window back by 1 step so it doesn't include current bar

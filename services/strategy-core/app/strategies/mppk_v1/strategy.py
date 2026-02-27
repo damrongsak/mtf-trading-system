@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Tuple
-import vectorbt as vbt
+# import vectorbt as vbt
 
 METADATA = {
     "name": "Mae Pla Pakka Kiew (MPPK)",

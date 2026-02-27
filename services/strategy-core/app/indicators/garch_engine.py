@@ -6,7 +6,6 @@ import os
 import hashlib
 import logging
 from typing import Optional, Tuple
-from arch import arch_model
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +45,7 @@ class GARCHEngine:
         try:
             # GJR-GARCH(1,1) with Skewed Student's t-distribution
             # p=1 (GARCH), q=1 (ARCH), o=1 (Asymmetry/GJR)
+            from arch import arch_model
             model = arch_model(returns, p=1, q=1, o=1, vol='Garch', dist='skewt')
             res = model.fit(disp='off', show_warning=False)
             

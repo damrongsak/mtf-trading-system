@@ -22,39 +22,45 @@ def calculate_delta(candle: Dict[str, Any]) -> float:
     # 2. Fallback to pre-calculated field
     return float(candle.get('delta', 0.0))
 
-from numba import njit
-import numpy as np
+_DETECT_IMBALANCE_NB_JIT = None
 
-@njit(cache=True)
-def detect_imbalance_nb(levels_array, ratio=3.0, min_vol=10.0):
-    """
-    Numba-accelerated diagonal imbalance detection.
-    levels_array: [N, 3] where cols are [price, bid_vol, ask_vol]
-    """
-    n = len(levels_array)
-    if n < 2:
-        return np.zeros(0), np.zeros(0)
-        
-    buying_imbalances = []
-    selling_imbalances = []
-    
-    # 1. Buying Imbalance: Ask[i+1] vs Bid[i]
-    for i in range(n - 1):
-        bid_vol = levels_array[i, 1]
-        ask_vol = levels_array[i+1, 2]
-        
-        if ask_vol > min_vol and (bid_vol == 0 or (ask_vol / bid_vol >= ratio)):
-            buying_imbalances.append(levels_array[i+1, 0])
+def _get_detect_imbalance_nb_jit():
+    global _DETECT_IMBALANCE_NB_JIT
+    if _DETECT_IMBALANCE_NB_JIT is None:
+        from numba import njit
+        @njit(cache=True)
+        def detect_imbalance_nb(levels_array, ratio=3.0, min_vol=10.0):
+            """
+            Numba-accelerated diagonal imbalance detection.
+            levels_array: [N, 3] where cols are [price, bid_vol, ask_vol]
+            """
+            n = len(levels_array)
+            if n < 2:
+                return np.zeros(0), np.zeros(0)
+                
+            buying_imbalances = []
+            selling_imbalances = []
             
-    # 2. Selling Imbalance: Bid[i+1] vs Ask[i]
-    for i in range(n - 1):
-        ask_vol = levels_array[i, 2]
-        bid_vol = levels_array[i+1, 1]
-        
-        if bid_vol > min_vol and (ask_vol == 0 or (bid_vol / ask_vol >= ratio)):
-            selling_imbalances.append(levels_array[i+1, 0])
-            
-    return np.array(buying_imbalances), np.array(selling_imbalances)
+            # 1. Buying Imbalance: Ask[i+1] vs Bid[i]
+            for i in range(n - 1):
+                bid_vol = levels_array[i, 1]
+                ask_vol = levels_array[i+1, 2]
+                
+                if ask_vol > min_vol and (bid_vol == 0 or (ask_vol / bid_vol >= ratio)):
+                    buying_imbalances.append(levels_array[i+1, 0])
+                    
+            # 2. Selling Imbalance: Bid[i+1] vs Ask[i]
+            for i in range(n - 1):
+                ask_vol = levels_array[i, 2]
+                bid_vol = levels_array[i+1, 1]
+                
+                if bid_vol > min_vol and (ask_vol == 0 or (bid_vol / ask_vol >= ratio)):
+                    selling_imbalances.append(levels_array[i+1, 0])
+                    
+            return np.array(buying_imbalances), np.array(selling_imbalances)
+        _DETECT_IMBALANCE_NB_JIT = detect_imbalance_nb
+    return _DETECT_IMBALANCE_NB_JIT
+
 
 def detect_imbalance(candle: Dict[str, Any], ratio: float = 3.0, min_vol: float = 10) -> Dict[str, List[float]]:
     """
@@ -75,7 +81,9 @@ def detect_imbalance(candle: Dict[str, Any], ratio: float = 3.0, min_vol: float 
         data.sort(key=lambda x: x[0])
         levels_array = np.array(data)
         
-        buying, selling = detect_imbalance_nb(levels_array, ratio, min_vol)
+        # Use lazy-loaded JIT function
+        jit_func = _get_detect_imbalance_nb_jit()
+        buying, selling = jit_func(levels_array, ratio, min_vol)
         
         return {
             'buying': buying.tolist(),

@@ -1,7 +1,6 @@
 from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
-from arch import arch_model
 from app.foundry.base import LogicBlock, BlockType, SignalState
 import logging
 
@@ -51,6 +50,7 @@ class VolatilityGarch(LogicBlock):
             
             # Fit Model
             # vol='Garch', p=1, q=1 is standard GARCH(1,1)
+            from arch import arch_model
             model = arch_model(returns, vol='Garch', p=self.p, q=self.q, rescale=False)
             res = model.fit(disp="off", show_warning=False)
             

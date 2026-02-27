@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-import vectorbt as vbt
+# import vectorbt as vbt
 import numpy as np
 from sqlalchemy import text
 from app.database import engine
@@ -138,6 +138,7 @@ def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: mult
         if symbol_details:
              logger.info(f"Backtest Worker: Using ECST details for {req_dict.get('symbol')}: {symbol_details.keys()}")
 
+        import vectorbt as vbt
         pf = vbt.Portfolio.from_signals(
             close_price,
             entries,
@@ -522,6 +523,7 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     if ms_details:
          print(f"INFO: Historical Backtest using ECST details: {ms_details.keys()}")
 
+    import vectorbt as vbt
     pf = vbt.Portfolio.from_signals(
         close_price,
         entries,

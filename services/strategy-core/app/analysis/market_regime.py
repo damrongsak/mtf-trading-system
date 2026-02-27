@@ -90,7 +90,7 @@ def detect_fakeout_alignment(df: pd.DataFrame, bias: str) -> Optional[str]:
         
     return None
 
-def calculate_dynamic_risk(regime: MarketRegime, is_fakeout: bool) -> float:
+def calculate_dynamic_risk(regime: MarketRegime, is_fakeout: bool, base_risk: float = 1.0) -> float:
     """
     Returns the Risk Multiplier based on Probabilistic Context.
     
@@ -121,7 +121,7 @@ def calculate_dynamic_risk(regime: MarketRegime, is_fakeout: bool) -> float:
             # Trend following
             multiplier = 1.0
             
-    return multiplier
+    return multiplier * base_risk
 
 def get_market_context(df: pd.DataFrame, bias_direction: str = "NEUTRAL") -> MarketContext:
     """

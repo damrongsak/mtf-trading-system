@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 import numpy as np
-import vectorbt as vbt
+# import vectorbt as vbt
 from app.logic import calculate_stop_loss, SignalDirection
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ def strategy(data, params=None):
     
     try:
         # 3. VectorBT Calculation
+        import vectorbt as vbt
         rsi = vbt.RSI.run(close, window=windows).rsi
         
         # 4. Generate Signals
@@ -54,6 +55,7 @@ def strategy(data, params=None):
         sim_exits = exits_grid.iloc[-lookback:]
         sim_price = close.iloc[-lookback:]
         
+        import vectorbt as vbt
         pf = vbt.Portfolio.from_signals(
             sim_price, 
             sim_entries, 
@@ -73,6 +75,7 @@ def strategy(data, params=None):
         # Re-calc fallback if VBT failed completely? 
         # Assuming rsi was calculated or we fallback
         if 'rsi' not in locals():
+             import vectorbt as vbt
              rsi = vbt.RSI.run(close, window=14).rsi
              entries_grid = rsi < 30
              exits_grid = rsi > 70

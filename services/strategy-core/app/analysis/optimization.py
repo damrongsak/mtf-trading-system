@@ -1,5 +1,5 @@
 from typing import Dict, List, Any, Union, Callable, Optional, Tuple
-import vectorbt as vbt
+# import vectorbt as vbt
 import numpy as np
 import pandas as pd
 from itertools import product
@@ -83,6 +83,7 @@ def run_grid_search(
     if code:
         try:
             local_scope = {}
+            import vectorbt as vbt
             exec_globals = {
                 'pd': pd,
                 'np': np,
@@ -127,6 +128,7 @@ def run_grid_search(
                 f_win = int(current_params.get('fast_window', 10))
                 s_win = int(current_params.get('slow_window', 20))
                 
+                import vectorbt as vbt
                 fast_ma = vbt.MA.run(close_price, window=f_win, short_name='fast')
                 slow_ma = vbt.MA.run(close_price, window=s_win, short_name='slow')
                 entries = fast_ma.ma_crossed_above(slow_ma)
@@ -139,6 +141,7 @@ def run_grid_search(
                 diff = data.index[1] - data.index[0]
                 freq = str(int(diff.total_seconds())) + 'S'
 
+            import vectorbt as vbt
             portfolio = vbt.Portfolio.from_signals(
                 close_price, 
                 entries, 

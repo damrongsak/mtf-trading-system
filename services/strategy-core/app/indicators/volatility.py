@@ -1,5 +1,5 @@
 import pandas as pd
-import vectorbt as vbt
+# import vectorbt as vbt
 import numpy as np
 
 def calculate_yang_zhang(open_s: pd.Series, high_s: pd.Series, low_s: pd.Series, close_s: pd.Series, window: int = 20) -> pd.Series:
@@ -39,6 +39,7 @@ def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int
     """
     Calculate Average True Range (ATR).
     """
+    import vectorbt as vbt
     return vbt.ATR.run(high, low, close, window=window).atr
 
 def calculate_bbands(close: pd.Series, window: int = 20, alpha: int = 2) -> pd.DataFrame:
@@ -46,6 +47,7 @@ def calculate_bbands(close: pd.Series, window: int = 20, alpha: int = 2) -> pd.D
     Calculate Bollinger Bands.
     Returns DataFrame with columns: middle, upper, lower, bandwidth, percent_b
     """
+    import vectorbt as vbt
     res = vbt.BBANDS.run(close, window=window, alpha=alpha)
     df = pd.DataFrame({
         'middle': res.middle,

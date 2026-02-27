@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import vectorbt as vbt
+# import vectorbt as vbt
 from typing import List, Dict, Any, Tuple
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -86,6 +86,7 @@ def run_grid_simulation_logic(req: SimulationRequest) -> SimulationResponse:
     # A full VBT Grid requires Portfolio.from_orders with custom logic, which is complex for a single file.
     # We will approximate Grid behavior with a Mean Reversion strategy for the simulation results.
     
+    import vectorbt as vbt
     fast_ma = vbt.MA.run(price_series, 10)
     slow_ma = vbt.MA.run(price_series, 50)
     
@@ -96,6 +97,7 @@ def run_grid_simulation_logic(req: SimulationRequest) -> SimulationResponse:
     exits = price_series > (fast_ma.ma + step)
     
     # Run Portfolio
+    import vectorbt as vbt
     pf = vbt.Portfolio.from_signals(
         price_series, 
         entries, 

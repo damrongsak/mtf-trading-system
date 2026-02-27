@@ -1,8 +1,18 @@
 import os
 import pytest
 
-# Set dummy DATABASE_URL before importing modules that use it
+# Set dummy environment variables before importing modules that use them
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["REDIS_URL"] = "redis://localhost:6379/1" # Point to potential local instance or just fake it
+
+import sys
+from unittest.mock import MagicMock
+
+# Mock redis BEFORE it's imported by app modules
+mock_redis = MagicMock()
+sys.modules["redis"] = mock_redis
+# Also mock fakeredis just in case
+sys.modules["fakeredis"] = MagicMock()
 
 from app.database import Base, engine
 import sqlalchemy
