@@ -2,6 +2,7 @@ from typing import Any, Optional
 import aiohttp
 import json
 import logging
+import redis.asyncio as aioredis
 from app.core.config import settings
 from app.core.base_tool import BaseTool
 
@@ -36,11 +37,37 @@ class GoogleSearchTool(BaseTool):
             )
 
         # Standardized SerpApi call
+        # 1. Attempt to fetch from Redis Cache first
+        try:
+            redis = aioredis.from_url(settings.redis.url, decode_responses=True)
+            # Try matching symbols like XAUUSD
+            upper_query = query.upper()
+            symbol_to_check = None
+            if "GOLD" in upper_query or "XAU" in upper_query:
+                symbol_to_check = "XAUUSD"
+            elif "EUR" in upper_query:
+                symbol_to_check = "EURUSD"
+            elif "BITCOIN" in upper_query or "BTC" in upper_query:
+                symbol_to_check = "BTCUSD"
+                
+            if symbol_to_check:
+                cache_key = f"market_context:{symbol_to_check}"
+                cached_data = await redis.get(cache_key)
+                if cached_data:
+                    data = json.loads(cached_data)
+                    logger.info(f"SearchTool: Cache HIT for {symbol_to_check}")
+                    await redis.aclose()
+                    return data.get("context", "No context found.")
+            await redis.aclose()
+        except Exception as e:
+            logger.error(f"SearchTool Redis error: {e}")
+
+        logger.info(f"SearchTool: Cache MISS for {query}. Falling back to SerpApi.")
         return await self._run_serpapi(query)
 
     async def _run_serpapi(self, query: str) -> str:
         """
-        Executes search via SerpApi and returns formatted results.
+        Executes search via SerpApi and returns formatted results including top_stories.
         """
         url = "https://serpapi.com/search"
         params = {
@@ -70,17 +97,29 @@ class GoogleSearchTool(BaseTool):
                         ab = data["answer_box"]
                         results.append(f"Direct Answer: {ab.get('answer') or ab.get('snippet')}\n")
 
-                    # 2. Organic results
-                    for item in data.get("organic_results", []):
-                        title = item.get("title")
-                        snippet = item.get("snippet")
-                        link = item.get("link")
-                        results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
+                    # 2. Top Stories (Breaking News - High Priority)
+                    if "top_stories" in data:
+                        results.append(f"--- Top Stories ---")
+                        for item in data.get("top_stories", [])[:3]:
+                            title = item.get("title", "")
+                            source = item.get("source", "")
+                            date = item.get("date", "")
+                            link = item.get("link", "")
+                            results.append(f"News: {title}\nSource: {source} ({date})\nLink: {link}\n")
+
+                    # 3. Organic results
+                    if "organic_results" in data:
+                        results.append(f"--- Search Results ---")
+                        for item in data.get("organic_results", [])[:3]:
+                            title = item.get("title")
+                            snippet = item.get("snippet")
+                            link = item.get("link")
+                            results.append(f"Title: {title}\nSnippet: {snippet}\nSource: {link}\n")
                         
                     if not results:
                         return "No results found on SerpApi for this query."
                         
-                    return "\n---\n".join(results)
+                    return "\n".join(results)
         except aiohttp.ServerTimeoutError:
             logger.warning(f"SerpApi timeout for query: {query[:50]}")
             return f"⚠️ Web search timed out for '{query}'. Using knowledge base as fallback."

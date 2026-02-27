@@ -95,6 +95,15 @@ To verify real-time data flow, use the Redis CLI:
 docker compose exec redis redis-cli PSUBSCRIBE "market_data:tick:*"
 ```
 
+## 🔍 Background Market Context (ECST)
+
+To eliminate AI bottlenecks, MTF Olympus utilizes Event-Carried State Transfer (ECST) for web search and market context.
+
+- **Service**: `data-pipeline`
+- **Mechanism**: A background scheduler (`run_search_sync_job`) fetches breaking news (Top Stories) and organic results via SerpApi every 30 minutes for active symbols.
+- **Cache**: Data is formatted and saved to Redis under `market_context:{SYMBOL}`.
+- **Consumption**: The AI Analyst's `GoogleSearchTool` reads directly from Redis, providing instant context without blocking for external HTTP requests.
+
 ## 🛠️ Development Workflow
 
 ### Prerequisites

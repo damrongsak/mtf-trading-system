@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     REDIS_URL: str = "redis://redis:6379/0"
     NEWS_API_KEY: Optional[str] = None
+    SERPAPI_API_KEY: Optional[str] = None
 
     # CTrader
     CTRADER_CLIENT_ID: Optional[str] = None

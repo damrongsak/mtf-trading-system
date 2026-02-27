@@ -661,3 +661,34 @@ async def run_cot_sync_job():
         logger.error(f"COT sync job failed: {e}")
     finally:
         db.close()
+
+async def run_search_sync_job():
+    """Scheduled job to sync market context via Google Search (SerpApi)."""
+    logger.info("Starting scheduled Search Sync job...")
+    from app.services.serpapi_service import SerpApiService
+    from app.models.market import MarketSymbol
+    
+    search_service = SerpApiService()
+    db = SessionLocal()
+    try:
+        # Get active symbols (e.g., XAU/USD, EUR/USD)
+        symbols = db.query(MarketSymbol).filter(MarketSymbol.is_active == True).all()
+        symbol_names = list(set([s.symbol for s in symbols]))
+        
+        # Parallel search sync
+        semaphore = asyncio.Semaphore(3) # SerpApi rate limits might be strict
+        async def sync_symbol_search(symbol):
+            async with semaphore:
+                # We normalize symbol to remove slashes if any for query, e.g. XAU/USD -> XAUUSD
+                normalized_symbol = symbol.replace("/", "")
+                return await search_service.fetch_and_cache_market_context(normalized_symbol)
+
+        tasks = [sync_symbol_search(s) for s in symbol_names]
+        results = await asyncio.gather(*tasks)
+            
+        logger.info(f"Search sync job completed. Synced {len(results)} symbols.")
+    except Exception as e:
+        logger.error(f"Search sync job failed: {e}")
+    finally:
+        await search_service.close()
+        db.close()
