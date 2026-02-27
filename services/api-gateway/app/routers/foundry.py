@@ -4,7 +4,7 @@ from app.database import get_db
 from app.schemas.generated import FoundryAssembleRequest, APIResponseFoundryAssembleResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Manually defining schemas to avoid regenerating everything right now
 class WalkForwardRequest(BaseModel):
@@ -47,7 +47,12 @@ def assemble_strategy(
         # Strategy Core expects {'config': dict} which matches FoundryAssembleRequest
         
         # We need to construct the payload explicitly or just forward valid pydantic
-        payload = req.model_dump()
+        # Check if config_json exists, if so use it as the main config body for strategy core
+        strategy_config = req.config.config_json if (req.config and req.config.config_json) else req.model_dump().get("config", {})
+
+        payload = {
+            "config": strategy_config
+        }
         
         # Call Strategy Core
         # Strategy Core endpoint: /api/v1/foundry/assemble
@@ -58,7 +63,8 @@ def assemble_strategy(
             if resp.status_code != 200:
                 return APIResponseFoundryAssembleResponse(
                     status="error",
-                    data={"pipeline_hash": "", "errors": [f"Strategy Core Error: {resp.text}"]}
+                    data={"pipeline_hash": "", "errors": [f"Strategy Core Error: {resp.text}"]},
+                    timestamp=datetime.now(timezone.utc)
                 )
             
             data = resp.json() 
@@ -66,13 +72,15 @@ def assemble_strategy(
             
             return APIResponseFoundryAssembleResponse(
                 status="success",
-                data=data
+                data=data,
+                timestamp=datetime.now(timezone.utc)
             )
 
     except Exception as e:
          return APIResponseFoundryAssembleResponse(
             status="error",
-            data={"pipeline_hash": "", "errors": [str(e)]}
+            data={"pipeline_hash": "", "errors": [str(e)]},
+            timestamp=datetime.now(timezone.utc)
         )
 
 @router.post("/validate", response_model=APIResponse_WalkForwardResponse)

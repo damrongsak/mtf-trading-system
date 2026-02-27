@@ -29,6 +29,13 @@ class StrategyPipeline:
                 signals.append(1)
             elif res['state'] == SignalState.BEARISH:
                 signals.append(-1)
+            elif res['state'] == SignalState.INVALID:
+                # Immediate veto: Veto entire pipeline if any block is INVALID.
+                return {
+                    'pipeline_state': SignalState.INVALID,
+                    'net_score': 0,
+                    'block_results': results
+                }
             else:
                 signals.append(0)
 

@@ -5,6 +5,9 @@ import vectorbt as vbt
 from datetime import timedelta
 from app.foundry.factory import StrategyAssembler
 from app.analysis.optimization import run_grid_search
+import logging
+
+logger = logging.getLogger(__name__)
 
 class WalkForwardValidator:
     def __init__(self, config: Dict[str, Any], data: pd.DataFrame):
@@ -30,6 +33,7 @@ class WalkForwardValidator:
         end_date = self.data.index[-1]
         
         current_date = start_date + timedelta(days=self.train_window)
+        print(f"WFA: start_date={start_date}, end_date={end_date}, init current_date={current_date}", flush=True)
         
         chunk_results = []
         equity_curve_parts = []
@@ -38,10 +42,12 @@ class WalkForwardValidator:
             train_start = current_date - timedelta(days=self.train_window)
             train_end = current_date
             test_end = current_date + timedelta(days=self.test_window)
+            print(f"WFA: sliding window {train_start} -> {train_end} | OOS -> {test_end}", flush=True)
             
             # Slice Data
             train_data = self.data.loc[train_start:train_end]
             test_data = self.data.loc[train_end:test_end] # Non-overlapping starts? usually overlap on boundary
+            print(f"WFA: train_data len={len(train_data)}, test_data len={len(test_data)}", flush=True)
             
             if train_data.empty or test_data.empty:
                 break
@@ -72,7 +78,12 @@ class WalkForwardValidator:
         # Let's count profitable OOS periods / total periods
         
         if not chunk_results:
-             return {'robustness_score': 0, 'details': []}
+             return {
+                 'robustness_score': 0, 
+                 'avg_sharpe_test': 0.0,
+                 'period_count': 0,
+                 'details': []
+             }
 
         positive_chunks = sum(1 for c in chunk_results if c['oos_metrics']['total_return'] > 0)
         robustness_score = (positive_chunks / len(chunk_results)) * 100

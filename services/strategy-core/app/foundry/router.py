@@ -33,13 +33,14 @@ def validate_strategy(req: WalkForwardRequest):
         # Fetch Data
         from app.backtest import fetch_data_from_db
         from app.database import SessionLocal
-        from app.utils.helpers import resolve_market_symbol_id
+        from app.utils.helpers import resolve_market_symbol
         
         db = SessionLocal()
         try:
-            ms_id = resolve_market_symbol_id(db, req.symbol)
-            if not ms_id:
+            ms = resolve_market_symbol(db, req.symbol)
+            if not ms:
                 raise HTTPException(status_code=404, detail=f"MarketSymbol not found for {req.symbol}")
+            ms_id = str(ms.id)
         finally:
             db.close()
 

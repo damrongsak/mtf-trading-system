@@ -1,8 +1,7 @@
+from __future__ import annotations
 import math
 from typing import Any
 from sqlalchemy.orm import Session
-from app.models.market import MarketSymbol
-from app.models.data_source import DataSource
 
 def sanitize_numeric_dict(obj: Any) -> Any:
     """
@@ -18,11 +17,14 @@ def sanitize_numeric_dict(obj: Any) -> Any:
         return obj
     return obj
 
-def resolve_market_symbol(db: Session, symbol: str, data_source: str = None) -> MarketSymbol:
+def resolve_market_symbol(db: Session, symbol: str, data_source: str = None) -> 'MarketSymbol':
     """
     Resolve MarketSymbol object from symbol string.
     Prioritizes CTRADER if no source is specified.
     """
+    from app.models.market import MarketSymbol
+    from app.models.data_source import DataSource
+    
     sym_variants = [symbol, symbol.replace("/", "_"), symbol.replace("_", "/")]
     
     query = db.query(MarketSymbol).join(DataSource)
