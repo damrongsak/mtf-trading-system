@@ -48,6 +48,25 @@ class NewsApiService(BaseService):
         }
         return query_map.get(symbol, symbol)
 
+    async def _fallback_to_search_cache(self, symbol: str) -> List[Dict[str, Any]]:
+        """Fallback to SerpApi market context cache if NewsAPI has no data or no quota."""
+        try:
+            # We normalize symbol like XAUUSD
+            normalized_symbol = symbol.replace("/", "")
+            cache_key = f"market_context:{normalized_symbol}"
+            # This uses the data-pipeline's Redis instance where SerpApiService writes
+            cached_context_raw = await self._cache_get(cache_key)
+            if cached_context_raw and isinstance(cached_context_raw, dict):
+                structured_news = cached_context_raw.get("structured_news", [])
+                if structured_news:
+                    logger.info(f"Fallback successful: retrieved {len(structured_news)} items from Google Search cache for {symbol}.")
+                    return structured_news
+            logger.info(f"Fallback empty: No structured news found in Google Search cache for {symbol}.")
+            return []
+        except Exception as e:
+            logger.error(f"Fallback to search cache failed: {e}")
+            return []
+
     async def fetch_headlines(self, symbol: str) -> List[Dict[str, Any]]:
         """
         Fetches news headlines with Quota Management, Caching, and Source Filtering.
@@ -64,17 +83,29 @@ class NewsApiService(BaseService):
 
         # 2. Check Quota
         if not await self.check_quota():
+            logger.warning(f"NewsAPI quota exceeded. Attempting fallback for {symbol}.")
+            fallback_results = await self._fallback_to_search_cache(symbol)
+            if fallback_results:
+                return fallback_results
             return [self._create_sys_msg("Daily Quota Exceeded")]
 
         # 3. Fetch from API
         try:
             results = await self._fetch_from_api(symbol)
             if results is not None:
-                 await self.increment_quota()
-                 ttl = 86400
-                 if not results or (len(results) == 1 and results[0].get("source") == "System"):
-                     ttl = 10800 # 3 hours for empty or errors
-                 await self._cache_set(cache_key, results, ttl=ttl)
+                # If NewsAPI gave us empty results or a Sys Msg, try fallback
+                if not results or (len(results) == 1 and results[0].get("source") == "System"):
+                    fallback_results = await self._fallback_to_search_cache(symbol)
+                    if fallback_results:
+                        return fallback_results # Return fallback, don't cache as NewsAPI 'empty'
+                        
+                # Otherwise, it's a real NewsAPI hit or BOTH are empty
+                await self.increment_quota()
+                ttl = 86400
+                if not results or (len(results) == 1 and results[0].get("source") == "System"):
+                    ttl = 10800 # 3 hours for empty or errors
+                await self._cache_set(cache_key, results, ttl=ttl)
+                
             return results
         except Exception as e:
             logger.error(f"News fetch failed: {e}")

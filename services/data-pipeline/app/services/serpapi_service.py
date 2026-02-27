@@ -56,6 +56,7 @@ class SerpApiService(BaseService):
 
     def _format_results(self, data: dict, symbol: str) -> dict:
         results = []
+        structured_news = []
         
         # 1. Answer Box
         if "answer_box" in data:
@@ -71,6 +72,14 @@ class SerpApiService(BaseService):
                 date = item.get("date", "")
                 link = item.get("link", "")
                 results.append(f"News: {title}\nSource: {source} ({date})\nLink: {link}")
+                
+                # Add to structured list for NewsAPI fallback
+                structured_news.append({
+                    "title": title,
+                    "source": {"name": source},
+                    "url": link,
+                    "publishedAt": datetime.utcnow().isoformat() + "Z" # Approx timestamp
+                })
 
         # 3. Organic Results
         if "organic_results" in data:
@@ -88,5 +97,6 @@ class SerpApiService(BaseService):
         return {
             "symbol": symbol,
             "context": context_str,
+            "structured_news": structured_news,
             "updated_at": datetime.utcnow().isoformat()
         }
