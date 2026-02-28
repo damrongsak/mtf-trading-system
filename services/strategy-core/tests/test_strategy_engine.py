@@ -46,7 +46,7 @@ async def test_execution_logic_auto():
         engine.active_strategies[strategy_id] = state
         
         # Set market data with volatility
-        dates = pd.date_range("2023-01-01", periods=200, freq="15min")
+        dates = pd.date_range("2023-01-01", periods=200, freq="15min", tz="UTC")
         df = pd.DataFrame({
             "timestamp": dates,
             "close": [1.1, 1.2]*100, 
@@ -59,9 +59,11 @@ async def test_execution_logic_auto():
 
         with patch("app.engine.core.execution_client") as mock_client, \
              patch.object(engine, "_process_strategy_logic", new_callable=AsyncMock) as mock_logic, \
-             patch("app.engine.core.get_market_sentiment", new_callable=AsyncMock) as mock_sentiment:
+             patch("app.engine.core.get_market_sentiment") as mock_sentiment, \
+             patch("app.engine.core.config_cache") as mock_cache:
             
-            mock_sentiment.return_value = {"score": 0.0, "reason": "Neutral"}
+            mock_sentiment.side_effect = AsyncMock(return_value={"score": 0.0, "reason": "Neutral"})
+            mock_cache.get_config.return_value = {"alpha_threshold": 0.1} # Mocked config to avoid Redis
             
             # Simulate a tick triggering logic
             tick = {"type": "PRICE", "instrument": "EUR_USD", "bid": "1.12", "ask": "1.12", "time": "2023-01-01T12:00:00Z"}
@@ -69,8 +71,10 @@ async def test_execution_logic_auto():
             # on_tick calls FleetManager.tick, which eventually calls _process_strategy_logic
             await engine.on_tick(tick)
              
-        with patch("app.engine.core.execution_client") as mock_client:
+        with patch("app.engine.core.execution_client") as mock_client, \
+             patch("app.engine.core.config_cache") as mock_cache:
             mock_client.place_order = AsyncMock()
+            mock_cache.get_config.return_value = {"alpha_threshold": 0.1}
             # Test _execute_signal directly
             with patch("os.getenv", return_value="true"):
                  await engine._execute_signal(strategy_id, state, {"action": "BUY", "direction": "BULLISH", "stop_loss": 1.0})
@@ -88,8 +92,10 @@ async def test_execution_logic_manual():
         state = StrategyState(config)
         engine.active_strategies[strategy_id] = state
         
-        with patch("app.engine.core.execution_client") as mock_client:
+        with patch("app.engine.core.execution_client") as mock_client, \
+             patch("app.engine.core.config_cache") as mock_cache:
             mock_client.place_order = AsyncMock()
+            mock_cache.get_config.return_value = {"use_sentiment_filter": False} # Avoid further logic triggers
             
             # Force execution attempt
             await engine._execute_signal(strategy_id, state, {"action": "BUY", "direction": "BULLISH"})

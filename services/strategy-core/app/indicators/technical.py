@@ -3,17 +3,16 @@ import pandas as pd
 
 def calculate_indicator(df: pd.DataFrame, strategy: str = "Common") -> pd.DataFrame:
     """
-    Calculate indicators using pandas-ta.
-    supports executing a 'Strategy' (pandas_ta concept) or specific indicators.
+    Calculate indicators using native app.indicators.
     """
-    # Stubbed due to removal of pandas-ta
-    # if strategy == "All":
-    #     df.ta.strategy("All")
-    # elif strategy == "Common":
-    #     # Example common strategy using direct calls
-    #     df.ta.sma(length=50, append=True)
-    #     df.ta.sma(length=200, append=True)
-    #     df.ta.rsi(append=True)
-    #     df.ta.atr(length=14, append=True)
+    if strategy == "Common":
+        from app.indicators.trend import calculate_ema
+        from app.indicators.momentum import calculate_rsi
+        from app.indicators.volatility import calculate_atr
+        
+        df = df.copy()
+        df['SMA_50'] = calculate_ema(df['close'], span=50) # SMA as EMA proxy
+        df['RSI_14'] = calculate_rsi(df['close'], window=14)
+        df['ATR_14'] = calculate_atr(df['high'], df['low'], df['close'], window=14)
     
     return df

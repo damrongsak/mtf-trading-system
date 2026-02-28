@@ -13,6 +13,7 @@ async def test_place_order_success(client):
     
     with patch("app.adapters.execution.redis.from_url") as mock_redis_factory:
         mock_redis = AsyncMock()
+        mock_redis.llen.return_value = 0 # Ensure circuit breaker passes
         mock_redis_factory.return_value = mock_redis
         
         result = await client.place_order(order_data)
@@ -30,6 +31,7 @@ async def test_place_order_redis_error(client):
     
     with patch("app.adapters.execution.redis.from_url") as mock_redis_factory:
         mock_redis = AsyncMock()
+        mock_redis.llen.return_value = 0
         mock_redis.lpush.side_effect = Exception("Redis Down")
         mock_redis_factory.return_value = mock_redis
         

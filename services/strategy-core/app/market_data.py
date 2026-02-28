@@ -174,16 +174,43 @@ class SharedMarketDataManager:
                     'high': price,
                     'low': price,
                     'close': price,
-                    'volume': 1,
-                    # 'delta': 0 # TODO: Implement delta logic if needed
+                    'volume': 1.0,
+                    'delta': 0.0,
+                    'footprint': [{'price': price, 'bid_vol': 0.0, 'ask_vol': 0.0}]
                 }
             else:
                 # Update Existing
                 c = s_data.current_candle
+                prev_close = c['close']
+                
+                # Update OHLC
                 c['high'] = max(c['high'], price)
                 c['low'] = min(c['low'], price)
                 c['close'] = price
                 c['volume'] += 1
+                
+                # Update Order Flow (Primitive side heuristic)
+                side = 0 # 1 for Buy, -1 for Sell
+                if price > prev_close: side = 1
+                elif price < prev_close: side = -1
+                
+                if side != 0:
+                    c['delta'] += float(side)
+                    
+                    # Update Footprint
+                    found = False
+                    for level in c['footprint']:
+                        if abs(level['price'] - price) < 1e-9: # Safe float comparison
+                            if side == 1: level['ask_vol'] += 1.0
+                            else: level['bid_vol'] += 1.0
+                            found = True
+                            break
+                    if not found:
+                        c['footprint'].append({
+                            'price': price,
+                            'bid_vol': 1.0 if side == -1 else 0.0,
+                            'ask_vol': 1.0 if side == 1 else 0.0
+                        })
 
     def update_efp(self, symbol: str, spread: float, timestamp: float, raw_data: dict):
         """Update EFP spread for a symbol."""
@@ -300,11 +327,13 @@ class SharedMarketDataManager:
                 
                 candle = {
                     'timestamp': r.get(ts_key),
-                    'open': r.get('open'),
-                    'high': r.get('high'),
-                    'low': r.get('low'),
-                    'close': r.get('close'),
-                    'volume': r.get('volume', 0)
+                    'open': float(r.get('open')),
+                    'high': float(r.get('high')),
+                    'low': float(r.get('low')),
+                    'close': float(r.get('close')),
+                    'volume': float(r.get('volume', 0)),
+                    'delta': float(r.get('delta', 0.0)),
+                    'footprint': r.get('footprint', [])
                 }
                 s_data.candles_m1.append(candle)
 

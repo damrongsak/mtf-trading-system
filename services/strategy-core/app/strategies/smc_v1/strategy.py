@@ -85,7 +85,7 @@ async def strategy(state, data_manager):
                     "rrr": abs(tp_val - entry_price) / abs(entry_price - sl_val),
                     "reason": f"SMC Entry: {bias.value} Bias + OB + Trigger",
                     "metadata": {
-                        "signal_timestamp": str(data.index[-1]),
+                        "signal_timestamp": str(df_base.index[-1]),
                         "bias": bias.value
                     }
                 }

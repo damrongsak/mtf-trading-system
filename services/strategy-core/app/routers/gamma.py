@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel
 import pandas as pd
@@ -23,6 +23,9 @@ router = APIRouter(
     prefix="/analysis/gamma",
     tags=["Gamma Analysis"]
 )
+
+def get_fetch_candles():
+    return fetch_candles_logic
 
 class GammaLevelResponse(BaseModel):
     price: float
@@ -58,7 +61,8 @@ async def get_gamma_levels(
     symbol: str = "XAUUSD", 
     snapshot_at: Optional[datetime] = None,
     current_price: Optional[float] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fetch_candles: Any = Depends(get_fetch_candles)
 ):
     """
     Get the latest Gamma Levels and Market Regime.
@@ -141,7 +145,7 @@ async def get_gamma_levels(
     smc_data = None
     try:
         # Wrap in timeout to prevent blocking if provider is slow
-        df = await asyncio.wait_for(fetch_candles_logic(symbol, "H1", limit=200), timeout=2.0)
+        df = await asyncio.wait_for(fetch_candles(symbol, "H1", limit=200), timeout=2.0)
         if not df.empty:
             smc_data = analyze_smc(df, symbol=symbol)
     except Exception as e:

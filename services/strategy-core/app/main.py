@@ -16,8 +16,9 @@ from app.schemas import (
 # from app.simulation import run_grid_simulation_logic
 # from app.analysis.optimization import run_grid_search
 # from app.analysis.monte_carlo import run_monte_carlo
-# from app.engine import strategy_engine
-# from app.runner.live import live_runner
+from app.engine import strategy_engine
+from app.runner.live import live_runner
+from app.workers.reconciliation import reconciliation_worker
 # from app.adapters.oanda_history import OandaHistoryAdapter
 import pandas as pd
 import numpy as np
@@ -543,14 +544,12 @@ app.include_router(gamma_router, prefix="/api/v1")
 from app.routers.risk import router as risk_router
 app.include_router(risk_router, prefix="/api/v1")
 
-# Global Worker
-indicator_worker = None
+# Global Workers
+from app.workers.reconciliation import reconciliation_worker
 
 @app.on_event("startup")
 async def startup_event():
     print("DEBUG: Entering startup_event")
-    from app.engine import strategy_engine
-    from app.runner.live import live_runner
     startup_start_time = time.time()
     logger.info("Starting Strategy Engine (Primary Event Consumer)...")
     await strategy_engine.start()
@@ -564,7 +563,6 @@ async def startup_event():
     await fleet.load_fleet()
 
     # Start Reconciliation Worker (Watchdog & Event Listener)
-    from app.workers.reconciliation import reconciliation_worker
     await reconciliation_worker.start()
 
     # Resource Monitoring Baseline (Simple Timing)

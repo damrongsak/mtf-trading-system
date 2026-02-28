@@ -28,8 +28,8 @@ def strategy(data, params):
     manager = MockDataManager()
     
     result = await executor.execute(state, manager)
-    assert result is not None
-    assert result["direction"] == "BULLISH"
+    assert result["signal"] is not None
+    assert result["signal"]["direction"] == "BULLISH"
 
 @pytest.mark.asyncio
 async def test_dynamic_executor_error():
@@ -44,7 +44,8 @@ def strategy(data, params):
     
     # Should not raise exception, but return None and log error
     result = await executor.execute(state, manager)
-    assert result is None
+    assert result["signal"] is None
+    assert "error" in result["logs"]
 
 @pytest.mark.asyncio
 async def test_dynamic_executor_no_function():
@@ -58,4 +59,4 @@ x = 1
     manager = MockDataManager()
     
     result = await executor.execute(state, manager)
-    assert result is None
+    assert result["signal"] is None

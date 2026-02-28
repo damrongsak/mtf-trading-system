@@ -391,7 +391,7 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
     # This is O(P) where P is number of pivots << N candles. Fast enough.
     
     # Label HH/LL and Detect MSS
-    if len(pivots) > 1:
+    if len(pivots) > 0:
         last_high = None
         last_low = None
         

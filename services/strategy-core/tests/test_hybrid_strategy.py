@@ -5,41 +5,25 @@ import numpy as np
 from unittest.mock import MagicMock
 from app.strategies.hybrid_alpha_v1.strategy import strategy as hybrid_alpha_strategy
 
-@pytest.mark.asyncio
-async def test_hybrid_alpha_low_score():
+def test_hybrid_alpha_low_score():
     # Scenario: Price is rising but not enough for Alpha Threshold
-    # Mock State
-    state = MagicMock()
-    state.symbol = "TEST"
-    state.config_json = {"alpha_threshold": 0.95} # Very high threshold
-    
-    # Mock DataManager
+    # Create Data
     dates = pd.date_range("2023-01-01", periods=100, freq="15min")
-    # Linear growth rank will be high, but let's control it.
     close = pd.Series(np.linspace(100, 110, 100), index=dates)
     df = pd.DataFrame({
         "open": close, "high": close+1, "low": close-1, "close": close, "volume": 1000
-    })
+    }, index=dates)
     
-    dm = MagicMock()
-    dm.get_data.return_value = df
+    # Execute with high threshold
+    params = {"alpha_threshold": 0.95}
+    entries, exits, signal_dict = hybrid_alpha_strategy(df, params=params)
     
-    # Execute
-    result = await hybrid_alpha_strategy(state, dm)
-    assert result is None # Should fail alpha check if threshold is very high or logic mismatch
+    # Threshold not reached
+    assert not entries.any()
+    assert signal_dict is None
 
-@pytest.mark.asyncio
-async def test_hybrid_success():
+def test_hybrid_success():
     # Scenario: High Alpha + Order Block Bounce
-    state = MagicMock()
-    state.symbol = "TEST"
-    state.config_json = {"alpha_threshold": 0.1} # Low threshold to pass alpha
-    
-    # Create Data:
-    # 1. Formation of Bullish OB at index 50
-    # 2. Rally up
-    # 3. Pullback to OB at index 99
-    
     dates = pd.date_range("2023-01-01", periods=100, freq="15min")
     open_p = np.full(100, 100.0)
     close_p = np.full(100, 100.0)
@@ -65,13 +49,12 @@ async def test_hybrid_success():
         "open": open_p, "high": high_p, "low": low_p, "close": close_p, "volume": volume_p
     }, index=dates)
     
-    dm = MagicMock()
-    dm.get_data.return_value = df
+    # Execute with low threshold to ensure alpha pass
+    params = {"alpha_threshold": 0.1}
+    entries, exits, signal_dict = hybrid_alpha_strategy(df, params=params)
     
-    # Execute
-    result = await hybrid_alpha_strategy(state, dm)
-    
-    assert result is not None
-    assert result['direction'] == "BULLISH"
-    assert "Hybrid" in result['reason']
-    assert result['metadata']['ob_index'] == 50
+    assert entries.iloc[-1] == True
+    assert signal_dict is not None
+    assert signal_dict['direction'] == "BULLISH"
+    assert "Hybrid" in signal_dict['reason']
+    assert signal_dict['metadata']['ob_index'] == 50

@@ -21,6 +21,7 @@ def test_run_grid_search_basic():
         "low": prices,
         "volume": [1000] * len(prices)
     })
+    df.index = pd.date_range("2024-01-01", periods=len(prices), freq="1h")
     
     # Param grid
     grid = {

@@ -2,14 +2,16 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional, Dict, Any, Tuple
 # Heavy imports moved inside functions to prevent hang during registration initialization
-# from app.indicators import calculate_ema, calculate_atr
-# from app.indicators.smc import detect_order_blocks, detect_fvg
+from app.indicators import calculate_ema, calculate_atr
+from app.indicators.smc import detect_order_blocks, detect_fvg
 # from app.features.quant_features import QuantreoFeatures
 
 class SignalDirection(str, Enum):
     BULLISH = "BULLISH"
     BEARISH = "BEARISH"
     NEUTRAL = "NEUTRAL"
+    LONG = "BULLISH"   # Alias for compatibility
+    SHORT = "BEARISH" # Alias for compatibility
 
 
 def check_macro_bias(df_h4, ema_period: int = 200) -> SignalDirection:
@@ -26,7 +28,7 @@ def check_macro_bias(df_h4, ema_period: int = 200) -> SignalDirection:
     if len(df_h4) < ema_period + 2:
         return SignalDirection.NEUTRAL
 
-    from app.indicators import calculate_ema
+    # Calculated using module-level calculate_ema
     ema = calculate_ema(df_h4['close'], span=ema_period)
     
     # Strict Bias Prevention: Use -2 (Last Completed)
@@ -54,8 +56,6 @@ def check_setup_zone(df_h1, direction: SignalDirection) -> bool:
     """
     if direction == SignalDirection.NEUTRAL:
         return False
-
-    from app.indicators.smc import detect_order_blocks
     # Get recent Order Blocks
     # We only care if CURRENT price is inside an OB.
     obs = detect_order_blocks(df_h1)
@@ -178,7 +178,7 @@ def calculate_stop_loss(df_m15, direction: SignalDirection, atr_mult: float = 1.
     Rule D: Risk Management (Stop Loss)
     - SL = ATR(14) * M (Using Last Completed Candle)
     """
-    from app.indicators import calculate_atr
+    # Calculated using module-level calculate_atr
     atr = calculate_atr(df_m15['high'], df_m15['low'], df_m15['close'], window=14)
     last_atr = atr.iloc[-2]
     
@@ -209,7 +209,7 @@ def calculate_target_price(df_h1, direction: SignalDirection, entry_price: float
     else:
         fallback_tp = entry_price - (risk_dist * 2.0)
         
-    from app.indicators.smc import detect_order_blocks
+    # Get Order Blocks from module level import
     # Get Order Blocks
     obs = detect_order_blocks(df_h1)
     

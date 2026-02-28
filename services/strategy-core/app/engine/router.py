@@ -127,6 +127,8 @@ def _run_alpha(req: AlphaRequest, mode: str):
             timestamps=timestamps
         )
             
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Logic Error: {str(e)}")

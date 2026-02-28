@@ -11,7 +11,8 @@ def mock_startup():
     with patch("app.main.strategy_engine.start", new_callable=AsyncMock) as mock_engine_start, \
          patch("app.main.live_runner.start", new_callable=AsyncMock) as mock_runner_start, \
          patch("app.fleet.FleetManager.get_instance") as mock_fleet, \
-         patch("app.main.live_runner.stop", new_callable=AsyncMock):
+         patch("app.main.live_runner.stop", new_callable=AsyncMock), \
+         patch("app.main.reconciliation_worker.start", new_callable=AsyncMock):
             
         mock_fleet_instance = MagicMock()
         mock_fleet_instance.load_fleet = AsyncMock()

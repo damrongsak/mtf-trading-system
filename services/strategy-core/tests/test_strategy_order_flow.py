@@ -30,8 +30,8 @@ def test_orderflow_indicators():
         ]
     }
     levels = detect_imbalance(candle_imbalance, ratio=3.0)
-    assert 101 in levels
-    assert 100 not in levels
+    assert 101 in levels['buying']
+    assert 100 not in levels['buying']
 
 def test_strategy_logic():
     # Setup Data

@@ -35,6 +35,8 @@ def test_smc_enhanced():
     volume =     [100, 100, 100, 100, 100, 500, 100] # Volume spike on sweep
     
     payload = {
+        "symbol": "XAU_USD",
+        "timeframe": "H1",
         "open": open_data,
         "high": high_data,
         "low": low_data,

@@ -81,12 +81,26 @@ def detect_liquidity_condition(volume: pd.Series, close: pd.Series, window: int 
         "is_high_volume_node": bool(current_rvol > 1.5) # Simple proxy for now
     }
 
-def calculate_volume_profile(df: pd.DataFrame, bins: int = 10) -> pd.DataFrame:
+def calculate_volume_profile(close: Any, volume: Optional[Any] = None, bins: int = 10) -> pd.DataFrame:
     """
     Calculate Volume Profile (Price-by-Volume) using Numba acceleration.
+    Supports both (df, bins) and (close, volume, bins) signatures for compatibility.
     """
-    close_arr = df['close'].values
-    vol_arr = df['volume'].values.astype(np.float64) 
+    import pandas as pd
+    import numpy as np
+
+    # Handle (df, bins) signature
+    if isinstance(close, pd.DataFrame):
+        df = close
+        # If the second argument 'volume' was passed as an integer bin count (old signature mismatch)
+        if isinstance(volume, int):
+            bins = volume
+        close_arr = df['close'].values.astype(np.float64)
+        vol_arr = df['volume'].values.astype(np.float64)
+    else:
+        # Handle (close, volume, bins) signature
+        close_arr = np.asarray(close).astype(np.float64)
+        vol_arr = np.asarray(volume).astype(np.float64)
     
     jit_func = _get_volume_profile_nb_jit()
     levels, vols = jit_func(close_arr, vol_arr, bins)

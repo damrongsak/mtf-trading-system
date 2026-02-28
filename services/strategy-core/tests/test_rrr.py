@@ -84,26 +84,27 @@ async def test_smc_v1_strategy_rrr_integration():
         'open': 2000.0, 'high': 2005.0, 'low': 1995.0, 'close': 2000.0, 'volume': 1000
     })
     data_manager.get_data.return_value = df
+    data_manager.get_candles.return_value = df
 
-    # Properly patch the registry functions
-    with patch("app.registry.check_macro_bias", return_value=SignalDirection.BULLISH), \
-         patch("app.registry.check_setup_zone", return_value=True), \
-         patch("app.registry.check_trigger", return_value=True), \
-         patch("app.registry.calculate_stop_loss", return_value=1990.0), \
-         patch("app.registry.calculate_target_price", return_value=2020.0), \
-         patch("app.registry.check_rrr", return_value=True):
+    # Properly patch the logic functions used by the strategy
+    with patch("app.strategies.smc_v1.strategy.check_macro_bias", return_value=SignalDirection.BULLISH), \
+         patch("app.strategies.smc_v1.strategy.check_setup_zone", return_value=True), \
+         patch("app.strategies.smc_v1.strategy.check_trigger", return_value=True), \
+         patch("app.strategies.smc_v1.strategy.calculate_stop_loss", return_value=1990.0), \
+         patch("app.strategies.smc_v1.strategy.calculate_target_price", return_value=2020.0), \
+         patch("app.strategies.smc_v1.strategy.check_rrr", return_value=True):
         
-        signal = await smc_v1_strategy(state, data_manager)
+        entries, exits, signal = await smc_v1_strategy(state, data_manager)
         assert signal is not None
         assert signal['direction'] == "BULLISH"
         assert signal['take_profit'] == 2020.0
 
-    with patch("app.registry.check_macro_bias", return_value=SignalDirection.BULLISH), \
-         patch("app.registry.check_setup_zone", return_value=True), \
-         patch("app.registry.check_trigger", return_value=True), \
-         patch("app.registry.calculate_stop_loss", return_value=1990.0), \
-         patch("app.registry.calculate_target_price", return_value=2020.0), \
-         patch("app.registry.check_rrr", return_value=False):
+    with patch("app.strategies.smc_v1.strategy.check_macro_bias", return_value=SignalDirection.BULLISH), \
+         patch("app.strategies.smc_v1.strategy.check_setup_zone", return_value=True), \
+         patch("app.strategies.smc_v1.strategy.check_trigger", return_value=True), \
+         patch("app.strategies.smc_v1.strategy.calculate_stop_loss", return_value=1990.0), \
+         patch("app.strategies.smc_v1.strategy.calculate_target_price", return_value=2020.0), \
+         patch("app.strategies.smc_v1.strategy.check_rrr", return_value=False):
         
-        signal = await smc_v1_strategy(state, data_manager)
+        entries, exits, signal = await smc_v1_strategy(state, data_manager)
         assert signal is None

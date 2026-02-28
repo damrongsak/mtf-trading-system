@@ -43,7 +43,7 @@ async def test_rsi_grid_strategy_execution(mock_state, mock_data_manager):
     """
     
     # Run Strategy
-    result = await strategy(mock_state, mock_data_manager)
+    entries, exits, result = strategy(mock_state, mock_data_manager)
     
     # We expect a result mostly (due to strong sine wave triggering signals)
     # But it depends on the exact end point of the wave.
@@ -74,7 +74,7 @@ async def test_rsi_grid_optimization_logic(mock_state, mock_data_manager):
     # Actually, the strategy picks based on 'total_return' of the lookback.
     # If the sine wave is perfect, shorter RSI might trade more frequently and have higher return (or loss).
     
-    result = await strategy(mock_state, mock_data_manager)
+    entries, exits, result = strategy(mock_state, mock_data_manager)
     
     # Just ensure it ran optimization
     if result:
