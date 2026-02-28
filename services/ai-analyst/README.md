@@ -49,6 +49,57 @@ The AI Analyst is empowered with the following operational domains:
 *   **Macro & Search**: `get_economic_calendar`, `google_search` (Live event extraction).
 *   **Comms & Alerts**: `send_notification` (Forwards system status reports or plans).
 
+## 🧠 RAG Infrastructure (Retrieval-Augmented Generation)
+
+The AI Analyst features a production-grade RAG system for deep technical analysis and document retrieval, powered by Qdrant.
+
+### 🗄️ Qdrant Collections
+
+| Collection | Purpose | Vector Size |
+| :--- | :--- | :--- |
+| **`quant_library`** | Ingested quantitative trading books and whitepapers. | 3072 (Gemini) |
+| **`journal_entries`** | User trading journal analysis and pattern recognition. | 3072 (Gemini) |
+| **`strategies`** | Vectorized strategy definitions for similarity search. | 3072 (Gemini) |
+| **`system_docs`** | Technical documentation and codebase context (Self-RAG). | 3072 (Gemini) |
+
+### 🚀 API Usage (Institutional & Agentic)
+
+These APIs are exposed via the `ai-analyst` service and proxied through the `api-gateway`.
+
+#### 1. Library Ingestion
+Processes complex PDF/Markdown books using the specialized `QuantMarkdownSplitter`.
+```bash
+curl -X POST http://localhost:8000/api/v1/ai/library/ingest \
+  -H "Authorization: Bearer <TOKEN>" \
+  -F "file=@trading_book.pdf" \
+  -F "title=Institutional Trading" \
+  -F "author=HedgeFundManager"
+```
+
+#### 2. External Search (3rd Party / Tool Use)
+Performs semantic vector search with scores and metadata filtering.
+```bash
+curl -X POST http://localhost:8000/api/v1/ai/external/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "How to calculate Kelly Criterion?",
+    "collection_name": "quant_library",
+    "top_k": 3,
+    "score_threshold": 0.5
+  }'
+```
+
+#### 3. Administration & Health
+Maintenance endpoints for monitoring and resetting vector states.
+```bash
+# Global Qdrant Health Detail
+curl http://localhost:8000/api/v1/ai/admin/qdrant/health
+
+# Clear & Reset Collection
+curl -X POST http://localhost:8000/api/v1/ai/admin/qdrant/collections/quant_library/clear \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
 ## 💻 Setup & Installation
 
 ### 1. Prerequisites
