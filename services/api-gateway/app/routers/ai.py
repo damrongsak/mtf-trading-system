@@ -434,3 +434,66 @@ async def send_chat_message(
         "status": "success",
         "data": ai_msg
     }
+
+@router.post("/ingest/upload")
+async def proxy_upload_file(request: Request):
+    """Proxy file upload to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        # We need to forward the multipart content
+        content_type = request.headers.get("Content-Type")
+        body = await request.body()
+        
+        response = await client.post(
+            f"{AI_SERVICE_URL}/api/v1/ai/ingest/upload",
+            content=body,
+            headers={"Content-Type": content_type},
+            timeout=AI_SERVICE_TIMEOUT
+        )
+        return response.json()
+
+@router.post("/library/ingest")
+async def proxy_library_ingest(request: Request):
+    """Proxy library book ingestion to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        content_type = request.headers.get("Content-Type")
+        body = await request.body()
+        
+        response = await client.post(
+            f"{AI_SERVICE_URL}/api/v1/ai/library/ingest",
+            content=body,
+            headers={"Content-Type": content_type},
+            timeout=AI_SERVICE_TIMEOUT
+        )
+        return response.json()
+
+@router.get("/admin/qdrant/health")
+async def proxy_qdrant_health(request: Request):
+    """Proxy Qdrant health check to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{AI_SERVICE_URL}/api/v1/ai/admin/qdrant/health",
+            timeout=10.0
+        )
+        return response.json()
+
+@router.post("/admin/qdrant/collections/{collection_name}/clear")
+async def proxy_clear_qdrant_collection(collection_name: str):
+    """Proxy Qdrant collection clear to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{AI_SERVICE_URL}/api/v1/ai/admin/qdrant/collections/{collection_name}/clear",
+            timeout=30.0
+        )
+        return response.json()
+
+@router.post("/external/search")
+async def proxy_external_search(request: Request):
+    """Proxy external search to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        body = await request.json()
+        response = await client.post(
+            f"{AI_SERVICE_URL}/api/v1/ai/external/search",
+            json=body,
+            timeout=30.0
+        )
+        return response.json()

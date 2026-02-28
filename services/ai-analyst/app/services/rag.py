@@ -1,16 +1,18 @@
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
+from qdrant_client import QdrantClient, models
 from app.core.config import settings
 from app.services.gemini import GeminiClient
-import uuid
-import logging
-
-
-
-import re
-import asyncio
+import os
 import json
+import logging
+import asyncio
+import uuid
+from datetime import datetime, timezone
+from typing import List, Dict, Any, Optional
 import time
+import re
+from sqlalchemy.orm import Session
+from app.models.rag import LibraryBook, IngestionStatus
+from app.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +171,33 @@ class RAGService:
             self._ensure_collection(self.library_collection)
         except Exception as e:
             logger.warning(f"Could not ensure collections on init (Qdrant offline?): {e}")
+
+    def get_collection_stats(self, name: str) -> dict:
+        """Get collection telemetry."""
+        try:
+            collection_info = self.qdrant.get_collection(collection_name=name)
+            return {
+                "status": collection_info.status.value,
+                "points_count": collection_info.points_count,
+                "segments_count": collection_info.segments_count,
+                "config": {
+                    "vector_size": collection_info.config.params.vectors.size,
+                    "distance": collection_info.config.params.vectors.distance.value
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get stats for {name}: {e}")
+            return {"error": str(e)}
+
+    def clear_collection(self, name: str):
+        """Wipe all points from a collection."""
+        try:
+            self.qdrant.delete_collection(collection_name=name)
+            self._ensure_collection(name)
+            logger.info(f"Cleared collection: {name}")
+        except Exception as e:
+            logger.error(f"Failed to clear collection {name}: {e}")
+            raise
 
     def _ensure_collection(self, name: str):
         """Ensure the Qdrant collection exists with proper config."""
@@ -609,46 +638,84 @@ class RAGService:
         )
 
     async def ingest_library_book(self, filename: str, content: str, metadata: dict = None):
-        """Ingest a quantitative finance book using QuantMarkdownSplitter."""
-        splitter = QuantMarkdownSplitter(max_chunk_size=3000)
-        chunks = splitter.split_text(content)
-        
-        points = []
-        sem = asyncio.Semaphore(5)
+        """Ingest a quantitative finance book using QuantMarkdownSplitter with DB persistence."""
+        db = SessionLocal()
+        book_id = None
+        try:
+            # 1. Register in DB
+            book = db.query(LibraryBook).filter(LibraryBook.filename == filename).first()
+            if not book:
+                book = LibraryBook(filename=filename, ingestion_status=IngestionStatus.PENDING)
+                db.add(book)
+            else:
+                book.ingestion_status = IngestionStatus.PENDING
+                book.last_ingested_at = datetime.utcnow()
+            
+            db.commit()
+            db.refresh(book)
+            book_id = book.id
 
-        async def process_chunk(i, chunk_text):
-            async with sem:
-                try:
-                    embedding = await self._get_embedding(chunk_text)
-                    chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"lib_{filename}_chunk_{i}"))
-                    
-                    return models.PointStruct(
-                        id=chunk_id,
-                        vector=embedding,
-                        payload={
-                            "filename": filename,
-                            "content": chunk_text,
-                            "doc_type": "library_book",
-                            "chunk_index": i,
-                            "total_chunks": len(chunks),
-                            **(metadata or {})
-                        }
+            # 2. Split and Ingest
+            splitter = QuantMarkdownSplitter(max_chunk_size=3000)
+            chunks = splitter.split_text(content)
+            
+            book.total_chunks = len(chunks)
+            db.commit()
+
+            points = []
+            sem = asyncio.Semaphore(5)
+
+            async def process_chunk(i, chunk_text):
+                async with sem:
+                    try:
+                        embedding = await self._get_embedding(chunk_text)
+                        chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"lib_{filename}_chunk_{i}"))
+                        
+                        return models.PointStruct(
+                            id=chunk_id,
+                            vector=embedding,
+                            payload={
+                                "filename": filename,
+                                "content": chunk_text,
+                                "doc_type": "library_book",
+                                "chunk_index": i,
+                                "total_chunks": len(chunks),
+                                **(metadata or {})
+                            }
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to embed book chunk {i}: {e}")
+                        return None
+
+            tasks = [process_chunk(i, c) for i, c in enumerate(chunks)]
+            results = await asyncio.gather(*tasks)
+            points = [p for p in results if p is not None]
+            
+            if points:
+                batch_size = 50
+                for i in range(0, len(points), batch_size):
+                    self.qdrant.upsert(
+                        collection_name=self.library_collection,
+                        points=points[i:i + batch_size]
                     )
-                except Exception as e:
-                    logger.error(f"Failed to embed book chunk {i}: {e}")
-                    return None
+                
+                # Update status
+                book.ingestion_status = IngestionStatus.INGESTED
+                book.last_ingested_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.info(f"Ingested library book: {filename} ({len(points)} chunks)")
+            else:
+                book.ingestion_status = IngestionStatus.FAILED
+                db.commit()
+                logger.warning(f"No chunks ingested for book: {filename}")
 
-        tasks = [process_chunk(i, c) for i, c in enumerate(chunks)]
-        results = await asyncio.gather(*tasks)
-        points = [p for p in results if p is not None]
-        
-        if points:
-            batch_size = 50 # Smaller batches for larger text chunks
-            for i in range(0, len(points), batch_size):
-                self.qdrant.upsert(
-                    collection_name=self.library_collection,
-                    points=points[i:i + batch_size]
-                )
-            logger.info(f"Ingested library book: {filename} ({len(points)} chunks)")
-        else:
-            logger.warning(f"No chunks ingested for book: {filename}")
+        except Exception as e:
+            logger.error(f"Book ingestion failed for {filename}: {e}")
+            if book_id:
+                book = db.query(LibraryBook).filter(LibraryBook.id == book_id).first()
+                if book:
+                    book.ingestion_status = IngestionStatus.FAILED
+                    db.commit()
+            raise
+        finally:
+            db.close()

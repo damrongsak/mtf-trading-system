@@ -14,7 +14,7 @@ from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
-from app.routers import ingest, agents
+from app.routers import ingest, agents, admin, external
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
 from langgraph.checkpoint.redis import RedisSaver
@@ -162,8 +162,10 @@ app.add_middleware(
 from app.utils.middleware import RequestIDMiddleware
 app.add_middleware(RequestIDMiddleware)
 
-app.include_router(ingest.router, prefix="/api/v1/ai/ingest", tags=["Ingest"])
+app.include_router(ingest.router, prefix="/api/v1/ai", tags=["Ingest"])
 app.include_router(agents.router, prefix="/api/v1/ai", tags=["Agents"])
+app.include_router(admin.router, prefix="/api/v1/ai/admin", tags=["Admin"])
+app.include_router(external.router, prefix="/api/v1/ai/external", tags=["External"])
 app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"]) 
 
 

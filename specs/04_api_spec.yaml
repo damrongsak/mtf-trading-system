@@ -677,6 +677,63 @@ paths:
                    context_ref:
                      type: object
 
+  /api/v1/ai/library/ingest:
+    post:
+      summary: Ingest a book into Quant Library
+      description: Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+      tags: [AI]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                author:
+                  type: string
+      responses:
+        '200':
+          description: Book ingestion started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_IngestionResult'
+
+  /api/v1/ai/admin/qdrant/health:
+    get:
+      summary: Get Qdrant Health Status
+      description: Detailed telemetry of Qdrant collections and system health.
+      tags: [System]
+      responses:
+        '200':
+          description: Health telemetry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/ai/external/search:
+    post:
+      summary: External Search Access
+      description: Scoped search for 3rd-party consumers with limited metadata visibility.
+      tags: [External]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalSearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_LibraryResults'
+
   /api/v1/ai/chat/sessions/{session_id}/messages:
     get:
       summary: Get messages for a session
@@ -2498,6 +2555,53 @@ components:
         - entry_content
         - user_id
       properties:
+
+    APIResponse_IngestionResult:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                filename:
+                  type: string
+                chunks_queued:
+                  type: integer
+
+    ExternalSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+          default: 5
+        partner_id:
+          type: string
+
+    APIResponse_LibraryResults:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/LibraryHit'
+
+    LibraryHit:
+      type: object
+      properties:
+        content:
+          type: string
+        score:
+          type: number
+        source:
+          type: string
         entry_content:
           type: string
         entry_id:

@@ -1937,4 +1937,33 @@ redis_streams:
       - name: features_complete
         type: boolean
         default: true
-        description: "Flag indicating calculation success"
+        description: flag indicating calculation success
+
+
+  LibraryBook:
+    description: "Quantitative finance books ingested into RAG"
+    table_name: "library_books"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: filename
+        type: string
+        required: true
+        unique: true
+      - name: title
+        type: string
+        nullable: true
+      - name: author
+        type: string
+        nullable: true
+      - name: total_chunks
+        type: integer
+        required: true
+      - name: ingestion_status
+        type: enum
+        enum_values: ["PENDING", "INGESTED", "FAILED"]
+        default: "PENDING"
+      - name: last_ingested_at
+        type: datetime
+        default: "now()"

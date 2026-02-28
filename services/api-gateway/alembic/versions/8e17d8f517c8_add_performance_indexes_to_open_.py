@@ -56,16 +56,16 @@ def upgrade() -> None:
     op.create_index('ix_open_interest_dte', 'open_interest', ['dte'], unique=False)
     op.create_index('ix_open_interest_snapshot_at_symbol', 'open_interest', ['snapshot_at', 'contract_symbol'], unique=False)
     op.drop_column('open_interest', 'underlying_price')
-    op.alter_column('telegram_chat_mappings', 'user_id',
-               existing_type=sa.UUID(),
-               type_=sa.Integer(),
-               existing_nullable=False)
+    # op.alter_column('telegram_chat_mappings', 'user_id',
+    #            existing_type=sa.UUID(),
+    #            type_=sa.Integer(),
+    #            existing_nullable=False)
     op.drop_index('idx_telegram_chat_id', table_name='telegram_chat_mappings')
     op.drop_index('idx_telegram_user_id', table_name='telegram_chat_mappings')
     op.drop_constraint('telegram_chat_mappings_chat_id_key', 'telegram_chat_mappings', type_='unique')
     op.create_index(op.f('ix_telegram_chat_mappings_chat_id'), 'telegram_chat_mappings', ['chat_id'], unique=True)
     op.create_index(op.f('ix_telegram_chat_mappings_id'), 'telegram_chat_mappings', ['id'], unique=False)
-    op.create_index(op.f('ix_telegram_chat_mappings_user_id'), 'telegram_chat_mappings', ['user_id'], unique=False)
+    # op.create_index(op.f('ix_telegram_chat_mappings_user_id'), 'telegram_chat_mappings', ['user_id'], unique=False)
     op.drop_index('ix_trades_broker_trade_id', table_name='trades')
     op.drop_constraint('trades_broker_deal_id_key', 'trades', type_='unique')
     op.drop_column('trades', 'swap')

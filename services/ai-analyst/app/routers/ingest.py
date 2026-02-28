@@ -1,11 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
-from typing import Optional
+from typing import Optional, List
+from app.services.rag import RAGService
 from app.utils.response import success_response
 import base64
+import asyncio
 
 router = APIRouter()
+rag_service = RAGService()
 
-@router.post("/upload")
+@router.post("/ingest/upload")
 async def upload_file(
     file: UploadFile = File(...),
     user_id: str = Form(...),
@@ -45,3 +48,41 @@ async def upload_file(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@router.post("/library/ingest")
+async def ingest_library_book(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    author: Optional[str] = Form(None)
+):
+    """
+    Upload and semantically ingest a book into the specialized quant_library collection.
+    """
+    if not file:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+    
+    try:
+        content = await file.read()
+        text_content = content.decode("utf-8", errors="ignore")
+        
+        filename = file.filename
+        metadata = {}
+        if title: metadata["title"] = title
+        if author: metadata["author"] = author
+
+        # Run ingestion in background to avoid blocking the request
+        asyncio.create_task(rag_service.ingest_library_book(
+            filename=filename,
+            content=text_content,
+            metadata=metadata
+        ))
+
+        return success_response(
+            data={
+                "filename": filename,
+                "status": "INGESTION_STARTED",
+                "message": "The book is being processed in the background."
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ingestion initiation failed: {str(e)}")

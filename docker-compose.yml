@@ -154,6 +154,7 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - REDIS_URL=redis://redis:6379/0
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - PYTHONUNBUFFERED=1
 
     deploy:
