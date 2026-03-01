@@ -97,9 +97,13 @@ class FeatureEngine:
 
     def load_selector(self):
         if os.path.exists(self.selector_path):
-            state = joblib.load(self.selector_path)
-            self.selected_features = state.get('selected_features', [])
-            logger.info(f"Loaded feature selector with {len(self.selected_features)} features")
+            try:
+                state = joblib.load(self.selector_path)
+                self.selected_features = state.get('selected_features', [])
+                logger.info(f"Loaded feature selector with {len(self.selected_features)} features")
+            except Exception as e:
+                logger.error(f"Failed to load feature selector from {self.selector_path}: {e}. Starting fresh.")
+                self.selected_features = []
             
     def select_features(self, X: pd.DataFrame, y: pd.Series) -> list:
         """Select important features using Boruta"""

@@ -64,7 +64,7 @@ async def cleanup_strategy_logs_job():
         cutoff = datetime.now() - timedelta(hours=6)
         deleted = db.query(StrategyExecutionLog).filter(
             StrategyExecutionLog.timestamp < cutoff
-        ).delete()
+        ).delete(synchronize_session=False)
         
         db.commit()
         logger.info(f"Cleaned up {deleted} strategy execution logs.")

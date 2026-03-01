@@ -53,7 +53,7 @@ class MentalState(Base):
     __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)
+    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
     
     # Severity Levels (1-10)
     greed_level = Column(Integer, default=0)
@@ -69,7 +69,7 @@ class TimelineEvent(Base):
     __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)
+    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
     
     type = Column(String, nullable=False) # TRIGGER, THOUGHT, EMOTION, BEHAVIOR
     description = Column(Text, nullable=False)
@@ -83,7 +83,7 @@ class RootCauseAnalysis(Base):
     __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id"), nullable=False)
+    journal_entry_id = Column(UUID(as_uuid=True), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False)
     
     problem = Column(Text, nullable=True)
     why_exist = Column(Text, nullable=True)

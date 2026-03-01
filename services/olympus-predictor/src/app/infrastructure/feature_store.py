@@ -29,7 +29,11 @@ class FeatureStore:
             logger.debug(f"Cache hit for {key}")
             return df
         except Exception as e:
-            logger.warning(f"Failed to parse cached features for {key}: {e}")
+            logger.warning(f"Failed to parse cached features for {key}: {e}. Evicting corrupted key.")
+            try:
+                await self.redis.delete(key)
+            except Exception as delete_error:
+                logger.error(f"Failed to evict corrupted key {key}: {delete_error}")
             return None
 
     async def save_features(self, symbol: str, timeframe: str, df: pd.DataFrame):

@@ -274,7 +274,7 @@ class SharedMarketDataManager:
                     # "1min" -> "1T", "5min" -> "5T", "1h" -> "1H"
                     tf_map = {
                         "1min": "1T", "5min": "5T", "15min": "15T", "30min": "30T",
-                        "1h": "1H", "4h": "4H", "1d": "1D"
+                        "1h": "1H", "4h": "4H", "1d": "1D", "H1": "1H"
                     }
                     freq = tf_map.get(timeframe, timeframe)
                     

@@ -69,7 +69,7 @@ def cached_response(ttl: int = 300, key_prefix: str = "api_cache"):
                     await client.setex(
                         cache_key,
                         ttl,
-                        json.dumps(result)
+                        json.dumps(result, default=str)
                     )
                 
                 return result
