@@ -23,20 +23,23 @@ class QuantMarkdownSplitter:
     - Preserves Code Blocks within the same chunk if possible
     - Cleans PDF artifacts (Page numbers, extra spaces, etc.)
     """
-    def __init__(self, max_chunk_size: int = 3000, chunk_overlap: int = 200):
+    def __init__(self, max_chunk_size: int = 1500, chunk_overlap: int = 200):
         self.max_chunk_size = max_chunk_size
         self.chunk_overlap = chunk_overlap
 
     def clean_text(self, text: str) -> str:
         """Clean noise artifacts from PDF-to-Markdown conversion."""
-        # 1. Remove Form Feed characters (common in PDF conversions)
+        # 1. Normalize dashes (en-dash, em-dash) to standard hyphens for better formula recognition
+        text = text.replace('\u2013', '-').replace('\u2014', '--')
+        
+        # 2. Remove Form Feed characters
         text = text.replace('\x0c', '')
         
-        # 2. Remove Page numbers (e.g., "Page 12", or standalone numbers on new lines)
+        # 3. Remove Page numbers
         text = re.sub(r'(?i)^\s*page\s+\d+\s*$', '', text, flags=re.MULTILINE)
         text = re.sub(r'^\s*\d+\s*$', '', text, flags=re.MULTILINE)
         
-        # 3. Handle excessive newlines
+        # 4. Handle excessive newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
         
         return text.strip()
@@ -45,9 +48,11 @@ class QuantMarkdownSplitter:
         text = self.clean_text(text)
         chunks = []
         
-        # Split by Markdown Headers (Level 2 and 3)
-        # Using lookahead to keep the headers in the resulting sections
-        sections = re.split(r'(?=\n#{2,3}\s)', text)
+        # Improved regex for headers: 
+        # - Markdown headers #, ##, ###
+        # - Loud Uppercase headers (common in PDF-to-MD) with support for smart quotes and punctuation
+        pattern = r'(?=\n#{1,4}\s|\n\n[A-Z][A-Z\s\(\)\’\'\-\:]{5,}\n\n)'
+        sections = re.split(pattern, text)
         
         for section in sections:
             section = section.strip()
@@ -301,6 +306,7 @@ class RAGService:
 
     async def search_similar_strategies(self, query: str, user_id: str, limit: int = 3) -> list[dict]:
         """Search for similar strategies to help with coding/optimization."""
+        logger.info(f"Qdrant Search: collection='{self.strategy_collection}' user_id={user_id} limit={limit}")
         embedding = await self._get_embedding(query)
         
         # Optional: Allow searching "Global Wisdom" (no user_id filter) or just "My Strategies"
@@ -324,6 +330,7 @@ class RAGService:
         results = []
         for hit in search_result:
             results.append({
+                "name": hit.payload.get("name") or hit.payload.get("filename") or "Unnamed",
                 "code": hit.payload.get("code"),
                 "stats": hit.payload.get("stats"),
                 "score": hit.score
@@ -392,6 +399,7 @@ class RAGService:
 
     async def search_documentation(self, query: str, limit: int = 3) -> list[dict]:
         """Search system documentation for context."""
+        logger.info(f"Qdrant Search: collection='{self.docs_collection}' limit={limit}")
         embedding = await self._get_embedding(query)
         
         search_result = self.qdrant.query_points(
@@ -470,16 +478,16 @@ class RAGService:
                 }
             })
         
-        # Sort by hybrid score before reranking
+        # Sort by hybrid score but do NOT truncate yet to allow reranker to see more candidates
         results.sort(key=lambda x: x["score"], reverse=True)
-        results = results[:limit]
+        # results = results[:limit] # Truncated after reranking now
 
         duration = time.time() - start_time
         logger.info(f"RAG Search Complete: results={len(results)} sources={source_files} time={duration:.3f}s")
         
         # Phase 3: Cross-Encoder Reranking (Gemini)
         if results and len(results) > 1:
-            results = await self._rerank_with_gemini(query, results)
+            results = await self._rerank_with_gemini(query, results, top_n=limit)
             logger.info(f"RAG Reranking Complete: top_score={results[0]['score'] if results else 0:.4f}")
 
         return results

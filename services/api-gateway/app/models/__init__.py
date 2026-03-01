@@ -26,3 +26,4 @@ from .system_config import SystemConfig
 from .telegram_chat_mapping import TelegramChatMapping
 from .strategy_execution_log import StrategyExecutionLog
 from .rag import LibraryBook, IngestionStatus
+from .sentiment_score import SentimentScore

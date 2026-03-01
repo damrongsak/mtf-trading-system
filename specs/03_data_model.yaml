@@ -746,6 +746,12 @@ entities:
         type: datetime
         nullable: true
         description: "Timestamp when the trade was closed"
+      - name: commission
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Trading commission in USD"
       - name: metadata_json
         type: jsonb
         nullable: true
@@ -1021,6 +1027,34 @@ entities:
         type: datetime
         default: "now()"
         on_update: "now()"
+
+  SentimentScore:
+    description: "Market sentiment analysis results (The Sentiment)"
+    table_name: "sentiment_scores"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: symbol
+        type: string
+        max_length: 20
+        required: true
+      - name: score
+        type: decimal
+        precision: 5
+        scale: 4
+        required: true
+        description: "Sentiment score (-1.0 to 1.0)"
+      - name: reason
+        type: text
+        nullable: true
+      - name: source_breakdown
+        type: jsonb
+        nullable: true
+        description: "Sentiment source contributions"
+      - name: created_at
+        type: datetime
+        default: "now()"
 
   MentalState:
     description: "Emotional severity levels for journal entry"

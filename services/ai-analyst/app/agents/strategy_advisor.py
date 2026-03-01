@@ -219,7 +219,12 @@ class StrategyAdvisorAgent:
         1. **Translate to English**: If the raw query is not in English, translate it to clear technical English.
         2. **Infer Symbol**: If no symbol is mentioned, default to "XAUUSD" (Gold) as this is our primary asset.
         3. **Normalize Timeframe**: Standardize timeframes (e.g., "5min" -> "M5", "1h" -> "H1").
-        4. **Be Specific**: Include the symbol and timeframe in the optimized query.
+        4. **Be Technical and CONCISE**: The optimized query should be a **vector search query**. REMOVE conversational debris like "Search the library for", "Give me an answer on", "What is", or "Can you find". 
+        - Bad: "Search the quant library for the formula for Kelly Criterion."
+        - Good: "Kelly Criterion mathematical formula and application"
+        - Bad: "What is my balance?"
+        - Good: "Account balance and equity status"
+        5. **Include Context**: Include the symbol and timeframe in the optimized query if relevant.
         
         **Intents:**
         - **TOOL_USE**: User asks to PERFORM an action using a system tool. This includes:
@@ -395,43 +400,78 @@ class StrategyAdvisorAgent:
     async def node_retrieve(self, state: AgentState):
         """
         Contextual Retrieval from Qdrant and Memory.
+        Parallelized for speed and enhanced with explicit logging.
         """
         query = state["optimized_query"]
         user_id = state["user_id"]
+        intent = str(state.get("intent", "CHAT")).upper().strip()
         
-        # 1. Retrieve User Context (Long Term)
-        user_facts = []
+        # dynamic top_k based on intent
+        top_k = 10 if intent == "RESEARCH" else 5
+        logger.info(f"🔍 Retrieval started | Intent: {intent} | Query: '{query}' | Target Results: {top_k}")
+
+        # Define tasks for parallel execution
+        tasks = []
+        
+        # 1. User Context (Long Term Memory)
         if self.memory:
-            user_ctx = await self.memory.get_user_context(user_id, query)
-            if user_ctx:
-                user_facts.append(user_ctx)
-                
-        # 2. Retrieve System Docs (Financial Knowledge)
-        # Use dynamic top_k based on intent
-        intent = state.get("intent", "CHAT")
-        top_k = 7 if intent == "RESEARCH" else 3
+            tasks.append(self.memory.get_user_context(user_id, query))
+        else:
+            tasks.append(asyncio.sleep(0, result="No memory service available."))
+
+        # 2. System Docs (Specs/Guides)
+        tasks.append(self.rag.search_documentation(query, limit=top_k))
+
+        # 3. Quant Library (Financial Knowledge) - Only for RESEARCH or complex strategy design
+        if intent in ["RESEARCH", "STRATEGY_DESIGN"]:
+            tasks.append(self.rag.search_library(query, limit=top_k + 2))
+        else:
+            # Return empty list to satisfy the result unpacking
+            async def get_empty(): return []
+            tasks.append(get_empty())
+
+        # 4. Strategies (Code)
+        tasks.append(self.rag.search_similar_strategies(query, user_id, limit=top_k))
+
+        # Execute all retrieval tasks in parallel
+        results = await asyncio.gather(*tasks)
         
-        system_docs = await self.rag.search_documentation(query, limit=top_k)
-        doc_texts = [d["content"] for d in system_docs]
+        user_facts_str = results[0]
+        system_docs = results[1]
+        library_docs = results[2]
+        strategies = results[3]
+
+        user_facts = [user_facts_str] if user_facts_str and "No specific user preferences" not in user_facts_str else []
         
-        # 3. Retrieve Strategies (Code)
-        strategies = await self.rag.search_similar_strategies(query, user_id, limit=top_k)
-        strat_texts = [s["code"] for s in strategies]
-        
-        # 4. Inject Tool Context (Dynamic Capabilities)
+        # Format doc texts with explicit sources
+        doc_texts = [f"[Source: {d['filename']}]\n{d['content']}" for d in system_docs]
+        lib_texts = [f"[Source: Quant Library - {d['filename']}]\n{d['content']}" for d in library_docs]
+        strat_texts = [f"[Strategy: {s.get('name', 'Unnamed')}]\n{s['code']}" for s in strategies]
+
+        logger.info(f"✅ Retrieval complete | UserFacts: {len(user_facts)} | SystemDocs: {len(doc_texts)} | LibraryDocs: {len(lib_texts)} | Strategies: {len(strat_texts)}")
+
+        # 5. Inject Tool Context (Dynamic Capabilities)
         tool_info = self.tool_registry.get_tool_descriptions()
         tool_ctx = f"**Available System Tools:**\n{tool_info}"
         
-        # 5. Agentic RAG: Use evaluation feedback to refine search if present
+        # 6. Agentic RAG: Use evaluation feedback to refine search if present
         refinement_ctx = []
         if state.get("evaluation_feedback"):
              refinement_ctx.append(f"**Previous Evaluation Feedback (Reason to refine search):**\n{state['evaluation_feedback']}")
         
-        # Merge and Prune: Only keep latest 10 chunks to avoid context ballooning
+        # Merge and Prune
+        max_chunks = 20 if intent == "RESEARCH" else 12
         existing_docs = state.get("retrieved_docs", []) or []
-        combined_docs = existing_docs + doc_texts + strat_texts + [tool_ctx] + refinement_ctx
-        # Unique and latest 10
-        pruned_docs = list(dict.fromkeys(combined_docs))[-10:]
+        
+        # Priority: Quant Library results at the VERY TOP for Research intents
+        # Then system docs, strategies, tools.
+        if intent == "RESEARCH":
+            combined_docs = lib_texts + doc_texts + strat_texts + refinement_ctx + [tool_ctx] + existing_docs
+        else:
+            combined_docs = existing_docs + [tool_ctx] + refinement_ctx + doc_texts + lib_texts + strat_texts
+        
+        # Unique and latest N
+        pruned_docs = list(dict.fromkeys(combined_docs))[:max_chunks]
         
         return {
             "user_facts": user_facts,

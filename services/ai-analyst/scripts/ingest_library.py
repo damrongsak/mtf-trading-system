@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.services.rag import RAGService
 from app.services.gemini import GeminiClient
 
-async def ingest_library():
+async def ingest_library(target_file: str = None):
     print("📚 Starting Quant Library Ingestion...")
     
     try:
@@ -28,7 +28,13 @@ async def ingest_library():
         return
 
     # List of files to process
-    md_files = [f for f in os.listdir(docs_dir) if f.endswith(".md")]
+    if target_file:
+        md_files = [target_file] if (docs_dir / target_file).exists() else []
+        if not md_files:
+            print(f"⚠️ Target file {target_file} not found in {docs_dir}.")
+            return
+    else:
+        md_files = [f for f in os.listdir(docs_dir) if f.endswith(".md")]
     
     if not md_files:
         print("⚠️ No markdown files found in docs/.")
@@ -46,6 +52,7 @@ async def ingest_library():
                 content = f.read()
             
             # Use the specialized library ingestion method
+            # This uses deterministic IDs to prevent duplicates
             await rag.ingest_library_book(
                 filename=filename,
                 content=content,
@@ -59,4 +66,5 @@ async def ingest_library():
     print(f"\n✨ Done! Processed {count} books into 'quant_library'.")
 
 if __name__ == "__main__":
-    asyncio.run(ingest_library())
+    target = sys.argv[1] if len(sys.argv) > 1 else None
+    asyncio.run(ingest_library(target))

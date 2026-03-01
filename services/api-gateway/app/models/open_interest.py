@@ -14,6 +14,7 @@ class OpenInterest(Base):
     strike = Column(Numeric(18, 8), nullable=False)
     call_oi = Column(Numeric(18, 2), nullable=True)
     put_oi = Column(Numeric(18, 2), nullable=True)
+    underlying_price = Column(Numeric(18, 8), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

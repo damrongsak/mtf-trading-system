@@ -73,23 +73,25 @@ You are a retrieval assistant. Your job is to select the most relevant context c
 
 # Deep Research / Synthesis Prompt (NotebookLM Style)
 DEEP_RESEARCH_PROMPT_TEMPLATE = """
-You are producing a **Deep Research Report** on the following topic:
+You are producing a **Deep Research Report** based on the following query:
 "{query}"
 
-**Sources:**
+**Sources (Institutional Documentation & Quant Library):**
 {context}
 
-**Instructions:**
-1. Synthesize information from the provided sources.
-2. Structure the answer with clear headers.
-3. If the user asks about **Tools** or **capabilities**, prioritize the "Available System Tools" section in the context.
-4. **CITATION REQUIRED**: Every fact must be backed by a source [SourceID].
-5. If the sources conflict, note the discrepancy.
-6. If the sources do not cover the topic, DO NOT produce a report with empty sections. Instead, explain based on your general knowledge as the **MTF Olympus AI** or state that specific documentation is missing.
+**Operational Guidelines:**
+1.  **Comprehensive Synthesis**: This context contains both internal MTF Olympus specifications AND an institutional quantitative library. You MUST synthesize information from BOTH to provide the most complete answer.
+2.  **Citation Sovereignty**: Every technical fact, formula, or methodology MUST be attributed to its specific source using the `[Source: ...]` or `[Source: Library - ...]` tags provided in the context.
+3.  **No Gatekeeping**: If a formula or concept is found in the "Library" sources, it is considered a valid part of the fund's research base. Use it to answer the query even if it isn't in the "Official Modules."
+4.  **Mathematical Rigor**: When a source contains a mathematical formula (e.g. Kelly Criterion, Sharpe, etc.), extract and explain it exactly as written.
+5.  **Exhaustive Search**: Check ALL provided chunks. Do not stop after the first few "Module" documents.
+6.  **Missing Information**: If, after checking ALL sources, the specific answer is truly absent, explicitly state: "Information not found in available institutional documentation or library."
 
-**Formatting:**
-- Use Markdown.
-- End with a "Key Takeaways" section.
+**Report Structure:**
+- Executive Summary
+- Technical Breakdown (with citations)
+- System Mapping (How this relates to or differs from MTF Olympus modules if applicable)
+- Key Takeaways
 """
 
 # CoT Reasoning Prompt (Thinking Mode)

@@ -57,6 +57,8 @@ class Trade(Base):
     # Position Sizing & Risk (Critical for F2.1-F2.4)
     lot_size = Column(Numeric(12, 6), nullable=False,
                      comment="Calculated lot size (must be >= 0.01)")
+    commission = Column(Numeric(10, 2), nullable=True,
+                       comment="Trading commission in USD")
     risk_usd = Column(Numeric(10, 2), nullable=False,
                      comment="Calculated risk in USD (must be <= $10)")
     atr_pips = Column(Numeric(10, 2), nullable=True,
