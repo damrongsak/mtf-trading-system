@@ -480,6 +480,7 @@ async def run_trade_sync_job():
         # 1. Get Active Broker Accounts
         from app.models.execution import BrokerAccount, Trade
         from app.adapters.ctrader import CTraderClient
+        from sqlalchemy import func
         
         accounts = db.query(BrokerAccount).filter(BrokerAccount.is_active == True).all()
         logger.info(f"Found {len(accounts)} active broker accounts.")
@@ -506,11 +507,19 @@ async def run_trade_sync_job():
                     port=int(creds.get("port", 5035))
                 )
                 
-                # Range: Scan last 30 days for regular maintenance.
+                # Range: Dynamic scan based on latest DB entry
                 end_date = datetime.utcnow()
-                start_date = end_date - timedelta(days=30)
                 
-                logger.info(f"Syncing trade history for account {account.id} ({start_date} - {end_date})")
+                # Query latest trade for this account to optimize polling
+                latest_exit = db.query(func.max(Trade.exit_timestamp)).filter(Trade.broker_account_id == account.id).scalar()
+                
+                if latest_exit:
+                    # Polling from latest entry minus 2 hours buffer for late arrivals
+                    start_date = latest_exit - timedelta(hours=2)
+                    logger.info(f"Optimized sync window for {account.id}: Starting from {start_date} (Latest DB: {latest_exit})")
+                else:
+                    start_date = end_date - timedelta(days=30)
+                    logger.info(f"Full sync window for {account.id}: Starting from {start_date} (No history found)")
                 
                 trades = await client_adapter.fetch_trade_history(start_date, end_date)
                 logger.info(f"Fetched {len(trades)} trades from cTrader adapter.")
@@ -549,7 +558,7 @@ async def run_trade_sync_job():
                     
                     # Update all fields on conflict
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=['broker_deal_id'],
+                        index_elements=['trade_id'],
                         set_={
                             "exit_price": stmt.excluded.exit_price,
                             "pnl_usd": stmt.excluded.pnl_usd,

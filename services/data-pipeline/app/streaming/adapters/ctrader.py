@@ -5,7 +5,8 @@ from app.streaming.adapters.base import StreamAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
 from datetime import datetime
 # from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoOAPayloadType
-from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsReq, ProtoOASpotEvent
+from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsReq, ProtoOASpotEvent, ProtoOAExecutionEvent
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATradeSide
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class CTraderStreamer(StreamAdapter):
         self._subscription_map = {} # Symbol -> SymbolID (Need mapping!)
         self._digits_map = {} # SymbolID -> Digits
         self._last_quotes = {} # SymbolID -> {bid, ask}
+        self._broker_account_ids = [] # List of UUIDs from DB matching this account
         
     async def start(self, instruments: List[str]):
         logger.info(f"Starting cTrader Stream for {instruments}...")
@@ -33,6 +35,18 @@ class CTraderStreamer(StreamAdapter):
                 await self.client.authorize_app(self.client_id, self.client_secret)
                 await self.client.authorize_account(self.account_id, self.token)
             
+                # 0. Resolve BrokerAccount UUIDs for trade sync
+                from app.database import SessionLocal
+                from app.models.execution import BrokerAccount
+                with SessionLocal() as db:
+                    accounts = db.query(BrokerAccount).filter(
+                        BrokerAccount.broker_name == "CTRADER",
+                        BrokerAccount.account_number == str(self.account_id),
+                        BrokerAccount.is_active == True
+                    ).all()
+                    self._broker_account_ids = [a.id for a in accounts]
+                    logger.info(f"Resolved {len(self._broker_account_ids)} BrokerAccount UUIDs for real-time sync.")
+
                 # 1. Resolve Symbol IDs and Digits
                 # We first need the list to find IDs
                 symbols_list = await self.client.get_symbols_list(self.account_id)
@@ -177,3 +191,94 @@ class CTraderStreamer(StreamAdapter):
                 "status": "tradeable" # Assume tradeable if streaming
             }
             await self.callback(data)
+            return
+
+        # --- Real-time Trade Events ---
+        if msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            event = ProtoOAExecutionEvent()
+            event.ParseFromString(msg.payload)
+            
+            # Check for closed position (Deal)
+            if event.HasField('deal') and event.deal.HasField('closePositionDetail'):
+                deal = event.deal
+                symbol_name = self._subscription_map.get(deal.symbolId, f"ID:{deal.symbolId}")
+                logger.info(f"Real-time Trade Closed Event: {symbol_name} (Deal: {deal.dealId})")
+                
+                # Construct Trade Data (Logic matching jobs.py)
+                import uuid
+                from datetime import datetime
+                from app.database import SessionLocal
+                from app.models.execution import Trade
+                from sqlalchemy.dialects.postgresql import insert
+                
+                money_divisor = 100.0
+                units = deal.volume / 100.0
+                # We don't have lot_size_divisor here easily, but we can default to 100k or try to fetch it.
+                # For now, keeping it consistent with the minimal info we have.
+                # Optimization: Could cache lotSize in self._symbol_details_map
+                
+                entry_p = deal.closePositionDetail.entryPrice if deal.closePositionDetail.entryPrice else 0.0
+                exit_p = deal.executionPrice if deal.executionPrice else 0.0
+                
+                gross_profit = deal.closePositionDetail.grossProfit / money_divisor
+                commission = deal.commission / money_divisor if deal.commission else 0
+                swap = deal.closePositionDetail.swap / money_divisor if deal.closePositionDetail.swap else 0
+                net_pnl = gross_profit + commission + swap
+                
+                with SessionLocal() as db:
+                    for ba_id in self._broker_account_ids:
+                        db_trade_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{ba_id}_{deal.dealId}")
+                        
+                        stmt = insert(Trade).values(
+                            trade_id=db_trade_id,
+                            broker_account_id=ba_id,
+                            broker_trade_id=str(deal.positionId),
+                            broker_deal_id=str(deal.dealId),
+                            symbol=symbol_name,
+                            strategy_name="RealTime",
+                            signal_timestamp=datetime.fromtimestamp(deal.createTimestamp / 1000.0),
+                            status="CLOSED",
+                            direction="LONG" if deal.tradeSide == ProtoOATradeSide.SELL else "SHORT",
+                            entry_price=entry_p,
+                            exit_price=exit_p,
+                            sl_price=0.0,
+                            tp_price=0.0,
+                            lot_size=units / 100000.0, # Guessing divisor for now
+                            risk_usd=0.0,
+                            commission=commission,
+                            swap=swap,
+                            gross_pnl=gross_profit,
+                            pnl_usd=net_pnl,
+                            exit_timestamp=datetime.fromtimestamp(deal.executionTimestamp / 1000.0),
+                            metadata_json={
+                                "deal_id": str(deal.dealId),
+                                "position_id": str(deal.positionId),
+                                "source": "WebSocket"
+                            },
+                            updated_at=datetime.utcnow()
+                        )
+                        
+                        stmt = stmt.on_conflict_do_update(
+                            index_elements=['trade_id'],
+                            set_={
+                                "exit_price": stmt.excluded.exit_price,
+                                "pnl_usd": stmt.excluded.pnl_usd,
+                                "commission": stmt.excluded.commission,
+                                "swap": stmt.excluded.swap,
+                                "gross_pnl": stmt.excluded.gross_pnl,
+                                "exit_timestamp": stmt.excluded.exit_timestamp,
+                                "metadata_json": stmt.excluded.metadata_json,
+                                "updated_at": stmt.excluded.updated_at
+                            }
+                        )
+                        db.execute(stmt)
+                    db.commit()
+                
+                # Also publish to callback for UI notification
+                await self.callback({
+                    "type": "TRADE_CLOSED",
+                    "source": "ctrader",
+                    "instrument": symbol_name,
+                    "pnl": net_pnl,
+                    "trade_id": str(deal.dealId)
+                })
