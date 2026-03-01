@@ -33,11 +33,13 @@ graph TD
         SUM --> TS
     end
 
-    subgraph Loop["Validation"]
+    subgraph Loop["Validation & Feedback"]
         TS -->|Done| GEN
         GEN --> EVA{Evaluator}
         EVA -->|Iterate| DEC
         EVA -->|Satisfactory| MW
+        MW --> FB[Feedback Loop: Key Drivers]
+        FB -.->|Redis| DP[Data Pipeline RE-RANKING]
         MW --> END
     end
 ```
@@ -47,7 +49,8 @@ graph TD
 - **Agentic RAG**: Context-aware retrieval from **Qdrant** (Quant Library, Systems Docs, Journals) with iterative self-correction.
 - **Layer 0 Ingestion**: Direct **Redis Stream** access for sub-2ms spot price fetching, bypassing standard HTTP bottlenecks.
 - **Semantic Caching**: Redis-backed hashing to prevent redundant LLM invocations for identical research queries.
-- **Autonomous Observers**: Background workers monitor system stability and gold sentiment, broadcasting alerts via Telegram.
+- **Geopolitical Intelligence**: Specialized sentiment filtering for XAUUSD, detecting high-impact events like consulate evacuations, military strikes, and sanctions.
+- **Adaptive News Re-ranking (Mini-RL)**: Dynamic feedback loop that extracts "Key Drivers" from news and re-ranks subsequent news syncs in the Data Pipeline for 10x faster response to volatility.
 - **Context Pruning**: Intelligent `Summarizer` node to aggressively condense tool outputs, preventing token saturation.
 
 ## 🤖 AI-Agent Operational Guide

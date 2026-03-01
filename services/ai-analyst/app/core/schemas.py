@@ -25,6 +25,7 @@ class SentimentResult(BaseModel):
     """Schema for market sentiment analysis."""
     score: float = Field(description="Sentiment score from -1.0 (Bearish) to 1.0 (Bullish).")
     reason: str = Field(description="A concise 1-sentence explanation for the score.")
+    key_drivers: List[str] = Field(default_factory=list, description="Top 3-5 keywords or entities driving this sentiment (e.g. ['Trump', 'Iran', 'Tariff']).")
 
 class EvaluationResult(BaseModel):
     """Schema for evaluating AI responses (Agentic RAG)."""

@@ -58,6 +58,15 @@ class SentimentService:
         # 4. Save to Cache (before DB to ensure fast subsequent reads)
         try:
             await self.redis.setex(cache_key, self.cache_ttl, json.dumps(cached_result))
+            
+            # 4b. Store Dynamic Keywords (Key Drivers) for Scraper Re-ranking
+            drivers = result.get("key_drivers", [])
+            if drivers:
+                drivers_key = f"news:dynamic_keywords:{symbol}"
+                # We store as a JSON list, Scraper will consume it
+                await self.redis.setex(drivers_key, 3600, json.dumps(drivers)) # 1 hour TTL
+                logger.info(f"🧠 Updated Dynamic Key Drivers for {symbol}: {drivers}")
+                
             logger.info(f"💾 Cached new sentiment for {symbol} (Hash: {headlines_hash[:8]}...)")
         except Exception as e:
             logger.error(f"Redis cache write failed: {e}")
@@ -108,7 +117,8 @@ class SentimentService:
         headlines_text = "\n".join(headlines)
         prompt = (
             f"Analyze {symbol} sentiment from these news headlines. "
-            "Return JSON only: {'score': float (-1.0 to 1.0), 'reason': '1-sentence string'}.\n"
+            "Identify the top 3-5 'Key Drivers' (specific entities, events, or themes) currently impacting the price.\n"
+            "Return JSON only: {'score': float, 'reason': str, 'key_drivers': list[str]}.\n"
             f"Headlines:\n{headlines_text}"
         )
         
@@ -133,7 +143,8 @@ class SentimentService:
             data = SentimentResult.model_validate_json(response["text"])
             return {
                 "score": data.score,
-                "reason": data.reason
+                "reason": data.reason,
+                "key_drivers": data.key_drivers
             }
         except Exception as e:
             logger.error(f"Sentiment LLM Analysis Error: {e}")

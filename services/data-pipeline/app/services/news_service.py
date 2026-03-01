@@ -5,6 +5,7 @@ from typing import List, Dict, Optional, Any
 from app.core.config import settings
 from app.services.base import BaseService
 from sqlalchemy.orm import Session as DBSession
+from app.services.scraper_service import NewsScraperService
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,13 @@ class NewsApiService(BaseService):
         super().__init__()
         self.base_url = "https://newsapi.org/v2/everything"
         self.vip_domains = "bloomberg.com,reuters.com,wsj.com,cnbc.com,ft.com,marketwatch.com,benzinga.com,investing.com,finance.yahoo.com"
+        self.scraper = NewsScraperService()
+
+    async def close(self):
+        """Cleanup resources including internal scraper."""
+        if hasattr(self, 'scraper') and self.scraper:
+            await self.scraper.close()
+        await super().close()
         
     async def check_quota(self) -> bool:
         """Check if daily quota (100) is exceeded."""
@@ -69,21 +77,31 @@ class NewsApiService(BaseService):
 
     async def fetch_headlines(self, symbol: str) -> List[Dict[str, Any]]:
         """
-        Fetches news headlines with Quota Management, Caching, and Source Filtering.
+        Fetches news headlines with Scraper Prioritization, Quota Management, and Caching.
         """
-        if not settings.NEWS_API_KEY:
-            return [self._create_sys_msg("NewsAPI Key Missing")]
-
         cache_key = f"news:headlines:{symbol}"
         
-        # 1. Check Cache
+        # 1. Check Cache FIRST (15 min TTL usually)
         cached = await self._cache_get(cache_key)
         if cached is not None:
             return cached
 
+        # 2. RUN OPEN SOURCE SCRAPER (Free & Real-time)
+        scraped_news = await self.scraper.get_all_news(symbol)
+        if scraped_news:
+            logger.info(f"✨ Successfully scraped {len(scraped_news)} news items for {symbol}. Prioritizing over NewsAPI.")
+            # Cache the results for 15 minutes to avoid hitting sites too hard
+            await self._cache_set(cache_key, scraped_news, ttl=900)
+            return scraped_news
+
+        # 3. FALLBACK TO NEWSAPI (If scraper returns nothing or fails)
+        if not settings.NEWS_API_KEY:
+            logger.warning(f"No NewsAPI Key found and Scraper returned no results for {symbol}.")
+            return [self._create_sys_msg("No News Sources Available")]
+
         # 2. Check Quota
         if not await self.check_quota():
-            logger.warning(f"NewsAPI quota exceeded. Attempting fallback for {symbol}.")
+            logger.warning(f"NewsAPI quota exceeded. Attempting fallback to search cache for {symbol}.")
             fallback_results = await self._fallback_to_search_cache(symbol)
             if fallback_results:
                 return fallback_results
