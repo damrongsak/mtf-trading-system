@@ -14,31 +14,54 @@ The service operates as a **Stateful Producer** in a de-coupled microservices ar
     - **L3 (Database)**: PostgreSQL handles historical candles, news articles, and COT reports.
 3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers (Strategy Core, AI Analyst).
 
-### 🗺️ Data Flow Diagram
+### 🗺️ Data Flow Architecture
+The following diagram illustrates the lifecycle of data from institutional ingestion to storage and downstream consumption.
+
 ```mermaid
 graph TD
     subgraph External["External Sources"]
-        CT[cTrader API]
-        FF[ForexFactory JSON]
-        CFTC[CFTC COT Reports]
+        CT_Live[cTrader Ticks]
+        CT_Hist[cTrader Candles]
+        EXT_NEWS[NewsAPI / SerpApi]
+        EXT_CAL[ForexFactory]
+        EXT_COT[CFTC Reports]
     end
 
     subgraph DP["Data Pipeline Service"]
         Stream[Stream Manager]
-        Jobs[APScheduler Jobs]
-        DB_Sync[SQLAlchemy ORM]
+        Jobs[Scheduler & Backfill]
+        DB_Sync[ORM / DB Writer]
     end
 
-    subgraph Cache["Messaging Layer (Redis)"]
-        L2[(L2 Hash Cache)]
-        PubSub{Pub/Sub Channels}
+    subgraph Store["Storage & Messaging"]
+        L2[(L2: Redis Hash Cache)]
+        PubSub{Redis Pub/Sub}
+        L3[(L3: PostgreSQL DB)]
     end
 
-    CT -->|Ticks| Stream
-    Stream -->|Atomic Updates| L2
+    subgraph Consumers["Downstream Consumers"]
+        SC[Strategy Core]
+        AI[AI Analyst]
+        AGW[API Gateway / Dashboard]
+    end
+
+    %% Ingestion to Service
+    CT_Live -->|WebSocket| Stream
+    CT_Hist & EXT_NEWS & EXT_CAL & EXT_COT -->|Polling/REST| Jobs
+    
+    %% Service to Storage
+    Stream -->|Atomic Update| L2
     Stream -->|Broadcast| PubSub
-    FF -->|Calendar| Jobs
-    CFTC -->|COT Data| Jobs
+    Jobs -->|Save History| DB_Sync
+    DB_Sync --> L3
+
+    %% Storage to Consumers
+    L2 -.->|Snapshot/Warmup| SC & AI & AGW
+    PubSub -->|Live Ticks| SC & AGW
+    L3 -.->|Historical Query| AI & AGW
+
+    %% Feedback Loop
+    AI -->|Sentiment Scores| DB_Sync
 ```
 
 ### 📰 News & Sentiment Engine
