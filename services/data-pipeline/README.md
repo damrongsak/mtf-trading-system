@@ -134,8 +134,22 @@ docker compose exec data-pipeline curl -X POST "http://localhost:8000/api/v1/new
 
 ---
 
+## 📂 Directory Structure
+
+```text
+app/
+├── adapters/          # Low-level protocol clients (Fix/Protobuf)
+├── scheduler/         # Background jobs (COT, News, Backfills)
+├── streaming/         # High-performance event broadcasting
+├── controllers/       # Business logic for data orchestration
+└── main.py            # API entry point & stream lifecycle
+```
+
+---
+**MTF Olympus** | *Institutional Alpha at Scale*
+
 ## 📦 Key Components
-- `app/adapters/`: Low-level protocol clients (Fix/Protobuf for cTrader).
-- `app/scheduler/`: Background jobs for non-realtime data (COT, News).
-- `app/streaming/`: High-performance broadcast management.
-- `scripts/entrypoint.sh`: Orchestrates migrations and dry-runs on startup.
+-   `app/adapters/`: Low-level protocol clients (Fix/Protobuf for cTrader).
+-   `app/scheduler/`: Background jobs for non-realtime data (COT, News).
+-   `app/streaming/`: High-performance broadcast management.
+-   `scripts/entrypoint.sh`: Orchestrates migrations and dry-runs on startup.

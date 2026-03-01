@@ -1,125 +1,107 @@
-# API Gateway Service
+# MTF Olympus: API Gateway
 
-The **API Gateway** is the central entry point for the MTF Trading System backend. It handles authentication, trade journaling, risk management, and routes requests to other internal services.
+The **API Gateway** is the central nervous system of the MTF Olympus platform. It serves as the primary entry point for all frontend requests, orchestrating authentication, routing to microservices, and managing the core database state.
 
-## 🚀 Quick Start
+## 🏗️ System Connectivity
 
-### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.13+ (managed via `uv` recommended)
-- PostgreSQL 15+ (with `pgvector`)
-- Qdrant Vector Database
+The Gateway maintains high-fidelity synchronization across the distributed stack, acting as the bridge between the user-facing dashboard and the various specialized engines.
 
-### 2. Environment Setup
-Create a `.env` file in this directory:
+```mermaid
+graph TD
+    subgraph Frontend["User Interface"]
+        NEXT[Next.js 16 Dashboard]
+    end
 
-```bash
-cp .env.example .env
-# OR
-cp ENV_CONFIG.md .env
+    subgraph Gateway["API Gateway Service"]
+        API[FastAPI Router]
+        AUTH[JWT Security]
+        ECST[ECST Cache Manager]
+    end
+
+    subgraph CoreServices["Microservices"]
+        DP[Data Pipeline]
+        SC[Strategy Core]
+        AI[AI Analyst]
+        EX[Execution]
+    end
+
+    subgraph Storage["Persistence Layer"]
+        DB[(PostgreSQL 15)]
+        RED[(Redis Cache)]
+    end
+
+    %% Flow
+    NEXT -->|REST/WS| API
+    API -->|Validate| AUTH
+    AUTH -->|Query| DB
+    
+    DP -->|ECST Broadcast| RED
+    RED -->|Sync Symbol Details| ECST
+    
+    API -->|Route Analysis| AI
+    API -->|Manage Fleet| SC
+    API -->|Order Placement| EX
 ```
 
-### 3. Run with Docker (Recommended)
+## 🎯 Core Responsibilities
+
+- **Authentication & Security**: Robust JWT-based security layer with encrypted credential management for broker accounts.
+- **Event-Carried State Transfer (ECST)**: Localized caching of symbol metadata broadcasted by the `data-pipeline`, ensuring zero-latency symbol lookup.
+- **Trade Journaling**: Direct integration with PostgreSQL for high-fidelity trade logging and psychological data capture.
+- **Portfolio Management**: Hierarchical management of Funds, Accounts, and Risk Rules via SQLAlchemy (Async).
+- **Service Orchestration**: Unified API proxying to `ai-analyst`, `strategy-core`, and `execution` services.
+
+## 🤖 AI-Agent Operational Guide
+
+To navigate or modify the Gateway behavior, follow this priority path:
+
+1.  **API Contracts**: All endpoints adhere to the [API Spec](../../specs/04_api_spec.yaml).
+2.  **Routing Hub**: The main router assembly is in `app/main.py`.
+3.  **Data Models**: Database schemas are defined in `app/models/` and must match the [Data Model Spec](../../specs/03_data_model.yaml).
+4.  **Business Logic**: Core service logic (e.g., Auth, ECST sync) resides in `app/services/`.
+
+## 🚦 Operational Guide
+
+### Common Issues & Fixes
+
+| Symptom | Probable Cause | Fix |
+| :--- | :--- | :--- |
+| **Auth Failures** | Redis cache expiry or DB mismatch | Check `REDIS_URL` and `DATABASE_URL` connectivity. |
+| **Missing Symbol Data** | ECST Sync failure from Data-Pipeline | Check Redis Pub/Sub status; verify Data-Pipeline is healthy. |
+| **Database Lock Wait** | Large historical trade imports | Optimize `repositories/` queries or check PG session limits. |
+
+### Management Commands
 ```bash
-docker compose up -d api
+# Sync database schema (Alembic)
+docker compose exec api-gateway alembic upgrade head
+
+# Initialize system data (Seed)
+docker compose exec api-gateway python scripts/seed_risk_rules.py
 ```
 
-### 4. Run Locally (Development)
+## 📂 Directory Structure
+
+```text
+app/
+├── routers/           # Feature-specific API endpoints (Auth, Journal, etc.)
+├── models/            # SQLAlchemy database models (PostgreSQL)
+├── services/          # Cross-cutting logic (ECST, Auth, Ingest)
+├── schemas/           # Pydantic data validation & serialization
+├── streaming/         # Redis stream subscribers & websocket managers
+└── main.py            # Gateway assembly & dependency bootstrap
+```
+
+## 🛠️ Development
+
+Uses `uv` for dependency management.
+
 ```bash
-# Install dependencies
+# Install environment
 uv sync
 
-# Run the server
-uv run uvicorn app.main:app --reload
+# Run locally
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 ---
-
-## ⚙️ Configuration
-
-The service is configured via environment variables. See `.env.example` for a template.
-
-### Key Variables
-
-| Category | Variable | Description | Default |
-|----------|----------|-------------|---------|
-| **Database** | `DATABASE_URL` | PostgreSQL connection string | `postgresql://trader:trader@localhost:5432/mtf_db` |
-| **Auth** | `SECRET_KEY` | JWT signing key | `supersecretkey` |
-| **Auth** | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token validity in minutes | `43200` (30 days) |
-| **AI** | `GOOGLE_CLOUD_PROJECT` | GCP Project ID | `line-bot-2b383` |
-
-**Token Expiration Guide:**
-- Development: `1440` (1 day)
-- Staging: `10080` (7 days)
-- Production: `43200` (30 days)
-
----
-
-## 🗄️ Database Management
-
-### 1. Migrations (Alembic)
-We use Alembic for schema migrations.
-
-```bash
-# Apply all migrations
-alembic upgrade head
-
-# Create a new migration
-alembic revision --autogenerate -m "Description of changes"
-```
-
-### 2. Seeding Data
-We provide scripts to populate the database with initial data.
-
-| Script | Purpose | Command |
-|--------|---------|---------|
-| **Risk Rules** | Sets up default risk limits (MVP) | `python scripts/seed_risk_rules.py` |
-| **Test Data** | Creates users, funds, and trades | `python scripts/seed_test_data.py` |
-| **Vector DB** | Initializes Qdrant collections | `python scripts/init_qdrant.py` |
-
-**Test Credentials:**
-- Trader: `trader1` / `password123`
-- Admin: `admin` / `admin123`
-
----
-
-## 📥 Importing Trading History
-
-You can import cTrader history from Excel files.
-
-### 1. Export from cTrader
-Export your history as an **Excel (.xlsx)** file from cTrader Web or Desktop.
-
-### 2. Run Import Script
-```bash
-uv run python scripts/import_ctrader_excel.py <path_to_excel> <username>
-```
-
-**Example:**
-```bash
-uv run python scripts/import_ctrader_excel.py ~/Downloads/cT_History.xlsx trader1
-```
-
-**Features:**
-- Automatically detects duplicates
-- Classifies trades by Game Level (A/B/C)
-- Identifies Trading Session (Asian/London/NY)
-- Generates initial Mental State based on outcome
-
----
-
-## 📚 API Documentation
-
-Once running, interactive documentation is available at:
-- **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-
-## 🏗️ Architecture
-
-- **Framework:** FastAPI
-- **ORM:** SQLAlchemy (Async)
-- **Validation:** Pydantic
-- **Vector Search:** Qdrant
-- **Package Manager:** `uv`
-
-For detailed data models, see `specs/03_data_model.yaml`.
+**MTF Olympus** | *Institutional Alpha at Scale*

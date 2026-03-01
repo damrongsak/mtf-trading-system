@@ -1,77 +1,90 @@
-# Olympus Predictor: Hybrid Multi-Timeframe Gold Forecasting
+# MTF Olympus: Olympus Predictor
 
-[![Status](https://img.shields.io/badge/Status-v2.1.0--alpha-brightgreen)](https://github.com/damrongsak/mtf-trading-system)
-[![Architecture](https://img.shields.io/badge/Architecture-Hybrid_Attention_Regime-blue)](docs/architecture.md)
-[![Target](https://img.shields.io/badge/Target-Log--Returns-orange)](docs/theory.md)
+The **Olympus Predictor** is the quantitative forecasting engine of the MTF Olympus platform. It utilizes a sophisticated **Hybrid Ensemble-Residual Architecture** to bridge classical econometrics with deep learning, providing high-fidelity price and volatility projections for XAU/USD (Gold).
 
-**Olympus Predictor** is a high-fidelity quantitative forecasting engine for XAU/USD (Gold). It utilizes a decoupled **Hybrid-Linear-Nonlinear Pipeline** designed to bridge the gap between classical econometrics and deep learning residuals, optimized for institutional risk management.
+## 🔬 Hybrid ML Architecture
 
----
+The system operates on a two-stage forecasting paradigm to maximize both explainability and non-linear capture.
 
-## 🔬 Core Architecture (v2.1.0)
+```mermaid
+graph TD
+    subgraph DataIngestion["Feature Engineering"]
+        DB[(PostgreSQL)]
+        FE[Feature Engine]
+        TECH[Technicals: RSI/ATR/GARCH]
+        MACRO[Macro: Oil/Yields/EURUSD]
+    end
 
-The system operates on an "Ensemble-Residual" paradigm:
+    subgraph ModelEnsemble["Hybrid Model Pipe"]
+        SARIMAX[SARIMAX: Linear Base]
+        RES[Residual Extraction]
+        LSTM[Residual LSTM: Non-Linear Correction]
+        ENS[Ensemble Summer]
+    end
 
-1.  **Linear Base (SARIMAX)**: Captures auto-regressive properties and exogenous seasonal trends.
-2.  **Market Regime Detector (HMM)**: Classifies market states (Trend/Range/Volatile) using GARCH(1,1) volatility.
-3.  **Dynamic Macro Forecaster (VAR)**: Projects exogenous macro inputs (Oil, EURUSD, Bond Yields) for multi-step coherence.
-4.  **Non-linear Correction (Self-Attention LSTM)**: A distributional LSTM that models heteroskedastic residuals, enhanced with **Self-Attention** and **Sentiment Analysis** scores.
-5.  **Risk-Adjusted Loss**: Optimized using a custom objective function that penalizes "Directional Regret" to maximize Sharpe Ratio.
+    subgraph Deployment["Inference & Retraining"]
+        API[FastAPI /predict]
+        BG[Async Trainer /train]
+        MODELS[(Model Artifacts: .pkl / .pth)]
+    end
 
-### Mathematical Foundation
-$$ \ln\left(\frac{P_t}{P_{t-1}}\right) = \text{SARIMAX}(\text{Base}) + \text{Attn-LSTM}(\epsilon_{t} | \text{Macro}, \text{Regime}, \text{Sentiment}) $$
-$$ \text{Signal}_{\text{conf}} = \frac{\mathbb{E}[\text{Return}]}{\sqrt{\text{Var}[\text{Return}]}} $$
+    %% Flow
+    DB --> FE
+    FE --> TECH & MACRO
+    TECH --> SARIMAX
+    SARIMAX -->|Trend| RES
+    RES & MACRO --> LSTM
+    SARIMAX & LSTM --> ENS
+    ENS --> API
+    API -.->|Retrain Trigger| BG
+    BG --> MODELS
+    MODELS -.-> API
+```
 
----
+## 🎯 Core Capabilities
 
-## 🏗️ AI-Ops & Infrastructure
+- **Hybrid Forecasting**: Combines **SARIMAX** (Linear Trend) with **Residual LSTM** (Stochastic Volatility & Non-linear noise) to reduce Mean Absolute Percentage Error (MAPE).
+- **Institutional Feature Engine**: Automated calculation of GARCH(1,1) volatility, ATR, and RSI, aligned with institutional macro indicators.
+- **Boruta Feature Selection**: Dynamically identifies the most significant exogenous drivers per training cycle to prevent overfitting.
+- **Residual Correction Layer**: The LSTM specifically targets the *errors* of the SARIMAX model, capturing regime shifts that classical models miss.
+- **Asynchronous Retraining**: Model updates are executed via FastAPI `BackgroundTasks`, ensuring zero-downtime inference.
 
--   **Asynchronous Training**: Decoupled from API via **Redis Task Queue**.RETRAIN doesn't block inference.
--   **Centralized Feature Store**: Multi-tier Redis caching for technical indicators and sentiment aggregates.
--   **Model Versioning**: Automated snapshotting of models (`versions/v_timestamp`) with metadata and metrics.
--   **Institutional Traceability**: Audit logging of every signal generation event with high-fidelity context.
+## 🤖 AI-Agent Operational Guide
 
----
+To modify the forecasting logic or retrain models, follow this path:
 
-## 🛠 Tech Stack
+1.  **Ensemble Logic**: The hybrid piping is managed in `app/model_engine.py`.
+2.  **Feature Extraction**: Technical indicators and GARCH calculations are in `app/feature_engine.py`.
+3.  **Data Hydration**: Database and Redis interaction maps are in `app/data_loader.py`.
+4.  **Schema Enforcement**: Prediction request/response structures are in `app/schemas.py`.
 
--   **Logic**: Python 3.12+ (Typed)
--   **Forecasting**: `statsmodels`, `arch` (GARCH), `hmmlearn` (HMM)
--   **Deep Learning**: `PyTorch` (Self-Attention LSTM)
--   **Messaging**: `Redis` (Queue + Feature Store)
--   **Database**: `PostgreSQL` (Audit Logs + Sentiment)
+## 🚦 Operational Guide
 
----
+### Common Issues & Fixes
 
-## 📊 API Documentation
+| Symptom | Probable Cause | Fix |
+| :--- | :--- | :--- |
+| **503: Model Not Trained** | Missing artifacts in `/app/models` | Trigger a manual training cycle via `POST /api/v1/olympus/train`. |
+| **Prediction Drift** | Regime shift in market volatility | Check GARCH(1,1) parameters; increase training frequency. |
+| **Missing Macro Data** | Data-Pipeline sync error | Verify `macro_data` table in PostgreSQL; ensure Data-Pipeline is healthy. |
 
-### `POST /predict`
-Multi-step price and volatility forecast.
-- **Response**: `prices`, `sigma_lr`, `sentiment`, `model_version`.
+### Model Management
+Models are persisted in the `/app/models` volume. Key artifacts include:
+- `sarimax_xau.pkl`: Linear base weights.
+- `lstm_residual.pth`: PyTorch weights for non-linear correction.
+- `scaler.pkl / exog_scaler.pkl`: Normalization constants.
 
-### `POST /signal` (Phase 4)
-Institutional signal generation.
-- **Response**: `direction` (BUY/SELL), `target`, `stop_loss`, `confidence` (0-1).
+## 📂 Directory Structure
 
-### `POST /train`
-Queues an async training job. Returns `job_id`.
-
-### `GET /train/status/{job_id}`
-Monitor training progress and result metrics.
-
----
-
-## 🚀 Installation
-```bash
-# Run the predictor and worker via Docker
-docker compose up -d --build olympus-predictor predictor-worker
+```text
+app/
+├── models/            # Persistent storage for trained artifacts (.pkl, .pth)
+├── feature_engine.py  # Technical indicator & GARCH calculation logic
+├── model_engine.py    # Hybrid Ensemble orchestrator (SARIMAX + LSTM)
+├── data_loader.py     # Multi-source data hydration (SQL + Redis)
+├── schemas.py         # Pydantic models for inference validation
+└── main.py            # API entry point & async task management
 ```
 
 ---
-
-## 📜 Research & References
-- Phase 1-4 Walkthroughs: [brain artifacts](../../.gemini/antigravity/brain/27717bee-9273-4c84-bcc4-0688072b0f8c/)
-- Full Evolution Roadmap: [docs/roadmap.md](../../specs/mtf-olympus-enhancement/07.01%20Olympus%20Predictor_%20Evolution%20Roadmap.md)
-
----
-**Maintained by Quant Team @ MTF Olympus**
+**MTF Olympus** | *Institutional Alpha at Scale*

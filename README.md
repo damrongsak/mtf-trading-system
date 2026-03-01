@@ -1,150 +1,133 @@
-# MTF Olympus (v2.1)
+# 🏛️ MTF Olympus (v2.1)
 
-**Status:** ✅ Alpha Ecosystem Live (Phase 2 Completed)  
-**Next:** Phase 5 - Strategy Execution  
-**License:** [Apache 2.0](LICENSE)
+**The Institutional Wealth Operating System for XAU/USD (Gold).**
 
-# Start with Why: The MTF Olympus Story
-
-## The Why: Breaking the Cycle of Gambler's Ruin
-
-Most retail traders fail not because they lack intelligence, but because they are fighting a war with broken tools. They buy "signals" from gurus—buying fish instead of learning how to fish. They use backtesting software that lies to them, showing beautiful equity curves that crumble the moment real money is on the line (curve fitting). And most fatally, they have no defense against their own psychology; when they tilt, they lose everything.
-
-**MTF Olympus exists to democratize the institutional "Edge".**
-
-We believe that wealth creation shouldn't be a gamble. It should be an engineering discipline. We believe that if you give a retail trader the same tools used by a quantitative hedge fund—Game Theoretic Risk Management, Walk-Forward Validation, and AI-Driven Psychological Coaching—they can stop gambling and start building a legacy.
-
-**We don't build trading bots. We build Fund Managers.**
+[![Ecosystem](https://img.shields.io/badge/Ecosystem-Live-brightgreen)](https://github.com/damrongsak/mtf-trading-system)
+[![Status](https://img.shields.io/badge/Status-Alpha_V2.1-blue)](docs/roadmap.md)
+[![License](https://img.shields.io/badge/License-Apache_2.0-orange)](LICENSE)
 
 ---
 
-## The Vision: An Operating System for Wealth
+## 🌩️ Start with Why: The Wealth OS Vision
 
-MTF Olympus is not a tool; it is an **Operating System**. Just as Windows or macOS manages the complexity of hardware so you can run applications, Olympus manages the complexity of the Market so you can run **Strategies**.
+Most retail traders are trapped in a cycle of "Gambler’s Ruin"—fighting the market with fragmented tools, lying backtests, and unchecked psychology. **MTF Olympus** democratizes the institutional edge by transforming trading from a gamble into a rigorous engineering discipline.
 
-### The 5 Pillars of the OS
+We don't build trading bots. We build **Fund Managers**.
 
-1.  **The Foundry (Creation)**: Standardized "Lego Blocks" for strategy creation. No coding required, just logic.
-2.  **The Alpha Engine (Research)**: **[NEW]** AST-based expression engine (`rank`, `ts_max`) for designing statistical factors.
-3.  **The Proving Ground (Truth)**: Rigorous Walk-Forward Validation to prevent overfitting.
-4.  **The Risk Citadel (Survival)**: Game Theoretic Risk Management engine using **Minimax Regret** & **Portfolio Risk Parity**.
-5.  **The AI Coach (Discipline)**: Psychological intervention via **Mental Hand History** to detect "Tilt".
+### The 5 Pillars of Wealth OS
+1.  **The Foundry**: Standardized "Lego Blocks" for institutional strategy creation.
+2.  **The Alpha Engine**: Advanced statistical factor design via VectorBT.
+3.  **The Proving Ground**: Hardcore Walk-Forward Validation to survive real-world variance.
+4.  **The Risk Citadel**: Game Theoretic risk engine using **Minimax Regret**.
+5.  **The AI Coach**: Psychological monitoring and real-time reasoning via **LangGraph**.
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Global System Architecture
 
-The system is organized into a 5-layer stack:
+MTF Olympus is a distributed multi-service ecosystem fronted by a modern Next.js dashboard and orchestrated via a high-fidelity API Gateway.
 
-| Layer | Name | Description | Service |
+```mermaid
+graph TD
+    subgraph UI["User Experience"]
+        DASH[Next.js 16 Dashboard]
+    end
+
+    subgraph Hub["Orchestration Layer"]
+        AGW[API Gateway]
+        AUTH[JWT Security]
+    end
+
+    subgraph Backend["Core Intelligence"]
+        DP[Data Pipeline]
+        SC[Strategy Core]
+        AI[AI Analyst]
+        EX[Execution Service]
+    end
+
+    subgraph Storage["Persistence & Messaging"]
+        DB[(PostgreSQL 15)]
+        RED[(Redis Pub/Sub & Cache)]
+        VEC[(Qdrant Vector DB)]
+    end
+
+    subgraph Broker["Market Connectivity"]
+        CT{{cTrader / institutional LP}}
+    end
+
+    %% Flow
+    DASH -->|REST/WS| AGW
+    AGW -->|Auth| AUTH
+    AUTH -->|R/W| DB
+    
+    AGW -->|Manage| SC
+    AGW -->|Queries| AI
+    AGW -->|Orders| EX
+    
+    DP -->|Ingest| CT
+    DP -->|Broadcast| RED
+    RED -->|Price Stream| SC & AGW
+    AI -->|RAG| VEC
+    EX -->|Fix/WS| CT
+```
+
+---
+
+## 🤖 AI-Agent Operational Guide (Global)
+
+To navigate this project as an AI Agent, use the following **System Discovery Path**:
+
+1.  **Source of Truth**: All behavior is defined first in `specs/` (Data Model, API, Architecture).
+2.  **Service Entry**: Each microservice has its own professional `README.md` detailing its specific dependencies and nodes.
+3.  **Data Flow**: The platform utilizes **Event-Carried State Transfer (ECST)** for symbol metadata and **Async RPC** for order execution via Redis.
+4.  **Backend Hub**: `services/api-gateway/app/main.py` is the primary router for the entire ecosystem.
+
+---
+
+## 📂 Service Directory
+
+| Service | Category | Documentation | Core Function |
 | :--- | :--- | :--- | :--- |
-| **L1** | **Probability** | Statistical Analysis & Data Ingestion | Data Pipeline |
-| **L2** | **Structure** | Strategy Logic definition & Standardized Blocks | Strategy Foundry |
-| **L3** | **Context** | Validation, Walk-Forward Analysis, Market Regime | Proving Ground |
-| **L4** | **Risk** | Game Theoretic Risk Management (Minimax) | Risk Citadel |
-| **L5** | **Intelligence** | Psychological Coaching & Reasoning | AI Analyst |
-
-### Microservices
-
-| Service | Tech Stack | Purpose |
-| :--- | :--- | :--- |
-| **Frontend** | Next.js 16 (React 19) | Modern dashboard for Alpha Lab, Foundry, and AI Coach. |
-| **API Gateway** | Python (FastAPI) | Central entry point, Auth (JWT), and request routing. |
-| **Strategy Core** | Python (Vectorbt) | Implements Alpha Engine (Athena) and Foundry logic. |
-| **Execution** | Python (FastAPI) | Implements Risk Citadel and Execution Edge. |
-| **AI Analyst** | Python (LangGraph) | Implements AI Coach (gemini-2.5-flash) & Strategy Advisor. |
-| **Data Pipeline** | Python (Redis) | L1 Probability Layer with Smart Latch (Atomic Consistency). |
-| **Database** | PostgreSQL 15 | Relational data + `pgvector` for RAG. |
+| **Data Pipeline** | L1: Probability | [README](services/data-pipeline/README.md) | High-performance tick ingestion & Sentiment flow. |
+| **Strategy Core** | L2/L3: Structure | [README](services/strategy-core/README.md) | Vectorized strategy engine & Alpha design. |
+| **AI Analyst** | L5: Intelligence | [README](services/ai-analyst/README.md) | LangGraph reasoning, RAG, & Psychological coaching. |
+| **Execution** | L4: Risk | [README](services/execution/README.md) | Prioritized cTrader execution & Minimax Risk. |
+| **API Gateway** | Orchestration | [README](services/api-gateway/README.md) | Central Routing, Auth, & ECST synchronization. |
 
 ---
 
-## 📂 Project Structure
-
-```bash
-mtf-trading-system/
-├── services/               # Backend Microservices
-│   ├── api-gateway/        # Auth & API Routing
-│   ├── strategy-core/      # L2 Structure & L3 Context
-│   ├── execution/          # L4 Risk & Execution Edge
-│   ├── ai-analyst/         # L5 Intelligence
-│   └── data-pipeline/      # L1 Probability
-├── frontend/               # Next.js Web App
-├── infra/                  # Nginx, Docker configs
-├── specs/                  # SDD Specifications (Source of Truth)
-└── docker-compose.yml      # Local Orchestration
-```
-
----
-
-*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `data-pipeline`).
-*   `frontend/`: Next.js web application.
-*   `specs/`: SDD source of truth.
-
-## 📡 Real-Time Data Streaming
-
-The system includes a high-performance **Tick Streamer** built on the cTrader and Redis Pub/Sub.
-
-- **Service**: `tick-streamer` (Dockerized)
-- **Mechanism**: Dedicated background worker fetching ticks from cTrader.
-- **Data Distribution**: Publishes to Redis channels `market_data:tick:{SYMBOL}`.
-- **Dynamic Configuration**: Automatically loads active symbols from the `market_symbols` database table.
-
-### Monitoring Ticks
-To verify real-time data flow, use the Redis CLI:
-```bash
-docker compose exec redis redis-cli PSUBSCRIBE "market_data:tick:*"
-```
-
-## 🔍 Background Market Context (ECST)
-
-To eliminate AI bottlenecks, MTF Olympus utilizes Event-Carried State Transfer (ECST) for web search and market context.
-
-- **Service**: `data-pipeline`
-- **Mechanism**: A background scheduler (`run_search_sync_job`) fetches breaking news (Top Stories) and organic results via SerpApi every 30 minutes for active symbols.
-- **Cache**: Data is formatted and saved to Redis under `market_context:{SYMBOL}`.
-- **Consumption**: The AI Analyst's `GoogleSearchTool` reads directly from Redis, providing instant context without blocking for external HTTP requests.
-
-## 🛠️ Development Workflow
+## 🛠️ Unified Development Workflow
 
 ### Prerequisites
--   Docker & Docker Compose
--   Node.js v22+
--   `uv` (Python package manager)
+-   **Docker Desktop** & Docker Compose
+-   **uv**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+-   **nvm/pnpm**: For frontend development.
 
-### Quick Start (Full Stack)
-1.  **Clone the repo:**
-    ```bash
-    git clone https://github.com/damrongsak/mtf-trading-system.git
-    cd mtf-trading-system
-    ```
+### Quick Start
+```bash
+# 1. Clone & Setup
+git clone https://github.com/damrongsak/mtf-trading-system.git
+cd mtf-trading-system
+cp .env.example .env
 
-2.  **Environment Setup:**
-    Duplicate `.env.example` to `.env` and fill in your keys (Gemini API, OANDA Token, Postgres Config).
+# 2. Launch Ecosystem
+docker compose up --build
 
-3.  **Run with Docker Compose:**
-    ```bash
-    docker compose up --build
-    ```
-    -   Frontend: `http://localhost:3000`
-    -   API Docs: `http://localhost:8000/docs`
-
-4.  **Create Admin User:**
-    Register via the frontend or use the API.
-
----
+# 3. Verify Connectivity
+# Frontend: http://localhost:3000
+# API Docs: http://localhost:8000/docs
+```
 
 ## 🧩 Spec-Driven Development (SDD)
-
-This project strictly follows SDD. **Do not write code without updating specs first.**
-
--   `specs/00_product_requirements.md`: The WHAT and WHY.
--   `specs/01_architecture.md`: The High-Level Design.
--   `specs/03_data_model.yaml`: Database Schema definitions.
--   `specs/04_api_spec.yaml`: API Contracts (OpenAPI).
--   `specs/10_implementation_status.md`: Progress Tracker.
+The project strictly enforces SDD. Read the [Specs](specs/) before making logic changes:
+- `01_architecture.md`: High-level system design.
+- `03_data_model.yaml`: Relational and vector schema definitions.
+- `04_api_spec.yaml`: Global API contracts.
 
 ---
 
 ## ⚠️ Disclaimer
+**USE AT YOUR OWN RISK.** MTF Olympus is an educational quant platform. Automated trading involves significant risk of loss. The authors assume no responsibility for financial outcomes.
 
-**USE AT YOUR OWN RISK.** This software is for educational purposes only. Automated trading carries significant financial risk. The authors assume no responsibility for trading losses.
+---
+**MTF Olympus** | *Institutional Alpha at Scale*

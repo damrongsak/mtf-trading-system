@@ -1,118 +1,92 @@
-# Execution Service
+# MTF Olympus: Execution Service
 
-## Overview
-The Execution Service is responsible for managing interactions with the OANDA trading platform. It acts as a bridge between the trading system's logic and the broker, handling account information retrieval, risk checks, and order execution.
+The **Execution Service** is the institutional mandate-processor of the MTF Olympus platform. It handles the critical bridge between internal analytical signals and live broker execution, specifically optimized for **cTrader** via high-throughput WebSocket communication.
 
-## Key Features
-- **Account Management**: Fetches real-time account details such as Net Asset Value (NAV), margin available, and open position/trade counts.
-- **Order Execution**: Places market orders with integrated Stop Loss (SL) and Take Profit (TP) details.
-- **Risk Management**: Provides a `/check` endpoint to validate trade parameters against pre-defined risk rules (e.g., maximum risk per trade, minimum lot size) before execution.
-- **Traceability**: Tags orders with client-specific IDs (`trade_id`) for easy reconciliation with the system's database.
+## 🏗️ Async RPC Architecture
 
-## Architecture
-This service is built using **FastAPI** and utilizes the `oandapyV20` library for OANDA API communication.
+The service operates as an autonomous background consumer, decoupling strategy logic from execution latency via a prioritized Redis-based "Buffer & Fire" model.
 
-### Directory Structure
+```mermaid
+graph TD
+    subgraph StrategyLayer["Strategy Engine"]
+        SC[Strategy Core]
+    end
+
+    subgraph Messaging["Messaging Backbone"]
+        VIP[(queue:exec:vip)]
+        RETAIL[(queue:exec:retail)]
+        CORE[(queue:execution:commands)]
+    end
+
+    subgraph Service["Execution Service"]
+        WORKER[Prioritized Worker]
+        IDEM[Idempotency Checker]
+        ORDS[Order Service / Risk Check]
+        ADAPT[cTrader Adapter]
+    end
+
+    subgraph Broker["Market Connectivity"]
+        CT{{cTrader Account / LP}}
+    end
+
+    %% Flow
+    SC -->|LPUSH| VIP & RETAIL & CORE
+    VIP & RETAIL & CORE -->|BRPOP / Strict Priority| WORKER
+    WORKER -->|Verify ID| IDEM
+    IDEM -->|Process| ORDS
+    ORDS -->|Sign & Send| ADAPT
+    ADAPT -->|WebSocket| CT
 ```
-services/execution/
-├── app/
-│   ├── adapters/
-│   │   ├── oanda_account.py  # Adapter for Account-related API calls
-│   │   └── oanda_order.py    # Adapter for Order-related API calls
-│   ├── core/
-│   │   └── config.py         # Configuration management (Environment variables)
-│   ├── executor.py           # Risk calculation logic
-│   └── main.py               # FastAPI application entry point and routes
-├── Dockerfile                # Container definition
-├── pyproject.toml            # Project dependencies (managed by uv)
-└── README.md                 # Service documentation
-```
 
-## API Endpoints
+## 🎯 Core Responsibilities
 
-### 1. Risk Check
-*   **Endpoint**: `POST /check`
-*   **Description**: Validates if a trade can be executed based on risk parameters.
-*   **Request Body**:
-    ```json
-    {
-      "risk_usd": 10.0,
-      "sl_distance_usd": 50.0,
-      "min_lot": 0.01
-    }
-    ```
-*   **Response**:
-    ```json
-    {
-      "can_execute": true,
-      "lot": 0.2,
-      "reason": "ok"
-    }
-    ```
+- **Async Command Processing**: Distributed consumption of trade signals with strict priority weighting (VIP > Retail > Standard).
+- **Institutional cTrader Adaption**: High-fidelity orders (Market, Limit, Stop) with integrated Stop-Loss and Take-Profit tagging.
+- **Idempotency & Safety**: Multi-layer protection against race conditions using Redis `SETNX` locking to ensure a signal is never executed twice.
+- **Dead Letter Handling**: Automated retry logic (3 attempts) with routing to `queue:exec:dead` for manual intervention on failed orders.
+- **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers.
 
-### 2. Account Summary
-*   **Endpoint**: `GET /account/summary`
-*   **Description**: Retrieves current account metrics from OANDA.
-*   **Response**:
-    ```json
-    {
-      "balance": "10000.00",
-      "NAV": "10000.00",
-      "marginAvailable": "9900.00",
-      "openTradeCount": 0,
-      "openPositionCount": 0
-    }
-    ```
+## 🤖 AI-Agent Operational Guide
 
-### 3. Place Order
-*   **Endpoint**: `POST /orders`
-*   **Description**: Places a market order on OANDA.
-*   **Request Body**:
-    ```json
-    {
-      "symbol": "XAU_USD",
-      "units": 0.1,
-      "sl_price": 1950.00,
-      "tp_price": 2050.00,
-      "trade_id": "unique-trade-id-123"
-    }
-    ```
-*   **Response**:
-    ```json
-    {
-      "id": "500",
-      "instrument": "XAU_USD",
-      "units": "0.1",
-      "price": "2000.00",
-      "time": "2023-10-27T10:00:00.000000000Z"
-    }
-    ```
+To modify execution behavior or troubleshoot connectivity, follow this path:
 
-## Configuration
-The service requires the following environment variables (typically provided via the root `.env` file when using Docker Compose):
+1.  **Command Flow**: The main consumer loop is in `app/worker.py`.
+2.  **Broker Adapters**: The cTrader logic resides in `app/adapters/ctrader.py` and `app/adapters/ctrader_client.py`.
+3.  **Risk Logic**: Final pre-execution risk checks are performed in `app/executor.py`.
+4.  **Minimax Integration**: Portfolio risk parity and regret minimizing logic is in `app/services/minimax_service.py`.
 
-*   `OANDA_API_KEY`: Your OANDA API access token.
-*   `OANDA_ACCOUNT_ID`: Your OANDA account ID.
-*   `OANDA_ENV`: Environment to connect to. Defaults to `practice`. **Set to `live` for live accounts.**
-    *   *Note: Ensure your `OANDA_ACCOUNT_ID` matches the selected environment.*
+## 🚦 Operational Guide
 
-## Development
-This service uses `uv` for package management.
+### Common Issues & Fixes
 
-### Setup
-1.  Install `uv`: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2.  Install dependencies:
-    ```bash
-    uv sync
-    ```
+| Symptom | Probable Cause | Fix |
+| :--- | :--- | :--- |
+| **Orders Stuck in Queue** | Worker is down or Redis full | Check `docker ps`; verify `EXECUTION_MAX_QUEUE_SIZE` in Strategy Core. |
+| **cTrader Connection Error** | OAuth token expiry or network | Check logs for "ProtoOAAuthenticateRes"; verify connectivity to `proxy.ctrader.com`. |
+| **Idempotency Reject** | Duplicate signal delivery | Normal behavior (Signal protection); investigate why Strategy Core is double-firing. |
 
-### Running Locally
+### Diagnostic CLI
+Check worker health and current queue depths:
 ```bash
-uv run uvicorn app.main:app --reload --port 8001
+docker compose exec execution python -c "from app.health import check_queues; print(check_queues())"
 ```
 
-### Docker
-Build and run via Docker Compose from the project root:
-```bash
-docker compose up --build execution
+## 📂 Directory Structure
+
+```text
+app/
+├── adapters/          # Broker protocols (cTrader WebSocket, Binance, OANDA)
+├── services/          # Business logic (Order Management, Minimax Risk, Equity Guardian)
+├── core/              # Global schemas & configuration managers
+├── executor.py        # Final risk-parameter calculation & validation
+├── worker.py          # Prioritized Redis queue consumer (The Heart)
+└── main.py            # API entry point & background task orchestration
 ```
+
+## 🛠️ Multi-Broker Support
+While **cTrader** is the primary institutional target, the service maintains a pluggable `BrokerFactory` for:
+- **Binance**: Crypto spot/futures execution.
+- **Mock**: For isolated testing environments.
+
+---
+**MTF Olympus** | *Institutional Alpha at Scale*

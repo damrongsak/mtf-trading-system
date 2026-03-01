@@ -1,108 +1,91 @@
-# MTF Olympus: Strategy Core Service
+# MTF Olympus: Strategy Core
 
-The **Strategy Core** is the high-performance analytical engine and execution hub of the MTF Olympus trading system. It is responsible for real-time market analysis, strategy orchestration, backtesting, and institutional-grade indicator calculations.
+The **Strategy Core** is the high-performance analytical engine and orchestration hub of the MTF Olympus trading system. It transforms raw market data into institutional-grade signals using vectorized analysis, Smart Money Concepts (SMC), and a dynamic minimax risk engine.
 
-## 🚀 Overview
+## 🏗️ Technical Architecture
 
-Strategy Core transforms raw market data into actionable trading signals using a decoupled, event-driven architecture. It supports both predefined "Institutional Templates" and dynamic, user-coded bots, all while maintaining a low-latency execution pipeline.
+The service operates on a "Buffer-First" reactive model, decoupling analysis from execution via Redis-based Async RPC.
 
-### Key Capabilities:
-- **Real-Time Async Execution**: Ultra-low latency `LPUSH` message queue via Redis for non-blocking execution with Circuit Breakers.
-- **Vectorized Backtesting**: High-speed historical simulations leveraging [VectorBT](https://vectorbt.dev/).
-- **Institutional Indicators**: Numba-accelerated implementations of Market Profile (TPO), SMC, and Multi-Timeframe Pivots.
-- **Dynamic Risk Engine**: HFT-optimized `PositioningEngine` utilizing Fractional Kelly Criterion (bounded edge sizing) with cached hierarchical limits.
-- **Extensible Plugin System**: A hook-based architecture (Actions & Filters) for risk filters, sentiment guards, and notifications.
-- **MTF Awareness**: Native support for Multi-Timeframe analysis (M1 to Monthly).
-
-## 🏗️ Architecture
-
-The service is built with **FastAPI** and utilizes a multi-layered design:
-
-- **API Layer (`main.py`)**: Exposes analytical tools and lifecycle management endpoints.
-- **Strategy Engine (`app/engine/`)**: The core orchestrator managing state, events, and signal generation.
-- **Fleet Manager (`app/fleet.py`)**: Scales strategy deployments across multiple symbols and accounts.
-- **Registry (`app/registry.py`)**: Dynamically discovers and loads specialized strategy modules.
-- **Plugin Engine (`app/plugins/`)**: Decouples cross-cutting concerns (Risk, AI Sentiment) from core strategy logic.
-
-### Data Flow
 ```mermaid
-graph LR
-    Redis[(Redis Streams)] --> LiveRunner[Live Runner]
-    LiveRunner --> Engine[Strategy Engine]
-    Engine --> Registry[Strategy Registry]
-    Registry --> Strategies[Trading Strategies]
-    Strategies --> Signal[Signal]
-    Signal --> Plugins[Plugin Filters]
-    Plugins --> Execution{{Execution Service}}
+graph TD
+    subgraph DataIngestion["Data Ingestion"]
+        RS[(Redis Streams)] --> |"Candles/Ticks"| SU[Subscriber]
+        SU --> |"Buffered Data"| SMDM[Shared Market Data Manager]
+    end
+
+    subgraph StrategyLoop["Strategy Loop"]
+        SMDM --> |"Tick Alert"| FM[Fleet Manager]
+        FM --> |"Execute"| SR[Strategy Registry]
+        SR --> |"Logic"| STR[active Strategies]
+    end
+
+    subgraph ExecutionFlow["Execution & Risk"]
+        STR --> |"Signal"| HM[Hook Manager / Plugins]
+        HM --> |"Validated Signal"| EC[Execution Client]
+        EC --> |"LPUSH"| EQ[(Execution Queue)]
+        EQ --> |"Async RPC"| EXS{{Execution Service}}
+    end
+
+    subgraph Monitoring["Operational Support"]
+        STR --> |"Logging"| DB[(PostgreSQL)]
+        FM --> |"Health"| API[FastAPI Endpoints]
+    end
 ```
 
-## 🛠️ Components
+## 🎯 Core Responsibilities
 
-### 1. Market Profile & SMC
-The `app/indicators` directory contains top-tier analytical tools:
-- **TPO Profile**: Optimized with Numba for sub-20ms performance on large datasets.
-- **SMC Engine**: Vectorized detection of Order Blocks, Fair Value Gaps (FVG), and Liquidity Sweeps.
-- **MTF Pivots**: Support for Camarilla, Woodie, and Traditional levels across all timeframes.
+- **MTF Signal Generation**: Native Multi-Timeframe (M1 to Monthly) analysis with sub-millisecond strategy switching.
+- **Institutional Indicators**: Numba-accelerated implementations of **SMC** (Order Blocks, FVG), **TPO (Market Profile)**, and **Gamma Exposure**.
+- **Dynamic Risk Sizing**: Real-time position sizing based on Fractional Kelly Criterion and Fund-level risk parity.
+- **Hook-based Extensibility**: Modular "WordPress-style" plugin system for risk filters, sentiment guards, and notifications.
 
-### 2. Strategy Fleet
-The **Fleet Manager** handles the lifecycle of:
-- **Template Strategies**: Hardcoded institutional logics used for consistency.
-- **Dynamic Bots**: User-provided Python code executed in a sandboxed environment (`DynamicBotExecutor`).
+## 🔧 Component deep-dive
 
-### 3. Plugin System
-Leverages a WordPress-inspired `HookManager` to allow modular extensions:
-- `on_market_data`: Enrich or filter incoming data.
-- `filter_signal`: Apply global risk or sentiment constraints.
-- `on_signal`: Trigger external notifications (Telegram, Webhooks).
+### 1. The Strategy Fleet (`app/fleet.py`)
+Manages the lifecycle of live strategies. It identifies which strategies need to re-calculate based on incoming symbols and timeframes, preventing redundant compute.
 
-### 4. Risk & Execution (Institutional Grade)
-- **Async Execution Queue**: Strategy Core operates as a pure publisher. Signals are injected into `queue:execution:commands` with Idempotency Keys (UUID) to strictly prevent race conditions.
-- **Circuit Breaker**: Drop mechanisms kick in if queue depths exceed safe limits, preventing slippage.
-- **Kelly Criterion Positioning**: The `PositioningEngine` sizes positions dynamically using `W - ((1 - W) / R)` derived from `last_backtest_result`, safeguarded by a Half-Kelly fraction and cached Fund/Account hard limits.
+### 2. Indicator Engine (`app/indicators/`)
+All indicators are optimized using **Numba JIT**. 
+> [!NOTE]  
+> The first execution of an indicator (e.g., after service restart) may experience a "JIT warm-up" delay of 1-3 seconds. Subsequent calls are near-instant (<10ms).
 
-### 5. Standardized Market Data Paradigm (High-Frequency)
-A "Buffer-First" architecture optimized for <100µs latency:
-- **`SharedMarketDataManager`**: Uses O(1) `deque` buffers for tick ingestion and M1 candle storage.
-- **Lazy Synthesis**: DataFrames are built only on demand via `get_candles(symbol, timeframe)`.
-- **Standard API**: All strategies **MUST** use the following pattern for MTF access:
-  ```python
-  # Correct Usage
-  df_h1 = data_manager.get_candles(symbol, "1h")
-  df_m5 = data_manager.get_candles(symbol, "5min")
-  ```
+### 3. Plugin Hooks (`app/plugins/`)
+The `HookManager` allows external injection into the trading loop:
+- `on_market_data`: Enrich data before strategies see it.
+- `filter_signal`: Final veto power for Risk/AI Sentiment plugins. [See: api-agent-guardrails skill]
 
-## 🚦 API Reference (Highlights)
+## 🚦 Operational Guide
 
-| Endpoint | Method | Description |
+### Common Issues & Fixes
+
+| Symptom | Probable Cause | Fix |
 | :--- | :--- | :--- |
-| `/api/v1/calculate/smc` | `POST` | Get SMC analysis for a given dataset. |
-| `/api/v1/calculate/market-profile` | `POST` | Generate TPO profile & POC/VAH/VAL. |
-| `/api/v1/backtest` | `POST` | Run a vectorized historical backtest. |
-| `/api/v1/strategies/{id}/start` | `POST` | Activate a live strategy instance. |
-| `/api/v1/analysis/drift` | `GET` | Calculate system rejection and slippage rates. |
+| **Strategy Hangs** | Deadlock in `market_data_manager` lock | Restart service; check Redis Stream depth. |
+| **High Latency** | Redis Queue backup | Increase `EXECUTION_MAX_QUEUE_SIZE` or scale Execution Worker. |
+| **Missing Signals** | ATR/Volatility filter veto | Check `opportunity_log` table for rejection reason. |
 
-## 📦 Installation & Development
+### Circuit Breakers
+The service will automatically drop trade commands if the `queue:execution:commands` length exceeds **50** (configurable via `EXECUTION_MAX_QUEUE_SIZE`) to prevent executing on stale price data.
 
-This service uses `uv` for lightning-fast dependency management.
+## 🤖 AI-Agent Operational Guide
 
-### Prerequisites:
-- Python 3.12+
-- Redis (running on `localhost:6379`)
-- PostgreSQL
+To understand or modify strategy behavior, follow this priority path:
 
-### Local Setup:
-```bash
-# Install dependencies
-uv sync
+1.  **Logic Definition**: Consult `specs/08_logic_rules.yaml` for the theoretical rules.
+2.  **Implementation**: Check `app/strategies/` for the actual Python implementation.
+3.  **Registration**: Verify the strategy is registered in `app/registry.py`.
+4.  **Logging**: Query the `signal_log` and `opportunity_log` tables in PostgreSQL to track why signals were generated or blocked.
 
-# Run the service with hot-reload
-uv run uvicorn app.main:app --reload --port 8001
-```
+## 📂 Directory Structure
 
-### Testing:
-```bash
-# Run unit and contract tests
-uv run pytest
+```text
+app/
+├── adapters/          # External service clients (OANDA, cTrader, AI)
+├── engine/            # Strategy execution & state orchestration
+├── indicators/        # Numba-optimized analytics (SMC, TPO, Pivots)
+├── plugins/           # Hook-based modular extensions (Risk/Sentiment)
+├── registry.py        # Strategy discovery and loading logic
+└── main.py            # API entry point & engine lifecycle
 ```
 
 ---
