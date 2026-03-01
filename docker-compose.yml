@@ -70,6 +70,7 @@ services:
   data-pipeline:
     build: ./services/data-pipeline
     container_name: data-pipeline
+    entrypoint: /app/scripts/entrypoint.sh
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     env_file: .env
     volumes:
@@ -94,6 +95,7 @@ services:
   tick-streamer:
     build: ./services/data-pipeline
     container_name: tick-streamer
+    entrypoint: /app/scripts/entrypoint.sh
     command: python run_stream.py
     volumes:
       - ./services/data-pipeline:/app
@@ -223,6 +225,7 @@ services:
       POSTGRES_USER: trader
       POSTGRES_PASSWORD: trader
       POSTGRES_DB: mtf_db
+    restart: unless-stopped
     volumes:
       - ./infra/postgres_data:/var/lib/postgresql/data
     networks:

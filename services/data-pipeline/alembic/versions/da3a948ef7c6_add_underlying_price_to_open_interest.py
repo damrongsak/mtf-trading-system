@@ -17,7 +17,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('open_interest', sa.Column('underlying_price', sa.Numeric(precision=18, scale=8), nullable=True))
+    # Check if column already exists
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c['name'] for c in inspector.get_columns('open_interest')]
+    
+    if 'underlying_price' not in columns:
+        op.add_column('open_interest', sa.Column('underlying_price', sa.Numeric(precision=18, scale=8), nullable=True))
 
 
 def downgrade() -> None:
