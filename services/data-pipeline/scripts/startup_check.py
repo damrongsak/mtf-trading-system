@@ -35,7 +35,9 @@ async def check_database():
             "economic_events",
             "cot_records",
             "sentiment_scores",
-            "news_articles"
+            "news_articles",
+            "open_interest",
+            "system_configs"
         ]
         
         for table in required_tables:
