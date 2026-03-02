@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Query, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.security import get_current_user
 from app.repositories.open_interest_repository import OpenInterestRepository
 from app.schemas.open_interest import (
     OpenInterestSnapshotResponse,
@@ -437,3 +438,40 @@ async def update_symbol_status(
             logger.error(f"Update symbol failed: {e}")
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+@router.get("/tick/{symbol}")
+async def get_latest_tick(
+    symbol: str,
+    current_user = Depends(get_current_user)
+):
+    """
+    Get the latest tick data for a symbol. Proxies to Data Pipeline.
+    Requires authentication.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            # Normalize symbol
+            clean_symbol = symbol.strip().upper()
+            
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/market/tick/{clean_symbol}",
+                timeout=5.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch tick: {response.status_code} - {response.text}")
+                if response.status_code == 404:
+                    raise HTTPException(status_code=404, detail=f"Tick data not found for {symbol}")
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+                
+            return success_response(data=response.json())
+            
+        except httpx.RequestError as e:
+            logger.error(f"Data Service unavailable (Tick): {e}")
+            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            logger.error(f"Fetch tick failed: {e}")
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")

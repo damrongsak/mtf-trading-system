@@ -1064,6 +1064,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MarketSymbolResponse'
+
+  /api/v1/data/tick/{symbol}:
+    get:
+      tags:
+        - Data
+      summary: Get latest tick data for a symbol
+      description: Returns the latest bid, ask, and timestamp from Redis L2 cache.
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+          example: XAUUSD
+      responses:
+        '200':
+          description: Latest tick data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
   /api/v1/data/open-interest/upload:
     post:
       summary: Upload Open Interest Matrix Excel

@@ -453,7 +453,7 @@ async def get_economic_calendar(
         query = query.filter(EconomicEvent.datetime <= date_to)
         
     return query.order_by(EconomicEvent.datetime.asc()).all()
-
+    
 @router.post("/news/calendar/sync", response_model=List[EconomicEventResponse])
 async def sync_economic_calendar(
     db: Session = Depends(get_db)
@@ -463,3 +463,45 @@ async def sync_economic_calendar(
     """
     service = NewsApiService()
     return await service.fetch_and_store_calendar(db)
+
+@router.get("/market/tick/{symbol}")
+async def get_latest_tick(
+    symbol: str,
+):
+    """
+    Get the latest tick data for a symbol from Redis L2 cache.
+    """
+    import redis.asyncio as aioredis
+    import os
+    import time
+
+    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    try:
+        r = aioredis.from_url(redis_url, decode_responses=True)
+        # Normalize symbol
+        norm_symbol = symbol.replace("_", "").replace("/", "").upper()
+        cache_key = f"market_data:spot:{norm_symbol}"
+        
+        snapshot = await r.hgetall(cache_key)
+        await r.close()
+        
+        if not snapshot or "bid" not in snapshot:
+            raise HTTPException(status_code=404, detail=f"No tick data found for {symbol}")
+            
+        # Check staleness (optional but helpful)
+        ts = float(snapshot.get("ts", 0))
+        is_active = (time.time() - ts) < 60 # Active if last tick was within 60 seconds
+        
+        return {
+            "symbol": norm_symbol,
+            "bid": float(snapshot["bid"]),
+            "ask": float(snapshot["ask"]),
+            "timestamp": snapshot.get("ts"),
+            "source": snapshot.get("source", "unknown"),
+            "is_active": is_active
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Failed to fetch tick for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
