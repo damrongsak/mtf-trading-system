@@ -1,219 +1,182 @@
 #!/usr/bin/env python3
 """
-XAUUSD SMC Signal Monitor
-=========================
-Monitors XAUUSD and sends signals via Olympus Telegram.
+XAUUSD Signal Monitor - Olympus API
+==========================================
+Gets signals from Olympus API and sends to Telegram.
+Refactored for robustness, async/await, and environment-based config.
 
-Author: Soda
+Author: Soda / Antigravity
 Date: 2026-03-02
 """
 
-import requests
-import time
-import json
-import numpy as np
-import pandas as pd
+import sys
+import os
+import asyncio
+import logging
 from datetime import datetime
-from sqlalchemy import create_engine
+from typing import Dict, Any, Tuple, Optional
+
+import httpx
 
 # ============= CONFIG =============
-DB_URL = "postgresql://trader:trader@localhost:5432/mtf_db"
-API_URL = "http://localhost:8000"
-USERNAME = "trader1"
-PASSWORD = "password123"
-SYMBOL = "XAUUSD"
-TIMEFRAME = "M15"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+USERNAME = os.getenv("USERNAME", "trader1")
+PASSWORD = os.getenv("PASSWORD", "password123")
+SYMBOL = os.getenv("SYMBOL", "XAUUSD")
 
-# Strategy params
-EMA_PERIOD = 20
-ATR_PERIOD = 14
-CHECK_INTERVAL = 900  # 15 minutes
+# Setup logging
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("xauusd-monitor")
 
-# Auth (will refresh)
-token = None
-user_id = None
-
-
-def get_auth():
-    """Get fresh auth token."""
-    global token, user_id
-    resp = requests.post(
-        f"{API_URL}/api/v1/auth/token",
-        data={"username": USERNAME, "password": PASSWORD},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
-    )
-    data = resp.json()
-    token = data['auth']['access_token']
-    user_id = data['data']['id']
-    return token, user_id
-
-
-def send_telegram(message: str):
-    """Send message via Olympus Telegram."""
-    if not token:
-        get_auth()
-    
-    resp = requests.post(
-        f"{API_URL}/api/v1/telegram/send",
-        json={"message": message},
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    return resp.json()
-
-
-def get_latest_price() -> dict:
-    """Get latest XAUUSD price from DB."""
-    engine = create_engine(DB_URL)
-    query = """
-    SELECT c.timestamp, c.open, c.high, c.low, c.close, c.volume
-    FROM candles c
-    JOIN market_symbols m ON c.market_symbol_id = m.id
-    WHERE m.symbol = %s AND c.timeframe = %s
-    ORDER BY c.timestamp DESC
-    LIMIT 1
+class OlympusClient:
     """
-    df = pd.read_sql(query, engine, params=(SYMBOL, TIMEFRAME))
-    if df.empty:
-        return None
-    return df.iloc[0].to_dict()
-
-
-def get_recent_candles(n: int = 50) -> pd.DataFrame:
-    """Get recent candles for analysis."""
-    engine = create_engine(DB_URL)
-    query = """
-    SELECT c.timestamp, c.open, c.high, c.low, c.close, c.volume
-    FROM candles c
-    JOIN market_symbols m ON c.market_symbol_id = m.id
-    WHERE m.symbol = %s AND c.timeframe = %s
-    ORDER BY c.timestamp DESC
-    LIMIT %s
+    Client for interacting with Olympus API.
     """
-    df = pd.read_sql(query, engine, params=(SYMBOL, TIMEFRAME, n))
-    df = df.sort_values('timestamp')
-    return df
+    def __init__(self, api_url: str):
+        self.api_url = api_url.rstrip("/")
+        self.token: Optional[str] = None
+        self.user_id: Optional[str] = None
+        self.client = httpx.AsyncClient(timeout=10.0)
 
+    async def __aenter__(self):
+        return self
 
-def analyze_signal(df: pd.DataFrame) -> dict:
-    """Analyze for SMC signal."""
-    if len(df) < 30:
-        return {'signal': None, 'reason': 'Insufficient data'}
-    
-    # Calculate indicators
-    df = df.copy()
-    df['ema'] = df['close'].ewm(span=EMA_PERIOD, adjust=False).mean()
-    
-    high_low = df['high'] - df['low']
-    high_close = np.abs(df['high'] - df['close'].shift())
-    low_close = np.abs(df['low'] - df['close'].shift())
-    ranges = pd.concat([high_low, high_close, low_close], axis=1)
-    df['atr'] = ranges.max(axis=1).rolling(window=ATR_PERIOD).mean()
-    
-    latest = df.iloc[-1]
-    
-    # Skip if no ATR
-    if pd.isna(latest['atr']) or pd.isna(latest['ema']):
-        return {'signal': None, 'reason': 'No indicators'}
-    
-    # Trend
-    trend_up = latest['close'] > latest['ema']
-    trend_down = latest['close'] < latest['ema']
-    
-    # FVG
-    fvg_bullish = latest['low'] > df.iloc[-3]['high'] if len(df) >= 3 else False
-    fvg_bearish = latest['high'] < df.iloc[-3]['low'] if len(df) >= 3 else False
-    
-    # Momentum
-    momentum_up = latest['close'] > df.iloc[-3]['close'] if len(df) >= 3 else False
-    momentum_down = latest['close'] < df.iloc[-3]['close'] if len(df) >= 3 else False
-    
-    # Signals
-    signal_long = trend_up and fvg_bullish and momentum_up
-    signal_short = trend_down and fvg_bearish and momentum_down
-    
-    if signal_long:
-        entry = latest['close']
-        sl = entry - (latest['atr'] * 2.0)
-        tp = entry + (latest['atr'] * 2.0 * 2.0)
-        return {
-            'signal': 'LONG',
-            'entry': entry,
-            'sl': sl,
-            'tp': tp,
-            'atr': latest['atr'],
-            'ema': latest['ema'],
-            'trend': 'up'
-        }
-    elif signal_short:
-        entry = latest['close']
-        sl = entry + (latest['atr'] * 2.0)
-        tp = entry - (latest['atr'] * 2.0 * 2.0)
-        return {
-            'signal': 'SHORT',
-            'entry': entry,
-            'sl': sl,
-            'tp': tp,
-            'atr': latest['atr'],
-            'ema': latest['ema'],
-            'trend': 'down'
-        }
-    
-    return {'signal': None, 'reason': 'No setup'}
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.client.aclose()
 
+    async def authenticate(self) -> bool:
+        """
+        Authenticate with the Olympus API and store the token.
+        """
+        logger.info(f"Authenticating with {self.api_url} as {USERNAME}...")
+        try:
+            resp = await self.client.post(
+                f"{self.api_url}/api/v1/auth/token",
+                data={"username": USERNAME, "password": PASSWORD},
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            self.token = data['auth']['access_token']
+            self.user_id = data['data']['id']
+            logger.info(f"Successfully authenticated. User ID: {self.user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            return False
 
-def format_signal(msg: dict, price: float) -> str:
-    """Format signal message."""
-    direction = "🟢 LONG" if msg['signal'] == 'LONG' else "🔴 SHORT"
-    
-    return f"""
-{direction} XAUUSD {TIMEFRAME}
+    async def get_latest_signal(self, symbol: str) -> Dict[str, Any]:
+        """
+        Get the latest signal for a specific symbol.
+        """
+        if not self.token:
+            raise ValueError("Not authenticated")
 
-Entry: {msg['entry']:.2f}
-SL:    {msg['sl']:.2f}
-TP:    {msg['tp']:.2f}
+        logger.info(f"Fetching latest signal for {symbol}...")
+        try:
+            resp = await self.client.get(
+                f"{self.api_url}/api/v1/signal/latest/{symbol}",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to fetch signal: {e}")
+            return {"status": "error", "message": str(e)}
 
-📊 Stats:
-• EMA{EMA_PERIOD}: {msg['ema']:.2f}
-• ATR{ATR_PERIOD}: {msg['atr']:.2f}
-• Trend: {msg['trend']}
+    async def send_telegram_message(self, message: str) -> Dict[str, Any]:
+        """
+        Send a message via Olympus Telegram service.
+        """
+        if not self.token:
+            raise ValueError("Not authenticated")
 
-⏰ {datetime.now().strftime('%H:%M %d/%m')}
-"""
+        logger.debug(f"Sending Telegram message...")
+        try:
+            resp = await self.client.post(
+                f"{self.api_url}/api/v1/telegram/send",
+                json={"message": message},
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to send Telegram message: {e}")
+            return {"status": "error", "message": str(e)}
 
+def format_signal(signal_response: Dict[str, Any], symbol: str) -> str:
+    """
+    Format signal data into a readable Telegram message.
+    """
+    data = signal_response.get('data', {})
+    
+    direction = "🟢 LONG" if data.get('direction') == 'LONG' else "🔴 SHORT"
+    entry = data.get('entry_price', 'N/A')
+    sl = data.get('sl_price', 'N/A')
+    tp = data.get('tp_price', 'N/A')
+    reason = data.get('reason', 'No reason provided')
+    strategy = data.get('strategy_name', 'Unknown Strategy')
+    timeframe = data.get('timeframe', 'Unknown TF')
+    freshness = data.get('data_freshness', 'Unknown freshness')
+    
+    msg = (
+        f"{direction} {symbol} {timeframe}\n\n"
+        f"Entry: {entry}\n"
+        f"SL:    {sl}\n"
+        f"TP:    {tp}\n\n"
+        f"📝 {reason}\n\n"
+        f"Strategy: {strategy}\n"
+        f"Data: {freshness}\n\n"
+        f"⏰ {datetime.now().strftime('%H:%M %d/%m')}"
+    )
+    return msg
 
-def main():
-    print("=" * 60)
-    print("XAUUSD SMC Monitor - Starting...")
-    print("=" * 60)
+async def main():
+    logger.info("=" * 40)
+    logger.info("XAUUSD Signal Monitor Starting")
+    logger.info("=" * 40)
     
-    # Initial auth
-    get_auth()
-    print(f"✅ Auth: {user_id}")
-    
-    # Get initial data
-    price = get_latest_price()
-    print(f"📊 Current price: {price['close']}")
-    
-    # Analyze
-    df = get_recent_candles(50)
-    analysis = analyze_signal(df)
-    
-    print(f"\n📈 Analysis: {analysis}")
-    
-    if analysis['signal']:
-        # Send signal
-        message = format_signal(analysis, price['close'])
-        result = send_telegram(message)
-        print(f"\n✅ Signal sent to Telegram!")
-        print(f"   Chat ID: {result.get('chat_id')}")
-        print(f"\n{message}")
-    else:
-        msg = f"🔔 XAUUSD Monitor\n\nNo setup currently.\nPrice: {price['close']}\n\nReason: {analysis['reason']}"
-        send_telegram(msg)
-        print(f"\nℹ️ No signal - {analysis['reason']}")
-    
-    print("\n✅ Monitor cycle complete")
+    async with OlympusClient(API_URL) as client:
+        if not await client.authenticate():
+            logger.error("Exiting due to authentication failure.")
+            return
 
+        # Get latest signal
+        signal_data = await client.get_latest_signal(SYMBOL)
+        
+        if signal_data.get('status') == 'success':
+            data = signal_data.get('data', {})
+            
+            if data.get('direction'):
+                # We have a valid signal
+                message = format_signal(signal_data, SYMBOL)
+                result = await client.send_telegram_message(message)
+                
+                if result.get('status') == 'success':
+                    logger.info("Signal successfully relayed to Telegram.")
+                    print(f"\n{message}\n")
+                else:
+                    logger.error(f"Failed to relay signal: {result}")
+            else:
+                # No active signal
+                logger.info("No active signal found.")
+                status_msg = f"🔔 {SYMBOL}\n\nNo active signal."
+                await client.send_telegram_message(status_msg)
+        else:
+            logger.error(f"API Error: {signal_data.get('message', 'Unknown error')}")
+    
+    logger.info("Monitor task completed.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Monitor stopped by user.")
+    except Exception as e:
+        logger.critical(f"Unhandled exception: {e}", exc_info=True)
+        sys.exit(1)
