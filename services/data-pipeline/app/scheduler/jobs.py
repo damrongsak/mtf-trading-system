@@ -3,7 +3,7 @@ from app.database import SessionLocal
 from app.models.candle import Candle
 from app.repositories.candle_repository import CandleRepository
 from app.repositories.market_repository import MarketRepository
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 import logging
 import json
@@ -256,6 +256,8 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 if candles:
                                     for c in candles:
                                         timestamp = pd.to_datetime(c['time']).to_pydatetime()
+                                        if timestamp.tzinfo is None:
+                                            timestamp = timestamp.replace(tzinfo=timezone.utc)
                                         batch_data.append({
                                             "market_symbol_id": ms.id,
                                             "symbol": symbol_name,
@@ -292,7 +294,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                 tf_mins = minutes_map.get(tf, 1)
                                 count_limit = 100
                                 duration_ms = count_limit * tf_mins * 60 * 1000
-                                to_ts = int(time.time() * 1000)
+                                to_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
                                 from_ts = to_ts - duration_ms
                                 
                                 trendbars = await client.get_trendbars(
@@ -353,7 +355,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                         "market_symbol_id": ms.id,
                                         "symbol": symbol_name,
                                         "timeframe": tf,
-                                        "timestamp": datetime.utcfromtimestamp(bar.utcTimestampInMinutes * 60),
+                                        "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, tz=timezone.utc),
                                         "open": open_p_norm,
                                         "high": high_p_norm,
                                         "low": low_p_norm,
@@ -587,7 +589,7 @@ async def run_trade_sync_job():
                             "swap": str(t_data.get("swap") or 0.0),
                             "gross_pnl": str(t_data.get("gross_pnl") or 0.0),
                             "pnl": str(t_data["pnl_usd"] or 0.0),
-                            "close_time": t_data["exit_timestamp"].isoformat(),
+                            "close_time": t_data["exit_timestamp"].isoformat() if t_data["exit_timestamp"].tzinfo else t_data["exit_timestamp"].replace(tzinfo=timezone.utc).isoformat(),
                             "direction": t_data["direction"],
                             "lot_size": str(t_data["lot_size"])
                         }
@@ -632,7 +634,7 @@ async def run_gvz_sync_job():
             "symbol": "^GVZ",
             "value": latest_value,
             "timestamp": timestamp,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
         publisher = RedisPublisher()

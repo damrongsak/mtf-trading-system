@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import Analysis Logic
 from app.analysis.market_regime import get_market_context
@@ -54,8 +54,8 @@ async def fetch_candles_logic(symbol: str, timeframe: str, limit: int = 200) -> 
         # H1 * 200 = 200 hours ~ 8 days
         # M15 * 200 = 50 hours ~ 2 days
         days = 30 # Fetch enough
-        start_dt = datetime.utcnow() - pd.Timedelta(days=days)
-        end_dt = datetime.utcnow()
+        start_dt = datetime.now(timezone.utc) - pd.Timedelta(days=days)
+        end_dt = datetime.now(timezone.utc)
         
         df = fetch_data_from_db(
             market_symbol_id=market_symbol_id, 
