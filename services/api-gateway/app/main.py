@@ -12,6 +12,7 @@ from app.routers import signal, signals, risk, backtest, strategy, saved_strateg
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
 from app.streaming.manager import stream_manager
+from app.database import SessionLocal
 
 app = FastAPI(
     title="MTF Trading System API",
@@ -30,9 +31,25 @@ async def startup_event():
     except Exception as e:
         print(f"Failed to start scheduler: {e}")
 
+    # Start Telegram Long Polling (if enabled)
+    polling_enabled = os.getenv("TELEGRAM_POLLING_ENABLED", "false").lower() == "true"
+    if polling_enabled:
+        try:
+            from app.services.telegram_polling import TelegramPollingService
+            app.state.telegram_polling = TelegramPollingService(
+                db_session_factory=SessionLocal
+            )
+            await app.state.telegram_polling.start()
+        except Exception as e:
+            logger.error(f"Failed to start Telegram polling: {e}")
+    else:
+        app.state.telegram_polling = None
+
 @app.on_event("shutdown")
 async def shutdown_event():
     await stream_manager.stop()
+    if getattr(app.state, "telegram_polling", None):
+        await app.state.telegram_polling.stop()
 
 # Exception Handlers
 @app.exception_handler(HTTPException)

@@ -5242,4 +5242,136 @@ components:
              type: string
 
 
+  # ============================================================
+  # Telegram Integration (Long Polling — api-gateway)
+  # ============================================================
+
+  /api/v1/telegram/webhook:
+    post:
+      summary: Receive inbound Telegram updates (Webhook mode — legacy, disabled when polling is active)
+      tags: [Telegram]
+      description: >
+        Called by Telegram Bot API when a message arrives. Validates the
+        X-Telegram-Bot-Api-Secret-Token header before processing.
+        **Note:** This endpoint is inactive while TELEGRAM_POLLING_ENABLED=true.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramUpdate'
+      responses:
+        '200':
+          description: Update accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /api/v1/telegram/link:
+    post:
+      summary: Link a Telegram chat_id to the authenticated user
+      tags: [Telegram]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkTelegramRequest'
+      responses:
+        '200':
+          description: Linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkTelegramResponse'
+        '400':
+          description: chat_id already linked to another user
+
+  /api/v1/telegram/status:
+    get:
+      summary: Get Telegram link status for authenticated user
+      tags: [Telegram]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Telegram link status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramStatusResponse'
+
+  /api/v1/telegram/send:
+    post:
+      summary: Send a message to the authenticated user's Telegram chat
+      tags: [Telegram]
+      description: >
+        Used internally by AI Analyst and other services to push notifications
+        to the user's linked Telegram account.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTelegramMessageRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  chat_id:
+                    type: integer
+                  username:
+                    type: string
+        '404':
+          description: No linked Telegram account
+        '503':
+          description: Bot token not configured
+
+  /api/v1/telegram/configure:
+    post:
+      summary: Configure a personal Telegram bot token (BYOK)
+      tags: [Telegram]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigureBotRequest'
+      responses:
+        '200':
+          description: Bot configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigureBotResponse'
+        '400':
+          description: Invalid bot token
+
+  # ============================================================
+  # Telegram Schemas
+  # ============================================================
+
+# (appended at end of components/schemas)
+# Note: add these under the existing `components.schemas` block
+
+  # TelegramUpdate — inbound Telegram webhook payload
+  # TelegramChatMapping — DB entity (see 03_data_model.yaml)
+  # TelegramStatusResponse — polling/link health
 

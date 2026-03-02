@@ -37,6 +37,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - AI_ANALYST_URL=http://ai-analyst:8000
       - PYTHONUNBUFFERED=1
+      # Telegram Long Polling (set to "true" to enable; disables webhook mode)
+      - TELEGRAM_POLLING_ENABLED=true
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     deploy:
       resources:
         limits:

@@ -2001,3 +2001,41 @@ redis_streams:
       - name: last_ingested_at
         type: datetime
         default: "now()"
+
+  # ---
+  # Telegram Integration (Long Polling)
+  # ---
+  TelegramChatMapping:
+    description: >
+      Maps a Telegram chat_id to a registered user account.
+      Used by the api-gateway polling worker to route inbound Telegram messages
+      to the correct user and forward them to the AI Analyst.
+    table_name: "telegram_chat_mappings"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["chat_id"]
+        unique: true
+    fields:
+      - name: id
+        type: integer
+        primary_key: true
+        description: "Auto-increment surrogate key"
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        on_delete: CASCADE
+        required: true
+        description: "Owner of this Telegram mapping"
+      - name: chat_id
+        type: bigint
+        required: true
+        unique: true
+        description: "Telegram chat ID (personal or group)"
+      - name: linked_at
+        type: datetime
+        default: "now()"
+        description: "Timestamp when the account was linked"
+      - name: is_active
+        type: boolean
+        default: true
+        description: "If false, polling worker will ignore this mapping"

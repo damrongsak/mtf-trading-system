@@ -80,7 +80,8 @@ async def send_telegram_message(
     chat_id: int,
     text: str,
     parse_mode: str = "HTML",
-    reply_to_message_id: Optional[int] = None
+    reply_to_message_id: Optional[int] = None,
+    message_thread_id: Optional[int] = None
 ) -> bool:
     """
     Send a message to Telegram with automatic error handling and retries.
@@ -112,6 +113,9 @@ async def send_telegram_message(
             
         if reply_to_message_id:
             payload["reply_to_message_id"] = reply_to_message_id
+            
+        if message_thread_id:
+            payload["message_thread_id"] = message_thread_id
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(telegram_url, json=payload)
@@ -124,10 +128,18 @@ async def send_telegram_message(
             logger.error(f"❌ Telegram API error {response.status_code}: {error_detail}")
             
             if parse_mode and "can't parse" in str(error_detail).lower():
-                return await send_telegram_message(chat_id, text, parse_mode=None, reply_to_message_id=reply_to_message_id)
+                return await send_telegram_message(
+                    chat_id, text, parse_mode=None, 
+                    reply_to_message_id=reply_to_message_id,
+                    message_thread_id=message_thread_id
+                )
             
             if reply_to_message_id and "message to be replied not found" in str(error_detail).lower():
-                return await send_telegram_message(chat_id, text, parse_mode=parse_mode, reply_to_message_id=None)
+                return await send_telegram_message(
+                    chat_id, text, parse_mode=parse_mode, 
+                    reply_to_message_id=None,
+                    message_thread_id=message_thread_id
+                )
             
             return False
             

@@ -56,6 +56,7 @@ class StrategyChatRequest(BaseModel):
     reply_via_telegram: bool = False
     telegram_chat_id: Optional[int] = None
     telegram_message_id: Optional[int] = None  # For reply threading
+    telegram_thread_id: Optional[int] = None   # For forum topics
     thread_id: Optional[str] = None # For LangGraph persistence
 
 
@@ -218,7 +219,8 @@ async def chat_strategy(
                 chat_id=request.telegram_chat_id,
                 text=response_text,
                 parse_mode="HTML",
-                reply_to_message_id=request.telegram_message_id  # Thread the reply
+                reply_to_message_id=None,  # Disable reply threading as per user request
+                message_thread_id=request.telegram_thread_id  # Keep in the same forum topic
             )
         
         return success_response(
