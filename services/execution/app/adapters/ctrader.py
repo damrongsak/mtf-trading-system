@@ -10,6 +10,10 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 
 logger = logging.getLogger(__name__)
 
+from app.database import AsyncSessionLocal
+from app.models import MarketSymbol, DataSource
+from sqlalchemy import select, or_
+
 class CTraderOrderAdapter(BrokerAdapter):
     def __init__(self, client_id: str, client_secret: str, account_id: str, token: str, host: str = "demo.ctraderapi.com"):
         self.host = host
@@ -59,11 +63,14 @@ class CTraderOrderAdapter(BrokerAdapter):
              logger.error(f"cTrader Account Summary Error: {e}")
              raise e
 
-    async def _resolve_symbol_id(self, symbol_name: str) -> int:
-        from app.database import AsyncSessionLocal
-        from app.models import MarketSymbol, DataSource
-        from sqlalchemy import select, or_
-        
+    async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int]:
+        """
+        Returns (symbol_id, lot_size_in_cents).
+        Normalization: 1 Standard Lot = 100,000 'Universal Units'.
+        cTrader volume is in cents.
+        Example Gold: 1 Lot = 100 units = 10,000 cents.
+        Example FX: 1 Lot = 100,000 units = 10,000,000 cents.
+        """
         async with AsyncSessionLocal() as db:
             # Normalize requested symbol
             normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
@@ -93,14 +100,22 @@ class CTraderOrderAdapter(BrokerAdapter):
                 ms = result.scalars().first()
             
             if ms and ms.details:
-                # Check for symbolId in details, handling inconsistent nesting
+                # Check for symbolId and lotSize in details
                 details = ms.details
+                
+                symbol_id = None
                 if "symbolId" in details:
-                    return int(details["symbolId"])
+                    symbol_id = int(details["symbolId"])
                 elif "raw" in details and "symbolId" in details["raw"]:
-                    return int(details["raw"]["symbolId"])
+                    symbol_id = int(details["raw"]["symbolId"])
                 elif "ctrader_symbol_id" in details:
-                    return int(details["ctrader_symbol_id"])
+                    symbol_id = int(details["ctrader_symbol_id"])
+                
+                # Default lot_size to 100,000 units (* 100 cents) = 10,000,000
+                lot_size_cents = int(details.get("lotSize", 10000000))
+                
+                if symbol_id is not None:
+                    return symbol_id, lot_size_cents
             
             raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
 
@@ -115,19 +130,16 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            symbol_id = await self._resolve_symbol_id(symbol)
+            symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
             
-            # cTrader volume is in Cents/Units?
-            # Standard lot = 100,000 units. 
-            # API expects raw units (int64).
-            # units float coming from frontend/strategy is usually units (e.g. 1000 for 0.01 lot of XAU?)
-            # Wait, XAU 1 lot = 100 oz. 0.01 lot = 1 oz.
-            # If input is units = 1, then volume=1?
-            # cTrader documentation says: "Volume in cents". 
-            # Actually ProtoOANewOrderReq.volume: "Volume measured in cents of the base asset".
-            # 1 Unit = 100 cents. So we multiply by 100.
-            volume_cents = int(units * 100)
+            # Universal Units Normalization: 100,000 = 1 Standard Lot
+            # volume_cents = (units / 100,000) * lot_size_cents
+            volume_cents = int((units / 100000.0) * lot_size_cents)
             
+            # Minimum volume check (cTrader requirement)
+            if abs(volume_cents) < 100:
+                volume_cents = 100 if units > 0 else -100
+                
             res = await self.client.create_order(
                 account_id=self.account_id,
                 symbol_id=symbol_id,
@@ -194,11 +206,6 @@ class CTraderOrderAdapter(BrokerAdapter):
             if not position_ids: return []
             
             # Bulk lookup
-            from app.database import AsyncSessionLocal
-            from app.models import MarketSymbol
-            from sqlalchemy import select, cast, String
-            from sqlalchemy.dialects.postgresql import JSONB
-
             symbol_map = {}
             async with AsyncSessionLocal() as db:
                 # Query all symbols where details->>'symbolId' is in our list
@@ -215,10 +222,19 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             for p in reconcile.position:
                 s_name = symbol_map.get(p.symbolId, f"Unknown_{p.symbolId}")
+                # Reverse Normalization: units = (volume_cents / lot_size_cents) * 100,000
+                # We need lot_size_cents for this symbol.
+                # Since we already fetched all symbols, we can find it in all_syms.
+                
+                target_sym = next((s for s in all_syms if s.details and int(s.details.get('symbolId', -1)) == p.symbolId), None)
+                lot_size_cents = int(target_sym.details.get('lotSize', 10000000)) if target_sym else 10000000
+                
+                norm_units = (p.volume / float(lot_size_cents)) * 100000.0
+
                 trades.append({
                     "id": str(p.positionId),
                     "symbol": s_name,
-                    "units": p.volume / 100.0, # Convert back to units
+                    "units": norm_units,
                     "side": "BUY" if p.tradeSide == ProtoOATradeSide.BUY else "SELL",
                     "entry_price": p.price,
                     "current_price": 0.0, # Need spot price...
@@ -243,8 +259,11 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            symbol_id = await self._resolve_symbol_id(symbol)
-            volume_cents = int(units * 100)
+            symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
+            volume_cents = int((units / 100000.0) * lot_size_cents)
+            
+            if abs(volume_cents) < 100:
+                volume_cents = 100 if units > 0 else -100
             
             # Determine Limit vs Stop? 
             # place_limit_order implies LIMIT.
@@ -329,9 +348,6 @@ class CTraderOrderAdapter(BrokerAdapter):
             deal_symbol_ids = set([d.symbolId for d in deals])
             symbol_map = {}
             if deal_symbol_ids:
-                 from app.database import AsyncSessionLocal
-                 from app.models import MarketSymbol, DataSource
-                 from sqlalchemy import select
                  
                  async with AsyncSessionLocal() as db:
                      q = select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
@@ -475,10 +491,15 @@ class CTraderOrderAdapter(BrokerAdapter):
                             
             for o in reconcile.order:
                 s_name = symbol_map.get(o.tradeData.symbolId, f"Unknown_{o.tradeData.symbolId}")
+                
+                target_sym = next((s for s in all_syms if s.details and int(s.details.get('symbolId', -1)) == o.tradeData.symbolId), None)
+                lot_size_cents = int(target_sym.details.get('lotSize', 10000000)) if target_sym else 10000000
+                norm_units = (o.tradeData.volume / float(lot_size_cents)) * 100000.0
+
                 orders.append({
                     "id": str(o.orderId),
                     "instrument": s_name,
-                    "units": o.tradeData.volume / 100.0,
+                    "units": norm_units,
                     "type": str(o.orderType),
                     "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
                     "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None

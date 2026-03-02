@@ -1,12 +1,10 @@
 import asyncio
 import logging
+import uuid
+from datetime import datetime
 from typing import List, Callable, Awaitable
 from app.streaming.adapters.base import StreamAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
-from datetime import datetime
-# from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoOAPayloadType
-from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsReq, ProtoOASpotEvent, ProtoOAExecutionEvent
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATradeSide
 
 logger = logging.getLogger(__name__)
 
@@ -205,8 +203,6 @@ class CTraderStreamer(StreamAdapter):
                 logger.info(f"Real-time Trade Closed Event: {symbol_name} (Deal: {deal.dealId})")
                 
                 # Construct Trade Data (Logic matching jobs.py)
-                import uuid
-                from datetime import datetime
                 from app.database import SessionLocal
                 from app.models.execution import Trade
                 from sqlalchemy.dialects.postgresql import insert

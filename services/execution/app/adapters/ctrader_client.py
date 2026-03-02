@@ -433,10 +433,6 @@ class AsyncCTraderClient:
             res = ProtoOAExecutionEvent()
             res.ParseFromString(resp_msg.payload)
             return res
-        elif resp_msg.payloadType == ProtoOACancelOrderRes().payloadType:
-            res = ProtoOACancelOrderRes()
-            res.ParseFromString(resp_msg.payload)
-            return res
         elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
