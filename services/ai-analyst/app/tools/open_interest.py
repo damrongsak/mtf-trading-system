@@ -6,6 +6,7 @@ from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
 from app.core.base_tool import BaseTool
+from app.core.utils import parse_tool_input
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +25,13 @@ class OpenInterestTool(BaseTool):
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
         # Parse Inputs
-        symbol = "XAUUSD"
-        snapshot_at = None
-        horizon = None # "short", "medium", "long"
+        input_dict = parse_tool_input(input_data)
+        symbol = input_dict.get("symbol", "XAUUSD")
+        snapshot_at = input_dict.get("snapshot_at")
+        horizon = input_dict.get("horizon")
         
-        if isinstance(input_data, dict):
-            symbol = input_data.get("symbol", symbol)
-            snapshot_at = input_data.get("snapshot_at")
-            horizon = input_data.get("horizon")
-        elif isinstance(input_data, str) and input_data.strip():
-            if input_data.startswith("{"):
-                try:
-                    data = json.loads(input_data)
-                    symbol = data.get("symbol", symbol)
-                    snapshot_at = data.get("snapshot_at")
-                    horizon = data.get("horizon")
-                except: pass
-            else:
-                symbol = input_data.strip().upper()
+        if not symbol or symbol == "{": # safety check for failed parse
+             symbol = "XAUUSD"
 
         # Map horizon to term
         horizon_map = {

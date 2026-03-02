@@ -7,15 +7,6 @@ from app.utils.response import success_response
 from pydantic import BaseModel
 
 # We need access to the services. 
-# Best practice is dependency injection, but for this refactor we'll import the global services dict 
-# or pass it. Importing from main creates circular dependency.
-# Solution: Create a dependencies.py or access via request.app.state (but we used global dict).
-# For now, we will move the 'services' dict to a shared module 'app.core.services' or similar.
-# OR, simpler for this specific refactor: We can keep services in main and use a getter or 
-# since we are inside the same app structure, we can verify if we can import.
-# A circular import is likely if we import 'services' from main.
-# Let's extract 'services' to app/core/globals.py first.
-
 from app.core.globals import services
 
 router = APIRouter(
@@ -35,7 +26,13 @@ async def analyze_market(request: MarketAnalysisRequest):
     context = request.model_dump()
     insight = await services["gemini"].generate_market_outlook(context)
     
-    return success_response(data={"insight": insight})
+    # Return directly to match AnalysisResponse schema (no nesting)
+    return {
+        "status": "success",
+        "insight": insight,
+        "message": "Operation completed successfully",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 @router.post("/journal", response_model=AnalysisResponse)
 async def analyze_journal(request: JournalAnalysisRequest):
@@ -53,7 +50,13 @@ async def analyze_journal(request: JournalAnalysisRequest):
 
     insight = await services["gemini"].analyze_journal_entry(request.entry_content, similar_entries, user_id=request.user_id)
     
-    return success_response(data={"insight": insight})
+    # Return directly to match AnalysisResponse schema
+    return {
+        "status": "success",
+        "insight": insight,
+        "message": "Operation completed successfully",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 @router.post("/smc-narrative", response_model=AnalysisResponse)
 async def analyze_smc_narrative(request: SMCNarrativeRequest):
@@ -62,7 +65,13 @@ async def analyze_smc_narrative(request: SMCNarrativeRequest):
     
     insight = await services["gemini"].generate_smc_narrative(request.smc_data, request.price_context)
     
-    return success_response(data={"insight": insight})
+    # Return directly to match AnalysisResponse schema
+    return {
+        "status": "success",
+        "insight": insight,
+        "message": "Operation completed successfully",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 class AnalysisRequest(BaseModel):
     symbol: str = "XAU/USD"

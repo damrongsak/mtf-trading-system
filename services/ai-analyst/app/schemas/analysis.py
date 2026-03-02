@@ -14,5 +14,7 @@ class JournalAnalysisRequest(BaseModel):
     user_id: str # Required for RAG isolation
 
 class AnalysisResponse(BaseModel):
+    status: str = "success"
     insight: str
+    message: str = "Operation completed successfully"
     timestamp: str

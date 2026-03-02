@@ -260,6 +260,22 @@ class ExecutionClient:
                 logger.error(f"Failed to amend position: {e}", exc_info=True)
                 raise
 
+    async def sync_trades(self, broker_account_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Syncing trades for {broker_account_id} at {EXECUTION_SERVICE_URL}/trades/sync")
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/trades/sync", 
+                    json={"broker_account_id": str(broker_account_id)}, 
+                    headers=self._get_headers(),
+                    timeout=60.0
+                )
+                resp.raise_for_status()
+                return resp.json().get("data", {})
+            except Exception as e:
+                logger.error(f"Failed to sync trades: {e}", exc_info=True)
+                raise
+
 
 
 strategy_client = StrategyClient()

@@ -4,6 +4,7 @@ from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 from app.core.base_tool import BaseTool
 from app.core.config import settings
+from app.core.utils import parse_tool_input
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,9 @@ class RiskMapTool(BaseTool):
     args_schema: Any = RiskMapInput
 
     async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
-        symbol = input_data.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
-        timeframe = input_data.get("timeframe", "H1")
+        input_dict = parse_tool_input(input_data)
+        symbol = input_dict.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
+        timeframe = input_dict.get("timeframe", "H1")
 
         headers = {}
         if auth_token:

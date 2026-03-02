@@ -6,7 +6,8 @@ from app.database import get_db
 from app.security import get_current_user
 from app.models.trade import Trade, TradeStatus
 from app.models.broker_account import BrokerAccount
-from app.models.user_fund import Fund, UserFund, User, UserRole
+from app.models.user_fund import Fund, UserFund, UserRole
+from app.models.user import User
 import uuid
 
 @pytest.fixture

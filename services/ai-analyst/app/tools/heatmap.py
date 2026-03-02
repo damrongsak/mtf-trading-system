@@ -6,6 +6,7 @@ from typing import Any, Optional
 import aiohttp
 from app.core.config import settings
 from app.core.base_tool import BaseTool
+from app.core.utils import parse_tool_input
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,9 @@ class LiquidityHeatmapTool(BaseTool):
 
     async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
-        symbol = "XAUUSD"
         
-        if isinstance(input_data, dict):
-            symbol = input_data.get("symbol", symbol)
+        input_dict = parse_tool_input(input_data)
+        symbol = input_dict.get("symbol", "XAUUSD")
         
         headers = {}
         if auth_token:

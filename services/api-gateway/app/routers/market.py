@@ -10,6 +10,7 @@ from app.models.candle import Candle
 from app.schemas.response import APIResponse, ResponseStatus
 from app.utils.response import success_response
 from pydantic import BaseModel, ConfigDict
+from app.utils.symbol_utils import normalize_symbol
 
 router = APIRouter(
     tags=["market"]
@@ -41,8 +42,10 @@ async def get_candles(
     from app.models.market import MarketSymbol
     from app.models.data_source import DataSource
     
+    symbol_norm = normalize_symbol(symbol)
+    
     ms = db.query(MarketSymbol).join(DataSource).filter(
-        (MarketSymbol.symbol == symbol) | (MarketSymbol.symbol == symbol.replace("/", "_")),
+        (MarketSymbol.symbol == symbol_norm) | (MarketSymbol.symbol == symbol),
         DataSource.name == data_source
     ).first()
     

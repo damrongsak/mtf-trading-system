@@ -5,6 +5,11 @@ from datetime import datetime
 from typing import List, Callable, Awaitable
 from app.streaming.adapters.base import StreamAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
+from ctrader_open_api.messages.OpenApiMessages_pb2 import *
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
+from app.database import SessionLocal
+from app.models.execution import Trade
+from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
 
@@ -203,10 +208,6 @@ class CTraderStreamer(StreamAdapter):
                 logger.info(f"Real-time Trade Closed Event: {symbol_name} (Deal: {deal.dealId})")
                 
                 # Construct Trade Data (Logic matching jobs.py)
-                from app.database import SessionLocal
-                from app.models.execution import Trade
-                from sqlalchemy.dialects.postgresql import insert
-                
                 money_divisor = 100.0
                 units = deal.volume / 100.0
                 # We don't have lot_size_divisor here easily, but we can default to 100k or try to fetch it.

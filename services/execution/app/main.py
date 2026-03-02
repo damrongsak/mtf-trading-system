@@ -679,8 +679,9 @@ async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession =
         else:
             raise HTTPException(status_code=501, detail="Broker adapter does not support cancellation")
 
-    except HTTPException as he:
-        raise he
+    except ValueError as ve:
+        logger.warning(f"Order not found for cancellation: {order_id}")
+        raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         logger.error(f"Cancel Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -710,6 +711,9 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
         else:
             raise HTTPException(status_code=501, detail="Broker adapter does not support order amendment")
 
+    except ValueError as ve:
+        logger.warning(f"Order not found for amendment: {order_id}")
+        raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         logger.error(f"Amend Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -737,6 +741,9 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
         else:
             raise HTTPException(status_code=501, detail="Broker adapter does not support position amendment")
 
+    except ValueError as ve:
+        logger.warning(f"Position not found for amendment: {position_id}")
+        raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
         logger.error(f"Amend Position Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import redis.asyncio as redis
 from app.core.config import settings
 from app.core.base_tool import BaseTool
+from app.core.utils import parse_tool_input
 
 logger = logging.getLogger(__name__)
 
@@ -91,17 +92,14 @@ class GetEconomicCalendarTool(BaseTool):
         return "\n".join(summary) if summary else "No events match the criteria."
 
     async def run(self, input_data: Any, auth_token: str = None, request_id: str = None):
-        currency = None
-        impact = None
-        days = 7
+        input_dict = parse_tool_input(input_data)
+        currency = input_dict.get("currency")
+        impact = input_dict.get("impact")
+        days = input_dict.get("days", 7)
         
-        if isinstance(input_data, dict):
-            currency = input_data.get("currency")
-            impact = input_data.get("impact")
-            days = input_data.get("days", 7)
-        elif isinstance(input_data, str) and input_data:
-            # Simple heuristic if string is passed
-            currency = input_data.upper()
+        if not currency and isinstance(input_data, str) and len(input_data) <= 5:
+             # Handle raw "USD" string case if parse_tool_input didn't quite capture it as currency
+             currency = input_data.upper()
         
         events = None
         source = "API"

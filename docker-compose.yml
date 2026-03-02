@@ -95,7 +95,7 @@ services:
   tick-streamer:
     build: ./services/data-pipeline
     container_name: tick-streamer
-    entrypoint: /app/scripts/entrypoint.sh
+    entrypoint: /app/scripts/entrypoint-stream.sh
     command: python run_stream.py
     volumes:
       - ./services/data-pipeline:/app

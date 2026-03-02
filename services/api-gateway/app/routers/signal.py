@@ -12,6 +12,7 @@ import httpx
 import os
 import asyncio
 import logging
+from app.utils.symbol_utils import normalize_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ async def get_latest_signal(symbol: str, timeframe: str = "H1"):
     3. Analyze using Strategy Core (SMC)
     4. Determine Signal
     """
-    symbol_norm = symbol.upper()
+    symbol_norm = normalize_symbol(symbol)
     cache_key = f"{symbol_norm}:{timeframe}"
     
     # 1. Buffer Check

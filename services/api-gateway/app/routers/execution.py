@@ -16,6 +16,7 @@ from datetime import datetime
 import logging
 import asyncio
 import traceback
+from app.utils.symbol_utils import normalize_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,40 @@ async def get_account_summary(
         # Improve error handling (e.g. 503 if services down)
         logger.error(f"Error fetching account summary: {e}")
         logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/accounts/{account_id}/summary")
+async def get_account_summary_by_id(
+    account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Spec-aligned path for account summary"""
+    return await get_account_summary(account_id=account_id, db=db, current_user=current_user)
+
+@router.post("/accounts/{account_id}/sync")
+async def sync_account_trades(
+    account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Spec-aligned path to sync trades from broker"""
+    try:
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        result = await execution_client.sync_trades(str(account.id))
+        return success_response(data=result, message="Sync command sent")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error syncing trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/orders")
@@ -101,6 +136,8 @@ async def place_order(
                 logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
                 
         return success_response(data=execution_result, message="Order placed successfully")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error placing order: {e}")
         logger.error(traceback.format_exc())
@@ -168,7 +205,7 @@ async def close_all_trades(
     """
     try:
         broker_account_id = payload.get("broker_account_id")
-        symbol = payload.get("symbol")
+        symbol = normalize_symbol(payload.get("symbol")) if payload.get("symbol") else None
         
         if not broker_account_id:
             raise HTTPException(status_code=400, detail="broker_account_id is required")
@@ -280,6 +317,24 @@ async def get_open_trades(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/trades/open")
+async def get_open_trades_get(
+    broker_account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Spec-aligned GET path for open trades"""
+    return await get_open_trades(payload={"broker_account_id": broker_account_id}, db=db, current_user=current_user)
+
+# Alias for /api/v1/execution/trades/open (spec uses plural but frontend might use /positions)
+@router.get("/positions")
+async def get_open_positions_alias(
+    broker_account_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await get_open_trades(payload={"broker_account_id": broker_account_id}, db=db, current_user=current_user)
+
 @router.get("/trades")
 async def get_trades(
     status: str = "OPEN",
@@ -332,6 +387,7 @@ async def get_trades(
 
     # Additional Filters
     if symbol:
+        symbol = normalize_symbol(symbol)
         query = query.filter(Trade.symbol.ilike(f"%{symbol}%"))
     
     if from_date:
@@ -535,3 +591,13 @@ async def amend_position(
     except Exception as e:
         logger.error(f"Error amending position: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/trades/{trade_id}/amend")
+async def amend_trade_spec(
+    trade_id: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Spec-aligned path for position amendment"""
+    return await amend_position(position_id=trade_id, payload=payload, db=db, current_user=current_user)
