@@ -475,3 +475,63 @@ async def place_smart_order(
              
         logger.error(f"Smart Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/orders/{order_id}")
+async def amend_order(
+    order_id: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        broker_account_id = payload.get("broker_account_id")
+        if not broker_account_id:
+            raise HTTPException(status_code=400, detail="broker_account_id is required")
+            
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        result = await execution_client.amend_order(order_id, payload)
+        return success_response(data=result, message="Order amendment command sent")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error amending order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/positions/{position_id}")
+async def amend_position(
+    position_id: str,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        broker_account_id = payload.get("broker_account_id")
+        if not broker_account_id:
+            raise HTTPException(status_code=400, detail="broker_account_id is required")
+            
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        result = await execution_client.amend_position(position_id, payload)
+        return success_response(data=result, message="Position amendment command sent")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error amending position: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

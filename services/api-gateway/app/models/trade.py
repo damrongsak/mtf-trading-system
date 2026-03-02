@@ -14,6 +14,7 @@ from app.database import Base
 class TradeStatus(enum.Enum):
     """Trade execution status"""
     OPEN = "OPEN"
+    PENDING = "PENDING"
     CLOSED = "CLOSED"
     REJECTED = "REJECTED"
 

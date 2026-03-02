@@ -468,19 +468,25 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            volume_cents = None
-            if units is not None:
-                # We need lot_size for normalization. 
-                # Since we don't have symbol name here, we must fetch order details first.
-                orders = await self.get_pending_orders()
-                target_order = next((o for o in orders if o["id"] == str(order_id)), None)
-                if not target_order:
-                    raise ValueError(f"Order {order_id} not found to amend units")
-                
-                # Resolve lot size for this symbol
-                _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
-                volume_cents = int((units / 100000.0) * lot_size_cents)
+            # Fetch order details to get current volume and instrument
+            orders = await self.get_pending_orders()
+            target_order = next((o for o in orders if o["id"] == str(order_id)), None)
+            if not target_order:
+                raise ValueError(f"Order {order_id} not found to amend")
             
+            # Resolve lot size for this symbol
+            _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
+            
+            if units is not None:
+                volume_cents = int((units / 100000.0) * lot_size_cents)
+            else:
+                # Use current raw volume from the order
+                volume_cents = target_order.get("raw_volume")
+            
+            if price is None:
+                # Use current price from the order
+                price = target_order.get("price")
+
             res = await self.client.amend_order(
                 account_id=self.account_id,
                 order_id=int(order_id),
@@ -554,6 +560,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "id": str(o.orderId),
                     "instrument": s_name,
                     "units": norm_units,
+                    "raw_volume": o.tradeData.volume,
                     "type": str(o.orderType),
                     "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
                     "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None

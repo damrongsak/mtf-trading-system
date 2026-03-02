@@ -27,13 +27,16 @@ class TradeService:
         direction = TradeDirection.LONG if units > 0 else TradeDirection.SHORT
         logger.debug(f"Determined direction: {direction} from units: {units}")
         
+        order_type = request_data.get("order_type", "MARKET")
+        status = TradeStatus.OPEN if order_type == "MARKET" else TradeStatus.PENDING
+        
         # Create Trade Record
         trade = Trade(
             trade_id=uuid.uuid4(),
             symbol=request_data.get("symbol"),
             strategy_name="Manual Execution", # Default for manual trades
             signal_timestamp=datetime.now(timezone.utc),
-            status=TradeStatus.OPEN,
+            status=status,
             direction=direction,
             entry_price=float(execution_data.get("price", 0)), # Actual fill price
             sl_price=request_data.get("sl_price"),

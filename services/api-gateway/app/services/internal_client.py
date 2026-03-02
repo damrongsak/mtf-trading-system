@@ -81,12 +81,22 @@ class StrategyClient:
                 logger.error(f"Stop strategy failed: {e}", exc_info=True)
                 raise
 
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev_secret_key")
+
 class ExecutionClient:
+    def _get_headers(self) -> Dict[str, str]:
+        return {"X-Internal-API-Key": INTERNAL_API_KEY}
+
     async def get_account_summary(self, broker_account_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary for {broker_account_id}")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/account/summary", json={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/account/summary", 
+                    json={"broker_account_id": str(broker_account_id)}, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
@@ -101,7 +111,12 @@ class ExecutionClient:
                     **order_data
                 }
                 logger.info(f"Placing order at {EXECUTION_SERVICE_URL}/orders")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/orders", json=payload, timeout=30.0)
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/orders", 
+                    json=payload, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data")
             except Exception as e:
@@ -112,7 +127,12 @@ class ExecutionClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Fetching open trades from {EXECUTION_SERVICE_URL}/trades/open")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/open", json={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/trades/open", 
+                    json={"broker_account_id": str(broker_account_id)}, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", [])
             except Exception as e:
@@ -128,7 +148,12 @@ class ExecutionClient:
                     "units": units
                 }
                 logger.info(f"Closing trade {trade_id} at {EXECUTION_SERVICE_URL}/trades/close")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/close", json=payload, timeout=30.0)
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/trades/close", 
+                    json=payload, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
@@ -139,7 +164,12 @@ class ExecutionClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Placing smart order at {EXECUTION_SERVICE_URL}/smart-orders")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/smart-orders", json=smart_order_data, timeout=30.0)
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/smart-orders", 
+                    json=smart_order_data, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
@@ -149,9 +179,13 @@ class ExecutionClient:
     async def cancel_order(self, order_id: str, broker_account_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                # execution service expects broker_account_id as query param for DELETE
                 logger.info(f"Cancelling order {order_id} at {EXECUTION_SERVICE_URL}/orders/{order_id}")
-                resp = await client.delete(f"{EXECUTION_SERVICE_URL}/orders/{order_id}", params={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp = await client.delete(
+                    f"{EXECUTION_SERVICE_URL}/orders/{order_id}", 
+                    params={"broker_account_id": str(broker_account_id)}, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
@@ -161,9 +195,13 @@ class ExecutionClient:
     async def get_pending_orders(self, broker_account_id: str) -> List[Dict[str, Any]]:
         async with httpx.AsyncClient() as client:
             try:
-                # execution service expects broker_account_id as query param for GET /orders
                 logger.info(f"Fetching pending orders from {EXECUTION_SERVICE_URL}/orders")
-                resp = await client.get(f"{EXECUTION_SERVICE_URL}/orders", params={"broker_account_id": str(broker_account_id)}, timeout=30.0)
+                resp = await client.get(
+                    f"{EXECUTION_SERVICE_URL}/orders", 
+                    params={"broker_account_id": str(broker_account_id)}, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", [])
             except Exception as e:
@@ -178,11 +216,48 @@ class ExecutionClient:
                     payload["symbol"] = symbol
                     
                 logger.info(f"Closing all trades for {broker_account_id} at {EXECUTION_SERVICE_URL}/trades/close-all")
-                resp = await client.post(f"{EXECUTION_SERVICE_URL}/trades/close-all", json=payload, timeout=60.0) # Longer timeout
+                resp = await client.post(
+                    f"{EXECUTION_SERVICE_URL}/trades/close-all", 
+                    json=payload, 
+                    headers=self._get_headers(),
+                    timeout=60.0
+                )
                 resp.raise_for_status()
                 return resp.json().get("data", {})
             except Exception as e:
                 logger.error(f"Failed to close all trades: {e}", exc_info=True)
+                raise
+
+    async def amend_order(self, order_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Amending order {order_id} at {EXECUTION_SERVICE_URL}/orders/{order_id}")
+                resp = await client.put(
+                    f"{EXECUTION_SERVICE_URL}/orders/{order_id}", 
+                    json=payload, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
+                resp.raise_for_status()
+                return resp.json().get("data", {})
+            except Exception as e:
+                logger.error(f"Failed to amend order: {e}", exc_info=True)
+                raise
+
+    async def amend_position(self, position_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"Amending position {position_id} at {EXECUTION_SERVICE_URL}/positions/{position_id}")
+                resp = await client.put(
+                    f"{EXECUTION_SERVICE_URL}/positions/{position_id}", 
+                    json=payload, 
+                    headers=self._get_headers(),
+                    timeout=30.0
+                )
+                resp.raise_for_status()
+                return resp.json().get("data", {})
+            except Exception as e:
+                logger.error(f"Failed to amend position: {e}", exc_info=True)
                 raise
 
 

@@ -464,6 +464,10 @@ class AsyncCTraderClient:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Amend Order Error: {error.errorCode} - {error.description}")
+        elif resp_msg.payloadType == ProtoOAOrderErrorEvent().payloadType:
+             error = ProtoOAOrderErrorEvent()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Amend Order Error: {error.errorCode} - {error.description} (Order {error.orderId})")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
@@ -487,6 +491,10 @@ class AsyncCTraderClient:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Amend Position Error: {error.errorCode} - {error.description}")
+        elif resp_msg.payloadType == ProtoOAOrderErrorEvent().payloadType:
+             error = ProtoOAOrderErrorEvent()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Amend Position Error: {error.errorCode} - {error.description} (Position {error.positionId})")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Body
+from fastapi import FastAPI, HTTPException, Depends, Body, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
@@ -27,6 +27,19 @@ from app.core.scheduler import scheduler
 from app.services.equity_guardian import EquityGuardian
 from app.core.config import settings
 import redis.asyncio as redis
+from fastapi.security import APIKeyHeader
+
+# Security
+API_KEY_NAME = "X-Internal-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def verify_internal_api_key(api_key: str = Depends(api_key_header)):
+    if not api_key or api_key != settings.INTERNAL_API_KEY:
+        raise HTTPException(
+            status_code=403,
+            detail="Could not validate credentials for internal service access",
+        )
+    return api_key
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO)
@@ -123,7 +136,7 @@ class OrderResponse(BaseModel):
     time: str
 
 @app.post("/account/summary", response_model=APIResponse[AccountSummaryResponse])
-async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Depends(get_db)):
+async def get_account_summary(authenticated: str = Depends(verify_internal_api_key), req: AccountSummaryRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         try:
             account_uuid = uuid.UUID(req.broker_account_id)
@@ -154,7 +167,7 @@ async def get_account_summary(req: AccountSummaryRequest, db: AsyncSession = Dep
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/orders", response_model=APIResponse[OrderResponse], status_code=201)
-async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
+async def place_order(authenticated: str = Depends(verify_internal_api_key), req: OrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         try:
             account_uuid = uuid.UUID(req.broker_account_id)
@@ -241,7 +254,8 @@ async def place_order(req: OrderRequest, db: AsyncSession = Depends(get_db)):
 
 @app.get("/orders", response_model=APIResponse[List[OrderResponse]])
 async def get_pending_orders_list(
-    broker_account_id: str,
+    authenticated: str = Depends(verify_internal_api_key),
+    broker_account_id: str = None,
     db: AsyncSession = Depends(get_db)
 ):
     try:
@@ -292,7 +306,8 @@ class CancelOrderRequest(BaseModel):
 
 @app.delete("/orders")
 async def cancel_pending_orders(
-    broker_account_id: str, 
+    authenticated: str = Depends(verify_internal_api_key),
+    broker_account_id: str = None, 
     symbol: Optional[str] = None, 
     db: AsyncSession = Depends(get_db)
 ):
@@ -356,7 +371,7 @@ async def cancel_pending_orders(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/trades/open")
-async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_db)):
+async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
         try:
             account_uuid = uuid.UUID(req.broker_account_id)
@@ -385,7 +400,7 @@ async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/trades/close")
-async def close_trade(req: CloseTradeRequest, db: AsyncSession = Depends(get_db)):
+async def close_trade(authenticated: str = Depends(verify_internal_api_key), req: CloseTradeRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         try:
             account_uuid = uuid.UUID(req.broker_account_id)
@@ -477,7 +492,7 @@ class SyncTradesRequest(BaseModel):
     lookback_days: int = Field(30, ge=1, le=365)
 
 @app.post("/trades/sync")
-async def sync_trades(req: SyncTradesRequest, db: AsyncSession = Depends(get_db)):
+async def sync_trades(authenticated: str = Depends(verify_internal_api_key), req: SyncTradesRequest = Body(...), db: AsyncSession = Depends(get_db)):
     """
     Import historical closed trades from broker.
     Uses deterministic UUIDs based on AccountID + BrokerTradeID to prevent duplicates.
@@ -602,7 +617,7 @@ async def get_accounts(db: AsyncSession = Depends(get_db)):
     return success_response(data=data)
 
 @app.post("/smart-orders", response_model=APIResponse[OrderResponse])
-async def place_smart_order(req: SmartOrderRequest, db: AsyncSession = Depends(get_db)):
+async def place_smart_order(authenticated: str = Depends(verify_internal_api_key), req: SmartOrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         req_data = req.dict()
         result = await OrderService.execute_smart_order(req_data, db)
@@ -623,16 +638,22 @@ class AmendOrderRequest(BaseModel):
     broker_account_id: str
     units: Optional[float] = None
     price: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    stop_loss: Optional[float] = Field(None, alias="sl_price")
+    take_profit: Optional[float] = Field(None, alias="tp_price")
+
+    class Config:
+        allow_population_by_field_name = True
 
 class AmendPositionRequest(BaseModel):
     broker_account_id: str
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    stop_loss: Optional[float] = Field(None, alias="sl_price")
+    take_profit: Optional[float] = Field(None, alias="tp_price")
+
+    class Config:
+        allow_population_by_field_name = True
 
 @app.delete("/orders/{order_id}")
-async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db)):
+async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
         try:
             account_uuid = uuid.UUID(broker_account_id)
@@ -665,7 +686,7 @@ async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession =
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/orders/{order_id}")
-async def amend_order(order_id: str, req: AmendOrderRequest, db: AsyncSession = Depends(get_db)):
+async def amend_order(authenticated: str = Depends(verify_internal_api_key), order_id: str = Path(...), req: AmendOrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         account_uuid = uuid.UUID(req.broker_account_id)
         result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
@@ -694,7 +715,7 @@ async def amend_order(order_id: str, req: AmendOrderRequest, db: AsyncSession = 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/positions/{position_id}")
-async def amend_position(position_id: str, req: AmendPositionRequest, db: AsyncSession = Depends(get_db)):
+async def amend_position(authenticated: str = Depends(verify_internal_api_key), position_id: str = Path(...), req: AmendPositionRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
         account_uuid = uuid.UUID(req.broker_account_id)
         result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
@@ -725,7 +746,7 @@ class CloseAllTradesRequest(BaseModel):
     symbol: Optional[str] = None
 
 @app.post("/trades/close-all")
-async def close_all_trades(req: CloseAllTradesRequest, db: AsyncSession = Depends(get_db)):
+async def close_all_trades(req: CloseAllTradesRequest, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
         try:
             account_uuid = uuid.UUID(req.broker_account_id)
