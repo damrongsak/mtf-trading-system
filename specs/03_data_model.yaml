@@ -1675,6 +1675,11 @@ validation_rules:
         precision: 18
         scale: 8
         nullable: true
+      - name: underlying_contract_symbol
+        type: string
+        max_length: 50
+        nullable: true
+        description: "The specific futures contract symbol (e.g. GCJ6) for this option"
       - name: created_at
         type: datetime
         default: "now()"

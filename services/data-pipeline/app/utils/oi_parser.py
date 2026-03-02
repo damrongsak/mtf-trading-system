@@ -23,42 +23,48 @@ class OpenInterestParser:
         # Determine snapshot timestamp
         if not snapshot_at:
             try:
-                # Assuming sheet name is like "Tue, Oct 21, 2025"
+                # Assuming sheet name is like "Tue, Oct 21, 2025" or "Fri, Feb 27, 2026"
                 snapshot_at = datetime.strptime(sheet.title, "%a, %b %d, %Y")
             except ValueError as e:
                 logger.warning(f"Could not parse date from sheet name '{sheet.title}': {e}. Using current time.")
                 snapshot_at = datetime.utcnow()
 
-        # Find Header Row
-        header_row_idx = -1
+        # Find "futures" and "strike" rows
+        futures_row_idx = -1
+        strike_row_idx = -1
         strike_col_idx = -1
         
-        # Scan first 20 rows for "Strike"
+        # Scan first 20 rows
         for r_idx, row in enumerate(sheet.iter_rows(max_row=20), 1):
             for c_idx, cell in enumerate(row, 1):
                 val = str(cell.value).strip().lower() if cell.value is not None else ""
-                if val == "strike":
-                    header_row_idx = r_idx
+                if val == "futures":
+                    futures_row_idx = r_idx
+                elif val == "strike":
+                    strike_row_idx = r_idx
                     strike_col_idx = c_idx
-                    break
-            if header_row_idx != -1:
+            if strike_row_idx != -1:
                 break
                 
-        if header_row_idx == -1:
+        if strike_row_idx == -1:
             raise ValueError("Could not find 'Strike' column in Excel file.")
 
-        # Parse Columns (Headers are in header_row_idx and header_row_idx + 1)
-        # We need the values for all cells in those two rows
-        header_row = list(sheet.iter_rows(min_row=header_row_idx, max_row=header_row_idx, values_only=True))[0]
-        sub_header_row = list(sheet.iter_rows(min_row=header_row_idx + 1, max_row=header_row_idx + 1, values_only=True))[0]
+        # If futures row not found specifically, assume it's right above strike row
+        if futures_row_idx == -1 and strike_row_idx > 1:
+            futures_row_idx = strike_row_idx - 1
+
+        # Parse Headers
+        futures_row = list(sheet.iter_rows(min_row=futures_row_idx, max_row=futures_row_idx, values_only=True))[0]
+        strike_row = list(sheet.iter_rows(min_row=strike_row_idx, max_row=strike_row_idx, values_only=True))[0]
+        sub_header_row = list(sheet.iter_rows(min_row=strike_row_idx + 1, max_row=strike_row_idx + 1, values_only=True))[0]
         
-        col_map = OpenInterestParser._map_columns(header_row, sub_header_row, strike_col_idx)
+        col_map = OpenInterestParser._map_columns_v2(futures_row, strike_row, sub_header_row, strike_col_idx)
 
         # Extract Records
         records = []
         # Data starts after sub-header
-        for row in sheet.iter_rows(min_row=header_row_idx + 2, values_only=True):
-            strike_val = row[strike_col_idx - 1] # 0-indexed in values_only tuple
+        for row in sheet.iter_rows(min_row=strike_row_idx + 2, values_only=True):
+            strike_val = row[strike_col_idx - 1] # 0-indexed
             try:
                 if strike_val is None: continue
                 strike = float(strike_val)
@@ -71,45 +77,64 @@ class OpenInterestParser:
                 records.append({
                     'snapshot_at': snapshot_at,
                     'contract_symbol': symbol,
+                    'underlying_contract_symbol': data['underlying_symbol'],
                     'dte': data['dte'],
                     'strike': strike,
                     'call_oi': data['call'],
                     'put_oi': data['put'],
-                    'underlying_price': underlying_price,
+                    'underlying_price': data['underlying_price'] or underlying_price,
                     'created_at': datetime.utcnow()
                 })
                 
         return records, snapshot_at
 
     @staticmethod
-    def _map_columns(header_row: List[Any], sub_header_row: List[Any], strike_col_idx: int) -> Dict[int, Dict[str, Any]]:
+    def _map_columns_v2(futures_row: List[Any], strike_row: List[Any], sub_header_row: List[Any], strike_col_idx: int) -> Dict[int, Dict[str, Any]]:
         col_map = {}
-        # strike_col_idx is 1-indexed from loop
         strike_0_idx = strike_col_idx - 1
         
+        current_underlying_symbol = None
+        current_underlying_price = None
         current_contract = None
         current_dte = 0
         
-        for col_idx, (header_val, sub_header_val) in enumerate(zip(header_row, sub_header_row)):
+        for col_idx in range(len(strike_row)):
             if col_idx == strike_0_idx:
                 continue
             
-            h_val = str(header_val).strip() if header_val is not None else ""
-            sh_val = str(sub_header_row[col_idx]).strip() if sub_header_row[col_idx] is not None else ""
+            f_val = str(futures_row[col_idx]).strip() if col_idx < len(futures_row) and futures_row[col_idx] is not None else ""
+            s_val = str(strike_row[col_idx]).strip() if col_idx < len(strike_row) and strike_row[col_idx] is not None else ""
+            sh_val = str(sub_header_row[col_idx]).strip() if col_idx < len(sub_header_row) and sub_header_row[col_idx] is not None else ""
 
-            # Update current contract if we find a new header
-            if h_val:
-                match = re.search(r"([A-Z0-9]+)[\s\n\r]*(\d+)\s*DTE", h_val, re.IGNORECASE)
-                if match:
-                    current_contract = match.group(1)
-                    current_dte = int(match.group(2))
+            # Update underlying info from futures row (e.g., "GCJ6\n5361.2")
+            if f_val and f_val.lower() != 'futures':
+                f_lines = f_val.split('\n')
+                current_underlying_symbol = f_lines[0].strip()
+                if len(f_lines) > 1:
+                    try:
+                        current_underlying_price = float(f_lines[1].strip())
+                    except:
+                        pass
+
+            # Update option info from strike row (e.g., "OGJ6\n25 DTE")
+            if s_val and s_val.lower() != 'strike':
+                s_lines = s_val.split('\n')
+                current_contract = s_lines[0].strip()
+                if len(s_lines) > 1:
+                    match = re.search(r"(\d+)\s*DTE", s_lines[1], re.IGNORECASE)
+                    if match:
+                        current_dte = int(match.group(1))
+                    else:
+                        current_dte = 0
                 else:
-                    current_contract = h_val
-                    current_dte = 0
-            
+                    # Fallback or if already set
+                    pass
+
             if current_contract and sh_val in ['C', 'P']:
                 col_map[col_idx] = {
                     'symbol': current_contract,
+                    'underlying_symbol': current_underlying_symbol,
+                    'underlying_price': current_underlying_price,
                     'dte': current_dte,
                     'type': sh_val
                 }
@@ -130,7 +155,13 @@ class OpenInterestParser:
             
             key = info['symbol']
             if key not in row_data:
-                row_data[key] = {'dte': info['dte'], 'call': 0, 'put': 0}
+                row_data[key] = {
+                    'underlying_symbol': info['underlying_symbol'],
+                    'underlying_price': info['underlying_price'],
+                    'dte': info['dte'], 
+                    'call': 0, 
+                    'put': 0
+                }
             
             if info['type'] == 'C':
                 row_data[key]['call'] = val

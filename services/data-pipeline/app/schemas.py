@@ -100,6 +100,8 @@ class OpenInterestRecordResponse(BaseModel):
     strike: float
     call_oi: float
     put_oi: float
+    underlying_price: Optional[float] = None
+    underlying_contract_symbol: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

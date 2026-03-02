@@ -15,6 +15,7 @@ class OpenInterest(Base):
     call_oi = Column(Numeric(18, 2), nullable=True)
     put_oi = Column(Numeric(18, 2), nullable=True)
     underlying_price = Column(Numeric(18, 8), nullable=True)
+    underlying_contract_symbol = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

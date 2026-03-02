@@ -23,6 +23,7 @@ class SignalLog(Base):
     execution_id = Column(String, nullable=True) # ID from Execution Service
     
     strategy_name = Column(String, nullable=True) # "SMC Scanner" or "Deployment-123"
+    strategy_id = Column(UUID(as_uuid=True), ForeignKey("strategies.id"), nullable=True, index=True)
     deployment_id = Column(UUID(as_uuid=True), ForeignKey("deployments.id"), nullable=True, index=True)
     
     confidence = Column(Numeric(5, 4), default=0.0)

@@ -41,7 +41,7 @@ async def strategy(state, data_manager):
     candles_h4 = data_manager.get_candles(symbol, timeframe=tf_h4)
     
     if candles_h1.empty or candles_h4.empty or len(candles_h4) < params["breakout_period"]:
-        return None, None, None
+        return None, None, None, []
 
     current_price = candles_h1['close'].iloc[-1]
     
@@ -54,20 +54,20 @@ async def strategy(state, data_manager):
     is_breakout_down = current_price < lower_band
     
     if not (is_breakout_up or is_breakout_down):
-        return None, None, None
+        return None, None, None, []
 
     # 2. OI CONFIRMATION
     # We need the latest 2 snapshots to check for change
     snapshots = fetch_last_two_oi_snapshots()
     if not snapshots or len(snapshots) < 2:
-        return None, None, None
+        return None, None, None, []
     
     latest_oi = snapshots[0]['total_oi']
     prev_oi = snapshots[1]['total_oi']
     oi_change = (latest_oi - prev_oi) / prev_oi if prev_oi > 0 else 0
     
     if oi_change < params["oi_change_threshold"]:
-        return None, None, None
+        return None, None, None, []
 
     # 3. MAX PAIN FILTER
     analyzer = LiquidityProfileAnalyzer()
@@ -82,13 +82,13 @@ async def strategy(state, data_manager):
     
     if is_breakout_up and oi_change > params["oi_change_threshold"]:
         direction = "BULLISH"
-        reason = f"20-day Bullish Breakout with {oi_change:.1%} OI Increase. Max Pain at {max_pain}"
+        reason = f"20-day Bullish Breakout for {snapshots[0]['active_contract']} with {oi_change:.1%} OI Increase. Max Pain at {max_pain}"
     elif is_breakout_down and oi_change > params["oi_change_threshold"]:
         direction = "BEARISH"
-        reason = f"20-day Bearish Breakout with {oi_change:.1%} OI Increase. Max Pain at {max_pain}"
+        reason = f"20-day Bearish Breakout for {snapshots[0]['active_contract']} with {oi_change:.1%} OI Increase. Max Pain at {max_pain}"
 
     if not direction:
-        return None, None, None
+        return None, None, None, []
 
     # SIGNAL OUTPUT
     entries = pd.Series(False, index=candles_h1.index)
@@ -98,18 +98,24 @@ async def strategy(state, data_manager):
     exits.iloc[-1] = (direction == "BEARISH")
     
     signal_dict = {
+        "symbol": symbol,
         "direction": direction,
+        "price": float(current_price),
         "reason": reason,
         "metadata": {
             "oi_change": oi_change,
             "max_pain": max_pain,
             "upper_band": upper_band,
             "lower_band": lower_band,
-            "heatmap_snippet": analysis.get('heatmap', [])[:5] # Top 5 levels for log
+            "heatmap_snippet": analysis.get('heatmap', [])[:5]
         }
     }
+
+    logs = [
+        f"CME OI Breakout | Direction: {direction} | Price: {current_price:.2f} | OI Change: {oi_change:.1%} | Max Pain: {max_pain}"
+    ]
     
-    return entries, exits, signal_dict
+    return entries, exits, signal_dict, logs
 
 def fetch_last_two_oi_snapshots():
     db = SessionLocal()
@@ -121,22 +127,37 @@ def fetch_last_two_oi_snapshots():
         results = []
         for t in times:
             snapshot_at = t[0]
+            # Fetch records and group them by contract
             records = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_at).all()
-            total_oi = sum([float(r.call_oi or 0) + float(r.put_oi or 0) for r in records])
+            
+            # Find the active contract for this snapshot via total OI
+            df_snapshot = pd.DataFrame([{
+                'contract_symbol': r.contract_symbol,
+                'call_oi': float(r.call_oi or 0),
+                'put_oi': float(r.put_oi or 0)
+            } for r in records])
+            
+            if df_snapshot.empty: continue
+            
+            active_contract = df_snapshot.groupby('contract_symbol').apply(lambda x: (x['call_oi'] + x['put_oi']).sum()).idxmax()
+            active_records = [r for r in records if r.contract_symbol == active_contract]
+            total_oi = sum([float(r.call_oi or 0) + float(r.put_oi or 0) for r in active_records])
             
             # Convert to analyzer format
             rec_dicts = []
-            for r in records:
+            for r in active_records:
                 rec_dicts.append({
                     'strike': float(r.strike),
                     'call_oi': float(r.call_oi or 0),
                     'put_oi': float(r.put_oi or 0),
+                    'contract_symbol': r.contract_symbol,
                     'underlying_price': float(r.underlying_price) if r.underlying_price else None,
                     'dte': r.dte
                 })
                 
             results.append({
                 'snapshot_at': snapshot_at,
+                'active_contract': active_contract,
                 'total_oi': total_oi,
                 'records': rec_dicts
             })

@@ -41,7 +41,8 @@ class OpenInterestService:
                 'call_oi': stmt.excluded.call_oi,
                 'put_oi': stmt.excluded.put_oi,
                 'dte': stmt.excluded.dte,
-                'underlying_price': stmt.excluded.underlying_price
+                'underlying_price': stmt.excluded.underlying_price,
+                'underlying_contract_symbol': stmt.excluded.underlying_contract_symbol
             }
             
             stmt = stmt.on_conflict_do_update(
@@ -102,7 +103,9 @@ class OpenInterestService:
                 dte=r.dte,
                 strike=float(r.strike),
                 call_oi=float(r.call_oi) if r.call_oi else 0.0,
-                put_oi=float(r.put_oi) if r.put_oi else 0.0
+                put_oi=float(r.put_oi) if r.put_oi else 0.0,
+                underlying_price=float(r.underlying_price) if r.underlying_price else None,
+                underlying_contract_symbol=r.underlying_contract_symbol
             ) 
             for r in records
         ]

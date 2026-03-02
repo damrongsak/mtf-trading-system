@@ -186,7 +186,7 @@ class FleetManager:
                     def __init__(self, ctx):
                         self.config_json = ctx["config"]
                         self.symbol = ctx["symbol"]
-                        self.id = ctx["id"]
+                        self.id = ctx["id"] # strategy_id
                         self.fund_id = ctx.get("fund_id")
                         self.broker_account_id = ctx["broker_account_id"]
                 
@@ -195,7 +195,46 @@ class FleetManager:
                 self.last_tick_times[strat_id] = now
                 
                 if result:
-                    logger.info(f"TEMPLATE SIGNAL {context['name']}: {result}")
+                    # Template strategies can return (entries, exits, signal_dict, logs)
+                    signal_dict = None
+                    logs = None
+                    
+                    if isinstance(result, tuple):
+                        if len(result) >= 3:
+                            signal_dict = result[2]
+                        if len(result) >= 4:
+                            logs = result[3]
+                    elif isinstance(result, dict):
+                        signal_dict = result
+
+                    from app.adapters.gateway import gateway_client
+                    
+                    # 1. Dispatch Logs (if any)
+                    if logs:
+                        # We use strat_id as deployment_id for logs in gateway (might need internal gateway update or keep separate)
+                        # For now, let's just log locally or use a generic 'strategy-logs' if added.
+                        # gateway_client.send_strategy_logs expects deployment_id.
+                        pass
+
+                    # 2. Dispatch Signal
+                    if signal_dict:
+                        logger.info(f"TEMPLATE SIGNAL {context['name']}: {signal_dict}")
+                        
+                        # Prepare Payload for execution
+                        payload = {
+                            "strategy_id": strat_id,
+                            "symbol": signal_dict.get("symbol", context["symbol"]),
+                            "direction": signal_dict.get("direction"),
+                            "price": signal_dict.get("price"),
+                            "stop_loss": signal_dict.get("stop_loss"),
+                            "take_profit": signal_dict.get("take_profit"),
+                            "risk_usd": signal_dict.get("risk_usd"), # Should be calculated or from config
+                            "reason": signal_dict.get("reason", "Template Strategy Signal"),
+                            "meta_data": signal_dict.get("metadata", {})
+                        }
+                        
+                        # Async dispatch
+                        asyncio.create_task(gateway_client.execute_signal(payload))
             except Exception as e:
                 logger.error(f"Error ticking template {context['name']}: {e}")
 

@@ -41,145 +41,159 @@ async def receive_internal_signal(
     """
     Internal endpoint for Strategy Core to execute trades.
     Payload: {
-        "deployment_id": str,
+        "deployment_id": Optional[str],
+        "strategy_id": Optional[str],
         "symbol": str,
         "direction": str, # BULLISH/BEARISH
         "stop_loss": float,
+        "take_profit": Optional[float],
         "risk_usd": float,
-        "reason": str
+        "reason": str,
+        "timeframe": Optional[str]
     }
     """
     try:
         deployment_id = payload.get("deployment_id")
-        if not deployment_id:
-            raise HTTPException(status_code=400, detail="Missing deployment_id")
+        strategy_id = payload.get("strategy_id")
+        
+        if not deployment_id and not strategy_id:
+            raise HTTPException(status_code=400, detail="Missing deployment_id or strategy_id")
 
-        # 1. Fetch Deployment & Context
-        deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
-        if not deployment:
-            raise HTTPException(status_code=404, detail="Deployment not found")
+        deployment = None
+        strategy = None
+        user_ids = []
+        strat_name = "Unknown Strategy"
+        execution_mode = "SEMI_AUTO"  # Default: Human in the Loop (phase 1)
+        broker_account_id = None
 
-        if deployment.status != "ACTIVE":
-             raise HTTPException(status_code=400, detail="Deployment is not active")
+        # 1. Resolve Context (Deployment vs Template Strategy)
+        if deployment_id:
+            deployment = db.query(Deployment).filter(Deployment.id == deployment_id).first()
+            if not deployment:
+                raise HTTPException(status_code=404, detail="Deployment not found")
+            if deployment.status != "ACTIVE":
+                raise HTTPException(status_code=400, detail="Deployment is not active")
+            
+            user_ids = [deployment.user_id]
+            strat_name = deployment.strategy.name if deployment.strategy else f"Deployment-{deployment_id[:8]}"
+            execution_mode = deployment.config_snapshot.get("execution_mode", "AUTO")
+            broker_account_id = deployment.config_snapshot.get("broker_account_id")
+        else:
+            from app.models.strategy import Strategy
+            from app.models.user_fund import UserFund
+            strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+            if not strategy:
+                raise HTTPException(status_code=404, detail="Strategy not found")
+            
+            # Fetch owners/managers of the fund associated with the strategy
+            fund_users = db.query(UserFund).filter(UserFund.fund_id == strategy.fund_id).all()
+            user_ids = [fu.user_id for fu in fund_users]
+            
+            strat_name = strategy.name
+            # HITL ENFORCEMENT: Template strategies are ALWAYS SEMI_AUTO (Human in the Loop).
+            # config_json AUTO is ignored - only MANUAL is allowed as alternative.
+            # Only Deployments (with explicit config_snapshot) can be truly AUTO.
+            cfg_mode = strategy.config_json.get("execution_mode", "SEMI_AUTO")
+            execution_mode = "SEMI_AUTO" if cfg_mode == "AUTO" else cfg_mode
+            broker_account_id = strategy.broker_account_id
 
         # 1.2 Check for Existing Active Signals (Throttling)
-        # Prevent duplicate signals if one is already PENDING_APPROVAL or PLACED
-        active_signal = db.query(SignalLog).filter(
-            SignalLog.deployment_id == deployment.id,
+        filter_args = [
             SignalLog.symbol == payload.get("symbol"),
             SignalLog.status.in_(["PENDING_APPROVAL", "PLACED", "OPEN"]),
             SignalLog.direction == payload.get("direction")
-        ).order_by(SignalLog.timestamp.desc()).first()
+        ]
+        if deployment_id:
+            filter_args.append(SignalLog.deployment_id == deployment.id)
+        else:
+            filter_args.append(SignalLog.strategy_id == strategy.id)
+
+        active_signal = db.query(SignalLog).filter(*filter_args).order_by(SignalLog.timestamp.desc()).first()
 
         if active_signal:
-            # Check recency (e.g. if > 1 hour maybe we allow re-signal? For now, strict no-duplicate)
-            # Or if it's the exact same candle time?
-            # Let's just return "ignored" to prevent spamming
-            logger.info(f"Signal throttled for {deployment.id}: Active signal {active_signal.id} exists.")
+            logger.info(f"Signal throttled: Active signal {active_signal.id} exists.")
             return {"status": "ignored", "reason": "Active signal exists", "signal_id": str(active_signal.id)}
 
         # 1.5 Persist Signal Log
+        signal_log = SignalLog(
+            timestamp=datetime.now(timezone.utc),
+            symbol=payload.get("symbol"),
+            direction=payload.get("direction"),
+            timeframe=payload.get("timeframe", "H1"),
+            strategy_name=strat_name,
+            deployment_id=deployment.id if deployment else None,
+            strategy_id=strategy.id if strategy else None,
+            confidence=payload.get("confidence", 0.0),
+            price=payload.get("price", 0.0),
+            reason=payload.get("reason"),
+            meta_data=payload
+        )
+        db.add(signal_log)
+        db.commit()
+
+        # 1.6 Telegram Notifications (To all relevant users)
         try:
-            # Try to get strategy name
-            strat_name = f"Deployment-{deployment.id}"
-            if deployment.strategy:
-                strat_name = deployment.strategy.name
-            
-            signal_log = SignalLog(
-                timestamp=datetime.now(timezone.utc),
-                symbol=payload.get("symbol"),
-                direction=payload.get("direction"),
-                timeframe=payload.get("timeframe", "H1"),
-                strategy_name=strat_name,
-                deployment_id=deployment.id,
-                confidence=payload.get("confidence", 0.0),
-                price=payload.get("price", 0.0),
-                reason=payload.get("reason"),
-                meta_data=payload
-            )
-            db.add(signal_log)
-            db.commit()
-        except Exception as se:
-            logger.error(f"Failed to persist signal log: {se}")
-            # Continue execution even if logging fails
-
-        # Resolve User & Account
-        user = db.query(User).filter(User.id == deployment.user_id).first()
-        
-        # Where do we get the Broker Account?
-        # Option A: From Deployment config_snapshot (if saved there)
-        # Option B: From User's default or active account
-        
-        broker_account_id = deployment.config_snapshot.get("broker_account_id")
-        
-        # Fallback: Find user's first active account
-        if not broker_account_id:
-             # This is risky if user has multiple accounts. 
-             # For MVP, pick first active.
-             # Ideally validation at deployment start ensures this.
-             acc = db.query(BrokerAccount).filter(BrokerAccount.user_id == user.id, BrokerAccount.is_active == True).first() # UserFund join actually needed? Schema check: BrokerAccount usually has no user_id, it is linked via Fund -> UserFund?
-             # Let's check models. BrokerAccount has fund_id. Fund has UserFund.
-             # Complex join needed if not in snapshot.
-             pass 
-        
-        # Let's assume passed in snapshot or we find via User -> Fund -> BrokerAccount
-        # Simplified: We need a broker account to execute.
-        # If not found, fail.
-        
-        if not broker_account_id:
-             # Try to find via User's default fund?
-             # Too complex for quick patch. 
-             # Let's Require it to be in config_snapshot or provided in payload.
-             raise HTTPException(status_code=400, detail="Broker Account ID not found in deployment config")
-
-        # 1.7 Check Execution Mode (HITL)
-        execution_mode = deployment.config_snapshot.get("execution_mode", "AUTO")
-        if execution_mode == "SEMI_AUTO":
-            # Stage for Approval
-            signal_log.status = "PENDING_APPROVAL"
-            db.commit()
-            
-            # Send Telegram Alert
-            try:
+            for u_id in user_ids:
                 mapping = db.query(TelegramChatMapping).filter(
-                    TelegramChatMapping.user_id == user.id,
+                    TelegramChatMapping.user_id == u_id,
                     TelegramChatMapping.is_active == True
                 ).first()
                 if mapping:
                     msg = (
-                        f"🔔 **New Signal Pending Approval**\n\n"
-                        f"**Symbol**: {payload.get('symbol')}\n"
+                        f"🔔 **New Signal: {strat_name}**\n\n"
+                        f"**Symbol**: `{payload.get('symbol')}`\n"
                         f"**Direction**: {payload.get('direction')}\n"
-                        f"**Strategy**: {strat_name}\n"
-                        f"**Reason**: {payload.get('reason')}\n\n"
-                        f"Approve via Dashboard: http://localhost/signals"
+                        f"**Price**: {payload.get('price', 'N/A')}\n"
+                        f"**Reason**: {payload.get('reason')}\n"
                     )
+                    if execution_mode in ("SEMI_AUTO", "MANUAL"):
+                        msg += f"\n⚠️ *รอการอนุมัติ (Human Review)*\n[Dashboard](http://localhost/signals)"
+                    else:
+                        msg += f"\n⚡ *Executing {execution_mode}*"
+                    
                     await send_telegram_message(mapping.chat_id, msg)
-            except Exception as te:
-                logger.error(f"Failed to send HITL Telegram alert: {te}")
-                
+        except Exception as te:
+            logger.error(f"Failed to send Telegram notifications: {te}")
+
+        # 1.7 Check Execution Flow
+        if execution_mode == "SEMI_AUTO" or execution_mode == "MANUAL":
+            signal_log.status = "PENDING_APPROVAL"
+            db.commit()
             return {"status": "pending_approval", "signal_id": str(signal_log.id)}
 
         # 2. Prepare Execution Payload (Smart Order)
+        if not broker_account_id:
+            raise HTTPException(status_code=400, detail="Broker Account ID not found")
+
         smart_order_payload = {
             "broker_account_id": str(broker_account_id),
             "symbol": payload.get("symbol"),
             "direction": payload.get("direction"),
             "stop_loss": payload.get("stop_loss"),
+            "take_profit": payload.get("take_profit"),
             "risk_usd": payload.get("risk_usd"),
-            "generated_by": f"Deployment-{deployment_id[:8]}",
-            "reason": payload.get("reason")
+            "generated_by": f"{'Dep' if deployment_id else 'Strat'}-{ (deployment_id or strategy_id)[:8] }",
+            "reason": payload.get("reason"),
+            "client_order_id": str(signal_log.id)
         }
         
-        # 3. Call Execution Service (via Client or reusing Router logic?)
-        # Reusing router logic is cleaner if we can import the service/client directly.
-        # We use `execution_client` service wrapper.
+        # 3. Call Execution Service
+        try:
+            result = await execution_client.place_smart_order(smart_order_payload)
+        except Exception as exec_err:
+            # Execution service might be temporarily unavailable.
+            # Signal is already persisted + Telegram sent. Return gracefully.
+            logger.error(f"Execution service call failed: {exec_err}")
+            signal_log.status = "EXECUTION_FAILED"
+            db.commit()
+            return {"status": "logged_pending_exec", "signal_id": str(signal_log.id), "error": "Execution service unavailable"}
         
-        result = await execution_client.place_smart_order(smart_order_payload)
-        
-        # 4. Snapshot Result & Persist Trade
+        # 4. Snapshot Result & Update Log
         if result and "id" in result:
              try:
+                # Find User for Trade Service (picking first in case of multiple, though usually 1 owner)
+                user = db.query(User).filter(User.id == user_ids[0]).first() if user_ids else None
+                
                 trade = TradeService.create_trade_from_execution(
                     db=db,
                     user=user,
@@ -187,19 +201,24 @@ async def receive_internal_signal(
                     request_data=smart_order_payload
                 )
                 trade.broker_account_id = broker_account_id
-                trade.deployment_id = deployment.id # If we add this column? Or Metadata.
+                if deployment:
+                    trade.deployment_id = deployment.id
                 
                 # Update Metadata
                 meta = trade.metadata_json or {}
-                meta["deployment_id"] = str(deployment.id)
+                if deployment: meta["deployment_id"] = str(deployment.id)
+                if strategy: meta["strategy_id"] = str(strategy.id)
                 trade.metadata_json = meta
                 
-                # Update Deployment Last Signal
-                deployment.last_signal_at = trade.signal_timestamp
+                # Update Last Signal
+                if deployment: deployment.last_signal_at = trade.signal_timestamp
+                
+                signal_log.status = "PLACED"
+                signal_log.execution_id = result.get("id")
                 
                 db.commit()
              except Exception as pe:
-                 logger.error(f"Failed to persist internal trade: {pe}")
+                 logger.error(f"Failed to persist trade/update status: {pe}")
 
         return result
 

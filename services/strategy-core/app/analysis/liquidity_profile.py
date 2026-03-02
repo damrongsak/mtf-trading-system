@@ -54,42 +54,68 @@ class LiquidityProfileAnalyzer:
         if level_type in ['CALL_WALL', 'PUT_WALL']: score += 0.1
         return min(score, 1.0)
 
-    def analyze_snapshot(self, records: List[Dict[str, Any]], current_spot_price: float, smc_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def analyze_snapshot(
+        self, 
+        records: List[Dict[str, Any]], 
+        current_spot_price: float, 
+        smc_data: Optional[Dict[str, Any]] = None,
+        target_contract: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Analyze a list of OI records to determine levels and regime.
+        Analyze OI records to determine levels and regime using vectorized operations.
+        
+        Args:
+            target_contract: If provided, only analyzes this specific contract (e.g. 'OGM6').
+                             If None, it analyzes the 'Active' contract (highest OI).
         """
         if not records:
             return {}
 
         df = pd.DataFrame(records)
-        df['strike'] = df['strike'].astype('float32')
-        df['call_oi'] = df['call_oi'].astype('float32')
-        df['put_oi'] = df['put_oi'].astype('float32')
+        df['strike'] = df['strike'].astype('float64')
+        df['call_oi'] = df['call_oi'].astype('float64')
+        df['put_oi'] = df['put_oi'].astype('float64')
+        df['total_oi'] = df['call_oi'] + df['put_oi']
         
-        # 1. First, identify global Call/Put walls BEFORE filtering
-        # This ensures we don't lose major levels that are far from the spot
-        max_call_row = df.loc[df['call_oi'].idxmax()]
-        max_put_row = df.loc[df['put_oi'].idxmax()]
-        max_oi_overall = max(df['call_oi'].max(), df['put_oi'].max()) or 1.0
+        # 1. Identify Target Contract Group
+        if not target_contract:
+            # Group by contract_symbol and find one with highest total OI
+            target_contract = df.groupby('contract_symbol')['total_oi'].sum().idxmax()
+        
+        df_target = df[df['contract_symbol'] == target_contract].copy()
+        
+        if df_target.empty:
+            logger.warning(f"No records found for target contract: {target_contract}")
+            return {}
 
-        # 2. Filter strikes near current_spot_price to optimize Max Pain and Heatmap
-        # Range: +/- $300 (Standard for Gold)
-        filter_range = 300.0
-        df_filtered = df[
-            (df['strike'] >= current_spot_price - filter_range) & 
-            (df['strike'] <= current_spot_price + filter_range)
+        # 2. Vectorized Basis Calculation (Futures - Spot)
+        # Using explicit mapping from the records
+        underlying_prices = df_target['underlying_price'].dropna()
+        if not underlying_prices.empty:
+            snapshot_futures_price = float(underlying_prices.iloc[0])
+            basis = snapshot_futures_price - current_spot_price
+        else:
+            basis = 0.0
+            
+        df_target['mapped_price'] = df_target['strike'] - basis
+
+        # 3. Identify Walls (Vectorized)
+        max_call_idx = df_target['call_oi'].idxmax()
+        max_put_idx = df_target['put_oi'].idxmax()
+        
+        max_call_row = df_target.loc[max_call_idx]
+        max_put_row = df_target.loc[max_put_idx]
+        max_oi_overall = df_target['total_oi'].max() or 1.0
+
+        # 4. Filter relevant strikes for Max Pain / Heatmap (+/- 15% standard)
+        price_range = current_spot_price * 0.15
+        df_filtered = df_target[
+            (df_target['mapped_price'] >= current_spot_price - price_range) & 
+            (df_target['mapped_price'] <= current_spot_price + price_range)
         ]
-
-        # If filtering is too aggressive, fallback to a wider range or full data
-        if len(df_filtered) < 10:
-             df_filtered = df
-
-        # 3. Calculate Basis Offset (Futures - Spot)
-        snapshot_futures_price = df['underlying_price'].iloc[0] if 'underlying_price' in df.columns and pd.notnull(df['underlying_price'].iloc[0]) else None
         
-        basis = 0.0
-        if snapshot_futures_price and current_spot_price > 0:
-            basis = float(snapshot_futures_price) - current_spot_price
+        if len(df_filtered) < 5:
+            df_filtered = df_target
 
         def get_zone_type(strike: float) -> str:
             if strike % 50 == 0: return "MAJOR"
@@ -116,22 +142,40 @@ class LiquidityProfileAnalyzer:
             
             # Fib Confluence
             fibs = smc_data.get('auto_fibs', {})
-            for level, price in fibs.items():
-                if abs(price - mapped_price) <= tolerance:
-                    tags.append(f"FIB_{level}")
-            
-            return list(set(tags))
-
-        # 4. Construct Gamma Levels
+        # 5. Construct Gamma Levels (Vectorized)
         levels = []
         
+        def check_confluence_vec(mapped_prices: np.ndarray) -> List[List[str]]:
+            if not smc_data: return [[] for _ in range(len(mapped_prices))]
+            # Vectorized confluence check is harder for complex SMC data, 
+            # but for 3-4 major levels it's acceptable to loop or use broadcasting.
+            results = []
+            tolerance = 2.0
+            
+            obs = smc_data.get('order_blocks', [])
+            fvgs = smc_data.get('fvgs', [])
+            fibs = smc_data.get('auto_fibs', {})
+            
+            for p in mapped_prices:
+                tags = []
+                for ob in obs:
+                    if ob['bottom'] - tolerance <= p <= ob['top'] + tolerance:
+                        tags.append(f"OB_{ob['type'].upper()}")
+                for fvg in fvgs:
+                    if fvg['bottom'] - tolerance <= p <= fvg['top'] + tolerance:
+                        tags.append(f"FVG_{fvg['type'].upper()}")
+                for level, price in fibs.items():
+                    if abs(price - p) <= tolerance:
+                        tags.append(f"FIB_{level}")
+                results.append(list(set(tags)))
+            return results
+
         # Major Call Wall (Resistance)
-        mapped_call = map_price(max_call_row['strike'])
-        call_conf = check_confluence(mapped_call)
-        dte_val = int(max_call_row['dte']) if 'dte' in max_call_row and pd.notnull(max_call_row['dte']) else None
+        call_conf = check_confluence_vec(np.array([max_call_row['mapped_price']]))[0]
+        dte_val = int(max_call_row['dte']) if pd.notnull(max_call_row['dte']) else None
         levels.append(GammaLevel(
-            price=mapped_call,
-            strike=max_call_row['strike'],
+            price=float(max_call_row['mapped_price']),
+            strike=float(max_call_row['strike']),
             type='CALL_WALL',
             zone_type=get_zone_type(max_call_row['strike']),
             strength=float(max_call_row['call_oi']),
@@ -139,18 +183,17 @@ class LiquidityProfileAnalyzer:
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="RESISTANCE",
-            zone_type_v2="SUPPLY_ZONE" if max_call_row['call_oi'] > max_call_row['put_oi'] * 1.5 else "NEUTRAL",
+            zone_type_v2="SUPPLY_ZONE" if max_call_row['call_oi'] > max_put_row['put_oi'] * 1.5 else "NEUTRAL",
             significance_score=self.calculate_significance('CALL_WALL', get_zone_type(max_call_row['strike']), call_conf, max_call_row['call_oi']/max_oi_overall),
             confluence=call_conf
         ))
 
         # Major Put Wall (Support)
-        mapped_put = map_price(max_put_row['strike'])
-        put_conf = check_confluence(mapped_put)
-        dte_val = int(max_put_row['dte']) if 'dte' in max_put_row and pd.notnull(max_put_row['dte']) else None
+        put_conf = check_confluence_vec(np.array([max_put_row['mapped_price']]))[0]
+        dte_val = int(max_put_row['dte']) if pd.notnull(max_put_row['dte']) else None
         levels.append(GammaLevel(
-            price=mapped_put,
-            strike=max_put_row['strike'],
+            price=float(max_put_row['mapped_price']),
+            strike=float(max_put_row['strike']),
             type='PUT_WALL',
             zone_type=get_zone_type(max_put_row['strike']),
             strength=float(max_put_row['put_oi']),
@@ -158,22 +201,22 @@ class LiquidityProfileAnalyzer:
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="SUPPORT",
-            zone_type_v2="DEMAND_ZONE" if max_put_row['put_oi'] > max_put_row['call_oi'] * 1.5 else "NEUTRAL",
+            zone_type_v2="DEMAND_ZONE" if max_put_row['put_oi'] > max_call_row['call_oi'] * 1.5 else "NEUTRAL",
             significance_score=self.calculate_significance('PUT_WALL', get_zone_type(max_put_row['strike']), put_conf, max_put_row['put_oi']/max_oi_overall),
             confluence=put_conf
         ))
 
-        # 5. GEX Regime
-        total_call_oi = df['call_oi'].sum()
-        total_put_oi = df['put_oi'].sum()
+        # 6. GEX Regime
+        total_call_oi = df_target['call_oi'].sum()
+        total_put_oi = df_target['put_oi'].sum()
         
-        df_sorted = df.sort_values('strike')
+        df_sorted = df_target.sort_values('strike')
         gamma_flip_row = df_sorted.iloc[(df_sorted['call_oi'] - df_sorted['put_oi']).abs().argsort()[:1]]
         gamma_flip_level = gamma_flip_row['strike'].values[0] if not gamma_flip_row.empty else None
 
         if gamma_flip_level:
-            mapped_flip = map_price(gamma_flip_level)
-            flip_conf = check_confluence(mapped_flip)
+            mapped_flip = gamma_flip_level - basis
+            flip_conf = check_confluence_vec(np.array([mapped_flip]))[0]
             levels.append(GammaLevel(
                 price=mapped_flip,
                 strike=gamma_flip_level,
@@ -186,19 +229,19 @@ class LiquidityProfileAnalyzer:
                 confluence=flip_conf
             ))
 
-        regime_type = 'POSITIVE_GAMMA' if current_spot_price > (gamma_flip_level or 0) else 'NEGATIVE_GAMMA'
+        regime_type = 'POSITIVE_GAMMA' if current_spot_price > (gamma_flip_level - basis if gamma_flip_level else 0) else 'NEGATIVE_GAMMA'
         
         regime = MarketRegime(
             net_gex=total_call_oi - total_put_oi,
             regime=regime_type,
             gamma_flip_level=gamma_flip_level,
-            summary=f"Market is in {regime_type} regime. Net OI Delta: {total_call_oi - total_put_oi:,.0f}"
+            summary=f"Market is in {regime_type} regime for {target_contract}. Net OI Delta: {total_call_oi - total_put_oi:,.0f}"
         )
 
-        # 6. Optimized Max Pain (on filtered data)
+        # 7. Optimized Max Pain (on filtered data)
         max_pain_strike = self.calculate_max_pain(df_filtered)
-        mapped_max_pain = map_price(max_pain_strike)
-        pain_conf = check_confluence(mapped_max_pain)
+        mapped_max_pain = max_pain_strike - basis
+        pain_conf = check_confluence_vec(np.array([mapped_max_pain]))[0]
         levels.append(GammaLevel(
             price=mapped_max_pain,
             strike=max_pain_strike,
@@ -212,6 +255,7 @@ class LiquidityProfileAnalyzer:
         ))
 
         return {
+            "target_contract": target_contract,
             "levels": levels,
             "regime": regime,
             "max_pain": max_pain_strike,

@@ -42,21 +42,24 @@ def fetch_latest_oi_snapshot() -> Optional[Dict[str, Any]]:
             
         # 3. Convert to dicts
         data = []
-        underlying_price = None
+        underlying_price_map = {}
         for r in records:
             data.append({
                 'strike': float(r.strike),
                 'call_oi': float(r.call_oi or 0),
                 'put_oi': float(r.put_oi or 0),
-                'underlying_price': float(r.underlying_price) if r.underlying_price else None
+                'contract_symbol': r.contract_symbol,
+                'underlying_symbol': r.underlying_contract_symbol,
+                'underlying_price': float(r.underlying_price) if r.underlying_price else None,
+                'dte': r.dte
             })
-            if r.underlying_price and underlying_price is None:
-                underlying_price = float(r.underlying_price)
+            if r.underlying_price and r.contract_symbol not in underlying_price_map:
+                underlying_price_map[r.contract_symbol] = float(r.underlying_price)
                 
         return {
             "records": data,
             "snapshot_at": snapshot_time,
-            "underlying_futures_price": underlying_price
+            "underlying_price_map": underlying_price_map
         }
     except Exception as e:
         logger.error(f"Error fetching OI snapshot: {e}")
@@ -229,6 +232,10 @@ async def strategy(state, data_manager):
     # Correct Usage:
     analysis = analyzer.analyze_snapshot(oi_data['records'], current_spot_price=current_price, smc_data=smc_data)
     
+    if not analysis:
+        return None, None, None, []
+        
+    target_contract = analysis['target_contract']
     levels = analysis['levels']
     regime_info = analysis['regime']
     regime = regime_info.regime # "POSITIVE_GAMMA" | "NEGATIVE_GAMMA"
@@ -307,21 +314,27 @@ async def strategy(state, data_manager):
             exits.iloc[-1] = True # Mapping Short to Exits for now (or separate signal)
             
         signal_dict = {
+            "symbol": state.symbol,
             "direction": direction,
+            "price": float(current_price),
             "stop_loss": stop_loss,
             "take_profit": target_price,
             "target_price": target_price,
             "reason": reason,
             "metadata": {
                 "regime": regime,
+                "target_contract": target_contract,
                 "gamma_flip": gamma_flip,
                 "put_wall": put_wall.strike if put_wall else None,
                 "call_wall": call_wall.strike if call_wall else None,
-                "underlying_futures": oi_data.get('underlying_futures_price'),
-                "basis_offset": oi_data.get('underlying_futures_price', 0) - current_price if oi_data.get('underlying_futures_price') else 0,
+                "underlying_futures": oi_data['underlying_price_map'].get(target_contract),
+                "basis_offset": oi_data['underlying_price_map'].get(target_contract, current_price) - current_price,
                 "confluence": (put_wall.confluence if direction == "BULLISH" and put_wall else (call_wall.confluence if call_wall else [])),
                 "zone_type": (put_wall.zone_type if direction == "BULLISH" and put_wall else (call_wall.zone_type if call_wall else "MAJOR"))
             }
         }
         
-    return entries, exits, signal_dict
+    logs = [
+        f"OI Gamma | Regime: {regime} | Gamma Flip: {gamma_flip} | Put Wall: {put_wall.strike if put_wall else 'N/A'} | Call Wall: {call_wall.strike if call_wall else 'N/A'} | Price: {current_price:.2f}"
+    ]
+    return entries, exits, signal_dict, logs

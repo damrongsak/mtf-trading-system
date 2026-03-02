@@ -232,7 +232,9 @@ async def strategy(state, data_manager):
 
     if bias != "NEUTRAL":
         signal_dict = {
+            "symbol": state.symbol,
             "direction": bias,
+            "price": float(current_price),
             "stop_loss": stop_loss,
             "take_profit": take_profit, 
             "reason": reason,
