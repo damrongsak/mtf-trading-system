@@ -459,6 +459,60 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader Cancel Order Error: {e}")
             raise e
 
+    async def amend_order(self, order_id: str, units: Optional[float] = None, 
+                    price: Optional[float] = None, 
+                    sl_price: Optional[float] = None, 
+                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+        await self.client.connect()
+        try:
+            await self.client.authorize_app(self.client_id, self.client_secret)
+            await self.client.authorize_account(self.account_id, self.token)
+            
+            volume_cents = None
+            if units is not None:
+                # We need lot_size for normalization. 
+                # Since we don't have symbol name here, we must fetch order details first.
+                orders = await self.get_pending_orders()
+                target_order = next((o for o in orders if o["id"] == str(order_id)), None)
+                if not target_order:
+                    raise ValueError(f"Order {order_id} not found to amend units")
+                
+                # Resolve lot size for this symbol
+                _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
+                volume_cents = int((units / 100000.0) * lot_size_cents)
+            
+            res = await self.client.amend_order(
+                account_id=self.account_id,
+                order_id=int(order_id),
+                volume=volume_cents,
+                price=price,
+                sl=sl_price,
+                tp=tp_price
+            )
+            return {"status": "amended", "order_id": order_id}
+        except Exception as e:
+            logger.error(f"cTrader Amend Order Error: {e}")
+            raise e
+
+    async def amend_position(self, broker_trade_id: str, 
+                        sl_price: Optional[float] = None, 
+                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+        await self.client.connect()
+        try:
+            await self.client.authorize_app(self.client_id, self.client_secret)
+            await self.client.authorize_account(self.account_id, self.token)
+            
+            res = await self.client.amend_position_sltp(
+                account_id=self.account_id,
+                position_id=int(broker_trade_id),
+                sl=sl_price,
+                tp=tp_price
+            )
+            return {"status": "amended", "position_id": broker_trade_id}
+        except Exception as e:
+            logger.error(f"cTrader Amend Position Error: {e}")
+            raise e
+
     async def get_pending_orders(self) -> List[Dict[str, Any]]:
         await self.client.connect()
         try:

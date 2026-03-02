@@ -2130,6 +2130,7 @@ paths:
   /api/v1/execution/trades/{trade_id}/close:
     post:
       summary: Manually close a trade
+      tags: [Execution]
       parameters:
         - name: trade_id
           in: path
@@ -2149,6 +2150,40 @@ paths:
       responses:
         '200':
           description: Trade closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+  /api/v1/execution/trades/{trade_id}/amend:
+    post:
+      summary: Amend an open position (SL/TP)
+      tags: [Execution]
+      parameters:
+        - name: trade_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+                stop_loss:
+                  type: number
+                take_profit:
+                  type: number
+      responses:
+        '200':
+          description: Position amended
           content:
             application/json:
               schema:
@@ -2218,6 +2253,67 @@ paths:
             application/json:
               schema:
                 type: object
+
+  /api/v1/execution/orders/{order_id}:
+    put:
+      summary: Modify a pending order
+      tags: [Execution]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - broker_account_id
+              properties:
+                broker_account_id:
+                  type: string
+                  format: uuid
+                units:
+                  type: number
+                price:
+                  type: number
+                stop_loss:
+                  type: number
+                take_profit:
+                  type: number
+      responses:
+        '200':
+          description: Order modified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
+
+    delete:
+      summary: Cancel a specific order
+      tags: [Execution]
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: broker_account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Success'
                 properties:
                   status:
                     type: string

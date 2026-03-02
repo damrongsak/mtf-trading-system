@@ -619,6 +619,18 @@ class CancelOrderRequest(BaseModel):
     broker_account_id: str
     order_id: str
 
+class AmendOrderRequest(BaseModel):
+    broker_account_id: str
+    units: Optional[float] = None
+    price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
+class AmendPositionRequest(BaseModel):
+    broker_account_id: str
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
 @app.delete("/orders/{order_id}")
 async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db)):
     try:
@@ -650,6 +662,62 @@ async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession =
         raise he
     except Exception as e:
         logger.error(f"Cancel Order Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/orders/{order_id}")
+async def amend_order(order_id: str, req: AmendOrderRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        account_uuid = uuid.UUID(req.broker_account_id)
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+
+        credentials = decrypt_data(account.credentials_encrypted)
+        credentials["environment"] = account.environment
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        if hasattr(adapter, 'amend_order'):
+            res = await adapter.amend_order(
+                order_id=order_id,
+                units=req.units,
+                price=req.price,
+                sl_price=req.stop_loss,
+                tp_price=req.take_profit
+            )
+            return success_response(data=res)
+        else:
+            raise HTTPException(status_code=501, detail="Broker adapter does not support order amendment")
+
+    except Exception as e:
+        logger.error(f"Amend Order Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/positions/{position_id}")
+async def amend_position(position_id: str, req: AmendPositionRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        account_uuid = uuid.UUID(req.broker_account_id)
+        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+        account = result.scalars().first()
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found")
+
+        credentials = decrypt_data(account.credentials_encrypted)
+        credentials["environment"] = account.environment
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        if hasattr(adapter, 'amend_position'):
+            res = await adapter.amend_position(
+                broker_trade_id=position_id,
+                sl_price=req.stop_loss,
+                tp_price=req.take_profit
+            )
+            return success_response(data=res)
+        else:
+            raise HTTPException(status_code=501, detail="Broker adapter does not support position amendment")
+
+    except Exception as e:
+        logger.error(f"Amend Position Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 class CloseAllTradesRequest(BaseModel):

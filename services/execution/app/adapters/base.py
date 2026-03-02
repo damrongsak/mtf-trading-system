@@ -76,3 +76,20 @@ class BrokerAdapter(ABC):
         Optional to implement.
         """
         raise NotImplementedError("Get pending orders not implemented for this broker")
+
+    async def amend_order(self, order_id: str, units: Optional[float] = None, 
+                    price: Optional[float] = None, 
+                    sl_price: Optional[float] = None, 
+                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Amend a pending order (units, price, SL, TP).
+        """
+        raise NotImplementedError("Amend order not implemented for this broker")
+
+    async def amend_position(self, broker_trade_id: str, 
+                        sl_price: Optional[float] = None, 
+                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Amend an open position (SL, TP).
+        """
+        raise NotImplementedError("Amend position not implemented for this broker")

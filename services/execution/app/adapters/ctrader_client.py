@@ -440,6 +440,56 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def amend_order(self, account_id: int, order_id: int, 
+                    volume: Optional[int] = None, 
+                    price: Optional[float] = None, 
+                    sl: Optional[float] = None, 
+                    tp: Optional[float] = None):
+        req = ProtoOAAmendOrderReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.orderId = int(order_id)
+        
+        if volume is not None: req.volume = int(volume)
+        if price is not None: req.limitPrice = float(price)
+        if sl is not None: req.stopLoss = float(sl)
+        if tp is not None: req.takeProfit = float(tp)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Amend Order Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
+    async def amend_position_sltp(self, account_id: int, position_id: int, 
+                             sl: Optional[float] = None, 
+                             tp: Optional[float] = None):
+        req = ProtoOAAmendPositionSLTPReq()
+        req.ctidTraderAccountId = int(account_id)
+        req.positionId = int(position_id)
+        
+        if sl is not None: req.stopLoss = float(sl)
+        if tp is not None: req.takeProfit = float(tp)
+        
+        resp_msg = await self.send(req)
+        
+        if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
+            res = ProtoOAExecutionEvent()
+            res.ParseFromString(resp_msg.payload)
+            return res
+        elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+             error = ProtoOAErrorRes()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Amend Position Error: {error.errorCode} - {error.description}")
+        else:
+             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
     async def get_reconcile(self, account_id: int):
         req = ProtoOAReconcileReq()
         req.ctidTraderAccountId = int(account_id)
