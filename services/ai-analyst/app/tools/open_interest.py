@@ -98,8 +98,9 @@ class OpenInterestTool(BaseTool):
                     except Exception as e:
                         logger.warning(f"Failed to fetch live spot price from candles: {e}")
 
-                # 2. Fetch Gamma Levels (Basis Adjusted)
+                # 2. Fetch Gamma Levels (Basis Adjusted) with SWR/3s Target
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
+                cache_key = f"cache:gamma_levels:{symbol}"
                 params = {"symbol": symbol}
                 if current_price and current_price > 0:
                     params["current_price"] = str(current_price)
@@ -109,14 +110,48 @@ class OpenInterestTool(BaseTool):
                 gamma_levels = []
                 underlying_futures = 0.0
                 actual_snapshot_at = "Unknown"
-                g_data = {} # Initialize to avoid UnboundLocalError
-                
-                async with session.get(gamma_url, params=params, headers=headers, timeout=120.0) as resp:
-                    if resp.status == 200:
-                        g_data = await resp.json()
+                g_data = {} 
+                cached_g_data = None
+
+                # 2.1 Check Cache First
+                try:
+                    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    cached_raw = await redis_client.get(cache_key)
+                    if cached_raw:
+                        cached_g_data = json.loads(cached_raw)
+                        # If extremely fresh (< 30s), we could skip the fetch, 
+                        # but for OI we usually want to try fetching the absolute latest within 3s.
+                    await redis_client.close()
+                except Exception as e:
+                    logger.warning(f"OI Tool Cache fetch failed: {e}")
+
+                # 2.2 Attempt API Fetch with 3s Timeout
+                try:
+                    async with session.get(gamma_url, params=params, headers=headers, timeout=3.0) as resp:
+                        if resp.status == 200:
+                            g_data = await resp.json()
+                            gamma_levels = g_data.get("levels", [])
+                            underlying_futures = float(g_data.get("underlying_price") or 0.0)
+                            actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
+                            
+                            # Update Cache in background (we don't wait for this to return to user)
+                            try:
+                                redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                                await redis_client.set(cache_key, json.dumps(g_data), ex=300) # 5 min cache
+                                await redis_client.close()
+                            except: pass
+                        else:
+                            logger.warning(f"Gamma API returned {resp.status}. Using cache.")
+                            if cached_g_data: g_data = cached_g_data
+                except Exception as e:
+                    logger.warning(f"Gamma fetch failed/timed out ({e}). Using cache.")
+                    if cached_g_data:
+                        g_data = cached_g_data
                         gamma_levels = g_data.get("levels", [])
                         underlying_futures = float(g_data.get("underlying_price") or 0.0)
-                        actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
+                        actual_snapshot_at = g_data.get("snapshot_at", "Unknown") + " (STALE)"
+                    else:
+                        raise e # Re-raise if no cache available
 
                 # Filter by horizon if requested
                 if target_term:
@@ -128,7 +163,7 @@ class OpenInterestTool(BaseTool):
                     # Strategy Core endpoint: POST /api/v1/market/regime
                     regime_url = f"{strategy_core_url}/market/regime"
                     regime_payload = {"symbol": "XAUUSD", "timeframe": "D1", "bias": "NEUTRAL"}
-                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=15.0) as resp:
+                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=1.5) as resp:
                         if resp.status == 200:
                             ctx = await resp.json()
                             regime = ctx.get("regime", "UNKNOWN")

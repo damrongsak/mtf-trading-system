@@ -23,7 +23,7 @@ class GetTechnicalSignalsTool(BaseTool):
                 if auth_token:
                     headers["Authorization"] = auth_token
 
-                async with session.get(url, headers=headers) as resp:
+                async with session.get(url, headers=headers, timeout=3.0) as resp:
                      if resp.status == 200:
                          data = await resp.json()
                          signal_data = data.get("data", {})

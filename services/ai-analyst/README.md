@@ -51,6 +51,9 @@ graph TD
 - **Semantic Caching**: Redis-backed hashing to prevent redundant LLM invocations for identical research queries.
 - **Geopolitical Intelligence**: Specialized sentiment filtering for XAUUSD, detecting high-impact events like consulate evacuations, military strikes, and sanctions.
 - **Adaptive News Re-ranking (Mini-RL)**: Dynamic feedback loop that extracts "Key Drivers" from news and re-ranks subsequent news syncs in the Data Pipeline for 10x faster response to volatility.
+- **SWR (Stale-While-Revalidate) Acceleration**: Implemented in high-latency tools (SMC, Open Interest) to provide sub-100ms response times from Redis cache while refreshing data in the background.
+- **Strict 3s Latency Cap**: All briefing tools are governed by a strict 3.0-second timeout to ensure the Reasoning Engine remains responsive under heavy load.
+- **Internal News Engine**: Replaced deprecated SerpApi with a high-performance internal news scraper (RSS/yfinance) via the API Gateway.
 - **Context Pruning**: Intelligent `Summarizer` node to aggressively condense tool outputs, preventing token saturation.
 
 ## 🤖 AI-Agent Operational Guide

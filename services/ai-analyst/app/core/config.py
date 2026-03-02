@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     GEMINI_FLASH_MODEL_ID: str = "gemini-2.5-flash"
     GEMINI_FLASH_LITE_MODEL_ID: str = "gemini-2.5-flash-lite"
     GEMINI_EMBEDDING_DIM: int = 3072
-    SERPAPI_API_KEY: Optional[str] = None
+    SERPAPI_API_KEY: Optional[str] = None  # Deprecated: Using internal news feeds
     
     QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333

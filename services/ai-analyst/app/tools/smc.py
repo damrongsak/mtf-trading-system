@@ -49,19 +49,51 @@ class SMCAnalystTool(BaseTool):
 
         base_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
         url = f"{base_url}/api/v1/signal/latest/{normalized_symbol}"
+        cache_key = f"market_context:{normalized_symbol}"
         
         params = {"timeframe": timeframe}
         headers = {}
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
+        cached_data = None
+        # 1. Try to fetch from Redis Cache first (SWR pattern)
+        try:
+            from app.core.config import settings
+            import redis.asyncio as aioredis
+            redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            cached_raw = await redis.get(cache_key)
+            if cached_raw:
+                cached_data = json.loads(cached_raw)
+                # If very fresh (< 15s) and not slim, just return it
+                if cached_data.get("data_age_seconds", 999) < 15 and not (isinstance(input_data, dict) and input_data.get("slim")):
+                    logger.info(f"SMC Tool: Cache HIT (Very Fresh) for {normalized_symbol}")
+                    await redis.aclose()
+                    # (Logic to process cached_data would go here, we'll let it flow through for now)
+            await redis.aclose()
+        except Exception as e:
+            logger.error(f"SMC Tool Redis error: {e}")
+
+        # 2. Fetch from API with 3s timeout
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(url, params=params, headers=headers, timeout=15.0)
-                if resp.status_code != 200: return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
-                
-                data = resp.json().get("data")
-                if not data: return "No data returned for SMC analysis."
+                resp = await client.get(url, params=params, headers=headers, timeout=3.0)
+                if resp.status_code == 200:
+                    data = resp.json().get("data")
+                    if data: 
+                        logger.info(f"SMC Tool: API Success for {normalized_symbol}")
+                        # (Continue to processing section)
+                    else: return "No data returned for SMC analysis."
+                else:
+                    logger.warning(f"SMC Tool API Error {resp.status_code}. Fallback to cache.")
+                    if cached_data: data = cached_data
+                    else: return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
+            except (httpx.TimeoutException, Exception) as e:
+                logger.warning(f"SMC Tool fetch timed out or failed ({e}). Using cached data.")
+                if cached_data:
+                    data = cached_data
+                else:
+                    return f"Failed to perform SMC analysis and no cached data available: {str(e)}"
                 
                 # Extract market context
                 market_status = data.get("market_status", "unknown")

@@ -42,7 +42,7 @@ class GetJournalEntriesTool(BaseTool):
                     else:
                         headers["Authorization"] = auth_token
                 
-                async with session.get(url, params=params, headers=headers) as resp:
+                async with session.get(url, params=params, headers=headers, timeout=3.0) as resp:
                      if resp.status == 200:
                          data = await resp.json()
                          entries = data.get("data", [])

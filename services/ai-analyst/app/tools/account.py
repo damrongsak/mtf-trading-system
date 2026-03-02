@@ -22,7 +22,7 @@ class GetAccountStatusTool(BaseTool):
                 
                 url = f"{settings.API_GATEWAY_URL}/api/v1/execution/account/summary"
                 
-                async with session.get(url, headers=headers) as resp:
+                async with session.get(url, headers=headers, timeout=3.0) as resp:
                      if resp.status == 200:
                          json_resp = await resp.json()
                          data = json_resp.get("data", {})

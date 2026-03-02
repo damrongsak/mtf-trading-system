@@ -798,22 +798,34 @@ class StrategyAdvisorAgent:
         """
         Consolidated DailyBriefing logic: Parallelized Personal Digest.
         Now includes macro context via Google Search.
+        Includes global and individual tool timeouts to prevent Briefing Timeout.
         """
         auth_token = state.get("auth_token")
         logger.info("Generating Daily Briefing...")
 
-        # Select tools for briefing (Daily Briefing Parity + Institutional Analysis)
-        tools = [
-            "get_account_status",  # Fixed: was "account_status"
-            "get_economic_calendar", 
-            "get_journal_entries",  # Fixed: was "journal_entries"
-            "get_technical_signals", 
-            "get_market_context",
-            "google_search",
-            "smc_technical_analysis",  # Added: SMC institutional analysis
-            "open_interest",  # Added: OI metrics
-            "market_state"  # Added: Market regime and risk multiplier
-        ]
+        # Select tools for briefing
+        is_slim = state.get("intent") == "DAILY_BRIEFING" and ("slim" in state.get("input_text", "").lower() or "lightweight" in state.get("input_text", "").lower())
+        
+        if is_slim:
+            logger.info("Using Lightweight Briefing Mode (Slim)...")
+            tools = [
+                "get_account_status",
+                "get_technical_signals", 
+                "get_market_context",
+                "smc_technical_analysis"
+            ]
+        else:
+            tools = [
+                "get_account_status",
+                "get_economic_calendar", 
+                "get_journal_entries",
+                "get_technical_signals", 
+                "get_market_context",
+                "google_search",
+                "smc_technical_analysis",
+                "open_interest",
+                "market_state"
+            ]
         
         async def run_briefing_tool(name):
              tool = self.tool_registry.get_tool(name)
@@ -831,15 +843,29 @@ class StrategyAdvisorAgent:
                  elif name == "open_interest": inp = {}
                  elif name == "market_state": inp = {"symbol": "XAUUSD", "timeframe": "H1"}
                  
-                 res = await tool.run(inp, auth_token=auth_token)
+                 # Per-tool timeout: 8 seconds
+                 res = await asyncio.wait_for(tool.run(inp, auth_token=auth_token), timeout=8.0)
                  logger.info(f"Briefing Tool {name} finished. Output size: {len(res)} chars")
                  return f"### {name.replace('_', ' ').title()}\n{res}"
+             except asyncio.TimeoutError:
+                 logger.warning(f"⏱️ Briefing Tool {name} timed out after 8s.")
+                 return f"### {name.replace('_', ' ').title()}\nTool timed out. Using previous/cached context if available."
              except Exception as e:
                  logger.error(f"Error running briefing tool {name}: {e}")
-                 return f"Error running {name}: {e}"
+                 return f"### {name.replace('_', ' ').title()}\nError running {name}: {e}"
 
-        results = await asyncio.gather(*[run_briefing_tool(t) for t in tools])
-        
+        # Global timeout for the entire node: 20 seconds
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*[run_briefing_tool(t) for t in tools]),
+                timeout=20.0
+            )
+        except asyncio.TimeoutError:
+            logger.error("🛑 GLOBAL Briefing Timeout! Falling back to partial results.")
+            # This shouldn't happen often if individual tools time out at 8s, 
+            # but it's a safety net for the gather itself or node overhead.
+            results = ["### Daily Briefing\nSystem was unable to gather all data in time. Please check specific tools."]
+
         # Filter out empty or extremely small results to avoid polluting generation
         valid_results = [r for r in results if len(r) > 50]
         if len(valid_results) < len(results):

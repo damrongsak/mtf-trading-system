@@ -44,7 +44,7 @@ class GetMarketContextTool(BaseTool):
                 url = f"{settings.STRATEGY_CORE_URL}/api/v1/market/candles"
                 params = {"symbol": symbol, "timeframe": timeframe, "count": min(count, 50)} # Hard cap to prevent massive dumps
                 
-                async with session.get(url, params=params) as resp:
+                async with session.get(url, params=params, timeout=3.0) as resp:
                      if resp.status == 200:
                           data = await resp.json()
                           candles = data.get("data", [])

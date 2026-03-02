@@ -49,7 +49,7 @@ class GetEconomicCalendarTool(BaseTool):
             
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(url, params=params, timeout=10.0)
+                resp = await client.get(url, params=params, timeout=3.0)
                 if resp.status_code != 200:
                     logger.error(f"API fetch failed: {resp.status_code} - {resp.text}")
                     return None
