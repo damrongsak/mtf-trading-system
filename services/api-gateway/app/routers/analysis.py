@@ -5,6 +5,7 @@ from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
 from app.utils.response import success_response
 from app.schemas.open_interest import UnifiedOIProfileResponse
+from app.schemas.opportunity import OpportunityLogResponse
 from typing import List, Optional
 import httpx
 import os
@@ -229,13 +230,17 @@ async def calculate_smc(req: SMCRequest):
         logger.error(f"SMC Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
-@router.get("/opportunities", status_code=200)
+@router.get("/opportunities", status_code=200, response_model=List[OpportunityLogResponse])
 def get_opportunities(limit: int = 50, db: Session = Depends(get_db)):
     """
     Get skipped trade opportunities (filtered by Volatility/Sentiment).
     """
-    logs = db.query(OpportunityLog).order_by(OpportunityLog.timestamp.desc()).limit(limit).all()
-    return logs
+    try:
+        logs = db.query(OpportunityLog).order_by(OpportunityLog.timestamp.desc()).limit(limit).all()
+        return logs
+    except Exception as e:
+        logger.error(f"Failed to fetch opportunity logs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch opportunity logs: {str(e)}")
 
 DATA_PIPELINE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 
