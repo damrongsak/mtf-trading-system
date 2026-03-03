@@ -12,6 +12,7 @@ from app.utils.response import success_response
 from app.services.rag import RAGService
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
+from app.agents.episodic_memory import EpisodicMemoryAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents, admin, external
@@ -109,6 +110,11 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"❌ Strategy Advisor Agent Failed: {e}")
 
+        try:
+            services["episodic_memory"] = EpisodicMemoryAgent()
+            logger.info("✅ Episodic Memory Agent Ready")
+        except Exception as e:
+            logger.error(f"❌ Episodic Memory Agent Failed: {e}")
 
         try:
             services["sentiment"] = SentimentService()

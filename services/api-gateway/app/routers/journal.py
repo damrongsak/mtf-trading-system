@@ -278,11 +278,111 @@ def import_trades(
         
     db.commit()
     
+    
     return success_response(data=JournalImportResponse(
         imported_count=imported_count,
         skipped_count=skipped_count,
         message=f"Successfully imported {imported_count} trades. Skipped {skipped_count} duplicates."
     ))
+
+# ==========================
+# Internal AI Analyst API
+# ==========================
+
+@router.get("/internal/memory/pending-trades")
+def get_pending_ai_trades(
+    limit: int = 5,
+    db: Session = Depends(get_db)
+    # Note: A real prod system might require internal API key verification here,
+    # but for this MVP, we omit strictly enforcing a service token parsing on this internal route
+    # or rely on an upstream gateway rule.
+):
+    """
+    Internal endpoint: Fetches closed trades that do NOT have an AI-generated journal entry yet.
+    """
+    # Find trades that do NOT have a corresponding JournalEntry with is_ai_generated=True
+    # Subquery defining Trade IDs that already have an AI Journal
+    ai_journaled_subq = db.query(JournalEntry.trade_id).filter(
+        JournalEntry.is_ai_generated == True,
+        JournalEntry.trade_id.isnot(None)
+    ).subquery()
+
+    # Query trades NOT IN the subquery
+    pending_trades = db.query(Trade).filter(
+        Trade.trade_id.notin_(ai_journaled_subq)
+    ).order_by(Trade.created_at.desc()).limit(limit).all()
+
+    # We return raw dicts for easy JSON parsing by the AI Agent
+    result = []
+    for t in pending_trades:
+        result.append({
+            "trade_id": str(t.trade_id),
+            "symbol": t.symbol,
+            "direction": t.direction.value if hasattr(t.direction, 'value') else str(t.direction),
+            "entry_price": float(t.entry_price) if t.entry_price else None,
+            "exit_price": float(t.exit_price) if t.exit_price else None,
+            "pnl_usd": float(t.pnl_usd) if t.pnl_usd else None,
+            "risk_usd": float(t.risk_usd) if t.risk_usd else None,
+            "strategy": t.strategy,
+            "timeframe": t.timeframe,
+            "created_at": t.created_at.isoformat() if t.created_at else None
+        })
+
+    return success_response(data=result)
+
+@router.post("/internal/memory/save-insight")
+def save_ai_insight(
+    payload: dict, # Simple dict for internal API
+    db: Session = Depends(get_db)
+):
+    """
+    Internal endpoint: Saves an AI-generated lesson as a JournalEntry.
+    """
+    trade_id = payload.get("trade_id")
+    ai_insight = payload.get("ai_insight")
+    game_level = payload.get("game_level", "B_GAME")
+
+    if not trade_id or not ai_insight:
+        raise HTTPException(status_code=400, detail="Missing trade_id or ai_insight")
+
+    # Verify Trade exists
+    trade = db.query(Trade).filter(Trade.trade_id == trade_id).first()
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+        
+    # Check if AI entry already exists (idempotency)
+    existing = db.query(JournalEntry).filter(
+        JournalEntry.trade_id == trade_id,
+        JournalEntry.is_ai_generated == True
+    ).first()
+    
+    if existing:
+        # Update existing insight
+        existing.ai_insight = ai_insight
+        existing.game_level = game_level
+        db.commit()
+        return success_response(data={"journal_id": str(existing.id), "status": "updated"})
+
+    # Create new AI Journal Entry linked to the Trade
+    new_entry = JournalEntry(
+        user_id=trade.user_id, # Link it to the user who made the trade
+        trade_id=trade.trade_id,
+        symbol=trade.symbol,
+        direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
+        entry_price=float(trade.entry_price) if trade.entry_price else None,
+        exit_price=float(trade.exit_price) if trade.exit_price else None,
+        pnl_amount=float(trade.pnl_usd) if trade.pnl_usd else None,
+        session="AI_Analyst",
+        game_level=game_level,
+        is_ai_generated=True,
+        ai_insight=ai_insight
+    )
+    
+    db.add(new_entry)
+    db.commit()
+    db.refresh(new_entry)
+    
+    return success_response(data={"journal_id": str(new_entry.id), "status": "created"})
 
 # ==========================
 # Analytics Endpoints

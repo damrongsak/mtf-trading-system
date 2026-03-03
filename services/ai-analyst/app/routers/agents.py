@@ -232,3 +232,27 @@ async def chat_strategy(
         logger.error(f"Error in strategy chat: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
+
+@router.post("/agent/memory/sync")
+async def sync_episodic_memory(authorization: str = Header(None, alias="Authorization")):
+    """
+    Triggers the Episodic Memory Agent to scan for unanalyzed trades and extract lessons.
+    Usually called via an internal Cron job.
+    """
+    # Requires initialization in main.py (services["episodic_memory"])
+    if "episodic_memory" not in services or not services["episodic_memory"]:
+        raise HTTPException(status_code=503, detail="Episodic Memory Agent unavailable")
+    
+    try:
+        # Since this is a background job acting on behalf of the system,
+        # we don't necessarily extract an auth_token for the user, 
+        # but the agent itself will use the internal system token via its tool.
+        result = await services["episodic_memory"].run()
+        
+        return success_response(
+            data={"output": result},
+            message="Episodic Memory Sync Completed"
+        )
+    except Exception as e:
+        logger.error(f"Error executing Episodic Memory Sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

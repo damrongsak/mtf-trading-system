@@ -3,6 +3,7 @@ from typing_extensions import Annotated
 import operator
 from langchain_core.messages import BaseMessage
 from app.services.gemini import GeminiClient
+from app.tools.episodic_memory import fetch_unanalyzed_trades, save_episodic_memory
 
 # --- State Definition (The "Wire") ---
 class UserConfig(TypedDict):
@@ -26,6 +27,9 @@ class AgentState(TypedDict):
     
     # Context Management
     summary: Optional[str] # Long-term conversation summary
+    
+    # Episodic Memory Sync
+    trades_analyzed: Optional[int]
     
     # Decisions
     next_node: Optional[str]
@@ -81,6 +85,8 @@ class ToolRegistry:
 
 # Global Registry Instance
 registry = ToolRegistry()
+registry.register("fetch_unanalyzed_trades", fetch_unanalyzed_trades, "Fetches historical closed trades missing AI Journal Entry")
+registry.register("save_episodic_memory", save_episodic_memory, "Save actionable lessons for the Episodic Memory module")
 
 # --- Workflow Base ---
 class OlympusWorkflow:

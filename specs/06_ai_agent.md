@@ -55,6 +55,13 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 - **Agent:** `DailyBriefingAgent`
 - **Process:** Compiles overnight price action, news, and calendar events into a morning briefing.
 
+### 2.7. Episodic Memory (Trade Learning)
+- **Goal:** Autonomous learning from historical trade outcomes to prevent recurrent mistakes.
+- **Process:**
+    - Background job (`/agent/memory/sync`) finds closed trades without an AI-generated `JournalEntry`.
+    - Agent analyzes the trade (Execution Data vs Original Narrative).
+    - Extracts `ai_insight` (the actionable lesson) and stores it in the `JournalEntry` table.
+
 ## 3. Architecture components
 
 ### 3.1. System Data Flow
@@ -104,11 +111,12 @@ graph TD
     - `GoogleSearchTool`: Real-time web search.
     - `GetEconomicCalendarTool`: Scheduled events.
     - `GetStrategyPerformanceTool`: Backtest runner.
-- **Loop (OODA):**
+- **Nodes & Loop (OODA):**
     - **Observe:** Fetch data via tools.
     - **Orient:** Retrieve similar historical contexts or specs.
-    - **Decide:** Formulate an opinion based on **Institutional Synthesis Protocols**.
+    - **Decide (Hypothesis Verification):** Formulate an opinion based on **Institutional Synthesis Protocols**. The new `hypothesis_tester` node ensures tools actually verify assumptions before finalizing.
     - **Act:** Output analysis or alert.
+    - **Learn:** The `node_learn_from_outcomes` continuously extracts lessons from the `trades` table.
 
 ### 3.3. Institutional Synthesis Protocols (v2.6)
 To ensure high-fidelity responses for institutional-grade queries, the following routing logic is enforced:
@@ -162,6 +170,11 @@ class MarketNarrative(BaseModel):
 - **POST** `/ai/chat/sessions/message`
 - **Body:** `{ "message": "Optimize this MACD params...", "context_code": "..." }`
 - **Response:** `{ "response": "..." }`
+
+### 5.6. Episodic Memory Sync
+- **POST** `/agent/memory/sync`
+- **Body:** Internal / Cron triggered
+- **Response:** `{ "status": "success", "trades_analyzed": 5 }`
 
 ## 6. Infrastructure & Roadmap
 The service is fully containerized and integrated with:

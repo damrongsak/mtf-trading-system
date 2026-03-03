@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, JSON, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -38,6 +38,10 @@ class JournalEntry(Base):
     
     # Game Level
     game_level = Column(Enum(GameLevel), nullable=True)
+    
+    # AI Episodic Memory
+    is_ai_generated = Column(Boolean, default=False, nullable=False)
+    ai_insight = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
