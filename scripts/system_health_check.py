@@ -19,12 +19,16 @@ APP_SERVICES = [
 ]
 
 # 3. API Endpoint Manifest (Path, Name, Method, Payload)
+# Valid IDs for health check (fetched from DB)
+VALID_ACCOUNT_ID = "2c542d2a-b151-41e0-8cc0-8f0ca2a3eb49"
+VALID_DEPLOYMENT_ID = "252aef08-114d-46b6-a7d4-a481aab4da4b"
+
 GATEWAY_ENDPOINTS = [
     {"path": "/auth/profile", "name": "User Profile", "method": "GET"},
     {"path": "/accounts/", "name": "Broker Accounts", "method": "GET"},
     {"path": "/execution/trades", "name": "Trade History", "method": "GET"},
-    {"path": "/execution/orders", "name": "Pending Orders", "method": "GET"},
-    {"path": "/execution/positions", "name": "Open Positions", "method": "GET"},
+    {"path": f"/execution/orders?broker_account_id={VALID_ACCOUNT_ID}", "name": "Pending Orders", "method": "GET"},
+    {"path": f"/execution/positions?broker_account_id={VALID_ACCOUNT_ID}", "name": "Open Positions", "method": "GET"},
     {"path": "/ai/briefing", "name": "AI Market Briefing", "method": "GET"},
     {"path": "/ai/agents", "name": "AI Agents Registry", "method": "GET"},
     {"path": "/ai/admin/qdrant/health", "name": "Vector DB Integrity", "method": "GET"},
@@ -36,7 +40,13 @@ GATEWAY_ENDPOINTS = [
         "path": "/internal/signals", 
         "name": "Internal Signals", 
         "method": "POST", 
-        "payload": '{"deployment_id": "00000000-0000-0000-0000-000000000000", "symbol": "XAUUSD", "direction": "BULLISH", "stop_loss": 2000, "risk_usd": 10, "reason": "healthcheck"}'
+        "payload": f'{{"deployment_id": "{VALID_DEPLOYMENT_ID}", "symbol": "XAUUSD", "direction": "BULLISH", "stop_loss": 2000, "risk_usd": 10, "reason": "healthcheck"}}'
+    },
+    {
+        "path": "/quant/analyze", 
+        "name": "Quant Map Analysis", 
+        "method": "POST", 
+        "payload": '{"symbol": "XAUUSD", "timeframe": "H1", "limit": 100}'
     },
 ]
 

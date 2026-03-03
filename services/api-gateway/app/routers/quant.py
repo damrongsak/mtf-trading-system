@@ -54,8 +54,11 @@ async def proxy_quant_analyze(req: QuantAnalyzeRequest):
     except httpx.RequestError as e:
         logger.error(f"Strategy Core unavailable: {str(e)}")
         raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except HTTPException as e:
+        # Re-raise explicit HTTP exceptions (like 400 from strategy-core)
+        raise e
     except Exception as e:
-        logger.error(f"Quant Analyze Proxy failed: {str(e)}")
+        logger.error(f"Quant Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/size", status_code=200)
@@ -74,6 +77,8 @@ async def proxy_quant_sizing(req: QuantSizingRequest):
     except httpx.RequestError as e:
         logger.error(f"Strategy Core unavailable: {str(e)}")
         raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Quant Sizing Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

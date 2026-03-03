@@ -68,11 +68,12 @@ class SharedMarketDataManager:
         s_data = self._get_symbol_data(symbol)
         
         with s_data.lock:
-            if len(s_data.candles_m1) > 0:
-                logger.info(f"Symbol {symbol} already has data, skipping hydration.")
+            # Check if we already have enough data
+            if len(s_data.candles_m1) >= limit:
+                logger.info(f"Symbol {symbol} already has {len(s_data.candles_m1)} candles, skipping hydration.")
                 return
 
-            logger.info(f"Hydrating {symbol} from DB (M1)...")
+            logger.info(f"Hydrating {symbol} from DB (M1), target limit {limit}...")
             db = SessionLocal()
             try:
                 # Query M1 history
@@ -87,19 +88,34 @@ class SharedMarketDataManager:
                     logger.warning(f"No M1 history found for {symbol} in DB.")
                     return
 
-                # Convert to dicts and append (Reverse order because we fetched DESC)
-                for c in reversed(results):
-                    candle = {
-                        'timestamp': c.timestamp.replace(tzinfo=None), # Normalize to naive if needed
-                        'open': float(c.open),
-                        'high': float(c.high),
-                        'low': float(c.low),
-                        'close': float(c.close),
-                        'volume': float(c.volume)
-                    }
-                    s_data.candles_m1.append(candle)
+                # If we have existing data, merge and avoid duplicates
+                existing_timestamps = {c['timestamp'] for c in s_data.candles_m1}
                 
-                logger.info(f"Hydrated {symbol}: {len(results)} M1 candles loaded.")
+                # Convert to dicts and append
+                new_candles = []
+                for c in results:
+                    ts = c.timestamp.replace(tzinfo=None)
+                    if ts not in existing_timestamps:
+                        candle = {
+                            'timestamp': ts,
+                            'open': float(c.open),
+                            'high': float(c.high),
+                            'low': float(c.low),
+                            'close': float(c.close),
+                            'volume': float(c.volume)
+                        }
+                        new_candles.append(candle)
+                
+                # Add new candles and sort
+                if new_candles:
+                    all_candles = list(s_data.candles_m1) + new_candles
+                    all_candles.sort(key=lambda x: x['timestamp'])
+                    
+                    s_data.candles_m1.clear()
+                    for c in all_candles[-s_data.candles_m1.maxlen:]:
+                        s_data.candles_m1.append(c)
+                
+                logger.info(f"Hydrated {symbol}: Total {len(s_data.candles_m1)} M1 candles now in buffer.")
                 
             finally:
                 db.close()

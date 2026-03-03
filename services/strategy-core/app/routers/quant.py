@@ -27,8 +27,9 @@ async def analyze_market(request: QuantAnalyzeRequest):
         )
         
         if df.empty:
-            # Try to hydrate if missing
-            market_data_manager.load_history(request.symbol, limit=request.limit)
+            # Try to hydrate if missing. Load more M1 candles for higher timeframes.
+            hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
+            market_data_manager.load_history(request.symbol, limit=hydration_limit)
             df = market_data_manager.get_candles(
                 symbol=request.symbol, 
                 timeframe=request.timeframe, 
@@ -61,7 +62,9 @@ async def calculate_sizing(request: QuantSizingRequest):
         )
         
         if df.empty:
-            market_data_manager.load_history(request.symbol, limit=request.limit)
+            # Load more M1 candles for higher timeframes (3000 M1 = 50 H1)
+            hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
+            market_data_manager.load_history(request.symbol, limit=hydration_limit)
             df = market_data_manager.get_candles(
                 symbol=request.symbol, 
                 timeframe=request.timeframe, 
