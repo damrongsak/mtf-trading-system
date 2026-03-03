@@ -175,6 +175,8 @@ docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md
 docs/RsiRequest.md
 docs/SMCFVG.md
+docs/SMCInducement.md
+docs/SMCInducementMeta.md
 docs/SMCNarrativeRequest.md
 docs/SMCOrderBlock.md
 docs/SMCRequest.md

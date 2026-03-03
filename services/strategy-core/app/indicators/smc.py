@@ -50,6 +50,17 @@ class SMCStructureLabel(TypedDict):
     text: str
     price: float
 
+class SMCInducement(TypedDict):
+    """
+    TypedDict for Inducement (IDM) signals.
+    """
+    type: str  # 'buy_side' | 'sell_side'
+    index: int
+    timestamp: str
+    price: float
+    level: float
+    meta: Dict[str, Any]
+
 class SMCStructure(TypedDict):
     """
     TypedDict for overall Market Structure.
@@ -57,6 +68,7 @@ class SMCStructure(TypedDict):
     pivots: List[Dict[str, Any]] 
     labels: List[SMCStructureLabel]
     events: List[Dict[str, Any]]
+    inducements: List[SMCInducement]
 
 # --- Detection Logic ---
 
@@ -324,6 +336,104 @@ def detect_liquidity_sweeps(ohlc: pd.DataFrame) -> List[SMCSweep]:
         
     return sorted(sweeps, key=lambda x: x['index'])
 
+def detect_inducement(df: pd.DataFrame, lookback: int = 20, vol_ma_period: int = 20) -> List[SMCInducement]:
+    import pandas as pd
+    import numpy as np
+    from app.indicators.momentum import calculate_rsi
+    
+    """
+    Vectorized detection of Inducement (IDM) traps.
+    """
+    if len(df) < lookback + 1:
+        return []
+
+    high = pd.to_numeric(df['high'], errors='coerce')
+    low = pd.to_numeric(df['low'], errors='coerce')
+    close = pd.to_numeric(df['close'], errors='coerce')
+    open_ = pd.to_numeric(df['open'], errors='coerce')
+    volume = pd.to_numeric(df['volume'], errors='coerce')
+    
+    # 1. RSI and Divergence Context
+    rsi = calculate_rsi(close)
+    
+    # 2. Liquidity Zones (Recent Extremes)
+    recent_high = high.shift(1).rolling(window=lookback).max()
+    recent_low = low.shift(1).rolling(window=lookback).min()
+    recent_rsi_high = rsi.shift(1).rolling(window=lookback).max()
+    recent_rsi_low = rsi.shift(1).rolling(window=lookback).min()
+    
+    # 3. Candle Anatomy
+    body_size = (close - open_).abs()
+    
+    # Upper Wick: high - max(open, close)
+    upper_wick = high - df[['open', 'close']].max(axis=1)
+    # Lower Wick: min(open, close) - low
+    lower_wick = df[['open', 'close']].min(axis=1) - low
+    
+    # Avoid division by zero for total size
+    total_size = high - low
+    
+    # Rejection definition: Wick > 2 * Body
+    has_long_upper_wick = upper_wick > (2 * body_size)
+    has_long_lower_wick = lower_wick > (2 * body_size)
+    
+    # 4. Volume Confirmation
+    avg_vol = volume.rolling(window=vol_ma_period).mean()
+    unusual_volume = volume > (avg_vol * 1.5)
+    
+    # 5. Divergence & Fakeout Logic
+    # Bearish IDM (Trap for Buyers)
+    is_fake_breakout_high = (high > recent_high) & (close < recent_high)
+    bearish_divergence = (high > recent_high) & (rsi < recent_rsi_high)
+    
+    buy_side_mask = is_fake_breakout_high & has_long_upper_wick & unusual_volume & bearish_divergence
+    
+    # Bullish IDM (Trap for Sellers)
+    is_fake_breakdown_low = (low < recent_low) & (close > recent_low)
+    bullish_divergence = (low < recent_low) & (rsi > recent_rsi_low)
+    
+    sell_side_mask = is_fake_breakdown_low & has_long_lower_wick & unusual_volume & bullish_divergence
+    
+    # 6. Extract Indices and Build Results
+    idms: List[SMCInducement] = []
+    
+    buy_indices = np.where(buy_side_mask)[0]
+    sell_indices = np.where(sell_side_mask)[0]
+    
+    for idx in buy_indices:
+        timestamp = df.index[idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        idms.append({
+            "type": "buy_side",
+            "index": int(idx),
+            "timestamp": ts_str,
+            "price": float(close.iloc[idx]),
+            "level": float(recent_high.iloc[idx]),
+            "meta": {
+                "wick_ratio": float(upper_wick.iloc[idx] / body_size.iloc[idx]) if body_size.iloc[idx] > 0 else 0,
+                "volume_ratio": float(volume.iloc[idx] / avg_vol.iloc[idx]) if avg_vol.iloc[idx] > 0 else 0,
+                "rsi_value": float(rsi.iloc[idx])
+            }
+        })
+        
+    for idx in sell_indices:
+        timestamp = df.index[idx]
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        idms.append({
+            "type": "sell_side",
+            "index": int(idx),
+            "timestamp": ts_str,
+            "price": float(close.iloc[idx]),
+            "level": float(recent_low.iloc[idx]),
+            "meta": {
+                "wick_ratio": float(lower_wick.iloc[idx] / body_size.iloc[idx]) if body_size.iloc[idx] > 0 else 0,
+                "volume_ratio": float(volume.iloc[idx] / avg_vol.iloc[idx]) if avg_vol.iloc[idx] > 0 else 0,
+                "rsi_value": float(rsi.iloc[idx])
+            }
+        })
+        
+    return sorted(idms, key=lambda x: x['index'])
+
 def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
     import pandas as pd
     import numpy as np
@@ -331,7 +441,7 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
     Detect Structure using Rolling Window Vectorization (Lagging, Non-Repainting).
     """
     if len(ohlc) < window * 2 + 1:
-        return SMCStructure(pivots=[], labels=[], events=[])
+        return SMCStructure(pivots=[], labels=[], events=[], inducements=[])
 
     high = ohlc['high']
     low = ohlc['low']
@@ -384,7 +494,8 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
     structure: SMCStructure = {
         "pivots": pivots,
         "labels": [],
-        "events": []
+        "events": [],
+        "inducements": []
     }
     
     # Label HH/LL - Linear pass is required as it's stateful (depends on previous pivot)
@@ -461,6 +572,8 @@ def detect_structure(ohlc: pd.DataFrame, window: int = 2) -> SMCStructure:
                             "trigger_pivot": last_major_low
                         })
                         break
+    
+    structure["inducements"] = detect_inducement(ohlc)
     
     return structure
 
@@ -593,7 +706,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
     if df.empty:
         return {
             "order_blocks": [], "fvgs": [], "liquidity_sweeps": [], 
-            "structure": {}, "auto_fibs": {}, 
+            "structure": {}, "auto_fibs": {}, "inducement_signals": [],
             "institutional_bias": "NEUTRAL", "strategic_reasoning": "Insufficient data",
             "timestamp": datetime.utcnow().isoformat(), "timeframe": timeframe, "meta": {}
         }
@@ -607,6 +720,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
         structure_window = 3
         
     structure = detect_structure(df, window=structure_window)
+    idms = detect_inducement(df)
     fibs = calculate_auto_fibs(df)
     setups = generate_setups(df, obs, fvgs, symbol)
     
@@ -688,6 +802,7 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
         "fvgs": fvgs,
         "liquidity_sweeps": sweeps,
         "structure": structure,
+        "inducement_signals": idms,
         "setups": setups,
         "auto_fibs": fibs,
         "institutional_bias": bias,

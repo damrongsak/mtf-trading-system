@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **pivots** | **Array&lt;object&gt;** |  | [optional] [default to undefined]
 **labels** | [**Array&lt;SMCStructureLabel&gt;**](SMCStructureLabel.md) |  | [optional] [default to undefined]
 **events** | **Array&lt;object&gt;** |  | [optional] [default to undefined]
+**inducements** | [**Array&lt;SMCInducement&gt;**](SMCInducement.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -18,6 +19,7 @@ const instance: SMCStructure = {
     pivots,
     labels,
     events,
+    inducements,
 };
 ```
 

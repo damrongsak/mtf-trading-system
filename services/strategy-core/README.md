@@ -36,7 +36,7 @@ graph TD
 ## 🎯 Core Responsibilities
 
 - **MTF Signal Generation**: Native Multi-Timeframe (M1 to Monthly) analysis with sub-millisecond strategy switching.
-- **Institutional Indicators**: Numba-accelerated implementations of **SMC** (Order Blocks, FVG), **TPO (Market Profile)**, and **Gamma Exposure**.
+- **Institutional Indicators**: Numba-accelerated implementations of **SMC** (Order Blocks, FVG, IDM), **TPO (Market Profile)**, and **Gamma Exposure**.
 - **Market Context Broadcast**: Dedicated background worker for publishing real-time **PIV**, **Quant Risk**, and **Liquidity** snapshots to Redis for HFT-latency execution.
 - **Dynamic Risk Sizing**: Real-time position sizing based on Fractional Kelly Criterion and Fund-level risk parity.
 - **Hook-based Extensibility**: Modular "WordPress-style" plugin system for risk filters, sentiment guards, and notifications.

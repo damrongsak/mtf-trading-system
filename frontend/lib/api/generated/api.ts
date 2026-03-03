@@ -1460,6 +1460,27 @@ export const SMCFVGTypeEnum = {
 
 export type SMCFVGTypeEnum = typeof SMCFVGTypeEnum[keyof typeof SMCFVGTypeEnum];
 
+export interface SMCInducement {
+    'type'?: SMCInducementTypeEnum;
+    'index'?: number;
+    'timestamp'?: string;
+    'price'?: number;
+    'level'?: number;
+    'meta'?: SMCInducementMeta;
+}
+
+export const SMCInducementTypeEnum = {
+    BuySide: 'buy_side',
+    SellSide: 'sell_side'
+} as const;
+
+export type SMCInducementTypeEnum = typeof SMCInducementTypeEnum[keyof typeof SMCInducementTypeEnum];
+
+export interface SMCInducementMeta {
+    'wick_ratio'?: number;
+    'volume_ratio'?: number;
+    'rsi_value'?: number;
+}
 export interface SMCNarrativeRequest {
     'smc_data'?: object;
     'price_context'?: object;
@@ -1497,6 +1518,7 @@ export interface SMCResponse {
     'order_blocks'?: Array<SMCOrderBlock>;
     'fvgs'?: Array<SMCFVG>;
     'liquidity_sweeps'?: Array<SMCSweep>;
+    'inducement_signals'?: Array<SMCInducement>;
     'structure'?: SMCStructure;
     'auto_fibs'?: { [key: string]: number; };
 }
@@ -1504,6 +1526,7 @@ export interface SMCStructure {
     'pivots'?: Array<object>;
     'labels'?: Array<SMCStructureLabel>;
     'events'?: Array<object>;
+    'inducements'?: Array<SMCInducement>;
 }
 export interface SMCStructureLabel {
     'index'?: number;

@@ -5079,6 +5079,31 @@ components:
         price:
           type: number
 
+    SMCInducement:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [buy_side, sell_side]
+        index:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        price:
+          type: number
+        level:
+          type: number
+        meta:
+          type: object
+          properties:
+            wick_ratio:
+              type: number
+            volume_ratio:
+              type: number
+            rsi_value:
+              type: number
+
     SMCStructure:
       type: object
       properties:
@@ -5094,6 +5119,10 @@ components:
           type: array
           items:
             type: object
+        inducements:
+          type: array
+          items:
+            $ref: '#/components/schemas/SMCInducement'
 
     SMCResponse:
         type: object
@@ -5110,6 +5139,10 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/SMCSweep'
+          inducement_signals:
+            type: array
+            items:
+              $ref: '#/components/schemas/SMCInducement'
           structure:
             $ref: '#/components/schemas/SMCStructure'
           auto_fibs:
