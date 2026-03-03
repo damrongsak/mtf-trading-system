@@ -563,7 +563,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "raw_volume": o.tradeData.volume,
                     "type": str(o.orderType),
                     "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
-                    "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None
+                    "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None,
+                    "status": "PENDING"
                 })
                 
             return orders

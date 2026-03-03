@@ -82,10 +82,22 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 # Attempt to load OpenAPI spec from file (SDD)
-SPEC_PATH = "/specs/04_api_spec.yaml"
-if os.path.exists(SPEC_PATH):
-    with open(SPEC_PATH, "r") as f:
-        app.openapi_schema = yaml.safe_load(f)
+# Single Source of Truth: /specs/04_api_spec.yaml (Docker) or ../../specs/04_api_spec.yaml (Local)
+SPEC_LOCATIONS = [
+    "/specs/04_api_spec.yaml",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "specs", "04_api_spec.yaml")),
+    os.path.abspath(os.path.join(os.getcwd(), "specs", "04_api_spec.yaml")),
+    "specs/04_api_spec.yaml"
+]
+
+for spec_path in SPEC_LOCATIONS:
+    if os.path.exists(spec_path):
+        logger.info(f"Loading OpenAPI spec from {spec_path}")
+        with open(spec_path, "r") as f:
+            app.openapi_schema = yaml.safe_load(f)
+        break
+else:
+    logger.warning("No OpenAPI spec found in search locations. Using default schema generation.")
 
 # CORS Middleware
 origins = [

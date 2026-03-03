@@ -412,6 +412,7 @@ class OrderResponse(BaseModel):
     units: Optional[str] = None
     price: Optional[str] = None
     time: Optional[str] = None
+    status: Optional[str] = None
 
 
 class BrokerAccountResponse(BaseModel):

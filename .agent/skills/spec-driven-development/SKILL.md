@@ -16,12 +16,20 @@ When you receive a request to change the system (Add Feature, Change API, Fix Lo
     *   Read `specs/03_data_model.yaml` (for database/schema changes).
     *   Read `specs/04_api_spec.yaml` (for API/Route changes).
 
-2.  **Update the Specs (if needed)**
+2.  **Search for Duplicates (CRITICAL)**
+    *   Before editing a spec, search for duplicate `.yaml` or `.md` files in subdirectories (e.g., `services/api-gateway/04_api_spec.yaml`).
+    *   **DELETE duplicates immediately** to avoid stale configurations.
+
+3.  **Update the Specs (if needed)**
     *   If the user's request requires a change to the data model, **YOU MUST** update `specs/03_data_model.yaml` first.
     *   If the user's request changes an API contract, **YOU MUST** update `specs/04_api_spec.yaml` first.
 
-3.  **Generate Code (Don't Write Logic Yet)**
-    *   **Backend Models:** Run `services/api-gateway/scripts/gen_backend.sh`.
+4.  **Create an Implementation Plan**
+    *   Always create an `implementation_plan.md` (or update existing).
+    *   Include a **Spec Compliance** section detailing which specs were modified and which generation scripts were run.
+
+5.  **Generate Code (Don't Write Logic Yet)**
+    *   **Backend Models:** Run `docker compose exec api-gateway /venv/bin/bash scripts/gen_backend.sh`.
     *   **Frontend Client:** Run `pnpm run gen:api` in the `frontend/` directory.
 
 4.  **Implement Logic**

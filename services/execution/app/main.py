@@ -134,6 +134,7 @@ class OrderResponse(BaseModel):
     units: str
     price: str
     time: str
+    status: str = Field("PENDING", description="PENDING, FILLED, CANCELLED, REJECTED")
 
 @app.post("/account/summary", response_model=APIResponse[AccountSummaryResponse])
 async def get_account_summary(authenticated: str = Depends(verify_internal_api_key), req: AccountSummaryRequest = Body(...), db: AsyncSession = Depends(get_db)):
@@ -236,7 +237,8 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
             "instrument": fill.get("instrument", req.symbol) if fill else req.symbol,
             "units": fill.get("units", str(req.units)) if fill else str(req.units),
             "price": fill.get("price", "0") if fill else "0",
-            "time": fill.get("time", "") if fill else ""
+            "time": fill.get("time", "") if fill else "",
+            "status": "FILLED" if fill and fill.get("price") else "PENDING"
         })
     except HTTPException as he:
         raise he
@@ -287,7 +289,8 @@ async def get_pending_orders_list(
                     instrument=o.get('instrument'),
                     units=str(o.get('units')),
                     price=str(o.get('price')),
-                    time=str(o.get('time'))
+                    time=str(o.get('time')),
+                    status=o.get('status', 'PENDING')
                 ))
             return success_response(data=mapped)
         else:

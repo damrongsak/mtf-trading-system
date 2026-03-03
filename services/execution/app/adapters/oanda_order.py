@@ -283,7 +283,10 @@ class OandaOrderAdapter(BrokerAdapter):
         try:
             r = orders.OrdersPending(accountID=self.account_id)
             await run_in_threadpool(self.client.request, r)
-            return r.response.get("orders", [])
+            pending = r.response.get("orders", [])
+            for o in pending:
+                o["status"] = "PENDING"
+            return pending
         except Exception as e:
             logger.error(f"Failed to fetch pending OANDA orders: {e}")
             raise e

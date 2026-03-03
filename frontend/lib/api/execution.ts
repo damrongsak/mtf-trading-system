@@ -26,6 +26,7 @@ export interface OrderResponse {
     units: string;
     price: string;
     time: string;
+    status: string;
 }
 
 export type TradeStatus = 'OPEN' | 'CLOSED' | 'REJECTED' | 'ALL';

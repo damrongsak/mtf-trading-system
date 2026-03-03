@@ -38,14 +38,22 @@ The system utilizes two primary patterns for high resilience:
 
 ## 🛠️ Development Workflow
 
-### 1. The SDD Process (Crucial)
-**Do not write code without checking specs first.**
-1.  **Read Specs:** Check `specs/` for defining behavior.
-2.  **Update Specs:** If a new feature is needed, modify `03_data_model.yaml` or `04_api_spec.yaml` first.
-3.  **Generate Code:**
-    *   **Backend Models:** `services/api-gateway/scripts/gen_backend.sh`
-    *   **Frontend Client:** `cd frontend && pnpm run gen:api`
-4.  **Implement:** Scaffold code based on the updated specs and generated types.
+### 1. The SDD Process (STRICT ENFORCEMENT)
+**The Spec is the Source of Truth. Do not write implementation code without updating and validating specs first.**
+
+#### 🛑 AI Agent Guardrails
+1.  **NO IMPLEMENTATION without SPEC**: You MUST NOT modify Python/React code until the corresponding `.yaml` or `.md` spec in `specs/` is updated.
+2.  **SEARCH FOR DUPLICATES**: Before editing a spec, search the codebase for duplicate files (e.g., `04_api_spec.yaml` lurking in subdirectories). **Delete duplicates immediately.**
+3.  **VALIDATE SCHEMA**: After updating a spec, run the appropriate generation script (`scripts/gen_backend.sh` or `pnpm run gen:api`) and verify results.
+4.  **PLANNING MODE**: Always create or update an `implementation_plan.md` that explicitly lists the spec changes.
+
+#### 🛠️ SDD Workflow Steps
+1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).
+2.  **Update Root Spec**: Modify the master file in the `specs/` directory.
+3.  **Generate Code**:
+    *   **Backend**: `docker compose exec api-gateway /venv/bin/bash scripts/gen_backend.sh`
+    *   **Frontend**: `cd frontend && pnpm run gen:api`
+4.  **Implement & Verify**: Finalize implementation and run contract tests (`uv run pytest`).
 
 ### 2. Running the System
 **Prerequisites:** Docker & Docker Compose, Node.js (pnpm), `uv` (for backend development).
