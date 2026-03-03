@@ -12,7 +12,7 @@ from app.database import Base, DATABASE_URL
 
 # Import ALL system models to ensure they're registered with Base.metadata
 # data-pipeline models
-from app.models import candle, market, data_source, sentiment, economic_event, execution, cot, news, system_config, open_interest
+from app.models import candle, market, data_source, sentiment, economic_event, execution, cot, news, system_config, open_interest, risk_filter
 
 # Add sibling services to path to import their models
 # Note: In Docker, these are mounted at /shared/services

@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 class ExecutionWorker:
     def __init__(self):
         self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        # Priority Queues (VIP > Retail > Legacy)
-        self.queue_names = ["queue:exec:vip", "queue:exec:retail", "queue:execution:commands"]
+        # Priority Queues (Priority > Default)
+        self.queue_names = ["queue:execution:priority", "queue:execution:commands"]
         self.redis = None
         self._running = False
 
@@ -51,6 +51,20 @@ class ExecutionWorker:
     async def _process_command(self, queue_key: str, message_json: str):
         try:
             req_data = json.loads(message_json)
+            
+            # 0. Global Kill Switch Check
+            if self.redis:
+                is_halted = await self.redis.get("system:kill_switch") == "1"
+                if is_halted:
+                    cmd_type = req_data.get("type", "OPEN").upper()
+                    # Emergency: Allow Close/Modify to bypass halt? 
+                    # Plan says: "reject all new trade commands". 
+                    # Let's reject OPEN but maybe log warning for others.
+                    if cmd_type == "OPEN":
+                        logger.warning(f"🛑 SYSTEM HALTED: Rejecting OPEN command for {req_data.get('symbol')}")
+                        return
+                    else:
+                        logger.info(f"⚠️ SYSTEM HALTED: Processing priority command {cmd_type} despite halt.")
             
             # 1. Idempotency Check (SETNX)
             client_order_id = req_data.get("client_order_id")

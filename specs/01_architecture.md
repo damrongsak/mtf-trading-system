@@ -77,6 +77,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Minimax Engine**: Calculates worst-case regret before accepting any order.
     - **Smart Order Router (SOR)**: Checks liquidity depth before execution.
     - **Portfolio Allocator**: Balances position sizes using Inverse Volatility.
+    - **Institutional Resilience**: Implements professional-grade Circuit Breakers, Request Timeouts, and Priority Execution Queues (Close > Open).
 
 ### 4.4. AI Analyst (`services/ai-analyst`)
 - **Role**: The "Performance Coach".
@@ -99,6 +100,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Feature Worker**: Real-time calculation of technical indicators (RSI, ATR) immediately after candle close.
     - **Tick Streamer**: Dedicated service for real-time market data streaming.
     - **Data Sources**: DB-driven configuration (`DataSource` model).
+    - **Adaptive Throttling**: 10Hz tick throttling in `StreamManager` to protect dashboard during volatility.
 
 
 

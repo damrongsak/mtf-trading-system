@@ -3,15 +3,23 @@ import uuid
 import json
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from typing import Any
 
-from app.models import BrokerAccount, Fund, Trade, Candle, EconomicEvent, TradeStatus
+from app.models import BrokerAccount, Fund, Trade, Candle, EconomicEvent, TradeStatus, RiskFilter
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.services.minimax_service import MinimaxService
+from app.validators.order_validator import OrderValidator
+from app.filters.session_filter import SessionFilter
+from app.filters.news_filter import NewsFilter
+from app.filters.volatility_filter import VolatilityFilter
+from app.filters.spread_filter import SpreadFilter
+from app.filters.quant_filter import QuantFilter
+from app.filters.liquidity_filter import LiquidityFilter
+from app.risk.risk_limits import RiskLimitsAgent
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +30,13 @@ class OrderService:
         Core logic for placing a smart order with risk management and minimax check.
         Expects req_data to have: broker_account_id, symbol, direction, stop_loss, etc.
         """
+        # 0. Global Kill Switch Check
+        from app.utils.redis_client import get_redis_client
+        rc = get_redis_client()
+        if await rc.get("system:kill_switch") == "1":
+             logger.warning("🛑 SYSTEM HALTED: Smart Order rejected via Global Kill Switch.")
+             raise HTTPException(status_code=503, detail="System is currently halted for emergency maintenance.")
+
         # 1. Resolve Account
         try:
             account_id = req_data.get("broker_account_id")
@@ -154,7 +169,9 @@ class OrderService:
             symbol=req_data["symbol"],
             direction=direction,
             sl_price=stop_loss,
-            tp_price=take_profit
+            tp_price=take_profit,
+            entry_price=entry_ref,
+            broker_account_id=account_id
         )
 
         # 7. Execute
@@ -233,102 +250,63 @@ class OrderService:
         symbol: str,
         direction: str,
         sl_price: float,
-        tp_price: float
+        tp_price: float,
+        entry_price: float = 0.0,
+        broker_account_id: str = None
     ):
         """
         Executes all mandatory Layer 4 Risk Filters.
         """
-        # 1. SL/TP Mandatory
-        if not sl_price or sl_price <= 0:
-            raise ValueError("Risk Violation: Stop Loss is mandatory and must be > 0")
-        if not tp_price or tp_price <= 0:
-            raise ValueError("Risk Violation: Take Profit is mandatory and must be > 0 (Min Reward Policy)")
-
-        # 2. Daily Drawdown Filter
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        stmt = select(func.sum(Trade.pnl_usd)).where(
-            Trade.fund_id == fund.id,
-            Trade.exit_timestamp >= today_start,
-            Trade.status == TradeStatus.CLOSED
-        )
+        # Fetch dynamic risk filters from database
+        conditions = [RiskFilter.target_type == "SYSTEM", RiskFilter.target_type == "FUND", RiskFilter.target_id == fund.id]
+        if broker_account_id:
+             conditions.append(RiskFilter.target_id == uuid.UUID(broker_account_id))
+        
+        stmt = select(RiskFilter).where(RiskFilter.is_enabled == True).where(or_(*conditions))
         result = await db.execute(stmt)
-        total_pnl = result.scalar() or 0.0
-        
-        # Check against fund drawdown limit if exists
-        if fund.max_drawdown_threshold:
-            current_drawdown = -float(total_pnl)
-            if current_drawdown >= float(fund.max_drawdown_threshold):
-                raise ValueError(f"Risk Violation: Daily Drawdown Limit Reached (${current_drawdown:.2f} >= ${fund.max_drawdown_threshold})")
+        active_filters = result.scalars().all()
 
-        # 3. Session Filter (Avoid Volatility Spikes at Market Open)
-        # Session: London Open (08:00 GMT), NY Open (13:00 GMT)
-        now_gmt = datetime.now(timezone.utc)
-        current_hour_gmt = now_gmt.hour
-        current_minute_gmt = now_gmt.minute
-        
-        # Rule: Skip trades during first 15 mins of major sessions
-        if (current_hour_gmt == 8 or current_hour_gmt == 13) and current_minute_gmt < 15:
-            raise ValueError(f"Risk Violation: Volatility Guard active (Session Open Spike Prevention)")
-
-        # 4. News Filter (High Impact)
-        # Check for High Impact events in the next 30 minutes
-        news_window = now_gmt + timedelta(minutes=30)
-        stmt_news = select(EconomicEvent).where(
-            EconomicEvent.impact == "High",
-            EconomicEvent.datetime >= now_gmt,
-            EconomicEvent.datetime <= news_window
+        # 1. Phase 1 Core Validation (SL/TP, Distance, RR)
+        OrderValidator.validate(
+            symbol=symbol,
+            entry_price=entry_price,
+            sl_price=sl_price,
+            tp_price=tp_price,
+            active_filters=active_filters
         )
-        result_news = await db.execute(stmt_news)
-        news_event = result_news.scalars().first()
-        if news_event:
-            raise ValueError(f"Risk Violation: High Impact News Event approaching: {news_event.title}")
 
-        # 5. Volatility Filter (ATR Check)
-        # Get latest candles for Symbol from DB
-        stmt_candles = select(Candle).where(
-            Candle.symbol == symbol,
-            Candle.timeframe == "H1"
-        ).order_by(Candle.timestamp.desc()).limit(20)
-        result_candles = await db.execute(stmt_candles)
-        candles = result_candles.scalars().all()
-        
-        if len(candles) >= 14:
-            # Simple ATR Calculation
-            trs = []
-            for i in range(1, len(candles)):
-                c = candles[i]
-                prev_c = candles[i-1]
-                tr = max(
-                    float(c.high) - float(c.low),
-                    abs(float(c.high) - float(prev_c.close)),
-                    abs(float(c.low) - float(prev_c.close))
+        # Mapping of filter types to their respective classes
+        filter_instances = {
+            "SESSION_FILTER": SessionFilter(),
+            "NEWS_FILTER": NewsFilter(),
+            "VOLATILITY_FILTER": VolatilityFilter(),
+            "SPREAD_FILTER": SpreadFilter(),
+            "QUANT_FILTER": QuantFilter(),
+            "LIQUIDITY_FILTER": LiquidityFilter(),
+        }
+
+        # 2. Phase 3: Risk Limits (Account/Fund Level)
+        # Includes Daily Drawdown, Max Trades Per Day, Consecutive Losses
+        await RiskLimitsAgent.check_limits(db, fund, broker_account_id)
+
+        # 3. Dynamic Phase 2 Filters
+        for f in active_filters:
+            if not f.is_enabled:
+                continue
+                
+            if f.filter_type in filter_instances:
+                filter_obj = filter_instances[f.filter_type]
+                # Execute asynchronously
+                await filter_obj.validate(
+                    db=db,
+                    adapter=adapter,
+                    fund=fund,
+                    symbol=symbol,
+                    direction=direction,
+                    sl_price=sl_price,
+                    tp_price=tp_price,
+                    entry_price=entry_price,
+                    filter_config=f
                 )
-                trs.append(tr)
-            atr = sum(trs[-14:]) / 14
-            
-            # Threshold: Skip if ATR is extremely low (Dead Market)
-            min_atr = 0.5 if "XAU" in symbol else 0.0002 # 50 cents for Gold, 2 pips for FX
-            if atr < min_atr:
-                raise ValueError(f"Risk Violation: Market Volatility too low (ATR: {atr:.4f} < {min_atr})")
-
-        # 6. Spread Filter
-        try:
-            # Check if adapter has get_prices
-            if hasattr(adapter, 'get_prices'):
-                prices = await adapter.get_prices([symbol])
-                if prices:
-                    p = prices[0]
-                    bid = float(p.get('bid', 0))
-                    ask = float(p.get('ask', 0))
-                    if bid > 0 and ask > 0:
-                        spread = ask - bid
-                        # Max Spread: 50 cents for Gold ($0.50), 3 pips for FX
-                        max_spread = 0.50 if "XAU" in symbol else 0.0003
-                        if spread > max_spread:
-                            raise ValueError(f"Risk Violation: Spread too wide ({spread:.4f} > {max_spread})")
-        except Exception as e:
-            if isinstance(e, ValueError) and "Risk Violation" in str(e):
-                raise e
-            logger.warning(f"Spread check failed (skipping): {e}")
 
         return True

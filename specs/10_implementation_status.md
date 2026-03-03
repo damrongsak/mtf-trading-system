@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** 2026-02-23
-**Current Phase:** Phase 40 - Strategic Performance Fix (Complete)
+**Last Updated:** 2026-03-03
+**Current Phase:** Phase 41 - Institutional Stability & Resilience (Complete)
 
 ---
 
@@ -672,3 +672,13 @@
      - **Verification:** Verified 4x speed improvement (~40s vs 160s+) for complex drawdown queries.
      - **Persona refinement**: Executive institutional terminology integrated into AI reasoning.
 
+
+### Phase 41: Institutional Stability & Resilience (v3.2)
+- **Status:** ✅ Complete (2026-03-03)
+- **Features:**
+    - **Broker Resilience:** Implemented `asyncio.wait_for` timeouts and a stateful **Circuit Breaker** in `AsyncCTraderClient`.
+    - **Priority Execution:** Refactored `ExecutionWorker` and `ExecutionClient` to use a two-tier Redis queue system (`priority` vs `commands`).
+    - **Global Kill Switch:** Added `/halt` and `/resume` endpoints to control system-wide trade suspension via Redis flag.
+    - **Adaptive Throttling:** Implemented a 10Hz (100ms) safety cap on price updates in `StreamManager` to protect dashboard UI.
+    - **Enhanced Monitoring:** Updated `/queue-health` to track prioritized queues and kill switch status.
+    - **Documentation:** Updated all `specs/` and service READMEs to reflect resilience standards.

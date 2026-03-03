@@ -5,6 +5,7 @@ All URIs are relative to *http://localhost*
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
 |[**apiV1AiJournalAnalysisPost**](#apiv1aijournalanalysispost) | **POST** /api/v1/ai/journal-analysis | Analyze journal entry|
+|[**apiV1AiLibraryIngestPost**](#apiv1ailibraryingestpost) | **POST** /api/v1/ai/library/ingest | Ingest a book into Quant Library|
 |[**apiV1AiMarketAnalysisPost**](#apiv1aimarketanalysispost) | **POST** /api/v1/ai/market-analysis | Generate market outlook|
 |[**apiV1AiSmcNarrativePost**](#apiv1aismcnarrativepost) | **POST** /api/v1/ai/smc-narrative | Generate SMC Narrative|
 
@@ -56,6 +57,63 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Journal Analysis |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiLibraryIngestPost**
+> APIResponseIngestionResult apiV1AiLibraryIngestPost()
+
+Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+
+### Example
+
+```typescript
+import {
+    AIApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AIApi(configuration);
+
+let file: File; // (optional) (default to undefined)
+let title: string; // (optional) (default to undefined)
+let author: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.apiV1AiLibraryIngestPost(
+    file,
+    title,
+    author
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **file** | [**File**] |  | (optional) defaults to undefined|
+| **title** | [**string**] |  | (optional) defaults to undefined|
+| **author** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**APIResponseIngestionResult**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Book ingestion started |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

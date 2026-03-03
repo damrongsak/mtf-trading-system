@@ -314,9 +314,38 @@ export interface APIResponseFund {
 }
 
 
+export interface APIResponseIngestionResult {
+    'status': ResponseStatus;
+    'data'?: APIResponseIngestionResultAllOfData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseIngestionResultAllOfData {
+    'job_id'?: string;
+    'filename'?: string;
+    'chunks_queued'?: number;
+}
 export interface APIResponseJournalEntryResponse {
     'status': ResponseStatus;
     'data'?: JournalEntryResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseLibraryResults {
+    'status': ResponseStatus;
+    'data'?: Array<LibraryHit>;
     'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
@@ -632,13 +661,16 @@ export interface ApiV1DataUploadPost200Response {
     'message'?: string;
     'rows_processed'?: number;
 }
-export interface ApiV1ExecutionOrdersDelete200Response {
-    'status'?: string;
-    'data'?: object;
-}
 export interface ApiV1ExecutionOrdersGet200Response {
     'status'?: string;
     'data'?: Array<OrderResponse>;
+}
+export interface ApiV1ExecutionOrdersOrderIdPutRequest {
+    'broker_account_id': string;
+    'units'?: number;
+    'price'?: number;
+    'stop_loss'?: number;
+    'take_profit'?: number;
 }
 export interface ApiV1ExecutionTradesCloseAllPostRequest {
     'broker_account_id': string;
@@ -663,6 +695,11 @@ export interface ApiV1ExecutionTradesSyncPostRequest {
      * Number of days to look back for history (default 30)
      */
     'lookback_days'?: number;
+}
+export interface ApiV1ExecutionTradesTradeIdAmendPostRequest {
+    'broker_account_id': string;
+    'stop_loss'?: number;
+    'take_profit'?: number;
 }
 export interface ApiV1ExecutionTradesTradeIdClosePostRequest {
     'exit_price': number;
@@ -715,6 +752,14 @@ export interface ApiV1SignalsIdApprovePost200Response {
 }
 export interface ApiV1SignalsIdRejectPost200Response {
     'status'?: string;
+}
+export interface ApiV1TelegramSendPost200Response {
+    'success'?: boolean;
+    'chat_id'?: number;
+    'username'?: string;
+}
+export interface ApiV1TelegramWebhookPost200Response {
+    'ok'?: boolean;
 }
 export interface AtrRequest {
     'high': Array<number>;
@@ -861,6 +906,14 @@ export interface ChatSessionCreate {
      */
     'initial_message'?: string;
 }
+export interface ConfigureBotRequest {
+    'bot_token': string;
+}
+export interface ConfigureBotResponse {
+    'success'?: boolean;
+    'message'?: string;
+    'bot_username'?: string | null;
+}
 export interface DataSource {
     'id'?: string;
     'name': string;
@@ -992,6 +1045,11 @@ export interface ErrorDetail {
 }
 
 
+export interface ExternalSearchRequest {
+    'query': string;
+    'limit'?: number;
+    'partner_id'?: string;
+}
 export interface FoundryAssembleRequest {
     'config'?: StrategyConfigUpdate;
 }
@@ -1062,7 +1120,7 @@ export interface IndicatorResponse {
 }
 export interface JournalAnalysisRequest {
     'entry_content': string;
-    'entry_id'?: string | null;
+    'entry_id'?: string;
     'user_id': string;
 }
 export interface JournalEntryCreate {
@@ -1152,6 +1210,22 @@ export const JournalEntryResponseGameLevelEnum = {
 
 export type JournalEntryResponseGameLevelEnum = typeof JournalEntryResponseGameLevelEnum[keyof typeof JournalEntryResponseGameLevelEnum];
 
+export interface LibraryHit {
+    'content'?: string;
+    'score'?: number;
+    'source'?: string;
+    'entry_content'?: string;
+    'entry_id'?: string | null;
+    'user_id'?: string;
+}
+export interface LinkTelegramRequest {
+    'chat_id': number;
+}
+export interface LinkTelegramResponse {
+    'success'?: boolean;
+    'message'?: string;
+    'chat_id'?: number;
+}
 export interface MacdRequest {
     'close': Array<number>;
     'fast'?: number;
@@ -1478,6 +1552,9 @@ export interface SavedStrategyUpdate {
     'last_results'?: object | null;
     'is_public'?: boolean;
 }
+export interface SendTelegramMessageRequest {
+    'message': string;
+}
 export interface SensitivityMetrics {
     'p95'?: number;
     'median'?: number;
@@ -1618,6 +1695,16 @@ export interface SystemPromptUpdate {
     'template'?: string;
     'input_variables'?: Array<string>;
     'is_active'?: boolean;
+}
+export interface TelegramStatusResponse {
+    'linked'?: boolean;
+    'chat_id'?: number | null;
+    'linked_at'?: string | null;
+    'bot_configured'?: boolean;
+}
+export interface TelegramUpdate {
+    'update_id'?: number;
+    'message'?: object | null;
 }
 export interface Trade {
     'trade_id': string;
@@ -1851,6 +1938,55 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
             };
         },
         /**
+         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * @summary Ingest a book into Quant Library
+         * @param {File} [file] 
+         * @param {string} [title] 
+         * @param {string} [author] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryIngestPost: async (file?: File, title?: string, author?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/library/ingest`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+
+
+            if (file !== undefined) { 
+                localVarFormParams.append('file', file as any);
+            }
+    
+            if (title !== undefined) { 
+                localVarFormParams.append('title', title as any);
+            }
+    
+            if (author !== undefined) { 
+                localVarFormParams.append('author', author as any);
+            }
+    
+    
+            localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Generate market outlook
          * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
@@ -1941,6 +2077,21 @@ export const AIApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * @summary Ingest a book into Quant Library
+         * @param {File} [file] 
+         * @param {string} [title] 
+         * @param {string} [author] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiLibraryIngestPost(file?: File, title?: string, author?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseIngestionResult>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiLibraryIngestPost(file, title, author, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiLibraryIngestPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Generate market outlook
          * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
@@ -1986,6 +2137,16 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
             return localVarFp.apiV1AiJournalAnalysisPost(requestParameters.journalAnalysisRequest, options).then((request) => request(axios, basePath));
         },
         /**
+         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * @summary Ingest a book into Quant Library
+         * @param {AIApiApiV1AiLibraryIngestPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryIngestPost(requestParameters: AIApiApiV1AiLibraryIngestPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseIngestionResult> {
+            return localVarFp.apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Generate market outlook
          * @param {AIApiApiV1AiMarketAnalysisPostRequest} requestParameters Request parameters.
@@ -2016,6 +2177,17 @@ export interface AIApiApiV1AiJournalAnalysisPostRequest {
 }
 
 /**
+ * Request parameters for apiV1AiLibraryIngestPost operation in AIApi.
+ */
+export interface AIApiApiV1AiLibraryIngestPostRequest {
+    readonly file?: File
+
+    readonly title?: string
+
+    readonly author?: string
+}
+
+/**
  * Request parameters for apiV1AiMarketAnalysisPost operation in AIApi.
  */
 export interface AIApiApiV1AiMarketAnalysisPostRequest {
@@ -2042,6 +2214,17 @@ export class AIApi extends BaseAPI {
      */
     public apiV1AiJournalAnalysisPost(requestParameters: AIApiApiV1AiJournalAnalysisPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AIApiFp(this.configuration).apiV1AiJournalAnalysisPost(requestParameters.journalAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+     * @summary Ingest a book into Quant Library
+     * @param {AIApiApiV1AiLibraryIngestPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiLibraryIngestPost(requestParameters: AIApiApiV1AiLibraryIngestPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -2971,6 +3154,114 @@ export class AnalysisApi extends BaseAPI {
      */
     public apiV1AnalysisSentimentCachedGet(requestParameters: AnalysisApiApiV1AnalysisSentimentCachedGetRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).apiV1AnalysisSentimentCachedGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * DataApi - axios parameter creator
+ */
+export const DataApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Returns the latest bid, ask, and timestamp from Redis L2 cache.
+         * @summary Get latest tick data for a symbol
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataTickSymbolGet: async (symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1DataTickSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/data/tick/{symbol}`
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * DataApi - functional programming interface
+ */
+export const DataApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = DataApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Returns the latest bid, ask, and timestamp from Redis L2 cache.
+         * @summary Get latest tick data for a symbol
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1DataTickSymbolGet(symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataTickSymbolGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DataApi.apiV1DataTickSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * DataApi - factory interface
+ */
+export const DataApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = DataApiFp(configuration)
+    return {
+        /**
+         * Returns the latest bid, ask, and timestamp from Redis L2 cache.
+         * @summary Get latest tick data for a symbol
+         * @param {DataApiApiV1DataTickSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataTickSymbolGet(requestParameters: DataApiApiV1DataTickSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1DataTickSymbolGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1DataTickSymbolGet operation in DataApi.
+ */
+export interface DataApiApiV1DataTickSymbolGetRequest {
+    readonly symbol: string
+}
+
+/**
+ * DataApi - object-oriented interface
+ */
+export class DataApi extends BaseAPI {
+    /**
+     * Returns the latest bid, ask, and timestamp from Redis L2 cache.
+     * @summary Get latest tick data for a symbol
+     * @param {DataApiApiV1DataTickSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1DataTickSymbolGet(requestParameters: DataApiApiV1DataTickSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return DataApiFp(this.configuration).apiV1DataTickSymbolGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -4601,44 +4892,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Manually close a trade
-         * @param {string} tradeId 
-         * @param {ApiV1ExecutionTradesTradeIdClosePostRequest} [apiV1ExecutionTradesTradeIdClosePostRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1ExecutionTradesTradeIdClosePost: async (tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'tradeId' is not null or undefined
-            assertParamExists('apiV1ExecutionTradesTradeIdClosePost', 'tradeId', tradeId)
-            const localVarPath = `/api/v1/execution/trades/{trade_id}/close`
-                .replace(`{${"trade_id"}}`, encodeURIComponent(String(tradeId)));
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesTradeIdClosePostRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -7036,20 +7289,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Manually close a trade
-         * @param {string} tradeId 
-         * @param {ApiV1ExecutionTradesTradeIdClosePostRequest} [apiV1ExecutionTradesTradeIdClosePostRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1ExecutionTradesTradeIdClosePost(tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesTradeIdClosePost(tradeId, apiV1ExecutionTradesTradeIdClosePostRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1ExecutionTradesTradeIdClosePost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
          * @summary Run Walk-Forward Validation (Proving Ground)
          * @param {FoundryValidateRequest} foundryValidateRequest 
          * @param {*} [options] Override http request option.
@@ -8138,16 +8377,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
-         * @summary Manually close a trade
-         * @param {DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1ExecutionTradesTradeIdClosePost(requestParameters: DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
-            return localVarFp.apiV1ExecutionTradesTradeIdClosePost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdClosePostRequest, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
          * @summary Run Walk-Forward Validation (Proving Ground)
          * @param {DefaultApiApiV1FoundryValidatePostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -8968,15 +9197,6 @@ export interface DefaultApiApiV1ExecutionTradesSyncGetRequest {
 }
 
 /**
- * Request parameters for apiV1ExecutionTradesTradeIdClosePost operation in DefaultApi.
- */
-export interface DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest {
-    readonly tradeId: string
-
-    readonly apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest
-}
-
-/**
  * Request parameters for apiV1FoundryValidatePost operation in DefaultApi.
  */
 export interface DefaultApiApiV1FoundryValidatePostRequest {
@@ -9782,17 +10002,6 @@ export class DefaultApi extends BaseAPI {
 
     /**
      * 
-     * @summary Manually close a trade
-     * @param {DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1ExecutionTradesTradeIdClosePost(requestParameters: DefaultApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1ExecutionTradesTradeIdClosePost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdClosePostRequest, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
      * @summary Run Walk-Forward Validation (Proving Ground)
      * @param {DefaultApiApiV1FoundryValidatePostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -10471,6 +10680,87 @@ export const ExecutionApiAxiosParamCreator = function (configuration?: Configura
         },
         /**
          * 
+         * @summary Cancel a specific order
+         * @param {string} orderId 
+         * @param {string} brokerAccountId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersOrderIdDelete: async (orderId: string, brokerAccountId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'orderId' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersOrderIdDelete', 'orderId', orderId)
+            // verify required parameter 'brokerAccountId' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersOrderIdDelete', 'brokerAccountId', brokerAccountId)
+            const localVarPath = `/api/v1/execution/orders/{order_id}`
+                .replace(`{${"order_id"}}`, encodeURIComponent(String(orderId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (brokerAccountId !== undefined) {
+                localVarQueryParameter['broker_account_id'] = brokerAccountId;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Modify a pending order
+         * @param {string} orderId 
+         * @param {ApiV1ExecutionOrdersOrderIdPutRequest} apiV1ExecutionOrdersOrderIdPutRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersOrderIdPut: async (orderId: string, apiV1ExecutionOrdersOrderIdPutRequest: ApiV1ExecutionOrdersOrderIdPutRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'orderId' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersOrderIdPut', 'orderId', orderId)
+            // verify required parameter 'apiV1ExecutionOrdersOrderIdPutRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersOrderIdPut', 'apiV1ExecutionOrdersOrderIdPutRequest', apiV1ExecutionOrdersOrderIdPutRequest)
+            const localVarPath = `/api/v1/execution/orders/{order_id}`
+                .replace(`{${"order_id"}}`, encodeURIComponent(String(orderId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionOrdersOrderIdPutRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Place a new order
          * @param {object} body 
          * @param {*} [options] Override http request option.
@@ -10614,6 +10904,84 @@ export const ExecutionApiAxiosParamCreator = function (configuration?: Configura
             };
         },
         /**
+         * 
+         * @summary Amend an open position (SL/TP)
+         * @param {string} tradeId 
+         * @param {ApiV1ExecutionTradesTradeIdAmendPostRequest} apiV1ExecutionTradesTradeIdAmendPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesTradeIdAmendPost: async (tradeId: string, apiV1ExecutionTradesTradeIdAmendPostRequest: ApiV1ExecutionTradesTradeIdAmendPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'tradeId' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesTradeIdAmendPost', 'tradeId', tradeId)
+            // verify required parameter 'apiV1ExecutionTradesTradeIdAmendPostRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesTradeIdAmendPost', 'apiV1ExecutionTradesTradeIdAmendPostRequest', apiV1ExecutionTradesTradeIdAmendPostRequest)
+            const localVarPath = `/api/v1/execution/trades/{trade_id}/amend`
+                .replace(`{${"trade_id"}}`, encodeURIComponent(String(tradeId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesTradeIdAmendPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Manually close a trade
+         * @param {string} tradeId 
+         * @param {ApiV1ExecutionTradesTradeIdClosePostRequest} [apiV1ExecutionTradesTradeIdClosePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesTradeIdClosePost: async (tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'tradeId' is not null or undefined
+            assertParamExists('apiV1ExecutionTradesTradeIdClosePost', 'tradeId', tradeId)
+            const localVarPath = `/api/v1/execution/trades/{trade_id}/close`
+                .replace(`{${"trade_id"}}`, encodeURIComponent(String(tradeId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1ExecutionTradesTradeIdClosePostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Manually trigger execution for a signal in PENDING_APPROVAL state.
          * @summary Approve a pending signal
          * @param {string} id 
@@ -10698,7 +11066,7 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionOrdersDelete(brokerAccountId: string, symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1ExecutionOrdersDelete200Response>> {
+        async apiV1ExecutionOrdersDelete(brokerAccountId: string, symbol?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersDelete(brokerAccountId, symbol, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersDelete']?.[localVarOperationServerIndex]?.url;
@@ -10729,6 +11097,34 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersIdDelete(id, brokerAccountId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersIdDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Cancel a specific order
+         * @param {string} orderId 
+         * @param {string} brokerAccountId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionOrdersOrderIdDelete(orderId: string, brokerAccountId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersOrderIdDelete(orderId, brokerAccountId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersOrderIdDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Modify a pending order
+         * @param {string} orderId 
+         * @param {ApiV1ExecutionOrdersOrderIdPutRequest} apiV1ExecutionOrdersOrderIdPutRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionOrdersOrderIdPut(orderId: string, apiV1ExecutionOrdersOrderIdPutRequest: ApiV1ExecutionOrdersOrderIdPutRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersOrderIdPut(orderId, apiV1ExecutionOrdersOrderIdPutRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersOrderIdPut']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -10784,6 +11180,34 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * 
+         * @summary Amend an open position (SL/TP)
+         * @param {string} tradeId 
+         * @param {ApiV1ExecutionTradesTradeIdAmendPostRequest} apiV1ExecutionTradesTradeIdAmendPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionTradesTradeIdAmendPost(tradeId: string, apiV1ExecutionTradesTradeIdAmendPostRequest: ApiV1ExecutionTradesTradeIdAmendPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesTradeIdAmendPost(tradeId, apiV1ExecutionTradesTradeIdAmendPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionTradesTradeIdAmendPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Manually close a trade
+         * @param {string} tradeId 
+         * @param {ApiV1ExecutionTradesTradeIdClosePostRequest} [apiV1ExecutionTradesTradeIdClosePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionTradesTradeIdClosePost(tradeId: string, apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionTradesTradeIdClosePost(tradeId, apiV1ExecutionTradesTradeIdClosePostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionTradesTradeIdClosePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Manually trigger execution for a signal in PENDING_APPROVAL state.
          * @summary Approve a pending signal
          * @param {string} id 
@@ -10825,7 +11249,7 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionOrdersDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1ExecutionOrdersDelete200Response> {
+        apiV1ExecutionOrdersDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<object> {
             return localVarFp.apiV1ExecutionOrdersDelete(requestParameters.brokerAccountId, requestParameters.symbol, options).then((request) => request(axios, basePath));
         },
         /**
@@ -10847,6 +11271,26 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
          */
         apiV1ExecutionOrdersIdDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersIdDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1ExecutionOrdersIdDelete(requestParameters.id, requestParameters.brokerAccountId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Cancel a specific order
+         * @param {ExecutionApiApiV1ExecutionOrdersOrderIdDeleteRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersOrderIdDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersOrderIdDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionOrdersOrderIdDelete(requestParameters.orderId, requestParameters.brokerAccountId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Modify a pending order
+         * @param {ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionOrdersOrderIdPut(requestParameters: ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionOrdersOrderIdPut(requestParameters.orderId, requestParameters.apiV1ExecutionOrdersOrderIdPutRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -10887,6 +11331,26 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
          */
         apiV1ExecutionTradesSyncPost(requestParameters: ExecutionApiApiV1ExecutionTradesSyncPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1ExecutionTradesSyncPost200Response> {
             return localVarFp.apiV1ExecutionTradesSyncPost(requestParameters.apiV1ExecutionTradesSyncPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Amend an open position (SL/TP)
+         * @param {ExecutionApiApiV1ExecutionTradesTradeIdAmendPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesTradeIdAmendPost(requestParameters: ExecutionApiApiV1ExecutionTradesTradeIdAmendPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionTradesTradeIdAmendPost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdAmendPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Manually close a trade
+         * @param {ExecutionApiApiV1ExecutionTradesTradeIdClosePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionTradesTradeIdClosePost(requestParameters: ExecutionApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1ExecutionTradesTradeIdClosePost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdClosePostRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * Manually trigger execution for a signal in PENDING_APPROVAL state.
@@ -10937,6 +11401,24 @@ export interface ExecutionApiApiV1ExecutionOrdersIdDeleteRequest {
 }
 
 /**
+ * Request parameters for apiV1ExecutionOrdersOrderIdDelete operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionOrdersOrderIdDeleteRequest {
+    readonly orderId: string
+
+    readonly brokerAccountId: string
+}
+
+/**
+ * Request parameters for apiV1ExecutionOrdersOrderIdPut operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest {
+    readonly orderId: string
+
+    readonly apiV1ExecutionOrdersOrderIdPutRequest: ApiV1ExecutionOrdersOrderIdPutRequest
+}
+
+/**
  * Request parameters for apiV1ExecutionOrdersPost operation in ExecutionApi.
  */
 export interface ExecutionApiApiV1ExecutionOrdersPostRequest {
@@ -10962,6 +11444,24 @@ export interface ExecutionApiApiV1ExecutionTradesOpenPostRequest {
  */
 export interface ExecutionApiApiV1ExecutionTradesSyncPostRequest {
     readonly apiV1ExecutionTradesSyncPostRequest: ApiV1ExecutionTradesSyncPostRequest
+}
+
+/**
+ * Request parameters for apiV1ExecutionTradesTradeIdAmendPost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionTradesTradeIdAmendPostRequest {
+    readonly tradeId: string
+
+    readonly apiV1ExecutionTradesTradeIdAmendPostRequest: ApiV1ExecutionTradesTradeIdAmendPostRequest
+}
+
+/**
+ * Request parameters for apiV1ExecutionTradesTradeIdClosePost operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionTradesTradeIdClosePostRequest {
+    readonly tradeId: string
+
+    readonly apiV1ExecutionTradesTradeIdClosePostRequest?: ApiV1ExecutionTradesTradeIdClosePostRequest
 }
 
 /**
@@ -11017,6 +11517,28 @@ export class ExecutionApi extends BaseAPI {
 
     /**
      * 
+     * @summary Cancel a specific order
+     * @param {ExecutionApiApiV1ExecutionOrdersOrderIdDeleteRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionOrdersOrderIdDelete(requestParameters: ExecutionApiApiV1ExecutionOrdersOrderIdDeleteRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionOrdersOrderIdDelete(requestParameters.orderId, requestParameters.brokerAccountId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Modify a pending order
+     * @param {ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionOrdersOrderIdPut(requestParameters: ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionOrdersOrderIdPut(requestParameters.orderId, requestParameters.apiV1ExecutionOrdersOrderIdPutRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
      * @summary Place a new order
      * @param {ExecutionApiApiV1ExecutionOrdersPostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -11060,6 +11582,28 @@ export class ExecutionApi extends BaseAPI {
     }
 
     /**
+     * 
+     * @summary Amend an open position (SL/TP)
+     * @param {ExecutionApiApiV1ExecutionTradesTradeIdAmendPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionTradesTradeIdAmendPost(requestParameters: ExecutionApiApiV1ExecutionTradesTradeIdAmendPostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionTradesTradeIdAmendPost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdAmendPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Manually close a trade
+     * @param {ExecutionApiApiV1ExecutionTradesTradeIdClosePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionTradesTradeIdClosePost(requestParameters: ExecutionApiApiV1ExecutionTradesTradeIdClosePostRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionTradesTradeIdClosePost(requestParameters.tradeId, requestParameters.apiV1ExecutionTradesTradeIdClosePostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * Manually trigger execution for a signal in PENDING_APPROVAL state.
      * @summary Approve a pending signal
      * @param {ExecutionApiApiV1SignalsIdApprovePostRequest} requestParameters Request parameters.
@@ -11079,6 +11623,114 @@ export class ExecutionApi extends BaseAPI {
      */
     public apiV1SignalsIdRejectPost(requestParameters: ExecutionApiApiV1SignalsIdRejectPostRequest, options?: RawAxiosRequestConfig) {
         return ExecutionApiFp(this.configuration).apiV1SignalsIdRejectPost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * ExternalApi - axios parameter creator
+ */
+export const ExternalApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Scoped search for 3rd-party consumers with limited metadata visibility.
+         * @summary External Search Access
+         * @param {ExternalSearchRequest} [externalSearchRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiExternalSearchPost: async (externalSearchRequest?: ExternalSearchRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/external/search`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(externalSearchRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * ExternalApi - functional programming interface
+ */
+export const ExternalApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ExternalApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Scoped search for 3rd-party consumers with limited metadata visibility.
+         * @summary External Search Access
+         * @param {ExternalSearchRequest} [externalSearchRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiExternalSearchPost(externalSearchRequest?: ExternalSearchRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseLibraryResults>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiExternalSearchPost(externalSearchRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExternalApi.apiV1AiExternalSearchPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * ExternalApi - factory interface
+ */
+export const ExternalApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = ExternalApiFp(configuration)
+    return {
+        /**
+         * Scoped search for 3rd-party consumers with limited metadata visibility.
+         * @summary External Search Access
+         * @param {ExternalApiApiV1AiExternalSearchPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiExternalSearchPost(requestParameters: ExternalApiApiV1AiExternalSearchPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseLibraryResults> {
+            return localVarFp.apiV1AiExternalSearchPost(requestParameters.externalSearchRequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1AiExternalSearchPost operation in ExternalApi.
+ */
+export interface ExternalApiApiV1AiExternalSearchPostRequest {
+    readonly externalSearchRequest?: ExternalSearchRequest
+}
+
+/**
+ * ExternalApi - object-oriented interface
+ */
+export class ExternalApi extends BaseAPI {
+    /**
+     * Scoped search for 3rd-party consumers with limited metadata visibility.
+     * @summary External Search Access
+     * @param {ExternalApiApiV1AiExternalSearchPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiExternalSearchPost(requestParameters: ExternalApiApiV1AiExternalSearchPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return ExternalApiFp(this.configuration).apiV1AiExternalSearchPost(requestParameters.externalSearchRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -11390,7 +12042,67 @@ export class SignalApi extends BaseAPI {
 export const SystemApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * Detailed telemetry of Qdrant collections and system health.
+         * @summary Get Qdrant Health Status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAdminQdrantHealthGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/admin/qdrant/health`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Sets the Global Kill Switch in Redis (system:kill_switch=1) to prevent all new trade executions.
+         * @summary Emergency System Halt
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemHaltPost: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/system/halt`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
          * @summary Get Async Execution Queue Health
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -11419,6 +12131,36 @@ export const SystemApiAxiosParamCreator = function (configuration?: Configuratio
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Clears the Global Kill Switch in Redis to resume trade executions.
+         * @summary Emergency System Resume
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemResumePost: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/system/resume`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -11429,7 +12171,31 @@ export const SystemApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = SystemApiAxiosParamCreator(configuration)
     return {
         /**
-         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * Detailed telemetry of Qdrant collections and system health.
+         * @summary Get Qdrant Health Status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiAdminQdrantHealthGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiAdminQdrantHealthGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1AiAdminQdrantHealthGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Sets the Global Kill Switch in Redis (system:kill_switch=1) to prevent all new trade executions.
+         * @summary Emergency System Halt
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SystemHaltPost(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SystemHaltPost(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1SystemHaltPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
          * @summary Get Async Execution Queue Health
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -11438,6 +12204,18 @@ export const SystemApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SystemQueueHealthGet(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1SystemQueueHealthGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Clears the Global Kill Switch in Redis to resume trade executions.
+         * @summary Emergency System Resume
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1SystemResumePost(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SystemResumePost(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1SystemResumePost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -11450,13 +12228,40 @@ export const SystemApiFactory = function (configuration?: Configuration, basePat
     const localVarFp = SystemApiFp(configuration)
     return {
         /**
-         * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+         * Detailed telemetry of Qdrant collections and system health.
+         * @summary Get Qdrant Health Status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiAdminQdrantHealthGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1AiAdminQdrantHealthGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Sets the Global Kill Switch in Redis (system:kill_switch=1) to prevent all new trade executions.
+         * @summary Emergency System Halt
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemHaltPost(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1SystemHaltPost(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
          * @summary Get Async Execution Queue Health
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
         apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1SystemQueueHealthGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Clears the Global Kill Switch in Redis to resume trade executions.
+         * @summary Emergency System Resume
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1SystemResumePost(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1SystemResumePost(options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -11466,13 +12271,445 @@ export const SystemApiFactory = function (configuration?: Configuration, basePat
  */
 export class SystemApi extends BaseAPI {
     /**
-     * Returns the length (LLEN) of VIP, Retail, and Dead Letter Queues from Redis.
+     * Detailed telemetry of Qdrant collections and system health.
+     * @summary Get Qdrant Health Status
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiAdminQdrantHealthGet(options?: RawAxiosRequestConfig) {
+        return SystemApiFp(this.configuration).apiV1AiAdminQdrantHealthGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Sets the Global Kill Switch in Redis (system:kill_switch=1) to prevent all new trade executions.
+     * @summary Emergency System Halt
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SystemHaltPost(options?: RawAxiosRequestConfig) {
+        return SystemApiFp(this.configuration).apiV1SystemHaltPost(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
      * @summary Get Async Execution Queue Health
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     public apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig) {
         return SystemApiFp(this.configuration).apiV1SystemQueueHealthGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Clears the Global Kill Switch in Redis to resume trade executions.
+     * @summary Emergency System Resume
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1SystemResumePost(options?: RawAxiosRequestConfig) {
+        return SystemApiFp(this.configuration).apiV1SystemResumePost(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * TelegramApi - axios parameter creator
+ */
+export const TelegramApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Configure a personal Telegram bot token (BYOK)
+         * @param {ConfigureBotRequest} configureBotRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramConfigurePost: async (configureBotRequest: ConfigureBotRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'configureBotRequest' is not null or undefined
+            assertParamExists('apiV1TelegramConfigurePost', 'configureBotRequest', configureBotRequest)
+            const localVarPath = `/api/v1/telegram/configure`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(configureBotRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Link a Telegram chat_id to the authenticated user
+         * @param {LinkTelegramRequest} linkTelegramRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramLinkPost: async (linkTelegramRequest: LinkTelegramRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'linkTelegramRequest' is not null or undefined
+            assertParamExists('apiV1TelegramLinkPost', 'linkTelegramRequest', linkTelegramRequest)
+            const localVarPath = `/api/v1/telegram/link`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(linkTelegramRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Used internally by AI Analyst and other services to push notifications to the user\'s linked Telegram account. 
+         * @summary Send a message to the authenticated user\'s Telegram chat
+         * @param {SendTelegramMessageRequest} sendTelegramMessageRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramSendPost: async (sendTelegramMessageRequest: SendTelegramMessageRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sendTelegramMessageRequest' is not null or undefined
+            assertParamExists('apiV1TelegramSendPost', 'sendTelegramMessageRequest', sendTelegramMessageRequest)
+            const localVarPath = `/api/v1/telegram/send`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(sendTelegramMessageRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get Telegram link status for authenticated user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramStatusGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/telegram/status`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Called by Telegram Bot API when a message arrives. Validates the X-Telegram-Bot-Api-Secret-Token header before processing. **Note:** This endpoint is inactive while TELEGRAM_POLLING_ENABLED=true. 
+         * @summary Receive inbound Telegram updates (Webhook mode — legacy, disabled when polling is active)
+         * @param {TelegramUpdate} telegramUpdate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramWebhookPost: async (telegramUpdate: TelegramUpdate, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'telegramUpdate' is not null or undefined
+            assertParamExists('apiV1TelegramWebhookPost', 'telegramUpdate', telegramUpdate)
+            const localVarPath = `/api/v1/telegram/webhook`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(telegramUpdate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * TelegramApi - functional programming interface
+ */
+export const TelegramApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = TelegramApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Configure a personal Telegram bot token (BYOK)
+         * @param {ConfigureBotRequest} configureBotRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TelegramConfigurePost(configureBotRequest: ConfigureBotRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ConfigureBotResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TelegramConfigurePost(configureBotRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TelegramApi.apiV1TelegramConfigurePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Link a Telegram chat_id to the authenticated user
+         * @param {LinkTelegramRequest} linkTelegramRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TelegramLinkPost(linkTelegramRequest: LinkTelegramRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<LinkTelegramResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TelegramLinkPost(linkTelegramRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TelegramApi.apiV1TelegramLinkPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Used internally by AI Analyst and other services to push notifications to the user\'s linked Telegram account. 
+         * @summary Send a message to the authenticated user\'s Telegram chat
+         * @param {SendTelegramMessageRequest} sendTelegramMessageRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TelegramSendPost(sendTelegramMessageRequest: SendTelegramMessageRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1TelegramSendPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TelegramSendPost(sendTelegramMessageRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TelegramApi.apiV1TelegramSendPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get Telegram link status for authenticated user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TelegramStatusGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TelegramStatusResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TelegramStatusGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TelegramApi.apiV1TelegramStatusGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Called by Telegram Bot API when a message arrives. Validates the X-Telegram-Bot-Api-Secret-Token header before processing. **Note:** This endpoint is inactive while TELEGRAM_POLLING_ENABLED=true. 
+         * @summary Receive inbound Telegram updates (Webhook mode — legacy, disabled when polling is active)
+         * @param {TelegramUpdate} telegramUpdate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TelegramWebhookPost(telegramUpdate: TelegramUpdate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1TelegramWebhookPost200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TelegramWebhookPost(telegramUpdate, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TelegramApi.apiV1TelegramWebhookPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * TelegramApi - factory interface
+ */
+export const TelegramApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = TelegramApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Configure a personal Telegram bot token (BYOK)
+         * @param {TelegramApiApiV1TelegramConfigurePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramConfigurePost(requestParameters: TelegramApiApiV1TelegramConfigurePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ConfigureBotResponse> {
+            return localVarFp.apiV1TelegramConfigurePost(requestParameters.configureBotRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Link a Telegram chat_id to the authenticated user
+         * @param {TelegramApiApiV1TelegramLinkPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramLinkPost(requestParameters: TelegramApiApiV1TelegramLinkPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<LinkTelegramResponse> {
+            return localVarFp.apiV1TelegramLinkPost(requestParameters.linkTelegramRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Used internally by AI Analyst and other services to push notifications to the user\'s linked Telegram account. 
+         * @summary Send a message to the authenticated user\'s Telegram chat
+         * @param {TelegramApiApiV1TelegramSendPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramSendPost(requestParameters: TelegramApiApiV1TelegramSendPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1TelegramSendPost200Response> {
+            return localVarFp.apiV1TelegramSendPost(requestParameters.sendTelegramMessageRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get Telegram link status for authenticated user
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramStatusGet(options?: RawAxiosRequestConfig): AxiosPromise<TelegramStatusResponse> {
+            return localVarFp.apiV1TelegramStatusGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Called by Telegram Bot API when a message arrives. Validates the X-Telegram-Bot-Api-Secret-Token header before processing. **Note:** This endpoint is inactive while TELEGRAM_POLLING_ENABLED=true. 
+         * @summary Receive inbound Telegram updates (Webhook mode — legacy, disabled when polling is active)
+         * @param {TelegramApiApiV1TelegramWebhookPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TelegramWebhookPost(requestParameters: TelegramApiApiV1TelegramWebhookPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1TelegramWebhookPost200Response> {
+            return localVarFp.apiV1TelegramWebhookPost(requestParameters.telegramUpdate, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1TelegramConfigurePost operation in TelegramApi.
+ */
+export interface TelegramApiApiV1TelegramConfigurePostRequest {
+    readonly configureBotRequest: ConfigureBotRequest
+}
+
+/**
+ * Request parameters for apiV1TelegramLinkPost operation in TelegramApi.
+ */
+export interface TelegramApiApiV1TelegramLinkPostRequest {
+    readonly linkTelegramRequest: LinkTelegramRequest
+}
+
+/**
+ * Request parameters for apiV1TelegramSendPost operation in TelegramApi.
+ */
+export interface TelegramApiApiV1TelegramSendPostRequest {
+    readonly sendTelegramMessageRequest: SendTelegramMessageRequest
+}
+
+/**
+ * Request parameters for apiV1TelegramWebhookPost operation in TelegramApi.
+ */
+export interface TelegramApiApiV1TelegramWebhookPostRequest {
+    readonly telegramUpdate: TelegramUpdate
+}
+
+/**
+ * TelegramApi - object-oriented interface
+ */
+export class TelegramApi extends BaseAPI {
+    /**
+     * 
+     * @summary Configure a personal Telegram bot token (BYOK)
+     * @param {TelegramApiApiV1TelegramConfigurePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TelegramConfigurePost(requestParameters: TelegramApiApiV1TelegramConfigurePostRequest, options?: RawAxiosRequestConfig) {
+        return TelegramApiFp(this.configuration).apiV1TelegramConfigurePost(requestParameters.configureBotRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Link a Telegram chat_id to the authenticated user
+     * @param {TelegramApiApiV1TelegramLinkPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TelegramLinkPost(requestParameters: TelegramApiApiV1TelegramLinkPostRequest, options?: RawAxiosRequestConfig) {
+        return TelegramApiFp(this.configuration).apiV1TelegramLinkPost(requestParameters.linkTelegramRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Used internally by AI Analyst and other services to push notifications to the user\'s linked Telegram account. 
+     * @summary Send a message to the authenticated user\'s Telegram chat
+     * @param {TelegramApiApiV1TelegramSendPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TelegramSendPost(requestParameters: TelegramApiApiV1TelegramSendPostRequest, options?: RawAxiosRequestConfig) {
+        return TelegramApiFp(this.configuration).apiV1TelegramSendPost(requestParameters.sendTelegramMessageRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get Telegram link status for authenticated user
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TelegramStatusGet(options?: RawAxiosRequestConfig) {
+        return TelegramApiFp(this.configuration).apiV1TelegramStatusGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Called by Telegram Bot API when a message arrives. Validates the X-Telegram-Bot-Api-Secret-Token header before processing. **Note:** This endpoint is inactive while TELEGRAM_POLLING_ENABLED=true. 
+     * @summary Receive inbound Telegram updates (Webhook mode — legacy, disabled when polling is active)
+     * @param {TelegramApiApiV1TelegramWebhookPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TelegramWebhookPost(requestParameters: TelegramApiApiV1TelegramWebhookPostRequest, options?: RawAxiosRequestConfig) {
+        return TelegramApiFp(this.configuration).apiV1TelegramWebhookPost(requestParameters.telegramUpdate, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

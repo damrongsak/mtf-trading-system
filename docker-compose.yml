@@ -128,7 +128,7 @@ services:
     container_name: strategy-core
     ports:
       - "8003:8000"
-    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug
+    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
     volumes:
       - ./services/strategy-core:/app
       - /app/.venv

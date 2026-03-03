@@ -25,6 +25,13 @@ class AsyncCTraderClient:
         self._message_handler = None
         self._auth_lock = asyncio.Lock()
         self._connect_lock = asyncio.Lock()
+        
+        # Circuit Breaker state
+        self._failure_count = 0
+        self._last_failure_time = 0.0
+        self._circuit_broken_until = 0.0
+        self._max_failures = 5
+        self._cooldown_period = 300 # 5 minutes
 
     def set_message_handler(self, handler):
         """Set a callback for unsolicited messages (e.g. Spot Events)"""
@@ -35,19 +42,33 @@ class AsyncCTraderClient:
             if self._connected:
                 return
 
+            # Circuit Breaker Check
+            now = time.time()
+            if now < self._circuit_broken_until:
+                remaining = int(self._circuit_broken_until - now)
+                raise ConnectionError(f"Circuit Breaker active. Cooldown remaining: {remaining}s")
+
             logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
             try:
-                self.reader, self.writer = await asyncio.open_connection(
-                    self.host, self.port, ssl=self.ssl
+                self.reader, self.writer = await asyncio.wait_for(
+                    asyncio.open_connection(self.host, self.port, ssl=self.ssl),
+                    timeout=10.0
                 )
                 self._connected = True
+                self._failure_count = 0 # Reset on success
                 logger.info("Connected to cTrader.")
                 
                 # Start reader loop
                 self._reader_task = asyncio.create_task(self._read_loop())
                 self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             except Exception as e:
-                logger.error(f"Failed to connect to cTrader: {e}")
+                self._failure_count += 1
+                logger.error(f"Failed to connect to cTrader (Failure {self._failure_count}/{self._max_failures}): {e}")
+                
+                if self._failure_count >= self._max_failures:
+                    self._circuit_broken_until = time.time() + self._cooldown_period
+                    logger.warning(f"Circuit Breaker TRIPPED. Cooldown for {self._cooldown_period}s")
+                
                 raise
 
     async def disconnect(self):
@@ -151,7 +172,7 @@ class AsyncCTraderClient:
         )
         await self._send_proto_message(wrapper)
 
-    async def send(self, payload_obj, client_msg_id: str = None) -> ProtoMessage:
+    async def send(self, payload_obj, client_msg_id: str = None, timeout: float = 10.0) -> ProtoMessage:
         """
         Send a Protobuf payload and wait for response.
         """
@@ -172,11 +193,21 @@ class AsyncCTraderClient:
         fut = asyncio.get_running_loop().create_future()
         self._response_futures[client_msg_id] = fut
         
-        # Send
-        await self._send_proto_message(wrapper)
-        
-        # Wait
-        return await fut
+        try:
+            # Send
+            await self._send_proto_message(wrapper)
+            
+            # Wait with timeout
+            return await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            if client_msg_id in self._response_futures:
+                del self._response_futures[client_msg_id]
+            logger.error(f"Timeout waiting for cTrader response (Type: {payload_obj.payloadType}, ID: {client_msg_id})")
+            raise
+        except Exception as e:
+            if client_msg_id in self._response_futures:
+                del self._response_futures[client_msg_id]
+            raise
 
     async def _send_proto_message(self, msg: ProtoMessage):
         data = msg.SerializeToString()

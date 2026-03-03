@@ -12,7 +12,8 @@ The service operates as a **Stateful Producer** in a de-coupled microservices ar
     - **L1 (In-Memory)**: High-frequency candle buffers for rapid indicator calculation.
     - **L2 (Shared Cache)**: Redis Hash stores (e.g., `market_data:spot:XAUUSD`) for cross-service state sharing.
     - **L3 (Database)**: PostgreSQL handles historical candles, news articles, and COT reports.
-3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers (Strategy Core, AI Analyst).
+3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers (Strategy Core, AI Analyst, Dashboard). Includes **EFP** (Spot/Futures spread) and predictive **Feature** data.
+4.  **Adaptive Throttling**: Implements a 10Hz (100ms) safety cap on price updates to prevent dashboard and network saturation during high volatility.
 
 ### 🗺️ Data Flow Architecture
 The following diagram illustrates the lifecycle of data from institutional ingestion to storage and downstream consumption.
@@ -110,6 +111,10 @@ The service is configured via environment variables (see `.env` at root).
 ### 🧪 System Operations
 - `POST /api/v1/stream/refresh`: Force restart of real-time streaming connections.
 - `POST /api/v1/ingest/manual`: Manually trigger a data ingestion cycle.
+
+### 🛡️ Resilience & Throttling
+- **Adaptive Throttling**: Ticker updates are capped at 100ms intervals per symbol to protect downstream WebSocket consumers.
+- **Circuit Breaker (Wait)**: All internal broker requests use fixed timeouts (15s) with automated reset logic.
 
 ---
 

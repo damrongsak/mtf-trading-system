@@ -546,6 +546,15 @@ app.include_router(risk_router, prefix="/api/v1")
 
 # Global Workers
 from app.workers.reconciliation import reconciliation_worker
+from app.workers.market_context_worker import context_worker
+
+@app.on_event("startup")
+async def startup_event():
+    # Only start workers in main container, ignore in tests/alembic unless specified
+    import os
+    if os.getenv("RUN_WORKERS", "true").lower() == "true":
+        await context_worker.start()
+        logger.info("Market Context Worker started.")
 
 
 
@@ -561,3 +570,8 @@ async def shutdown_event():
     # global indicator_worker
     # if indicator_worker:
     #     await indicator_worker.stop()
+    
+    import os
+    if os.getenv("RUN_WORKERS", "true").lower() == "true":
+        await context_worker.stop()
+        logger.info("Market Context Worker stopped.")

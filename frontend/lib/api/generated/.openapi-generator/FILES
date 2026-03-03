@@ -31,7 +31,10 @@ docs/APIResponseFoundryAssembleResponse.md
 docs/APIResponseFoundryValidateResponse.md
 docs/APIResponseFoundryValidateResponseData.md
 docs/APIResponseFund.md
+docs/APIResponseIngestionResult.md
+docs/APIResponseIngestionResultAllOfData.md
 docs/APIResponseJournalEntryResponse.md
+docs/APIResponseLibraryResults.md
 docs/APIResponseOpenInterestAnalytics.md
 docs/APIResponseRiskCheckResponse.md
 docs/APIResponseSignalList.md
@@ -71,13 +74,14 @@ docs/ApiV1DataSourcesIdBackfillPost202Response.md
 docs/ApiV1DataSourcesIdBackfillPostRequest.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
-docs/ApiV1ExecutionOrdersDelete200Response.md
 docs/ApiV1ExecutionOrdersGet200Response.md
+docs/ApiV1ExecutionOrdersOrderIdPutRequest.md
 docs/ApiV1ExecutionTradesCloseAllPostRequest.md
 docs/ApiV1ExecutionTradesOpenPostRequest.md
 docs/ApiV1ExecutionTradesSyncPost200Response.md
 docs/ApiV1ExecutionTradesSyncPost200ResponseData.md
 docs/ApiV1ExecutionTradesSyncPostRequest.md
+docs/ApiV1ExecutionTradesTradeIdAmendPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdClosePostRequest.md
 docs/ApiV1InternalSignalsPostRequest.md
 docs/ApiV1PluginsIdActivatePost200Response.md
@@ -87,6 +91,8 @@ docs/ApiV1SignalCheckPostRequest.md
 docs/ApiV1SignalsCancelAllPost200Response.md
 docs/ApiV1SignalsIdApprovePost200Response.md
 docs/ApiV1SignalsIdRejectPost200Response.md
+docs/ApiV1TelegramSendPost200Response.md
+docs/ApiV1TelegramWebhookPost200Response.md
 docs/AtrRequest.md
 docs/AuthTokens.md
 docs/BacktestMetrics.md
@@ -102,6 +108,9 @@ docs/ChatMessage.md
 docs/ChatMessageCreate.md
 docs/ChatSession.md
 docs/ChatSessionCreate.md
+docs/ConfigureBotRequest.md
+docs/ConfigureBotResponse.md
+docs/DataApi.md
 docs/DataSource.md
 docs/DataSourceCreate.md
 docs/DataSourceProvider.md
@@ -115,6 +124,8 @@ docs/EmaRequest.md
 docs/ErrorCode.md
 docs/ErrorDetail.md
 docs/ExecutionApi.md
+docs/ExternalApi.md
+docs/ExternalSearchRequest.md
 docs/FoundryApi.md
 docs/FoundryAssembleRequest.md
 docs/FoundryAssembleResponse.md
@@ -129,6 +140,9 @@ docs/JournalEntryCreateMentalState.md
 docs/JournalEntryCreateRootCause.md
 docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
+docs/LibraryHit.md
+docs/LinkTelegramRequest.md
+docs/LinkTelegramResponse.md
 docs/MacdRequest.md
 docs/MacdResponse.md
 docs/MarketAnalysisRequest.md
@@ -171,6 +185,7 @@ docs/SMCSweep.md
 docs/SavedStrategyCreate.md
 docs/SavedStrategyResponse.md
 docs/SavedStrategyUpdate.md
+docs/SendTelegramMessageRequest.md
 docs/SensitivityMetrics.md
 docs/SignalApi.md
 docs/SignalBatchRequest.md
@@ -187,6 +202,9 @@ docs/SystemApi.md
 docs/SystemPromptCreate.md
 docs/SystemPromptResponse.md
 docs/SystemPromptUpdate.md
+docs/TelegramApi.md
+docs/TelegramStatusResponse.md
+docs/TelegramUpdate.md
 docs/Trade.md
 docs/TradeDirection.md
 docs/TradeResponse.md

@@ -22,8 +22,9 @@ graph TD
     subgraph ExecutionFlow["Execution & Risk"]
         STR --> |"Signal"| HM[Hook Manager / Plugins]
         HM --> |"Validated Signal"| EC[Execution Client]
-        EC --> |"LPUSH"| EQ[(Execution Queue)]
-        EQ --> |"Async RPC"| EXS{{Execution Service}}
+        EC --> |"LPUSH (Priority)"| PQ[(Priority Queue)]
+        EC --> |"LPUSH (Default)"| DQ[(Command Queue)]
+        PQ & DQ --> |"Async RPC"| EXS{{Execution Service}}
     end
 
     subgraph Monitoring["Operational Support"]
@@ -36,8 +37,10 @@ graph TD
 
 - **MTF Signal Generation**: Native Multi-Timeframe (M1 to Monthly) analysis with sub-millisecond strategy switching.
 - **Institutional Indicators**: Numba-accelerated implementations of **SMC** (Order Blocks, FVG), **TPO (Market Profile)**, and **Gamma Exposure**.
+- **Market Context Broadcast**: Dedicated background worker for publishing real-time **PIV**, **Quant Risk**, and **Liquidity** snapshots to Redis for HFT-latency execution.
 - **Dynamic Risk Sizing**: Real-time position sizing based on Fractional Kelly Criterion and Fund-level risk parity.
 - **Hook-based Extensibility**: Modular "WordPress-style" plugin system for risk filters, sentiment guards, and notifications.
+- **Prioritized Execution**: Unified `ExecutionClient` that automatically routes Close/Modify/Cancel commands to the priority queue for immediate action.
 
 ## 🔧 Component deep-dive
 
@@ -65,7 +68,10 @@ The `HookManager` allows external injection into the trading loop:
 | **Missing Signals** | ATR/Volatility filter veto | Check `opportunity_log` table for rejection reason. |
 
 ### Circuit Breakers
-The service will automatically drop trade commands if the `queue:execution:commands` length exceeds **50** (configurable via `EXECUTION_MAX_QUEUE_SIZE`) to prevent executing on stale price data.
+The service utilizes a professional-grade circuit breaker in the `ExecutionClient`:
+- **Default Queue**: Orders are dropped if `queue:execution:commands` exceeds **100** commands.
+- **Priority Queue**: Critical commands (Close/Modify) are allowed up to **200** entries before dropping.
+- **Global Kill Switch**: Monitors Redis `system:kill_switch`. If active, all new signal generation and order placement is suspended.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -84,6 +90,7 @@ app/
 ├── engine/            # Strategy execution & state orchestration
 ├── indicators/        # Numba-optimized analytics (SMC, TPO, Pivots)
 ├── plugins/           # Hook-based modular extensions (Risk/Sentiment)
+├── workers/           # Background workers (Market Context Broadcast, Reconciliation)
 ├── registry.py        # Strategy discovery and loading logic
 └── main.py            # API entry point & engine lifecycle
 ```

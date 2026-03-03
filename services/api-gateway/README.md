@@ -50,6 +50,7 @@ graph TD
 - **Trade Journaling**: Direct integration with PostgreSQL for high-fidelity trade logging and psychological data capture.
 - **Portfolio Management**: Hierarchical management of Funds, Accounts, and Risk Rules via SQLAlchemy (Async).
 - **Service Orchestration**: Unified API proxying to `ai-analyst`, `strategy-core`, and `execution` services.
+- **Institutional Resilience**: Integrated **Global Kill Switch** (`/halt`, `/resume`) and prioritized execution queue monitoring.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -77,6 +78,10 @@ docker compose exec api-gateway alembic upgrade head
 
 # Initialize system data (Seed)
 docker compose exec api-gateway python scripts/seed_risk_rules.py
+
+# Emergency Halt / Resume
+docker compose exec api-gateway curl -X POST http://localhost:8000/api/v1/system/halt
+docker compose exec api-gateway curl -X POST http://localhost:8000/api/v1/system/resume
 ```
 
 ## 📂 Directory Structure

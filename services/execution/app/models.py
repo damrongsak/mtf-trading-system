@@ -14,6 +14,26 @@ class TradeDirection(enum.Enum):
     LONG = "LONG"
     SHORT = "SHORT"
 
+class TargetType(str, enum.Enum):
+    SYSTEM = "SYSTEM"
+    FUND = "FUND"
+    BROKER_ACCOUNT = "BROKER_ACCOUNT"
+    STRATEGY = "STRATEGY"
+
+class RiskFilter(Base):
+    __tablename__ = "risk_filters"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_type = Column(SQLEnum(TargetType, name="target_type_enum"), nullable=False, index=True)
+    target_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    filter_type = Column(String(50), nullable=False, index=True)
+    is_enabled = Column(Boolean, default=True)
+    threshold_parameters = Column(JSONB, nullable=False, default={})
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 class BrokerAccount(Base):
     __tablename__ = "broker_accounts"
     

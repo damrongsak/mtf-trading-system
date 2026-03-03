@@ -1978,9 +1978,49 @@ validation_rules:
       - name: symbol
         type: string
         nullable: true
+        default: "now()"
+
+  RiskFilter:
+    description: "Hierarchical Risk Management filters (System, Fund, BrokerAccount, Strategy)"
+    table_name: "risk_filters"
+    indexes:
+      - fields: ["target_type", "target_id"]
+      - fields: ["filter_type"]
+      - fields: ["target_type", "target_id", "filter_type"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: target_type
+        type: enum
+        enum_values: ["SYSTEM", "FUND", "BROKER_ACCOUNT", "STRATEGY"]
+        required: true
+        description: "The level in the hierarchy this filter applies to"
+      - name: target_id
+        type: uuid
+        nullable: true
+        description: "ID of the specific Fund, BrokerAccount, or Strategy (null if SYSTEM)"
+      - name: filter_type
+        type: string
+        required: true
+        max_length: 50
+        description: "Name of the filter (e.g., SL_DISTANCE, MAX_DAILY_DRAWDOWN)"
+      - name: is_enabled
+        type: boolean
+        default: true
+      - name: threshold_parameters
+        type: jsonb
+        default: "{}"
+        required: true
+        description: "JSON configuration for thresholds (e.g., {'min_pip_distance': 10})"
       - name: created_at
         type: datetime
         default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
 
 redis_streams:
   MarketTick:

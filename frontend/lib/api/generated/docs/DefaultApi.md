@@ -47,7 +47,6 @@ All URIs are relative to *http://localhost*
 |[**apiV1DeploymentsPost**](#apiv1deploymentspost) | **POST** /api/v1/deployments/ | Create a new deployment|
 |[**apiV1ExecutionAccountSummaryGet**](#apiv1executionaccountsummaryget) | **GET** /api/v1/execution/account/summary | Get account summary|
 |[**apiV1ExecutionTradesSyncGet**](#apiv1executiontradessyncget) | **GET** /api/v1/execution/trades/sync | List trades with filtering and pagination|
-|[**apiV1ExecutionTradesTradeIdClosePost**](#apiv1executiontradestradeidclosepost) | **POST** /api/v1/execution/trades/{trade_id}/close | Manually close a trade|
 |[**apiV1FoundryValidatePost**](#apiv1foundryvalidatepost) | **POST** /api/v1/foundry/validate | Run Walk-Forward Validation (Proving Ground)|
 |[**apiV1FundsFundIdDelete**](#apiv1fundsfundiddelete) | **DELETE** /api/v1/funds/{fund_id} | Delete a fund|
 |[**apiV1FundsFundIdGet**](#apiv1fundsfundidget) | **GET** /api/v1/funds/{fund_id} | Get fund details|
@@ -2290,60 +2289,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | List of trades |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **apiV1ExecutionTradesTradeIdClosePost**
-> APIResponse apiV1ExecutionTradesTradeIdClosePost()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    ApiV1ExecutionTradesTradeIdClosePostRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let tradeId: string; // (default to undefined)
-let apiV1ExecutionTradesTradeIdClosePostRequest: ApiV1ExecutionTradesTradeIdClosePostRequest; // (optional)
-
-const { status, data } = await apiInstance.apiV1ExecutionTradesTradeIdClosePost(
-    tradeId,
-    apiV1ExecutionTradesTradeIdClosePostRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **apiV1ExecutionTradesTradeIdClosePostRequest** | **ApiV1ExecutionTradesTradeIdClosePostRequest**|  | |
-| **tradeId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**APIResponse**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Trade closed successfully |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

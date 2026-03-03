@@ -7,15 +7,19 @@ All URIs are relative to *http://localhost*
 |[**apiV1ExecutionOrdersDelete**](#apiv1executionordersdelete) | **DELETE** /api/v1/execution/orders | Bulk cancel orders|
 |[**apiV1ExecutionOrdersGet**](#apiv1executionordersget) | **GET** /api/v1/execution/orders | List pending orders for a broker account|
 |[**apiV1ExecutionOrdersIdDelete**](#apiv1executionordersiddelete) | **DELETE** /api/v1/execution/orders/{id} | Cancel a pending order on broker|
+|[**apiV1ExecutionOrdersOrderIdDelete**](#apiv1executionordersorderiddelete) | **DELETE** /api/v1/execution/orders/{order_id} | Cancel a specific order|
+|[**apiV1ExecutionOrdersOrderIdPut**](#apiv1executionordersorderidput) | **PUT** /api/v1/execution/orders/{order_id} | Modify a pending order|
 |[**apiV1ExecutionOrdersPost**](#apiv1executionorderspost) | **POST** /api/v1/execution/orders | Place a new order|
 |[**apiV1ExecutionTradesCloseAllPost**](#apiv1executiontradescloseallpost) | **POST** /api/v1/execution/trades/close-all | Close all open trades for an account|
 |[**apiV1ExecutionTradesOpenPost**](#apiv1executiontradesopenpost) | **POST** /api/v1/execution/trades/open | Get open trades directly from broker|
 |[**apiV1ExecutionTradesSyncPost**](#apiv1executiontradessyncpost) | **POST** /api/v1/execution/trades/sync | Sync Trades from Broker|
+|[**apiV1ExecutionTradesTradeIdAmendPost**](#apiv1executiontradestradeidamendpost) | **POST** /api/v1/execution/trades/{trade_id}/amend | Amend an open position (SL/TP)|
+|[**apiV1ExecutionTradesTradeIdClosePost**](#apiv1executiontradestradeidclosepost) | **POST** /api/v1/execution/trades/{trade_id}/close | Manually close a trade|
 |[**apiV1SignalsIdApprovePost**](#apiv1signalsidapprovepost) | **POST** /api/v1/signals/{id}/approve | Approve a pending signal|
 |[**apiV1SignalsIdRejectPost**](#apiv1signalsidrejectpost) | **POST** /api/v1/signals/{id}/reject | Reject a pending signal|
 
 # **apiV1ExecutionOrdersDelete**
-> ApiV1ExecutionOrdersDelete200Response apiV1ExecutionOrdersDelete()
+> object apiV1ExecutionOrdersDelete()
 
 
 ### Example
@@ -48,7 +52,7 @@ const { status, data } = await apiInstance.apiV1ExecutionOrdersDelete(
 
 ### Return type
 
-**ApiV1ExecutionOrdersDelete200Response**
+**object**
 
 ### Authorization
 
@@ -167,6 +171,113 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Order Cancelled |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1ExecutionOrdersOrderIdDelete**
+> APIResponse apiV1ExecutionOrdersOrderIdDelete()
+
+
+### Example
+
+```typescript
+import {
+    ExecutionApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ExecutionApi(configuration);
+
+let orderId: string; // (default to undefined)
+let brokerAccountId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1ExecutionOrdersOrderIdDelete(
+    orderId,
+    brokerAccountId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **orderId** | [**string**] |  | defaults to undefined|
+| **brokerAccountId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Order cancelled |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1ExecutionOrdersOrderIdPut**
+> APIResponse apiV1ExecutionOrdersOrderIdPut(apiV1ExecutionOrdersOrderIdPutRequest)
+
+
+### Example
+
+```typescript
+import {
+    ExecutionApi,
+    Configuration,
+    ApiV1ExecutionOrdersOrderIdPutRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ExecutionApi(configuration);
+
+let orderId: string; // (default to undefined)
+let apiV1ExecutionOrdersOrderIdPutRequest: ApiV1ExecutionOrdersOrderIdPutRequest; //
+
+const { status, data } = await apiInstance.apiV1ExecutionOrdersOrderIdPut(
+    orderId,
+    apiV1ExecutionOrdersOrderIdPutRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **apiV1ExecutionOrdersOrderIdPutRequest** | **ApiV1ExecutionOrdersOrderIdPutRequest**|  | |
+| **orderId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Order modified |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -371,6 +482,114 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Trades synced successfully |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1ExecutionTradesTradeIdAmendPost**
+> APIResponse apiV1ExecutionTradesTradeIdAmendPost(apiV1ExecutionTradesTradeIdAmendPostRequest)
+
+
+### Example
+
+```typescript
+import {
+    ExecutionApi,
+    Configuration,
+    ApiV1ExecutionTradesTradeIdAmendPostRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ExecutionApi(configuration);
+
+let tradeId: string; // (default to undefined)
+let apiV1ExecutionTradesTradeIdAmendPostRequest: ApiV1ExecutionTradesTradeIdAmendPostRequest; //
+
+const { status, data } = await apiInstance.apiV1ExecutionTradesTradeIdAmendPost(
+    tradeId,
+    apiV1ExecutionTradesTradeIdAmendPostRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **apiV1ExecutionTradesTradeIdAmendPostRequest** | **ApiV1ExecutionTradesTradeIdAmendPostRequest**|  | |
+| **tradeId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Position amended |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1ExecutionTradesTradeIdClosePost**
+> APIResponse apiV1ExecutionTradesTradeIdClosePost()
+
+
+### Example
+
+```typescript
+import {
+    ExecutionApi,
+    Configuration,
+    ApiV1ExecutionTradesTradeIdClosePostRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ExecutionApi(configuration);
+
+let tradeId: string; // (default to undefined)
+let apiV1ExecutionTradesTradeIdClosePostRequest: ApiV1ExecutionTradesTradeIdClosePostRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1ExecutionTradesTradeIdClosePost(
+    tradeId,
+    apiV1ExecutionTradesTradeIdClosePostRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **apiV1ExecutionTradesTradeIdClosePostRequest** | **ApiV1ExecutionTradesTradeIdClosePostRequest**|  | |
+| **tradeId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Trade closed successfully |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

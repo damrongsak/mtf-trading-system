@@ -13,9 +13,9 @@ graph TD
     end
 
     subgraph Messaging["Messaging Backbone"]
-        VIP[(queue:exec:vip)]
-        RETAIL[(queue:exec:retail)]
-        CORE[(queue:execution:commands)]
+        PRIO[(queue:execution:priority)]
+        CMD[(queue:execution:commands)]
+        DLQ[(queue:exec:dead)]
     end
 
     subgraph Service["Execution Service"]
@@ -30,8 +30,8 @@ graph TD
     end
 
     %% Flow
-    SC -->|LPUSH| VIP & RETAIL & CORE
-    VIP & RETAIL & CORE -->|BRPOP / Strict Priority| WORKER
+    SC -->|LPUSH| PRIO & CMD
+    PRIO & CMD -->|BRPOP / Priority Shuffle| WORKER
     WORKER -->|Verify ID| IDEM
     IDEM -->|Process| ORDS
     ORDS -->|Sign & Send| ADAPT
@@ -40,11 +40,16 @@ graph TD
 
 ## 🎯 Core Responsibilities
 
-- **Async Command Processing**: Distributed consumption of trade signals with strict priority weighting (VIP > Retail > Standard).
+- **Async Command Processing**: Distributed consumption of trade signals with professional priority weighting (**Priority** > **Standard**).
 - **Institutional cTrader Adaption**: High-fidelity orders (Market, Limit, Stop) with integrated Stop-Loss and Take-Profit tagging.
 - **Idempotency & Safety**: Multi-layer protection against race conditions using Redis `SETNX` locking to ensure a signal is never executed twice.
 - **Dead Letter Handling**: Automated retry logic (3 attempts) with routing to `queue:exec:dead` for manual intervention on failed orders.
+- **Hierarchical Risk Citadel (3-Phase)**: Modular validation engine enforcing:
+    - **Phase 1 (Core)**: Mandatory SL/TP, distance, and RRR validation.
+    - **Phase 2 (Market)**: Real-time News, Session, Volatility, Quant, and Liquidity filters synced via Redis for HFT speeds.
+    - **Phase 3 (Account)**: Daily Drawdown, Max Trades, and Consecutive Loss limits.
 - **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers.
+- **Institutional Resilience**: Professional-grade **Circuit Breakers** for broker connections, request **Timeouts** (15-30s), and a **Global Kill Switch** for emergency halts.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -52,8 +57,9 @@ To modify execution behavior or troubleshoot connectivity, follow this path:
 
 1.  **Command Flow**: The main consumer loop is in `app/worker.py`.
 2.  **Broker Adapters**: The cTrader logic resides in `app/adapters/ctrader.py` and `app/adapters/ctrader_client.py`.
-3.  **Risk Logic**: Final pre-execution risk checks are performed in `app/executor.py`.
-4.  **Minimax Integration**: Portfolio risk parity and regret minimizing logic is in `app/services/minimax_service.py`.
+3.  **Modular Filters**: Phase 2 market filters are in `app/filters/`.
+4.  **Risk Management**: Account-level limits (Phase 3) are in `app/risk/risk_limits.py`.
+5.  **Minimax Integration**: Portfolio risk parity and regret minimizing logic is in `app/services/minimax_service.py`.
 
 ## 🚦 Operational Guide
 
@@ -76,7 +82,10 @@ docker compose exec execution python -c "from app.health import check_queues; pr
 ```text
 app/
 ├── adapters/          # Broker protocols (cTrader WebSocket, Binance, OANDA)
+├── filters/           # Modular Phase 2 market condition filters (Redis-context aware)
+├── risk/              # Phase 3 Account-level risk agents (Drawdown, Limits)
 ├── services/          # Business logic (Order Management, Minimax Risk, Equity Guardian)
+├── validators/        # Phase 1 Core order parameter validation
 ├── core/              # Global schemas & configuration managers
 ├── executor.py        # Final risk-parameter calculation & validation
 ├── worker.py          # Prioritized Redis queue consumer (The Heart)

@@ -96,14 +96,47 @@ These rules are dynamically enforced by the `Execution Service` via database con
 3.  **Min Lot Size**: Trades leading to lots < **0.01** (or broker min) are rejected.
 4.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
 
-### 3.4 Mandatory Citadel Filters (Phase 28+)
-The following filters are active for ALL trades, including "RealTime" (Manual sync) signals:
+### 3.4 Hierarchical Citadel Filters (Phase 28+)
+The following filters operate on a Bottom-Up validation hierarchy (Strategy -> BrokerAccount -> Fund -> System). They are dynamically configured in the `risk_filters` table.
 
-1.  **SL/TP Mandatory**: All orders MUST have non-zero Stop Loss and Take Profit levels.
-2.  **Session Guard**: Trading is suspended during high-volatility opens (London/NY Opens: +/- 15 mins).
-3.  **News Filter**: Trading is blocked 30 mins before and after **High-Impact** economic events.
-4.  **Spread Guard**: Rejects orders if the current broker spread exceeds **5.0 pips** (for Gold).
-5.  **Volatility Threshold**: Minimum ATR filter to prevent "Dead Market" fills with high slippage.
+**Validation Flow**:
+1.  **Phase 1 (Core Order Validators)**:
+    *   `SL_MANDATORY`: Rejects if `sl_price <= 0`.
+    *   `TP_MANDATORY`: Rejects if `tp_price <= 0`.
+    *   `SL_DISTANCE`: Rejects if SL is too close (e.g. `min_pip_distance`: 10).
+    *   `RR_RATIO`: Rejects if Reward:Risk < minimum (e.g. `min_ratio`: 1.0).
+2.  **Phase 2 (Market Condition Filters)**:
+    *   `NEWS_FILTER`: Blocks around High Impact events (e.g. `minutes_before`: 30, `minutes_after`: 30).
+    *   `SESSION_FILTER`: Blocks specific time windows (e.g. London Open volatility spike).
+    *   `VOLATILITY_FILTER`: Minimum/Maximum ATR requirements.
+    *   `SPREAD_FILTER`: Rejects if real-time spread > `max_pips`.
+3.  **Phase 3 (Risk Limit Filters)**:
+    *   `MAX_DAILY_DRAWDOWN`: Pauses trading if daily realized+unrealized loss > threshold.
+    *   `MAX_ORDERS_PER_DAY`: Caps the total number of trades per target.
+    *   `CONSECUTIVE_LOSSES`: Auto-pauses target if X consecutive losses occur.
+
+If any tier (Strategy, BrokerAccount, Fund) fails a filter, the order is **REJECTED**.
+
+### 3.5 Institutional Resilience & Stability (Phase 29+)
+To ensure survival during extreme market events (Flash Crashes, News Spikes), the following professional-grade protections are enforced:
+
+1.  **Global Kill Switch**:
+    *   **Logic**: Monitoring `system:kill_switch` in Redis.
+    *   **Effect**: If `1`, all `OPEN` requests are immediately rejected. `CLOSE/MODIFY/CANCEL` may be processed with warnings to ensure risk management.
+2.  **Priority Request Queueing**:
+    *   **Logic**: Multiple Redis queues sorted by urgency.
+    *   **Priority Queue (`queue:execution:priority`)**: For Close, Modify, TRSL, and SL/TP updates.
+    *   **Default Queue (`queue:execution:commands`)**: For Open and non-critical requests.
+3.  **Broker Circuit Breaker**:
+    *   **Logic**: Tracks consecutive API/Connection failures.
+    *   **Effect**: If failures > 5, enters a 30s Cooldown. All requests during cooldown are rejected locally to prevent broker rate-limiting or log flooding.
+4.  **Adaptive Tick Throttling**:
+    *   **Logic**: Capping WebSocket broadcast frequency.
+    *   **Interval**: 100ms (10Hz).
+    *   **Target**: Dashboard and API buffers (internal strategy streams remain native).
+5.  **Multi-Timeframe Timeout**:
+    *   **Logic**: `asyncio.wait_for` on all broker I/O.
+    *   **Duration**: 15s (Standard) to 30s (Account Summary).
 
 ---
 

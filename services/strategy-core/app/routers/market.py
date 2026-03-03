@@ -120,8 +120,6 @@ async def get_piv_analysis(req: RegimeRequest):
         tf_setup = "H4" # Default fallback
         
     try:
-        from app.routers.market import fetch_candles_logic
-        
         # Fetch data for both timeframes
         # Limit 100 for N-Bands/Volatility calculation
         df_primary = await fetch_candles_logic(symbol, timeframe, limit=100)

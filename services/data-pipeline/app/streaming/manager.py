@@ -19,6 +19,10 @@ class StreamManager:
         self.last_futures = {"bid": 0.0, "ask": 0.0}
         self.spot_symbol = "XAUUSD"
         self.futures_symbol = "GCJ26" # COMEX Gold April 2026
+        
+        # Throttling (100ms = 10Hz limit for dashboard stability)
+        self.throttle_interval = 0.1
+        self._last_publish_times = {} # (symbol, type) -> timestamp
 
     async def start(self):
         logger.info("Starting StreamManager...")
@@ -68,8 +72,24 @@ class StreamManager:
         event_type = data.get("type", "tick").lower()
         symbol = data.get("instrument", "UNKNOWN")
         
-        # --- High-Performance Path ---
+        # --- High-Performance Path with Throttling ---
         if event_type == "price":
+            now = time.time()
+            last_time = self._last_publish_times.get((symbol, "price"), 0)
+            if now - last_time < self.throttle_interval:
+                # Still record for EFP but don't broadcast to Redis if throttled? 
+                # Actually, EFP needs latest data, but we use the shared self.last_spot anyway.
+                # So we update internal state but skip publishing if too frequent.
+                if symbol == self.spot_symbol:
+                    self.last_spot["bid"] = data.get("bid", 0.0)
+                    self.last_spot["ask"] = data.get("ask", 0.0)
+                elif symbol == self.futures_symbol:
+                    self.last_futures["bid"] = data.get("bid", 0.0)
+                    self.last_futures["ask"] = data.get("ask", 0.0)
+                return
+
+            self._last_publish_times[(symbol, "price")] = now
+
             if symbol == self.spot_symbol:
                 self.last_spot["bid"] = data.get("bid", 0.0)
                 self.last_spot["ask"] = data.get("ask", 0.0)
@@ -85,7 +105,7 @@ class StreamManager:
             cache_mapping = {
                 "bid": float(data.get("bid", 0.0)),
                 "ask": float(data.get("ask", 0.0)),
-                "ts": time.time()
+                "ts": now
             }
             await self.publisher.publish_with_cache(channel, cache_key, data, cache_mapping)
             return

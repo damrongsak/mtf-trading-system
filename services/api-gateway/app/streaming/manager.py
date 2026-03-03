@@ -157,6 +157,7 @@ class ConnectionManager:
         logger.info("StreamManager: Attempting to psubscribe to market_data:tick:* and market.features.*")
         try:
             await self.redis.psubscribe("market_data:tick:*")
+            await self.redis.psubscribe("market_data:efp:*")
             await self.redis.psubscribe("market.features.*")
             await self.redis.psubscribe("market_data:info:*")
             logger.info("StreamManager: PSubscribed successfully.")
@@ -176,7 +177,7 @@ class ConnectionManager:
                 # Extract symbol logic
                 try:
                     symbol = None
-                    if "market_data:tick:" in channel or "market_data:info:" in channel:
+                    if any(x in channel for x in ["market_data:tick:", "market_data:info:", "market_data:efp:"]):
                         symbol = channel.split(":")[-1]
                         if "tick:" in channel:
                             logger.debug(f"Broadcasting tick for {symbol}")
