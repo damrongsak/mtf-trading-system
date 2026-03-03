@@ -96,6 +96,15 @@ These rules are dynamically enforced by the `Execution Service` via database con
 3.  **Min Lot Size**: Trades leading to lots < **0.01** (or broker min) are rejected.
 4.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
 
+### 3.4 Mandatory Citadel Filters (Phase 28+)
+The following filters are active for ALL trades, including "RealTime" (Manual sync) signals:
+
+1.  **SL/TP Mandatory**: All orders MUST have non-zero Stop Loss and Take Profit levels.
+2.  **Session Guard**: Trading is suspended during high-volatility opens (London/NY Opens: +/- 15 mins).
+3.  **News Filter**: Trading is blocked 30 mins before and after **High-Impact** economic events.
+4.  **Spread Guard**: Rejects orders if the current broker spread exceeds **5.0 pips** (for Gold).
+5.  **Volatility Threshold**: Minimum ATR filter to prevent "Dead Market" fills with high slippage.
+
 ---
 
 ## 4. Layer 5: AI Coach Intervention

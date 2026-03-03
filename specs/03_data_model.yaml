@@ -1910,6 +1910,78 @@ validation_rules:
 
 
 
+  EconomicEvent:
+    description: "Scheduled high-impact economic events (News Calendar)"
+    table_name: "economic_events"
+    fields:
+      - name: id
+        type: integer
+        primary_key: true
+      - name: external_id
+        type: string
+        unique: true
+        nullable: true
+      - name: title
+        type: string
+        required: true
+      - name: country
+        type: string
+        required: true
+      - name: currency
+        type: string
+        required: true
+      - name: impact
+        type: string
+        required: true
+        description: "High, Medium, Low"
+      - name: datetime
+        type: datetime
+        required: true
+      - name: actual
+        type: string
+        nullable: true
+      - name: forecast
+        type: string
+        nullable: true
+      - name: previous
+        type: string
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+
+  NewsArticle:
+    description: "Financial news articles for sentiment analysis and context"
+    table_name: "news_articles"
+    fields:
+      - name: id
+        type: integer
+        primary_key: true
+      - name: external_id
+        type: string
+        unique: true
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: source
+        type: string
+        required: true
+      - name: url
+        type: string
+        required: true
+      - name: published_at
+        type: datetime
+        required: true
+      - name: symbol
+        type: string
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+
 redis_streams:
   MarketTick:
     channel_pattern: "market_data:tick:{symbol}"

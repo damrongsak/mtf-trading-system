@@ -140,3 +140,34 @@ class Trade(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class EconomicEvent(Base):
+    __tablename__ = "economic_events"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True)
+    external_id = Column(String, unique=True, index=True, nullable=True) 
+    title = Column(String, nullable=False)
+    country = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+    impact = Column(String, nullable=False) # High, Medium, Low
+    datetime = Column(DateTime(timezone=True), nullable=False, index=True)
+    actual = Column(String, nullable=True) 
+    forecast = Column(String, nullable=True)
+    previous = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class NewsArticle(Base):
+    __tablename__ = "news_articles"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    external_id = Column(String, unique=True, index=True, nullable=True)
+    symbol = Column(String, nullable=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(String, nullable=True)
+    source = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    sentiment_score = Column(Numeric(5, 4), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+

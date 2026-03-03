@@ -79,6 +79,7 @@ services:
     env_file: .env
     volumes:
       - ./services/data-pipeline:/app
+      - ./services:/shared/services
       - /app/.venv
     depends_on:
       # - postgres

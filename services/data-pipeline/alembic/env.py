@@ -9,7 +9,28 @@ from alembic import context
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.database import Base, DATABASE_URL
-from app.models import candle, market, data_source, sentiment, economic_event, execution # Import models to register them
+
+# Import ALL system models to ensure they're registered with Base.metadata
+# data-pipeline models
+from app.models import candle, market, data_source, sentiment, economic_event, execution, cot, news, system_config, open_interest
+
+# Add sibling services to path to import their models
+# Note: In Docker, these are mounted at /shared/services
+SIB_PATHS = [
+    "/shared/services/api-gateway",
+    "/shared/services/execution",
+    "/shared/services/strategy-core"
+]
+for p in SIB_PATHS:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
+
+# Try to import models from other services if they exist (for autogenerate)
+try:
+    from app.models import user, trade, strategy, strategy_run, risk_rule, signal_log, plugins, mental_hand_history
+except ImportError:
+    # Fallback/Log if not available in this environment
+    print("Warning: Some service models could not be imported for autogenerate")
 
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)

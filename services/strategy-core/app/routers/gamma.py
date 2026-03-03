@@ -138,6 +138,7 @@ async def get_gamma_levels(
             'call_oi': float(r.call_oi or 0),
             'put_oi': float(r.put_oi or 0),
             'dte': r.dte,
+            'contract_symbol': r.contract_symbol,
             'underlying_price': float(r.underlying_price) if r.underlying_price else None
         })
 

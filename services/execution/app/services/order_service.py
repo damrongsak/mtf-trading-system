@@ -1,11 +1,14 @@
 import logging
 import uuid
 import json
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
+from typing import Any
 
-from app.models import BrokerAccount, Fund
+from app.models import BrokerAccount, Fund, Trade, Candle, EconomicEvent, TradeStatus
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.services.minimax_service import MinimaxService
@@ -143,6 +146,17 @@ class OrderService:
         if not is_safe:
             raise ValueError(f"Risk Citadel Validation Failed: {reason}")
 
+        # 6.5. Layer 4: Risk Citadel - Mandatory Filters
+        await OrderService.validate_all_risk_filters(
+            db=db,
+            adapter=adapter,
+            fund=fund,
+            symbol=req_data["symbol"],
+            direction=direction,
+            sl_price=stop_loss,
+            tp_price=take_profit
+        )
+
         # 7. Execute
         logger.info(f"Executing: {req_data['symbol']} {units} units. Risk=${target_risk}")
         
@@ -210,3 +224,111 @@ class OrderService:
             ask_units=ask_vol,
             comment=f"MM-{req_data.get('generated_by')}"
         )
+
+    @staticmethod
+    async def validate_all_risk_filters(
+        db: AsyncSession,
+        adapter: Any,
+        fund: Fund,
+        symbol: str,
+        direction: str,
+        sl_price: float,
+        tp_price: float
+    ):
+        """
+        Executes all mandatory Layer 4 Risk Filters.
+        """
+        # 1. SL/TP Mandatory
+        if not sl_price or sl_price <= 0:
+            raise ValueError("Risk Violation: Stop Loss is mandatory and must be > 0")
+        if not tp_price or tp_price <= 0:
+            raise ValueError("Risk Violation: Take Profit is mandatory and must be > 0 (Min Reward Policy)")
+
+        # 2. Daily Drawdown Filter
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        stmt = select(func.sum(Trade.pnl_usd)).where(
+            Trade.fund_id == fund.id,
+            Trade.exit_timestamp >= today_start,
+            Trade.status == TradeStatus.CLOSED
+        )
+        result = await db.execute(stmt)
+        total_pnl = result.scalar() or 0.0
+        
+        # Check against fund drawdown limit if exists
+        if fund.max_drawdown_threshold:
+            current_drawdown = -float(total_pnl)
+            if current_drawdown >= float(fund.max_drawdown_threshold):
+                raise ValueError(f"Risk Violation: Daily Drawdown Limit Reached (${current_drawdown:.2f} >= ${fund.max_drawdown_threshold})")
+
+        # 3. Session Filter (Avoid Volatility Spikes at Market Open)
+        # Session: London Open (08:00 GMT), NY Open (13:00 GMT)
+        now_gmt = datetime.now(timezone.utc)
+        current_hour_gmt = now_gmt.hour
+        current_minute_gmt = now_gmt.minute
+        
+        # Rule: Skip trades during first 15 mins of major sessions
+        if (current_hour_gmt == 8 or current_hour_gmt == 13) and current_minute_gmt < 15:
+            raise ValueError(f"Risk Violation: Volatility Guard active (Session Open Spike Prevention)")
+
+        # 4. News Filter (High Impact)
+        # Check for High Impact events in the next 30 minutes
+        news_window = now_gmt + timedelta(minutes=30)
+        stmt_news = select(EconomicEvent).where(
+            EconomicEvent.impact == "High",
+            EconomicEvent.datetime >= now_gmt,
+            EconomicEvent.datetime <= news_window
+        )
+        result_news = await db.execute(stmt_news)
+        news_event = result_news.scalars().first()
+        if news_event:
+            raise ValueError(f"Risk Violation: High Impact News Event approaching: {news_event.title}")
+
+        # 5. Volatility Filter (ATR Check)
+        # Get latest candles for Symbol from DB
+        stmt_candles = select(Candle).where(
+            Candle.symbol == symbol,
+            Candle.timeframe == "H1"
+        ).order_by(Candle.timestamp.desc()).limit(20)
+        result_candles = await db.execute(stmt_candles)
+        candles = result_candles.scalars().all()
+        
+        if len(candles) >= 14:
+            # Simple ATR Calculation
+            trs = []
+            for i in range(1, len(candles)):
+                c = candles[i]
+                prev_c = candles[i-1]
+                tr = max(
+                    float(c.high) - float(c.low),
+                    abs(float(c.high) - float(prev_c.close)),
+                    abs(float(c.low) - float(prev_c.close))
+                )
+                trs.append(tr)
+            atr = sum(trs[-14:]) / 14
+            
+            # Threshold: Skip if ATR is extremely low (Dead Market)
+            min_atr = 0.5 if "XAU" in symbol else 0.0002 # 50 cents for Gold, 2 pips for FX
+            if atr < min_atr:
+                raise ValueError(f"Risk Violation: Market Volatility too low (ATR: {atr:.4f} < {min_atr})")
+
+        # 6. Spread Filter
+        try:
+            # Check if adapter has get_prices
+            if hasattr(adapter, 'get_prices'):
+                prices = await adapter.get_prices([symbol])
+                if prices:
+                    p = prices[0]
+                    bid = float(p.get('bid', 0))
+                    ask = float(p.get('ask', 0))
+                    if bid > 0 and ask > 0:
+                        spread = ask - bid
+                        # Max Spread: 50 cents for Gold ($0.50), 3 pips for FX
+                        max_spread = 0.50 if "XAU" in symbol else 0.0003
+                        if spread > max_spread:
+                            raise ValueError(f"Risk Violation: Spread too wide ({spread:.4f} > {max_spread})")
+        except Exception as e:
+            if isinstance(e, ValueError) and "Risk Violation" in str(e):
+                raise e
+            logger.warning(f"Spread check failed (skipping): {e}")
+
+        return True

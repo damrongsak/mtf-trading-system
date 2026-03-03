@@ -99,6 +99,7 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
     from app.models.market import MarketSymbol
     from app.models.data_source import DataSource
     from app.models.system_config import SystemConfig
+    from app.models.open_interest import OpenInterest
     
     # 0. Load Supported Timeframes
     default_timeframes = ["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
@@ -113,6 +114,13 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
         timeframes = default_timeframes 
     
     try:
+        # Diagnostic: Check latest OI entry
+        latest_oi = db.query(OpenInterest).order_by(OpenInterest.snapshot_at.desc()).first()
+        if latest_oi:
+            logger.info(f"DIAGNOSTIC: Latest OI Snapshot in DB: {latest_oi.snapshot_at} (Created: {latest_oi.created_at})")
+        else:
+            logger.warning("DIAGNOSTIC: No OI data found in DB")
+
         # Initialize Publisher
         publisher = RedisPublisher()
         await publisher.connect()
@@ -660,13 +668,15 @@ async def run_cot_sync_job():
         async with aiohttp.ClientSession() as session:
             logger.info(f"Fetching COT data from {url}")
             async with session.get(url, timeout=30.0) as response:
+                logger.info(f"COT Response Status: {response.status}")
                 response.raise_for_status()
                 content = await response.read()
+                logger.info(f"COT Content Received: {len(content)} bytes")
                 
                 # Using Gold as default symbol for this job
                 # The parser handles filtering for 'GOLD - COMMODITY EXCHANGE INC.'
                 records = await asyncio.to_thread(cot_service.parse_and_store, content, db, symbol="GOLD")
-                logger.info(f"COT sync job completed. Processed {len(records)} records for GOLD.")
+                logger.info(f"COT sync job completed. Processed {len(records)} records for GOLD. Status: {records.get('status')}")
             
     except Exception as e:
         logger.error(f"COT sync job failed: {e}")
