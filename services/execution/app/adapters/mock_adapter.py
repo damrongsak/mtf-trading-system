@@ -114,6 +114,21 @@ class MockAdapter(BrokerAdapter):
             }
         ]
     
+    async def get_pending_orders(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all mock pending orders.
+        """
+        return [
+            {
+                "id": str(uuid.uuid4()),
+                "instrument": "XAU_USD",
+                "units": "10",
+                "price": "2600.00",
+                "time": datetime.utcnow().isoformat(),
+                "status": "PENDING"
+            }
+        ]
+    
     # Optional dynamic method if needed
     def get_summary(self):
         return self.get_account_summary()

@@ -1,7 +1,7 @@
 
 import asyncio
 import logging
-from typing import Dict, Set, List
+from typing import Dict, Set, List, Any
 from collections import defaultdict
 from fastapi import WebSocket
 import json
@@ -95,18 +95,19 @@ class ConnectionManager:
                     del self.active_connections[norm_symbol]
         logger.info(f"Client disconnected. Active symbols: {len(self.active_connections)}")
 
-    async def broadcast(self, symbol: str, message_data: str):
+    async def broadcast(self, symbol: str, message_data: Any):
         """Send message to all websockets subscribed to this symbol."""
         norm_symbol = self._normalize_symbol(symbol)
         if norm_symbol not in self.active_connections:
             return
 
-        # Parse message once if it's a string, to avoid redundant parsing in the subscriber loop
+        # Parse message once if it's a string or bytes, to avoid redundant parsing in the subscriber loop
         parsed_message = None
-        if isinstance(message_data, str):
+        if isinstance(message_data, (str, bytes)):
             try:
+                # Try to load as JSON for source filtering
                 parsed_message = json.loads(message_data)
-            except json.JSONDecodeError:
+            except Exception:
                 pass
         else:
             parsed_message = message_data
@@ -115,16 +116,18 @@ class ConnectionManager:
         for connection, source_filter in list(self.active_connections[norm_symbol]):
             try:
                 # Filter logic
-                # 1. If client requested specific source (source_filter is set), ONLY send matching source
-                # 2. If client didn't specify (source_filter is None), send EVERYTHING
-                
-                msg_source = parsed_message.get("source") if isinstance(parsed_message, dict) else None
-                
-                if source_filter:
+                if source_filter and isinstance(parsed_message, dict):
+                    msg_source = parsed_message.get("source")
                     if not msg_source or msg_source.upper() != source_filter.upper():
                         continue
                 
-                await connection.send_text(message_data if isinstance(message_data, str) else json.dumps(message_data))
+                # Send the original message data
+                if isinstance(message_data, bytes):
+                    await connection.send_bytes(message_data)
+                elif isinstance(message_data, str):
+                    await connection.send_text(message_data)
+                else:
+                    await connection.send_text(json.dumps(message_data))
             except Exception as e:
                 logger.warning(f"Failed to send to client: {e}")
 
@@ -165,33 +168,30 @@ class ConnectionManager:
             logger.error(f"StreamManager: PSubscribe FAILED: {e}")
 
         async for msg in self.redis.listen():
-            logger.debug(f"StreamManager received redis msg: {msg}")
             if msg["type"] == "pmessage": # pattern message
-                # channel examples: 
-                # "market_data:tick:EUR_USD"
-                # "market.features.EUR_USD"
-                
-                channel = msg["channel"]
-                data = msg["data"]
-                
-                # Extract symbol logic
                 try:
+                    raw_channel = msg["channel"]
+                    # Safely decode channel for pattern matching
+                    channel = raw_channel.decode('utf-8', errors='replace') if isinstance(raw_channel, bytes) else raw_channel
+                    data = msg["data"]
+                    
+                    # Extract symbol logic
                     symbol = None
                     if any(x in channel for x in ["market_data:tick:", "market_data:info:", "market_data:efp:"]):
                         symbol = channel.split(":")[-1]
-                        if "tick:" in channel:
-                            logger.debug(f"Broadcasting tick for {symbol}")
                     elif "market.features." in channel:
                         symbol = channel.split(".")[-1]
                         # Populate Feature Cache
                         try:
                             features = json.loads(data)
                             feature_cache.update(symbol, features)
-                        except Exception as ce:
-                            logger.error(f"Failed to cache features for {symbol}: {ce}")
+                        except Exception:
+                            pass
                     
                     if symbol:
-                        await self.broadcast(symbol, data)
+                        norm_symbol = self._normalize_symbol(symbol)
+                        if norm_symbol in self.active_connections:
+                            await self.broadcast(symbol, data)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
 

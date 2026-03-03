@@ -96,3 +96,29 @@ class RiskLimitsAgent:
                         raise ValueError(f"Risk Violation: Consecutive Losses Limit Reached ({max_losses} losses)")
 
         return True
+
+    @staticmethod
+    async def check_order_size(symbol: str, units: float):
+        """
+        Enforce Maximum Order Size limits.
+        TODO: IC Markets cTrader on dev/live requires maximum 0.01 Lot per order for safety.
+        """
+        abs_units = abs(units)
+        
+        # cTrader/IC Markets Standard:
+        # 1.00 Lot Gold = 100 units
+        # 0.01 Lot Gold = 1 unit
+        # 1.00 Lot Forex = 100,000 units
+        # 0.01 Lot Forex = 1,000 units
+        
+        is_gold = "XAU" in symbol.upper() or "GOLD" in symbol.upper()
+        max_allowed_units = 1.0 if is_gold else 1000.0
+        
+        if abs_units > max_allowed_units:
+            lot_equivalent = abs_units / (100.0 if is_gold else 100000.0)
+            raise ValueError(
+                f"Risk Violation: Order size {lot_equivalent:.4f} Lots exceeds "
+                f"maximum allowed (0.01 Lot) for IC Markets safety guardrail."
+            )
+        
+        return True

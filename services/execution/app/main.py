@@ -279,7 +279,7 @@ async def get_pending_orders_list(
         
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
-        if hasattr(adapter, 'get_pending_orders'):
+        try:
             orders = await adapter.get_pending_orders()
             # Map to OrderResponse
             mapped = []
@@ -293,9 +293,13 @@ async def get_pending_orders_list(
                     status=o.get('status', 'PENDING')
                 ))
             return success_response(data=mapped)
-        else:
-            # Fallback or empty if not supported
+        except NotImplementedError:
+            # Fallback for brokers that don't support pending orders
+            logger.info(f"Broker {account.broker_name} does not support pending orders.")
             return success_response(data=[])
+        except Exception as e:
+            logger.error(f"Error fetching pending orders: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch orders: {str(e)}")
 
     except HTTPException as he:
         raise he
