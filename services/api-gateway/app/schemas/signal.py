@@ -39,6 +39,6 @@ class SignalRequest(BaseModel):
     timeframe: str = "15m"
 
 class SignalBatchRequest(BaseModel):
-    broker: str = "OANDA"
+    broker: str = "CTRADER"
     strategy_id: str = "system_default"
 

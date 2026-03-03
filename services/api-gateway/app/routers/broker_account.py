@@ -629,12 +629,12 @@ async def fetch_account_symbols(
             # We use full fetch below to get details
             
             # Sync Logic
+            # Check for OANDA DataSource
             data_source = db.query(DataSource).filter(DataSource.name == "OANDA").first()
             if not data_source:
-                # Create DataSource if missing
-                 data_source = DataSource(name="OANDA", type="api", config_json={})
-                 db.add(data_source)
-                 db.flush()
+                # OANDA DataSource is missing and auto-creation is disabled. 
+                # User must manually ensure it is active if needed (but we are moving away from it).
+                raise HTTPException(status_code=400, detail="OANDA data source not found or deactivated.")
 
             # Ensure categories exist
             cat_names = ["Forex", "Metals", "Crypto", "Indices", "CFD", "Other"]

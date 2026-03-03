@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Float, ForeignKey, Integer, Numeric
+from sqlalchemy import Column, String, DateTime, Float, ForeignKey, Integer, Numeric, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
@@ -20,7 +20,7 @@ class SignalLog(Base):
     
     # Execution Flow
     status = Column(String, default="CREATED") # CREATED, PENDING_APPROVAL, EXECUTED, REJECTED
-    execution_id = Column(String, nullable=True) # ID from Execution Service
+    execution_id = Column(UUID(as_uuid=True), nullable=True) # ID from Execution Service
     
     strategy_name = Column(String, nullable=True) # "SMC Scanner" or "Deployment-123"
     strategy_id = Column(UUID(as_uuid=True), ForeignKey("strategies.id"), nullable=True, index=True)
@@ -33,7 +33,7 @@ class SignalLog(Base):
     meta_data = Column(JSONB, nullable=True) # Extra info (SL/TP suggestions, indicators)
 
     sentiment_score = Column(Numeric(3, 2), nullable=True)
-    sentiment_reason = Column(String, nullable=True)
+    sentiment_reason = Column(Text, nullable=True)
 
 
     # Relationships

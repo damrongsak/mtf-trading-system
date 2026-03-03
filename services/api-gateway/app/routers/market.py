@@ -38,7 +38,7 @@ async def get_candles(
 ):
     # 1. Resolve MarketSymbol ID
     # Use flexible matching (replace slash with underscore or vice versa if needed)
-    # Default to OANDA for now if not specified in deeper logic, but we exposed param.
+    # Default is handled by the Query parameter or passed explicitly.
     from app.models.market import MarketSymbol
     from app.models.data_source import DataSource
     
@@ -123,8 +123,7 @@ async def get_symbol_details(
     from app.models.data_source import DataSource
 
     # 1. Resolve Symbol and Provider
-    # We look for the OANDA one first as it's the most common for details, 
-    # but the user might be asking for a CTRADER specific one.
+    # Prioritize the active symbol found in the database.
     # Try exact match first
     ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol).first()
     

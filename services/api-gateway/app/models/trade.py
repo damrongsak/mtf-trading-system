@@ -81,6 +81,12 @@ class Trade(Base):
     exit_timestamp = Column(DateTime(timezone=True), nullable=True,
                            comment="Timestamp when the trade was closed")
 
+    # Broker Specifics
+    broker_trade_id = Column(String(50), nullable=True, index=True)
+    broker_deal_id = Column(String(50), nullable=True, unique=True)
+    swap = Column(Numeric(10, 2), nullable=True)
+    gross_pnl = Column(Numeric(10, 2), nullable=True)
+
     # Additional Metadata (Confluence zones, indicators, etc.)
     metadata_json = Column(JSONB, nullable=True,
                           comment="Additional trade metadata (confluence zones, indicators, etc.)")

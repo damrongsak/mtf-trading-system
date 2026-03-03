@@ -301,7 +301,7 @@ async def trigger_sync(
 async def get_candles(
     symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),
     timeframe: str = Query(..., description="Timeframe (e.g., 15m)"),
-    broker: str = Query("OANDA", description="Data Provider (e.g. OANDA, BINANCE)"),
+    broker: str = Query("CTRADER", description="Data Provider (e.g. OANDA, BINANCE, CTRADER)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=1000)
 ):
@@ -342,7 +342,7 @@ async def get_candles(
 
 @router.get("/symbols")
 async def get_active_symbols(
-    broker: str = Query("OANDA", description="Filter by broker name")
+    broker: str = Query("CTRADER", description="Filter by broker name")
 ):
     """
     Get list of active symbols for a specific broker.

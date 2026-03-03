@@ -179,3 +179,4 @@ To apply schema changes to the database:
 | **Rebuild Specific** | `docker compose up --build <service_name>` |
 | **Stop All** | `docker compose down` |
 | **Connect to DB** | `docker exec -it postgresql psql -U trader -d mtf_db` |
+| **Verify DB Schema** | `docker compose exec api-gateway uv run python scripts/verify_schema.py` |

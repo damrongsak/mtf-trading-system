@@ -7,6 +7,7 @@ Create Date: 2026-02-09 13:22:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -20,7 +21,7 @@ def upgrade():
     op.create_table(
         'telegram_chat_mappings',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('chat_id', sa.BigInteger(), nullable=False),
         sa.Column('linked_at', sa.DateTime(), server_default=sa.text('NOW()'), nullable=False),
         sa.Column('is_active', sa.Boolean(), server_default=sa.text('TRUE'), nullable=False),
