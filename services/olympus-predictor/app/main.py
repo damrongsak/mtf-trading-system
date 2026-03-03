@@ -20,6 +20,7 @@ redis_pool = None
 db_pool = None
 predictor = None
 data_loader = None
+_is_predicting = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,7 +75,14 @@ async def health_check():
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_gold(request: PredictionRequest):
+    global _is_predicting
+    if _is_predicting:
+        raise HTTPException(status_code=429, detail="Prediction is already in progress")
+        
+    _is_predicting = True
+    
     if not predictor.sarimax_model:
+        _is_predicting = False
         raise HTTPException(status_code=503, detail="Model not trained yet")
         
     try:
@@ -89,6 +97,7 @@ async def predict_gold(request: PredictionRequest):
         gold_df, macro_df = await asyncio.gather(gold_task, macro_task)
         
         if gold_df.empty:
+             _is_predicting = False
              raise HTTPException(status_code=503, detail="No Gold data available for inference")
              
         # Compute Technicals on recent price history
@@ -116,6 +125,8 @@ async def predict_gold(request: PredictionRequest):
         
         result = predictor.predict(steps=request.steps, macro_df=combined_context)
         
+        _is_predicting = False
+        
         return PredictionResponse(
             symbol=request.symbol,
             forecast_date=datetime.now(),
@@ -124,6 +135,7 @@ async def predict_gold(request: PredictionRequest):
             breakdown=result
         )
     except Exception as e:
+        _is_predicting = False
         logger.error(f"Prediction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

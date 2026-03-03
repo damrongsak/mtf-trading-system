@@ -547,27 +547,7 @@ app.include_router(risk_router, prefix="/api/v1")
 # Global Workers
 from app.workers.reconciliation import reconciliation_worker
 
-@app.on_event("startup")
-async def startup_event():
-    print("DEBUG: Entering startup_event")
-    startup_start_time = time.time()
-    logger.info("Starting Strategy Engine (Primary Event Consumer)...")
-    await strategy_engine.start()
 
-    # Ensure LiveRunner (Tick Stream) is active
-    await live_runner.start()
-    
-    # Initialize and load Fleet
-    from app.fleet import FleetManager
-    fleet = FleetManager.get_instance()
-    await fleet.load_fleet()
-
-    # Start Reconciliation Worker (Watchdog & Event Listener)
-    await reconciliation_worker.start()
-
-    # Resource Monitoring Baseline (Simple Timing)
-    startup_duration = time.time() - startup_start_time
-    logger.info(f"PERFORMANCE BASELINE: Fleet Load completed in {startup_duration:.2f}s")
 
 @app.on_event("shutdown")
 async def shutdown_event():

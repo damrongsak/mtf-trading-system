@@ -15,11 +15,18 @@ class StabilityObserver:
     def __init__(self):
         self.consecutive_failures = 0
         self.max_failures_threshold = 3
+        self._is_running = False
         
     async def run_predictor_stability_check(self) -> Dict[str, Any]:
         """
         Main entry point for scheduled stability check of the Olympus Predictor.
         """
+        if self._is_running:
+            logger.warning("Stability check is already running. Skipping this execution.")
+            return
+            
+        self._is_running = True
+        
         logger.info("🛡️ Running Predictor Stability Check...")
         
         health_data = await self._check_service_health()
@@ -42,6 +49,8 @@ class StabilityObserver:
                 )
             self.consecutive_failures = 0
             
+        self._is_running = False
+        
         return {
             "is_healthy": is_healthy,
             "health": health_data,
