@@ -54,43 +54,48 @@ class EquityCurveProjections:
         # Trim to keep last 5000 trades
         await self.redis.ltrim(key, -5000, -1)
 
-    async def hydrate(self, account_id: str):
+    async def hydrate(self, account_id: str, token: str):
         """Fetch full history from API Gateway."""
         logger.info(f"Hydrating Equity Curve for {account_id}...")
-        url = f"{settings.API_GATEWAY_URL}/trades"
+        # Correct path for trade history in Execution router is /execution/trades
+        url = f"{settings.API_GATEWAY_URL}/execution/trades"
         params = {
             "broker_account_id": account_id,
             "per_page": 5000,
             "status": "CLOSED" 
         }
+        headers = {"Authorization": f"Bearer {token}"}
         
         try:
-            async with aiohttp.ClientSession() as session:
-                 async with session.get(url, params=params) as resp:
-                     if resp.status == 200:
-                         data = await resp.json()
-                         trades = data.get("data", [])
-                         
-                         # Clear existing
-                         key = f"{self.curve_key_prefix}{account_id}"
-                         await self.redis.delete(key)
-                         
-                         # Sort by time asc
-                         trades.sort(key=lambda x: x['exit_timestamp'] or x['signal_timestamp'])
-                         
-                         pipeline = self.redis.pipeline()
-                         for t in trades:
-                             entry = {
-                                 "timestamp": t['exit_timestamp'] or t['signal_timestamp'],
-                                 "pnl": float(t.get('pnl_usd') or 0.0),
-                                 "id": str(t['trade_id'])
-                             }
-                             pipeline.rpush(key, json.dumps(entry))
-                         
-                         await pipeline.execute()
-                         logger.info(f"Hydration complete. Loaded {len(trades)} trades.")
-                     else:
-                         logger.error(f"Failed to hydrate: {await resp.text()}")
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(url, params=params) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        # TradeService returns data in 'data' field
+                        trades = data.get("data", [])
+                        
+                        # Clear existing
+                        key = f"{self.curve_key_prefix}{account_id}"
+                        await self.redis.delete(key)
+                        
+                        # Sort by time asc
+                        # trades is a list of dicts from TradeResponse
+                        trades.sort(key=lambda x: x.get('exit_timestamp') or x.get('signal_timestamp') or '')
+                        
+                        pipeline = self.redis.pipeline()
+                        for t in trades:
+                            entry = {
+                                "timestamp": t.get('exit_timestamp') or t.get('signal_timestamp'),
+                                "pnl": float(t.get('pnl_usd') or 0.0),
+                                "id": str(t.get('trade_id') or t.get('id'))
+                            }
+                            if entry["timestamp"]:
+                                pipeline.rpush(key, json.dumps(entry))
+                        
+                        await pipeline.execute()
+                        logger.info(f"Hydration complete. Loaded {len(trades)} trades.")
+                    else:
+                        logger.error(f"Failed to hydrate: {resp.status} - {await resp.text()}")
         except Exception as e:
             logger.error(f"Hydration error: {e}")
 
@@ -99,21 +104,59 @@ class EquityGuardian:
         self.redis = redis_client
         self.projections = EquityCurveProjections(redis_client)
 
+    async def _get_token(self) -> str:
+        """Fetch JWT token from API Gateway."""
+        if hasattr(self, '_token') and self._token:
+             return self._token
+             
+        logger.info("Fetching system auth token...")
+        url = f"{settings.API_GATEWAY_URL}/auth/token"
+        # OAuth2PasswordRequestForm expects username and password
+        data = {
+            "username": settings.SYSTEM_USER,
+            "password": settings.SYSTEM_PASSWORD
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data) as resp:
+                    if resp.status == 200:
+                        res = await resp.json()
+                        # The auth response has { "auth": { "access_token": "..." } }
+                        self._token = res.get("auth", {}).get("access_token")
+                        return self._token
+                    else:
+                        logger.error(f"Failed to get token: {resp.status} - {await resp.text()}")
+                        return None
+        except Exception as e:
+            logger.error(f"Error fetching token: {e}")
+            return None
+
     async def check_health(self):
         """Standard entry point for Scheduler."""
         logger.info("Equity Guardian: Health Check Started...")
         
+        token = await self._get_token()
+        if not token:
+            logger.error("Skipping health check: Could not authenticate.")
+            return
+
+        headers = {"Authorization": f"Bearer {token}"}
+        
         # Fetch active accounts
         try:
-            async with aiohttp.ClientSession() as session:
-                 url = f"{settings.API_GATEWAY_URL}/accounts"
+            async with aiohttp.ClientSession(headers=headers) as session:
+                 # Listing accounts endpoint is /accounts/ (trailing slash ensures no 307)
+                 url = f"{settings.API_GATEWAY_URL}/accounts/"
                  async with session.get(url) as resp:
                      if resp.status == 200:
                          res = await resp.json()
                          accounts = res.get("data", [])
                          
                          for acc in accounts:
-                             await self.analyze(acc['id'])
+                             await self.analyze(acc['id'], token)
+                     else:
+                         logger.error(f"Failed to fetch accounts: {resp.status} - {await resp.text()}")
         except Exception as e:
             logger.error(f"Health check failed: {e}")
 
@@ -154,13 +197,13 @@ class EquityGuardian:
             "trade_count": len(df)
         }
 
-    async def analyze(self, account_id: str):
+    async def analyze(self, account_id: str, token: str):
         """Analyze equity curve stability and store metrics."""
         
         # 1. Hydrate if empty
         df = await self.projections.get_curve(account_id)
         if df.empty:
-            await self.projections.hydrate(account_id)
+            await self.projections.hydrate(account_id, token)
             df = await self.projections.get_curve(account_id)
             
         if df.empty or len(df) < 5:
