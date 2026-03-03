@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Header
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.schemas.analysis import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.utils.response import success_response
@@ -31,7 +31,7 @@ async def analyze_market(request: MarketAnalysisRequest):
         "status": "success",
         "insight": insight,
         "message": "Operation completed successfully",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @router.post("/journal", response_model=AnalysisResponse)
@@ -55,7 +55,7 @@ async def analyze_journal(request: JournalAnalysisRequest):
         "status": "success",
         "insight": insight,
         "message": "Operation completed successfully",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @router.post("/smc-narrative", response_model=AnalysisResponse)
@@ -70,7 +70,7 @@ async def analyze_smc_narrative(request: SMCNarrativeRequest):
         "status": "success",
         "insight": insight,
         "message": "Operation completed successfully",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 class AnalysisRequest(BaseModel):

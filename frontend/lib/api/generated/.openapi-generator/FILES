@@ -34,7 +34,11 @@ docs/APIResponseFund.md
 docs/APIResponseIngestionResult.md
 docs/APIResponseIngestionResultAllOfData.md
 docs/APIResponseJournalEntryResponse.md
+docs/APIResponseLibraryBookList.md
+docs/APIResponseLibraryBookListAllOfData.md
 docs/APIResponseLibraryResults.md
+docs/APIResponseLibraryStatus.md
+docs/APIResponseLibraryStatusAllOfData.md
 docs/APIResponseOpenInterestAnalytics.md
 docs/APIResponseRiskCheckResponse.md
 docs/APIResponseSignalList.md

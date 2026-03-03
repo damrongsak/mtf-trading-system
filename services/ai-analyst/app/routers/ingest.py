@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from typing import Optional, List
 from app.services.rag import RAGService
-from app.utils.response import success_response
+from app.utils.response import success_response, error_response
+from app.database import SessionLocal
+from app.models.rag import LibraryBook, IngestionStatus
 import base64
 import asyncio
 
@@ -53,7 +55,8 @@ async def upload_file(
 async def ingest_library_book(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
-    author: Optional[str] = Form(None)
+    author: Optional[str] = Form(None),
+    collection: Optional[str] = Form(None)
 ):
     """
     Upload and semantically ingest a book into the specialized quant_library collection.
@@ -74,15 +77,67 @@ async def ingest_library_book(
         asyncio.create_task(rag_service.ingest_library_book(
             filename=filename,
             content=text_content,
-            metadata=metadata
+            metadata=metadata,
+            collection=collection
         ))
 
         return success_response(
             data={
                 "filename": filename,
+                "collection": collection or "quant_library",
                 "status": "INGESTION_STARTED",
                 "message": "The book is being processed in the background."
             }
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ingestion initiation failed: {str(e)}")
+
+@router.get("/library/status/{filename}")
+async def get_library_ingestion_status(filename: str):
+    """
+    Get the ingestion status of a library book by filename.
+    """
+    db = SessionLocal()
+    try:
+        book = db.query(LibraryBook).filter(LibraryBook.filename == filename).first()
+        if not book:
+            return error_response(
+                message=f"Book with filename '{filename}' not found",
+                status_code=404
+            )
+        
+        return success_response(
+            data={
+                "filename": book.filename,
+                "title": book.title,
+                "author": book.author,
+                "status": book.ingestion_status.value,
+                "total_chunks": book.total_chunks,
+                "last_ingested_at": book.last_ingested_at
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@router.get("/library/list")
+async def list_library_books():
+    """
+    List all books in the library with their ingestion status.
+    """
+    db = SessionLocal()
+    try:
+        books = db.query(LibraryBook).all()
+        return success_response(
+            data=[{
+                "id": str(book.id),
+                "filename": book.filename,
+                "title": book.title,
+                "author": book.author,
+                "status": book.ingestion_status.value,
+                "last_ingested_at": book.last_ingested_at
+            } for book in books]
+        )
+    finally:
+        db.close()

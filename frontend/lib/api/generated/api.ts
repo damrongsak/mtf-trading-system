@@ -327,10 +327,21 @@ export interface APIResponseIngestionResult {
 
 
 export interface APIResponseIngestionResultAllOfData {
-    'job_id'?: string;
     'filename'?: string;
-    'chunks_queued'?: number;
+    'collection'?: string;
+    'status'?: APIResponseIngestionResultAllOfDataStatusEnum;
+    'message'?: string;
 }
+
+export const APIResponseIngestionResultAllOfDataStatusEnum = {
+    IngestionStarted: 'INGESTION_STARTED',
+    Pending: 'PENDING',
+    Ingested: 'INGESTED',
+    Failed: 'FAILED'
+} as const;
+
+export type APIResponseIngestionResultAllOfDataStatusEnum = typeof APIResponseIngestionResultAllOfDataStatusEnum[keyof typeof APIResponseIngestionResultAllOfDataStatusEnum];
+
 export interface APIResponseJournalEntryResponse {
     'status': ResponseStatus;
     'data'?: JournalEntryResponse;
@@ -343,6 +354,37 @@ export interface APIResponseJournalEntryResponse {
 }
 
 
+export interface APIResponseLibraryBookList {
+    'status': ResponseStatus;
+    'data'?: Array<APIResponseLibraryBookListAllOfData>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseLibraryBookListAllOfData {
+    'id'?: string;
+    'filename'?: string;
+    'title'?: string;
+    'author'?: string;
+    'status'?: APIResponseLibraryBookListAllOfDataStatusEnum;
+    'last_ingested_at'?: string;
+    'chunks_queued'?: number;
+}
+
+export const APIResponseLibraryBookListAllOfDataStatusEnum = {
+    IngestionStarted: 'INGESTION_STARTED',
+    Pending: 'PENDING',
+    Ingested: 'INGESTED',
+    Failed: 'FAILED'
+} as const;
+
+export type APIResponseLibraryBookListAllOfDataStatusEnum = typeof APIResponseLibraryBookListAllOfDataStatusEnum[keyof typeof APIResponseLibraryBookListAllOfDataStatusEnum];
+
 export interface APIResponseLibraryResults {
     'status': ResponseStatus;
     'data'?: Array<LibraryHit>;
@@ -354,6 +396,36 @@ export interface APIResponseLibraryResults {
     'timestamp': string;
 }
 
+
+export interface APIResponseLibraryStatus {
+    'status': ResponseStatus;
+    'data'?: APIResponseLibraryStatusAllOfData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseLibraryStatusAllOfData {
+    'filename'?: string;
+    'title'?: string;
+    'author'?: string;
+    'status'?: APIResponseLibraryStatusAllOfDataStatusEnum;
+    'total_chunks'?: number;
+    'last_ingested_at'?: string;
+}
+
+export const APIResponseLibraryStatusAllOfDataStatusEnum = {
+    IngestionStarted: 'INGESTION_STARTED',
+    Pending: 'PENDING',
+    Ingested: 'INGESTED',
+    Failed: 'FAILED'
+} as const;
+
+export type APIResponseLibraryStatusAllOfDataStatusEnum = typeof APIResponseLibraryStatusAllOfDataStatusEnum[keyof typeof APIResponseLibraryStatusAllOfDataStatusEnum];
 
 export interface APIResponseOpenInterestAnalytics {
     'status': ResponseStatus;
@@ -1961,15 +2033,16 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
             };
         },
         /**
-         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
          * @summary Ingest a book into Quant Library
          * @param {File} [file] 
          * @param {string} [title] 
          * @param {string} [author] 
+         * @param {string} [collection] Qdrant collection name (e.g. trading_psychology)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AiLibraryIngestPost: async (file?: File, title?: string, author?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiV1AiLibraryIngestPost: async (file?: File, title?: string, author?: string, collection?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/ai/library/ingest`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1996,6 +2069,10 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
                 localVarFormParams.append('author', author as any);
             }
     
+            if (collection !== undefined) { 
+                localVarFormParams.append('collection', collection as any);
+            }
+    
     
             localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
     
@@ -2003,6 +2080,70 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * List all books in the library with their ingestion status.
+         * @summary List Library Books
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryListGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/library/list`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Check the status of a book ingestion by its filename.
+         * @summary Get Library Ingestion Status
+         * @param {string} filename 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryStatusFilenameGet: async (filename: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'filename' is not null or undefined
+            assertParamExists('apiV1AiLibraryStatusFilenameGet', 'filename', filename)
+            const localVarPath = `/api/v1/ai/library/status/{filename}`
+                .replace(`{${"filename"}}`, encodeURIComponent(String(filename)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -2100,18 +2241,44 @@ export const AIApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
          * @summary Ingest a book into Quant Library
          * @param {File} [file] 
          * @param {string} [title] 
          * @param {string} [author] 
+         * @param {string} [collection] Qdrant collection name (e.g. trading_psychology)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1AiLibraryIngestPost(file?: File, title?: string, author?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseIngestionResult>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiLibraryIngestPost(file, title, author, options);
+        async apiV1AiLibraryIngestPost(file?: File, title?: string, author?: string, collection?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseIngestionResult>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiLibraryIngestPost(file, title, author, collection, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiLibraryIngestPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * List all books in the library with their ingestion status.
+         * @summary List Library Books
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiLibraryListGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseLibraryBookList>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiLibraryListGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiLibraryListGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Check the status of a book ingestion by its filename.
+         * @summary Get Library Ingestion Status
+         * @param {string} filename 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiLibraryStatusFilenameGet(filename: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseLibraryStatus>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiLibraryStatusFilenameGet(filename, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiLibraryStatusFilenameGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2160,14 +2327,33 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
             return localVarFp.apiV1AiJournalAnalysisPost(requestParameters.journalAnalysisRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+         * Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
          * @summary Ingest a book into Quant Library
          * @param {AIApiApiV1AiLibraryIngestPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
         apiV1AiLibraryIngestPost(requestParameters: AIApiApiV1AiLibraryIngestPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseIngestionResult> {
-            return localVarFp.apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, options).then((request) => request(axios, basePath));
+            return localVarFp.apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, requestParameters.collection, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * List all books in the library with their ingestion status.
+         * @summary List Library Books
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryListGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseLibraryBookList> {
+            return localVarFp.apiV1AiLibraryListGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Check the status of a book ingestion by its filename.
+         * @summary Get Library Ingestion Status
+         * @param {AIApiApiV1AiLibraryStatusFilenameGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiLibraryStatusFilenameGet(requestParameters: AIApiApiV1AiLibraryStatusFilenameGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseLibraryStatus> {
+            return localVarFp.apiV1AiLibraryStatusFilenameGet(requestParameters.filename, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -2208,6 +2394,18 @@ export interface AIApiApiV1AiLibraryIngestPostRequest {
     readonly title?: string
 
     readonly author?: string
+
+    /**
+     * Qdrant collection name (e.g. trading_psychology)
+     */
+    readonly collection?: string
+}
+
+/**
+ * Request parameters for apiV1AiLibraryStatusFilenameGet operation in AIApi.
+ */
+export interface AIApiApiV1AiLibraryStatusFilenameGetRequest {
+    readonly filename: string
 }
 
 /**
@@ -2240,14 +2438,35 @@ export class AIApi extends BaseAPI {
     }
 
     /**
-     * Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+     * Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
      * @summary Ingest a book into Quant Library
      * @param {AIApiApiV1AiLibraryIngestPostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     public apiV1AiLibraryIngestPost(requestParameters: AIApiApiV1AiLibraryIngestPostRequest = {}, options?: RawAxiosRequestConfig) {
-        return AIApiFp(this.configuration).apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, options).then((request) => request(this.axios, this.basePath));
+        return AIApiFp(this.configuration).apiV1AiLibraryIngestPost(requestParameters.file, requestParameters.title, requestParameters.author, requestParameters.collection, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * List all books in the library with their ingestion status.
+     * @summary List Library Books
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiLibraryListGet(options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiLibraryListGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Check the status of a book ingestion by its filename.
+     * @summary Get Library Ingestion Status
+     * @param {AIApiApiV1AiLibraryStatusFilenameGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiLibraryStatusFilenameGet(requestParameters: AIApiApiV1AiLibraryStatusFilenameGetRequest, options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiLibraryStatusFilenameGet(requestParameters.filename, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

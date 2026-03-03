@@ -708,7 +708,7 @@ paths:
   /api/v1/ai/library/ingest:
     post:
       summary: Ingest a book into Quant Library
-      description: Upload and semantically ingest a book (PDF/Markdown) into the specialized quant_library collection.
+      description: Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
       tags: [AI]
       requestBody:
         content:
@@ -723,6 +723,9 @@ paths:
                   type: string
                 author:
                   type: string
+                collection:
+                  type: string
+                  description: "Qdrant collection name (e.g. trading_psychology)"
       responses:
         '200':
           description: Book ingestion started
@@ -730,6 +733,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_IngestionResult'
+
+  /api/v1/ai/library/status/{filename}:
+    get:
+      summary: Get Library Ingestion Status
+      description: Check the status of a book ingestion by its filename.
+      tags: [AI]
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ingestion status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_LibraryStatus'
+        '404':
+          description: Book not found
+
+  /api/v1/ai/library/list:
+    get:
+      summary: List Library Books
+      description: List all books in the library with their ingestion status.
+      tags: [AI]
+      responses:
+        '200':
+          description: List of books
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_LibraryBookList'
 
   /api/v1/ai/admin/qdrant/health:
     get:
@@ -2835,12 +2872,66 @@ components:
             data:
               type: object
               properties:
-                job_id:
-                  type: string
                 filename:
                   type: string
-                chunks_queued:
+                collection:
+                  type: string
+                status:
+                  type: string
+                  enum: [INGESTION_STARTED, PENDING, INGESTED, FAILED]
+                message:
+                  type: string
+
+    APIResponse_LibraryStatus:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                filename:
+                  type: string
+                title:
+                  type: string
+                author:
+                  type: string
+                status:
+                  type: string
+                  enum: [INGESTION_STARTED, PENDING, INGESTED, FAILED]
+                total_chunks:
                   type: integer
+                last_ingested_at:
+                  type: string
+                  format: date-time
+
+    APIResponse_LibraryBookList:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  filename:
+                    type: string
+                  title:
+                    type: string
+                  author:
+                    type: string
+                  status:
+                    type: string
+                    enum: [INGESTION_STARTED, PENDING, INGESTED, FAILED]
+                  last_ingested_at:
+                    type: string
+                    format: date-time
+                  chunks_queued:
+                    type: integer
 
     ExternalSearchRequest:
       type: object

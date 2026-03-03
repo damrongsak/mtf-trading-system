@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 from app.database import Base
 
@@ -20,4 +20,4 @@ class LibraryBook(Base):
     author = Column(String, nullable=True)
     total_chunks = Column(Integer, nullable=False, default=0)
     ingestion_status = Column(Enum(IngestionStatus), default=IngestionStatus.PENDING)
-    last_ingested_at = Column(DateTime, default=datetime.utcnow)
+    last_ingested_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

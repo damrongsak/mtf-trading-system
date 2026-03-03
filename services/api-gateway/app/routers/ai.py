@@ -466,6 +466,26 @@ async def proxy_library_ingest(request: Request):
         )
         return response.json()
 
+@router.get("/library/status/{filename}")
+async def proxy_library_status(filename: str):
+    """Proxy library book ingestion status to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{AI_SERVICE_URL}/api/v1/ai/library/status/{filename}",
+            timeout=10.0
+        )
+        return response.json()
+
+@router.get("/library/list")
+async def proxy_library_list():
+    """Proxy library book list to AI Analyst."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{AI_SERVICE_URL}/api/v1/ai/library/list",
+            timeout=10.0
+        )
+        return response.json()
+
 @router.get("/admin/qdrant/health")
 async def proxy_qdrant_health(request: Request):
     """Proxy Qdrant health check to AI Analyst."""

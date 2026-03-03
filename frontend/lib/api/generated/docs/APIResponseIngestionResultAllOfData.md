@@ -5,9 +5,10 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**job_id** | **string** |  | [optional] [default to undefined]
 **filename** | **string** |  | [optional] [default to undefined]
-**chunks_queued** | **number** |  | [optional] [default to undefined]
+**collection** | **string** |  | [optional] [default to undefined]
+**status** | **string** |  | [optional] [default to undefined]
+**message** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -15,9 +16,10 @@ Name | Type | Description | Notes
 import { APIResponseIngestionResultAllOfData } from './api';
 
 const instance: APIResponseIngestionResultAllOfData = {
-    job_id,
     filename,
-    chunks_queued,
+    collection,
+    status,
+    message,
 };
 ```
 

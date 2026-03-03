@@ -414,7 +414,7 @@ class RAGService:
             "score": hit.score
         } for hit in search_result]
 
-    async def search_library(self, query: str, limit: int = 5, filters: dict = None, expand_context: bool = True) -> list[dict]:
+    async def search_library(self, query: str, limit: int = 5, filters: dict = None, expand_context: bool = True, collection: str = None) -> list[dict]:
         """
         Search the quantitative finance library for insights.
         - Supports metadata filtering.
@@ -423,7 +423,8 @@ class RAGService:
         """
         start_time = time.time()
         
-        logger.info(f"RAG Search: query='{query}' filters={filters} limit={limit}")
+        target_collection = collection or self.library_collection
+        logger.info(f"RAG Search: query='{query}' filters={filters} limit={limit} collection={target_collection}")
         
         embedding = await self._get_embedding(query)
         
@@ -441,7 +442,7 @@ class RAGService:
             qdrant_filter = models.Filter(must=must_conditions)
 
         search_result = self.qdrant.query_points(
-            collection_name=self.library_collection,
+            collection_name=target_collection,
             query=embedding,
             query_filter=qdrant_filter,
             limit=limit * 2 # Fetch more for hybrid boost and reranking
@@ -463,7 +464,7 @@ class RAGService:
             combined_score = (hit.score * 0.7) + (keyword_score * 0.3)
 
             if expand_context and file_name and chunk_idx is not None:
-                content = await self._expand_context(file_name, chunk_idx, content)
+                content = await self._expand_context(file_name, chunk_idx, content, collection=target_collection)
 
             results.append({
                 "filename": file_name,
@@ -560,9 +561,10 @@ class RAGService:
             logger.warning(f"Gemini reranking failed: {e}")
             return candidates[:top_n]
 
-    async def _expand_context(self, filename: str, chunk_index: int, original_content: str) -> str:
+    async def _expand_context(self, filename: str, chunk_index: int, original_content: str, collection: str = None) -> str:
         """Fetch +/- 1 chunk around the current hit to provide fuller context."""
         try:
+            target_collection = collection or self.library_collection
             # We want to find chunks with the same filename and chunk_index in [idx-1, idx+1]
             indices = [chunk_index - 1, chunk_index + 1]
             
@@ -577,7 +579,7 @@ class RAGService:
             
             # Search for these specific chunks
             neighbors = self.qdrant.scroll(
-                collection_name=self.library_collection,
+                collection_name=target_collection,
                 scroll_filter=filter_search,
                 limit=2,
                 with_payload=True
@@ -645,10 +647,12 @@ class RAGService:
             points=[point]
         )
 
-    async def ingest_library_book(self, filename: str, content: str, metadata: dict = None):
+    async def ingest_library_book(self, filename: str, content: str, metadata: dict = None, collection: str = None):
         """Ingest a quantitative finance book using QuantMarkdownSplitter with DB persistence."""
         db = SessionLocal()
         book_id = None
+        target_collection = collection or self.library_collection
+        
         try:
             # 1. Register in DB
             book = db.query(LibraryBook).filter(LibraryBook.filename == filename).first()
@@ -657,11 +661,14 @@ class RAGService:
                 db.add(book)
             else:
                 book.ingestion_status = IngestionStatus.PENDING
-                book.last_ingested_at = datetime.utcnow()
+                book.last_ingested_at = datetime.now(timezone.utc)
             
             db.commit()
             db.refresh(book)
             book_id = book.id
+
+            # Ensure collection exists
+            self._ensure_collection(target_collection)
 
             # 2. Split and Ingest
             splitter = QuantMarkdownSplitter(max_chunk_size=3000)
@@ -677,7 +684,8 @@ class RAGService:
                 async with sem:
                     try:
                         embedding = await self._get_embedding(chunk_text)
-                        chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"lib_{filename}_chunk_{i}"))
+                        # ID needs to be unique per collection if multiple collections have same filename
+                        chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"lib_{target_collection}_{filename}_chunk_{i}"))
                         
                         return models.PointStruct(
                             id=chunk_id,
@@ -703,7 +711,7 @@ class RAGService:
                 batch_size = 50
                 for i in range(0, len(points), batch_size):
                     self.qdrant.upsert(
-                        collection_name=self.library_collection,
+                        collection_name=target_collection,
                         points=points[i:i + batch_size]
                     )
                 
@@ -711,7 +719,7 @@ class RAGService:
                 book.ingestion_status = IngestionStatus.INGESTED
                 book.last_ingested_at = datetime.now(timezone.utc)
                 db.commit()
-                logger.info(f"Ingested library book: {filename} ({len(points)} chunks)")
+                logger.info(f"Ingested library book: {filename} into {target_collection} ({len(points)} chunks)")
             else:
                 book.ingestion_status = IngestionStatus.FAILED
                 db.commit()
@@ -727,3 +735,4 @@ class RAGService:
             raise
         finally:
             db.close()
+
