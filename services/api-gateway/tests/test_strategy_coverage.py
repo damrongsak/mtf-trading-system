@@ -5,7 +5,8 @@ from app.main import app
 from app.database import get_db
 from app.security import get_current_user
 from app.models.strategy import Strategy
-from app.models.user_fund import Fund, UserFund, User, UserRole
+from app.models.user import User
+from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.broker_account import BrokerAccount
 import uuid
 from datetime import datetime

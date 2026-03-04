@@ -3,7 +3,8 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from app.models.market import MarketSymbol, MarketCategory
 from app.models.data_source import DataSource
 from app.models.broker_account import BrokerAccount
-from app.models.user import UserFund, UserRole, User, Fund
+from app.models.user import User
+from app.models.user_fund import UserFund, UserRole, Fund
 from app.security import get_current_user
 import uuid
 

@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
-from app.models.user_fund import Fund, UserFund, User
+from app.models.user_fund import Fund, UserFund
+from app.models.user import User
 from app.schemas.response import ResponseStatus
 import uuid
 
@@ -234,7 +235,7 @@ def test_get_fund_not_found(client, mock_db_session, mock_current_user):
 def test_create_fund_with_risk_params(client, mock_db_session, mock_current_user):
     """Test POST /api/v1/funds with risk parameters"""
     from app.security import get_current_user
-    from app.models.user import UserRole
+    from app.models.user_fund import UserRole
     
     # Payload with risk params
     payload = {
