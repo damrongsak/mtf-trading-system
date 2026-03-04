@@ -50,10 +50,19 @@ class AsyncCTraderClient:
 
             logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
             try:
-                self.reader, self.writer = await asyncio.wait_for(
+                reader, writer = await asyncio.wait_for(
                     asyncio.open_connection(self.host, self.port, ssl=self.ssl),
                     timeout=10.0
                 )
+                self.reader = reader
+                self.writer = writer
+                
+                # Optimizer: Disable Nagle's Algorithm for HFT-lite (Lower Latency)
+                sock = self.writer.get_extra_info('socket')
+                if sock:
+                    import socket
+                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    logger.debug("TCP_NODELAY enabled for cTrader connection")
                 self._connected = True
                 self._failure_count = 0 # Reset on success
                 logger.info("Connected to cTrader.")
@@ -281,8 +290,7 @@ class AsyncCTraderClient:
              raise Exception(f"Get Symbols Error: {error.errorCode}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
-             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
-
+             
     async def get_symbols_full(self, account_id: int, symbol_ids: list):
         """
         Fetch full symbol details (digits, pipPosition, etc.) for a list of IDs.
@@ -302,8 +310,6 @@ class AsyncCTraderClient:
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Get Symbols Full Error: {error.errorCode}")
         else:
-             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
-
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
              
     async def get_trendbars(self, account_id: int, symbol_id: int, period: int, count: int = None, from_timestamp: int = None, to_timestamp: int = None):
@@ -379,6 +385,7 @@ class AsyncCTraderClient:
              raise Exception(f"Refresh Token Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+
     async def get_account_list(self, token: str):
         """
         Fetch the list of accounts linked to the given Access Token.
@@ -456,6 +463,11 @@ class AsyncCTraderClient:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Create Order Error: {error.errorCode} - {error.description}")
+        elif resp_msg.payloadType == ProtoOAOrderErrorEvent().payloadType:
+             error = ProtoOAOrderErrorEvent()
+             error.ParseFromString(resp_msg.payload)
+             # payloadType 2132 usually means a trading-related error (e.g. invalid price/volume)
+             raise Exception(f"cTrader Order Error: {error.errorCode} - {error.description} (Order {error.orderId})")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
@@ -474,6 +486,10 @@ class AsyncCTraderClient:
              error = ProtoOAErrorRes()
              error.ParseFromString(resp_msg.payload)
              raise Exception(f"Cancel Order Error: {error.errorCode} - {error.description}")
+        elif resp_msg.payloadType == ProtoOAOrderErrorEvent().payloadType:
+             error = ProtoOAOrderErrorEvent()
+             error.ParseFromString(resp_msg.payload)
+             raise Exception(f"Cancel Order Error (2132): {error.errorCode} - {error.description} (Order {error.orderId})")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 

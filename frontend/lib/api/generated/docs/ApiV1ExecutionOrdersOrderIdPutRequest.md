@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **broker_account_id** | **string** |  | [default to undefined]
-**units** | **number** |  | [optional] [default to undefined]
+**units** | **number** | Signed order units (positive for BUY, negative for SELL). | [optional] [default to undefined]
 **price** | **number** |  | [optional] [default to undefined]
 **stop_loss** | **number** |  | [optional] [default to undefined]
 **take_profit** | **number** |  | [optional] [default to undefined]

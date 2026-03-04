@@ -50,6 +50,10 @@ graph TD
     - **Phase 3 (Account)**: Daily Drawdown, Max Trades, and Consecutive Loss limits.
 - **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers.
 - **Institutional Resilience**: Professional-grade **Circuit Breakers** for broker connections, request **Timeouts** (15-30s), and a **Global Kill Switch** for emergency halts.
+- **HFT-Lite Latency Suite**:
+    - **TCP_NODELAY**: Immediate packet transmission (disabled Nagle's).
+    - **In-memory Symbol Cache**: LRU-based metadata caching for sub-millisecond lookup.
+    - **Connection Warm-up**: Proactive broker session initialization.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -69,6 +73,7 @@ To modify execution behavior or troubleshoot connectivity, follow this path:
 | :--- | :--- | :--- |
 | **Orders Stuck in Queue** | Worker is down or Redis full | Check `docker ps`; verify `EXECUTION_MAX_QUEUE_SIZE` in Strategy Core. |
 | **cTrader Connection Error** | OAuth token expiry or network | Check logs for "ProtoOAAuthenticateRes"; verify connectivity to `proxy.ctrader.com`. |
+| **cTrader Cancel Reject (2132)**| Order status mismatch or expiry | Normal cTrader API behavior for stale orders; check if order already filled. |
 | **Idempotency Reject** | Duplicate signal delivery | Normal behavior (Signal protection); investigate why Strategy Core is double-firing. |
 
 ### Diagnostic CLI

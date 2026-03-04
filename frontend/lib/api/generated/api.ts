@@ -739,6 +739,9 @@ export interface ApiV1ExecutionOrdersGet200Response {
 }
 export interface ApiV1ExecutionOrdersOrderIdPutRequest {
     'broker_account_id': string;
+    /**
+     * Signed order units (positive for BUY, negative for SELL).
+     */
     'units'?: number;
     'price'?: number;
     'stop_loss'?: number;
@@ -1405,6 +1408,9 @@ export interface OpportunityLog {
 export interface OrderResponse {
     'id'?: string;
     'instrument'?: string;
+    /**
+     * Signed order units (positive for BUY, negative for SELL).
+     */
     'units'?: string;
     'price'?: string;
     'time'?: string;

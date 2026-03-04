@@ -43,11 +43,21 @@ class OandaOrderAdapter(BrokerAdapter):
         """
         Place a Market Order with optional SL/TP and Client Tags.
         """
+        # Diagnostic logging for Unit Sign issue
+        logger.info(f"OANDA: Placing market order for {symbol}, units={units}")
+        
+        # Ensure units is stringified correctly and preserves negative sign
+        units_str = str(float(units))
+        if units < 0 and not units_str.startswith("-"):
+             # Extrememly rare edge case with some float types/libs, but better safe for HFT
+             units_str = f"-{abs(units)}"
+             logger.warning(f"OANDA: Corrected missing negative sign for units: {units_str}")
+
         order_body = {
             "order": {
                 "type": "MARKET",
                 "instrument": symbol,
-                "units": str(units),
+                "units": units_str,
                 "timeInForce": "FOK", # Fill or Kill for immediate execution
                 "positionFill": "DEFAULT"
             }
@@ -92,11 +102,18 @@ class OandaOrderAdapter(BrokerAdapter):
         """
         Place a Limit Order with optional SL/TP.
         """
+        # Diagnostic logging for Unit Sign issue
+        logger.info(f"OANDA: Placing limit order for {symbol}, units={units}, price={entry_price}")
+
+        units_str = str(float(units))
+        if units < 0 and not units_str.startswith("-"):
+             units_str = f"-{abs(units)}"
+
         order_body = {
             "order": {
                 "type": "LIMIT",
                 "instrument": symbol,
-                "units": str(units),
+                "units": units_str,
                 "price": str(entry_price),
                 "timeInForce": time_in_force,
                 "positionFill": "DEFAULT"

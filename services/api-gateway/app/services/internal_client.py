@@ -1,6 +1,6 @@
 import httpx
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,6 @@ EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:800
 class StrategyClient:
     async def run_backtest(self, req: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
-            # Pass timeout for long running backtests
             try:
                 logger.info(f"Sending backtest request to {STRATEGY_CORE_URL}/api/v1/backtest")
                 resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest", json=req, timeout=60.0)
@@ -36,7 +35,6 @@ class StrategyClient:
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Sending optimization request to {STRATEGY_CORE_URL}/api/v1/backtest/optimize")
-                # Long timeout for optimization
                 resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/backtest/optimize", json=req, timeout=300.0)
                 resp.raise_for_status()
                 return resp.json()
@@ -58,10 +56,6 @@ class StrategyClient:
     async def start_strategy(self, strategy_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
         async with httpx.AsyncClient() as client:
             try:
-                # Need to use query params for ID or path param?
-                # strategy-core defines: @router.post("/strategies/{strategy_id}/start")
-                # and takes 'config' as Body (config: dict) since it doesn't specify Query or Body explicitly, default is Body for pydantic/dict.
-                # However, FastAPI rule: if dict without Body(), it expects Body.
                 logger.info(f"Starting strategy {strategy_id} via {STRATEGY_CORE_URL}")
                 resp = await client.post(f"{STRATEGY_CORE_URL}/api/v1/strategies/{strategy_id}/start", json=config, timeout=10.0)
                 resp.raise_for_status()
@@ -83,200 +77,126 @@ class StrategyClient:
 
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev_secret_key")
 
+_execution_client_session: Optional[httpx.AsyncClient] = None
+
+def get_execution_session() -> httpx.AsyncClient:
+    global _execution_client_session
+    if _execution_client_session is None:
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        timeout = httpx.Timeout(30.0, connect=5.0)
+        _execution_client_session = httpx.AsyncClient(
+            limits=limits,
+            timeout=timeout,
+            headers={"X-Internal-API-Key": INTERNAL_API_KEY}
+        )
+    return _execution_client_session
+
 class ExecutionClient:
-    def _get_headers(self) -> Dict[str, str]:
-        return {"X-Internal-API-Key": INTERNAL_API_KEY}
+    async def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
+        client = get_execution_session()
+        url = f"{EXECUTION_SERVICE_URL}{path}"
+        for attempt in range(2):
+            try:
+                resp = await client.request(method, url, **kwargs)
+                resp.raise_for_status()
+                return resp
+            except (httpx.ConnectError, httpx.RemoteProtocolError, ConnectionResetError) as e:
+                if attempt == 0:
+                    logger.warning(f"Execution API Retryable Error: {e}. Retrying {path}...")
+                    continue
+                raise
+            except Exception:
+                raise
 
     async def get_account_summary(self, broker_account_id: str) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Fetching account summary from {EXECUTION_SERVICE_URL}/account/summary for {broker_account_id}")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/account/summary", 
-                    json={"broker_account_id": str(broker_account_id)}, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to fetch account summary: {e}", exc_info=True)
-                raise
+        try:
+            resp = await self._request(
+                "POST", "/account/summary",
+                json={"broker_account_id": str(broker_account_id)}
+            )
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to get account summary: {e}")
+            raise
 
-    async def place_order(self, order_data: Dict[str, Any], broker_account_id: str) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                payload = {
-                    "broker_account_id": str(broker_account_id),
-                    **order_data
-                }
-                logger.info(f"Placing order at {EXECUTION_SERVICE_URL}/orders")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/orders", 
-                    json=payload, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data")
-            except Exception as e:
-                logger.error(f"Failed to place order: {e}", exc_info=True)
-                raise
+    async def place_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            resp = await self._request("POST", "/orders", json=order_data)
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to place order: {e}")
+            raise
 
-    async def get_open_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Fetching open trades from {EXECUTION_SERVICE_URL}/trades/open")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/trades/open", 
-                    json={"broker_account_id": str(broker_account_id)}, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", [])
-            except Exception as e:
-                logger.error(f"Failed to fetch open trades: {e}", exc_info=True)
-                raise
-    
-    async def close_trade(self, trade_id: str, broker_account_id: str, units: float = None) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                payload = {
-                    "broker_account_id": str(broker_account_id),
-                    "broker_trade_id": trade_id,
-                    "units": units
-                }
-                logger.info(f"Closing trade {trade_id} at {EXECUTION_SERVICE_URL}/trades/close")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/trades/close", 
-                    json=payload, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to close trade: {e}", exc_info=True)
-                raise
+    async def get_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:
+        try:
+            resp = await self._request("GET", "/trades", params={"broker_account_id": str(broker_account_id)})
+            return resp.json().get("data", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch trades: {e}")
+            raise
+
+    async def get_trade_details(self, trade_id: str, broker_account_id: str) -> Dict[str, Any]:
+        try:
+            resp = await self._request("GET", f"/trades/{trade_id}", params={"broker_account_id": str(broker_account_id)})
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to fetch trade details: {e}")
+            raise
+
+    async def close_trade(self, trade_id: str, broker_account_id: str, units: Optional[float] = None) -> Dict[str, Any]:
+        try:
+            payload = {"broker_account_id": str(broker_account_id)}
+            if units is not None:
+                payload["units"] = units
+            resp = await self._request("POST", "/trades/close", json=payload)
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to close trade: {e}")
+            raise
 
     async def place_smart_order(self, smart_order_data: Dict[str, Any]) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Placing smart order at {EXECUTION_SERVICE_URL}/smart-orders")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/smart-orders", 
-                    json=smart_order_data, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to place smart order: {e}", exc_info=True)
-                raise
+        try:
+            resp = await self._request("POST", "/smart-orders", json=smart_order_data)
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to place smart order: {e}")
+            raise
 
     async def cancel_order(self, order_id: str, broker_account_id: str) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Cancelling order {order_id} at {EXECUTION_SERVICE_URL}/orders/{order_id}")
-                resp = await client.delete(
-                    f"{EXECUTION_SERVICE_URL}/orders/{order_id}", 
-                    params={"broker_account_id": str(broker_account_id)}, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to cancel order: {e}", exc_info=True)
-                raise
+        try:
+            resp = await self._request("DELETE", f"/orders/{order_id}", params={"broker_account_id": str(broker_account_id)})
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to cancel order: {e}")
+            raise
 
     async def get_pending_orders(self, broker_account_id: str) -> List[Dict[str, Any]]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Fetching pending orders from {EXECUTION_SERVICE_URL}/orders")
-                resp = await client.get(
-                    f"{EXECUTION_SERVICE_URL}/orders", 
-                    params={"broker_account_id": str(broker_account_id)}, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", [])
-            except Exception as e:
-                logger.error(f"Failed to fetch pending orders: {e}", exc_info=True)
-                raise
+        try:
+            resp = await self._request("GET", "/orders", params={"broker_account_id": str(broker_account_id)})
+            return resp.json().get("data", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch pending orders: {e}")
+            raise
 
     async def close_all_trades(self, broker_account_id: str, symbol: str = None) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                payload = {"broker_account_id": str(broker_account_id)}
-                if symbol:
-                    payload["symbol"] = symbol
-                    
-                logger.info(f"Closing all trades for {broker_account_id} at {EXECUTION_SERVICE_URL}/trades/close-all")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/trades/close-all", 
-                    json=payload, 
-                    headers=self._get_headers(),
-                    timeout=60.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to close all trades: {e}", exc_info=True)
-                raise
+        try:
+            payload = {"broker_account_id": str(broker_account_id)}
+            if symbol:
+                payload["symbol"] = symbol
+            resp = await self._request("POST", "/trades/close-all", json=payload)
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to close all trades: {e}")
+            raise
 
-    async def amend_order(self, order_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Amending order {order_id} at {EXECUTION_SERVICE_URL}/orders/{order_id}")
-                resp = await client.put(
-                    f"{EXECUTION_SERVICE_URL}/orders/{order_id}", 
-                    json=payload, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to amend order: {e}", exc_info=True)
-                raise
+    async def get_open_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:
+        try:
+            resp = await self._request("POST", "/trades/open", json={"broker_account_id": str(broker_account_id)})
+            return resp.json().get("data", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch open trades: {e}")
+            raise
 
-    async def amend_position(self, position_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Amending position {position_id} at {EXECUTION_SERVICE_URL}/positions/{position_id}")
-                resp = await client.put(
-                    f"{EXECUTION_SERVICE_URL}/positions/{position_id}", 
-                    json=payload, 
-                    headers=self._get_headers(),
-                    timeout=30.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to amend position: {e}", exc_info=True)
-                raise
-
-    async def sync_trades(self, broker_account_id: str) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
-            try:
-                logger.info(f"Syncing trades for {broker_account_id} at {EXECUTION_SERVICE_URL}/trades/sync")
-                resp = await client.post(
-                    f"{EXECUTION_SERVICE_URL}/trades/sync", 
-                    json={"broker_account_id": str(broker_account_id)}, 
-                    headers=self._get_headers(),
-                    timeout=60.0
-                )
-                resp.raise_for_status()
-                return resp.json().get("data", {})
-            except Exception as e:
-                logger.error(f"Failed to sync trades: {e}", exc_info=True)
-                raise
-
-
-
+# Singleton instances for use across the application
 strategy_client = StrategyClient()
 execution_client = ExecutionClient()

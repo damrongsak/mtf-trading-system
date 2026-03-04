@@ -1,7 +1,7 @@
-import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+from functools import lru_cache
 from app.adapters.base import BrokerAdapter
 from app.adapters.ctrader_client import AsyncCTraderClient
 from app.adapters.ctrader_connection import CTraderConnectionManager
@@ -63,14 +63,24 @@ class CTraderOrderAdapter(BrokerAdapter):
              logger.error(f"cTrader Account Summary Error: {e}")
              raise e
 
+    def _resolve_symbol_from_cache(self, symbol_name: str) -> Optional[tuple[int, int]]:
+        normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
+        search_names = {symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name}
+        for name in search_names:
+            if name in self._symbol_cache:
+                return self._symbol_cache[name]
+        return None
+
     async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int]:
         """
         Returns (symbol_id, lot_size_in_cents).
         Normalization: 1 Standard Lot = 100,000 'Universal Units'.
-        cTrader volume is in cents.
-        Example Gold: 1 Lot = 100 units = 10,000 cents.
-        Example FX: 1 Lot = 100,000 units = 10,000,000 cents.
         """
+        # HFT-Lite: Check cache first
+        cached = self._resolve_symbol_from_cache(symbol_name)
+        if cached:
+            return cached
+
         async with AsyncSessionLocal() as db:
             # Normalize requested symbol
             normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
@@ -88,8 +98,6 @@ class CTraderOrderAdapter(BrokerAdapter):
             
             if not ms:
                 # 2. Try partial match if still not found
-                # This handles cases where we have e.g. "XAUUSD" stored and user sends "XAU_USD"
-                # but the simple permutations didn't catch it.
                 result = await db.execute(select(MarketSymbol).join(DataSource).where(
                     or_(
                         MarketSymbol.symbol.like(f"%{normalized_name}%"),
@@ -100,9 +108,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 ms = result.scalars().first()
             
             if ms and ms.details:
-                # Check for symbolId and lotSize in details
                 details = ms.details
-                
                 symbol_id = None
                 if "symbolId" in details:
                     symbol_id = int(details["symbolId"])
@@ -111,10 +117,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                 elif "ctrader_symbol_id" in details:
                     symbol_id = int(details["ctrader_symbol_id"])
                 
-                # Default lot_size to 100,000 units (* 100 cents) = 10,000,000
                 lot_size_cents = int(details.get("lotSize", 10000000))
                 
                 if symbol_id is not None:
+                    # Update cache
+                    self._symbol_cache[symbol_name] = (symbol_id, lot_size_cents)
+                    if normalized_name != symbol_name:
+                        self._symbol_cache[normalized_name] = (symbol_id, lot_size_cents)
                     return symbol_id, lot_size_cents
             
             raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
@@ -124,6 +133,9 @@ class CTraderOrderAdapter(BrokerAdapter):
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
                            comment: Optional[str] = None) -> Dict[str, Any]:
+        
+        # Diagnostic logging for Unit Sign issue
+        logger.info(f"cTrader: Placing market order for {symbol}, units={units}")
         
         await self.client.connect()
         try:

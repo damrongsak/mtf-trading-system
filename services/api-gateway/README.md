@@ -50,7 +50,10 @@ graph TD
 - **Trade Journaling**: Direct integration with PostgreSQL for high-fidelity trade logging and psychological data capture.
 - **Portfolio Management**: Hierarchical management of Funds, Accounts, and Risk Rules via SQLAlchemy (Async).
 - **Service Orchestration**: Unified API proxying to `ai-analyst`, `strategy-core`, and `execution` services.
-- **Institutional Resilience**: Integrated **Global Kill Switch** (`/halt`, `/resume`) and prioritized execution queue monitoring.
+- **Institutional Resilience**:
+    - **Global Kill Switch** (`/halt`, `/resume`).
+    - **Persistent Connection Pooling**: Shared `httpx` sessions to eliminate TCP/SSL handshake overhead (HFT-lite).
+    - **Transient Retry Logic**: Automatic retries for `ConnectionResetError` and network jitter.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -69,6 +72,7 @@ To navigate or modify the Gateway behavior, follow this priority path:
 | :--- | :--- | :--- |
 | **Auth Failures** | Redis cache expiry or DB mismatch | Check `REDIS_URL` and `DATABASE_URL` connectivity. |
 | **Missing Symbol Data** | ECST Sync failure from Data-Pipeline | Check Redis Pub/Sub status; verify Data-Pipeline is healthy. |
+| **Connection Reset** | Transient network or peer closure | Gateway now auto-retries; check service container health if persistent. |
 | **Database Lock Wait** | Large historical trade imports | Optimize `repositories/` queries or check PG session limits. |
 
 ### Management Commands

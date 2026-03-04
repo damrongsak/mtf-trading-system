@@ -2364,6 +2364,7 @@ paths:
                   format: uuid
                 units:
                   type: number
+                  description: "Signed order units (positive for BUY, negative for SELL)."
                 price:
                   type: number
                 stop_loss:
@@ -3782,6 +3783,7 @@ components:
           type: string
         units:
           type: string
+          description: "Signed order units (positive for BUY, negative for SELL)."
         price:
           type: string
         time:

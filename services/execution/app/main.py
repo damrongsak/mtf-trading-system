@@ -90,6 +90,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(ConnectionResetError)
+async def connection_reset_handler(request, exc):
+    logger.error(f"Global ConnectionResetError caught: {exc}")
+    return error_response(message="Internal Connection Reset by Peer. Please retry.", code=503)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    if isinstance(exc, HTTPException):
+        raise exc
+    logger.error(f"Unhandled Exception: {exc}", exc_info=True)
+    return error_response(message=f"Internal Server Error: {str(exc)}", code=500)
+
 
 # --- Request Models ---
 
@@ -190,6 +202,11 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
              raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
         
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        # [Latency] HFT-Lite: If cTrader, try to warm up connection
+        if account.broker_name == "CTRADER":
+            await adapter.client.connect()
+
         # Support Market, Limit, Stop based on order_type
         if req.order_type == "MARKET":
             response = await adapter.place_market_order(
