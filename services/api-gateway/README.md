@@ -72,8 +72,13 @@ To navigate or modify the Gateway behavior, follow this priority path:
 | :--- | :--- | :--- |
 | **Auth Failures** | Redis cache expiry or DB mismatch | Check `REDIS_URL` and `DATABASE_URL` connectivity. |
 | **Missing Symbol Data** | ECST Sync failure from Data-Pipeline | Check Redis Pub/Sub status; verify Data-Pipeline is healthy. |
-| **Connection Reset** | Transient network or peer closure | Gateway now auto-retries; check service container health if persistent. |
+| **Connection Reset** | Transient network or peer closure | Gateway now auto-retries; check service- `GET /api/v1/health`: Basic availability check. |
 | **Database Lock Wait** | Large historical trade imports | Optimize `repositories/` queries or check PG session limits. |
+
+## 🔐 3rd Party Integration
+For external consumers, use the dedicated `/api/v1/external` router.
+- **Security**: Requires HMAC-SHA256 signing.
+- **Docs**: See **[specs/05_external_auth.md](../../specs/05_external_auth.md)** for signing instructions and examples.
 
 ### Management Commands
 ```bash

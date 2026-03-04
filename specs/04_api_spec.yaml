@@ -3041,9 +3041,13 @@ components:
         signal_timestamp:
           type: string
           format: date-time
+        trace_id:
+          type: string
+          description: "Unique HFT-lite execution trace identifier (Redis backed)"
+          nullable: true
         status:
           type: string
-          enum: [OPEN, CLOSED, REJECTED]
+          enum: [PENDING, FILLED, CANCELLED, REJECTED]
         rejection_reason:
           type: string
           nullable: true

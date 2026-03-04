@@ -2169,3 +2169,41 @@ redis_streams:
         type: boolean
         default: true
         description: "If false, polling worker will ignore this mapping"
+
+  ApiKey:
+    description: "External API access keys for 3rd party partners"
+    table_name: "api_keys"
+    indexes:
+      - fields: ["api_key"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: name
+        type: string
+        required: true
+        max_length: 100
+        description: "Label for the key (e.g., 'Alpha Bot')"
+      - name: api_key
+        type: string
+        required: true
+        unique: true
+        max_length: 100
+      - name: api_secret
+        type: string
+        required: true
+        description: "HMAC Secret (Encrypted in DB)"
+      - name: last_used_at
+        type: datetime
+        nullable: true
+      - name: is_active
+        type: boolean
+        default: true
+      - name: created_at
+        type: datetime
+        default: "now()"

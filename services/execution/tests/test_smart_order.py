@@ -11,6 +11,9 @@ client = TestClient(app)
 from app.models import BrokerAccount, Fund
 from unittest.mock import AsyncMock
 
+async def override_verify_internal_api_key():
+    return "test-key"
+
 async def override_get_db():
     try:
         db = MagicMock()
@@ -68,7 +71,24 @@ async def override_get_db():
     finally:
         pass
 
+from app.main import verify_internal_api_key
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[verify_internal_api_key] = override_verify_internal_api_key
+
+# --- MOCK CACHE (Phase 2 Component) ---
+# To prevent tests from hitting real Redis during CI/Unit tests
+from app.services.cache_service import execution_cache
+execution_cache.get_account = AsyncMock(return_value=None)
+execution_cache.set_account = AsyncMock()
+execution_cache.get_fund = AsyncMock(return_value=None)
+execution_cache.set_fund = AsyncMock()
+execution_cache.get_credentials = AsyncMock(return_value=None)
+execution_cache.set_credentials = MagicMock()
+execution_cache.get_risk_filters = AsyncMock(return_value=None)
+execution_cache.set_risk_filters = AsyncMock()
+
+from app.services.price_service import price_service
+price_service.get_latest_price = AsyncMock(return_value=(None, "Mock cache miss"))
 
 @patch("app.services.order_service.BrokerFactory")
 @patch("app.services.order_service.decrypt_data")

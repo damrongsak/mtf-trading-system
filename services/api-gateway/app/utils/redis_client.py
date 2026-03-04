@@ -26,3 +26,7 @@ class RedisClient:
             self.client = None
 
 redis_client = RedisClient()
+
+async def get_redis_client():
+    """Backward compatibility helper."""
+    return await redis_client.get_client()

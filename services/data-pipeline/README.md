@@ -91,15 +91,14 @@ The service is configured via environment variables (see `.env` at root).
 ## 📡 API Documentation (v1)
 
 ### 📊 Market Data
-- `GET /api/v1/candles`: Retrieve historical OHLCV data.
-- `GET /api/v1/symbols`: Get active symbols for a specific broker.
-- `POST /api/v1/backfill`: Trigger a background historical data ingestion job.
+-   `GET /api/v1/candles`: Retrieve historical OHLCV data.
+-   **Tick Broadcaster (HFT-lite)**: Powers O(1) price resolution for Execution Service via Redis Pub/Sub.
+-   **ECST (Event-Carried State Transfer)**: Broadcasts symbol and fund metadata to consumer caches.
+-   **Stale Price Protection**: Includes millisecond timestamps for execution validity.
+-   `GET /api/v1/symbols`: Get active symbols for a specific broker.
+-   `POST /api/v1/backfill`: Trigger a background historical data ingestion job.
 
 ### 📰 Institutional & News
-- `GET /api/v1/news/calendar`: Retrieve upcoming high-impact economic events.
-- `POST /api/v1/news/calendar/sync`: Force a manual sync from ForexFactory.
-- `GET /api/v1/news/headlines`: Fetch real-time institutional news for a symbol.
-- `GET /api/v1/news/sentiment/history`: Retrieve historical sentiment scores and bias.
 - `GET /api/v1/ingest/cot/latest`: Get latest CFTC Commitment of Traders sentiment.
 
 #### 📊 Open Interest & Options Sentiment

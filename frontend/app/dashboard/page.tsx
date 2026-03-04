@@ -15,6 +15,7 @@ import { OpenPositionsCard } from '@/components/dashboard/OpenPositionsCard';
 import { QueueHealthMonitor } from '@/components/execution/QueueHealthMonitor';
 import { CachedSentimentPulse } from '@/components/analysis/CachedSentimentPulse';
 import { KellyRiskWidget } from '@/components/risk/KellyRiskWidget';
+import { DashboardLatencyWidget } from '@/components/dashboard/DashboardLatencyWidget';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
 import { useState, useEffect, useMemo } from 'react';
@@ -187,8 +188,15 @@ export default function DashboardPage() {
         </div>
       </div>
       
-      {/* Execution Queue Health */}
-      <QueueHealthMonitor />
+      {/* HFT-lite Performance & Health */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2">
+            <DashboardLatencyWidget />
+          </div>
+          <div>
+            <QueueHealthMonitor />
+          </div>
+      </div>
 
       {/* Error States */}
       {statsError && (

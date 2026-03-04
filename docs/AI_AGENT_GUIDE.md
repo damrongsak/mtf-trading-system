@@ -52,10 +52,22 @@ Use an orchestration framework like **LangGraph** to manage complex workflows.
 - **Validation**: Allow the agent to check risk limits (`/account/summary`) before placing a trade.
 - **Looping**: If a trade fails (e.g., cTrader Error 2132), the agent should parse the error and retry with adjusted parameters.
 
-## 📡 Step 5: High-Frequency Path (Optional)
-For sub-millisecond data needs (e.g., real-time monitoring), agents can subscribe to **Redis Streams** instead of polling the API.
+## 📡 Step 5: High-Frequency Path (HFT-lite)
+For sub-millisecond data needs or high-performance execution, agents should bypass standard REST polling.
+
+### 1. Market Data (O(1) Resolution)
+Instead of `/market/snapshot`, read the direct Redis Hash:
+- **Keys**: `market_data:spot:{SYMBOL}`
+- **Fields**: `bid`, `ask`, `timestamp`, `volume`
+
+### 2. Execution Tracing
+Monitor the `execution_trace:{trace_id}` Redis key to get millisecond-level feedback on order processing steps.
+
+### 3. Redis Streams
+Subscribe to these for event-driven logic:
 - **Market Data**: `market.trade.stream`
 - **System Events**: `system.log.stream`
+- **Order Fills**: `execution.filled.stream`
 
 ## 🏁 Summary Checklist
 - [ ] Parse `04_api_spec.yaml`.

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.services.internal_client import execution_client
 from app.services.trade_service import TradeService
@@ -25,6 +26,30 @@ router = APIRouter(
     prefix="/execution",
     tags=["execution"]
 )
+
+@router.get("/traces/stream")
+async def stream_execution_traces(current_user: User = Depends(get_current_user)):
+    """
+    Server-Sent Events (SSE) stream for real-time execution latency traces.
+    Useful for the Dashboard Live Latency Widget.
+    """
+    async def event_generator():
+        from app.utils.redis_client import get_redis_client
+        rc = await get_redis_client()
+        pubsub = rc.pubsub()
+        await pubsub.subscribe("execution:traces")
+        
+        try:
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_msg=True, timeout=1.0)
+                if message:
+                    data = message['data']
+                    yield f"data: {data}\n\n"
+                await asyncio.sleep(0.01) # Small sleep to prevent CPU spinning
+        except asyncio.CancelledError:
+            await pubsub.unsubscribe("execution:traces")
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/account/summary")
 async def get_account_summary(

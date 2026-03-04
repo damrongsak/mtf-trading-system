@@ -59,8 +59,14 @@ The system is organized into five decoupled layers of responsibility:
 - **Tech Stack**: Next.js 16, React 19, TailwindCSS.
 - **New Features**:
     - **Foundry UI**: Drag-and-drop strategy builder.
-    - **Coach Mode**: "Mental Hand History" wizard.
-    - **Citadel View**: Portfolio Risk Parity visualization.
+    - **Risk Validation**: Multi-layer filters (Sequential + Parallel) for Rule Consistency.
+    - **HFT-lite Layer**: High-performance execution core with sub-100ms targets.
+    - **State Awareness**: Replaces direct DB hits with Event-Carried State Transfer (ECST) via Redis/Memory.
+
+### Layer 5: Data (In-Situ & Stream)
+- **Shared Memory Cache (L1)**: In-process caching for hot account/fund state.
+- **Redis Backbone (L2)**: Pub/Sub distribution for prices (ticks) and execution status.
+- **Relational Data (L3)**: PostgreSQL for persistence and historical traceability.
 
 ### 4.2. Strategy Core (`services/strategy-core`)
 - **Role**: The "Foundry" and "Proving Ground".

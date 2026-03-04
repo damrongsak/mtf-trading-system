@@ -26,5 +26,6 @@ class User(Base):
     journal_entries = relationship("JournalEntry", back_populates="user")
     mental_hand_histories = relationship("MentalHandHistory", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
+    api_keys = relationship("ApiKey", back_populates="user")
     deployments = relationship("Deployment", back_populates="user")
     strategy_configs = relationship("StrategyConfig", back_populates="author")

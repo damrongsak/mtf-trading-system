@@ -40,6 +40,11 @@ graph TD
 
 ## 🎯 Core Responsibilities
 
+- **HFT-lite Execution Core**: Non-blocking, parallel risk validation with <100ms latency targets.
+- **Tiered Caching**: Multi-level cache (In-memory + Redis) for accounts, funds, and decrypted credentials.
+- **Sub-millisecond Price Resolution**: Direct-to-Redis price lookups with stale price protection.
+- **Observability Tracing**: Millisecond-level execution tracing for performance auditing and bug detection.
+- **Risk Citadel**: 6+ layers of automated risk filters (News, Volatility, Liquidity, etc.).
 - **Async Command Processing**: Distributed consumption of trade signals with professional priority weighting (**Priority** > **Standard**).
 - **Institutional cTrader Adaption**: High-fidelity orders (Market, Limit, Stop) with integrated Stop-Loss and Take-Profit tagging.
 - **Idempotency & Safety**: Multi-layer protection against race conditions using Redis `SETNX` locking to ensure a signal is never executed twice.
