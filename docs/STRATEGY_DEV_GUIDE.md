@@ -138,3 +138,22 @@ def strategy(data, params=None):
 3.  **Done!**
     - **Backtest**: Go to Frontend -> Backtest -> Select "Moving Average Cross V2". It works instantly.
     - **Live**: Go to Frontend -> Bot -> Deploy "Moving Average Cross V2". The engine auto-wraps it.
+
+---
+
+## 🏗️ v2.1 Decoupled Architecture (Async RPC)
+
+As of **v2.1**, the strategy execution is decoupled for high resilience:
+
+1.  **Command Generation**: `strategy-core` generates a trade command.
+2.  **Queueing**: Instead of calling the API directly, the command is pushed to a **Redis Stream/Queue**.
+3.  **Execution Worker**: The `execution` service consumes the queue and processes the trade asynchronously.
+4.  **Resilience**: If the `execution` service is down, commands remain in the queue until it restarts.
+
+**Developer Impact**: 
+- Signals are returned as usual from your `strategy()` function.
+- The **Async Execution Client** handles the communication.
+- Monitor `execution` logs to track the real-time fulfillment of your signals.
+
+---
+**MTF Olympus** | *Institutional Alpha at Scale*

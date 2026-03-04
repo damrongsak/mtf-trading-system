@@ -285,8 +285,27 @@ erDiagram
         text reason
         jsonb meta_data
     }
+    MarketCategory {
+        uuid id PK
+        string name
+        integer order_index
+        boolean is_active
+    }
+    MarketSymbol {
+        uuid id PK
+        uuid category_id FK
+        uuid data_source_id FK
+        string symbol
+        string display_name
+        integer order_index
+        boolean is_active
+        jsonb details
+    }
 
     %% Relationships
+    MarketCategory ||--o{ MarketSymbol : "categorizes"
+    DataSource ||--o{ MarketSymbol : "provides data for"
+    MarketSymbol ||--o{ Candle : "has history"
     User ||--o{ StrategyConfig : "authors"
     StrategyConfig ||--o{ Strategy : "configures"
     StrategyConfig ||--o{ StrategyValidation : "validated by"
