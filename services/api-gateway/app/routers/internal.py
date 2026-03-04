@@ -115,6 +115,12 @@ async def receive_internal_signal(
             return {"status": "ignored", "reason": "Active signal exists", "signal_id": str(active_signal.id)}
 
         # 1.5 Persist Signal Log
+        price = payload.get("price") or payload.get("entry_price") or 0.0
+        confidence = payload.get("confidence", 0.0)
+        # Normalize confidence to 0-1 range if sent as 0-100 (Numeric(5,4) limit)
+        if confidence > 1.0:
+            confidence = confidence / 100.0
+
         signal_log = SignalLog(
             timestamp=datetime.now(timezone.utc),
             symbol=payload.get("symbol"),
@@ -123,8 +129,8 @@ async def receive_internal_signal(
             strategy_name=strat_name,
             deployment_id=deployment.id if deployment else None,
             strategy_id=strategy.id if strategy else None,
-            confidence=payload.get("confidence", 0.0),
-            price=payload.get("price", 0.0),
+            confidence=confidence,
+            price=price,
             reason=payload.get("reason"),
             meta_data=payload
         )
@@ -139,19 +145,44 @@ async def receive_internal_signal(
                     TelegramChatMapping.is_active == True
                 ).first()
                 if mapping:
-                    msg = (
-                        f"🔔 **New Signal: {strat_name}**\n\n"
-                        f"**Symbol**: `{payload.get('symbol')}`\n"
-                        f"**Direction**: {payload.get('direction')}\n"
-                        f"**Price**: {payload.get('price', 'N/A')}\n"
-                        f"**Reason**: {payload.get('reason')}\n"
-                    )
-                    if execution_mode in ("SEMI_AUTO", "MANUAL"):
-                        msg += f"\n⚠️ *รอการอนุมัติ (Human Review)*\n[Dashboard](http://localhost/signals)"
-                    else:
-                        msg += f"\n⚡ *Executing {execution_mode}*"
+                    # Enrich Message Logic
+                    sl = payload.get("stop_loss")
+                    tp = payload.get("take_profit")
+                    risk_usd = payload.get("risk_usd")
+                    # Use original confidence for display
+                    display_conf = payload.get("confidence", 0.0)
                     
-                    await send_telegram_message(mapping.chat_id, msg)
+                    rrr = None
+                    if sl and tp and float(price) != 0:
+                        risk = abs(float(price) - float(sl))
+                        reward = abs(float(tp) - float(price))
+                        if risk > 0:
+                            rrr = round(reward / risk, 2)
+
+                    dir_emoji = "🟢" if payload.get("direction") == "BULLISH" else "🔴"
+                    
+                    # Professional Template (HTML for stability)
+                    msg = (
+                        f"🔔 <b>New Signal: {strat_name}</b>\n\n"
+                        f"<b>Symbol</b>: <code>{payload.get('symbol')}</code>\n"
+                        f"<b>Direction</b>: {dir_emoji} {payload.get('direction')}\n"
+                        f"<b>Price</b>: <code>{price}</code>\n"
+                    )
+                    
+                    if sl: msg += f"<b>Stop Loss</b>: <code>{sl}</code>\n"
+                    if tp: msg += f"<b>Take Profit</b>: <code>{tp}</code>\n"
+                    if rrr: msg += f"<b>RRR</b>: <code>{rrr}</code>\n"
+                    if risk_usd: msg += f"<b>Risk</b>: <code>${risk_usd}</code>\n"
+                    if display_conf: msg += f"<b>Confidence</b>: <code>{display_conf}%</code>\n"
+                    
+                    msg += f"\n<b>Reason</b>: {payload.get('reason')}\n"
+                    
+                    if execution_mode in ("SEMI_AUTO", "MANUAL"):
+                        msg += f"\n⚠️ <i>รอการอนุมัติ (Human Review)</i>\n<a href='http://localhost/signals'>Dashboard</a>"
+                    else:
+                        msg += f"\n⚡ <b>Executing {execution_mode}</b>"
+                    
+                    await send_telegram_message(mapping.chat_id, msg, parse_mode="HTML")
         except Exception as te:
             logger.error(f"Failed to send Telegram notifications: {te}")
 
