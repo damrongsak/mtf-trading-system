@@ -14,9 +14,10 @@ class RedisSubscriber:
 
     async def connect(self):
         if not self.redis:
-            self.redis = redis.from_url(self.redis_url, decode_responses=True)
+            # We set decode_responses=False to handle binary data safely without UnicodeDecodeError
+            self.redis = redis.from_url(self.redis_url, decode_responses=False)
             self.pubsub = self.redis.pubsub()
-            logger.info(f"Connected to Redis at {self.redis_url}")
+            logger.info(f"Connected to Redis at {self.redis_url} (Binary mode)")
 
     async def subscribe(self, channels: list):
         if not self.pubsub:

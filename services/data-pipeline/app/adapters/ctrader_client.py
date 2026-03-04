@@ -142,9 +142,9 @@ class AsyncCTraderClient:
         )
         await self._send_proto_message(wrapper)
 
-    async def send(self, payload_obj, client_msg_id: str = None) -> ProtoMessage:
+    async def send(self, payload_obj, client_msg_id: str = None, timeout: int = 30) -> ProtoMessage:
         """
-        Send a Protobuf payload and wait for response.
+        Send a Protobuf payload and wait for response with a timeout.
         """
         if not self._connected:
             raise ConnectionError("Not connected")
@@ -166,8 +166,14 @@ class AsyncCTraderClient:
         # Send
         await self._send_proto_message(wrapper)
         
-        # Wait
-        return await fut
+        # Wait with timeout
+        try:
+            return await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            if client_msg_id in self._response_futures:
+                self._response_futures.pop(client_msg_id)
+            logger.error(f"Request timeout for {client_msg_id} (PayloadType: {payload_obj.payloadType})")
+            raise Exception(f"cTrader Request Timeout (Type: {payload_obj.payloadType})")
 
     async def _send_proto_message(self, msg: ProtoMessage):
         data = msg.SerializeToString()
@@ -247,13 +253,11 @@ class AsyncCTraderClient:
              raise Exception(f"Get Symbols Full Error: {error.errorCode}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
-
-             raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
              
     async def get_trendbars(self, account_id: int, symbol_id: int, period: int, count: int = None, from_timestamp: int = None, to_timestamp: int = None):
         """
         Fetch historical trendbars (candles).
-        period: Enum ProtoOATrendbarPeriod (e.g. M1=1, M15=3, H1=4)
+        period: Enum ProtoOATrendbarPeriod (e.g. M1=1, M5=5, H1=9)
         timestamps: Unix timestamp in Milliseconds
         """
         req = ProtoOAGetTrendbarsReq()

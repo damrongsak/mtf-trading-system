@@ -323,8 +323,7 @@ def get_pending_ai_trades(
             "exit_price": float(t.exit_price) if t.exit_price else None,
             "pnl_usd": float(t.pnl_usd) if t.pnl_usd else None,
             "risk_usd": float(t.risk_usd) if t.risk_usd else None,
-            "strategy": t.strategy,
-            "timeframe": t.timeframe,
+            "strategy": t.strategy_name,
             "created_at": t.created_at.isoformat() if t.created_at else None
         })
 
@@ -350,22 +349,43 @@ def save_ai_insight(
     if not trade:
         raise HTTPException(status_code=404, detail="Trade not found")
         
-    # Check if AI entry already exists (idempotency)
+    # Check if entry already exists (idempotency & compatibility with auto-load)
     existing = db.query(JournalEntry).filter(
-        JournalEntry.trade_id == trade_id,
-        JournalEntry.is_ai_generated == True
+        JournalEntry.trade_id == trade_id
     ).first()
     
     if existing:
-        # Update existing insight
+        # Update existing entry (could be a human draft or previous AI entry)
         existing.ai_insight = ai_insight
         existing.game_level = game_level
+        existing.is_ai_generated = True # Mark as AI-analyzed
         db.commit()
         return success_response(data={"journal_id": str(existing.id), "status": "updated"})
 
+    # Resolve user_id from the linked broker account or strategy run
+    user_id = None
+    if hasattr(trade, 'broker_account_id') and trade.broker_account_id:
+        from app.models.broker_account import BrokerAccount
+        account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
+        if account and hasattr(account, 'fund_id') and account.fund_id:
+            from app.models.user_fund import UserFund
+            uf = db.query(UserFund).filter(UserFund.fund_id == account.fund_id).first()
+            if uf:
+                user_id = uf.user_id
+
+    # Fallback for system-generated trades or if no fund is attached
+    if not user_id:
+        from app.models.user import User
+        first_user = db.query(User).first()
+        if first_user:
+            user_id = first_user.id
+            
+    if not user_id:
+        raise HTTPException(status_code=500, detail="Could not resolve user_id for JournalEntry")
+
     # Create new AI Journal Entry linked to the Trade
     new_entry = JournalEntry(
-        user_id=trade.user_id, # Link it to the user who made the trade
+        user_id=user_id, # Link it to the user who made the trade
         trade_id=trade.trade_id,
         symbol=trade.symbol,
         direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
@@ -383,6 +403,16 @@ def save_ai_insight(
     db.refresh(new_entry)
     
     return success_response(data={"journal_id": str(new_entry.id), "status": "created"})
+
+@router.post("/internal/memory/auto-load-sync")
+async def manual_auto_load_journal():
+    """Manual trigger for auto-loading journal entries from trades (for verification/sync)"""
+    from app.scheduler import auto_load_trades_to_journal_job
+    try:
+        await auto_load_trades_to_journal_job()
+        return success_response(message="Auto-load sync triggered successfully")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================
 # Analytics Endpoints

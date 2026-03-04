@@ -19,6 +19,11 @@ async def analyze_market(request: QuantAnalyzeRequest):
     Returns the Risk Map analysis for a given symbol and timeframe.
     """
     try:
+        # Always attempt to hydrate to ensure we have the latest data from DB
+        # especially if ingestion was recently resumed.
+        hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
+        market_data_manager.load_history(request.symbol, limit=hydration_limit)
+        
         # Fetch candles from the manager
         df = market_data_manager.get_candles(
             symbol=request.symbol, 
@@ -26,16 +31,6 @@ async def analyze_market(request: QuantAnalyzeRequest):
             limit=request.limit
         )
         
-        if df.empty:
-            # Try to hydrate if missing. Load more M1 candles for higher timeframes.
-            hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
-            market_data_manager.load_history(request.symbol, limit=hydration_limit)
-            df = market_data_manager.get_candles(
-                symbol=request.symbol, 
-                timeframe=request.timeframe, 
-                limit=request.limit
-            )
-            
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for symbol {request.symbol}")
 
@@ -55,22 +50,16 @@ async def calculate_sizing(request: QuantSizingRequest):
     Returns institutional-grade position sizing based on Risk Map.
     """
     try:
+        # Always attempt to hydrate to ensure latest data from DB
+        hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
+        market_data_manager.load_history(request.symbol, limit=hydration_limit)
+
         df = market_data_manager.get_candles(
             symbol=request.symbol, 
             timeframe=request.timeframe, 
             limit=request.limit
         )
         
-        if df.empty:
-            # Load more M1 candles for higher timeframes (3000 M1 = 50 H1)
-            hydration_limit = max(3000, request.limit * 60 if "H" in request.timeframe else request.limit)
-            market_data_manager.load_history(request.symbol, limit=hydration_limit)
-            df = market_data_manager.get_candles(
-                symbol=request.symbol, 
-                timeframe=request.timeframe, 
-                limit=request.limit
-            )
-
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data available for symbol {request.symbol}")
 

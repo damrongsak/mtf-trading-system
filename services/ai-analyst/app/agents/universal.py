@@ -44,7 +44,7 @@ class UniversalAgent:
         )
         
         # 4. Build Graph
-        self.graph = create_react_agent(self.llm, self.tools, messages_modifier=self.role)
+        self.graph = create_react_agent(self.llm, self.tools, prompt=self.role)
 
     def _fetch_role_sync(self, prompt_id: str) -> str:
         import httpx

@@ -45,7 +45,7 @@ class EpisodicMemoryAgent:
         
         # 4. Build Graph
         # Using create_react_agent as the orchestrator loop
-        self.graph = create_react_agent(self.llm, self.tools, state_modifier=self.role)
+        self.graph = create_react_agent(self.llm, self.tools, prompt=self.role)
 
     async def run(self, input_text: str = "Sync my episodic memory by processing 5 unanalyzed trades.") -> str:
         """

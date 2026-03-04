@@ -73,8 +73,84 @@ async def cleanup_strategy_logs_job():
     finally:
         db.close()
 
+
+async def auto_load_trades_to_journal_job():
+    """
+    Automatically creates draft JournalEntry records for closed trades.
+    Runs every 5 minutes.
+    """
+    logger.info("Starting Auto-Load Trades to Journal Job...")
+    db = SessionLocal()
+    try:
+        from app.models.trade import Trade
+        from app.models.journal import JournalEntry
+        from sqlalchemy import and_
+        
+        # 1. Fetch CLOSED trades that do not have a corresponding JournalEntry
+        # trade_id is unique in journal_entries
+        journal_subq = db.query(JournalEntry.trade_id).filter(JournalEntry.trade_id.isnot(None)).subquery()
+        
+        pending_trades = db.query(Trade).filter(
+            and_(
+                Trade.status.in_(["CLOSED", "REJECTED"]), # Also load rejected for review
+                Trade.trade_id.notin_(journal_subq)
+            )
+        ).all()
+        
+        if not pending_trades:
+            logger.info("No new closed trades found for journaling.")
+            return
+            
+        added_count = 0
+        for trade in pending_trades:
+            # 2. Resolve user_id (Consistency with journal internal API)
+            user_id = None
+            if hasattr(trade, 'broker_account_id') and trade.broker_account_id:
+                from app.models.broker_account import BrokerAccount
+                account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
+                if account and hasattr(account, 'fund_id') and account.fund_id:
+                    from app.models.user_fund import UserFund
+                    uf = db.query(UserFund).filter(UserFund.fund_id == account.fund_id).first()
+                    if uf:
+                        user_id = uf.user_id
+
+            # Fallback to the first system user if resolution fails
+            if not user_id:
+                from app.models.user import User
+                first_user = db.query(User).first()
+                if first_user:
+                    user_id = first_user.id
+            
+            if not user_id:
+                logger.warning(f"Could not resolve user_id for trade {trade.trade_id}. Skipping auto-load.")
+                continue
+                
+            # 3. Create Draft Journal Entry
+            new_entry = JournalEntry(
+                user_id=user_id,
+                trade_id=trade.trade_id,
+                symbol=trade.symbol,
+                direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
+                entry_price=float(trade.entry_price) if trade.entry_price else None,
+                exit_price=float(trade.exit_price) if trade.exit_price else None,
+                pnl_amount=float(trade.pnl_usd) if trade.pnl_usd else None,
+                session="Auto-Load",
+                is_ai_generated=False # This is a human/draft entry
+            )
+            db.add(new_entry)
+            added_count += 1
+            
+        db.commit()
+        logger.info(f"Auto-Load Complete: Created {added_count} draft journal entries.")
+        
+    except Exception as e:
+        logger.error(f"Auto-Load Trades Job Failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def start_scheduler():
-    # ... existing jobs ...
     scheduler.add_job(
         check_and_refresh_tokens_job,
         CronTrigger(hour=0, minute=0), # Daily midnight
@@ -87,6 +163,15 @@ def start_scheduler():
         cleanup_strategy_logs_job,
         IntervalTrigger(hours=1),
         id="strategy_log_cleanup",
+        replace_existing=True
+    )
+    
+    # Schedule Auto-Load Journal every 5 minutes
+    scheduler.add_job(
+        auto_load_trades_to_journal_job,
+        IntervalTrigger(minutes=5),
+        id="auto_load_journal",
+        misfire_grace_time=30, # Allow 30 seconds of lag
         replace_existing=True
     )
 

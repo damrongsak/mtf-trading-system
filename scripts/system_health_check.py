@@ -40,7 +40,7 @@ GATEWAY_ENDPOINTS = [
         "path": "/internal/signals", 
         "name": "Internal Signals", 
         "method": "POST", 
-        "payload": f'{{"deployment_id": "{VALID_DEPLOYMENT_ID}", "symbol": "XAUUSD", "direction": "BULLISH", "stop_loss": 2000, "risk_usd": 10, "reason": "healthcheck"}}'
+        "payload": f'{{"deployment_id": "{VALID_DEPLOYMENT_ID}", "symbol": "XAUUSD", "direction": "BULLISH", "entry_price": 2010, "stop_loss": 2000, "take_profit": 2100, "risk_usd": 10, "reason": "healthcheck"}}'
     },
     {
         "path": "/quant/analyze", 

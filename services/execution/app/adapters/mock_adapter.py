@@ -86,7 +86,7 @@ class MockAdapter(BrokerAdapter):
     async def get_current_price(self, symbol: str) -> float:
         # Static prices for testing
         if "XAU" in symbol:
-            return 2650.00
+            return 2050.00
         elif "EUR" in symbol:
             return 1.0500
         elif "JPY" in symbol:

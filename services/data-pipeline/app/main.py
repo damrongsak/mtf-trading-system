@@ -5,6 +5,7 @@ from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_new
 from app.logging_config import setup_logging
 import logging
 import asyncio
+from datetime import datetime, timezone
 
 # Configure logging
 logger = setup_logging()
@@ -21,31 +22,39 @@ async def start_scheduler():
     logger.info(f"Starting scheduler...")
     from app.database import engine
     logger.info(f"Database Pool Size: {engine.pool.size()}")
+    
+    # Use a fixed start time for all interval jobs to ensure they run immediately
+    now = datetime.now(timezone.utc)
+    
     # Schedule ingestion every 5 minutes (Optimized for RAM/CPU)
-    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job', misfire_grace_time=60)
+    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job', 
+                      next_run_time=now, misfire_grace_time=60)
     
     # Schedule Economic Calendar every 1 hour
-    scheduler.add_job(run_calendar_sync_job, 'interval', hours=1, id='calendar_sync_job', misfire_grace_time=300)
+    scheduler.add_job(run_calendar_sync_job, 'interval', hours=1, id='calendar_sync_job', 
+                      next_run_time=now, misfire_grace_time=300)
     
     # Schedule News Sync every 1 hour
-    scheduler.add_job(run_news_sync_job, 'interval', hours=1, id='news_sync_job', misfire_grace_time=300)
+    scheduler.add_job(run_news_sync_job, 'interval', hours=1, id='news_sync_job', 
+                      next_run_time=now, misfire_grace_time=300)
 
     # Schedule Search Sync every 30 minutes (SerpApi Market Context)
-    scheduler.add_job(run_search_sync_job, 'interval', minutes=30, id='search_sync_job', misfire_grace_time=300)
+    scheduler.add_job(run_search_sync_job, 'interval', minutes=30, id='search_sync_job', 
+                      next_run_time=now, misfire_grace_time=300)
 
     # Schedule Trade Sync every 5 minutes (cTrader Rate Limit Friendly)
-    scheduler.add_job(run_trade_sync_job, 'interval', minutes=5, id='trade_sync_job', misfire_grace_time=60)
+    scheduler.add_job(run_trade_sync_job, 'interval', minutes=5, id='trade_sync_job', 
+                      next_run_time=now, misfire_grace_time=60)
 
     # Schedule COT Sync every 1 day
-    scheduler.add_job(run_cot_sync_job, 'interval', days=1, id='cot_sync_job', misfire_grace_time=3600)
+    scheduler.add_job(run_cot_sync_job, 'interval', days=1, id='cot_sync_job', 
+                      next_run_time=now, misfire_grace_time=3600)
     
     # Schedule GVZ Sync every 5 minutes
-    scheduler.add_job(run_gvz_sync_job, 'interval', minutes=5, id='gvz_sync_job', misfire_grace_time=60)
+    scheduler.add_job(run_gvz_sync_job, 'interval', minutes=5, id='gvz_sync_job', 
+                      next_run_time=now, misfire_grace_time=60)
     
     scheduler.start()
-    
-    # Trigger COT once on startup to ensure data is current
-    asyncio.create_task(run_cot_sync_job())
     
     # Start Stream Manager
     from app.streaming.manager import stream_manager

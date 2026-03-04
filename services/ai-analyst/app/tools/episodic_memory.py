@@ -27,12 +27,9 @@ async def fetch_unanalyzed_trades(limit: int = 5) -> Dict[str, Any]:
         # We'll use a placeholder URL here which we will need to implement in api-gateway next.
         async with httpx.AsyncClient(timeout=10.0) as client:
             # We assume api-gateway exposes an internal endpoint for the ai service
-            url = f"{settings.API_GATEWAY_URL}/internal/memory/pending-trades?limit={limit}"
+            url = f"{settings.API_GATEWAY_URL}/api/v1/journal/internal/memory/pending-trades?limit={limit}"
             
-            # Use internal service auth header
-            headers = {"Authorization": f"Bearer {settings.SYSTEM_API_KEY}"}
-            
-            response = await client.get(url, headers=headers)
+            response = await client.get(url)
             response.raise_for_status()
             
             data = response.json()
@@ -58,8 +55,7 @@ async def save_episodic_memory(trade_id: str, insight: str, game_level: str = "B
     """
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            url = f"{settings.API_GATEWAY_URL}/internal/memory/save-insight"
-            headers = {"Authorization": f"Bearer {settings.SYSTEM_API_KEY}"}
+            url = f"{settings.API_GATEWAY_URL}/api/v1/journal/internal/memory/save-insight"
             
             payload = {
                 "trade_id": trade_id,
@@ -67,7 +63,7 @@ async def save_episodic_memory(trade_id: str, insight: str, game_level: str = "B
                 "game_level": game_level
             }
             
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, json=payload)
             response.raise_for_status()
             
             return {"status": "success", "message": f"Episodic memory saved for trade {trade_id}"}
