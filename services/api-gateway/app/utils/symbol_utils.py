@@ -3,31 +3,41 @@ from typing import Any, Union
 
 def normalize_symbol(symbol: Any) -> str:
     """
-    Normalizes a symbol which might be a raw string or a JSON-encoded string/object.
-    Commonly used to fix issues where frontend passes {"SYMBOL": "XAUUSD"} as a string.
+    Normalizes a symbol into a canonical uppercase format without slashes.
+    Ensures 'XAU/USD', 'XAU_USD', and 'XAUUSD' are treated consistently.
     """
     if not symbol:
         return ""
     
+    raw = ""
     if isinstance(symbol, str):
-        # Check if it's a JSON string
+        # Handle JSON strings if needed
         clean_symbol = symbol.strip()
         if clean_symbol.startswith("{") and clean_symbol.endswith("}"):
             try:
                 data = json.loads(clean_symbol)
-                # Try common keys
                 for key in ["symbol", "SYMBOL", "instrument", "INSTRUMENT"]:
                     if key in data:
-                        return str(data[key]).upper().replace("/", "_")
+                        raw = str(data[key])
+                        break
             except:
                 pass
         
-        # Regular string
-        return clean_symbol.upper().replace("/", "_")
+        if not raw:
+            raw = clean_symbol
     
-    if isinstance(symbol, dict):
+    elif isinstance(symbol, dict):
         for key in ["symbol", "SYMBOL", "instrument", "INSTRUMENT"]:
             if key in symbol:
-                return str(symbol[key]).upper().replace("/", "_")
+                raw = str(symbol[key])
+                break
     
-    return str(symbol).upper().replace("/", "_")
+    if not raw:
+        raw = str(symbol)
+
+    # Canonical normalization: 
+    # 1. Uppercase
+    # 2. Remove slashes (used in legacy or display formats)
+    # 3. We keep underscores by default for OANDA compatibility, 
+    # but market.py should check both stripped and underscored versions.
+    return raw.upper().replace("/", "").replace("-", "")

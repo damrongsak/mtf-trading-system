@@ -151,6 +151,14 @@ class CTraderOrderAdapter(BrokerAdapter):
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
+            # Check for Rejection in ExecutionEvent
+            if res.payloadType == ProtoOAExecutionEvent().payloadType:
+                 if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
+                      error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
+                      logger.error(f"cTrader Order REJECTED: {error_code} for {symbol}")
+                      raise Exception(f"cTrader Order REJECTED: {error_code}")
+                 logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
+
             # Extract Trade ID or Order ID
             # ExecutionEvent -> position -> positionId, order -> orderId
             
@@ -168,6 +176,9 @@ class CTraderOrderAdapter(BrokerAdapter):
             if res.HasField("order"):
                  order_id = str(res.order.orderId)
             
+            if not (order_id or position_id):
+                 logger.warning(f"cTrader order placed but no ID found in response: {res}")
+
             return {
                 "orderFillTransaction": {
                     "id": order_id or position_id,
@@ -280,11 +291,19 @@ class CTraderOrderAdapter(BrokerAdapter):
                 tp=tp_price,
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
+
+            # Check for Rejection in ExecutionEvent
+            if res.payloadType == ProtoOAExecutionEvent().payloadType:
+                 if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
+                      error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
+                      logger.error(f"cTrader Limit Order REJECTED: {error_code} for {symbol}")
+                      raise Exception(f"cTrader Order REJECTED: {error_code}")
+                 logger.info(f"cTrader ExecutionEvent (Limit): type={res.executionType}")
             
             # Return structure compatible with main.py expectation (Oanda style)
             return {
                 "orderCreateTransaction": {
-                    "id": str(res.order.orderId) if res.HasField("order") else "0",
+                    "id": str(res.order.orderId) if res.HasField("order") else (str(res.position.positionId) if res.HasField("position") else "0"),
                     "instrument": symbol,
                     "units": str(units),
                     "price": str(entry_price),

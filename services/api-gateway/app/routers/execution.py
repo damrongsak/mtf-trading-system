@@ -290,11 +290,18 @@ async def close_trade(
 
 @router.post("/trades/open")
 async def get_open_trades(
-    payload: Dict[str, str] = Body(...),
+    payload: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # Detect if user is trying to OPEN a trade via this endpoint (common confusion)
+        if any(key in payload for key in ["symbol", "units", "direction", "side", "order_type"]):
+             raise HTTPException(
+                 status_code=400, 
+                 detail="This endpoint is for LISTING open trades. To OPEN a new trade, use POST /api/v1/execution/orders"
+             )
+
         broker_account_id = payload.get("broker_account_id")
         if not broker_account_id:
              raise HTTPException(status_code=400, detail="broker_account_id is required")

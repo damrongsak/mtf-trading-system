@@ -126,23 +126,27 @@ export default function MarketPage() {
   // --- Effect: Validate Symbol on Broker Switch ---
   useEffect(() => {
       if (brokerSymbols.size > 0 && !brokerSymbols.has(symbol)) {
-          // Identify if we can find a close match (e.g. XAU_USD -> XAUUSD)
-          const clean = symbol.replace('_', '').replace('/', '');
+          // Normalized match (e.g. XAU_USD -> XAUUSD)
+          const clean = symbol.replace(/[^A-Z0-9]/g, '');
           let match = '';
           
           for (const s of Array.from(brokerSymbols.keys())) {
-               if (s.replace('_', '').replace('/', '') === clean) {
+               if (s.replace(/[^A-Z0-9]/g, '') === clean) {
                    match = s;
                    break;
                }
           }
 
           if (match) {
+              logger.info(`[Market] Auto-mapped symbol ${symbol} to ${match} for current broker`);
               setSymbol(match);
           } else {
-              // Fallback to first available
+              // Fallback to a sensible default or first available
               const first = brokerSymbols.values().next().value;
-              if (first) setSymbol(first.symbol);
+              if (first) {
+                  logger.warn(`[Market] Symbol ${symbol} not found for broker. Falling back to ${first.symbol}`);
+                  setSymbol(first.symbol);
+              }
           }
       }
   }, [brokerSymbols, symbol, setSymbol]);

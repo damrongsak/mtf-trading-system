@@ -440,6 +440,12 @@ class AsyncCTraderClient:
             # cTrader returns ExecutionEvent for new orders
             res = ProtoOAExecutionEvent()
             res.ParseFromString(resp_msg.payload)
+            
+            # Check for rejection
+            if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
+                error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
+                raise Exception(f"cTrader Order REJECTED: {error_code}")
+                
             return res
         elif resp_msg.payloadType == ProtoOANewOrderRes().payloadType:
             # For Limit orders, cTrader might return NewOrderRes immediately

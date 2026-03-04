@@ -394,6 +394,35 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                                         "data": json.dumps(event_payload, default=str)
                                     }
                                     await publisher.xadd("market.data.stream", stream_payload)
+                            
+                            # [NEW]: Update Redis Cache with latest 500 candles for fast UI access
+                            # We fetch from DB to ensure consistency and proper sorting
+                            try:
+                                from app.models.candle import Candle as CandleModel
+                                from sqlalchemy import desc
+                                latest_candles = task_db.query(CandleModel).filter(
+                                    CandleModel.market_symbol_id == ms.id,
+                                    CandleModel.timeframe == tf
+                                ).order_by(desc(CandleModel.timestamp)).limit(500).all()
+                                
+                                if latest_candles:
+                                    # Format for JSON
+                                    cache_data = []
+                                    for c in reversed(latest_candles): # Oldest first for charts
+                                        cache_data.append({
+                                            "timestamp": c.timestamp.isoformat(),
+                                            "open": float(c.open),
+                                            "high": float(c.high),
+                                            "low": float(c.low),
+                                            "close": float(c.close),
+                                            "volume": float(c.volume)
+                                        })
+                                    
+                                    cache_key = f"market_data:candles:{ms.symbol}:{tf}"
+                                    await publisher.redis.set(cache_key, json.dumps(cache_data))
+                                    # logger.info(f"Updated Redis cache for {ms.symbol} {tf} ({len(cache_data)} candles)")
+                            except Exception as cache_ex:
+                                logger.warning(f"Failed to update Redis cache for {ms.symbol} {tf}: {cache_ex}")
                     except Exception as ex:
                         logger.error(f"Failed to process {ms.symbol} {tf}: {ex}")
                     finally:

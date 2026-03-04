@@ -43,9 +43,12 @@ async def get_candles(
     from app.models.data_source import DataSource
     
     symbol_norm = normalize_symbol(symbol)
+    symbol_stripped = symbol_norm.replace("_", "")
     
     ms = db.query(MarketSymbol).join(DataSource).filter(
-        (MarketSymbol.symbol == symbol_norm) | (MarketSymbol.symbol == symbol),
+        (MarketSymbol.symbol == symbol_norm) | 
+        (MarketSymbol.symbol == symbol) |
+        (MarketSymbol.symbol == symbol_stripped),
         DataSource.name == data_source
     ).first()
     
@@ -54,9 +57,13 @@ async def get_candles(
         return APIResponse(status=ResponseStatus.SUCCESS, data=[])
 
     # 2. Query Candles by MarketSymbol ID
+    # Normalize Timeframe (mapping short formats to DB formats)
+    tf_map = {"D": "D1", "W": "W1", "M": "MN1"}
+    tf_norm = tf_map.get(timeframe, timeframe)
+
     query = db.query(Candle).filter(
         Candle.market_symbol_id == ms.id,
-        Candle.timeframe == timeframe
+        Candle.timeframe == tf_norm
     )
 
     if from_time:
