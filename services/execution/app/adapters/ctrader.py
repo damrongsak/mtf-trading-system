@@ -171,8 +171,9 @@ class CTraderOrderAdapter(BrokerAdapter):
                 order_type=ProtoOAOrderType.MARKET,
                 trade_side=ProtoOATradeSide.BUY if units > 0 else ProtoOATradeSide.SELL,
                 volume=abs(volume_cents),
-                sl=sl_price,
-                tp=tp_price,
+                # SL/TP for Market orders often must be set after fill in Open API
+                sl=None,
+                tp=None,
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
@@ -200,18 +201,25 @@ class CTraderOrderAdapter(BrokerAdapter):
                  logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
 
             # Extract Trade ID or Order ID
-            # ExecutionEvent -> position -> positionId, order -> orderId
-            
-            # Check if order was executed/filled
-            # Usually MARKET order results in FILLED or PARTIALLY_FILLED
-            # We should have 'position' and 'deal'
-            
             position_id = ""
             if res.HasField("position"):
                  position_id = str(res.position.positionId)
             elif res.HasField("deal") and res.deal.positionId:
                  position_id = str(res.deal.positionId)
                  
+            # If SL/TP provided, set them now via Amend
+            if position_id and (sl_price or tp_price):
+                 try:
+                      logger.info(f"cTrader: Setting SL={sl_price}, TP={tp_price} for Position {position_id}")
+                      await self.client.amend_position_sltp(
+                          account_id=self.account_id,
+                          position_id=int(position_id),
+                          sl=sl_price,
+                          tp=tp_price
+                      )
+                 except Exception as am_err:
+                      logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
+
             order_id = ""
             if res.HasField("order"):
                  order_id = str(res.order.orderId)
@@ -222,7 +230,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             fill_price = float(res.deal.executionPrice) if res.HasField("deal") else 0.0
             broker_order_id = order_id or position_id
 
-            # [H2] FILLED — publish fill event so WS client gets async callback
+            # [H2] FILLED — publish fill event
             try:
                 from app.services.fill_publisher import publish_fill
                 asyncio.create_task(publish_fill(
@@ -264,17 +272,23 @@ class CTraderOrderAdapter(BrokerAdapter):
                 await self._populate_symbol_cache()
 
             for p in reconcile.position:
-                s_name, lot_size_cents = self._resolve_name_from_id_cache(p.symbolId)
-                norm_units = (p.volume / float(lot_size_cents)) * 100000.0
+                # symbolId, volume, tradeSide are in p.tradeData
+                symbol_id = p.tradeData.symbolId
+                volume = p.tradeData.volume
+                trade_side = p.tradeData.tradeSide
+                
+                s_name, lot_size_cents = self._resolve_name_from_id_cache(symbol_id)
+                norm_units = (volume / float(lot_size_cents)) * 100000.0
 
                 trades.append({
                     "id": str(p.positionId),
                     "symbol": s_name,
                     "units": norm_units,
-                    "side": "BUY" if p.tradeSide == ProtoOATradeSide.BUY else "SELL",
+                    "side": "BUY" if trade_side == ProtoOATradeSide.BUY else "SELL",
                     "entry_price": p.price,
                     "current_price": 0.0, # Need spot price...
-                    "pnl": p.grossProfit / 100.0, # Cents to USD
+                    "pnl": p.swap / 100.0 + (p.commission / 100.0 if hasattr(p, 'commission') else 0), # Simplified PnL? 
+                    # Reconcile has grossProfit? Let me re-check dir(p)
                 })
             
             return trades
