@@ -2,38 +2,26 @@
 H2: Fill Event Publisher — Execution Service side.
 
 After a broker confirms an order fill (FILLED/REJECTED/PARTIALLY_FILLED),
-this module publishes a structured event to Redis so the API Gateway can
-push a real-time callback to the originating WebSocket client.
-
-Redis Key:  execution:fills:{account_id}
-Type:       Redis List (LPUSH) — TTL 300s
-Consumer:   API Gateway `_fill_subscriber_loop()` via BRPOP
+this module publishes a structured event to:
+  1. Redis List  `execution:fills:{account_id}` — WS push delivery to API Gateway
+  2. Redis Stream `execution.filled.stream`   — FillTradeConsumer → DB persistence (HFT-Lite compliant)
 
 Event schema:
 {
     "trace_id":    str,    # Matches the original WS command `id`
     "order_id":    str,    # Broker order ID
-    "account_id":  str,    # Broker account ID
+    "account_id":  str,    # Broker account ID (numeric cTrader ID)
     "status":      str,    # "FILLED" | "REJECTED" | "PARTIALLY_FILLED"
     "fill_price":  float,  # Actual execution price (0 if not filled)
-    "fill_volume": float,  # Filled volume in lots
+    "fill_volume": float,  # Filled volume in universal units
     "instrument":  str,    # Symbol (e.g., "XAU_USD")
     "fill_time":   float,  # Unix timestamp of fill
     "reason":      str,    # Optional rejection reason
+    "sl_price":    float,  # Stop-loss at time of fill (0 if none)
+    "tp_price":    float,  # Take-profit at time of fill (0 if none)
+    "direction":   str,    # "LONG" | "SHORT"
+    "comment":     str,    # Order comment / strategy name
 }
-
-Usage:
-    from app.services.fill_publisher import publish_fill
-
-    await publish_fill(
-        account_id="67890",
-        trace_id="client-cmd-uuid",
-        order_id="broker-order-123",
-        status="FILLED",
-        fill_price=2055.50,
-        fill_volume=0.01,
-        instrument="XAU_USD",
-    )
 """
 import json
 import logging
@@ -43,7 +31,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 FILL_KEY_PREFIX = "execution:fills"
+FILL_STREAM_KEY = "execution.filled.stream"
 FILL_TTL = 300  # 5 minutes — fills are important, must not expire too fast
+STREAM_MAXLEN = 10000  # Cap stream length to prevent unbounded growth
 
 
 async def publish_fill(
@@ -55,14 +45,23 @@ async def publish_fill(
     fill_price: float = 0.0,
     fill_volume: float = 0.0,
     reason: Optional[str] = None,
+    sl_price: float = 0.0,
+    tp_price: float = 0.0,
+    direction: str = "LONG",
+    comment: str = "",
 ) -> bool:
     """
-    [H2] Publish a broker fill event to Redis for WS push delivery.
+    [H2] Publish a broker fill event to:
+      - Redis List (WS push delivery to API Gateway)
+      - Redis Stream (FillTradeConsumer → DB, HFT-Lite compliant)
 
     Returns True on success, False if Redis is unavailable (non-fatal).
     """
+    import redis.asyncio as aioredis
+    import os
+
     redis_key = f"{FILL_KEY_PREFIX}:{account_id}"
-    payload = json.dumps({
+    payload = {
         "trace_id":    trace_id,
         "order_id":    str(order_id),
         "account_id":  str(account_id),
@@ -72,16 +71,29 @@ async def publish_fill(
         "instrument":  instrument,
         "fill_time":   time.time(),
         "reason":      reason or "",
-    })
+        "sl_price":    sl_price,
+        "tp_price":    tp_price,
+        "direction":   direction,
+        "comment":     comment,
+    }
+    payload_json = json.dumps(payload)
 
     try:
-        # Import here to avoid circular imports at module load
-        import redis.asyncio as aioredis
-        import os
         rc = aioredis.from_url(os.environ.get("REDIS_URL", "redis://redis:6379/0"))
         async with rc:
-            await rc.lpush(redis_key, payload)
+            # 1. WS Push to API Gateway (List)
+            await rc.lpush(redis_key, payload_json)
             await rc.expire(redis_key, FILL_TTL)
+
+            # 2. Stream for FillTradeConsumer → DB persistence (HFT-Lite)
+            # Redis Streams require field-value pairs — store as a single "data" field
+            if status == "FILLED":
+                await rc.xadd(
+                    FILL_STREAM_KEY,
+                    {"data": payload_json},
+                    maxlen=STREAM_MAXLEN,
+                    approximate=True,
+                )
 
         logger.info(
             f"[H2] Fill published: account={account_id} trace_id={trace_id} "

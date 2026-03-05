@@ -23,7 +23,7 @@ import math
 from oandapyV20.exceptions import V20Error
 from app.services.order_service import OrderService
 from app.services.cache_service import execution_cache
-from app.worker import worker
+from app.worker import worker, fill_trade_consumer
 from app.health import verify_dependencies
 from app.core.scheduler import scheduler
 from app.services.equity_guardian import EquityGuardian
@@ -56,8 +56,12 @@ async def startup_event():
     # Verify critical dependencies before accepting traffic
     await verify_dependencies()
     
-    # Start background worker
+    # Start background workers
     asyncio.create_task(worker.start())
+
+    # [HFT-Lite] Start FillTradeConsumer: reads execution.filled.stream → persists Trade to DB
+    # This keeps the execution hot path DB-free.
+    asyncio.create_task(fill_trade_consumer.start())
 
     # Initialize Equity Guardian
     try:
@@ -127,6 +131,7 @@ async def _warmup_symbol_cache():
 async def shutdown_event():
     logger.info("Shutting down Execution Service...")
     await worker.stop()
+    await fill_trade_consumer.stop()
     scheduler.stop()
     await CTraderConnectionManager.shutdown_all()
 

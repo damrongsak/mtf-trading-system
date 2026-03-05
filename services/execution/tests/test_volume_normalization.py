@@ -13,6 +13,7 @@ def gold_adapter():
     """Adapter pre-configured with Gold (XAUUSD) in the L3 symbol cache."""
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
+    a.client.create_order.return_value = MagicMock()
     # Gold: 1 standard lot = 100oz. lotSize=10000 cents.
     a._symbol_cache["XAUUSD"] = (93, 10000)
     a._symbol_cache["ID_93"] = ("XAUUSD", 10000)
@@ -24,6 +25,7 @@ def fx_adapter():
     """Adapter pre-configured with EURUSD in the L3 symbol cache."""
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
+    a.client.create_order.return_value = MagicMock()
     # FX: 1 standard lot = 100,000 units. lotSize=10,000,000 cents.
     a._symbol_cache["EURUSD"] = (1, 10000000)
     a._symbol_cache["ID_1"] = ("EURUSD", 10000000)
@@ -71,10 +73,10 @@ async def test_ctrader_reverse_normalization():
     a._symbol_cache["ID_93"] = ("XAUUSD", 10000)
 
     mock_position = MagicMock()
-    mock_position.symbolId = 93
-    mock_position.volume = 100  # 1oz of Gold in cTrader cents
+    mock_position.tradeData.symbolId = 93
+    mock_position.tradeData.volume = 100  # 1oz of Gold in cTrader cents
+    mock_position.tradeData.tradeSide = 1  # BUY
     mock_position.positionId = 555
-    mock_position.tradeSide = 1  # BUY
     mock_position.price = 2050.0
     mock_position.grossProfit = 500  # 5 USD gain
 

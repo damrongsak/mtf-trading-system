@@ -19,7 +19,7 @@ async def test_worker_process_command_success(worker):
         mock_session_cls.return_value.__aenter__.return_value = mock_session
         mock_execute.return_value = {"id": "test_order_id"}
         
-        await worker._process_command(message)
+        await worker._process_command("queue:execution:commands", message)
         
         mock_execute.assert_called_once()
         # Verify it was called with the dict from json
@@ -31,7 +31,7 @@ async def test_worker_process_command_invalid_json(worker):
     message = "invalid json"
     
     with patch("app.worker.logger") as mock_logger:
-        await worker._process_command(message)
+        await worker._process_command("queue:execution:commands", message)
         mock_logger.error.assert_called()
         assert "Invalid JSON" in mock_logger.error.call_args[0][0]
 

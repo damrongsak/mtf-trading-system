@@ -57,16 +57,16 @@ async def test_sync_trades_endpoint():
         req = SyncTradesRequest(broker_account_id=str(account_id), lookback_days=10)
         
         # Call
-        response = await sync_trades(req, db=mock_db)
+        response = await sync_trades(req=req, db=mock_db, authenticated="test")
         
         # Assertions
         assert response["status"] == "success"
-        assert response["imported"] == 1
-        assert response["total_fetched"] == 1
+        assert response["data"]["imported"] == 1
+        assert response["data"]["total_fetched"] == 1
         
-        # Verify DB Add
-        assert mock_db.add.called
-        args, _ = mock_db.add.call_args
+        # Verify DB Merge
+        assert mock_db.merge.called
+        args, _ = mock_db.merge.call_args
         added_trade = args[0]
         assert isinstance(added_trade, Trade)
         assert added_trade.symbol == "XAU_USD"

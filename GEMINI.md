@@ -46,6 +46,28 @@ The system utilizes two primary patterns for high resilience:
 2.  **SEARCH FOR DUPLICATES**: Before editing a spec, search the codebase for duplicate files (e.g., `04_api_spec.yaml` lurking in subdirectories). **Delete duplicates immediately.**
 3.  **VALIDATE SCHEMA**: After updating a spec, run the appropriate generation script (`scripts/gen_backend.sh` or `pnpm run gen:api`) and verify results.
 4.  **PLANNING MODE**: Always create or update an `implementation_plan.md` that explicitly lists the spec changes.
+5.  **🚫 NEVER AUTO-COMMIT**: You MUST NOT run `git commit` or `git push` autonomously. Always present the staged changes and commit message to the user first, and **wait for explicit approval** before executing any git commit command. No exceptions.
+6.  **📋 SPEC CHECK BEFORE CODE CHANGE**: Before editing, inserting, or fixing ANY code (Python, TypeScript, SQL, config), you MUST first:
+    - Identify which spec(s) in `specs/` are affected (Data Model `03`, API Contract `04`, Architecture `01`, Logic `08`).
+    - State the spec impact explicitly to the user (e.g., "This change affects `04_api_spec.yaml` endpoint X").
+    - Update the spec **before** touching the implementation code.
+    - If the change is a pure bugfix with no spec impact, explicitly state "No spec impact" and explain why.
+7.  **⚡ HFT-Lite Hot Path Protection**: The Execution Service hot path (order placement → fill → publish) is **DB-free by design**. It must use only:
+    - **L3 In-Memory Cache** (`_symbol_cache`) for symbol resolution — O(1), no I/O.
+    - **Redis Pub/Sub** (`fill_publisher`) for fill events — non-blocking.
+    - **NO PostgreSQL writes** inside the hot path. Any DB persistence (e.g., `_save_filled_trade_to_db`) MUST be:
+      - Decoupled via **Redis Stream** (`execution.filled.stream`) consumed by a separate worker.
+      - Or explicitly delayed as a truly detached background task that cannot block `await` on the fill path.
+    - Violating this rule adds **10–100ms DB latency per trade** — unacceptable for live execution.
+    - ⚠️ **Current known issue**: `_save_filled_trade_to_db()` in `ctrader.py` uses `asyncio.create_task()` (non-blocking at call site) but the task itself performs an async PostgreSQL write (`AsyncSessionLocal`). Under high DB load this can steal event loop time. The correct fix is to publish the fill to `execution.filled.stream` and let the worker process DB writes asynchronously. Refactor is pending.
+8.  **📚 READ PROJECT DOCS FIRST**: Before starting any task, read the relevant quick-reference docs:
+    - `docs/AI_AGENT_GUIDE.md` — HFT-lite hot path, tool definitions, Redis key conventions.
+    - `docs/database_schema.md` — ERD and table relationships.
+    - `docs/STRATEGY_DEV_GUIDE.md` — Strategy plugin architecture.
+    - `docs/PLUGIN_DEV_GUIDE.md` — Plugin lifecycle hooks.
+    - `specs/04_api_spec.yaml` — API contract (source of truth for endpoints).
+    - `specs/03_data_model.yaml` — Data model (source of truth for schemas).
+    - Do NOT assume knowledge of the system. Always verify against these docs before proposing changes.
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).
