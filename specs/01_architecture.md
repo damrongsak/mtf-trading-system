@@ -299,7 +299,15 @@ Phase 2 — Async broker confirm:  {"type": "fill",      "status": "FILLED",  "t
 
 **New files**:
 - `services/execution/app/services/fill_publisher.py` — Redis LPUSH fill events
-- `_fill_subscriber_loop()` co-routine in `external.py` — 3rd goroutine in `asyncio.gather()`
+---
+
+### Sprint I: Validation & Reconnection Proof
+
+To ensure partner integration safety, the WebSocket channel and its reference SDK have been validated against network disruptions.
+
+- **Auto-reconnect**: Exponential backoff (1s → 30s) prevents server hammering.
+- **Message Queuing**: Commands sent during downtime are buffered in memory and replayed upon reconnection to prevent signal loss.
+- **Heartbeat (Liveness)**: 30s ping/pong protocol ensures dead connections are detected and recycled within 40s.
 
 ---
 
