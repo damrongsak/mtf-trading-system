@@ -200,35 +200,44 @@ class CTraderOrderAdapter(BrokerAdapter):
                       raise Exception(f"cTrader Order REJECTED: {error_code}")
                  logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
 
-            # Extract Trade ID or Order ID
-            position_id = ""
-            if res.HasField("position"):
-                 position_id = str(res.position.positionId)
-            elif res.HasField("deal") and res.deal.positionId:
-                 position_id = str(res.deal.positionId)
-                 
-            # If SL/TP provided, set them now via Amend
-            if position_id and (sl_price or tp_price):
-                 try:
-                      logger.info(f"cTrader: Setting SL={sl_price}, TP={tp_price} for Position {position_id}")
-                      await self.client.amend_position_sltp(
-                          account_id=self.account_id,
-                          position_id=int(position_id),
-                          sl=sl_price,
-                          tp=tp_price
-                      )
-                 except Exception as am_err:
-                      logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
-
-            order_id = ""
-            if res.HasField("order"):
-                 order_id = str(res.order.orderId)
-            
-            if not (order_id or position_id):
-                 logger.warning(f"cTrader order placed but no ID found in response: {res}")
-
             fill_price = float(res.deal.executionPrice) if res.HasField("deal") else 0.0
             broker_order_id = order_id or position_id
+                  
+            # If SL/TP provided, validate against fill_price before amending
+            # cTrader rule: BUY → TP must be > fill_price (BID), SL must be < fill_price
+            #               SELL → TP must be < fill_price (ASK), SL must be > fill_price
+            if position_id and (sl_price or tp_price):
+                 is_buy = units > 0
+                 valid_sl = sl_price
+                 valid_tp = tp_price
+                 
+                 if fill_price > 0:
+                      if is_buy:
+                           if tp_price and tp_price <= fill_price:
+                                logger.warning(f"cTrader: TP {tp_price} <= fill_price {fill_price} for BUY — skipping TP")
+                                valid_tp = None
+                           if sl_price and sl_price >= fill_price:
+                                logger.warning(f"cTrader: SL {sl_price} >= fill_price {fill_price} for BUY — skipping SL")
+                                valid_sl = None
+                      else:
+                           if tp_price and tp_price >= fill_price:
+                                logger.warning(f"cTrader: TP {tp_price} >= fill_price {fill_price} for SELL — skipping TP")
+                                valid_tp = None
+                           if sl_price and sl_price <= fill_price:
+                                logger.warning(f"cTrader: SL {sl_price} <= fill_price {fill_price} for SELL — skipping SL")
+                                valid_sl = None
+                 
+                 if valid_sl or valid_tp:
+                      try:
+                           logger.info(f"cTrader: Amending SL={valid_sl}, TP={valid_tp} for Position {position_id}")
+                           await self.client.amend_position_sltp(
+                               account_id=self.account_id,
+                               position_id=int(position_id),
+                               sl=valid_sl,
+                               tp=valid_tp
+                           )
+                      except Exception as am_err:
+                           logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
 
             # [H2] FILLED — publish fill event
             try:
@@ -245,6 +254,21 @@ class CTraderOrderAdapter(BrokerAdapter):
             except Exception as pub_err:
                 logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
 
+            # [Auto-Sync] Save FILLED trade to DB so /trades endpoint returns it
+            try:
+                asyncio.create_task(self._save_filled_trade_to_db(
+                    broker_order_id=broker_order_id,
+                    symbol=symbol,
+                    units=units,
+                    fill_price=fill_price,
+                    sl_price=sl_price,
+                    tp_price=tp_price,
+                    trade_id=trade_id,
+                    comment=comment,
+                ))
+            except Exception as db_err:
+                logger.warning(f"[Auto-Sync] Failed to schedule DB save for trade: {db_err}")
+
             return {
                 "orderFillTransaction": {
                     "id": broker_order_id,
@@ -257,6 +281,60 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
              logger.error(f"cTrader Place Order Error: {e}")
              raise e
+
+    async def _save_filled_trade_to_db(self, broker_order_id: str, symbol: str, units: float,
+                                       fill_price: float, sl_price: Optional[float], tp_price: Optional[float],
+                                       trade_id: Optional[str], comment: Optional[str]) -> None:
+        """
+        [Auto-Sync] Fire-and-forget: persist a filled MARKET order to the DB
+        so it appears in /trades endpoint immediately after fill.
+        Uses a deterministic UUID to prevent duplicates on retry.
+        """
+        try:
+            from app.database import AsyncSessionLocal
+            from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount
+            import uuid as _uuid
+            from sqlalchemy import select as _select
+
+            async with AsyncSessionLocal() as db:
+                # Find the BrokerAccount by account_id (numeric cTrader ID)
+                result = await db.execute(
+                    _select(BrokerAccount).where(BrokerAccount.account_number == str(self.account_id))
+                )
+                broker_account = result.scalars().first()
+                if not broker_account:
+                    logger.warning(f"[Auto-Sync] BrokerAccount not found for account_id={self.account_id}")
+                    return
+
+                # Deterministic trade UUID: account_id + broker_order_id
+                trade_uuid = _uuid.uuid5(_uuid.NAMESPACE_DNS, f"{str(broker_account.id)}_{broker_order_id}")
+
+                direction = TradeDirection.LONG if units > 0 else TradeDirection.SHORT
+                lot_size = abs(units) / 100000.0  # Convert universal units → standard lots
+
+                new_trade = Trade(
+                    trade_id=trade_uuid,
+                    broker_account_id=broker_account.id,
+                    symbol=symbol,
+                    strategy_name=comment or "Manual",
+                    signal_timestamp=datetime.utcnow(),
+                    status=TradeStatus.OPEN,
+                    direction=direction,
+                    entry_price=fill_price,
+                    exit_price=None,
+                    sl_price=sl_price or 0.0,
+                    tp_price=tp_price or 0.0,
+                    lot_size=lot_size,
+                    risk_usd=0.0,
+                    pnl_usd=0.0,
+                    exit_timestamp=None,
+                    metadata_json={"broker_position_id": broker_order_id, "trade_id": trade_id or ""}
+                )
+                await db.merge(new_trade)
+                await db.commit()
+                logger.info(f"[Auto-Sync] ✅ Trade {trade_uuid} saved to DB for position {broker_order_id}")
+        except Exception as e:
+            logger.warning(f"[Auto-Sync] Failed to save trade to DB: {e}")
 
     async def get_open_trades(self) -> List[Dict[str, Any]]:
         await self.client.connect()
