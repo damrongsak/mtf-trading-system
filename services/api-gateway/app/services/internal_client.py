@@ -119,8 +119,10 @@ class ExecutionClient:
             logger.error(f"Failed to get account summary: {e}")
             raise
 
-    async def place_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def place_order(self, order_data: Dict[str, Any], broker_account_id: Optional[str] = None) -> Dict[str, Any]:
         try:
+            if broker_account_id:
+                order_data["broker_account_id"] = str(broker_account_id)
             resp = await self._request("POST", "/orders", json=order_data)
             return resp.json().get("data", {})
         except Exception as e:
@@ -145,7 +147,7 @@ class ExecutionClient:
 
     async def close_trade(self, trade_id: str, broker_account_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         try:
-            payload = {"broker_account_id": str(broker_account_id)}
+            payload = {"broker_account_id": str(broker_account_id), "broker_trade_id": str(trade_id)}
             if units is not None:
                 payload["units"] = units
             resp = await self._request("POST", "/trades/close", json=payload)
@@ -187,6 +189,23 @@ class ExecutionClient:
             return resp.json().get("data", {})
         except Exception as e:
             logger.error(f"Failed to close all trades: {e}")
+            raise
+
+    async def amend_order(self, order_id: str, broker_account_id: str, units: Optional[float] = None, price: Optional[float] = None, sl_price: Optional[float] = None, tp_price: Optional[float] = None) -> Dict[str, Any]:
+        try:
+            payload = {
+                "broker_account_id": str(broker_account_id),
+                "units": units,
+                "price": price,
+                "sl_price": sl_price,
+                "tp_price": tp_price
+            }
+            # Remove None values
+            payload = {k: v for k, v in payload.items() if v is not None}
+            resp = await self._request("PUT", f"/orders/{order_id}", json=payload)
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to amend order: {e}")
             raise
 
     async def get_open_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:

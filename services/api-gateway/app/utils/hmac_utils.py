@@ -4,7 +4,9 @@ import time
 import logging
 from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.utils.hmac_utils")
+# Ensure logs are visible in docker
+logging.basicConfig(level=logging.INFO)
 
 class HMACSigner:
     """
@@ -40,7 +42,13 @@ class HMACSigner:
             return False
 
         # 2. Re-generate and Compare
+        payload = f"{timestamp}{method.upper()}{path}{body}"
         expected = HMACSigner.generate_signature(secret, timestamp, method, path, body)
-        return hmac.compare_digest(expected, signature)
+        
+        is_match = hmac.compare_digest(expected, signature)
+        if not is_match:
+            logger.info(f"HMAC Verification mismatch (Retry possible). Path: {path}")
+        
+        return is_match
 
 hmac_signer = HMACSigner()

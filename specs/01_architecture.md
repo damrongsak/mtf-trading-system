@@ -60,8 +60,8 @@ The system is organized into five decoupled layers of responsibility:
 - **New Features**:
     - **Foundry UI**: Drag-and-drop strategy builder.
     - **Risk Validation**: Multi-layer filters (Sequential + Parallel) for Rule Consistency.
-    - **HFT-lite Layer**: High-performance execution core with sub-100ms targets.
-    - **State Awareness**: Replaces direct DB hits with Event-Carried State Transfer (ECST) via Redis/Memory.
+    - **HFT-lite Layer**: High-performance execution core with sub-50ms round-trip targets.
+    - **State Awareness**: Replaces direct DB hits with Event-Carried State Transfer (ECST) and Multi-Tiered Caching (Redis + In-Memory + Adapter-specific).
 
 ### Layer 5: Data (In-Situ & Stream)
 - **Shared Memory Cache (L1)**: In-process caching for hot account/fund state.
@@ -117,6 +117,191 @@ The system is organized into five decoupled layers of responsibility:
     - **Hook System**: Event-driven hooks (`on_market_data`, `filter_signal`) for modifying system behavior.
     - **Registry**: Database-backed plugin management (`plugins`, `user_plugins`).
     - **Sandboxing**: Isolated execution for 3rd party logic (Planned).
+
+## 4.7. Performance Optimization (HFT-lite)
+To achieve sub-50ms round-trip latency for external clients, the system utilizes a **Tiered Caching Strategy**:
+
+1.  **L1 Gateway Cache (In-Memory)**: API Keys, Session States, and Auth signatures are cached in-process within the `api-gateway` (300s TTL).
+2.  **L2 Service Cache (Redis)**: Shared state like `BrokerAccount` metadata and `Credentials` are cached in Redis for fast cross-service resolution.
+3.  **L3 Adapter Cache (In-Memory)**: `Execution Service` adapters (e.g., cTrader) maintain a pre-hydrated Symbol/Contract ID map to eliminate DB lookups during order execution.
+4.  **HFT-lite Execution Path**:
+    - **Bypass DB**: Execution commands (`execute`, `cancel`, `amend`, `close`) use tiered caches instead of direct DB queries.
+    - **Non-blocking Persistence**: Trade journaling is performed via background tasks to ensure minimal WebSocket response latency.
+
+## 4.8. Safety Guardrails (Sprint F)
+
+Because the system operates on a **live account with real capital**, every mutation command (`execute`, `amend`, `close`) passes through three layers of safety checks before reaching the broker:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway as API Gateway
+    participant Redis
+    participant Execution as Execution Service
+    participant Broker as cTrader
+
+    Client->>Gateway: WS cmd {id, cmd, params}
+    Gateway->>Redis: SETNX ws:idem:{api_key}:{cmd_id} TTL=60s
+    Redis-->>Gateway: OK (new) / FAIL (duplicate)
+    alt Duplicate
+        Gateway-->>Client: {status: duplicate, error: Duplicate command ID}
+    else New
+        Gateway->>Execution: HTTP PUT/POST with params
+        Execution->>Execution: Pre-trade Risk Check (SL direction, margin)
+        alt Risk Check Failed
+            Execution-->>Gateway: HTTP 422 + error detail
+            Gateway-->>Client: {status: error, error: Risk check failed}
+        else Risk Check Passed
+            Execution->>Broker: cTrader API call
+            Broker-->>Execution: Confirmation
+            Execution-->>Gateway: 200 OK
+            Gateway-->>Client: {status: success, data: ...}
+        end
+    end
+```
+
+### Layer 1: Idempotency Guard (API Gateway)
+- **Mechanism**: Redis `SETNX` with 60-second TTL keyed on `{api_key}:{client_cmd_id}`.
+- **Prevents**: Duplicate WS sends (network retry, client bug, or malicious double-spend).
+- **Client obligation**: Every `execute`, `amend`, `close` command **must** include a unique `id` field.
+
+### Layer 2: HMAC Replay Attack Window (API Gateway)
+- **Mechanism**: Timestamp must be within ±30 seconds of server time.
+- **Prevents**: Intercepted tokens being replayed after capture.
+- **Implementation**: `hmac_utils.py` — already enforced.
+
+### Layer 3: Pre-trade Risk Validation (Execution Service)
+- **For `amend`**: Validates that the new SL/TP prices are directionally correct (SL below entry for LONG, above for SHORT) and that any size increase is within available margin.
+- **For `close`**: Validates that the position exists before attempting close (mapped to `ValueError` → HTTP 404).
+- **Error codes**: `422 Unprocessable Entity` for invalid parameters, `404 Not Found` for missing resources.
+
+## 4.9. Performance & Reliability (Sprint G)
+
+Production-grade WebSocket reliability features, modeled on institutional trading systems (FIX Protocol, Netflix Hystrix, Jane Street).
+
+### G1: WebSocket Heartbeat / Keepalive
+
+**Problem**: Silent disconnect — client sends orders thinking it's connected, but messages are dropped.
+
+**Mechanism** (FIX Protocol Heartbeat):
+- Server sends `{"type": "ping", "ts": <epoch>}` every **30 seconds**
+- Client must respond with `{"type": "pong", "ts": <echo>}` within **10 seconds**
+- Missing pong → `WebSocket.close(code=1001)` + cleanup + log
+
+**Implementation**:
+- `_heartbeat_loop(websocket, interval=30, timeout=10)` co-routine runs concurrently with the command loop
+- Uses `asyncio.gather()` for concurrent heartbeat + recv
+
+---
+
+### G2: Circuit Breaker for Execution Service
+
+**Problem**: Execution Service down → every WS command blocks for 20-30s timeout → WS loop crash.
+
+**States** (Hystrix pattern):
+
+```
+CLOSED → (5 consecutive failures) → OPEN → (30s recovery) → HALF-OPEN → (1 probe success) → CLOSED
+```
+
+| State | Behavior | Recovery |
+|---|---|---|
+| CLOSED | Normal routing to Execution | — |
+| OPEN | Instant reject: `{"status": "service_unavailable"}` | Wait 30s then probe |
+| HALF-OPEN | Send 1 probe request | Success → CLOSED, Fail → OPEN |
+
+**Implementation**: `CircuitBreaker` class in `utils/circuit_breaker.py`, wrapping all `ExecutionClient` calls.
+
+---
+
+### G3: Redis Command Queue (Async RPC)
+
+**Problem**: Every WS mutation is a synchronous HTTP call (~20-50ms) — WS loop blocks on execution spikes.
+
+**Mechanism** (Jane Street Fire-and-forget + callback):
+1. WS receive `execute`/`amend`/`close` command
+2. Push to Redis Stream `execution:cmd:{account_id}` → return `{"status": "queued", "trace_id": "..."}` in < 2ms
+3. Execution Service worker consumes stream → processes → publishes to `execution:result:{trace_id}`
+4. Client polls with `{"cmd": "poll", "trace_id": "..."}` or receives push callback
+
+> **Note**: Read commands (`get_account`, `get_orders`, `get_trades`) remain synchronous.
+
+**New files**:
+- `services/api-gateway/app/services/execution_queue.py` — enqueue + poll helpers
+- `{"cmd": "poll"}` command handler in `external.py`
+
+---
+
+### G4: Structured Logging (trace_id / post-trade audit)
+
+**Problem**: Plain text logs — impossible to correlate a specific order across service boundaries.
+
+**Mechanism** (Virtu Financial style):
+- Every WS command receives a `trace_id` (client-supplied `id` or server-generated UUID)
+- JSON log line emitted before and after every command: `{"ts", "trace_id", "cmd", "api_key", "status", "latency_ms"}`
+- `trace_id` included in every response to client
+
+**Implementation**: `StructuredLogger` in `utils/structured_logger.py` using Python `logging` with `JSONFormatter`.
+
+---
+
+### G5: Client-side Reconnection SDK
+
+**Problem**: Network disruption → client must implement reconnect logic manually (complex, often buggy).
+
+**Mechanism** (Bloomberg API style) — Python Reference Client at `tools/ws_client/`:
+- Auto-reconnect with **exponential backoff**: 1s → 2s → 4s → 8s → max 30s
+- Re-authenticate (HMAC) on reconnect automatically
+- **Command queue**: buffer unsent commands during disconnect, replay on reconnect
+- Callbacks: `on_disconnect(reason)`, `on_reconnect(attempt)`, `on_message(data)`
+
+---
+
+## 4.10. Production Hardening (Sprint H)
+
+Institutional-grade production controls, modeled on Interactive Brokers order management and FIX Protocol ExecutionReport.
+
+### H1: Per-Command Rate Limiting (Tiered)
+
+**Problem**: Current global 10 rps limit — `get_account` flood can consume all quota, blocking `execute` commands.
+
+**Mechanism** (Interactive Brokers category-based limits):
+
+| Category | Commands | Limit | Rationale |
+|---|---|---|---|
+| `TRADE` | `execute`, `amend`, `close` | 5 rps | Prevents accidental order flood |
+| `MANAGE` | `cancel` | 20 rps | Cancel must be fast; typically low volume |
+| `READ` | `get_account`, `get_orders`, `get_trades` | 50 rps | Safe for UI polling |
+
+**Mechanism**: Redis Sliding Window Counter keyed on `rate:{api_key}:{category}` with 1-second TTL.
+- Rejected response: `{"status": "rate_limited", "retry_after": 1, "category": "TRADE"}`
+- **Implementation**: `utils/rate_limiter.py` → `CommandRateLimiter.check(api_key, cmd)`
+
+---
+
+### H2: Order Confirmation Callback (PENDING → FILLED)
+
+**Problem**: WS `execute` sends one response then ends. Client has no idea if the order actually filled.
+
+**Mechanism** (FIX Protocol ExecutionReport — 2-phase response):
+
+```
+Phase 1 — Immediate (< 50ms):    {"type": "execution", "status": "PENDING", "trace_id": "..."}
+Phase 2 — Async broker confirm:  {"type": "fill",      "status": "FILLED",  "trace_id": "...", "fill_price": ..., "fill_time": ...}
+```
+
+**Flow**:
+1. API Gateway receives `execute` → routes to Execution Service
+2. Execution Service sends to cTrader → immediately returns `PENDING` to Gateway
+3. cTrader position update callback received by `ctrader.py`
+4. Execution Service publishes to Redis `execution:fills:{account_id}` (TTL 300s)
+5. API Gateway `_fill_subscriber_loop()` reads Redis → pushes `fill` event to WS client
+
+**New files**:
+- `services/execution/app/services/fill_publisher.py` — Redis LPUSH fill events
+- `_fill_subscriber_loop()` co-routine in `external.py` — 3rd goroutine in `asyncio.gather()`
+
+---
 
 ## 5. Data Flow
 

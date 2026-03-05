@@ -686,13 +686,13 @@ entities:
         type: decimal
         precision: 18
         scale: 8
-        required: true
+        nullable: true
         description: "Stop loss price"
       - name: tp_price
         type: decimal
         precision: 18
         scale: 8
-        required: true
+        nullable: true
         description: "Take profit price"
       - name: lot_size
         type: decimal

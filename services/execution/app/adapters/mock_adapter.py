@@ -31,10 +31,12 @@ class MockAdapter(BrokerAdapter):
     async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
-                           trade_id: Optional[str] = None) -> Dict[str, Any]:
+                           trade_id: Optional[str] = None,
+                           comment: Optional[str] = None,
+                           tag: Optional[str] = None) -> Dict[str, Any]:
         
         mock_id = str(uuid.uuid4())
-        price = self.get_current_price(symbol)
+        price = await self.get_current_price(symbol)
         
         return {
             "orderFillTransaction": {
@@ -54,7 +56,9 @@ class MockAdapter(BrokerAdapter):
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
-                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+                          trade_id: Optional[str] = None,
+                          comment: Optional[str] = None,
+                          tag: Optional[str] = None) -> Dict[str, Any]:
         mock_id = str(uuid.uuid4())
         return {
             "orderCreateTransaction": {

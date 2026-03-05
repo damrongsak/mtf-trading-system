@@ -799,6 +799,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_LibraryResults'
 
+  # --- External WebSocket Command Channel (HFT) ---
+  /api/v1/external/ws/command:
+    get:
+      summary: WebSocket for High-Frequency Trading Commands
+      description: |
+        Low-latency WebSocket connection for executing trading commands.
+        Supports: execute, cancel, close, amend, get_orders, get_trades, get_account
+        
+        **Authentication:** HMAC-SHA256 via query parameters (same as REST)
+        **URL:** wss://{host}/api/v1/external/ws/command
+      tags: [External]
+      parameters:
+        - name: api_key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Partner API Key
+        - name: signature
+          in: query
+          required: true
+          schema:
+            type: string
+          description: HMAC-SHA256 signature
+        - name: timestamp
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unix timestamp for signature
+        - name: commands
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated commands to subscribe
+      responses:
+        '101':
+          description: Switching Protocols to WebSocket
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate Limit Exceeded
+
+
   /api/v1/ai/chat/sessions/{session_id}/messages:
     get:
       summary: Get messages for a session

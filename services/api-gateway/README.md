@@ -54,6 +54,14 @@ graph TD
     - **Global Kill Switch** (`/halt`, `/resume`).
     - **Persistent Connection Pooling**: Shared `httpx` sessions to eliminate TCP/SSL handshake overhead (HFT-lite).
     - **Transient Retry Logic**: Automatic retries for `ConnectionResetError` and network jitter.
+- **Production-Grade WebSocket Channel** (Sprint G — implemented):
+    - **[G1] Heartbeat**: FIX Protocol-style ping/pong every 30s. Missing pong → auto close (code 1001).
+    - **[G2] Circuit Breaker**: Hystrix-pattern CLOSED/OPEN/HALF-OPEN state machine. 5 failures → instant reject. 30s recovery probe.
+    - **[G4] Structured Logging**: JSON audit log per command with `trace_id`, `latency_ms`, truncated `api_key`.
+    - **[G5] Reconnect SDK**: Reference client at `tools/ws_client/mtf_ws_client.py` (exponential backoff, buffer, pong).
+- **🔜 Sprint H — Production Hardening** (planned):
+    - **[H1] Per-Command Rate Limiting**: Redis sliding window, tiered by category (TRADE: 5 rps, MANAGE: 20 rps, READ: 50 rps).
+    - **[H2] Order Confirmation Callback**: 2-phase WS push — PENDING (immediate) + FILLED (async broker confirmation).
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -75,10 +83,18 @@ To navigate or modify the Gateway behavior, follow this priority path:
 | **Connection Reset** | Transient network or peer closure | Gateway now auto-retries; check service- `GET /api/v1/health`: Basic availability check. |
 | **Database Lock Wait** | Large historical trade imports | Optimize `repositories/` queries or check PG session limits. |
 
-## 🔐 3rd Party Integration
+### 🔐 3rd Party Integration (HFT-lite)
 For external consumers, use the dedicated `/api/v1/external` router.
+- **WebSocket Channel**: High-speed command stream at `/ws/command`.
+    - **Commands**: `execute`, `cancel`, `amend`, `close`, `get_account`, `get_orders`, `get_trades`.
+    - **Heartbeat**: Server sends `{"type":"ping"}` every 30s — client must respond `{"type":"pong"}` within 10s.
+    - **Circuit Breaker**: When Execution Service is down, commands return `{"status":"service_unavailable"}` instantly.
+    - **Trace ID**: Every response includes `"trace_id"` for post-trade audit correlation.
+    - **Rate Limits** (Sprint H, planned): TRADE 5 rps, CANCEL 20 rps, READ 50 rps — per `api_key`.
+    - **Fill Callbacks** (Sprint H, planned): `execute` will emit 2 events — `PENDING` (immediate) + `FILLED` (async).
 - **Security**: Requires HMAC-SHA256 signing.
 - **Docs**: See **[specs/05_external_auth.md](../../specs/05_external_auth.md)** for signing instructions and examples.
+- **SDK**: See **[tools/ws_client/mtf_ws_client.py](../../tools/ws_client/mtf_ws_client.py)** for Python reference client.
 
 ### Management Commands
 ```bash

@@ -39,7 +39,9 @@ class OandaOrderAdapter(BrokerAdapter):
     async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
-                           trade_id: Optional[str] = None) -> Dict[str, Any]:
+                           trade_id: Optional[str] = None,
+                           comment: Optional[str] = None,
+                           tag: Optional[str] = None) -> Dict[str, Any]:
         """
         Place a Market Order with optional SL/TP and Client Tags.
         """
@@ -80,8 +82,8 @@ class OandaOrderAdapter(BrokerAdapter):
         if trade_id:
             client_ext = {
                 "id": trade_id,
-                "tag": "MTF_AUTO",
-                "comment": "Automated entry via Execution Service"
+                "tag": tag if tag else "MTF_AUTO",
+                "comment": comment if comment else "Automated entry via Execution Service"
             }
             order_body["order"]["clientExtensions"] = client_ext
 
@@ -98,7 +100,9 @@ class OandaOrderAdapter(BrokerAdapter):
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
-                          trade_id: Optional[str] = None) -> Dict[str, Any]:
+                          trade_id: Optional[str] = None,
+                          comment: Optional[str] = None,
+                          tag: Optional[str] = None) -> Dict[str, Any]:
         """
         Place a Limit Order with optional SL/TP.
         """
@@ -135,8 +139,8 @@ class OandaOrderAdapter(BrokerAdapter):
         if trade_id:
             order_body["order"]["clientExtensions"] = {
                 "id": trade_id,
-                "tag": "MTF_LIMIT",
-                "comment": "Limit Order via MTF"
+                "tag": tag if tag else "MTF_LIMIT",
+                "comment": comment if comment else "Limit Order via MTF"
             }
 
         try:

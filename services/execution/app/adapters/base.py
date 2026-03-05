@@ -23,7 +23,8 @@ class BrokerAdapter(ABC):
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
-                           comment: Optional[str] = None) -> Dict[str, Any]:
+                           comment: Optional[str] = None,
+                           tag: Optional[str] = None) -> Dict[str, Any]:
         """Place a market execution order."""
         pass
 
@@ -33,7 +34,8 @@ class BrokerAdapter(ABC):
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
-                          comment: Optional[str] = None) -> Dict[str, Any]:
+                          comment: Optional[str] = None,
+                          tag: Optional[str] = None) -> Dict[str, Any]:
         """Place a limit order."""
         pass
 

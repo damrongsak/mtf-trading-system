@@ -16,11 +16,13 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from app.models import BrokerAccount, Fund, Trade, TradeStatus, TradeDirection
+from app.utils.crypto import decrypt_data
 from sqlalchemy import desc, func
 import uuid
 import math
 from oandapyV20.exceptions import V20Error
 from app.services.order_service import OrderService
+from app.services.cache_service import execution_cache
 from app.worker import worker
 from app.health import verify_dependencies
 from app.core.scheduler import scheduler
@@ -74,6 +76,52 @@ async def startup_event():
         
     except Exception as e:
         logger.error(f"❌ Equity Guardian Init Failed: {e}")
+    
+    # [HFT-lite] Pre-hydrate L3 Symbol Cache for all CTRADER accounts (READ-ONLY, non-destructive)
+    # This eliminates the cold-start latency on the first live trade command.
+    # It runs in a background task so it does not block service readiness.
+    asyncio.create_task(_warmup_symbol_cache())
+
+async def _warmup_symbol_cache():
+    """
+    [SAFETY] Read-only warm-up of the L3 Symbol/Contract ID cache.
+    This queries the database for cTrader symbol metadata and pre-populates
+    the adapter's in-memory cache. It does NOT connect to any live broker
+    and does NOT execute any trades. It is safe to run at startup.
+    """
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models import BrokerAccount
+        from sqlalchemy import select
+        from app.adapters.factory import BrokerFactory
+        from app.utils.crypto import decrypt_data
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(BrokerAccount).where(
+                    BrokerAccount.is_active == True,
+                    BrokerAccount.broker_name == "CTRADER"
+                )
+            )
+            accounts = result.scalars().all()
+        
+        if not accounts:
+            logger.info("[HFT-lite] No active cTrader accounts found for cache warm-up.")
+            return
+        
+        # Use credentials from the first account to populate the shared symbol table
+        # (Symbol metadata is not account-specific, so one account is sufficient)
+        account = accounts[0]
+        try:
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+            adapter = BrokerFactory.get_adapter("CTRADER", credentials)
+            await adapter._populate_symbol_cache()
+            logger.info(f"[HFT-lite] ✅ L3 Symbol Cache warm-up complete for {len(accounts)} cTrader account(s).")
+        except Exception as e:
+            logger.warning(f"[HFT-lite] ⚠️ Symbol Cache warm-up failed (non-fatal): {e}")
+    except Exception as e:
+        logger.warning(f"[HFT-lite] ⚠️ Symbol Cache warm-up task failed (non-fatal): {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -122,6 +170,7 @@ class OrderRequest(BaseModel):
     tp_price: Optional[float] = None
     trade_id: Optional[str] = None
     comment: Optional[str] = None
+    tag: Optional[str] = None
 
 class GetTradesRequest(BaseModel):
     broker_account_id: str
@@ -148,28 +197,62 @@ class OrderResponse(BaseModel):
     time: str
     status: str = Field("PENDING", description="PENDING, FILLED, CANCELLED, REJECTED")
 
+async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
+    """Helper to resolve account and credentials with caching."""
+    try:
+        account_uuid = uuid.UUID(account_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+    # 1. Try Cache
+    account_data = await execution_cache.get_account(account_id_str)
+    credentials = await execution_cache.get_credentials(account_id_str)
+
+    if account_data and credentials:
+        # Mock account object for compatibility
+        account = type('obj', (object,), account_data)
+        return account, credentials
+
+    # 2. Fallback to DB
+    result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
+    account = result.scalars().first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Broker Account not found")
+    
+    if not account.is_active:
+        raise HTTPException(status_code=400, detail="Broker Account is inactive")
+
+    # Decrypt and Cache
+    try:
+        if not credentials:
+# Credentials resolved from cache or decrypted
+            credentials = decrypt_data(account.credentials_encrypted)
+            credentials["environment"] = account.environment
+            execution_cache.set_credentials(account_id_str, credentials)
+        
+        if not account_data:
+            account_data = {
+                "id": str(account.id),
+                "is_active": account.is_active,
+                "broker_name": account.broker_name,
+                "credentials_encrypted": account.credentials_encrypted,
+                "environment": account.environment,
+                "fund_id": str(account.fund_id) if account.fund_id else None,
+                "risk_settings": account.risk_settings,
+                "account_number": account.account_number
+            }
+            await execution_cache.set_account(account_id_str, account_data)
+            account = type('obj', (object,), account_data)
+
+        return account, credentials
+    except Exception as e:
+        logger.error(f"Failed to resolve credentials: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve broker credentials")
+
 @app.post("/account/summary", response_model=APIResponse[AccountSummaryResponse])
 async def get_account_summary(authenticated: str = Depends(verify_internal_api_key), req: AccountSummaryRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-        if not account.is_active:
-             raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            # Inject environment from model
-            credentials["environment"] = account.environment
-        except Exception:
-            raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         data = await adapter.get_account_summary()
         return success_response(data=data)
@@ -182,25 +265,7 @@ async def get_account_summary(authenticated: str = Depends(verify_internal_api_k
 @app.post("/orders", response_model=APIResponse[OrderResponse], status_code=201)
 async def place_order(authenticated: str = Depends(verify_internal_api_key), req: OrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-        if not account.is_active:
-             raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            # Inject environment from model
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-        
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # [Latency] HFT-Lite: If cTrader, try to warm up connection
@@ -215,7 +280,8 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
                 trade_id=req.trade_id,
-                comment=req.comment
+                comment=req.comment,
+                tag=req.tag
             )
         elif req.order_type == "LIMIT":
             if not req.price:
@@ -226,7 +292,8 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 entry_price=req.price,
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
-                comment=req.comment
+                comment=req.comment,
+                tag=req.tag
             )
         elif req.order_type == "STOP":
              if not req.price:
@@ -237,7 +304,8 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 entry_price=req.price,
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
-                comment=req.comment
+                comment=req.comment,
+                tag=req.tag
             )
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
@@ -278,22 +346,7 @@ async def get_pending_orders_list(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        try:
-            account_uuid = uuid.UUID(broker_account_id)
-        except ValueError:
-             raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-        
+        account, credentials = await get_account_and_credentials(broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         try:
@@ -340,22 +393,7 @@ async def cancel_pending_orders(
     Optional filter by symbol.
     """
     try:
-        try:
-            account_uuid = uuid.UUID(broker_account_id)
-        except ValueError:
-             raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-        
+        account, credentials = await get_account_and_credentials(broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # 1. Fetch Pending Orders
@@ -397,25 +435,7 @@ async def cancel_pending_orders(
 @app.post("/trades/open")
 async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-        if not account.is_active:
-             raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            # Inject environment from model
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         trades = await adapter.get_open_trades()
         return success_response(data=trades)
@@ -426,25 +446,7 @@ async def get_open_trades(req: GetTradesRequest, db: AsyncSession = Depends(get_
 @app.post("/trades/close")
 async def close_trade(authenticated: str = Depends(verify_internal_api_key), req: CloseTradeRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-        if not account.is_active:
-             raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            # Inject environment from model
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         result = await adapter.close_trade(req.broker_trade_id, req.units)
         return success_response(data=result)
@@ -522,24 +524,7 @@ async def sync_trades(authenticated: str = Depends(verify_internal_api_key), req
     Uses deterministic UUIDs based on AccountID + BrokerTradeID to prevent duplicates.
     """
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-        if not account.is_active:
-             raise HTTPException(status_code=400, detail="Broker Account is inactive")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # Calculate Range
@@ -621,9 +606,7 @@ class SmartOrderRequest(BaseModel):
     atr_multiplier: Optional[float] = Field(1.0, description="Volatility regime multiplier (1.0=Normal)")
     pain_threshold: Optional[float] = Field(50.0, description="Max allowed psychological regret in USD")
 
-from app.utils.crypto import decrypt_data
-
-# ... imports ...
+# Security utils
 
 @app.get("/accounts")
 async def get_accounts(db: AsyncSession = Depends(get_db)):
@@ -679,22 +662,7 @@ class AmendPositionRequest(BaseModel):
 @app.delete("/orders/{order_id}")
 async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
-        try:
-            account_uuid = uuid.UUID(broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         if hasattr(adapter, 'cancel_order'):
@@ -713,14 +681,7 @@ async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession =
 @app.put("/orders/{order_id}")
 async def amend_order(authenticated: str = Depends(verify_internal_api_key), order_id: str = Path(...), req: AmendOrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
-        account_uuid = uuid.UUID(req.broker_account_id)
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-
-        credentials = decrypt_data(account.credentials_encrypted)
-        credentials["environment"] = account.environment
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         if hasattr(adapter, 'amend_order'):
@@ -739,20 +700,18 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
         logger.warning(f"Order not found for amendment: {order_id}")
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
+        # [SAFETY] Check if this is a Risk Validation error (422) from the adapter
+        from app.adapters.ctrader import RiskValidationError
+        if isinstance(e, RiskValidationError):
+            logger.warning(f"[SAFETY] Pre-trade risk check failed for amend order {order_id}: {e}")
+            raise HTTPException(status_code=422, detail=f"Risk validation failed: {str(e)}")
         logger.error(f"Amend Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/positions/{position_id}")
 async def amend_position(authenticated: str = Depends(verify_internal_api_key), position_id: str = Path(...), req: AmendPositionRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
-        account_uuid = uuid.UUID(req.broker_account_id)
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-            raise HTTPException(status_code=404, detail="Broker Account not found")
-
-        credentials = decrypt_data(account.credentials_encrypted)
-        credentials["environment"] = account.environment
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         if hasattr(adapter, 'amend_position'):
@@ -779,22 +738,7 @@ class CloseAllTradesRequest(BaseModel):
 @app.post("/trades/close-all")
 async def close_all_trades(req: CloseAllTradesRequest, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
     try:
-        try:
-            account_uuid = uuid.UUID(req.broker_account_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid UUID format")
-
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-        account = result.scalars().first()
-        if not account:
-             raise HTTPException(status_code=404, detail="Broker Account not found")
-        
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-        except Exception:
-             raise HTTPException(status_code=500, detail="Failed to retrieve credentials")
-
+        account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         open_trades = await adapter.get_open_trades()

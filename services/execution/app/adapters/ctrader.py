@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from functools import lru_cache
@@ -13,6 +14,21 @@ logger = logging.getLogger(__name__)
 from app.database import AsyncSessionLocal
 from app.models import MarketSymbol, DataSource
 from sqlalchemy import select, or_
+import asyncio  # for asyncio.create_task in fire-and-forget publish
+
+class RiskValidationError(Exception):
+    """
+    [SAFETY] Raised when a pre-trade risk check fails.
+    Distinct from ValueError (which maps to HTTP 404 - Not Found).
+    This exception maps to HTTP 422 Unprocessable Entity.
+    
+    Examples:
+    - SL price is on the wrong side of the entry price
+    - TP price is on the wrong side of the entry price
+    - Requested volume would exceed available margin
+    """
+    pass
+
 
 class CTraderOrderAdapter(BrokerAdapter):
     def __init__(self, client_id: str, client_secret: str, account_id: str, token: str, host: str = "demo.ctraderapi.com"):
@@ -28,6 +44,8 @@ class CTraderOrderAdapter(BrokerAdapter):
         self.client_secret = client_secret
         self.account_id = int(account_id)
         self.token = token
+        # Symbol cache for fast lookup
+        self._symbol_cache: Dict[str, tuple] = {}
         # Use Connection Manager to get a persistent client
         self.client = CTraderConnectionManager.get_client(self.host, self.port, str(self.account_id))
 
@@ -63,6 +81,38 @@ class CTraderOrderAdapter(BrokerAdapter):
              logger.error(f"cTrader Account Summary Error: {e}")
              raise e
 
+    async def _populate_symbol_cache(self):
+        """Pre-hydrate symbol cache from database for HFT-lite performance."""
+        try:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
+                )
+                all_syms = result.scalars().all()
+                for ms in all_syms:
+                    if ms.details and ("symbolId" in ms.details or "ctrader_symbol_id" in ms.details):
+                        symbol_id = None
+                        if "symbolId" in ms.details:
+                            symbol_id = int(ms.details["symbolId"])
+                        elif "ctrader_symbol_id" in ms.details:
+                            symbol_id = int(ms.details["ctrader_symbol_id"])
+                        
+                        if symbol_id is not None:
+                            lot_size = int(ms.details.get("lotSize", 10000000))
+                            # Cache forward mapping (Name -> ID, LotSize)
+                            self._symbol_cache[ms.symbol] = (symbol_id, lot_size)
+                            # Cache reverse mapping (ID -> Name, LotSize)
+                            self._symbol_cache[f"ID_{symbol_id}"] = (ms.symbol, lot_size)
+                            
+                            # Cache normalized name too
+                            normalized = ms.symbol.replace("_", "").replace("/", "").upper()
+                            if normalized != ms.symbol:
+                                self._symbol_cache[normalized] = (symbol_id, lot_size)
+                
+                logger.info(f"cTrader: Pre-hydrated {len(all_syms)} symbols into L3 cache.")
+        except Exception as e:
+            logger.error(f"cTrader: Failed to pre-hydrate symbol cache: {e}")
+
     def _resolve_symbol_from_cache(self, symbol_name: str) -> Optional[tuple[int, int]]:
         normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
         search_names = {symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name}
@@ -70,6 +120,13 @@ class CTraderOrderAdapter(BrokerAdapter):
             if name in self._symbol_cache:
                 return self._symbol_cache[name]
         return None
+
+    def _resolve_name_from_id_cache(self, symbol_id: int) -> tuple[str, int]:
+        """Returns (symbol_name, lot_size_cents) from cache."""
+        cached = self._symbol_cache.get(f"ID_{symbol_id}")
+        if cached:
+            return cached
+        return (f"Unknown_{symbol_id}", 10000000)
 
     async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int]:
         """
@@ -81,58 +138,20 @@ class CTraderOrderAdapter(BrokerAdapter):
         if cached:
             return cached
 
-        async with AsyncSessionLocal() as db:
-            # Normalize requested symbol
-            normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
+        # If not in cache, try one-time populate then re-check
+        await self._populate_symbol_cache()
+        cached = self._resolve_symbol_from_cache(symbol_name)
+        if cached:
+            return cached
             
-            # 1. Try exact match, underscore match, and slashed match
-            search_names = [symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name]
-            # Remove duplicates
-            search_names = list(set(search_names))
-            
-            result = await db.execute(select(MarketSymbol).join(DataSource).where(
-                MarketSymbol.symbol.in_(search_names),
-                DataSource.provider == 'CTRADER'
-            ))
-            ms = result.scalars().first()
-            
-            if not ms:
-                # 2. Try partial match if still not found
-                result = await db.execute(select(MarketSymbol).join(DataSource).where(
-                    or_(
-                        MarketSymbol.symbol.like(f"%{normalized_name}%"),
-                        MarketSymbol.symbol.like(f"%{symbol_name}%")
-                    ),
-                    DataSource.provider == 'CTRADER'
-                ))
-                ms = result.scalars().first()
-            
-            if ms and ms.details:
-                details = ms.details
-                symbol_id = None
-                if "symbolId" in details:
-                    symbol_id = int(details["symbolId"])
-                elif "raw" in details and "symbolId" in details["raw"]:
-                    symbol_id = int(details["raw"]["symbolId"])
-                elif "ctrader_symbol_id" in details:
-                    symbol_id = int(details["ctrader_symbol_id"])
-                
-                lot_size_cents = int(details.get("lotSize", 10000000))
-                
-                if symbol_id is not None:
-                    # Update cache
-                    self._symbol_cache[symbol_name] = (symbol_id, lot_size_cents)
-                    if normalized_name != symbol_name:
-                        self._symbol_cache[normalized_name] = (symbol_id, lot_size_cents)
-                    return symbol_id, lot_size_cents
-            
-            raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
+        raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
 
     async def place_market_order(self, symbol: str, units: float, 
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
-                           comment: Optional[str] = None) -> Dict[str, Any]:
+                           comment: Optional[str] = None,
+                           tag: Optional[str] = None) -> Dict[str, Any]:
         
         # Diagnostic logging for Unit Sign issue
         logger.info(f"cTrader: Placing market order for {symbol}, units={units}")
@@ -163,11 +182,26 @@ class CTraderOrderAdapter(BrokerAdapter):
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
             
-            # Check for Rejection in ExecutionEvent
+            # [H2] REJECTED — publish fill event so WS client gets callback
             if res.payloadType == ProtoOAExecutionEvent().payloadType:
                  if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
                       error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
                       logger.error(f"cTrader Order REJECTED: {error_code} for {symbol}")
+                      # Fire-and-forget publish (non-blocking, non-fatal)
+                      try:
+                          from app.services.fill_publisher import publish_fill
+                          asyncio.create_task(publish_fill(
+                              account_id=str(self.account_id),
+                              trace_id=trade_id or "",
+                              order_id="",
+                              status="REJECTED",
+                              instrument=symbol,
+                              fill_price=0.0,
+                              fill_volume=units,
+                              reason=str(error_code),
+                          ))
+                      except Exception as pub_err:
+                          logger.warning(f"[H2] Failed to publish REJECTED fill: {pub_err}")
                       raise Exception(f"cTrader Order REJECTED: {error_code}")
                  logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
 
@@ -191,12 +225,30 @@ class CTraderOrderAdapter(BrokerAdapter):
             if not (order_id or position_id):
                  logger.warning(f"cTrader order placed but no ID found in response: {res}")
 
+            fill_price = float(res.deal.executionPrice) if res.HasField("deal") else 0.0
+            broker_order_id = order_id or position_id
+
+            # [H2] FILLED — publish fill event so WS client gets async callback
+            try:
+                from app.services.fill_publisher import publish_fill
+                asyncio.create_task(publish_fill(
+                    account_id=str(self.account_id),
+                    trace_id=trade_id or "",
+                    order_id=broker_order_id,
+                    status="FILLED",
+                    instrument=symbol,
+                    fill_price=fill_price,
+                    fill_volume=units,
+                ))
+            except Exception as pub_err:
+                logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
+
             return {
                 "orderFillTransaction": {
-                    "id": order_id or position_id,
+                    "id": broker_order_id,
                     "instrument": symbol,
                     "units": str(units),
-                    "price": str(res.deal.executionPrice) if res.HasField("deal") else "0",
+                    "price": str(fill_price),
                     "time": datetime.utcnow().isoformat()
                 }
             }
@@ -213,45 +265,12 @@ class CTraderOrderAdapter(BrokerAdapter):
             reconcile = await self.client.get_reconcile(self.account_id)
             trades = []
             
-            # Cache symbols map? Or just return ID?
-            # Frontend needs symbol name "XAU_USD". 
-            # We have ID. We need reverse lookup or pass ID and let frontend handle?
-            # Frontend expects "symbol": "XAU_USD".
-            # Optimization: We assume we can't reverse lookup easily without querying DB for ALL symbols. 
-            # Or we iterate local cache.
-            # For MVP: Return symbol_id as string if lookup fails, or try simple lookup.
-            # Let's allow returning "CT_ID_<id>" and see if frontend breaks? It will breaking charting.
-            # We MUST resolve symbol.
-            # Let's do a quick DB lookup for the IDs found.
-            
-            # Gather IDs
-            position_ids = [p.symbolId for p in reconcile.position]
-            if not position_ids: return []
-            
-            # Bulk lookup
-            symbol_map = {}
-            async with AsyncSessionLocal() as db:
-                # Query all symbols where details->>'symbolId' is in our list
-                # Postgre JSQN query
-                # This is tricky with SQLAlchemy async and JSONB.
-                # Simpler: Fetch all CTRADER symbols and map. MarketSymbol table is small (<1000).
-                # Or Fetch where data_source provider is ctrader.
-                q = select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
-                result = await db.execute(q)
-                all_syms = result.scalars().all()
-                for s in all_syms:
-                    if s.details and 'symbolId' in s.details:
-                        symbol_map[int(s.details['symbolId'])] = s.symbol
+            # Ensure cache is hydrated
+            if not self._symbol_cache:
+                await self._populate_symbol_cache()
 
             for p in reconcile.position:
-                s_name = symbol_map.get(p.symbolId, f"Unknown_{p.symbolId}")
-                # Reverse Normalization: units = (volume_cents / lot_size_cents) * 100,000
-                # We need lot_size_cents for this symbol.
-                # Since we already fetched all symbols, we can find it in all_syms.
-                
-                target_sym = next((s for s in all_syms if s.details and int(s.details.get('symbolId', -1)) == p.symbolId), None)
-                lot_size_cents = int(target_sym.details.get('lotSize', 10000000)) if target_sym else 10000000
-                
+                s_name, lot_size_cents = self._resolve_name_from_id_cache(p.symbolId)
                 norm_units = (p.volume / float(lot_size_cents)) * 100000.0
 
                 trades.append({
@@ -261,8 +280,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "side": "BUY" if p.tradeSide == ProtoOATradeSide.BUY else "SELL",
                     "entry_price": p.price,
                     "current_price": 0.0, # Need spot price...
-                    "pnl": p.grossProfit / 100.0, # Cents to USD, strictly it's moneteray value
-                    # grossProfit is in deposit currency (cents).
+                    "pnl": p.grossProfit / 100.0, # Cents to USD
                 })
             
             return trades
@@ -276,7 +294,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
-                          comment: Optional[str] = None) -> Dict[str, Any]:
+                          comment: Optional[str] = None,
+                          tag: Optional[str] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -372,38 +391,14 @@ class CTraderOrderAdapter(BrokerAdapter):
             
             deals = await self.client.get_deal_list(self.account_id, from_ts, to_ts)
             
-            # Map deals to trades
-            # Need symbol name. Deals have symbolId.
-            # We need to resolve symbol names.
-            # Bulk verify symbols needed
-            deal_symbol_ids = set([d.symbolId for d in deals])
-            symbol_map = {}
-            if deal_symbol_ids:
-                 
-                 async with AsyncSessionLocal() as db:
-                     q = select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
-                     result = await db.execute(q)
-                     all_syms = result.scalars().all()
-                     for s in all_syms:
-                         if s.details and 'symbolId' in s.details:
-                             symbol_map[int(s.details['symbolId'])] = s.symbol
+            # Ensure cache is hydrated
+            if not self._symbol_cache:
+                await self._populate_symbol_cache()
 
             results = []
             for d in deals:
-                # ProtoOADeal: dealId, orderId, positionId, tradeSide, volume, executionPrice, commission, closePositionDetail, etc.
-                # A "Deal" is a transaction (entry or exit).
-                # To reconstruct a "Trade" (Order -> Entry -> Exit), we need to look at Position logic.
-                # But 'deal_list' returns historical deals.
-                # If we want "Closed Trades", we look for closing deals (closePositionDetail != None)?
-                # Or just map deals as transactions.
-                # Our 'Trade' model maps to a full Round Trip usually? 
-                # Or is it individual fills?
-                # The 'Trade' model has 'entry_price', 'exit_price', 'pnl'.
-                # This implies a CLOSED POSITION.
-                # In cTrader, a Closed Position is usually represented by the closing Deal which has PnL.
-                
                 if d.closePositionDetail: # This deal closed a position
-                    s_name = symbol_map.get(d.symbolId, f"Unknown_{d.symbolId}")
+                    s_name, _ = self._resolve_name_from_id_cache(d.symbolId)
                     
                     # Entry price? The closing deal knows the exit price.
                     # The entry price is in 'closePositionDetail.entryPrice'?
@@ -487,6 +482,9 @@ class CTraderOrderAdapter(BrokerAdapter):
             res = await self.client.cancel_order(self.account_id, int(order_id))
             return {"status": "cancelled", "order_id": order_id}
         except Exception as e:
+            if "ORDER_NOT_FOUND" in str(e):
+                logger.warning(f"cTrader Cancel Order: Order {order_id} not found.")
+                raise ValueError(f"Order {order_id} not found")
             logger.error(f"cTrader Cancel Order Error: {e}")
             raise e
 
@@ -504,6 +502,30 @@ class CTraderOrderAdapter(BrokerAdapter):
             target_order = next((o for o in orders if o["id"] == str(order_id)), None)
             if not target_order:
                 raise ValueError(f"Order {order_id} not found to amend")
+            
+            # [SAFETY - Layer 3] Pre-trade Risk Validation: SL/TP direction check
+            entry_price = float(target_order.get("price", 0))
+            side = target_order.get("side", "BUY").upper()
+            
+            if sl_price is not None and entry_price > 0:
+                if side == "BUY" and sl_price >= entry_price:
+                    raise RiskValidationError(
+                        f"Invalid SL for LONG: sl_price={sl_price} must be BELOW entry_price={entry_price}"
+                    )
+                elif side == "SELL" and sl_price <= entry_price:
+                    raise RiskValidationError(
+                        f"Invalid SL for SHORT: sl_price={sl_price} must be ABOVE entry_price={entry_price}"
+                    )
+            
+            if tp_price is not None and entry_price > 0:
+                if side == "BUY" and tp_price <= entry_price:
+                    raise RiskValidationError(
+                        f"Invalid TP for LONG: tp_price={tp_price} must be ABOVE entry_price={entry_price}"
+                    )
+                elif side == "SELL" and tp_price >= entry_price:
+                    raise RiskValidationError(
+                        f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
+                    )
             
             # Resolve lot size for this symbol
             _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
@@ -527,7 +549,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                 tp=tp_price
             )
             return {"status": "amended", "order_id": order_id}
+        except (ValueError, RiskValidationError) as ve:
+            # Re-raise explicit errors (404 Not Found or 422 Risk Violation)
+            raise ve
         except Exception as e:
+            if "ORDER_NOT_FOUND" in str(e):
+                logger.warning(f"cTrader Amend Order: Order {order_id} not found.")
+                raise ValueError(f"Order {order_id} not found")
             logger.error(f"cTrader Amend Order Error: {e}")
             raise e
 
@@ -562,29 +590,12 @@ class CTraderOrderAdapter(BrokerAdapter):
             if not reconcile.order:
                 return []
                 
-            # Collect Symbol IDs
-            symbol_ids = set([o.tradeData.symbolId for o in reconcile.order])
-            
-            # Bulk lookup
-            from app.database import AsyncSessionLocal
-            from app.models import MarketSymbol, DataSource
-            from sqlalchemy import select
-            
-            symbol_map = {}
-            if symbol_ids:
-                async with AsyncSessionLocal() as db:
-                    q = select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
-                    result = await db.execute(q)
-                    all_syms = result.scalars().all()
-                    for s in all_syms:
-                        if s.details and 'symbolId' in s.details:
-                            symbol_map[int(s.details['symbolId'])] = s.symbol
+            # Ensure cache is hydrated
+            if not self._symbol_cache:
+                await self._populate_symbol_cache()
                             
             for o in reconcile.order:
-                s_name = symbol_map.get(o.tradeData.symbolId, f"Unknown_{o.tradeData.symbolId}")
-                
-                target_sym = next((s for s in all_syms if s.details and int(s.details.get('symbolId', -1)) == o.tradeData.symbolId), None)
-                lot_size_cents = int(target_sym.details.get('lotSize', 10000000)) if target_sym else 10000000
+                s_name, lot_size_cents = self._resolve_name_from_id_cache(o.tradeData.symbolId)
                 norm_units = (o.tradeData.volume / float(lot_size_cents)) * 100000.0
 
                 orders.append({

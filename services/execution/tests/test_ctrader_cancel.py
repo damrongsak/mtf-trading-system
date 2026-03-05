@@ -55,7 +55,7 @@ async def test_ctrader_get_pending_orders(mock_session_cls, mock_manager, mock_c
     
     # Mock Result
     mock_symbol = MagicMock()
-    mock_symbol.symbol = "EUR_USD"
+    mock_symbol.symbol = "EURUSD"
     mock_symbol.details = {"symbolId": 1}
     
     mock_result = MagicMock()
@@ -67,6 +67,6 @@ async def test_ctrader_get_pending_orders(mock_session_cls, mock_manager, mock_c
     
     assert len(orders) == 1
     assert orders[0]["id"] == "101"
-    assert orders[0]["instrument"] == "EUR_USD"
+    assert orders[0]["instrument"] == "EURUSD"  # cache returns normalized name
     assert orders[0]["units"] == 1000.0
     assert orders[0]["price"] == 1.0500

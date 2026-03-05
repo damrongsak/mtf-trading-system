@@ -57,8 +57,14 @@ graph TD
 - **Institutional Resilience**: Professional-grade **Circuit Breakers** for broker connections, request **Timeouts** (15-30s), and a **Global Kill Switch** for emergency halts.
 - **HFT-Lite Latency Suite**:
     - **TCP_NODELAY**: Immediate packet transmission (disabled Nagle's).
-    - **In-memory Symbol Cache**: LRU-based metadata caching for sub-millisecond lookup.
+    - **Comprehensive L3 Adapter Cache**: DB-hydrated in-memory symbol and contract mapping for sub-millisecond execution resolution.
     - **Connection Warm-up**: Proactive broker session initialization.
+- **🛡️ Sprint F Safety Guards** (implemented):
+    - **Pre-trade Risk Validation**: SL/TP direction check in `amend_order` — LONG SL must be below entry, SHORT SL above. Violations return HTTP 422.
+    - **`RiskValidationError`**: Custom exception class distinct from `ValueError` (404) to enable correct HTTP status codes.
+    - **15 unit tests** covering all validation paths.
+- **🔜 Sprint H — Production Hardening** (planned):
+    - **[H2] Fill Publisher**: `ctrader.py` will publish FILLED/REJECTED events to Redis `execution:fills:{account_id}` after broker confirms, enabling end-to-end PENDING→FILLED callback to clients.
 
 ## 🤖 AI-Agent Operational Guide
 
