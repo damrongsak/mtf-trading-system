@@ -56,26 +56,20 @@ class CTraderOrderAdapter(BrokerAdapter):
              await self.client.authorize_account(self.account_id, self.token)
              
              trader = await self.client.get_trader(self.account_id)
+             reconcile = await self.client.get_reconcile(self.account_id)
              
              # cTrader sends monetary values in 'cents' (e.g. 10000 = 100.00)
-             # usually dividing by 100 is safe for standard currencies
-             # But ProtoOATrader has 'moneyDigits'? 
-             # For simplicity and standard FX/Gold accounts, usually / 100.
-             # Better: check 'depositAssetId' but we need asset list to know divisor.
-             # For now, standard / 100.
-             
              balance = trader.balance / 100.0
+             
+             # openTradeCount is usually number of positions for cTrader
+             open_count = len(reconcile.position) if hasattr(reconcile, 'position') else 0
              
              return {
                  "balance": str(balance), 
-                 "NAV": str(balance), # Approximate if Equity not directly in basic Trader obj (It is in ProtoOAReconcileRes usually, but Trader has balance usually)
-                 # Actually `trader.balance` is balance. Open PnL is needed for Equity.
-                 # Currently we return Balance as NAV if we can't get full state.
-                 # Let's check if we can get more.
-                 # For now, returning Balance is infinite better than "0".
+                 "NAV": str(balance), 
                  "marginAvailable": str(balance), 
-                 "openTradeCount": 0, 
-                 "openPositionCount": 0
+                 "openTradeCount": open_count, 
+                 "openPositionCount": open_count
              }
         except Exception as e:
              logger.error(f"cTrader Account Summary Error: {e}")
