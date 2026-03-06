@@ -42,6 +42,9 @@ class OandaClient:
             # Oanda requires underscore, e.g. XAU_USD
             norm_symbol = symbol.replace('/', '_')
             r = instruments.InstrumentsCandles(instrument=norm_symbol, params=params)
+            
+            logger.info(f"Fetching OANDA candles for {symbol} | TF: {timeframe} (Mapped: {oanda_tf}) | Count: {count}")
+            
             self.client.request(r)
             return r.response.get('candles', [])
         except Exception as e:
