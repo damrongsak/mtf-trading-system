@@ -15,8 +15,12 @@ class OandaStreamer:
     def __init__(self, account_id: str, api_key: str, environment: str = "practice"):
         self.account_id = account_id
         self.api_key = api_key
-        self.environment = environment
-        self.base_url = "https://stream-fxpractice.oanda.com" if environment == "practice" else "https://stream-fxtrade.oanda.com"
+        self.environment = environment.lower()
+        # OANDA v20 streaming URLs: stream-fxpractice for practice, stream-fxtrade for live
+        if self.environment in ["live", "production"]:
+            self.base_url = "https://stream-fxtrade.oanda.com"
+        else:
+            self.base_url = "https://stream-fxpractice.oanda.com"
         self.is_running = False
         self._task: Optional[asyncio.Task] = None
 

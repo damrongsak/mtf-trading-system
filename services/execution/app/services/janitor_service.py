@@ -61,21 +61,24 @@ class JanitorService:
                     # but the SPEC requires User level check. 
                     # Let's perform a raw SQL check or add the necessary models if missing.
                     
-                    await cls.reconcile_single_account(account, db)
+                    # Ensure environment is passed to factory
+                    credentials = decrypt_data(account.credentials_encrypted)
+                    credentials["environment"] = account.environment
+                    
+                    await cls.reconcile_single_account(account, db, credentials)
                 except Exception as e:
                     logger.error(f"🧹 [Janitor] Failed to reconcile account {account.id}: {e}")
 
         logger.info("🧹 [Janitor] Reconciliation cycle complete.")
 
     @classmethod
-    async def reconcile_single_account(cls, account: BrokerAccount, db: AsyncSession):
+    async def reconcile_single_account(cls, account: BrokerAccount, db: AsyncSession, credentials: Dict[str, Any]):
         """
         Sync a single OANDA account with local DB.
         """
         logger.info(f"🧹 [Janitor] Reconciling account {account.account_name} ({account.account_number})")
         
         # 1. Fetch live trades from OANDA
-        credentials = decrypt_data(account.credentials_encrypted)
         adapter = BrokerFactory.get_adapter("OANDA", credentials)
         
         broker_trades = await adapter.get_open_trades()
