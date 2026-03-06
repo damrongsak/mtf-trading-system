@@ -23,9 +23,17 @@ class OandaClient:
             count: Number of candles to fetch
             **kwargs: Additional parameters for Oanda API (e.g., fromTime, toTime, price, includeFirst)
         """
+        # Map internal timeframes to OANDA granularities
+        tf_map = {
+            "D1": "D",
+            "W1": "W",
+            "MN1": "M"
+        }
+        oanda_tf = tf_map.get(timeframe, timeframe)
+
         params = {
             "count": count,
-            "granularity": timeframe,
+            "granularity": oanda_tf,
             "price": "M"  # Midpoint candles
         }
         params.update(kwargs) # Merge additional parameters

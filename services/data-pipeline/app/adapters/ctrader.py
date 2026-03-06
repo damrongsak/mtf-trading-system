@@ -149,6 +149,8 @@ class CTraderClient:
             "H1": ProtoOATrendbarPeriod.H1,
             "H4": ProtoOATrendbarPeriod.H4,
             "D1": ProtoOATrendbarPeriod.D1,
+            "W1": ProtoOATrendbarPeriod.W1,
+            "MN1": ProtoOATrendbarPeriod.MN1,
         }
         return mapping.get(tf, ProtoOATrendbarPeriod.H1)
 
