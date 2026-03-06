@@ -8,6 +8,7 @@ from app.adapters.ctrader_client import AsyncCTraderClient
 from app.adapters.ctrader_connection import CTraderConnectionManager
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
+from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
 
 logger = logging.getLogger(__name__)
 
@@ -76,36 +77,40 @@ class CTraderOrderAdapter(BrokerAdapter):
              raise e
 
     async def _populate_symbol_cache(self):
-        """Pre-hydrate symbol cache from database for HFT-lite performance."""
+        """Pre-hydrate symbol cache from execution cache / HTTP fallback for HFT-lite performance."""
         try:
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    select(MarketSymbol).join(DataSource).where(DataSource.provider == 'CTRADER')
-                )
-                all_syms = result.scalars().all()
-                for ms in all_syms:
-                    if ms.details and ("symbolId" in ms.details or "ctrader_symbol_id" in ms.details):
-                        symbol_id = None
-                        if "symbolId" in ms.details:
-                            symbol_id = int(ms.details["symbolId"])
-                        elif "ctrader_symbol_id" in ms.details:
-                            symbol_id = int(ms.details["ctrader_symbol_id"])
-                        
-                        if symbol_id is not None:
-                            lot_size = int(ms.details.get("lotSize", 10000000))
-                            # Cache forward mapping (Name -> ID, LotSize)
-                            self._symbol_cache[ms.symbol] = (symbol_id, lot_size)
-                            # Cache reverse mapping (ID -> Name, LotSize)
-                            self._symbol_cache[f"ID_{symbol_id}"] = (ms.symbol, lot_size)
-                            
-                            # Cache normalized name too
-                            normalized = ms.symbol.replace("_", "").replace("/", "").upper()
-                            if normalized != ms.symbol:
-                                self._symbol_cache[normalized] = (symbol_id, lot_size)
+            from app.services.cache_service import execution_cache
+            symbols = await execution_cache.get_symbols("CTRADER")
+            if not symbols:
+                 logger.error("cTrader: Failed to fetch symbols from cache/HTTP.")
+                 return
+
+            for ms in symbols:
+                details = ms.get("details", {})
+                symbol = ms.get("symbol", "")
                 
-                logger.info(f"cTrader: Pre-hydrated {len(all_syms)} symbols into L3 cache.")
+                if details and ("symbolId" in details or "ctrader_symbol_id" in details):
+                    symbol_id = None
+                    if "symbolId" in details:
+                        symbol_id = int(details["symbolId"])
+                    elif "ctrader_symbol_id" in details:
+                        symbol_id = int(details["ctrader_symbol_id"])
+                    
+                    if symbol_id is not None:
+                        lot_size = int(details.get("lotSize", 10000000))
+                        # Cache forward mapping (Name -> ID, LotSize)
+                        self._symbol_cache[symbol] = (symbol_id, lot_size)
+                        # Cache reverse mapping (ID -> Name, LotSize)
+                        self._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size)
+                        
+                        # Cache normalized name too
+                        normalized = symbol.replace("_", "").replace("/", "").upper()
+                        if normalized != symbol:
+                            self._symbol_cache[normalized] = (symbol_id, lot_size)
+            
+            logger.info(f"cTrader: Pre-hydrated {len(symbols)} symbols into L3 cache.")
         except Exception as e:
-            logger.error(f"cTrader: Failed to pre-hydrate symbol cache: {e}")
+            logger.error(f"cTrader: Failed to pre-hydrate symbol cache: {e}", exc_info=True)
 
     def _resolve_symbol_from_cache(self, symbol_name: str) -> Optional[tuple[int, int]]:
         normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
@@ -373,7 +378,15 @@ class CTraderOrderAdapter(BrokerAdapter):
             raise e
         
     async def get_order_book(self, symbol: str) -> Dict[str, Any]:
-        return {}
+        """
+        Fetch Depth of Market (Order Book) for a symbol.
+        """
+        await self.client.connect()
+        await self.client.authorize_app(self.client_id, self.client_secret)
+        await self.client.authorize_account(self.account_id, self.token)
+
+        symbol_id, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+        return await self.client.get_order_book(self.account_id, symbol_id)
 
     async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
         await self.client.connect()
@@ -403,8 +416,24 @@ class CTraderOrderAdapter(BrokerAdapter):
              raise e
 
     async def get_current_price(self, symbol: str) -> float:
-        # In a real implementation, this would subscribe to spots or fetch latest spot
-        return 0.0
+        """
+        Fetch the current market midpoint price for a symbol via one-shot spot subscription.
+        Resolves symbol to cTrader symbolId from L3 cache, then uses ProtoOASubscribeSpotsReq.
+        Returns (bid + ask) / 2.0
+        Raises ValueError if symbol not found in cache or spot price times out.
+        """
+        await self.client.connect()
+        await self.client.authorize_app(self.client_id, self.client_secret)
+        await self.client.authorize_account(self.account_id, self.token)
+
+        # Resolve symbol to cTrader ID using L3 cache
+        symbol_id, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+
+        bid, ask = await self.client.get_spot_price(self.account_id, symbol_id)
+        if bid == 0.0 and ask == 0.0:
+            raise ValueError(f"cTrader returned zero prices for {symbol}, symbolId={symbol_id}")
+        return (bid + ask) / 2.0
+
 
     async def get_trade_history(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
         await self.client.connect()
@@ -427,10 +456,6 @@ class CTraderOrderAdapter(BrokerAdapter):
                 if d.closePositionDetail: # This deal closed a position
                     s_name, _ = self._resolve_name_from_id_cache(d.symbolId)
                     
-                    # Entry price? The closing deal knows the exit price.
-                    # The entry price is in 'closePositionDetail.entryPrice'?
-                    # ProtoOAClosePositionDetail: entryPrice, grossProfit, swap, commission, balance, balanceVersion...
-                    
                     entry_p = d.closePositionDetail.entryPrice
                     exit_p = d.executionPrice
                     
@@ -440,57 +465,30 @@ class CTraderOrderAdapter(BrokerAdapter):
                     from app.models import TradeStatus, TradeDirection
 
                     direction = TradeDirection.LONG if d.tradeSide == ProtoOATradeSide.SELL else TradeDirection.SHORT
-                    # If I SELL to Close, I was LONG.
+                    
+                    # Normalization
+                    close_dt = parse_iso_timestamp(d.executionTimestamp)
+                    open_dt = parse_iso_timestamp(d.createTimestamp)
+                    
+                    # volume is in cents in cTrader Protobuf
+                    units = d.volume / 100.0
+                    std_lots = units_to_standard_lots(units)
 
                     results.append({
-                        "trade_id": str(d.dealId), # Use DealID as TradeID to avoid duplicates on partial closes
+                        "trade_id": str(d.dealId),
                         "symbol": s_name,
                         "strategy_name": "Imported",
-                        "signal_timestamp": datetime.fromtimestamp(d.createTimestamp / 1000.0), # Deal time
+                        "signal_timestamp": open_dt,
                         "status": TradeStatus.CLOSED,
                         "direction": direction, 
-                        
-                        # Wait. If I SELL to Close, I was LONG.
-                        # If d.tradeSide is SELL, then I sold. If this is a closing deal, I was LONG.
-                        # Correct.
-                        
                         "entry_price": entry_p,
                         "exit_price": exit_p,
                         "sl_price": 0.0,
                         "tp_price": 0.0,
-                        "lot_size": d.volume / 100.0 / 1000.0 / 100.0, # Volume in cents. 1 Lot = 100,000 units.
-                        # Wait, volume in cents.
-                        # units = volume / 100.
-                        # lot_size usually in 'standard lots' (1.0).
-                        # Let's check SDD for 'lot_size'. "Calculated lot size".
-                        # For XAU, 1 lot = 100oz.
-                        # If we store 'units' in Trade model? No, 'lot_size'.
-                        # Assuming Standard Lots.
-                        # units = d.volume / 100.0
-                        # lots = units / 100000.0 (Standard) or contract size.
-                        # We don't know contract size here without symbol info.
-                        # Let's store UNITS or guess?
-                        # The Trade model says: "Calculated lot size".
-                        # We should probably store "units" if we are not sure about contract size.
-                        # But `lot_size` column is Numeric(10,2). 
-                        # Let's try to normalize to Lots if possible, or just store raw units if lot_size is ambiguous?
-                        # For now: units.
-                        
-                        "lot_size": d.volume / 100.0, # Storing as UNITS for now to be safe, or 0.01 etc?
-                        # Re-reading Model: `lot_size`. 
-                        # If I store 1000 (units), it looks like 1000 lots!
-                        # I should probably default to 0.01 if I can't calc, or try to approximate.
-                        # Let's use 0 for now or units.
-                        # Re-check logic: `d.volume` is cents. `units` = cents/100.
-                        # I'll store `units` but label it clearly in my head.
-                        # Actually, looking at `open_trades` in cTrader adapter: `p.volume / 100.0` is returned as `units`.
-                        # API usually expects Units.
-                        # The Trade model has `lot_size`.
-                        # I'll just use units/100000 as a rough guess for now.
-                        
+                        "lot_size": std_lots,
                         "risk_usd": 0.0,
                         "pnl_usd": pnl_raw,
-                        "exit_timestamp": datetime.fromtimestamp(d.executionTimestamp / 1000.0),
+                        "exit_timestamp": close_dt,
                         "metadata_json": {"deal_id": str(d.dealId), "raw": "cTrader Deal"}
                     })
             
@@ -593,7 +591,40 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
+            # [SAFETY - Layer 3] Fetch position to validate SL/TP direction before amending
+            reconcile = await self.client.get_reconcile(self.account_id)
+            target = next(
+                (p for p in reconcile.position if str(p.positionId) == str(broker_trade_id)),
+                None
+            )
+            if not target:
+                raise ValueError(f"Position {broker_trade_id} not found to amend")
+
+            # Determine position side and entry price for validation
+            is_buy = target.tradeData.tradeSide == ProtoOATradeSide.BUY
+            entry_price = float(target.price) if target.price else 0.0
+
+            if entry_price > 0:
+                if sl_price is not None:
+                    if is_buy and sl_price >= entry_price:
+                        raise RiskValidationError(
+                            f"Invalid SL for LONG: sl_price={sl_price} must be BELOW entry_price={entry_price}"
+                        )
+                    elif not is_buy and sl_price <= entry_price:
+                        raise RiskValidationError(
+                            f"Invalid SL for SHORT: sl_price={sl_price} must be ABOVE entry_price={entry_price}"
+                        )
+                if tp_price is not None:
+                    if is_buy and tp_price <= entry_price:
+                        raise RiskValidationError(
+                            f"Invalid TP for LONG: tp_price={tp_price} must be ABOVE entry_price={entry_price}"
+                        )
+                    elif not is_buy and tp_price >= entry_price:
+                        raise RiskValidationError(
+                            f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
+                        )
+
             res = await self.client.amend_position_sltp(
                 account_id=self.account_id,
                 position_id=int(broker_trade_id),
@@ -601,9 +632,12 @@ class CTraderOrderAdapter(BrokerAdapter):
                 tp=tp_price
             )
             return {"status": "amended", "position_id": broker_trade_id}
+        except (ValueError, RiskValidationError) as ve:
+            raise ve
         except Exception as e:
             logger.error(f"cTrader Amend Position Error: {e}")
             raise e
+
 
     async def get_pending_orders(self) -> List[Dict[str, Any]]:
         await self.client.connect()

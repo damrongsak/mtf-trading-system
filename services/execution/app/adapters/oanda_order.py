@@ -7,9 +7,9 @@ import oandapyV20.endpoints.instruments as instruments
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
-from typing import List, Dict, Any, Optional
 from fastapi.concurrency import run_in_threadpool
 from datetime import datetime
+from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
 
 logger = logging.getLogger(__name__)
 
@@ -242,42 +242,43 @@ class OandaOrderAdapter(BrokerAdapter):
             results = []
             
             for t in raw_trades:
-                ct_str = t.get("closeTime", "")
+                ct_str = t.get("closeTime")
+                ot_str = t.get("openTime")
                 if not ct_str: continue
                 
-                # Parse "2016-06-22T18:41:35.433291884Z" -> remove fractions for simple parse
-                # Using simple string slice to avoid libraries if possible
                 try:
-                    ts_clean = ct_str.split(".")[0] # "2016-06-22T18:41:35"
-                    dt = datetime.strptime(ts_clean, "%Y-%m-%dT%H:%M:%S")
-                    # Assuming naive UTC
+                    close_dt = parse_iso_timestamp(ct_str)
+                    open_dt = parse_iso_timestamp(ot_str) if ot_str else close_dt
                     
-                    if start_date <= dt <= end_date:
+                    # Filtering by close time against start_date/end_date (assuming UTC)
+                    if start_date <= close_dt <= end_date:
                         from app.models import TradeStatus, TradeDirection
 
                         initial_units = float(t.get("initialUnits", 0))
                         direction = TradeDirection.LONG if initial_units > 0 else TradeDirection.SHORT
                         
+                        # Normalize to Standard Lots
+                        std_lots = units_to_standard_lots(abs(initial_units))
+
                         results.append({
-                            "trade_id": t.get("id"),
+                            "trade_id": str(t.get("id")),
                             "symbol": t.get("instrument"),
                             "strategy_name": "Imported",
-                            "signal_timestamp": dt, # Use close time as signal time for imported? Or 'openTime'
-                            "signal_timestamp": dt, # Fallback
+                            "signal_timestamp": open_dt,
                             "status": TradeStatus.CLOSED,
                             "direction": direction,
                             "entry_price": float(t.get("price", 0)),
                             "exit_price": float(t.get("averageClosePrice", 0)),
-                            "sl_price": 0.0, # Not always available
+                            "sl_price": 0.0, 
                             "tp_price": 0.0,
-                            "lot_size": abs(initial_units),
+                            "lot_size": std_lots,
                             "risk_usd": 0.0,
                             "pnl_usd": float(t.get("realizedPL", 0)),
-                            "exit_timestamp": dt,
+                            "exit_timestamp": close_dt,
                             "metadata_json": {"raw": t}
                         })
                 except Exception as parse_e:
-                    logger.warning(f"Failed to parse trade time {ct_str}: {parse_e}")
+                    logger.warning(f"OANDA: Failed to process trade history item {ct_str}: {parse_e}")
                     continue
                     
             return results
@@ -311,3 +312,107 @@ class OandaOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"Failed to fetch pending OANDA orders: {e}")
             raise e
+
+    async def amend_order(self, order_id: str, units: Optional[float] = None, 
+                    price: Optional[float] = None, 
+                    sl_price: Optional[float] = None, 
+                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Amend a pending order on OANDA by replacing it.
+        Requires fetching the existing order first if partial update.
+        """
+        try:
+            # For OANDA OrderReplace, we must provide the full order payload.
+            # We fetch the current state first.
+            pending = await self.get_pending_orders()
+            target = next((o for o in pending if o["id"] == order_id), None)
+            if not target:
+                raise ValueError(f"Order {order_id} not found to amend")
+
+            # Deep copy or construct new payload from target
+            order_body = {"order": {
+                "type": target.get("type", "LIMIT"),
+                "instrument": target["instrument"],
+                "units": str(float(units)) if units is not None else target["units"],
+                "timeInForce": target.get("timeInForce", "GTC")
+            }}
+            
+            # Use new price or existing price
+            if price is not None:
+                order_body["order"]["price"] = str(price)
+            elif "price" in target:
+                order_body["order"]["price"] = target["price"]
+
+            # SL
+            new_sl = sl_price if sl_price is not None else float(target.get("stopLossOnFill", {}).get("price", 0))
+            if new_sl > 0:
+                order_body["order"]["stopLossOnFill"] = {"price": str(new_sl), "timeInForce": "GTC"}
+
+            # TP
+            new_tp = tp_price if tp_price is not None else float(target.get("takeProfitOnFill", {}).get("price", 0))
+            if new_tp > 0:
+                order_body["order"]["takeProfitOnFill"] = {"price": str(new_tp), "timeInForce": "GTC"}
+
+            r = orders.OrderReplace(accountID=self.account_id, orderID=order_id, data=order_body)
+            await run_in_threadpool(self.client.request, r)
+            return {"status": "amended", "order_id": order_id}
+
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            # OANDA returns HTTP 404 for order not found if we didn't catch it
+            if "Order doesn't exist" in str(e) or "404" in str(e):
+                raise ValueError(f"Order {order_id} not found")
+            logger.error(f"Failed to amend OANDA order {order_id}: {e}")
+            raise e
+
+    async def amend_position(self, broker_trade_id: str, 
+                        sl_price: Optional[float] = None, 
+                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Amend an open trade's SL/TP on OANDA using TradeCRCDO.
+        """
+        try:
+            data = {}
+            if sl_price is not None:
+                data["stopLoss"] = {"price": str(sl_price), "timeInForce": "GTC"}
+            if tp_price is not None:
+                data["takeProfit"] = {"price": str(tp_price), "timeInForce": "GTC"}
+
+            if not data:
+                return {"status": "no_changes_requested", "position_id": broker_trade_id}
+
+            r = trades.TradeCRCDO(accountID=self.account_id, tradeID=broker_trade_id, data=data)
+            await run_in_threadpool(self.client.request, r)
+            return {"status": "amended", "position_id": broker_trade_id}
+
+        except Exception as e:
+            if "Trade doesn't exist" in str(e) or "NoSuchTrade" in str(e) or "404" in str(e):
+                raise ValueError(f"Position/Trade {broker_trade_id} not found")
+            logger.error(f"Failed to amend OANDA position {broker_trade_id}: {e}")
+            raise e
+
+    async def get_order_book(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch Order Book for OANDA. 
+        NOTE: OANDA REST v20 provides historical sentiment (OrderBook) but not real-time L2 depth 
+        via REST. We return the Top-of-Book (Spot) price as a 1-level depth book for parity.
+        """
+        try:
+            params = {"instruments": symbol}
+            r = pricing.PricingInfo(accountID=self.account_id, params=params)
+            await run_in_threadpool(self.client.request, r)
+            
+            prices = r.response.get("prices", [])
+            if not prices:
+                return {"bids": [], "asks": []}
+            
+            p = prices[0]
+            # OANDA prices are strings in v20
+            bids = [{"price": float(b.get("price")), "volume": 0.0} for b in p.get("bids", [])]
+            asks = [{"price": float(a.get("price")), "volume": 0.0} for a in p.get("asks", [])]
+            
+            return {"bids": bids, "asks": asks}
+        except Exception as e:
+            logger.error(f"OANDA Get Order Book (Top-of-Book) Error: {e}")
+            return {"bids": [], "asks": []}

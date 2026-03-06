@@ -27,6 +27,7 @@ import json
 import logging
 import time
 from typing import Optional
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,12 @@ FILL_STREAM_KEY = "execution.filled.stream"
 FILL_TTL = 300  # 5 minutes — fills are important, must not expire too fast
 STREAM_MAXLEN = 10000  # Cap stream length to prevent unbounded growth
 
-
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=False
+)
 async def publish_fill(
     account_id: str,
     trace_id: str,
@@ -43,6 +49,7 @@ async def publish_fill(
     status: str,
     instrument: str,
     fill_price: float = 0.0,
+
     fill_volume: float = 0.0,
     reason: Optional[str] = None,
     sl_price: float = 0.0,
@@ -61,6 +68,7 @@ async def publish_fill(
     import os
 
     redis_key = f"{FILL_KEY_PREFIX}:{account_id}"
+
     payload = {
         "trace_id":    trace_id,
         "order_id":    str(order_id),

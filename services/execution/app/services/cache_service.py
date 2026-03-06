@@ -4,6 +4,7 @@ import time
 from typing import Any, Optional, Dict, List
 import redis.asyncio as aioredis
 import os
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -146,5 +147,55 @@ class ExecutionCache:
         if key in self._l1_cache:
             del self._l1_cache[key]
         # Redis invalidation usually handled by publishers or TTL
+
+    async def get_symbols(self, provider: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetch symbols from L1 cache, or Redis (ECST), or fallback to API Gateway.
+        """
+        key = f"exec:symbols:{provider}"
+        cached = self._get_l1(key)
+        if cached:
+            return cached
+            
+        try:
+            r = await self._get_redis()
+            data_json = await r.get(key)
+            if data_json:
+                data = json.loads(data_json)
+                self._set_l1(key, data, ttl=300)
+                return data
+        except Exception as e:
+            logger.error(f"Redis Cache Error (get_symbols) for {provider}: {e}")
+            
+        # Fallback to API Gateway if not in Redis
+        try:
+            logger.info(f"ECST Symbol Cache miss for {provider}, fetching via HTTP fallback...")
+            # For simplicity, if we don't have the internal discovery URL, we can configure:
+            api_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
+            
+            # Use httpx client (create minimal wrapper)
+            async with httpx.AsyncClient() as client:
+                # We expect the /api/v1/data/symbols endpoint to exist, but since data-pipeline handles it,
+                # let's try the data pipeline directly if possible.
+                dp_url = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
+                resp = await client.get(f"{dp_url}/api/v1/discovery/symbols", params={"provider": provider}, timeout=5.0)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # data is assumed to be List[Dict] matching MarketSymbol DB schema
+                    # Store in Redis and L1
+                    self._set_l1(key, data, ttl=300)
+                    try:
+                        r = await self._get_redis()
+                        await r.set(key, json.dumps(data), ex=300)
+                    except Exception:
+                        pass
+                    return data
+                else:
+                    logger.error(f"HTTP fallback get_symbols failed: {resp.status_code}")
+        except Exception as e:
+            logger.error(f"HTTP fallback get_symbols Exception: {e}")
+            
+        return None
 
 execution_cache = ExecutionCache()

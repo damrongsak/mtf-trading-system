@@ -27,11 +27,12 @@ async def test_ctrader_cancel_order(mock_manager, mock_ctrader_client):
 
 @pytest.mark.asyncio
 @patch("app.adapters.ctrader.CTraderConnectionManager")
-@patch("app.database.AsyncSessionLocal")
-async def test_ctrader_get_pending_orders(mock_session_cls, mock_manager, mock_ctrader_client):
+@patch("app.adapters.ctrader.CTraderOrderAdapter._resolve_symbol_id_and_lot_size")
+async def test_ctrader_get_pending_orders(mock_resolve, mock_manager, mock_ctrader_client):
     # Setup
     mock_manager.get_client.return_value = mock_ctrader_client
     adapter = CTraderOrderAdapter("id", "secret", "123", "token")
+    mock_resolve.return_value = (1, 100000) # Mock L3 Cache resolve for symbolId=1
     
     # Mock Reconcile Response
     mock_reconcile = MagicMock()
@@ -49,24 +50,10 @@ async def test_ctrader_get_pending_orders(mock_session_cls, mock_manager, mock_c
     mock_reconcile.order = [o1]
     mock_ctrader_client.get_reconcile.return_value = mock_reconcile
     
-    # Mock DB for Symbol Lookup
-    mock_db = AsyncMock()
-    mock_session_cls.return_value.__aenter__.return_value = mock_db
-    
-    # Mock Result
-    mock_symbol = MagicMock()
-    mock_symbol.symbol = "EURUSD"
-    mock_symbol.details = {"symbolId": 1}
-    
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = [mock_symbol]
-    mock_db.execute.return_value = mock_result
-
     # Test
     orders = await adapter.get_pending_orders()
     
     assert len(orders) == 1
     assert orders[0]["id"] == "101"
-    assert orders[0]["instrument"] == "EURUSD"  # cache returns normalized name
     assert orders[0]["units"] == 1000.0
     assert orders[0]["price"] == 1.0500

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import struct
 import time
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage, ProtoHeartbeatEvent
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
@@ -582,6 +582,74 @@ class AsyncCTraderClient:
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
 
+    async def get_spot_price(self, account_id: int, symbol_id: int, timeout: float = 5.0) -> tuple[float, float]:
+        """
+        Fetch current BID/ASK spot price via one-shot subscribe→receive→unsubscribe.
+        Returns (bid, ask) as floats. Prices are in 1/100000 of quote currency (pipette).
+        
+        Protocol pattern from OpenApiPy ConsoleSample:
+        1. Send ProtoOASubscribeSpotsReq
+        2. Receive ProtoOASpotEvent (unsolicited via message handler)
+        3. Send ProtoOAUnsubscribeSpotsReq immediately after
+        """
+        # Create a one-shot Future to receive the spot event
+        loop = asyncio.get_running_loop()
+        spot_future: asyncio.Future = loop.create_future()
+
+        original_handler = self._message_handler
+
+        def _spot_handler(msg):
+            if spot_future.done():
+                return
+            if msg.payloadType == ProtoOASpotEvent().payloadType:
+                spot = ProtoOASpotEvent()
+                spot.ParseFromString(msg.payload)
+                if spot.symbolId == symbol_id:
+                    # Prices are in pipettes (1/100000); divide by 100000.0
+                    bid = spot.bid / 100000.0 if spot.bid else 0.0
+                    ask = spot.ask / 100000.0 if spot.ask else bid
+                    spot_future.set_result((bid, ask))
+            elif original_handler:
+                original_handler(msg)
+
+        self._message_handler = _spot_handler
+
+        try:
+            # Subscribe to spot
+            sub_req = ProtoOASubscribeSpotsReq()
+            sub_req.ctidTraderAccountId = int(account_id)
+            sub_req.symbolId.append(int(symbol_id))
+
+            sub_resp_msg = await self.send(sub_req)
+            if sub_resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+                error = ProtoOAErrorRes()
+                error.ParseFromString(sub_resp_msg.payload)
+                raise Exception(f"Subscribe Spots Error: {error.errorCode} - {error.description}")
+
+            # Wait for spot event
+            bid, ask = await asyncio.wait_for(spot_future, timeout=timeout)
+            return bid, ask
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout waiting for spot price for symbolId={symbol_id}")
+            raise ValueError(f"Spot price timeout for symbolId={symbol_id}")
+        finally:
+            # Restore original message handler
+            self._message_handler = original_handler
+            # Always unsubscribe to free server resources
+            try:
+                unsub_req = ProtoOAUnsubscribeSpotsReq()
+                unsub_req.ctidTraderAccountId = int(account_id)
+                unsub_req.symbolId.append(int(symbol_id))
+                await self._send_proto_message(
+                    ProtoMessage(
+                        payloadType=unsub_req.payloadType,
+                        payload=unsub_req.SerializeToString()
+                    )
+                )
+            except Exception as e:
+                logger.warning(f"Failed to unsubscribe spots for symbolId={symbol_id}: {e}")
+
     async def get_deal_list(self, account_id: int, from_timestamp: int, to_timestamp: int):
         """
         Fetch historical deals (closed trades).
@@ -604,3 +672,78 @@ class AsyncCTraderClient:
              raise Exception(f"Get Deal List Error: {error.errorCode} - {error.description}")
         else:
              raise Exception(f"Unexpected response type: {resp_msg.payloadType}")
+    async def get_order_book(self, account_id: int, symbol_id: int, timeout: float = 5.0) -> Dict[str, Any]:
+        """
+        Fetch current Depth of Market (Order Book) via one-shot subscribe→receive→unsubscribe.
+        Returns a dict with 'bids' and 'asks' lists, each containing {'price': float, 'volume': float}.
+        """
+        loop = asyncio.get_running_loop()
+        dom_future: asyncio.Future = loop.create_future()
+
+        original_handler = self._message_handler
+
+        def _dom_handler(msg):
+            if dom_future.done():
+                return
+            if msg.payloadType == ProtoOADepthEvent().payloadType:
+                event = ProtoOADepthEvent()
+                event.ParseFromString(msg.payload)
+                if event.symbolId == symbol_id:
+                    bids = []
+                    asks = []
+                    # cTrader DepthEvent contains newQuotes (additions/initial snapshot)
+                    for quote in event.newQuotes:
+                        # Price is in pipettes (1/100000)
+                        if quote.bid:
+                            bids.append({"price": quote.bid / 100000.0, "volume": float(quote.size)})
+                        if quote.ask:
+                            asks.append({"price": quote.ask / 100000.0, "volume": float(quote.size)})
+                    
+                    if bids or asks:
+                        # Sort bids descending, asks ascending
+                        bids.sort(key=lambda x: x["price"], reverse=True)
+                        asks.sort(key=lambda x: x["price"])
+                        dom_future.set_result({"bids": bids, "asks": asks})
+            elif original_handler:
+                if asyncio.iscoroutinefunction(original_handler):
+                    asyncio.create_task(original_handler(msg))
+                else:
+                    original_handler(msg)
+
+        self._message_handler = _dom_handler
+
+        try:
+            # Subscribe to Depth Quotes
+            sub_req = ProtoOASubscribeDepthQuotesReq()
+            sub_req.ctidTraderAccountId = int(account_id)
+            sub_req.symbolId.append(int(symbol_id))
+
+            sub_resp_msg = await self.send(sub_req)
+            if sub_resp_msg.payloadType == ProtoOAErrorRes().payloadType:
+                error = ProtoOAErrorRes()
+                error.ParseFromString(sub_resp_msg.payload)
+                raise Exception(f"Subscribe Depth Quotes Error: {error.errorCode} - {error.description}")
+
+            # Wait for Depth event
+            book = await asyncio.wait_for(dom_future, timeout=timeout)
+            return book
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout waiting for Depth for symbolId={symbol_id}")
+            raise ValueError(f"Depth timeout for symbolId={symbol_id}")
+        finally:
+            # Restore original message handler
+            self._message_handler = original_handler
+            # Unsubscribe
+            try:
+                unsub_req = ProtoOAUnsubscribeDepthQuotesReq()
+                unsub_req.ctidTraderAccountId = int(account_id)
+                unsub_req.symbolId.append(int(symbol_id))
+                await self._send_proto_message(
+                    ProtoMessage(
+                        payloadType=unsub_req.payloadType,
+                        payload=unsub_req.SerializeToString()
+                    )
+                )
+            except Exception as e:
+                logger.warning(f"Failed to unsubscribe Depth for symbolId={symbol_id}: {e}")
