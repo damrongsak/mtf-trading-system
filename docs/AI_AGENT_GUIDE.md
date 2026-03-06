@@ -52,6 +52,15 @@ Use an orchestration framework like **LangGraph** to manage complex workflows.
 - **Validation**: Allow the agent to check risk limits (`/account/summary`) before placing a trade.
 - **Looping**: If a trade fails (e.g., cTrader Error 2132), the agent should parse the error and retry with adjusted parameters.
 
+### 🆔 Broker ID Lifecycle (CRITICAL)
+Agents must handle differing identifier lifecycles across brokers:
+- **OANDA**: `orderID` is stable for both pending and filled states.
+- **cTrader**: 
+    - `orderId` is used for **Pending/Accepted** state.
+    - `positionId` is the **Stable ID** for **Filled/Open** trades.
+    - **Rule**: When amending an open trade on cTrader, use the `positionId` (stored in `broker_trade_id`).
+    - **Deduplication**: Use `broker_deal_id` (metadata) to ensure one data-sync event per trade fill.
+
 ## 📡 Step 5: High-Frequency Path (HFT-lite)
 For sub-millisecond data needs or high-performance execution, agents should bypass standard REST polling.
 

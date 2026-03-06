@@ -492,7 +492,8 @@ class AsyncCTraderClient:
                     volume: Optional[int] = None, 
                     price: Optional[float] = None, 
                     sl: Optional[float] = None, 
-                    tp: Optional[float] = None):
+                    tp: Optional[float] = None,
+                    trailing_sl: Optional[bool] = None):
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = int(account_id)
         req.orderId = int(order_id)
@@ -501,6 +502,7 @@ class AsyncCTraderClient:
         if price is not None: req.limitPrice = float(price)
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
+        if trailing_sl is not None: req.trailingStopLoss = bool(trailing_sl)
         
         resp_msg = await self.send(req)
         
@@ -521,13 +523,15 @@ class AsyncCTraderClient:
 
     async def amend_position_sltp(self, account_id: int, position_id: int, 
                              sl: Optional[float] = None, 
-                             tp: Optional[float] = None):
+                             tp: Optional[float] = None,
+                             trailing_sl: Optional[bool] = None):
         req = ProtoOAAmendPositionSLTPReq()
         req.ctidTraderAccountId = int(account_id)
         req.positionId = int(position_id)
         
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
+        if trailing_sl is not None: req.trailingStopLoss = bool(trailing_sl)
         
         resp_msg = await self.send(req)
         

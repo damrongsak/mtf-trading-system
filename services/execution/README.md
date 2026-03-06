@@ -68,8 +68,11 @@ graph TD
     - **[O2] Bracket Orders**: Automated SL/TP attachment to both Market and Limit orders.
     - **[O3] Order Amendment**: Support for `OrderReplace` to dynamically move Entry, SL, and TP on pending orders.
     - **[O4] Resilient Sync**: Validated against OANDA state sync delays with human-like simulation testing.
-- **🔜 Sprint H — Production Hardening** (planned):
-    - **[H2] Fill Publisher**: `ctrader.py` will publish FILLED/REJECTED events to Redis `execution:fills:{account_id}` after broker confirms, enabling end-to-end PENDING→FILLED callback to clients.
+- **✅ Phase 15 — cTrader ID Stabilization** (Implemented):
+    - **Stable ID Mapping**: Prioritizes `positionId` over `orderId` for filled market orders, ensuring persistent trade records align with broker requirements for amendments.
+    - **Duplicate Prevention**: Re-engineered event filtering to skip `ORDER_ACCEPTED` and only publish true fill data.
+    - **Deal Tracking**: Implemented `broker_deal_id` for robust deduplication across service boundaries.
+    - **Reconciliation Enhancement**: Updated Janitor sync to include Pending Orders, preventing accidental pruning of working limit/stop orders.
 
 ## 🤖 AI-Agent Operational Guide
 

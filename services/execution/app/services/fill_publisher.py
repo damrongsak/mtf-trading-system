@@ -56,6 +56,7 @@ async def publish_fill(
     tp_price: float = 0.0,
     direction: str = "LONG",
     comment: str = "",
+    deal_id: Optional[str] = None,
 ) -> bool:
     """
     [H2] Publish a broker fill event to:
@@ -83,6 +84,7 @@ async def publish_fill(
         "tp_price":    tp_price,
         "direction":   direction,
         "comment":     comment,
+        "deal_id":     deal_id,
     }
     payload_json = json.dumps(payload)
 

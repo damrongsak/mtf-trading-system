@@ -170,18 +170,23 @@ class ExecutionCache:
         # Fallback to API Gateway if not in Redis
         try:
             logger.info(f"ECST Symbol Cache miss for {provider}, fetching via HTTP fallback...")
-            # For simplicity, if we don't have the internal discovery URL, we can configure:
+            # We expect the /api/v1/data/symbols endpoint to exist, but since data-pipeline handles it,
+            # let's try the data pipeline directly if possible.
+            # UPDATE: The API Gateway serves /api/v1/data/symbols. We should hit api-gateway.
             api_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
             
             # Use httpx client (create minimal wrapper)
             async with httpx.AsyncClient() as client:
-                # We expect the /api/v1/data/symbols endpoint to exist, but since data-pipeline handles it,
-                # let's try the data pipeline directly if possible.
-                dp_url = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
-                resp = await client.get(f"{dp_url}/api/v1/discovery/symbols", params={"provider": provider}, timeout=5.0)
+                resp = await client.get(f"{api_url}/api/v1/data/symbols", params={"provider_name": provider}, timeout=5.0)
                 
                 if resp.status_code == 200:
-                    data = resp.json()
+                    raw_data = resp.json()
+                    # Unified Handling: The API Gateway returns {status: "success", data: [...]}
+                    if isinstance(raw_data, dict) and "data" in raw_data:
+                        data = raw_data["data"]
+                    else:
+                        data = raw_data
+                        
                     # data is assumed to be List[Dict] matching MarketSymbol DB schema
                     # Store in Redis and L1
                     self._set_l1(key, data, ttl=300)

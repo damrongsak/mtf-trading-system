@@ -96,6 +96,7 @@ class TradeResponse(TradeBase):
     exit_price: Optional[Decimal] = None
     exit_timestamp: Optional[datetime] = None
     broker_trade_id: Optional[str] = None
+    broker_deal_id: Optional[str] = None
     metadata_json: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

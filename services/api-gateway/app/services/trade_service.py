@@ -124,79 +124,85 @@ class TradeService:
         return trade
 
     @staticmethod
-    def sync_open_trades(db: Session, oanda_trades: list, user: User, broker_account_id: uuid.UUID = None) -> list[Trade]:
+    def sync_open_trades(db: Session, broker_trades: list, user: User, broker_account_id: uuid.UUID = None) -> list[Trade]:
         """
-        Syncs open trades from Oanda execution service to local database.
-        Uses upsert logic based on 'oanda_id'.
+        Syncs open trades from execution service to local database.
+        Uses upsert logic based on 'broker_trade_id'.
         """
-        logger.info(f"Syncing {len(oanda_trades)} open trades from Oanda")
+        logger.info(f"Syncing {len(broker_trades)} open trades for account {broker_account_id}")
         synced_trades = []
         
-        for ot in oanda_trades:
-            oanda_id = ot.get("id")
-            if not oanda_id:
+        for bt in broker_trades:
+            broker_id = str(bt.get("id"))
+            if not broker_id:
                 continue
                 
-            # Check if trade exists by oanda_id in metadata
-            # Ideally we should store oanda_id in a indexed column but for now we search metadata
-            # Or assume we rely on trade creation flow first.
-            
-            # Since JSONB filtering can be slow without index, and we likely don't have many open trades:
-            # We can try to match by exact ID if we stored it, or iterate.
-            # OPTIMIZATION: Filter by status OPEN first.
-            
-            # Using JSON path operator ->> to extract field as text
+            # Check if trade exists by broker_trade_id
             existing_trade = db.query(Trade).filter(
                 Trade.status == TradeStatus.OPEN,
-                Trade.metadata_json['oanda_id'].astext == str(oanda_id)
+                Trade.broker_trade_id == broker_id
             ).first()
             
+            # Fallback for old Oanda trades stored only in metadata (Migration support)
+            if not existing_trade:
+                existing_trade = db.query(Trade).filter(
+                    Trade.status == TradeStatus.OPEN,
+                    Trade.metadata_json['oanda_id'].astext == broker_id
+                ).first()
+            
             if existing_trade:
-                # Update existing (if needed, e.g. current price/pnl if we tracked that live)
-                # Ensure broker link if missing
+                # Update SL/TP if they exist in the incoming data
+                if "sl" in bt and bt["sl"] is not None:
+                    existing_trade.sl_price = float(bt["sl"])
+                if "tp" in bt and bt["tp"] is not None:
+                    existing_trade.tp_price = float(bt["tp"])
+                
                 if broker_account_id and not existing_trade.broker_account_id:
                     existing_trade.broker_account_id = broker_account_id
                 
-                # Ensure broker_trade_id column is populated
-                # Update broker_trade_id if it was missing (migration)
                 if not existing_trade.broker_trade_id:
-                    existing_trade.broker_trade_id = str(oanda_id)
+                    existing_trade.broker_trade_id = broker_id
+                    
                 synced_trades.append(existing_trade)
                 continue
             
             # Create NEW Trade if we missed it (e.g. opened externally)
             try:
-                units = float(ot.get("currentUnits", 0))
-                direction = TradeDirection.LONG if units > 0 else TradeDirection.SHORT
-                entry_price = float(ot.get("price", 0))
+                units = float(bt.get("units") or bt.get("currentUnits") or 0)
+                direction = bt.get("direction")
+                if not direction:
+                    direction = TradeDirection.LONG if units > 0 else TradeDirection.SHORT
+                elif isinstance(direction, str):
+                    direction = TradeDirection.LONG if direction.upper() in ["LONG", "BUY"] else TradeDirection.SHORT
+                
+                entry_price = float(bt.get("entry_price") or bt.get("price") or 0)
                 
                 new_trade = Trade(
                     trade_id=uuid.uuid4(),
                     broker_account_id=broker_account_id,
-                    broker_trade_id=str(oanda_id),
-                    symbol=ot.get("instrument", "XAU_USD").replace("_", "/"), # Normalize Oanda format
-                    strategy_name="Oanda Sync",
-                    signal_timestamp=datetime.now(timezone.utc), # Approximate
+                    broker_trade_id=broker_id,
+                    symbol=bt.get("symbol") or bt.get("instrument", "UNKNOWN"),
+                    strategy_name="External Sync",
+                    signal_timestamp=datetime.now(timezone.utc),
                     status=TradeStatus.OPEN,
                     direction=direction,
                     entry_price=entry_price,
-                    sl_price=0.0, # Not provided in basic list, would need details
-                    tp_price=0.0,
+                    sl_price=float(bt.get("sl") or 0),
+                    tp_price=float(bt.get("tp") or 0),
                     lot_size=abs(units) / 100000.0,
-                    risk_usd=0.0, # Unknown risk
-                    broker_trade_id=str(oanda_id),
+                    risk_usd=0.0,
                     metadata_json={
-                        "oanda_id": oanda_id,
-                        "sync_source": "OANDA_API",
-                        "open_time": ot.get("openTime")
+                        "broker_id": broker_id,
+                        "sync_source": "API_SYNC",
+                        "open_time": bt.get("time") or bt.get("openTime")
                     }
                 )
                 db.add(new_trade)
                 synced_trades.append(new_trade)
-                logger.info(f"Imported external Oanda trade {oanda_id} for {new_trade.symbol}")
+                logger.info(f"Imported external trade {broker_id} for {new_trade.symbol}")
                 
             except Exception as e:
-                logger.error(f"Failed to import Oanda trade {oanda_id}: {e}")
+                logger.error(f"Failed to import external trade {broker_id}: {e}")
                 
         db.commit()
         return synced_trades

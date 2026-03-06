@@ -84,8 +84,17 @@ class CTraderOrderAdapter(BrokerAdapter):
             if not symbols:
                  logger.error("cTrader: Failed to fetch symbols from cache/HTTP.")
                  return
+                 
+            # API Gateway JSON is typically {"status": "success", "data": [...]}
+            if isinstance(symbols, dict) and "data" in symbols:
+                symbols_list = symbols["data"]
+            elif isinstance(symbols, list):
+                symbols_list = symbols
+            else:
+                logger.error(f"cTrader: Unexpected format for symbols response: {type(symbols)}")
+                return
 
-            for ms in symbols:
+            for ms in symbols_list:
                 details = ms.get("details", {})
                 symbol = ms.get("symbol", "")
                 
@@ -162,13 +171,15 @@ class CTraderOrderAdapter(BrokerAdapter):
             
             symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
             
-            # Universal Units Normalization: 100,000 = 1 Standard Lot
-            # volume_cents = (units / 100,000) * lot_size_cents
-            volume_cents = int((units / 100000.0) * lot_size_cents)
+            # Universal Units Normalization: 
+            # In Olympus, 'units' for Forex represents direct asset units (e.g. 1000 = 1 micro lot).
+            # cTrader expects volume in 'cents' (units * 100).
+            volume_cents = int(units * 100)
             
-            # Minimum volume check (cTrader requirement)
-            if abs(volume_cents) < 100:
-                volume_cents = 100 if units > 0 else -100
+            # Minimum volume check (cTrader requirement for Forex is usually 1,000 units = 100,000 cents)
+            if abs(volume_cents) < 100000:
+                volume_cents = 100000 if units > 0 else -100000
+                
                 
             res = await self.client.create_order(
                 account_id=self.account_id,
@@ -204,18 +215,37 @@ class CTraderOrderAdapter(BrokerAdapter):
                           logger.warning(f"[H2] Failed to publish REJECTED fill: {pub_err}")
                       raise Exception(f"cTrader Order REJECTED: {error_code}")
             logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
-
+            
             # Extract IDs promptly so they are available for logic below
             order_id = str(res.order.orderId) if res.HasField("order") else None
-            position_id = str(res.deal.positionId) if res.HasField("deal") else None
-            broker_order_id = order_id or position_id
+            
+            # Robust Position ID extraction across different ExecutionEvent structures
+            position_id = None
+            if res.HasField("position"):
+                position_id = str(res.position.positionId)
+            elif res.HasField("deal"):
+                position_id = str(res.deal.positionId)
+            elif res.HasField("order") and res.order.HasField("positionId"):
+                position_id = str(res.order.positionId)
+            
+            # [PHASE 15] Stable ID Mapping: Prioritize position_id for MARKET fills
+            is_filled = res.executionType in [
+                ProtoOAExecutionType.ORDER_FILLED, 
+                ProtoOAExecutionType.ORDER_PARTIAL_FILL
+            ]
+            
+            broker_order_id = position_id or order_id
+            
+            # If we finally found a position_id, ensure it's used for the local SL/TP logic below
+            if not position_id:
+                if is_filled:
+                    logger.warning(f"cTrader: Order {order_id} FILLED but no position_id found yet.")
+                position_id = order_id
 
             fill_price = float(res.deal.executionPrice) if res.HasField("deal") else 0.0
                   
             # If SL/TP provided, validate against fill_price before amending
-            # cTrader rule: BUY → TP must be > fill_price (BID), SL must be < fill_price
-            #               SELL → TP must be < fill_price (ASK), SL must be > fill_price
-            if position_id and (sl_price or tp_price):
+            if position_id and (sl_price or tp_price) and is_filled:
                  is_buy = units > 0
                  valid_sl = sl_price
                  valid_tp = tp_price
@@ -249,24 +279,28 @@ class CTraderOrderAdapter(BrokerAdapter):
                            logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
 
             # [H2] FILLED — publish fill event → Redis List (WS push) + Stream (FillTradeConsumer → DB)
-            # HFT-Lite: No DB writes here. FillTradeConsumer in worker.py handles DB persistence.
-            try:
-                from app.services.fill_publisher import publish_fill
-                asyncio.create_task(publish_fill(
-                    account_id=str(self.account_id),
-                    trace_id=trade_id or "",
-                    order_id=broker_order_id,
-                    status="FILLED",
-                    instrument=symbol,
-                    fill_price=fill_price,
-                    fill_volume=units,
-                    sl_price=sl_price or 0.0,
-                    tp_price=tp_price or 0.0,
-                    direction="LONG" if units > 0 else "SHORT",
-                    comment=comment or "",
-                ))
-            except Exception as pub_err:
-                logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
+            # [PHASE 15] Only publish FILLED if it's actually filled.
+            if is_filled:
+                try:
+                    from app.services.fill_publisher import publish_fill
+                    asyncio.create_task(publish_fill(
+                        account_id=str(self.account_id),
+                        trace_id=trade_id or "",
+                        order_id=broker_order_id,
+                        status="FILLED",
+                        instrument=symbol,
+                        fill_price=fill_price,
+                        fill_volume=units,
+                        sl_price=sl_price or 0.0,
+                        tp_price=tp_price or 0.0,
+                        direction="LONG" if units > 0 else "SHORT",
+                        comment=comment or "",
+                        deal_id=str(res.deal.dealId) if res.HasField("deal") else None,
+                    ))
+                except Exception as pub_err:
+                    logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
+            else:
+                logger.info(f"cTrader: Order {order_id} {res.executionType} - waiting for fill event.")
 
             return {
                 "orderFillTransaction": {
@@ -301,8 +335,14 @@ class CTraderOrderAdapter(BrokerAdapter):
                 volume = p.tradeData.volume
                 trade_side = p.tradeData.tradeSide
                 
-                s_name, lot_size_cents = self._resolve_name_from_id_cache(symbol_id)
-                norm_units = (volume / float(lot_size_cents)) * 100000.0
+                s_name = await self._resolve_symbol_name(p.tradeData.symbolId)
+                
+                # Convert units from cents
+                norm_units = p.tradeData.volume / 100.0
+                tsl_status = p.trailingStopLoss if p.HasField("trailingStopLoss") else False
+                
+                # Force print to stdout for docker compose logs visibility
+                print(f"!!! JANITOR_DEBUG !!! Position {p.positionId} trailingStopLoss={tsl_status}", flush=True)
 
                 trades.append({
                     "id": str(p.positionId),
@@ -310,10 +350,34 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "units": norm_units,
                     "side": "BUY" if trade_side == ProtoOATradeSide.BUY else "SELL",
                     "entry_price": p.price,
-                    "current_price": 0.0, # Need spot price...
-                    "pnl": p.swap / 100.0 + (p.commission / 100.0 if hasattr(p, 'commission') else 0), # Simplified PnL? 
-                    # Reconcile has grossProfit? Let me re-check dir(p)
+                    "sl": p.stopLoss if p.HasField("stopLoss") else None,
+                    "tp": p.takeProfit if p.HasField("takeProfit") else None,
+                    "trailing_sl": tsl_status,
+                    "trailing_stop": tsl_status,
+                    "current_price": 0.0,
+                    "pnl": p.swap / 100.0 + (p.commission / 100.0 if hasattr(p, 'commission') else 0),
+                    "type": "POSITION"
                 })
+
+            # [PHASE 15] Include Pending Orders in reconciliation to prevent Janitor from pruning them
+            for o in reconcile.order:
+                # status 1=ACCEPTED (Pending), 2=FILLED (but maybe waiting?), etc.
+                # We only want those that are effectively "working"
+                if o.orderStatus == ProtoOAOrderStatus.ORDER_STATUS_ACCEPTED:
+                    s_name = await self._resolve_symbol_name(o.tradeData.symbolId)
+                    norm_units = o.tradeData.volume / 100.0
+                    
+                    trades.append({
+                        "id": str(o.orderId),
+                        "symbol": s_name,
+                        "units": norm_units,
+                        "side": "BUY" if o.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
+                        "entry_price": o.limitPrice if o.HasField("limitPrice") else (o.stopPrice if o.HasField("stopPrice") else 0.0),
+                        "sl": o.stopLoss if o.HasField("stopLoss") else None,
+                        "tp": o.takeProfit if o.HasField("takeProfit") else None,
+                        "status": "PENDING",
+                        "type": "ORDER"
+                    })
             
             return trades
             
@@ -334,10 +398,10 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_account(self.account_id, self.token)
             
             symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
-            volume_cents = int((units / 100000.0) * lot_size_cents)
+            volume_cents = int(units * 100)
             
-            if abs(volume_cents) < 100:
-                volume_cents = 100 if units > 0 else -100
+            if abs(volume_cents) < 100000:
+                volume_cents = 100000 if units > 0 else -100000
             
             # Determine Limit vs Stop? 
             # place_limit_order implies LIMIT.
@@ -516,7 +580,8 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def amend_order(self, order_id: str, units: Optional[float] = None, 
                     price: Optional[float] = None, 
                     sl_price: Optional[float] = None, 
-                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+                    tp_price: Optional[float] = None,
+                    trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -556,7 +621,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
             
             if units is not None:
-                volume_cents = int((units / 100000.0) * lot_size_cents)
+                volume_cents = int(units * 100)
             else:
                 # Use current raw volume from the order
                 volume_cents = target_order.get("raw_volume")
@@ -565,13 +630,19 @@ class CTraderOrderAdapter(BrokerAdapter):
                 # Use current price from the order
                 price = target_order.get("price")
 
+            # Preserve existing SL/TP if not explicitly provided
+            final_sl = sl_price if sl_price is not None else target_order.get("sl")
+            final_tp = tp_price if tp_price is not None else target_order.get("tp")
+            final_trailing = trailing_sl if trailing_sl is not None else target_order.get("trailing_sl", False)
+
             res = await self.client.amend_order(
                 account_id=self.account_id,
                 order_id=int(order_id),
                 volume=volume_cents,
                 price=price,
-                sl=sl_price,
-                tp=tp_price
+                sl=final_sl,
+                tp=final_tp,
+                trailing_sl=final_trailing
             )
             return {"status": "amended", "order_id": order_id}
         except (ValueError, RiskValidationError) as ve:
@@ -586,7 +657,8 @@ class CTraderOrderAdapter(BrokerAdapter):
 
     async def amend_position(self, broker_trade_id: str, 
                         sl_price: Optional[float] = None, 
-                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+                        tp_price: Optional[float] = None,
+                        trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -594,6 +666,7 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             # [SAFETY - Layer 3] Fetch position to validate SL/TP direction before amending
             reconcile = await self.client.get_reconcile(self.account_id)
+            
             target = next(
                 (p for p in reconcile.position if str(p.positionId) == str(broker_trade_id)),
                 None
@@ -625,11 +698,18 @@ class CTraderOrderAdapter(BrokerAdapter):
                             f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
                         )
 
+            # Preserve existing SL/TP if not explicitly provided
+            # target is ProtoOAPosition from get_reconcile
+            final_sl = sl_price if sl_price is not None else (float(target.stopLoss) if target.HasField("stopLoss") else None)
+            final_tp = tp_price if tp_price is not None else (float(target.takeProfit) if target.HasField("takeProfit") else None)
+            final_trailing = trailing_sl if trailing_sl is not None else (bool(target.trailingStopLoss) if target.HasField("trailingStopLoss") else False)
+
             res = await self.client.amend_position_sltp(
                 account_id=self.account_id,
                 position_id=int(broker_trade_id),
-                sl=sl_price,
-                tp=tp_price
+                sl=final_sl,
+                tp=final_tp,
+                trailing_sl=final_trailing
             )
             return {"status": "amended", "position_id": broker_trade_id}
         except (ValueError, RiskValidationError) as ve:
@@ -666,6 +746,10 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "raw_volume": o.tradeData.volume,
                     "type": str(o.orderType),
                     "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
+                    "sl": o.stopLoss if o.HasField("stopLoss") else None,
+                    "tp": o.takeProfit if o.HasField("takeProfit") else None,
+                    "trailing_sl": o.trailingStopLoss if o.HasField("trailingStopLoss") else False,
+                    "trailing_stop": o.trailingStopLoss if o.HasField("trailingStopLoss") else False,
                     "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None,
                     "status": "PENDING"
                 })

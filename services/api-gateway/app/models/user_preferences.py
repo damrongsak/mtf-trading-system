@@ -49,6 +49,12 @@ class UserPreferences(Base):
         nullable=False,
         comment="Allow system to reconcile OANDA positions"
     )
+    ctrader_janitor_enabled = Column(
+        Boolean, 
+        default=False, 
+        nullable=False,
+        comment="Allow system to reconcile cTrader positions"
+    )
     
     # Telegram Configuration
     telegram_bot_token = Column(

@@ -3,7 +3,7 @@ Trade SQLAlchemy model.
 Source of truth: specs/03_data_model.yaml -> Trade entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text
+from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
@@ -56,6 +56,8 @@ class Trade(Base):
                      comment="Stop loss price")
     tp_price = Column(Numeric(18, 8), nullable=False,
                      comment="Take profit price")
+    trailing_stop = Column(Boolean, default=False, nullable=True,
+                          comment="Enable/Disable trailing stop loss")
 
     # Position Sizing & Risk (Critical for F2.1-F2.4)
     lot_size = Column(Numeric(12, 6), nullable=False,

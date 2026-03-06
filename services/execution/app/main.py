@@ -667,17 +667,21 @@ class AmendOrderRequest(BaseModel):
     price: Optional[float] = None
     stop_loss: Optional[float] = Field(None, alias="sl_price")
     take_profit: Optional[float] = Field(None, alias="tp_price")
+    trailing_stop: Optional[bool] = Field(None, alias="trailing_sl")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = {
+        "populate_by_name": True
+    }
 
 class AmendPositionRequest(BaseModel):
     broker_account_id: str
     stop_loss: Optional[float] = Field(None, alias="sl_price")
     take_profit: Optional[float] = Field(None, alias="tp_price")
+    trailing_stop: Optional[bool] = Field(None, alias="trailing_sl")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = {
+        "populate_by_name": True
+    }
 
 @app.delete("/orders/{order_id}")
 async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
@@ -710,8 +714,27 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
                 units=req.units,
                 price=req.price,
                 sl_price=req.stop_loss,
-                tp_price=req.take_profit
+                tp_price=req.take_profit,
+                trailing_sl=req.trailing_stop
             )
+            
+            # Sync to local DB if trade exists
+            try:
+                acc_uuid = uuid.UUID(req.broker_account_id)
+                stmt = select(Trade).where(
+                    Trade.broker_trade_id == str(order_id),
+                    Trade.broker_account_id == acc_uuid
+                )
+                result = await db.execute(stmt)
+                trade = result.scalar_one_or_none()
+                if trade:
+                    if req.stop_loss is not None: trade.sl_price = req.stop_loss
+                    if req.take_profit is not None: trade.tp_price = req.take_profit
+                    if req.trailing_stop is not None: trade.trailing_stop = req.trailing_stop
+                    await db.commit()
+            except Exception as db_err:
+                logger.error(f"Failed to sync order amendment to DB: {db_err}")
+
             return success_response(data=res)
         else:
             raise HTTPException(status_code=501, detail="Broker adapter does not support order amendment")
@@ -738,8 +761,27 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
             res = await adapter.amend_position(
                 broker_trade_id=position_id,
                 sl_price=req.stop_loss,
-                tp_price=req.take_profit
+                tp_price=req.take_profit,
+                trailing_sl=req.trailing_stop
             )
+            
+            # Sync to local DB if trade exists
+            try:
+                acc_uuid = uuid.UUID(req.broker_account_id)
+                stmt = select(Trade).where(
+                    Trade.broker_trade_id == str(position_id),
+                    Trade.broker_account_id == acc_uuid
+                )
+                result = await db.execute(stmt)
+                trade = result.scalar_one_or_none()
+                if trade:
+                    if req.stop_loss is not None: trade.sl_price = req.stop_loss
+                    if req.take_profit is not None: trade.tp_price = req.take_profit
+                    if req.trailing_stop is not None: trade.trailing_stop = req.trailing_stop
+                    await db.commit()
+            except Exception as db_err:
+                logger.error(f"Failed to sync position amendment to DB: {db_err}")
+                
             return success_response(data=res)
         else:
             raise HTTPException(status_code=501, detail="Broker adapter does not support position amendment")

@@ -2312,6 +2312,9 @@ paths:
                   type: number
                 take_profit:
                   type: number
+                trailing_stop:
+                  type: boolean
+                  description: "Enable/Disable trailing stop loss"
       responses:
         '200':
           description: Position amended
@@ -2416,6 +2419,9 @@ paths:
                   type: number
                 take_profit:
                   type: number
+                trailing_stop:
+                  type: boolean
+                  description: "Enable/Disable trailing stop loss"
       responses:
         '200':
           description: Order modified
@@ -3619,6 +3625,12 @@ components:
           format: date-time
           nullable: true
         rejection_reason:
+          type: string
+          nullable: true
+        broker_trade_id:
+          type: string
+          nullable: true
+        broker_deal_id:
           type: string
           nullable: true
         created_at:

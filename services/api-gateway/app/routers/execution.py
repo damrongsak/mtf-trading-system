@@ -409,13 +409,11 @@ async def get_trades(
                 ).all()
                     
                 async def sync_account(acc):
+                    if acc.broker_name not in ["OANDA", "CTRADER"]:
+                        return # Janitor service handles others
                     try:
-                        oanda_trades = await execution_client.get_open_trades(str(acc.id))
-                        # Sync operations in TradeService are synchronous DB writes, which is fine within thread pool usually,
-                        # but here we are in async path. 
-                        # Ideally TradeService.sync_open_trades should be async or run in threadpool if heavy?
-                        # For now, keep as is.
-                        TradeService.sync_open_trades(db, oanda_trades, current_user, broker_account_id=acc.id)
+                        trades = await execution_client.get_open_trades(str(acc.id))
+                        TradeService.sync_open_trades(db, trades, current_user, broker_account_id=acc.id)
                     except Exception as sync_err:
                         logger.error(f"Failed to sync trades for account {acc.account_name}: {sync_err}", exc_info=True)
 

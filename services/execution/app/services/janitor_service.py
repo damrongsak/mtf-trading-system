@@ -15,72 +15,71 @@ class JanitorService:
     @classmethod
     async def reconcile_all_accounts(cls):
         """
-        [THE JANITOR] Periodic reconciliation loop for all OANDA accounts.
+        [THE JANITOR] Periodic reconciliation loop for all enabled brokers and users.
         """
         logger.info("🧹 [Janitor] Starting multi-account reconciliation...")
         
         async with AsyncSessionLocal() as db:
-            # 1. Check System Level Data Source
-            ds_stmt = select(DataSource).where(DataSource.provider == "OANDA", DataSource.is_active == True)
+            # 1. Fetch active data sources to identify enabled providers
+            ds_stmt = select(DataSource).where(DataSource.is_active == True)
             ds_result = await db.execute(ds_stmt)
-            oanda_ds = ds_result.scalar_one_or_none()
+            active_providers = {ds.provider for ds in ds_result.scalars().all()}
             
-            if not oanda_ds:
-                logger.warning("🧹 [Janitor] OANDA Data Source is inactive. Skipping reconciliation.")
-                return
-
-            # 2. Fetch all OANDA accounts with Active User and Janitor Enabled
-            # Relationship: BrokerAccount -> Fund -> UserFund -> User -> UserPreferences
+            # 2. Fetch all active users with their preferences
             from app.models import Fund, UserFund
+            user_stmt = select(User, UserPreferences).join(UserPreferences, User.id == UserPreferences.user_id).where(User.is_active == True)
+            user_result = await db.execute(user_stmt)
+            users_with_prefs = user_result.all()
             
-            stmt = (
-                select(BrokerAccount)
-                .join(Fund, BrokerAccount.fund_id == Fund.id)
-                .join(UserFund, Fund.id == UserFund.fund_id)
-                .join(User, UserFund.user_id == User.id)
-                .join(UserPreferences, User.id == UserPreferences.user_id)
-                .where(
-                    BrokerAccount.broker_name == "OANDA",
-                    BrokerAccount.is_active == True,
-                    User.is_active == True,
-                    UserPreferences.oanda_janitor_enabled == True
+            total_synced = 0
+            
+            for user, prefs in users_with_prefs:
+                # Determine which brokers are enabled for this specific user
+                enabled_brokers = []
+                if prefs.oanda_janitor_enabled and "OANDA" in active_providers:
+                    enabled_brokers.append("OANDA")
+                if hasattr(prefs, "ctrader_janitor_enabled") and prefs.ctrader_janitor_enabled and "CTRADER" in active_providers:
+                    enabled_brokers.append("CTRADER")
+                
+                if not enabled_brokers:
+                    continue
+                
+                # 3. Fetch all active broker accounts for this user that belong to enabled brokers
+                acc_stmt = (
+                    select(BrokerAccount)
+                    .join(Fund, BrokerAccount.fund_id == Fund.id)
+                    .join(UserFund, Fund.id == UserFund.fund_id)
+                    .where(
+                        UserFund.user_id == user.id,
+                        BrokerAccount.is_active == True,
+                        BrokerAccount.broker_name.in_(enabled_brokers)
+                    )
                 )
-            )
-            
-            result = await db.execute(stmt)
-            accounts = result.scalars().all()
-            
-            logger.info(f"🧹 [Janitor] Found {len(accounts)} active OANDA accounts. Verifying user consent...")
-            
-            for account in accounts:
-                try:
-                    # [PRO] Permission Check: Verify user still exists and has janitor enabled
-                    # We need to find the user via Fund -> UserFund -> User
-                    # But if we don't have those models, we should at least check UserPreferences if we can link it.
-                    # As a shortcut for this environment, let's assume if BrokerAccount is active, we proceed, 
-                    # but the SPEC requires User level check. 
-                    # Let's perform a raw SQL check or add the necessary models if missing.
-                    
-                    # Ensure environment is passed to factory
-                    credentials = decrypt_data(account.credentials_encrypted)
-                    credentials["environment"] = account.environment
-                    
-                    await cls.reconcile_single_account(account, db, credentials)
-                except Exception as e:
-                    logger.error(f"🧹 [Janitor] Failed to reconcile account {account.id}: {e}")
+                acc_result = await db.execute(acc_stmt)
+                accounts = acc_result.scalars().all()
+                
+                for account in accounts:
+                    try:
+                        credentials = decrypt_data(account.credentials_encrypted)
+                        credentials["environment"] = account.environment
+                        await cls.reconcile_single_account(account, db, credentials)
+                        total_synced += 1
+                    except Exception as e:
+                        logger.error(f"🧹 [Janitor] Failed to reconcile account {account.id} ({account.broker_name}): {e}")
 
-        logger.info("🧹 [Janitor] Reconciliation cycle complete.")
+        logger.info(f"🧹 [Janitor] Reconciliation cycle complete. Synced {total_synced} accounts.")
 
     @classmethod
     async def reconcile_single_account(cls, account: BrokerAccount, db: AsyncSession, credentials: Dict[str, Any]):
         """
-        Sync a single OANDA account with local DB.
+        Sync a single account with local DB (Broker Agnostic).
         """
-        logger.info(f"🧹 [Janitor] Reconciling account {account.account_name} ({account.account_number})")
+        logger.info(f"🧹 [Janitor] Reconciling {account.broker_name} account {account.account_name} ({account.account_number})")
         
-        # 1. Fetch live trades from OANDA
-        adapter = BrokerFactory.get_adapter("OANDA", credentials)
+        # 1. Fetch live trades from Broker via Adapter
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
+        # All adapters MUST support get_open_trades() as part of the interface
         broker_trades = await adapter.get_open_trades()
         broker_trade_ids = {str(t.get('id')) for t in broker_trades}
         
@@ -93,25 +92,24 @@ class JanitorService:
         olympus_trades = db_result.scalars().all()
         
         # 3. Detect Desynchronization
+        desync_count = 0
         for o_trade in olympus_trades:
             btid = o_trade.broker_trade_id
             
             if btid and str(btid) not in broker_trade_ids:
-                logger.warning(f"⚠️ [Janitor] Desync Detected! Trade {o_trade.trade_id} (Broker: {btid}) is missing in OANDA. Closing in Olympus.")
+                logger.warning(f"⚠️ [Janitor] Desync Detected! {account.broker_name} Trade {o_trade.trade_id} (Broker: {btid}) is missing. Closing in Olympus.")
                 
-                # Mark as CLOSED_EXTERNALLY in DB
+                # Mark as CLOSED in DB (effectively marking as historical/missing)
                 o_trade.status = TradeStatus.CLOSED
                 o_trade.exit_timestamp = datetime.utcnow()
                 if not o_trade.metadata_json:
                     o_trade.metadata_json = {}
                 o_trade.metadata_json['janitor_close'] = True
-                o_trade.metadata_json['close_reason'] = "CLOSED_EXTERNALLY_DETECTED_BY_JANITOR"
+                o_trade.metadata_json['close_reason'] = f"CLOSED_EXTERNALLY_ON_{account.broker_name}_DETECTED_BY_JANITOR"
+                desync_count += 1
                 
-                # Commit will be handled by the session or caller
-                
-            else:
-                # Trade is synchronized
-                pass
-
-        await db.commit()
-        logger.info(f"🧹 [Janitor] Account {account.account_name} is now in sync.")
+        if desync_count > 0:
+            await db.commit()
+            logger.info(f"🧹 [Janitor] Processed {desync_count} desyncs for {account.account_name}.")
+        else:
+            logger.info(f"🧹 [Janitor] Account {account.account_name} is perfectly in sync.")

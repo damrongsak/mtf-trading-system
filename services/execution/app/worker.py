@@ -212,7 +212,7 @@ class FillTradeConsumer:
             direction_str = data.get("direction", "LONG")
             comment = data.get("comment", "Manual")
 
-            if not (broker_order_id and symbol and fill_price > 0):
+            if not (broker_order_id and symbol):
                 logger.warning(f"[FillConsumer] Skipping incomplete fill event: {data}")
                 await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
                 return
@@ -279,6 +279,7 @@ class FillTradeConsumer:
                     exit_timestamp=None,
                     metadata_json={
                         "broker_position_id": broker_order_id,
+                        "deal_id": data.get("deal_id"),
                         "stream_msg_id": msg_id,
                     },
                 )

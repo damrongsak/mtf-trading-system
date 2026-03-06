@@ -132,6 +132,7 @@ class Trade(Base):
     strategy_run_id = Column(UUID(as_uuid=True), nullable=True)
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True)
     broker_trade_id = Column(String(100), nullable=True)
+    broker_deal_id = Column(String(100), nullable=True, unique=True)
     symbol = Column(String(20), nullable=False)
     strategy_name = Column(String(100), nullable=False)
     signal_timestamp = Column(DateTime(timezone=True), nullable=False)
@@ -143,6 +144,7 @@ class Trade(Base):
     entry_price = Column(Numeric(18, 8), nullable=False)
     sl_price = Column(Numeric(18, 8), nullable=False)
     tp_price = Column(Numeric(18, 8), nullable=False)
+    trailing_stop = Column(Boolean, default=False, nullable=True)
     
     lot_size = Column(Numeric(10, 2), nullable=False)
     risk_usd = Column(Numeric(10, 2), nullable=False)
@@ -206,6 +208,7 @@ class UserPreferences(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
     oanda_janitor_enabled = Column(Boolean, default=False, nullable=False)
+    ctrader_janitor_enabled = Column(Boolean, default=False, nullable=False)
 
 class UserFund(Base):
     __tablename__ = "user_funds"

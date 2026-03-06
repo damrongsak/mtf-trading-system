@@ -651,7 +651,12 @@ entities:
         type: string
         max_length: 100
         nullable: true
-        description: "Official trade ID from the broker (OANDA tradeID, cTrader positionId)"
+        description: "Official execution ID from the broker (OANDA tradeID, cTrader positionId)"
+      - name: broker_deal_id
+        type: string
+        max_length: 100
+        nullable: true
+        description: "Stable deal identifier for cTrader deduplication; optional for OANDA"
       - name: symbol
         type: string
         required: true
@@ -699,6 +704,10 @@ entities:
         scale: 8
         nullable: true
         description: "Take profit price"
+      - name: trailing_stop
+        type: boolean
+        default: false
+        description: "Whether trailing stop is enabled for this trade"
       - name: lot_size
         type: decimal
         precision: 10
@@ -1326,6 +1335,10 @@ validation_rules:
         type: boolean
         default: false
         description: "If true, allows the system to automatically reconcile and sync OANDA positions"
+      - name: ctrader_janitor_enabled
+        type: boolean
+        default: false
+        description: "If true, allows the system to automatically reconcile and sync cTrader positions"
       - name: created_at
         type: datetime
         default: "now()"
