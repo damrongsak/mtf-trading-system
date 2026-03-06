@@ -33,7 +33,7 @@ async def get_candles(
     count: int = Query(500, description="Number of candles to return"),
     from_time: Optional[datetime] = Query(None, description="Start time"),
     to_time: Optional[datetime] = Query(None, description="End time"),
-    data_source: str = Query("CTRADER", description="Data Source Preference"),
+    provider: str = Query("CTRADER", alias="data_source", description="Data Source Provider (e.g., OANDA, CTRADER)"),
     db: Session = Depends(get_db)
 ):
     # 1. Resolve MarketSymbol ID
@@ -49,7 +49,7 @@ async def get_candles(
         (MarketSymbol.symbol == symbol_norm) | 
         (MarketSymbol.symbol == symbol) |
         (MarketSymbol.symbol == symbol_stripped),
-        DataSource.name == data_source
+        DataSource.name == provider
     ).first()
     
     if not ms:

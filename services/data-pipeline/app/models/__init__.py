@@ -7,3 +7,5 @@ from .economic_event import EconomicEvent
 from .sentiment import SentimentScore
 from .news import NewsArticle
 from .cot import COTRecord
+from .user_preferences import UserPreferences, User, UserFund, Fund
+from .execution import Trade, BrokerAccount

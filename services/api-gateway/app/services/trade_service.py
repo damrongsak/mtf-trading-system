@@ -44,6 +44,7 @@ class TradeService:
             lot_size=abs(units) / 100000.0, # Approx lot size (simplified)
             risk_usd=10.0, # Default risk cap from specs
             pnl_usd=None,
+            broker_trade_id=str(execution_data.get("id")),
             metadata_json={
                 "oanda_id": execution_data.get("id"),
                 "execution_time": execution_data.get("time")
@@ -156,6 +157,10 @@ class TradeService:
                 if broker_account_id and not existing_trade.broker_account_id:
                     existing_trade.broker_account_id = broker_account_id
                 
+                # Ensure broker_trade_id column is populated
+                # Update broker_trade_id if it was missing (migration)
+                if not existing_trade.broker_trade_id:
+                    existing_trade.broker_trade_id = str(oanda_id)
                 synced_trades.append(existing_trade)
                 continue
             
@@ -168,7 +173,8 @@ class TradeService:
                 new_trade = Trade(
                     trade_id=uuid.uuid4(),
                     broker_account_id=broker_account_id,
-                    symbol=ot.get("instrument").replace("_", "/"), # Normalize Oanda format
+                    broker_trade_id=str(oanda_id),
+                    symbol=ot.get("instrument", "XAU_USD").replace("_", "/"), # Normalize Oanda format
                     strategy_name="Oanda Sync",
                     signal_timestamp=datetime.now(timezone.utc), # Approximate
                     status=TradeStatus.OPEN,
@@ -178,6 +184,7 @@ class TradeService:
                     tp_price=0.0,
                     lot_size=abs(units) / 100000.0,
                     risk_usd=0.0, # Unknown risk
+                    broker_trade_id=str(oanda_id),
                     metadata_json={
                         "oanda_id": oanda_id,
                         "sync_source": "OANDA_API",

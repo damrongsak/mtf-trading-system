@@ -148,14 +148,20 @@ async def test_oanda_amend_order_success():
     from app.adapters.oanda_order import OandaOrderAdapter
     adapter = OandaOrderAdapter("id", "123")
     adapter.client = MagicMock()
-    adapter.client.request = MagicMock()
+    
+    def mock_request(r):
+        r.response = {"orderCreateTransaction": {"id": "556"}}
+        return r.response
+        
+    adapter.client.request = MagicMock(side_effect=mock_request)
 
     # Mock get_pending_orders 
     adapter.get_pending_orders = AsyncMock(return_value=[
         {"id": "555", "instrument": "XAU_USD", "units": "100", "type": "LIMIT", "price": "2000.000"}
     ])
 
-    await adapter.amend_order(order_id="555", units=200, price=2100.0, sl_price=2050.0)
+    result = await adapter.amend_order(order_id="555", units=200, price=2100.0, sl_price=2050.0)
+    assert result["order_id"] == "556"
 
     # Verify OANDA API request
     call_args = adapter.client.request.call_args[0][0] # The OrderReplace object

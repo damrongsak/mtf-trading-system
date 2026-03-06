@@ -27,10 +27,12 @@ dependencies = [
     "apscheduler>=3.10.4",
     "aiohttp>=3.9.0",
     "httpx>=0.28.1",
+    "websockets>=15.0.1",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
 ]

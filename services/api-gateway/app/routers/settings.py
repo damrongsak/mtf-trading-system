@@ -27,6 +27,7 @@ class UserPreferencesResponse(BaseModel):
     preferred_timeframes: List[str]
     default_symbol: str
     session_preferences: List[str] | None = None
+    oanda_janitor_enabled: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +37,7 @@ class UpdatePreferencesDto(BaseModel):
     preferred_timeframes: List[str] | None = None
     default_symbol: str | None = None
     session_preferences: List[str] | None = None
+    oanda_janitor_enabled: bool | None = None
 
 
 @router.get("/preferences", response_model=APIResponse[UserPreferencesResponse])

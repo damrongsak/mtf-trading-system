@@ -4,6 +4,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.accounts as accounts
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.instruments as instruments
+from oandapyV20.exceptions import V20Error
 from app.adapters.base import BrokerAdapter
 import logging
 from typing import List, Dict, Any, Optional
@@ -91,7 +92,23 @@ class OandaOrderAdapter(BrokerAdapter):
             r = orders.OrderCreate(accountID=self.account_id, data=order_body)
             # Run blocking call in threadpool
             await run_in_threadpool(self.client.request, r)
-            return r.response
+            resp = r.response
+            logger.info(f"OANDA Market Order Response: {resp}")
+            
+            # Check for immediate cancellation (e.g. STOP_LOSS_ON_FILL_LOSS)
+            if "orderCancelTransaction" in resp:
+                reason = resp.get("orderCancelTransaction", {}).get("reason", "UNKNOWN_CANCEL")
+                msg = f"OANDA order cancelled immediately: {reason}"
+                logger.error(msg)
+                raise ValueError(msg)
+                
+            if "orderFillTransaction" not in resp:
+                # If it's a Market order and not filled, it failed
+                msg = "OANDA Market order failed to fill (no orderFillTransaction)"
+                logger.error(msg)
+                raise ValueError(msg)
+                
+            return resp
         except Exception as e:
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
             raise e
@@ -147,6 +164,7 @@ class OandaOrderAdapter(BrokerAdapter):
             r = orders.OrderCreate(accountID=self.account_id, data=order_body)
             # Run blocking call in threadpool
             await run_in_threadpool(self.client.request, r)
+            logger.info(f"OANDA Limit Order Response: {r.response}")
             return r.response
         except Exception as e:
             logger.error(f"Failed to place OANDA limit order for {symbol}: {e}")
@@ -194,6 +212,13 @@ class OandaOrderAdapter(BrokerAdapter):
             # Run blocking call in threadpool
             await run_in_threadpool(self.client.request, r)
             return r.response
+        except V20Error as e:
+            # Handle idempotency: if trade is already closed, OANDA returns 404 (NO_SUCH_TRADE)
+            if e.code == 404:
+                logger.warning(f"OANDA Trade {broker_trade_id} already closed or not found (Idempotency).")
+                return {"id": broker_trade_id, "status": "ALREADY_CLOSED"}
+            logger.error(f"OANDA V20 Error closing trade {broker_trade_id}: {e}")
+            raise e
         except Exception as e:
             logger.error(f"Failed to close OANDA trade {broker_trade_id}: {e}")
             raise e
@@ -292,8 +317,15 @@ class OandaOrderAdapter(BrokerAdapter):
         """
         try:
             r = orders.OrderCancel(accountID=self.account_id, orderID=order_id)
+            # Run blocking call in threadpool
             await run_in_threadpool(self.client.request, r)
             return r.response
+        except V20Error as e:
+            # Handle idempotency: if order is already cancelled/filled, OANDA might return 404
+            if e.code == 404:
+                logger.warning(f"OANDA Order {order_id} already cancelled or not found (Idempotency).")
+                return {"id": order_id, "status": "ALREADY_CANCELLED"}
+            raise e
         except Exception as e:
             logger.error(f"Failed to cancel OANDA order {order_id}: {e}")
             raise e
@@ -355,7 +387,9 @@ class OandaOrderAdapter(BrokerAdapter):
 
             r = orders.OrderReplace(accountID=self.account_id, orderID=order_id, data=order_body)
             await run_in_threadpool(self.client.request, r)
-            return {"status": "amended", "order_id": order_id}
+            
+            new_order_id = r.response.get("orderCreateTransaction", {}).get("id", order_id)
+            return {"status": "amended", "order_id": new_order_id}
 
         except ValueError as ve:
             raise ve

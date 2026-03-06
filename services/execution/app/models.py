@@ -131,6 +131,7 @@ class Trade(Base):
     trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     strategy_run_id = Column(UUID(as_uuid=True), nullable=True)
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True)
+    broker_trade_id = Column(String(100), nullable=True)
     symbol = Column(String(20), nullable=False)
     strategy_name = Column(String(100), nullable=False)
     signal_timestamp = Column(DateTime(timezone=True), nullable=False)
@@ -191,3 +192,25 @@ class NewsArticle(Base):
     sentiment_score = Column(Numeric(5, 4), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    is_active = Column(Boolean, default=True)
+
+class UserPreferences(Base):
+    __tablename__ = "user_preferences"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
+    oanda_janitor_enabled = Column(Boolean, default=False, nullable=False)
+
+class UserFund(Base):
+    __tablename__ = "user_funds"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)

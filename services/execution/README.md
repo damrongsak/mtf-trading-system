@@ -63,6 +63,11 @@ graph TD
     - **Pre-trade Risk Validation**: SL/TP direction check in `amend_order` — LONG SL must be below entry, SHORT SL above. Violations return HTTP 422.
     - **`RiskValidationError`**: Custom exception class distinct from `ValueError` (404) to enable correct HTTP status codes.
     - **15 unit tests** covering all validation paths.
+- **✅ Phase 1 — OANDA Live Integration** (Implemented):
+    - **[O1] Live Environment Support**: Dedicated `OandaOrderAdapter` with `v20` API integration.
+    - **[O2] Bracket Orders**: Automated SL/TP attachment to both Market and Limit orders.
+    - **[O3] Order Amendment**: Support for `OrderReplace` to dynamically move Entry, SL, and TP on pending orders.
+    - **[O4] Resilient Sync**: Validated against OANDA state sync delays with human-like simulation testing.
 - **🔜 Sprint H — Production Hardening** (planned):
     - **[H2] Fill Publisher**: `ctrader.py` will publish FILLED/REJECTED events to Redis `execution:fills:{account_id}` after broker confirms, enabling end-to-end PENDING→FILLED callback to clients.
 

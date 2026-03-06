@@ -56,7 +56,10 @@ class ConnectionManager:
                 import os
                 import redis.asyncio as aioredis
                 temp_redis = aioredis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"), decode_responses=True)
-                snapshot = await temp_redis.hgetall(f"market_data:spot:{norm_symbol}")
+                
+                # Fetch provider-specific snapshot if source is provided
+                redis_key = f"market_data:spot:{source.upper()}:{norm_symbol}" if source else f"market_data:spot:{norm_symbol}"
+                snapshot = await temp_redis.hgetall(redis_key)
                 await temp_redis.close()
                 
                 if snapshot and "bid" in snapshot:
@@ -159,6 +162,7 @@ class ConnectionManager:
         # Subscribe to ticks and features
         logger.info("StreamManager: Attempting to psubscribe to market_data:tick:* and market.features.*")
         try:
+            # We now subscribe to the provider-specific tick channels as well
             await self.redis.psubscribe("market_data:tick:*")
             await self.redis.psubscribe("market_data:efp:*")
             await self.redis.psubscribe("market.features.*")
@@ -178,7 +182,12 @@ class ConnectionManager:
                     # Extract symbol logic
                     symbol = None
                     if any(x in channel for x in ["market_data:tick:", "market_data:info:", "market_data:efp:"]):
-                        symbol = channel.split(":")[-1]
+                        parts = channel.split(":")
+                        # Handle new format: market_data:tick:{provider}:{symbol} or legacy market_data:tick:{symbol}
+                        if len(parts) >= 4:
+                            symbol = parts[-1]
+                        else:
+                            symbol = parts[-1]
                     elif "market.features." in channel:
                         symbol = channel.split(".")[-1]
                         # Populate Feature Cache

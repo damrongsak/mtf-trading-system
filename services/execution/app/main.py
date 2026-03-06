@@ -27,6 +27,8 @@ from app.worker import worker, fill_trade_consumer
 from app.health import verify_dependencies
 from app.core.scheduler import scheduler
 from app.services.equity_guardian import EquityGuardian
+from app.services.janitor_service import JanitorService
+from app.services.oanda_streamer import MultiStreamManager
 from app.core.config import settings
 import redis.asyncio as redis
 from fastapi.security import APIKeyHeader
@@ -70,6 +72,16 @@ async def startup_event():
         
         # Schedule Health Check
         scheduler.add_job(guardian.check_health, 'interval', minutes=5, misfire_grace_time=60)
+        
+        # [THE JANITOR] Schedule State Reconciliation every 1 minute
+        scheduler.add_job(JanitorService.reconcile_all_accounts, 'interval', minutes=1, misfire_grace_time=60)
+        
+        # [STREAMER] Schedule Stream Sync every 5 minutes (to handle new/deleted accounts)
+        scheduler.add_job(MultiStreamManager.sync_streams, 'interval', minutes=5, misfire_grace_time=60)
+        
+        # Initial stream sync
+        asyncio.create_task(MultiStreamManager.sync_streams())
+        
         scheduler.start()
         logger.info("✅ Equity Guardian & Scheduler Started")
         
@@ -196,10 +208,10 @@ class AccountSummaryResponse(BaseModel):
 
 class OrderResponse(BaseModel):
     id: str
-    instrument: str
-    units: str
-    price: str
-    time: str
+    instrument: Optional[str] = None
+    units: Optional[str] = None
+    price: Optional[str] = None
+    time: Optional[str] = None
     status: str = Field("PENDING", description="PENDING, FILLED, CANCELLED, REJECTED")
 
 async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
@@ -315,15 +327,18 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
         
-        # Parse relevant fields from OANDA response (keeping logic compatible for now)
-        fill = response.get("orderFillTransaction") or response.get("orderCreateTransaction")
-        if not fill:
-             # Just return empty or partial?
-             # raise HTTPException(status_code=400, detail="Order not immediately filled or structure mismatch")
-             pass # Allow it, sometimes it's pending.
+        # Parse relevant fields from OANDA response
+        trade_id = "0"
+        fill = response.get("orderFillTransaction")
+        if fill:
+             # For Market Orders, use the resulting Trade ID for subsequent operations
+             trade_id = fill.get("tradeOpened", {}).get("tradeID", fill.get("id", "0"))
+        else:
+             fill = response.get("orderCreateTransaction")
+             trade_id = fill.get("id", "0") if fill else "0"
 
         return success_response(data={
-            "id": fill.get("id", "0") if fill else "0",
+            "id": trade_id,
             "instrument": fill.get("instrument", req.symbol) if fill else req.symbol,
             "units": fill.get("units", str(req.units)) if fill else str(req.units),
             "price": fill.get("price", "0") if fill else "0",

@@ -71,41 +71,49 @@ class StreamManager:
         # Channel convention: market_data:{type}:{symbol}
         event_type = data.get("type", "tick").lower()
         symbol = data.get("instrument", "UNKNOWN")
+        norm_symbol = symbol.replace("_", "").replace("/", "").upper()
         
         # --- High-Performance Path with Throttling ---
         if event_type == "price":
             now = time.time()
-            last_time = self._last_publish_times.get((symbol, "price"), 0)
+            source = data.get("source", "unknown").upper()
+            
+            # Use source in throttle key to prevent cross-broker throttling collisions
+            throttle_key = (norm_symbol, source, "price")
+            last_time = self._last_publish_times.get(throttle_key, 0)
+            
             if now - last_time < self.throttle_interval:
                 # Still record for EFP but don't broadcast to Redis if throttled? 
                 # Actually, EFP needs latest data, but we use the shared self.last_spot anyway.
                 # So we update internal state but skip publishing if too frequent.
-                if symbol == self.spot_symbol:
+                if norm_symbol == self.spot_symbol:
                     self.last_spot["bid"] = data.get("bid", 0.0)
                     self.last_spot["ask"] = data.get("ask", 0.0)
-                elif symbol == self.futures_symbol:
+                elif norm_symbol == self.futures_symbol:
                     self.last_futures["bid"] = data.get("bid", 0.0)
                     self.last_futures["ask"] = data.get("ask", 0.0)
                 return
 
-            self._last_publish_times[(symbol, "price")] = now
+            self._last_publish_times[throttle_key] = now
 
-            if symbol == self.spot_symbol:
+            if norm_symbol == self.spot_symbol:
                 self.last_spot["bid"] = data.get("bid", 0.0)
                 self.last_spot["ask"] = data.get("ask", 0.0)
                 await self._update_efp()
-            elif symbol == self.futures_symbol:
+            elif norm_symbol == self.futures_symbol:
                 self.last_futures["bid"] = data.get("bid", 0.0)
                 self.last_futures["ask"] = data.get("ask", 0.0)
                 await self._update_efp()
             
             # L2 Cache Pipeline
-            channel = f"market_data:tick:{symbol}"
-            cache_key = f"market_data:spot:{symbol}"
+            channel = f"market_data:tick:{source}:{norm_symbol}"
+            cache_key = f"market_data:spot:{source}:{norm_symbol}"
+
             cache_mapping = {
                 "bid": float(data.get("bid", 0.0)),
                 "ask": float(data.get("ask", 0.0)),
-                "ts": now
+                "ts": now,
+                "source": source
             }
             await self.publisher.publish_with_cache(channel, cache_key, data, cache_mapping)
             return

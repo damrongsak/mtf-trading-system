@@ -193,7 +193,7 @@ class OrderService:
 
             # 5. Position Sizing (O(1) Price Lookup)
             price_start = time.time()
-            current_price, price_err = await price_service.get_latest_price(req_data["symbol"])
+            current_price, price_err = await price_service.get_latest_price(req_data["symbol"], provider=account.broker_name)
             if price_err:
                 logger.warning(f"Price cache miss or stale: {price_err}. Falling back to API.")
                 try:

@@ -62,6 +62,9 @@ graph TD
 - **🔜 Sprint H — Production Hardening** (planned):
     - **[H1] Per-Command Rate Limiting**: Redis sliding window, tiered by category (TRADE: 5 rps, MANAGE: 20 rps, READ: 50 rps).
     - **[H2] Order Confirmation Callback**: 2-phase WS push — PENDING (immediate) + FILLED (async broker confirmation).
+- **✅ Sprint I — Multi-Broker Excellence** (implemented):
+    - **[I1] Provider-Specific Pricing**: WebSocket and REST endpoints now support `provider` filtering (OANDA/CTRADER) to prevent price collisions.
+    - **[I2] Deep Trade Inspection**: Enhanced `TradeResponse` with `broker_trade_id` and automated background sync for Oanda open trades.
 
 ## 🤖 AI-Agent Operational Guide
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Enum, DateTime, ForeignKey, Numeric
+from sqlalchemy import Column, String, Enum, DateTime, ForeignKey, Numeric, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -42,6 +42,12 @@ class UserPreferences(Base):
         JSONB, 
         nullable=True,
         comment="Trading session preferences: LONDON, NY, ASIA"
+    )
+    oanda_janitor_enabled = Column(
+        Boolean, 
+        default=False, 
+        nullable=False,
+        comment="Allow system to reconcile OANDA positions"
     )
     
     # Telegram Configuration

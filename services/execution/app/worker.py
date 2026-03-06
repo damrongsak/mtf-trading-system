@@ -262,6 +262,7 @@ class FillTradeConsumer:
                 new_trade = Trade(
                     trade_id=trade_uuid,
                     broker_account_id=broker_account.id,
+                    broker_trade_id=str(broker_order_id),
                     symbol=symbol,
                     strategy_name=comment,
                     signal_timestamp=datetime.utcnow(),

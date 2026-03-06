@@ -17,6 +17,7 @@ from datetime import datetime
 import logging
 import asyncio
 import traceback
+import uuid
 from app.utils.symbol_utils import normalize_symbol
 
 logger = logging.getLogger(__name__)
@@ -266,13 +267,21 @@ async def close_trade(
     """
     try:
         exit_price = payload.get("exit_price")
-        # if exit_price is None: ... (optional if we want to support market close without price hint)
+        
+        # 1. Resolve Trade (Dual Search: Internal UUID or Broker ID)
+        trade = None
+        try:
+            # Try UUID first
+            trade_uuid = uuid.UUID(trade_id)
+            trade = db.query(Trade).filter(Trade.trade_id == trade_uuid).first()
+        except (ValueError, TypeError):
+            # Not a UUID, try searching by broker_trade_id
+            trade = db.query(Trade).filter(Trade.broker_trade_id == trade_id).first()
             
-        trade = db.query(Trade).filter(Trade.trade_id == trade_id).first()
         if not trade:
-            raise HTTPException(status_code=404, detail="Trade not found")
+            raise HTTPException(status_code=404, detail=f"Trade {trade_id} not found in database")
             
-        # 1. Close on Broker
+        # 2. Close on Broker
         if trade.broker_account_id:
             account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
             if account:
@@ -297,9 +306,8 @@ async def close_trade(
                             # For now, let's proceed but warn.
         
         # 2. Close Locally
-        # Use provided exit price or maybe fetch result from broker? 
-        # For simplicity, stick to payload or fallback
-        trade = TradeService.close_trade(db, trade_id, exit_price or 0.0)
+        # Use the resolved trade's internal UUID for consistency in TradeService
+        trade = TradeService.close_trade(db, str(trade.trade_id), exit_price or 0.0)
             
         return success_response(data={
             "trade_id": str(trade.trade_id),
