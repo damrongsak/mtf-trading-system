@@ -68,8 +68,8 @@ class Trade(Base):
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
     
-    broker_trade_id = Column(String(50), nullable=True, index=True) # Position ID or equivalent
-    broker_deal_id = Column(String(50), nullable=True, unique=True) # Deal ID / Transaction ID
+    broker_trade_id = Column(String(100), nullable=True, index=True) # Position ID or equivalent
+    broker_deal_id = Column(String(100), nullable=True, unique=True) # Deal ID / Transaction ID
 
     
     exit_price = Column(Numeric(18, 8), nullable=True)

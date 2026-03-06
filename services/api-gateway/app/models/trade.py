@@ -32,7 +32,7 @@ class Trade(Base):
     trade_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     strategy_run_id = Column(UUID(as_uuid=True), ForeignKey("strategy_runs.run_id"), nullable=True, index=True)
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True, index=True)
-    broker_trade_id = Column(String(100), nullable=True,
+    broker_trade_id = Column(String(100), nullable=True, index=True,
                              comment="Official trade ID from broker")
     
     symbol = Column(String(20), nullable=False, index=True)
@@ -84,8 +84,7 @@ class Trade(Base):
                            comment="Timestamp when the trade was closed")
 
     # Broker Specifics
-    broker_trade_id = Column(String(50), nullable=True, index=True)
-    broker_deal_id = Column(String(50), nullable=True, unique=True)
+    broker_deal_id = Column(String(100), nullable=True, unique=True)
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
 
