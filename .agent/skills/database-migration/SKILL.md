@@ -11,7 +11,8 @@ This skill enforces the **MTF Olympus Standard** for database schema changes. It
 
 1.  **Spec-First (SFM)**: Every schema change MUST exist in `specs/03_data_model.yaml` before any code or migration is written.
 2.  **Single Authority (SMA)**: The `data-pipeline` service is the ONLY service authorized to generate and run migrations.
-3.  **Cross-Service Sync**: Other services (`api-gateway`, `execution`, `strategy-core`) must align their `models.py` with the root spec but must NOT run their own Alembic migrations.
+3.  **Cross-Service Sync**: Other services (`api-gateway`, `execution`, `strategy-core`) must align their `models.py` with the root spec. The `data-pipeline` service MUST maintain a full, synchronized copy of these models in its `app/models/` directory to act as an accurate SMA.
+4.  **No Stub Models**: Using "stubs" (partial classes) in the SMA is STRICTLY PROHIBITED as it causes Alembic to generate destructive `DROP` commands.
 
 ## Workflow
 
@@ -20,7 +21,12 @@ Modify the root data model spec: `[03_data_model.yaml](file:///home/dan/workspac
 - Use correct types (UUID for IDs, JSONB for metadata, etc.).
 - Ensure descriptions are clear.
 
-### 2. Generate Migration (from Data Pipeline)
+### 2. Synchronize Models
+Copy the full model definitions from the source service to `services/data-pipeline/app/models/`.
+- Ensure `__init__.py` in the pipeline imports the new models for metadata registration.
+- **NEVER** use partial/stub classes.
+
+### 3. Generate Migration (from Data Pipeline)
 All migration commands MUST be run inside the `data-pipeline` container.
 
 ```bash
@@ -50,6 +56,7 @@ docker compose exec api-gateway uv run python scripts/verify_schema.py
 
 ## Troubleshooting
 
-- **Target Content Not Found**: If Alembic misses a model, ensure it's imported in `services/data-pipeline/alembic/env.py`.
+- **Destructive Drops Recorded**: If Alembic tries to drop existing tables/columns unexpectedly, you are likely using a **Stub Model**. Copy the full class definition from `api-gateway` to `data-pipeline/app/models/`.
+- **Target Content Not Found**: If Alembic misses a model, ensure it's imported in `services/data-pipeline/app/models/__init__.py`.
 - **Duplicate Object**: If a type (e.g., ENUM) already exists, you may need to manually `CREATE TYPE` or wrap the DDL in a "check if exists" block in the migration script.
 - **Head Discrepancy**: If there multiple heads, merge them using a bridge migration or `alembic mergeheads`.

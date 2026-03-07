@@ -143,12 +143,13 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 
 1.  **Single Source of Truth**: All schema changes MUST be defined in `specs/03_data_model.yaml` first.
 2.  **Migration Authority**: The `data-pipeline` service acts as the **Migration Authority**. All `alembic` commands to evolve the shared `mtf_db` should be run from this service.
-3.  **Cross-Service Sync**: Other services (`api-gateway`, `execution`, `strategy-core`) must not create conflicting migrations. They should consume the schema by aligning their `models.py` with the root spec.
-4.  **Verification**: Before deployment, run the schema validator:
+3.  **Full Model Synchronization**: `data-pipeline` MUST contain the **full, authoritative SQLAlchemy models** (copied from `api-gateway` or `strategy-core`). **STUB MODELS ARE FORBIDDEN** as they cause Alembic to generate destructive `DROP` operations for missing fields.
+4.  **Cross-Service Sync**: Other services must not create conflicting migrations. They should consume the schema by aligning their `models.py` with the root spec.
+5.  **Verification**: Before deployment, run the schema validator. Note: The validator in `api-gateway` is configured to load and verify against `data-pipeline`'s context:
     ```bash
     docker compose exec api-gateway uv run python scripts/verify_schema.py
     ```
-5.  **Emergency Fixes**: If a manual DDL fix (e.g., `ALTER TABLE`) is required, it must be documented and back-ported to the root `03_data_model.yaml` immediately to maintain SDD integrity.
+6.  **Emergency Fixes**: If a manual DDL fix (e.g., `ALTER TABLE`) is required, it must be documented and back-ported to the root `03_data_model.yaml` immediately to maintain SDD integrity.
 
 ### 5. Git Flow & Version Control
 **Strictly follow this workflow for all changes:**
