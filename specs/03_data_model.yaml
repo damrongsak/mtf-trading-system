@@ -1943,6 +1943,44 @@ validation_rules:
         type: jsonb
         nullable: true
 
+  DecisionLog:
+    description: "Audit log of AI Agent decision making processes"
+    table_name: "decision_logs"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+      - name: component
+        type: string
+        required: true
+        index: true
+      - name: action
+        type: string
+        required: true
+      - name: prompt_version
+        type: string
+        nullable: true
+      - name: tool_call
+        type: json
+        nullable: true
+      - name: outcome
+        type: json
+        nullable: true
+        nullable: true
+      - name: tool_call
+        type: json
+        nullable: true
+      - name: outcome
+        type: json
+        nullable: true
+        nullable: true
+      - name: meta_data
+        type: jsonb
+        nullable: true
+
 
 
   EconomicEvent:
@@ -2151,6 +2189,72 @@ redis_streams:
         enum_values: ["PENDING", "INGESTED", "FAILED"]
         default: "PENDING"
       - name: last_ingested_at
+        type: datetime
+        default: "now()"
+
+  SystemPrompt:
+    description: "Centrally managed system prompts for AI agents"
+    table_name: "system_prompts"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: owner_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: name
+        type: string
+        required: true
+        unique: true
+      - name: description
+        type: string
+        nullable: true
+      - name: template
+        type: text
+        required: true
+      - name: input_variables
+        type: json
+        default: "[]"
+      - name: version
+        type: integer
+        default: 1
+      - name: is_active
+        type: boolean
+        default: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+
+  PromptAuditLog:
+    description: "Audit trail for prompt and agent modifications"
+    table_name: "prompt_audit_logs"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: action
+        type: string
+        required: true
+        description: "CREATE, UPDATE, DELETE"
+      - name: resource_type
+        type: string
+        required: true
+        description: "PROMPT, AGENT"
+      - name: resource_id
+        type: uuid
+        nullable: true
+      - name: changes
+        type: json
+        nullable: true
+      - name: timestamp
         type: datetime
         default: "now()"
 

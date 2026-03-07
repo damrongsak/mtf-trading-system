@@ -48,11 +48,12 @@ class AsyncCTraderClient:
                 remaining = int(self._circuit_broken_until - now)
                 raise ConnectionError(f"Circuit Breaker active. Cooldown remaining: {remaining}s")
 
-            logger.info(f"Connecting to cTrader {self.host}:{self.port}...")
+            logger.info(f"Connecting to cTrader {self.host}:{self.port} (SSL={self.ssl})...")
             try:
+                # Use a larger timeout for production/live environments
                 reader, writer = await asyncio.wait_for(
                     asyncio.open_connection(self.host, self.port, ssl=self.ssl),
-                    timeout=10.0
+                    timeout=20.0
                 )
                 self.reader = reader
                 self.writer = writer
@@ -65,7 +66,7 @@ class AsyncCTraderClient:
                     logger.debug("TCP_NODELAY enabled for cTrader connection")
                 self._connected = True
                 self._failure_count = 0 # Reset on success
-                logger.info("Connected to cTrader.")
+                logger.info(f"Successfully connected to cTrader {self.host}.")
                 
                 # Start reader loop
                 self._reader_task = asyncio.create_task(self._read_loop())

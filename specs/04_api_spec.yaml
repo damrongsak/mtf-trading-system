@@ -332,20 +332,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - symbol
-                - timeframe
-              properties:
-                symbol:
-                  type: string
-                  example: "EUR_USD"
-                timeframe:
-                  type: string
-                  example: "H1"
-                count:
-                  type: integer
-                  default: 500
+              $ref: '#/components/schemas/BackfillRequest'
       responses:
         '202':
           description: Backfill job accepted
@@ -358,6 +345,25 @@ paths:
                     type: string
                   job_id:
                     type: string
+
+  /api/v1/discovery/gaps:
+    get:
+      summary: Discover data gaps
+      description: Scans for missing candle data (gaps) for active symbols and timeframes.
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to look back for gaps
+          schema:
+            type: integer
+            default: 7
+      responses:
+        '200':
+          description: Gap discovery results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GapDiscoveryResponse'
 
   /api/v1/deployments/:
     get:
@@ -5669,6 +5675,71 @@ components:
         bot_username:
           type: string
           nullable: true
+
+    # --- Data Ingestion & Integrity ---
+    BackfillRequest:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+          example: "EUR_USD"
+        timeframe:
+          type: string
+          description: "Specific timeframe or 'ALL' for all supported timeframes"
+          default: "ALL"
+          example: "H1"
+        timeframes:
+          type: array
+          items:
+            type: string
+          description: "Optional list of specific timeframes to backfill"
+        count:
+          type: integer
+          default: 500
+        from_date:
+          type: string
+          format: date-time
+          nullable: true
+        to_date:
+          type: string
+          format: date-time
+          nullable: true
+
+    GapInfo:
+      type: object
+      properties:
+        market_symbol_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        gap_start:
+          type: string
+          format: date-time
+        gap_end:
+          type: string
+          format: date-time
+        missing_count:
+          type: integer
+
+    GapDiscoveryResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        discovery_days:
+          type: integer
+        gaps_found:
+          type: integer
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/GapInfo'
 
 
 

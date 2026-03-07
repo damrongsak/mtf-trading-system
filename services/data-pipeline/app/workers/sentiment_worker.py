@@ -6,7 +6,7 @@ import socket
 from typing import Dict, Any
 import redis.asyncio as redis
 from app.database import SessionLocal
-from app.models.sentiment import SentimentScore
+from app.models.sentiment_score import SentimentScore
 
 logger = logging.getLogger(__name__)
 

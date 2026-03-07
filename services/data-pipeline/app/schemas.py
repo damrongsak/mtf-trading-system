@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from uuid import UUID
 import re
 
@@ -12,7 +12,8 @@ class HealthCheck(BaseModel):
 
 class BackfillRequest(BaseModel):
     symbol: str
-    timeframe: str
+    timeframe: Optional[str] = "ALL" # Supports "ALL" or specific timeframe
+    timeframes: Optional[List[str]] = None # Optional list for targeted bulk backfill
     from_date: Optional[str] = None # ISO format
     to_date: Optional[str] = None
     count: Optional[int] = 2500
@@ -181,3 +182,18 @@ class EconomicEventResponse(BaseModel):
     updated_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+# -------------------------------------------------------------------------
+# Integrity & Gap Discovery Schemas
+# -------------------------------------------------------------------------
+
+class GapInfo(BaseModel):
+    symbol: str
+    timeframe: str
+    gap_start: datetime
+    gap_end: datetime
+    missing_count: int
+
+class GapDiscoveryResponse(BaseModel):
+    total_gaps: int
+    summary: Dict[str, int] # symbol_tf: gap_count
+    gaps: List[GapInfo]

@@ -177,7 +177,7 @@ class ExecutionCache:
             
             # Use httpx client (create minimal wrapper)
             async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{api_url}/api/v1/data/symbols", params={"provider_name": provider}, timeout=5.0)
+                resp = await client.get(f"{api_url}/api/v1/data/symbols", params={"broker": provider}, timeout=5.0)
                 
                 if resp.status_code == 200:
                     raw_data = resp.json()

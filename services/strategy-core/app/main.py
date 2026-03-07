@@ -555,6 +555,11 @@ async def startup_event():
     if os.getenv("RUN_WORKERS", "true").lower() == "true":
         await context_worker.start()
         logger.info("Market Context Worker started.")
+        
+        # Load Strategy Fleet from Database
+        from app.fleet import FleetManager
+        await FleetManager.get_instance().load_fleet()
+        logger.info("Strategy Fleet Loaded on startup.")
 
 
 

@@ -8,7 +8,7 @@ from app.adapters.ctrader_client import AsyncCTraderClient
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 from app.database import SessionLocal
-from app.models.execution import Trade
+from app.models import Trade
 from sqlalchemy.dialects.postgresql import insert
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class CTraderStreamer(StreamAdapter):
             
                 # 0. Resolve BrokerAccount UUIDs for trade sync
                 from app.database import SessionLocal
-                from app.models.execution import BrokerAccount
+                from app.models import BrokerAccount
                 with SessionLocal() as db:
                     accounts = db.query(BrokerAccount).filter(
                         BrokerAccount.broker_name == "CTRADER",

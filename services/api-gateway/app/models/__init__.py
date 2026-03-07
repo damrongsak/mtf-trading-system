@@ -11,12 +11,15 @@ from .user_preferences import UserPreferences
 from .saved_strategy import SavedStrategy
 from .broker_account import BrokerAccount
 from .risk_rule import RiskRule
+from .risk_filter import RiskFilter
 from .trade import Trade
 from .data_source import DataSource
 from .decision_log import DecisionLog
+from .opportunity_log import OpportunityLog
 from .market import MarketCategory, MarketSymbol
 from .deployment import Deployment
 from .chat import ChatSession, ChatMessage
+from .prompt import SystemPrompt, PromptAuditLog
 from .signal_log import SignalLog
 from .strategy_config import StrategyConfig, StrategyValidation
 from .mental_hand_history import MentalHandHistory

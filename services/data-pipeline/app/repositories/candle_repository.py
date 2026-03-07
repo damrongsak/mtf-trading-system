@@ -61,6 +61,13 @@ class CandleRepository:
          .limit(page_size)\
          .all()
 
+    def get_latest_candle(self, market_symbol_id: Any, timeframe: str) -> Optional[Candle]:
+        """Get the most recent candle for a symbol and timeframe."""
+        return self.db.query(Candle).filter(
+            Candle.market_symbol_id == market_symbol_id,
+            Candle.timeframe == timeframe
+        ).order_by(Candle.timestamp.desc()).first()
+
     def bulk_upsert(self, candles_data: List[Dict[str, Any]]) -> int:
         """
         Bulk insert/upsert candles.

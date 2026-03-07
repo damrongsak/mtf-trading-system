@@ -84,15 +84,76 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
             
     logger.info(f"Backfill complete for {symbol_name} {tf}: {total_saved} candles.")
 
-async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = None, to_date: datetime = None):
+async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, db, logger):
+    """Refactored cTrader backfill logic for reuse."""
+    tf_map = {
+        "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
+        "D1": 12, "W1": 13, "MN1": 14
+    }
+    ct_period = tf_map.get(tf)
+    if not ct_period: return 0
+    
+    symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+    if not symbol_id: return 0
+    
+    from_ts = int(from_date.timestamp() * 1000)
+    to_ts = int(to_date.timestamp() * 1000)
+    
+    logger.info(f"Triggering cTrader backfill for {ms.symbol} {tf} from {from_date} to {to_date}")
+    
+    trendbars = await client.get_trendbars(
+        account_id=int(source.config_json.get("account_id")),
+        symbol_id=symbol_id,
+        period=ct_period,
+        count=2000,
+        from_timestamp=from_ts,
+        to_timestamp=to_ts
+    )
+    
+    batch_data = []
+    divisor = 100000.0
+    for bar in trendbars:
+        low_raw = bar.low
+        if bar.deltaOpen > (low_raw * 0.5):
+            open_p, high_p, close_p = bar.deltaOpen, bar.deltaHigh, bar.deltaClose
+        else:
+            open_p, high_p, close_p = low_raw + bar.deltaOpen, low_raw + bar.deltaHigh, low_raw + bar.deltaClose
+
+        batch_data.append({
+            "market_symbol_id": ms.id,
+            "symbol": ms.symbol,
+            "timeframe": tf,
+            "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, tz=timezone.utc),
+            "open": open_p / divisor,
+            "high": high_p / divisor,
+            "low": low_raw / divisor,
+            "close": close_p / divisor,
+            "volume": bar.volume,
+            "is_complete": True 
+        })
+    
+    if batch_data:
+        candle_repo = CandleRepository(db)
+        await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
+        return len(batch_data)
+    return 0
+
+async def run_ingestion_job(
+    symbols: list[str] = None, 
+    from_date: datetime = None, 
+    to_date: datetime = None,
+    target_timeframes: list[str] = None
+):
     """
-    Scheduled job to fetch and store candles for core timeframes.
+    Scheduled job to fetch and store candles.
     Args:
-        symbols: Optional list of symbol names to filter.
-        from_date: Optional start datetime for backfill.
-        to_date: Optional end datetime for backfill.
+        symbols: Optional list of symbol names.
+        from_date: Start for backfill.
+        to_date: End for backfill (defaults to now).
+        target_timeframes: Optional list of timeframes to process.
     """
-    logger.info(f"Starting ingestion job... Filter: {symbols}, Range: {from_date} - {to_date}")
+    to_date = to_date or datetime.now(timezone.utc)
+    logger.info(f"Starting ingestion job... Symbols: {symbols}, TFs: {target_timeframes}, Range: {from_date} - {to_date}")
     db = SessionLocal()
     
     # Imports inside function to avoid circular deps if any
@@ -112,6 +173,10 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
     except Exception as e:
         logger.warning(f"Failed to load system config, using defaults: {e}")
         timeframes = default_timeframes 
+    
+    # Filter by target_timeframes if provided
+    if target_timeframes:
+        timeframes = [tf for tf in timeframes if tf in target_timeframes]
     
     try:
         # Diagnostic: Check latest OI entry
@@ -205,60 +270,38 @@ async def run_ingestion_job(symbols: list[str] = None, from_date: datetime = Non
                         batch_data = []
                         
                         if from_date and to_date:
-                            # BACKFILL LOGIC
+                            # EXPLICIT BACKFILL LOGIC
                             if source.provider == "OANDA":
                                  await process_oanda_backfill(client, ms, tf, from_date, to_date, task_db, logger)
                             elif source.provider == "CTRADER":
-                                # cTrader Backfill using get_trendbars
-                                tf_map = {
-                                    "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
-                                    "D1": 12, "W1": 13, "MN1": 14
-                                }
-                                ct_period = tf_map.get(tf)
-                                if not ct_period: return
-                                
-                                symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
-                                if not symbol_id: return
-                                
-                                from_ts = int(from_date.timestamp() * 1000)
-                                to_ts = int(to_date.timestamp() * 1000)
-                                
-                                logger.info(f"Triggering cTrader backfill for {ms.symbol} {tf} from {from_date} to {to_date}")
-                                
-                                trendbars = await client.get_trendbars(
-                                    account_id=int(source.config_json.get("account_id")),
-                                    symbol_id=symbol_id,
-                                    period=ct_period,
-                                    count=2000, # Max allowed usually
-                                    from_timestamp=from_ts,
-                                    to_timestamp=to_ts
-                                )
-                                
-                                for bar in trendbars:
-                                    low_raw = bar.low
-                                    # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
-                                    divisor = 100000.0
-                                    
-                                    # Delta handling logic (same as real-time)
-                                    if bar.deltaOpen > (low_raw * 0.5):
-                                        open_p, high_p, close_p = bar.deltaOpen, bar.deltaHigh, bar.deltaClose
-                                    else:
-                                        open_p, high_p, close_p = low_raw + bar.deltaOpen, low_raw + bar.deltaHigh, low_raw + bar.deltaClose
-
-                                    batch_data.append({
-                                        "market_symbol_id": ms.id,
-                                        "symbol": ms.symbol,
-                                        "timeframe": tf,
-                                        "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60),
-                                        "open": open_p / divisor,
-                                        "high": high_p / divisor,
-                                        "low": low_raw / divisor,
-                                        "close": close_p / divisor,
-                                        "volume": bar.volume,
-                                        "is_complete": True 
-                                    })
+                                await process_ctrader_backfill(client, source, ms, tf, from_date, to_date, task_db, logger)
                         else:
-                            # REAL-TIME CATCHUP
+                            # SMART CATCHUP / REAL-TIME
+                            # 1. Determine local last candle
+                            candle_repo = CandleRepository(task_db)
+                            latest_candle = await asyncio.to_thread(candle_repo.get_latest_candle, ms.id, tf)
+                            
+                            # Define lookback window (default 100 units if empty)
+                            catchup_start = from_date
+                            if not catchup_start:
+                                if latest_candle:
+                                    catchup_start = latest_candle.timestamp
+                                else:
+                                    # Full reset or fresh symbol: seed with 7 days
+                                    catchup_start = datetime.now(timezone.utc) - timedelta(days=7)
+
+                            # If catchup is needed (> 1 candle interval + buffer)
+                            interval_map = {"M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D1": 1440}
+                            mins = interval_map.get(tf, 1440)
+                            
+                            if (datetime.now(timezone.utc) - catchup_start).total_seconds() > (mins * 60 * 1.5):
+                                logger.info(f"CATCH-UP REQUIRED: {ms.symbol} {tf} from {catchup_start}")
+                                if source.provider == "OANDA":
+                                    await process_oanda_backfill(client, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+                                elif source.provider == "CTRADER":
+                                    await process_ctrader_backfill(client, source, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+
+                            # 2. Regular Real-time Catchup (Existing logic)
                             if source.provider == "OANDA":
                                 candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=100)
                                 if candles:
@@ -517,7 +560,7 @@ async def run_trade_sync_job():
         await publisher.connect()
         
         # 1. Get Active Broker Accounts
-        from app.models.execution import BrokerAccount, Trade
+        from app.models import BrokerAccount, Trade
         from app.adapters.ctrader import CTraderClient
         from sqlalchemy import func
         

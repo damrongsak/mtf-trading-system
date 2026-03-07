@@ -31,7 +31,8 @@ from app.schemas import (
     SentimentCreate,
     SentimentResponse,
     COTResponse,
-    EconomicEventResponse
+    EconomicEventResponse,
+    GapDiscoveryResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -45,21 +46,48 @@ async def trigger_backfill(
 ):
     """
     Trigger a historical data backfill job.
+    Supports single timeframe, list of timeframes, or 'ALL'.
     """
+    from datetime import timezone
     from_date_obj = datetime.fromisoformat(request.from_date) if request.from_date else None
-    to_date_obj = datetime.fromisoformat(request.to_date) if request.to_date else None
+    to_date_obj = datetime.fromisoformat(request.to_date) if request.to_date else datetime.now(timezone.utc)
     
+    # Resolve timeframes
+    target_tfs = []
+    if request.timeframes:
+        target_tfs = request.timeframes
+    elif request.timeframe == "ALL":
+        target_tfs = None # run_ingestion_job handles None as all supported
+    else:
+        target_tfs = [request.timeframe]
+        
     background_tasks.add_task(
         run_ingestion_job, 
         symbols=[request.symbol], 
         from_date=from_date_obj, 
-        to_date=to_date_obj
+        to_date=to_date_obj,
+        target_timeframes=target_tfs
     )
     
+    tf_msg = "all supported timeframes" if not target_tfs else ", ".join(target_tfs)
     return BackfillResponse(
-        message=f"Backfill triggered for {request.symbol} {request.timeframe}",
+        message=f"Backfill triggered for {request.symbol} on {tf_msg}",
         job_id=str(uuid.uuid4())
     )
+
+@router.get("/discovery/gaps", response_model=GapDiscoveryResponse)
+async def discover_data_gaps(
+    symbol: Optional[str] = Query(None),
+    days: int = Query(7, ge=1, le=30),
+    db: Session = Depends(get_db)
+):
+    """
+    Scan for data gaps in the candle table.
+    """
+    from app.services.integrity_service import IntegrityService
+    service = IntegrityService(db)
+    return await service.detect_gaps(symbol=symbol, days=days)
+
 
 @router.post("/ingest/manual", status_code=202)
 async def trigger_ingestion(

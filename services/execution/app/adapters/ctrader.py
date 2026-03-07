@@ -95,27 +95,36 @@ class CTraderOrderAdapter(BrokerAdapter):
                 return
 
             for ms in symbols_list:
-                details = ms.get("details", {})
-                symbol = ms.get("symbol", "")
+                details = ms.get("details") or {}
+                symbol = ms.get("symbol", "").upper()
                 
-                if details and ("symbolId" in details or "ctrader_symbol_id" in details):
-                    symbol_id = None
-                    if "symbolId" in details:
-                        symbol_id = int(details["symbolId"])
-                    elif "ctrader_symbol_id" in details:
-                        symbol_id = int(details["ctrader_symbol_id"])
-                    
-                    if symbol_id is not None:
-                        lot_size = int(details.get("lotSize", 10000000))
+                # [DIAGNOSTIC] Log symbol being processed
+                logger.debug(f"cTrader Hydrating: {symbol} with details {details}")
+
+                # Find Symbol ID - try multiple keys for robustness
+                symbol_id = None
+                if isinstance(details, dict):
+                    symbol_id = details.get("symbolId") or details.get("ctrader_symbol_id") or details.get("symbol_id")
+                
+                if symbol_id is not None:
+                    try:
+                        symbol_id = int(symbol_id)
+                        lot_size = int(details.get("lotSize") or details.get("lot_size") or 10000000)
+                        
                         # Cache forward mapping (Name -> ID, LotSize)
                         self._symbol_cache[symbol] = (symbol_id, lot_size)
                         # Cache reverse mapping (ID -> Name, LotSize)
                         self._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size)
                         
-                        # Cache normalized name too
+                        # Cache normalized names
                         normalized = symbol.replace("_", "").replace("/", "").upper()
-                        if normalized != symbol:
-                            self._symbol_cache[normalized] = (symbol_id, lot_size)
+                        self._symbol_cache[normalized] = (symbol_id, lot_size)
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"cTrader: Invalid symbol metadata for {symbol}: {e}")
+                else:
+                    logger.warning(f"cTrader: Symbol {symbol} has no ID in details: {details}")
+            
+            logger.info(f"cTrader: Pre-hydrated {len(self._symbol_cache)//2} symbols into L3 cache.")
             
             logger.info(f"cTrader: Pre-hydrated {len(symbols)} symbols into L3 cache.")
         except Exception as e:

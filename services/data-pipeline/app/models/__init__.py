@@ -5,6 +5,7 @@ from .candle import Candle
 from .chat import ChatSession, ChatMessage
 from .cot import COTRecord
 from .data_source import DataSource
+from .decision_log import DecisionLog
 from .deployment import Deployment
 from .economic_event import EconomicEvent
 from .journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
