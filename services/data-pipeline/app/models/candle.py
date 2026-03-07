@@ -3,8 +3,8 @@ Candle SQLAlchemy model.
 Source of truth: specs/03_data_model.yaml -> Candle entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean, ForeignKey, Uuid
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 from app.database import Base
 
@@ -13,18 +13,19 @@ class Candle(Base):
     __tablename__ = "candles"
     __table_args__ = {"extend_existing": True}
 
-    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Core Identification
-    market_symbol_id = Column(Uuid(as_uuid=True), ForeignKey("market_symbols.id", ondelete="CASCADE"), nullable=False, index=True,
+    market_symbol_id = Column(UUID(as_uuid=True), ForeignKey("market_symbols.id"), nullable=False, index=True,
                              comment="Foreign Key to MarketSymbol (defines Symbol + DataSource)")
+    
+    symbol = Column(String(20), nullable=False, index=True,
+                    comment="Denormalized symbol for easier querying (e.g. XAUUSD)")
     
     timeframe = Column(String(10), nullable=False, index=True,
                       comment="Timeframe identifier (15m, 1h, 4h, D)")
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
                       comment="Candle open timestamp (UTC)")
-    symbol = Column(String(20), nullable=False, index=True,
-                   comment="Redundant symbol name for faster filtering")
 
     # OHLCV Data
     open = Column(Numeric(18, 8), nullable=False,
@@ -63,6 +64,7 @@ class Candle(Base):
     # Indexes for performance
     __table_args__ = (
         Index('ix_candles_market_symbol_timeframe_timestamp', 'market_symbol_id', 'timeframe', 'timestamp', unique=True),
+        Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp'),
         {
             'comment': 'OHLCV candlestick data with multi-timeframe indicators',
             'extend_existing': True

@@ -5,7 +5,7 @@ from app.database import Base
 class NewsArticle(Base):
     __tablename__ = "news_articles"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     external_id = Column(String, unique=True, index=True, nullable=False) # Hash of URL
     
     title = Column(String, nullable=False)

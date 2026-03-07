@@ -7,8 +7,22 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import create_engine
 from alembic.migration import MigrationContext
 from alembic.autogenerate import compare_metadata
+
+# Dynamically load the data-pipeline models because it is the Single Migration Authority
+pipeline_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data-pipeline'))
+if pipeline_path not in sys.path:
+    sys.path.insert(0, pipeline_path)
+
+# Clean up existing app modules to force reload from data-pipeline
+for mod in list(sys.modules.keys()):
+    if mod.startswith('app.') or mod == 'app':
+        del sys.modules[mod]
+
 from app.database import Base, DATABASE_URL
-import app.models  # Ensure all models are loaded into Base.metadata
+import app.models  # This MUST load from data-pipeline now
+
+# Print loaded tables for debugging
+print(f"Loaded {len(Base.metadata.tables)} tables from data-pipeline models")
 
 def verify_schema():
     """

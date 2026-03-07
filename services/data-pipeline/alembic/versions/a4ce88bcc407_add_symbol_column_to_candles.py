@@ -20,8 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema: Add symbol to candles with backfill."""
-    # 1. Add column as nullable initially
-    op.add_column("candles", sa.Column("symbol", sa.String(length=20), nullable=True, comment="Denormalized symbol for easier querying (e.g. XAUUSD)"))
+    # 1. Column already exists as nullable from initial schema
     
     # 2. Backfill from market_symbols table
     op.execute("""
@@ -43,4 +42,4 @@ def downgrade() -> None:
     """Downgrade schema: Remove symbol column and indexes."""
     op.drop_index("ix_candles_symbol_timeframe_timestamp", table_name="candles")
     op.drop_index(op.f("ix_candles_symbol"), table_name="candles")
-    op.drop_column("candles", "symbol")
+    # Column persists due to initial schema

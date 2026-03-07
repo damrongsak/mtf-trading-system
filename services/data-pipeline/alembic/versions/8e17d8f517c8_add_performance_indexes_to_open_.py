@@ -31,28 +31,6 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_strategy_execution_logs_deployment_id'), 'strategy_execution_logs', ['deployment_id'], unique=False)
     op.create_index(op.f('ix_strategy_execution_logs_timestamp'), 'strategy_execution_logs', ['timestamp'], unique=False)
-    op.drop_index('ix_cot_records_report_date', table_name='cot_records')
-    op.drop_index('ix_cot_records_symbol', table_name='cot_records')
-    op.drop_table('cot_records')
-    op.drop_index('ix_sentiment_scores_id', table_name='sentiment_scores')
-    op.drop_index('ix_sentiment_scores_symbol', table_name='sentiment_scores')
-    op.drop_table('sentiment_scores')
-    op.drop_index('ix_news_articles_external_id', table_name='news_articles')
-    op.drop_index('ix_news_articles_id', table_name='news_articles')
-    op.drop_index('ix_news_articles_published_at', table_name='news_articles')
-    op.drop_index('ix_news_articles_symbol', table_name='news_articles')
-    op.drop_table('news_articles')
-    op.drop_table('alembic_version_pipeline')
-    op.drop_index('ix_economic_events_datetime', table_name='economic_events')
-    op.drop_index('ix_economic_events_external_id', table_name='economic_events')
-    op.drop_index('ix_economic_events_id', table_name='economic_events')
-    op.drop_table('economic_events')
-    op.drop_constraint('candles_market_symbol_id_fkey', 'candles', type_='foreignkey')
-    op.create_foreign_key(None, 'candles', 'market_symbols', ['market_symbol_id'], ['id'])
-    op.drop_constraint('market_categories_name_key', 'market_categories', type_='unique')
-    op.create_index(op.f('ix_market_categories_name'), 'market_categories', ['name'], unique=True)
-    op.drop_constraint('market_symbols_data_source_id_fkey', 'market_symbols', type_='foreignkey')
-    op.create_foreign_key(None, 'market_symbols', 'data_sources', ['data_source_id'], ['id'])
     op.create_index('ix_open_interest_dte', 'open_interest', ['dte'], unique=False)
     op.create_index('ix_open_interest_snapshot_at_symbol', 'open_interest', ['snapshot_at', 'contract_symbol'], unique=False)
     op.drop_column('open_interest', 'underlying_price')
@@ -60,19 +38,7 @@ def upgrade() -> None:
     #            existing_type=sa.UUID(),
     #            type_=sa.Integer(),
     #            existing_nullable=False)
-    op.drop_index('idx_telegram_chat_id', table_name='telegram_chat_mappings')
-    op.drop_index('idx_telegram_user_id', table_name='telegram_chat_mappings')
-    op.drop_constraint('telegram_chat_mappings_chat_id_key', 'telegram_chat_mappings', type_='unique')
-    op.create_index(op.f('ix_telegram_chat_mappings_chat_id'), 'telegram_chat_mappings', ['chat_id'], unique=True)
-    op.create_index(op.f('ix_telegram_chat_mappings_id'), 'telegram_chat_mappings', ['id'], unique=False)
     # op.create_index(op.f('ix_telegram_chat_mappings_user_id'), 'telegram_chat_mappings', ['user_id'], unique=False)
-    op.drop_index('ix_trades_broker_trade_id', table_name='trades')
-    op.drop_constraint('trades_broker_deal_id_key', 'trades', type_='unique')
-    op.drop_column('trades', 'swap')
-    op.drop_column('trades', 'commission')
-    op.drop_column('trades', 'broker_trade_id')
-    op.drop_column('trades', 'broker_deal_id')
-    op.drop_column('trades', 'gross_pnl')
     op.alter_column('user_preferences', 'telegram_bot_token',
                existing_type=sa.VARCHAR(),
                comment="Encrypted Telegram bot token for user's personal bot",
@@ -88,19 +54,7 @@ def downgrade() -> None:
                comment=None,
                existing_comment="Encrypted Telegram bot token for user's personal bot",
                existing_nullable=True)
-    op.add_column('trades', sa.Column('gross_pnl', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=True))
-    op.add_column('trades', sa.Column('broker_deal_id', sa.VARCHAR(length=50), autoincrement=False, nullable=True))
-    op.add_column('trades', sa.Column('broker_trade_id', sa.VARCHAR(length=50), autoincrement=False, nullable=True))
-    op.add_column('trades', sa.Column('commission', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=True))
-    op.add_column('trades', sa.Column('swap', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=True))
-    op.create_unique_constraint('trades_broker_deal_id_key', 'trades', ['broker_deal_id'], postgresql_nulls_not_distinct=False)
-    op.create_index('ix_trades_broker_trade_id', 'trades', ['broker_trade_id'], unique=False)
-    op.drop_index(op.f('ix_telegram_chat_mappings_user_id'), table_name='telegram_chat_mappings')
-    op.drop_index(op.f('ix_telegram_chat_mappings_id'), table_name='telegram_chat_mappings')
-    op.drop_index(op.f('ix_telegram_chat_mappings_chat_id'), table_name='telegram_chat_mappings')
-    op.create_unique_constraint('telegram_chat_mappings_chat_id_key', 'telegram_chat_mappings', ['chat_id'], postgresql_nulls_not_distinct=False)
-    op.create_index('idx_telegram_user_id', 'telegram_chat_mappings', ['user_id'], unique=False)
-    op.create_index('idx_telegram_chat_id', 'telegram_chat_mappings', ['chat_id'], unique=False)
+    # ### commands auto generated by Alembic - please adjust! ###
     op.alter_column('telegram_chat_mappings', 'user_id',
                existing_type=sa.Integer(),
                type_=sa.UUID(),
@@ -108,78 +62,6 @@ def downgrade() -> None:
     op.add_column('open_interest', sa.Column('underlying_price', sa.NUMERIC(precision=18, scale=8), autoincrement=False, nullable=True))
     op.drop_index('ix_open_interest_snapshot_at_symbol', table_name='open_interest')
     op.drop_index('ix_open_interest_dte', table_name='open_interest')
-    op.drop_constraint(None, 'market_symbols', type_='foreignkey')
-    op.create_foreign_key('market_symbols_data_source_id_fkey', 'market_symbols', 'data_sources', ['data_source_id'], ['id'], ondelete='CASCADE')
-    op.drop_index(op.f('ix_market_categories_name'), table_name='market_categories')
-    op.create_unique_constraint('market_categories_name_key', 'market_categories', ['name'], postgresql_nulls_not_distinct=False)
-    op.drop_constraint(None, 'candles', type_='foreignkey')
-    op.create_foreign_key('candles_market_symbol_id_fkey', 'candles', 'market_symbols', ['market_symbol_id'], ['id'], ondelete='CASCADE')
-    op.create_table('economic_events',
-    sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
-    sa.Column('external_id', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('title', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('country', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('currency', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('impact', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('datetime', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('actual', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('forecast', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('previous', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=True),
-    sa.Column('updated_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='economic_events_pkey')
-    )
-    op.create_index('ix_economic_events_id', 'economic_events', ['id'], unique=False)
-    op.create_index('ix_economic_events_external_id', 'economic_events', ['external_id'], unique=True)
-    op.create_index('ix_economic_events_datetime', 'economic_events', ['datetime'], unique=False)
-    op.create_table('alembic_version_pipeline',
-    sa.Column('version_num', sa.VARCHAR(length=32), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('version_num', name='alembic_version_pipeline_pkc')
-    )
-    op.create_table('news_articles',
-    sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
-    sa.Column('external_id', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('title', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('source', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('url', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('published_at', postgresql.TIMESTAMP(timezone=True), autoincrement=False, nullable=False),
-    sa.Column('symbol', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='news_articles_pkey')
-    )
-    op.create_index('ix_news_articles_symbol', 'news_articles', ['symbol'], unique=False)
-    op.create_index('ix_news_articles_published_at', 'news_articles', ['published_at'], unique=False)
-    op.create_index('ix_news_articles_id', 'news_articles', ['id'], unique=False)
-    op.create_index('ix_news_articles_external_id', 'news_articles', ['external_id'], unique=True)
-    op.create_table('sentiment_scores',
-    sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
-    sa.Column('symbol', sa.VARCHAR(), autoincrement=False, nullable=False),
-    sa.Column('score', sa.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=False),
-    sa.Column('reason', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('source_breakdown', postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='sentiment_scores_pkey')
-    )
-    op.create_index('ix_sentiment_scores_symbol', 'sentiment_scores', ['symbol'], unique=False)
-    op.create_index('ix_sentiment_scores_id', 'sentiment_scores', ['id'], unique=False)
-    op.create_table('cot_records',
-    sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
-    sa.Column('report_date', postgresql.TIMESTAMP(), autoincrement=False, nullable=False),
-    sa.Column('symbol', sa.VARCHAR(length=20), autoincrement=False, nullable=False),
-    sa.Column('commercials_long', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=False),
-    sa.Column('commercials_short', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=False),
-    sa.Column('non_commercials_long', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=False),
-    sa.Column('non_commercials_short', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=False),
-    sa.Column('managed_money_long', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=True),
-    sa.Column('managed_money_short', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=True),
-    sa.Column('non_reportable_long', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=True),
-    sa.Column('non_reportable_short', sa.NUMERIC(precision=18, scale=2), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='cot_records_pkey'),
-    sa.UniqueConstraint('symbol', 'report_date', name='uq_cot_records_symbol_report_date', postgresql_include=[], postgresql_nulls_not_distinct=False)
-    )
-    op.create_index('ix_cot_records_symbol', 'cot_records', ['symbol'], unique=False)
-    op.create_index('ix_cot_records_report_date', 'cot_records', ['report_date'], unique=False)
     op.drop_index(op.f('ix_strategy_execution_logs_timestamp'), table_name='strategy_execution_logs')
     op.drop_index(op.f('ix_strategy_execution_logs_deployment_id'), table_name='strategy_execution_logs')
     op.drop_table('strategy_execution_logs')
