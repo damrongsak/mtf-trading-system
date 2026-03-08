@@ -102,14 +102,17 @@ The service is configured via environment variables (see `.env` at root).
 - `GET /api/v1/ingest/cot/latest`: Get latest CFTC Commitment of Traders sentiment.
 
 #### 📊 Open Interest & Options Sentiment
-- `POST /api/v1/ingest/oi`: Upload "Open Interest Matrix" Excel files.
-- `GET /api/v1/oi/snapshots`: List available OI snapshots.
-- `GET /api/v1/oi/details`: Get granular OI records (Strikes, Call/Put OI, DTE, Underlying Futures Price/Symbol).
-- `GET /api/v1/oi/analysis`: Get Put-Call Ratio (PCR) and distribution analytics.
+- `POST /api/v1/ingest/open-interest`: Upload "Open Interest Matrix" Excel files.
+- `GET /api/v1/data/open-interest/snapshots`: List available OI snapshots (Gateway proxy).
+- `GET /api/v1/data/open-interest/details`: Get granular OI records (Strikes, Call/Put OI, DTE).
+- `GET /api/v1/data/open-interest/analysis`: Get Put-Call Ratio (PCR) and distribution analytics.
 
 ### 🧪 System Operations
 - `POST /api/v1/stream/refresh`: Force restart of real-time streaming connections.
 - `POST /api/v1/ingest/manual`: Manually trigger a data ingestion cycle.
+- **OI Migration/Import**:
+    - `python scripts/import_oi_data.py`: Import historical Matrix files directly into the DB.
+    - `bash scripts/import_oi_data.sh`: Upload local files via the API Gateway.
 
 ### 🛡️ Resilience & Throttling
 - **Adaptive Throttling**: Ticker updates are capped at 100ms intervals per symbol to protect downstream WebSocket consumers.

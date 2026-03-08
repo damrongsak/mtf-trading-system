@@ -205,7 +205,9 @@ entities:
         nullable: true
         description: >-
           Broker-specific instrument metadata. Standardized JSON structure: 
-          {digits, pipPosition, minLot, maxLot, stepVolume, raw: {...}}.
+          - OANDA: {digits, pipPosition, minLot, maxLot, stepVolume, raw: {...}}
+          - cTrader: {digits, pipPosition, minLot, maxLot, step_volume, symbol_id, lot_size, raw: {...}}
+          - Binance: {baseAsset, quoteAsset, pricePrecision, quantityPrecision, lotSize, minQty, maxQty, stepSize, raw: {...}}
           Synced from broker API (e.g. cTrader, OANDA).
 
 
@@ -600,7 +602,12 @@ entities:
       - name: credentials_encrypted
         type: jsonb
         required: true
-        description: "Encrypted API keys and secrets. OANDA: {api_key, account_id}, BINANCE: {api_key, secret_key}, CTRADER: {app_id, secret, account_id, token, refresh_token}"
+        description: >-
+          Encrypted API keys and secrets. 
+          Standardized JSON structure (after decryption):
+          - OANDA: {api_key, account_id}
+          - BINANCE: {api_key, secret_key}
+          - CTRADER: {client_id, client_secret, account_id, token, refresh_token, port, host}
       - name: is_active
         type: boolean
         default: true

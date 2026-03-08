@@ -24,14 +24,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsR
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SyncCTrader")
 
-# --- Local Helpers ---
-class BrokerAccount(Base):
-    __tablename__ = "broker_accounts"
-    id = Column(Integer, primary_key=True, index=True)
-    broker_name = Column(String, index=True)
-    credentials_encrypted = Column(Text)
-    environment = Column(String)
-    is_active = Column(Boolean, default=True)
+from app.models.broker_account import BrokerAccount
 
 def get_cipher():
     key = os.getenv("SETTINGS_ENCRYPTION_KEY")
@@ -146,11 +139,14 @@ async def sync_symbols():
 
                 # Default values
                 std_details = {
+                    "symbol_id": sid,
+                    "lot_size": int(details.lotSize) if details.HasField('lotSize') else 10000000,
                     "digits": details.digits if details.HasField('digits') else 5,
                     "pipPosition": details.pipPosition if details.HasField('pipPosition') else -4,
                     "minLot": float(details.minVolume) / 100.0 if details.HasField('minVolume') else 0.01,
                     "maxLot": float(details.maxVolume) / 100.0 if details.HasField('maxVolume') else 100.0,
                     "lotStep": float(details.stepVolume) / 100.0 if details.HasField('stepVolume') else 0.01,
+                    "step_volume": float(details.stepVolume) / 100.0 if details.HasField('stepVolume') else 0.01,
                     "baseCurrency": base_curr,
                     "quoteCurrency": quote_curr,
                     "raw": {

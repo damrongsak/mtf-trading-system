@@ -104,7 +104,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 # Find Symbol ID - try multiple keys for robustness
                 symbol_id = None
                 if isinstance(details, dict):
-                    symbol_id = details.get("symbolId") or details.get("ctrader_symbol_id") or details.get("symbol_id")
+                    symbol_id = details.get("symbol_id") or details.get("symbolId") or details.get("ctrader_symbol_id")
                 
                 if symbol_id is not None:
                     try:

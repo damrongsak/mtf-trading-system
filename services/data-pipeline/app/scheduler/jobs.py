@@ -8,6 +8,7 @@ import pandas as pd
 import logging
 import json
 import asyncio
+from decimal import Decimal, ROUND_HALF_UP
 from app.streaming.publisher import RedisPublisher
 from app.utils.retry import async_retry
 from app.utils.crypto import decrypt_data
@@ -28,10 +29,11 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
     while True:
         # Params matching OandaClient.fetch_candles kwargs
         kwargs = {
-            "fromTime": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "includeFirst": current_start == from_date,
+            "from": current_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "count": 2500
         }
+        if current_start == from_date:
+            kwargs["includeFirst"] = True
         
         try:
             # Call adapter method
@@ -93,13 +95,15 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
     ct_period = tf_map.get(tf)
     if not ct_period: return 0
     
-    symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
-    if not symbol_id: return 0
+    symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+    if not symbol_id:
+        logger.error(f"Missing symbol_id for {ms.symbol} in cTrader backfill.")
+        return 0
     
     from_ts = int(from_date.timestamp() * 1000)
     to_ts = int(to_date.timestamp() * 1000)
     
-    logger.info(f"Triggering cTrader backfill for {ms.symbol} {tf} from {from_date} to {to_date}")
+    logger.info(f"Fetching cTrader candles for {ms.symbol} | TF: {tf} (Period: {ct_period}) | Count: 2000")
     
     trendbars = await client.get_trendbars(
         account_id=int(source.config_json.get("account_id")),
@@ -111,6 +115,8 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
     )
     
     batch_data = []
+    # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
+    # regardless of 'digits' for most price fields to maintain proto consistency.
     divisor = 100000.0
     for bar in trendbars:
         low_raw = bar.low
@@ -124,10 +130,10 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
             "symbol": ms.symbol,
             "timeframe": tf,
             "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, tz=timezone.utc),
-            "open": open_p / divisor,
-            "high": high_p / divisor,
-            "low": low_raw / divisor,
-            "close": close_p / divisor,
+            "open": round(open_p / divisor, 5),
+            "high": round(high_p / divisor, 5),
+            "low": round(low_raw / divisor, 5),
+            "close": round(close_p / divisor, 5),
             "volume": bar.volume,
             "is_complete": True 
         })
@@ -334,8 +340,10 @@ async def run_ingestion_job(
                                     logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
                                     return
                                 
-                                symbol_id = ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
-                                if not symbol_id: return
+                                symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+                                if not symbol_id:
+                                    logger.error(f"Missing symbol_id for {ms.symbol} in cTrader real-time catchup.")
+                                    return
                                 
                                 import time
                                 minutes_map = {
@@ -347,6 +355,8 @@ async def run_ingestion_job(
                                 duration_ms = count_limit * tf_mins * 60 * 1000
                                 to_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
                                 from_ts = to_ts - duration_ms
+                                
+                                logger.info(f"Fetching cTrader candles for {symbol_name} | TF: {tf} (Period: {ct_period}) | Count: {count_limit}")
                                 
                                 trendbars = await client.get_trendbars(
                                     account_id=int(source.config_json.get("account_id")),
@@ -385,10 +395,10 @@ async def run_ingestion_job(
                                         high_p = low_raw + high_delta
                                         close_p = low_raw + close_delta
 
-                                    open_p_norm = open_p / divisor
-                                    high_p_norm = high_p / divisor
-                                    low_p_norm = low_raw / divisor
-                                    close_p_norm = close_p / divisor
+                                    open_p_norm = round(open_p / divisor, 5)
+                                    high_p_norm = round(high_p / divisor, 5)
+                                    low_p_norm = round(low_raw / divisor, 5)
+                                    close_p_norm = round(close_p / divisor, 5)
 
                                     # cTrader Gold Quirk: Some feeds (e.g. IC Markets etc) send doubled price (likely Bid+Ask aggregate or scaling issue).
                                     # If the price is > 3500 for Gold from CTRADER source, it's likely doubled.

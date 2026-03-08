@@ -41,6 +41,7 @@ class OandaClient:
         try:
             # Oanda requires underscore, e.g. XAU_USD
             norm_symbol = symbol.replace('/', '_')
+            logger.info(f"OANDA API Request: instrument={norm_symbol}, params={params}")
             r = instruments.InstrumentsCandles(instrument=norm_symbol, params=params)
             
             logger.info(f"Fetching OANDA candles for {symbol} | TF: {timeframe} (Mapped: {oanda_tf}) | Count: {count}")

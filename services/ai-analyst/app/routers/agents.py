@@ -11,6 +11,7 @@ from app.core.globals import services
 from app.core.utils import extract_auth_token
 from app.services.telegram import send_telegram_message
 from app.utils.response import success_response
+from app.services.guardrail import check_guardrails
 
 router = APIRouter(tags=["agents"])
 logger = logging.getLogger(__name__)
@@ -201,6 +202,19 @@ async def chat_strategy(
         )
     
     try:
+        # Execute guardrail check first
+        guardrail_result = check_guardrails(request.message)
+        if guardrail_result.blocked:
+            logger.warning(f"Guardrail blocked request: {guardrail_result.reason} - {guardrail_result.details}")
+            return success_response(
+                data={
+                    "response": f"⚠️ Request blocked by security filter.\n\nReason: {guardrail_result.reason}\n\nIf this is a false positive, please rephrase your query.",
+                    "guardrail_triggered": True,
+                    "guardrail_reason": guardrail_result.reason
+                },
+                message="Request blocked by guardrail"
+            )
+        
         # Execute agent
         auth_token = extract_auth_token(authorization)
         result = await services["strategy_advisor"].run(

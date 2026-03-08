@@ -260,6 +260,7 @@ class AsyncCTraderClient:
         period: Enum ProtoOATrendbarPeriod (e.g. M1=1, M5=5, H1=9)
         timestamps: Unix timestamp in Milliseconds
         """
+        logger.info(f"performing ProtoOAGetTrendbarsReq for symbolId: {symbol_id} period: {period}")
         req = ProtoOAGetTrendbarsReq()
         req.ctidTraderAccountId = int(account_id)
         req.symbolId = int(symbol_id)
