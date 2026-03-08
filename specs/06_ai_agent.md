@@ -1,7 +1,7 @@
 # 03 - AI Agent Specification
 
-**Version:** 1.1
-**Status:** IMPLEMENTED (Phase 3 Verified)
+**Version:** 1.2
+**Status:** IN_PROGRESS (v2.2 Architecture)
 
 ---
 
@@ -123,6 +123,26 @@ To ensure high-fidelity responses for institutional-grade queries, the following
 1.  **Strategic Decisions** (e.g., "Long or Flat?"): **MANDATORY** multi-tool call: `smc_technical_analysis` + `cot_analyst` + `market_state`.
 2.  **Real-Time Risk Audit** (e.g., "Max Drawdown"): **DO NOT** use `backtest_runner`. Instead, use `calibrate_efp_parameters` to fetch `sigma` (volatility) and compute via `python_sandbox`.
 3.  **Liquidity Depth**: Use `market_state` to identify Gamma Walls and institutional sell walls.
+
+### 3.4. Dynamic Topology & Sentinel Layer (v2.2)
+To enhance safety and efficiency, the agent uses a dynamic graph topology based on query severity.
+
+#### 3.4.1. Severity Classification
+- **ROUTINE**: Simple queries or briefings. Minimal node path (`query_optimizer` -> `generate`).
+- **VOLATILITY**: High-impact queries requiring RAG and Reasoning.
+- **CRISIS**: Extreme market events. Full node path including `Sentinel` and `Consensus Layer`.
+
+#### 3.4.2. Sentinel Layer
+An adversarial node that reviews the primary agent's output for:
+- **Hallucination**: Verification of price data and news facts.
+- **Logic**: Checking consistency between analysis and recommendation.
+- **Economic Sanity**: Hard Python-based risk constraints (Margin, Lot Size, SL/TP direction).
+
+#### 3.4.3. Consensus Layer (CRISIS only)
+Dual-model verification using:
+- **Primary**: Google Gemini 2.5 Pro.
+- **Secondary**: Claude 3.5 Sonnet / MiniMax via **OpenRouter**.
+Both models must agree on trade direction and critical levels within 0.5% tolerance.
 
 ## 4. Data Models
 

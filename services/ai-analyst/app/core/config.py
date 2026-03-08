@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     OLYMPUS_PREDICTOR_URL: str = "http://olympus-predictor:8000"
     INTERNAL_API_KEY: str = "dev-internal-key"
     DATABASE_URL: str = "postgresql://trader:trader@mtf-postgres:5432/mtf_db"
+    OPENROUTER_API_KEY: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[int] = None
 

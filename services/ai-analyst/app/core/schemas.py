@@ -31,3 +31,14 @@ class EvaluationResult(BaseModel):
     """Schema for evaluating AI responses (Agentic RAG)."""
     is_satisfactory: bool = Field(description="Whether the response meets the user's requirements.")
     feedback: Optional[str] = Field(None, description="Feedback for refinement if unsatisfactory.")
+
+class SeverityClassification(BaseModel):
+    """Schema for classifying query severity for dynamic topology."""
+    severity: str = Field(description="The severity level: 'ROUTINE', 'VOLATILITY', or 'CRISIS'.")
+    rationale: str = Field(description="Brief explanation of the severity classification.")
+
+class SentinelResult(BaseModel):
+    """Schema for adversarial sentinel review."""
+    approved: bool = Field(description="Whether the proposal is logically sound and safe.")
+    reason: str = Field(description="Explanation for approval or rejection.")
+    risk_score: int = Field(ge=0, le=100, description="Confidence score from 0-100.")

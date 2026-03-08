@@ -165,8 +165,9 @@ class RAGService:
         self.journal_collection = "journal_entries"
         self.strategy_collection = "strategies"
         self.docs_collection = "system_docs"
-        self.user_memory = "user_memory"
         self.library_collection = "quant_library"
+        self.lesson_learned_collection = "lesson_learned"
+        self.user_memory = "user_memory"
         
         try:
             self._ensure_collection(self.journal_collection)
@@ -174,6 +175,7 @@ class RAGService:
             self._ensure_collection(self.docs_collection)
             self._ensure_collection(self.user_memory)
             self._ensure_collection(self.library_collection)
+            self._ensure_collection(self.lesson_learned_collection)
         except Exception as e:
             logger.warning(f"Could not ensure collections on init (Qdrant offline?): {e}")
 
@@ -735,4 +737,42 @@ class RAGService:
             raise
         finally:
             db.close()
+
+    async def ingest_lesson_learned(self, lesson_id: str, content: str, trade_id: str, user_id: str, metadata: dict = None):
+        """Embed and upsert a lesson learned from a trade post-mortem."""
+        embedding = await self._get_embedding(content)
+        
+        point = models.PointStruct(
+            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"lesson_{lesson_id}")),
+            vector=embedding,
+            payload={
+                "content": content,
+                "trade_id": trade_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                **(metadata or {})
+            }
+        )
+        
+        self.qdrant.upsert(
+            collection_name=self.lesson_learned_collection,
+            points=[point]
+        )
+        logger.info(f"Ingested lesson {lesson_id} for trade {trade_id}")
+
+    async def search_lessons(self, query: str, user_id: str, limit: int = 3) -> list[str]:
+        """Search similar lessons learned."""
+        embedding = await self._get_embedding(query)
+        search_filter = models.Filter(
+            must=[models.FieldCondition(key="user_id", match=models.MatchValue(value=user_id))]
+        )
+        
+        results = self.qdrant.query_points(
+            collection_name=self.lesson_learned_collection,
+            query=embedding,
+            query_filter=search_filter,
+            limit=limit
+        ).points
+        
+        return [hit.payload["content"] for hit in results]
 

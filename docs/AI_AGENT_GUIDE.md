@@ -85,5 +85,30 @@ Subscribe to these for event-driven logic:
 - [ ] Ingest `GEMINI.md` for role-playing and persona context.
 - [ ] (Advanced) Sync with **Qdrant** for long-term memory and RAG.
 
+## 🔐 Step 6: Configuration & Environment Management
+To maintain a "Single Source of Truth" and prevent configuration drift:
+- **Centralized Environment**: All core API keys (e.g., `OPENROUTER_API_KEY`, `GOOGLE_API_KEY`) must be stored ONLY in the project root `.env` file.
+- **Service-Level Cleanup**: DO NOT create local `.env` files within individual microservice directories.
+- **Docker Integration**: All services are configured via `docker-compose.yml` to read the root `.env` file automatically.
+
+## 📋 Step 7: Standardized Handoff & Progress Tracking
+To ensure continuity across multiple AI agent sessions or human developer handoffs, every major task must conclude with a standardized handoff report.
+
+### 🏠 Storage Location
+Store handoff files in the root `task/` directory.
+
+### 🏷️ Naming Convention
+Use the ISO date followed by the specific feature and status:
+`YYYY-MM-DD-FEATURE-NAME-STATUS.md`
+*(Example: `2026-03-08-AI-ANALYST-V2.2-POST-MORTEM-SENTINEL.md`)*
+
+### 📝 Content Structure
+Each handoff MUST include:
+1.  **Current Status**: Date and overall phase status.
+2.  **What Has Been Accomplished**: Detailed bullet points of completed features and technical fixes.
+3.  **Just Finished / Verification**: Results of unit/integration tests and manual verification.
+4.  **Next Steps**: Actionable items for the next agent (e.g., monitor performance, tune prompts).
+5.  **Key Files**: List of critical files modified or new components created.
+
 ---
 **MTF Olympus** | *Institutional Alpha at Scale*

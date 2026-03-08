@@ -10,13 +10,16 @@ from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.services.memory import MemoryService
 from app.services.semantic_cache import SemanticCache
+from app.services.openrouter import OpenRouterClient
 from app.core.config import settings
 from app.core.schemas import (
-    QueryOptimization,
-    PlanDecomposition,
     SystemToolCall,
     SystemToolSelection,
-    EvaluationResult
+    EvaluationResult,
+    SeverityClassification,
+    QueryOptimization,
+    PlanDecomposition,
+    SentinelResult
 )
 
 
@@ -69,6 +72,12 @@ class AgentState(TypedDict):
     tool_loop_count: int # Execution turns count
     evaluation_feedback: str
     is_satisfactory: bool
+    
+    # AI Analyst v2.2 - Dynamic Topology & Sentinel
+    severity: str # 'ROUTINE' | 'VOLATILITY' | 'CRISIS'
+    sentinel_result: dict # Results from node_sentinel
+    consensus_result: dict # Results from consensus_layer
+    proposed_trade: dict # Captured trade proposal for sanity checking
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -81,6 +90,7 @@ class StrategyAdvisorAgent:
         self.gemini = gemini_client
         self.memory = memory_service
         self.cache = SemanticCache(gemini_client)
+        self.openrouter = OpenRouterClient()
         self.checkpointer = checkpointer
         
         # Initialize Tools
@@ -109,6 +119,11 @@ class StrategyAdvisorAgent:
         workflow.add_node("tool_selection", self.node_tool_selection) 
         workflow.add_node("execute_tools", self.node_execute_tools)
         workflow.add_node("summarizer", self.node_scratchpad_summarizer)
+        
+        # v2.2 New Nodes
+        workflow.add_node("severity_classifier", self.node_severity_classifier)
+        workflow.add_node("sentinel", self.node_sentinel)
+        workflow.add_node("consensus_layer", self.node_consensus_layer)
 
         # Consolidated Nodes
         workflow.add_node("market_scan", self.node_market_scan)
@@ -117,7 +132,8 @@ class StrategyAdvisorAgent:
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
-        workflow.add_edge("query_optimizer", "check_cache")
+        workflow.add_edge("query_optimizer", "severity_classifier")
+        workflow.add_edge("severity_classifier", "check_cache")
 
         workflow.add_conditional_edges(
             "check_cache",
@@ -165,7 +181,18 @@ class StrategyAdvisorAgent:
         )
         
         workflow.add_edge("execute_tools", "summarizer")
-        workflow.add_edge("summarizer", "tool_selection")
+        workflow.add_edge("summarizer", "sentinel")
+        
+        workflow.add_conditional_edges(
+            "sentinel",
+            lambda x: "consensus" if x.get("severity") == "CRISIS" and x.get("sentinel_result", {}).get("approved") else "tool_use",
+            {
+                "consensus": "consensus_layer",
+                "tool_use": "tool_selection"
+            }
+        )
+        
+        workflow.add_edge("consensus_layer", "tool_selection")
         
         workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
         workflow.add_edge("synthesize", "memory_write") # Research ends here usually
@@ -207,7 +234,12 @@ class StrategyAdvisorAgent:
         if history:
              # Only use the last 6 messages (3 turns) to prevent context bloat
              recent = history[-6:]
-             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
+             formatted = []
+             for msg in recent:
+                 role = getattr(msg, "type", msg.get("role", "user") if isinstance(msg, dict) else "user")
+                 content = getattr(msg, "content", msg.get("content", "") if isinstance(msg, dict) else str(msg))
+                 formatted.append(f"{role}: {content}")
+             history_str = "\n".join(formatted)
              
         prompt = f"""
         You are a Query Optimizer for a Hedge Fund AI (MTF Olympus).
@@ -278,6 +310,266 @@ class StrategyAdvisorAgent:
             logger.error(f"Optimizer failed: {e}")
             return {"optimized_query": query, "intent": "CHAT"}
 
+    async def node_severity_classifier(self, state: AgentState):
+        """
+        Classifies the severity of the request to determine the graph topology.
+        - CRISIS: High market impact, financial danger, or adversarial conditions.
+        - VOLATILITY: Market news, sentiment shifts, complex quantitative research.
+        - ROUTINE: Standard chat, briefings, or simple queries.
+        """
+        query = state["optimized_query"]
+        intent = state.get("intent", "CHAT")
+        
+        # Simple heuristic: TOOL_USE for trades is always at least VOLATILITY
+        # But let LLM decide based on context.
+        
+        prompt = f"""
+        You are a Severity Classifier for a Trading AI (MTF Olympus).
+        Your goal is to classify the urgency and risk of a user query.
+        
+        Query: "{query}"
+        Intent: {intent}
+        
+        **Severity Levels:**
+        - **CRISIS**: Use for:
+            - Asking to PLACE a live trade or large order.
+            - Requests regarding flash crashes, immediate risk-of-ruin, or regime changes.
+            - Anything involving direct financial execution in high-volatility markets.
+        - **VOLATILITY**: Use for:
+            - Market analysis on high-impact news (CPI, FOMC).
+            - Complex quantitative research or strategy optimization.
+            - General market outlooks that drive trading bias.
+        - **ROUTINE**: Use for:
+            - General chat, briefings, account status checks (balance/equity).
+            - Simple technical questions or documentation retrieval.
+        
+        **Output JSON only:**
+        {{
+            "severity": "...",
+            "rationale": "..."
+        }}
+        """
+        
+        try:
+            response = await self.gemini.generate_content(
+                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id],
+                contents=[prompt],
+                response_schema=SeverityClassification
+            )
+            text = response.get("text", "")
+            data = SeverityClassification.model_validate_json(text)
+            
+            logger.info(f"Severity: {data.severity} | Rationale: {data.rationale}")
+            return {"severity": data.severity}
+        except Exception as e:
+            logger.error(f"Severity classification failed: {e}")
+            return {"severity": "VOLATILITY"} # Default to safe middle ground
+
+    async def node_sentinel(self, state: AgentState):
+        """
+        Adversarial reviewer node. Checks for:
+        1. Hallucination/Logic errors in LLM thinking.
+        2. Economic Sanity Gate (Hard Python Constraints).
+        """
+        severity = state.get("severity", "ROUTINE")
+        
+        # skip for ROUTINE if no tools were called
+        if severity == "ROUTINE" and not state.get("scratchpad"):
+            return {"sentinel_result": {"approved": True}}
+
+        logger.info("Sentinel Layer Reviewing state...")
+        
+        # 1. Economic Sanity Gate (Phase 1)
+        # We look for trade proposals in the reasoning or scratchpad
+        # In this version, we expect tools to populate proposed_trade if they are about to execute.
+        # For now, let's implement the gate call if proposed_trade is present.
+        
+        proposed = state.get("proposed_trade")
+        if proposed:
+            from app.agents.sentinel.economic_sanity_gate import EconomicSanityGate, AccountState, TradeProposal
+            from decimal import Decimal
+            
+            # If proposed is a string (legacy or LLM format), try to parse it
+            if isinstance(proposed, str):
+                try:
+                    proposed = json.loads(proposed)
+                except Exception:
+                    logger.warning(f"Could not parse proposed_trade string: {proposed}")
+                    # If it's not JSON, skip deterministic gate for now or use defaults
+                    pass
+
+            if isinstance(proposed, dict):
+                # TODO: Fetch real account state via Execution Client
+                # Mocking for now - this should be a tool call or service call
+                account = AccountState(
+                    balance=Decimal("10000"),
+                    equity=Decimal("10000"),
+                    margin_used=Decimal("0"),
+                    open_positions=0
+                )
+                
+                gate = EconomicSanityGate(account)
+                # Map dict to TradeProposal dataclass
+                try:
+                    proposal = TradeProposal(
+                        symbol=proposed.get("symbol", "XAUUSD"),
+                        direction=proposed.get("direction", "BUY"),
+                        lot_size=Decimal(str(proposed.get("lot_size", "0.01"))),
+                        entry_price=Decimal(str(proposed.get("entry_price", "0"))),
+                        stop_loss=Decimal(str(proposed.get("stop_loss", "0"))),
+                        take_profit=Decimal(str(proposed.get("take_profit", "0")))
+                    )
+                    
+                    is_safe, violations = gate.validate_proposal(proposal)
+                    if not is_safe:
+                        return {
+                            "sentinel_result": {
+                                "approved": False, 
+                                "reason": "ECONOMIC_VIOLATION", 
+                                "violations": violations
+                            }
+                        }
+                except Exception as e:
+                    logger.error(f"Sanity Gate mapping failed: {e}")
+                    return {"sentinel_result": {"approved": False, "reason": "INTERNAL_ERROR"}}
+
+        # 2. Adversarial LLM Review (Logic/Hallucination)
+        # Only run full LLM sentinel for VOLATILITY and CRISIS
+        if severity in ["VOLATILITY", "CRISIS"]:
+            reasoning = state.get("reasoning_trace", [""])[0]
+            scratchpad = "\n".join(state.get("scratchpad", []))
+            proposal_str = json.dumps(proposed, indent=2) if proposed else "No trade proposed."
+            
+            sentinel_prompt = f"""
+            You are the Sentinel Node in a Trading AI system. 
+            Your job is to be ADVERSARIAL and find faults in the primary agent's logic.
+            
+            **Primary Agent Thinking/Reasoning:**
+            {reasoning}
+            
+            **Tool Outputs (Market Data):**
+            {scratchpad}
+            
+            **Final Proposal to Review:**
+            {proposal_str}
+            
+            **Evaluation Criteria:**
+            1. **Hallucination**: Is the agent using price levels not found in the market data?
+            2. **Logic Conflict**: Does the reasoning say 'Bearish' but the proposal is 'BUY'?
+            3. **Strategy Adherence**: Is there a Clear SMC structure (FVG, OB) mentioned and present in data?
+            
+            **Output JSON only:**
+            {{
+                "approved": boolean,
+                "reason": "Clear explanation of approval or rejection",
+                "risk_score": 0-100
+            }}
+            """
+            
+            try:
+                sentinel_resp = await self.gemini.generate_content(
+                    model=[settings.gemini.flash_model_id],
+                    contents=[sentinel_prompt],
+                    response_schema=SentinelResult
+                )
+                sentinel_data = json.loads(sentinel_resp.get("text", "{}"))
+                
+                if not sentinel_data.get("approved"):
+                    logger.warning(f"Sentinel REJECTED proposal: {sentinel_data.get('reason')}")
+                    return {"sentinel_result": sentinel_data}
+                
+                return {"sentinel_result": {**sentinel_data, "approved": True}}
+            except Exception as e:
+                logger.error(f"Sentinel LLM review failed: {e}")
+                return {"sentinel_result": {"approved": True, "note": "LLM review skipped due to error"}}
+            
+        return {"sentinel_result": {"approved": True}}
+
+    async def node_consensus_layer(self, state: AgentState):
+        """
+        Phase 2: Dual-Model Verification for CRISIS severity.
+        Uses OpenRouter (Claude-3.5-Sonnet) as a secondary reviewer.
+        """
+        proposed = state.get("proposed_trade")
+        if not proposed:
+            return {"consensus_result": {"approved": True, "note": "No trade proposed for consensus."}}
+        
+        reasoning = state.get("reasoning_trace", [""])[0]
+        scratchpad = "\n".join(state.get("scratchpad", []))
+        proposal_str = json.dumps(proposed, indent=2)
+        
+        prompt = f"""
+        You are the Second Auditor in a high-stakes Trading Consensus Protocol.
+        A primary AI agent has proposed a trade during a MARKET CRISIS.
+        
+        **Primary Logic:**
+        {reasoning}
+        
+        **Market Context:**
+        {scratchpad}
+        
+        **Proposed Trade:**
+        {proposal_str}
+        
+        **Your Task:**
+        Evaluate if this trade is logical and mathematically sound given the crisis context.
+        You MUST verify:
+        - Direction alignment with bias.
+        - Risk amount sanity.
+        - Stop Loss placement logic.
+        
+        Output JSON only:
+        {{
+            "approved": boolean,
+            "reason": "Technical rationale",
+            "consensus_score": 0-100
+        }}
+        """
+        
+        # Call Secondary Model via OpenRouter
+        model = "anthropic/claude-3.5-sonnet"
+        
+        try:
+            response_text = await self.openrouter.generate_completion(
+                model=model,
+                prompt=prompt,
+                system_prompt="You are a senior hedge fund risk auditor. Be extremely conservative."
+            )
+            consensus_data = json.loads(response_text)
+            return {"consensus_result": {**consensus_data, "fallback_used": False}}
+            
+        except Exception as e:
+            logger.warning(f"OpenRouter consensus failed: {e}. Falling back to Gemini.")
+            try:
+                # Gemini Fallback
+                fallback_resp = await self.gemini.generate_content(
+                    model=[settings.gemini.flash_model_id],
+                    contents=[f"(FALLBACK AUDITOR MODE) {prompt}"],
+                    config={"response_mime_type": "application/json"}
+                )
+                
+                resp_text = fallback_resp.get("text", "{}")
+                if "```json" in resp_text:
+                    resp_text = resp_text.split("```json")[-1].split("```")[0].strip()
+                
+                fallback_data = json.loads(resp_text)
+                
+                # If fallback says approved is false, we should honor it
+                return {
+                    "consensus_result": {
+                        **fallback_data, 
+                        "fallback_used": True, 
+                        "warning": "Warning: OpenRouter/Claude was unavailable. Verified using Gemini Fallback. Proceed with caution."
+                    }
+                }
+            except Exception as e2:
+                logger.error(f"Consensus fallback also failed: {e2}")
+                return {"consensus_result": {"approved": False, "reason": f"Consensus system failure: {e2}"}}
+            
+        except Exception as e:
+            logger.error(f"Consensus layer failed: {e}")
+            return {"consensus_result": {"approved": False, "reason": f"INTERNAL_ERROR: {e}"}}
+
     async def node_check_cache(self, state: AgentState):
         """
         Checks semantic cache for existing valid responses.
@@ -316,11 +608,20 @@ class StrategyAdvisorAgent:
             return "confirmation_check"
             
         intent = state.get("intent", "CHAT")
-        query_text = state.get("input_text", "").lower()
+        severity = state.get("severity", "ROUTINE")
         
+        if severity == "ROUTINE":
+            if intent == "CHAT":
+                return "direct"
+            if intent == "TOOL_USE":
+                return "tool_use"
+            if intent == "MARKET_REPORT":
+                return "market_scan"
+            if intent == "DAILY_BRIEFING":
+                return "generate_briefing"
+        
+        # Default routing for VOLATILITY / CRISIS or complex ROUTINE
         if intent == "TOOL_USE":
-            # Direct Tool Request bypasses reasoning (e.g., "what is my balance")
-            # If it's a simple command, go straight to tool selection to save tokens
             return "tool_use"
         elif intent == "RESEARCH":
             return "research"
@@ -433,6 +734,9 @@ class StrategyAdvisorAgent:
         # 4. Strategies (Code)
         tasks.append(self.rag.search_similar_strategies(query, user_id, limit=top_k))
 
+        # 5. Lessons Learned (Post-Mortem Analysis)
+        tasks.append(self.rag.search_lessons(query, user_id, limit=top_k))
+
         # Execute all retrieval tasks in parallel
         results = await asyncio.gather(*tasks)
         
@@ -440,6 +744,7 @@ class StrategyAdvisorAgent:
         system_docs = results[1]
         library_docs = results[2]
         strategies = results[3]
+        lessons = results[4]
 
         user_facts = [user_facts_str] if user_facts_str and "No specific user preferences" not in user_facts_str else []
         
@@ -447,8 +752,9 @@ class StrategyAdvisorAgent:
         doc_texts = [f"[Source: {d['filename']}]\n{d['content']}" for d in system_docs]
         lib_texts = [f"[Source: Quant Library - {d['filename']}]\n{d['content']}" for d in library_docs]
         strat_texts = [f"[Strategy: {s.get('name', 'Unnamed')}]\n{s['code']}" for s in strategies]
+        lesson_texts = [f"[Lesson Learned]\n{l}" for l in lessons]
 
-        logger.info(f"✅ Retrieval complete | UserFacts: {len(user_facts)} | SystemDocs: {len(doc_texts)} | LibraryDocs: {len(lib_texts)} | Strategies: {len(strat_texts)}")
+        logger.info(f"✅ Retrieval complete | UserFacts: {len(user_facts)} | SystemDocs: {len(doc_texts)} | LibraryDocs: {len(lib_texts)} | Strategies: {len(strat_texts)} | Lessons: {len(lesson_texts)}")
 
         # 5. Inject Tool Context (Dynamic Capabilities)
         tool_info = self.tool_registry.get_tool_descriptions()
@@ -466,9 +772,9 @@ class StrategyAdvisorAgent:
         # Priority: Quant Library results at the VERY TOP for Research intents
         # Then system docs, strategies, tools.
         if intent == "RESEARCH":
-            combined_docs = lib_texts + doc_texts + strat_texts + refinement_ctx + [tool_ctx] + existing_docs
+            combined_docs = lesson_texts + lib_texts + doc_texts + strat_texts + refinement_ctx + [tool_ctx] + existing_docs
         else:
-            combined_docs = existing_docs + [tool_ctx] + refinement_ctx + doc_texts + lib_texts + strat_texts
+            combined_docs = existing_docs + [tool_ctx] + refinement_ctx + lesson_texts + doc_texts + lib_texts + strat_texts
         
         # Unique and latest N
         pruned_docs = list(dict.fromkeys(combined_docs))[:max_chunks]
@@ -606,6 +912,13 @@ class StrategyAdvisorAgent:
             # Helper for executing tools (mapping Pydantic to list of dicts)
             raw_tool_calls = [t.model_dump() for t in decision.tool_calls]
             
+            # AI Analyst v2.2 - Capture trade proposal for Sentinel review
+            proposed_trade = None
+            for tc in raw_tool_calls:
+                if tc.get("tool_name") == "smart_order":
+                    proposed_trade = tc.get("tool_input")
+                    break
+            
             # Enforce uniqueness programmatically to prevent redundant execution
             seen_tools = set()
             tool_calls = []
@@ -617,7 +930,11 @@ class StrategyAdvisorAgent:
                 else:
                     logger.warning(f"Discarding redundant tool call: {name}")
             
-            return {**res_ext, "tool_calls": tool_calls}
+            return {
+                **res_ext, 
+                "tool_calls": tool_calls,
+                "proposed_trade": proposed_trade
+            }
             
         except Exception as e:
             logger.error(f"Tool selection failed: {e}")
@@ -927,7 +1244,12 @@ class StrategyAdvisorAgent:
         history_str = "None."
         if history:
              recent = history[-6:] # Last 3 turns
-             history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent])
+             formatted = []
+             for msg in recent:
+                 role = getattr(msg, "type", msg.get("role", "user") if isinstance(msg, dict) else "user")
+                 content = getattr(msg, "content", msg.get("content", "") if isinstance(msg, dict) else str(msg))
+                 formatted.append(f"{role}: {content}")
+             history_str = "\n".join(formatted)
         
         # 2. Build Generation Prompt
         from datetime import datetime
@@ -1085,7 +1407,12 @@ class StrategyAdvisorAgent:
         if messages:
             # Use up to last 4 messages to get some context for the fact extraction
             recent = messages[-4:]
-            interaction = "\n".join([f"{m['role']}: {m['content']}" for m in recent])
+            formatted = []
+            for m in recent:
+                role = getattr(m, "type", m.get("role", "user") if isinstance(m, dict) else "user")
+                content = getattr(m, "content", m.get("content", "") if isinstance(m, dict) else str(m))
+                formatted.append(f"{role}: {content}")
+            interaction = "\n".join(formatted)
         else:
             interaction = f"User: {state['input_text']}\nAI: {state['final_response']}"
         
@@ -1118,7 +1445,12 @@ class StrategyAdvisorAgent:
         messages = state.get("messages", [])
         if len(messages) > 12: # 6+ turns
             logger.info(f"Messages history length ({len(messages)}) exceeded threshold. Summarizing...")
-            history_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            formatted = []
+            for m in messages:
+                role = getattr(m, "type", m.get("role", "user") if isinstance(m, dict) else "user")
+                content = getattr(m, "content", m.get("content", "") if isinstance(m, dict) else str(m))
+                formatted.append(f"{role}: {content}")
+            history_text = "\n".join(formatted)
             summary_prompt = f"""
             Summarize the key points of this conversation to be used as context for future turns.
             Focus on the user's intent, the assets discussed, and any decisions made.

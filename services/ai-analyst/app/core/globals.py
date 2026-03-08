@@ -7,5 +7,6 @@ services = {
     "strategy_advisor": None,
     "sentiment": None,
     "memory": None,
-    "checkpointer": None
+    "checkpointer": None,
+    "post_mortem": None
 }

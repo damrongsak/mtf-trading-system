@@ -13,6 +13,7 @@ from app.services.rag import RAGService
 from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.episodic_memory import EpisodicMemoryAgent
+from app.agents.post_mortem import PostMortemAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents, admin, external
@@ -117,6 +118,13 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Episodic Memory Agent Failed: {e}")
 
         try:
+            if services["rag"]:
+                services["post_mortem"] = PostMortemAgent(services["gemini"], services["rag"])
+                logger.info("✅ Post-Mortem Agent Ready")
+        except Exception as e:
+            logger.error(f"❌ Post-Mortem Agent Failed: {e}")
+
+        try:
             services["sentiment"] = SentimentService()
             logger.info("✅ Sentiment Service Ready")
         except Exception as e:
@@ -139,7 +147,11 @@ async def lifespan(app: FastAPI):
             # Predictor Stability Check (Every 15 minutes)
             scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=60, misfire_grace_time=300)
             
-            logger.info("✅ Scheduler Started (Guardian, Session, Sentiment & Stability Jobs Added)")
+            # Daily Post-Mortem Analysis (01:00 UTC)
+            from app.core.scheduler_tasks import run_daily_post_mortem
+            scheduler.add_job(run_daily_post_mortem, 'cron', hour=1, minute=0, misfire_grace_time=3600)
+            
+            logger.info("✅ Scheduler Started (Guardian, Session, Sentiment, Stability & Post-Mortem Jobs Added)")
         except Exception as e:
             logger.error(f"❌ Scheduler/Session Observer Failed: {e}")
             
