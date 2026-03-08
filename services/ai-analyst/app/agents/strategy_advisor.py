@@ -714,9 +714,9 @@ class StrategyAdvisorAgent:
         # Define tasks for parallel execution
         tasks = []
         
-        # 1. User Context (Long Term Memory)
+        # 1. User Context (Long Term Memory - Hybrid v2.6)
         if self.memory:
-            tasks.append(self.memory.get_user_context(user_id, query))
+            tasks.append(self.memory.get_adaptive_context(user_id, query))
         else:
             tasks.append(asyncio.sleep(0, result="No memory service available."))
 

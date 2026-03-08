@@ -44,7 +44,17 @@ class UniversalAgent:
         )
         
         # 4. Build Graph
-        self.graph = create_react_agent(self.llm, self.tools, prompt=self.role)
+        # Enhanced System Role for Planning (Protocol Approval v2.6)
+        planning_prefix = (
+            "You are an adaptive system agent. Before executing complex tasks using shell or python: "
+            "1. FORMULATE a step-by-step plan. "
+            "2. EXECUTE tools one by one. "
+            "3. ADAPT your plan if tool outputs differ from expectations. "
+            "\n\nBase Role:\n"
+        )
+        full_role = planning_prefix + self.role
+        
+        self.graph = create_react_agent(self.llm, self.tools, prompt=full_role)
 
     def _fetch_role_sync(self, prompt_id: str) -> str:
         import httpx
@@ -58,11 +68,19 @@ class UniversalAgent:
             logger.error(f"Failed to fetch prompt sync: {e}")
         return ""
 
-    async def run(self, input_text: str) -> str:
+    async def run(self, input_text: str, user_id: str = "agent_default") -> str:
         """
-        Run the agent with text input.
+        Run the agent with text input and adaptive context injection (v2.6).
         """
-        inputs = {"messages": [("user", input_text)]}
+        # 1. Inject Memory Context (Lessons + Facts)
+        from app.core.globals import services
+        memory_service = services.get("memory")
+        context = ""
+        if memory_service:
+            context = await memory_service.get_adaptive_context(user_id, input_text)
+            
+        full_input = f"### CONTEXT ###\n{context}\n\n### REQUEST ###\n{input_text}" if context else input_text
+        inputs = {"messages": [("user", full_input)]}
         
         try:
             result = await self.graph.ainvoke(inputs)

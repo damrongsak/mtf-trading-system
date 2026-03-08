@@ -111,6 +111,9 @@ graph TD
     - `GoogleSearchTool`: Real-time web search.
     - `GetEconomicCalendarTool`: Scheduled events.
     - `GetStrategyPerformanceTool`: Backtest runner.
+    - `ShellCommandTool`: Execute bash commands for system operations.
+    - `PythonInterpreterTool`: Run generic Python code for advanced logic.
+    - `WebReaderTool`: Local, boilerplate-free web content extraction.
 - **Nodes & Loop (OODA):**
     - **Observe:** Fetch data via tools.
     - **Orient:** Retrieve similar historical contexts or specs.

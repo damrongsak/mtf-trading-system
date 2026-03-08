@@ -13,6 +13,10 @@ from app.tools.smc import SMCAnalystTool
 from app.tools.oi_drift import OpenInterestDriftTool
 from app.tools.trading_plan import TradingPlanTool
 from app.tools.notification import SendNotificationTool
+from app.tools.shell import ShellCommandTool
+from app.tools.python import PythonInterpreterTool
+from app.tools.web_reader import WebReaderTool
+from app.tools.skills import SkillManagerTool
 
 def bootstrap_tools():
     """
@@ -42,6 +46,12 @@ def bootstrap_tools():
     registry.register("oi_drift_analysis", OpenInterestDriftTool())
     registry.register("generate_trading_plan", TradingPlanTool())
     registry.register("send_notification", SendNotificationTool())
+
+    # OS & System Tools (Approved v2.6)
+    registry.register("shell_command", ShellCommandTool())
+    registry.register("python_interpreter", PythonInterpreterTool())
+    registry.register("web_reader", WebReaderTool())
+    registry.register("save_persistent_skill", SkillManagerTool())
     
     print("All standard tools registered.")
 

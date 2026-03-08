@@ -1,4 +1,4 @@
-# MTF Olympus: AI Analyst (v2.2)
+# MTF Olympus: AI Analyst (v2.6)
 
 The **AI Analyst** is the institutional-grade "Market Brain" of the MTF Olympus system. It utilizes **Google Gemini 2.5 (Pro/Flash)** and **OpenRouter (Claude 3.5)** within an **Agentic RAG (LangGraph)** architecture to provide structural market mapping, cross-service stability observation, and automated strategy planning with institutional safety guards.
 
@@ -60,6 +60,9 @@ graph TD
 - **Consensus Layer with Fallback**: Dual-verification using **Claude 3.5 (OpenRouter)** and **Gemini 2.5 Flash**. Includes automatic fallback to Gemini if OpenRouter is unavailable.
 - **Agentic RAG**: Context-aware retrieval from **Qdrant** (Quant Library, Systems Docs, Journals, Lessons Learned).
 - **Adaptive News Re-ranking**: Dynamic feedback loop that extracts "Key Drivers" from news and re-ranks subsequent data for faster volatility response.
+- **OS-Level Tool Suite**: Direct access to local Shell, Python Interpreter, and Web Reader for autonomous research and data processing.
+- **Hybrid Adaptive Memory**: Injects both persistent User Facts and Institutional Lessons Learned into every agent session.
+- **Persistent Skill Manager**: Allows the agent to save and recall successful Python scripts and logic paths as long-term "Skills".
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -110,7 +113,8 @@ app/
 │   └── sentinel/      # Safety gate and multi-model consensus logic
 ├── core/              # Persona prompts, Pydantic schemas, & Scheduler
 ├── services/          # Model clients (Gemini/OpenRouter), RAG, & Memory
-├── tools/             # Market data, Strategy planning, & Smart Orders
+├── tools/             # Market data, Strategy planning, Shell, Python, & Web
+├── persistent_skills/ # Locally stored AI-generated Python scripts
 └── main.py            # FastAPI entrypoint & Scheduler init
 ```
 
