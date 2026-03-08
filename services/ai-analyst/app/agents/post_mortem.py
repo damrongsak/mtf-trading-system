@@ -7,6 +7,8 @@ from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
 from app.core.config import settings
 
+from app.utils.json import safe_json_dumps
+
 logger = logging.getLogger(__name__)
 
 class PostMortemAgent:
@@ -26,12 +28,19 @@ class PostMortemAgent:
         symbol = trade_data.get("symbol")
         result = trade_data.get("result_pnl", 0)
         
+        # Serialize trade_data safely (handles UUIDs, Decimals, etc.)
+        try:
+            trade_json = safe_json_dumps(trade_data, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to serialize trade data for {trade_id}: {e}")
+            trade_json = str(trade_data) # Fallback to string representation
+
         prompt = f"""
         You are the 'Post-Mortem Agent' for MTF Olympus.
         Analyze the following closed trade and extract ONE critical lesson learned.
         
         **Trade Details:**
-        {json.dumps(trade_data, indent=2)}
+        {trade_json}
         
         **Your Goal:**
         Be brutally clinical. Was this a 'Good Win', 'Bad Win', 'Good Loss' (followed plan), or 'Bad Loss'?

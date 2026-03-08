@@ -1,4 +1,6 @@
 import logging
+from decimal import Decimal
+import uuid
 from app.core.globals import services
 from app.database import SessionLocal
 from sqlalchemy import text
@@ -61,21 +63,9 @@ async def run_daily_post_mortem():
         """)
         
         result = db.execute(query, {"yesterday": yesterday}).mappings().all()
-        # Convert UUIDs and Decimals to serializable formats
-        from decimal import Decimal
-        import uuid
-        
-        trades = []
-        for r in result:
-            t = dict(r)
-            for k, v in t.items():
-                if isinstance(v, uuid.UUID):
-                    t[k] = str(v)
-                elif isinstance(v, Decimal):
-                    t[k] = float(v)
-                elif isinstance(v, datetime):
-                    t[k] = v.isoformat()
-            trades.append(t)
+        # Convert SQLAlchemy RowMappings to standard dicts
+        # The PostMortemAgent.safe_json_dumps handles UUID, Decimal, and datetime
+        trades = [dict(r) for r in result]
         
         if not trades:
             logger.info("ℹ️ No closed trades found in the last 24 hours. Skipping analysis.")

@@ -40,6 +40,28 @@ async def lifespan(app: FastAPI):
     logger.info("\n" + "="*50)
     logger.info("🚀 AI Analyst Service Starting...")
     logger.info("="*50 + "\n")
+    
+    # 0. Infrastructure Pre-flight Check
+    try:
+        from redis.asyncio import Redis
+        import os
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        redis = Redis.from_url(redis_url)
+        modules = await redis.execute_command("MODULE LIST")
+        module_names = [m[1].decode('utf-8') if isinstance(m[1], bytes) else m[1] for m in modules]
+        
+        required = ["search", "ReJSON"]
+        missing = [m for m in required if m not in module_names]
+        
+        if missing:
+            logger.error(f"❌ CRITICAL: Missing Redis Modules: {missing}")
+            logger.error("👉 Please ensure you ARE NOT using 'command' override in docker-compose.yml for the redis service.")
+            logger.error("🛑 Service will proceed with local MemorySaver, but cross-turn memory will be DISABLED.")
+        else:
+            logger.info(f"✅ Infrastructure Verified (Redis Modules: {module_names})")
+        await redis.close()
+    except Exception as e:
+        logger.warning(f"⚠️ Infrastructure check skipped (Redis not ready): {e}")
 
     # Clear any stale services from global dict (important for reloads)
     for key in services.keys():
@@ -161,10 +183,25 @@ async def lifespan(app: FastAPI):
         
         yield
     
-    logger.info("🛑 Service Shutting Down...")
+    logger.info("🛑 Service Shutdown Sequence Initiated...")
+    
+    # Trace why we are shutting down if possible
+    import threading
+    active_threads = threading.active_count()
+    logger.info(f"📊 Shutdown Context: {active_threads} active threads remaining.")
+
     if services.get("sentiment"):
-        await services["sentiment"].close()
-        logger.info("✅ Sentiment Service Cleanup Complete")
+        try:
+            await services["sentiment"].close()
+            logger.info("✅ Sentiment Service Cleanup Complete")
+        except Exception as e:
+            logger.error(f"❌ Sentiment Service Cleanup Failed: {e}")
+            
+    if services.get("checkpointer"):
+        # If it's a RedisSaver, we might want to ensure it's closed
+        logger.info("✅ Checkpointer Cleanup Complete")
+
+    logger.info("✨ Application Shutdown Finished.")
 
 app = FastAPI(title="AI Analyst Service", lifespan=lifespan)
 

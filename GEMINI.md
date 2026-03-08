@@ -68,6 +68,10 @@ The system utilizes two primary patterns for high resilience:
     - `specs/04_api_spec.yaml` — API contract (source of truth for endpoints).
     - `specs/03_data_model.yaml` — Data model (source of truth for schemas).
     - Do NOT assume knowledge of the system. Always verify against these docs before proposing changes.
+9.  **🛠️ Infrastructure Guardrails (CRITICAL)**:
+    - **NO `command` OVERRIDE**: Do NOT use the `command` field in `docker-compose.yml` for infrastructure services like `redis` or `mtf-postgres`. Overriding the command can prevent critical modules (e.g., RediSearch, RedisJSON) from loading.
+    - **Use `REDIS_ARGS` / `POSTGRES_INITDB_ARGS`**: If you need to tune parameters like `--maxmemory`, use the designated environment variables supported by the official images. This ensures the default entrypoint can still initialize required extensions.
+    - **Single Point of Configuration**: Maintain total memory allocation within the 8GB RAM host limit (Docker target: ~6.5GB).
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).
