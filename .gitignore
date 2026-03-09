@@ -48,5 +48,12 @@ infra/falkordb_data/
 host_runner.py
 do_test.sh
 run_docker_test.sh
+
+# MTF Specific
 services/ai-analyst/.cli_user_id
 services/api-gateway/scripts/*.json
+services/data-pipeline/data/
+services/data-pipeline/debug_ingestion.py
+services/data-pipeline/debug_output.txt
+debug_*.py
+*.xlsx
