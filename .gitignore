@@ -44,6 +44,7 @@ temp/
 *log.txt
 .coverage
 infra/postgres_data/
+infra/falkordb_data/
 host_runner.py
 do_test.sh
 run_docker_test.sh
