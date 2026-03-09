@@ -690,3 +690,18 @@
     - **Performance:** Refactored loop-based IDM logic into strictly Vectorized Operations (Pandas/Numpy array broadcasting) for <10ms execution times.
     - **Integration:** Added `inducement_signals` output to the core `analyze_smc` orchestrator.
     - **Testing:** Implemented specific `test_idm.py` simulation for buy-side/sell-side trap verification.
+
+### Phase 43: MTF Data Ecosystem & Ingestion Optimization
+- **Status:** ✅ Complete (2026-03-10)
+- **Features:**
+    - **Data Pipeline:**
+        - **MTF Expansion:** Added full support for `W1` (Weekly) and `MN1` (Monthly) timeframes in `interval_map`.
+        - **Ingestion Efficiency:** Optimized real-time candle fetching from 100 to 20 candles, reducing redundant I/O.
+        - **Intelligent Caching:** Implemented conditional Redis updates; cache only refreshes when a new candle is officially closed.
+        - **Tick Streaming:** Verified architectural alignment of `tick-streamer`, ensuring 10Hz throttling and atomic Redis caching (Hash + Pub/Sub).
+    - **Broker Connectivity:**
+        - **cTrader:** Resolved symbol mapping inconsistencies; verified XAUUSD (ID: 41) high-timeframe (H1+) accuracy against direct broker data.
+        - **OANDA:** Confirmed consistent timeframe mapping for all granularities (M1 to MN1).
+    - **System Hardening:**
+        - Established baseline for indicator accuracy (EMA/ATR) across all timeframes.
+        - Verified database schema consistency with root specifications.

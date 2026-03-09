@@ -64,10 +64,11 @@ graph TD
     - **[H2] Order Confirmation Callback**: 2-phase WS push — PENDING (immediate) + FILLED (async broker confirmation).
 - **✅ Sprint I — Multi-Broker Excellence** (implemented):
     - **[I1] Provider-Specific Pricing**: WebSocket and REST endpoints now support `provider` filtering (OANDA/CTRADER) to prevent price collisions.
-- **✅ Sprint J — cTrader Stabilization** (implemented):
+- **✅ Sprint J — cTrader Stabilization** (Complete 2026-03-10):
     - **[J1] Stable ID Schema**: Updated data models to prioritize `broker_trade_id` using cTrader position IDs, enabling reliable SL/TP amendments.
     - **[J2] Deduplicated Ingest**: Integrated `broker_deal_id` for fill events to prevent duplicate trade creation during asynchronous broker callbacks.
     - **[J3] Multi-Entity Reconciliation**: Janitor Service now synchronizes both open positions and pending orders, offering 100% state parity.
+    - **[J4] MTF Scaling**: Verified full architectural support for H1, D1, W1, and MN1 symbol details broadcast.
 
 ## 🤖 AI-Agent Operational Guide
 

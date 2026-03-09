@@ -106,7 +106,9 @@ The system is organized into five decoupled layers of responsibility:
     - **Feature Worker**: Real-time calculation of technical indicators (RSI, ATR) immediately after candle close.
     - **Tick Streamer**: Dedicated service for real-time market data streaming.
     - **Data Sources**: DB-driven configuration (`DataSource` model).
-    - **Adaptive Throttling**: 10Hz tick throttling in `StreamManager` to protect dashboard during volatility.
+    - **MTF Implementation**: Native support for 8 timeframes (`M1` to `MN1`) with vectorized transition logic.
+    - **Adaptive Throttling**: 10Hz (100ms) safety cap on price updates in `StreamManager` for platform stability.
+    - **Ingestion Optimization**: Real-time candle fetching reduced to 20 candles per request to optimize event-loop timing.
 
 
 

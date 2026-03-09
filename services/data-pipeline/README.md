@@ -13,7 +13,11 @@ The service operates as a **Stateful Producer** in a de-coupled microservices ar
     - **L2 (Shared Cache)**: Redis Hash stores (e.g., `market_data:spot:XAUUSD`) for cross-service state sharing.
     - **L3 (Database)**: PostgreSQL handles historical candles, news articles, and COT reports.
 3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers (Strategy Core, AI Analyst, Dashboard). Includes **EFP** (Spot/Futures spread) and predictive **Feature** data.
-4.  **Adaptive Throttling**: Implements a 10Hz (100ms) safety cap on price updates to prevent dashboard and network saturation during high volatility.
+4.  **Multi-Timeframe (MTF) Support**: Native support for 8 timeframes (`M1`, `M5`, `M15`, `H1`, `H4`, `D1`, `W1`, `MN1`) with optimized `interval_map` for accurate gap detection.
+5.  **Ingestion Optimization**:
+    - **Reduced Payload**: Real-time candle fetching limited to latest 20 candles (previously 100) to minimize I/O and CPU load.
+    - **Conditional Caching**: Redis cache updates only occur when a candle is officially closed/complete.
+    - **Adaptive Throttling**: 10Hz (100ms) safety cap on price updates to prevent dashboard and network saturation during high volatility.
 
 ### 🗺️ Data Flow Architecture
 The following diagram illustrates the lifecycle of data from institutional ingestion to storage and downstream consumption.

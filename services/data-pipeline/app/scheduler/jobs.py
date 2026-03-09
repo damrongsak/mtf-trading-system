@@ -382,57 +382,45 @@ async def run_ingestion_job(
                                         pass
 
                                     for bar in trendbars:
-                                    # cTrader V2 Trendbars: Open/High/Close are deltas relative to Low.
-                                    # BUG: Some broker feeds (or message sequences) send ABSOLUTE values in delta fields.
-                                    # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
-                                    low_raw = bar.low
-                                    
-                                    # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
-                                    # regardless of 'digits' for most price fields to maintain proto consistency.
-                                    divisor = 100000.0
-                                    open_delta = bar.deltaOpen
-                                    high_delta = bar.deltaHigh
-                                    close_delta = bar.deltaClose
-                                    
-                                    # If any delta is suspiciously large (> 50% of low), the feed is sending absolute values.
-                                    if open_delta > (low_raw * 0.5):
-                                        open_p = open_delta
-                                        high_p = high_delta
-                                        close_p = close_delta
-                                    else:
-                                        open_p = low_raw + open_delta
-                                        high_p = low_raw + high_delta
-                                        close_p = low_raw + close_delta
+                                        # cTrader V2 Trendbars: Open/High/Close are deltas relative to Low.
+                                        # BUG: Some broker feeds (or message sequences) send ABSOLUTE values in delta fields.
+                                        # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
+                                        low_raw = bar.low
+                                        
+                                        # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
+                                        # regardless of 'digits' for most price fields to maintain proto consistency.
+                                        divisor = 100000.0
+                                        open_delta = bar.deltaOpen
+                                        high_delta = bar.deltaHigh
+                                        close_delta = bar.deltaClose
+                                        
+                                        # If any delta is suspiciously large (> 50% of low), the feed is sending absolute values.
+                                        if open_delta > (low_raw * 0.5):
+                                            open_p = open_delta
+                                            high_p = high_delta
+                                            close_p = close_delta
+                                        else:
+                                            open_p = low_raw + open_delta
+                                            high_p = low_raw + high_delta
+                                            close_p = low_raw + close_delta
 
-                                    open_p_norm = round(open_p / divisor, 5)
-                                    high_p_norm = round(high_p / divisor, 5)
-                                    low_p_norm = round(low_raw / divisor, 5)
-                                    close_p_norm = round(close_p / divisor, 5)
+                                        open_p_norm = round(open_p / divisor, 5)
+                                        high_p_norm = round(high_p / divisor, 5)
+                                        low_p_norm = round(low_raw / divisor, 5)
+                                        close_p_norm = round(close_p / divisor, 5)
 
-                                    # cTrader Gold Quirk: Some feeds (e.g. IC Markets etc) send doubled price (likely Bid+Ask aggregate or scaling issue).
-                                    # If the price is > 3500 for Gold from CTRADER source, it's likely doubled.
-                                    # This is an anomaly detection threshold, not a fixed target.
-                                    # [USER CORRECTION]: Gold price is ~5000 in 2026. Do not normalize.
-                                    # if source.provider == "CTRADER" and symbol_name == 'XAUUSD' and close_p_norm > 3500:
-                                    #    open_p_norm /= 2.0
-                                    #    high_p_norm /= 2.0
-                                    #    low_p_norm /= 2.0
-                                    #    close_p_norm /= 2.0
-                                    #    if bar == trendbars[0]:
-                                    #        logger.info(f"NORMALIZATION [CTRADER/XAUUSD]: Detected doubled price in close ({close_p_norm * 2.0:.2f}). Applied 2x divisor. Final: {close_p_norm:.2f}")
-
-                                    batch_data.append({
-                                        "market_symbol_id": ms.id,
-                                        "symbol": symbol_name,
-                                        "timeframe": tf,
-                                        "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, tz=timezone.utc),
-                                        "open": open_p_norm,
-                                        "high": high_p_norm,
-                                        "low": low_p_norm,
-                                        "close": close_p_norm,
-                                        "volume": bar.volume,
-                                        "is_complete": True 
-                                    })
+                                        batch_data.append({
+                                            "market_symbol_id": ms.id,
+                                            "symbol": symbol_name,
+                                            "timeframe": tf,
+                                            "timestamp": datetime.fromtimestamp(bar.utcTimestampInMinutes * 60, tz=timezone.utc),
+                                            "open": open_p_norm,
+                                            "high": high_p_norm,
+                                            "low": low_p_norm,
+                                            "close": close_p_norm,
+                                            "volume": bar.volume,
+                                            "is_complete": True 
+                                        })
 
                         # Save and Publish
                         if batch_data:
@@ -460,10 +448,8 @@ async def run_ingestion_job(
                                     }
                                     await publisher.xadd("market.data.stream", stream_payload)
                             
-                            # [OPTIMIZATION]: Only update Redis Cache if we have new complete candles 
-                            # or if it's the first time for this symbol/TF in this job run.
-                            # Also, for high timeframes (H4+), only update if new data exists.
-                            should_update_cache = len(new_complete_candles) > 0 or tf in ["M1", "M5", "M15", "H1"]
+                            # [OPTIMIZATION]: Only update Redis Cache if we have new complete candles
+                            should_update_cache = len(new_complete_candles) > 0
                             
                             if should_update_cache:
                                 try:
@@ -498,13 +484,13 @@ async def run_ingestion_job(
                         task_db.close()
 
             # 3. Processing of Symbols & Timeframes
-            if source.provider == "CTRADER":
-                # Sequential processing for cTrader to avoid REQUEST_FREQUENCY_EXCEEDED
+            if source.provider in ["CTRADER", "OANDA"]:
+                # Sequential processing for cTrader and OANDA to avoid REQUEST_FREQUENCY_EXCEEDED or Cloudflare blocking
                 for ms in source_symbols:
                     for tf in timeframes:
                         await process_ms_tf(ms, tf)
             else:
-                # Parallel processing for others (e.g. OANDA)
+                # Parallel processing for others
                 ingest_tasks = []
                 for ms in source_symbols:
                     for tf in timeframes:

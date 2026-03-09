@@ -92,6 +92,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - WEB_CONCURRENCY=1
+      - PYTHONUNBUFFERED=1
     deploy:
       resources:
         limits:

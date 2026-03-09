@@ -1,9 +1,9 @@
-# 🏛️ MTF Olympus (v2.1)
+# 🏛️ MTF Olympus (v2.2)
 
 **The Institutional Wealth Operating System for XAU/USD (Gold).**
 
 [![Ecosystem](https://img.shields.io/badge/Ecosystem-Live-brightgreen)](https://github.com/damrongsak/mtf-trading-system)
-[![Status](https://img.shields.io/badge/Status-Alpha_V2.1-blue)](docs/roadmap.md)
+[![Status](https://img.shields.io/badge/Status-Alpha_V2.2-blue)](specs/10_implementation_status.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-orange)](LICENSE)
 
 ---
