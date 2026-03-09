@@ -621,6 +621,119 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse'
 
+  # --- Quant Analytics ---
+  /api/v1/analytics/volatility:
+    get:
+      tags: [Analytics]
+      summary: Get volatility metrics for a symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            default: "H1"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Volatility metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_VolatilityMetrics'
+
+  /api/v1/analytics/var:
+    get:
+      tags: [Analytics]
+      summary: Get VaR/CVaR metrics for a symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            default: "H1"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: VaR/CVaR metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_VaRMetrics'
+
+  /api/v1/analytics/factors:
+    get:
+      tags: [Analytics]
+      summary: Get factor exposures for a symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            default: "H1"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Factor exposures
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FactorExposures'
+
+  /api/v1/analytics/drawdown:
+    get:
+      tags: [Analytics]
+      summary: Get drawdown metrics for a symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            default: "H1"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 500
+      responses:
+        '200':
+          description: Drawdown metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_DrawdownMetrics'
+
   /api/v1/ai/agent/observer/run:
     post:
       summary: Run Market Observer Agent
@@ -2840,6 +2953,89 @@ paths:
 
 components:
   schemas:
+    # --- Quant Analytics ---
+    VolatilityMetrics:
+      type: object
+      properties:
+        realized_vol:
+          type: number
+        parkinson_vol:
+          type: number
+        yang_zhang_vol:
+          type: number
+        rolling_vol_series:
+          type: array
+          items:
+            type: number
+
+    VaRMetrics:
+      type: object
+      properties:
+        var_95:
+          type: number
+        var_99:
+          type: number
+        cvar_95:
+          type: number
+        cvar_99:
+          type: number
+
+    FactorExposures:
+      type: object
+      properties:
+        beta:
+          type: number
+        momentum:
+          type: number
+        rsi:
+          type: number
+        volatility_regime:
+          type: string
+
+    DrawdownMetrics:
+      type: object
+      properties:
+        max_drawdown:
+          type: number
+        current_drawdown:
+          type: number
+        dd_duration:
+          type: integer
+        recovery_factor:
+          type: number
+
+    APIResponse_VolatilityMetrics:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/VolatilityMetrics'
+
+    APIResponse_VaRMetrics:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/VaRMetrics'
+
+    APIResponse_FactorExposures:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FactorExposures'
+
+    APIResponse_DrawdownMetrics:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DrawdownMetrics'
+
     # --- Alpha Engine ---
     AlphaRequest:
       type: object

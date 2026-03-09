@@ -89,9 +89,72 @@ def calculate_information_ratio(returns: pd.Series, benchmark_returns: pd.Series
         return 0.0
         
     common_index = returns.index.intersection(benchmark_returns.index)
+    if common_index.empty:
+        return 0.0
     active_returns = returns.loc[common_index] - benchmark_returns.loc[common_index]
     
     if active_returns.std() == 0:
         return 0.0
         
-    return active_returns.mean() / active_returns.std()
+    return float(active_returns.mean() / active_returns.std())
+
+def calculate_var(returns: pd.Series, confidence_level: float = 0.95) -> float:
+    """
+    Calculate Value at Risk (VaR) using Historical Simulation.
+    """
+    if returns.empty:
+        return 0.0
+    return float(np.percentile(returns, (1 - confidence_level) * 100))
+
+def calculate_cvar(returns: pd.Series, confidence_level: float = 0.95) -> float:
+    """
+    Calculate Conditional Value at Risk (CVaR) / Expected Shortfall.
+    """
+    if returns.empty:
+        return 0.0
+    var = calculate_var(returns, confidence_level)
+    tail_returns = returns[returns <= var]
+    if tail_returns.empty:
+        return var
+    return float(tail_returns.mean())
+
+def calculate_rolling_vol(returns: pd.Series, window: int = 20) -> pd.Series:
+    """
+    Calculate Rolling Volatility.
+    """
+    if len(returns) < window:
+        return pd.Series(dtype=float)
+    return returns.rolling(window=window).std()
+
+def calculate_parkinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> float:
+    """
+    Calculate Parkinson Volatility (High-Low range).
+    """
+    if len(high) < window or len(low) < window:
+        return 0.0
+    rs = np.log(high / low) ** 2
+    vol = np.sqrt((1 / (4 * window * np.log(2))) * rs.rolling(window=window).sum())
+    return float(vol.iloc[-1])
+
+def calculate_rolling_beta(returns: pd.Series, benchmark_returns: pd.Series, window: int = 60) -> pd.Series:
+    """
+    Calculate Rolling Beta.
+    """
+    common_index = returns.index.intersection(benchmark_returns.index)
+    if len(common_index) < window:
+        return pd.Series(dtype=float)
+    
+    y = returns.loc[common_index]
+    x = benchmark_returns.loc[common_index]
+    
+    covariance = y.rolling(window=window).cov(x)
+    variance = x.rolling(window=window).var()
+    return covariance / variance
+
+def calculate_rolling_momentum(returns: pd.Series, window: int = 20) -> pd.Series:
+    """
+    Calculate Rolling Momentum (cumulative return over window).
+    """
+    if len(returns) < window:
+        return pd.Series(dtype=float)
+    return (1 + returns).rolling(window=window).apply(np.prod, raw=True) - 1

@@ -297,82 +297,91 @@ async def run_ingestion_job(
                                     catchup_start = datetime.now(timezone.utc) - timedelta(days=7)
 
                             # If catchup is needed (> 1 candle interval + buffer)
-                            interval_map = {"M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, "D1": 1440}
+                            interval_map = {
+                                "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, 
+                                "D1": 1440, "W1": 10080, "MN1": 43200
+                            }
                             mins = interval_map.get(tf, 1440)
                             
+                            catchup_performed = False
                             if (datetime.now(timezone.utc) - catchup_start).total_seconds() > (mins * 60 * 1.5):
                                 logger.info(f"CATCH-UP REQUIRED: {ms.symbol} {tf} from {catchup_start}")
                                 if source.provider == "OANDA":
                                     await process_oanda_backfill(client, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+                                    catchup_performed = True
                                 elif source.provider == "CTRADER":
-                                    await process_ctrader_backfill(client, source, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+                                    count = await process_ctrader_backfill(client, source, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+                                    if count > 0:
+                                        catchup_performed = True
 
-                            # 2. Regular Real-time Catchup (Existing logic)
-                            if source.provider == "OANDA":
-                                candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=100)
-                                if candles:
-                                    for c in candles:
-                                        timestamp = pd.to_datetime(c['time']).to_pydatetime()
-                                        if timestamp.tzinfo is None:
-                                            timestamp = timestamp.replace(tzinfo=timezone.utc)
-                                        batch_data.append({
-                                            "market_symbol_id": ms.id,
-                                            "symbol": symbol_name,
-                                            "timeframe": tf,
-                                            "timestamp": timestamp,
-                                            "open": float(c['mid']['o']),
-                                            "high": float(c['mid']['h']),
-                                            "low": float(c['mid']['l']),
-                                            "close": float(c['mid']['c']),
-                                            "volume": int(c['volume']),
-                                            "is_complete": c['complete']
-                                        })
+                            # 2. Regular Real-time Catchup (Only if not already caught up via backfill)
+                            if not catchup_performed:
+                                if source.provider == "OANDA":
+                                    candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=20)
+                                    if candles:
+                                        for c in candles:
+                                            timestamp = pd.to_datetime(c['time']).to_pydatetime()
+                                            if timestamp.tzinfo is None:
+                                                timestamp = timestamp.replace(tzinfo=timezone.utc)
+                                            batch_data.append({
+                                                "market_symbol_id": ms.id,
+                                                "symbol": symbol_name,
+                                                "timeframe": tf,
+                                                "timestamp": timestamp,
+                                                "open": float(c['mid']['o']),
+                                                "high": float(c['mid']['h']),
+                                                "low": float(c['mid']['l']),
+                                                "close": float(c['mid']['c']),
+                                                "volume": int(c['volume']),
+                                                "is_complete": c['complete']
+                                            })
 
-                            elif source.provider == "CTRADER":
-                                # Map Timeframe to cTrader Period Enum
-                                # Supports both full (D1, W1, MN1) and short (D, W, M) formats
-                                tf_map = {
-                                    "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
-                                    "D1": 12, "D": 12, "W1": 13, "W": 13, "MN1": 14, "M": 14
-                                }
-                                ct_period = tf_map.get(tf)
-                                if not ct_period: 
-                                    logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
-                                    return
-                                
-                                symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
-                                if not symbol_id:
-                                    logger.error(f"Missing symbol_id for {ms.symbol} in cTrader real-time catchup.")
-                                    return
-                                
-                                import time
-                                minutes_map = {
-                                    "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, 
-                                    "D1": 1440, "D": 1440, "W1": 10080, "W": 10080, "MN1": 43200, "M": 43200
-                                }
-                                tf_mins = minutes_map.get(tf, 1)
-                                count_limit = 100
-                                duration_ms = count_limit * tf_mins * 60 * 1000
-                                to_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-                                from_ts = to_ts - duration_ms
-                                
-                                logger.info(f"Fetching cTrader candles for {symbol_name} | TF: {tf} (Period: {ct_period}) | Count: {count_limit}")
-                                
-                                trendbars = await client.get_trendbars(
-                                    account_id=int(source.config_json.get("account_id")),
-                                    symbol_id=symbol_id,
-                                    period=ct_period,
-                                    count=count_limit,
-                                    from_timestamp=from_ts,
-                                    to_timestamp=to_ts
-                                )
-                                
-                                if len(trendbars) > 0:
-                                    logger.info(f"Received {len(trendbars)} bars for {symbol_name} {tf}")
-                                else:
-                                    logger.warning(f"No bars returned for {symbol_name} {tf} (Period: {ct_period}, Range: {from_ts}-{to_ts})")
+                                elif source.provider == "CTRADER":
+                                    # Map Timeframe to cTrader Period Enum
+                                    # Supports both full (D1, W1, MN1) and short (D, W, M) formats
+                                    tf_map = {
+                                        "M1": 1, "M5": 5, "M15": 7, "H1": 9, "H4": 10, 
+                                        "D1": 12, "D": 12, "W1": 13, "W": 13, "MN1": 14, "M": 14
+                                    }
+                                    ct_period = tf_map.get(tf)
+                                    if not ct_period: 
+                                        logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
+                                        return
+                                    
+                                    symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+                                    if not symbol_id:
+                                        logger.error(f"Missing symbol_id for {ms.symbol} in cTrader real-time catchup.")
+                                        return
+                                    
+                                    minutes_map = {
+                                        "M1": 1, "M5": 5, "M15": 15, "H1": 60, "H4": 240, 
+                                        "D1": 1440, "D": 1440, "W1": 10080, "W": 10080, "MN1": 43200, "M": 43200
+                                    }
+                                    tf_mins = minutes_map.get(tf, 1)
+                                    count_limit = 20 # Reduced from 100 for optimization
+                                    duration_ms = count_limit * tf_mins * 60 * 1000
+                                    to_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
+                                    from_ts = to_ts - duration_ms
+                                    
+                                    # logger.debug(f"Fetching cTrader candles for {symbol_name} | TF: {tf} (Period: {ct_period}) | Count: {count_limit}")
+                                    
+                                    trendbars = await client.get_trendbars(
+                                        account_id=int(source.config_json.get("account_id")),
+                                        symbol_id=symbol_id,
+                                        period=ct_period,
+                                        count=count_limit,
+                                        from_timestamp=from_ts,
+                                        to_timestamp=to_ts
+                                    )
+                                    
+                                    if len(trendbars) > 0:
+                                        # logger.debug(f"Received {len(trendbars)} bars for {symbol_name} {tf}")
+                                        pass
+                                    else:
+                                        # logger.warning(f"No bars returned for {symbol_name} {tf} (Period: {ct_period}, Range: {from_ts}-{to_ts})")
+                                        pass
 
-                                for bar in trendbars:
+                                    for bar in trendbars:
                                     # cTrader V2 Trendbars: Open/High/Close are deltas relative to Low.
                                     # BUG: Some broker feeds (or message sequences) send ABSOLUTE values in delta fields.
                                     # Heuristic: If delta is suspicious (e.g. > 50% of low), treat as absolute.
@@ -429,7 +438,10 @@ async def run_ingestion_job(
                         if batch_data:
                             candle_repo = CandleRepository(task_db)
                             await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
-                            # ... publish to stream ...
+                            
+                            # Publish to stream and Update Cache
+                            new_complete_candles = [c for c in batch_data if c['is_complete']]
+                            
                             for c_data in batch_data:
                                 if c_data['is_complete']:
                                     event_payload = c_data.copy()
@@ -448,34 +460,38 @@ async def run_ingestion_job(
                                     }
                                     await publisher.xadd("market.data.stream", stream_payload)
                             
-                            # [NEW]: Update Redis Cache with latest 500 candles for fast UI access
-                            # We fetch from DB to ensure consistency and proper sorting
-                            try:
-                                from app.models.candle import Candle as CandleModel
-                                from sqlalchemy import desc
-                                latest_candles = task_db.query(CandleModel).filter(
-                                    CandleModel.market_symbol_id == ms.id,
-                                    CandleModel.timeframe == tf
-                                ).order_by(desc(CandleModel.timestamp)).limit(500).all()
-                                
-                                if latest_candles:
-                                    # Format for JSON
-                                    cache_data = []
-                                    for c in reversed(latest_candles): # Oldest first for charts
-                                        cache_data.append({
-                                            "timestamp": c.timestamp.isoformat(),
-                                            "open": float(c.open),
-                                            "high": float(c.high),
-                                            "low": float(c.low),
-                                            "close": float(c.close),
-                                            "volume": float(c.volume)
-                                        })
+                            # [OPTIMIZATION]: Only update Redis Cache if we have new complete candles 
+                            # or if it's the first time for this symbol/TF in this job run.
+                            # Also, for high timeframes (H4+), only update if new data exists.
+                            should_update_cache = len(new_complete_candles) > 0 or tf in ["M1", "M5", "M15", "H1"]
+                            
+                            if should_update_cache:
+                                try:
+                                    from app.models.candle import Candle as CandleModel
+                                    from sqlalchemy import desc
                                     
-                                    cache_key = f"market_data:candles:{ms.symbol}:{tf}"
-                                    await publisher.redis.set(cache_key, json.dumps(cache_data))
-                                    # logger.info(f"Updated Redis cache for {ms.symbol} {tf} ({len(cache_data)} candles)")
-                            except Exception as cache_ex:
-                                logger.warning(f"Failed to update Redis cache for {ms.symbol} {tf}: {cache_ex}")
+                                    # Limit DB query for cache to what is strictly necessary
+                                    latest_candles = task_db.query(CandleModel).filter(
+                                        CandleModel.market_symbol_id == ms.id,
+                                        CandleModel.timeframe == tf
+                                    ).order_by(desc(CandleModel.timestamp)).limit(500).all()
+                                    
+                                    if latest_candles:
+                                        cache_data = []
+                                        for c in reversed(latest_candles): 
+                                            cache_data.append({
+                                                "timestamp": c.timestamp.isoformat(),
+                                                "open": float(c.open),
+                                                "high": float(c.high),
+                                                "low": float(c.low),
+                                                "close": float(c.close),
+                                                "volume": float(c.volume)
+                                            })
+                                        
+                                        cache_key = f"market_data:candles:{ms.symbol}:{tf}"
+                                        await publisher.redis.set(cache_key, json.dumps(cache_data))
+                                except Exception as cache_ex:
+                                    logger.warning(f"Failed to update Redis cache for {ms.symbol} {tf}: {cache_ex}")
                     except Exception as ex:
                         logger.error(f"Failed to process {ms.symbol} {tf}: {ex}")
                     finally:

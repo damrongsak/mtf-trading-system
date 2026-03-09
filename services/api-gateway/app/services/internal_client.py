@@ -75,6 +75,46 @@ class StrategyClient:
                 logger.error(f"Stop strategy failed: {e}", exc_info=True)
                 raise
 
+    async def get_volatility(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{STRATEGY_CORE_URL}/api/v1/analytics/volatility",
+                params={"symbol": symbol, "timeframe": timeframe, "limit": limit},
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_var(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{STRATEGY_CORE_URL}/api/v1/analytics/var",
+                params={"symbol": symbol, "timeframe": timeframe, "limit": limit},
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_factors(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{STRATEGY_CORE_URL}/api/v1/analytics/factors",
+                params={"symbol": symbol, "timeframe": timeframe, "limit": limit},
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_drawdown(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{STRATEGY_CORE_URL}/api/v1/analytics/drawdown",
+                params={"symbol": symbol, "timeframe": timeframe, "limit": limit},
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev_secret_key")
 
 _execution_client_session: Optional[httpx.AsyncClient] = None

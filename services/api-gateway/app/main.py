@@ -8,7 +8,7 @@ from app.logging_config import setup_logging
 
 # Configure logging
 logger = setup_logging()
-from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key
+from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
 from app.streaming.manager import stream_manager
@@ -145,6 +145,7 @@ app.include_router(transaction.router)
 app.include_router(simulation.router)
 app.include_router(ai.router)
 app.include_router(olympus.router)
+app.include_router(analytics.router, prefix="/api/v1")
 
 # Routers with prefixes (matching Nginx rewrites or specific paths)
 app.include_router(dashboard.router, prefix="/api/v1/dashboard")

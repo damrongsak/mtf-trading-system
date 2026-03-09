@@ -529,6 +529,9 @@ app.include_router(alpha_router, prefix="/api/v1")
 from app.routers.plugins import router as plugins_internal_router
 app.include_router(plugins_internal_router)
 
+from app.routers.analytics import router as analytics_router
+app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+
 from app.routers.strategies import router as strategies_router
 app.include_router(strategies_router, prefix="/api/v1")
 

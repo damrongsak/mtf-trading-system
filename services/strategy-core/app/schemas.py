@@ -298,3 +298,49 @@ class QuantAnalyzeResponse(BaseModel):
 class QuantSizingResponse(BaseModel):
     risk_map: QuantAnalyzeResponse
     sizing: Dict[str, Any]
+
+# --- New Quant Analytics Response Schemas ---
+
+class VolatilityMetrics(BaseModel):
+    realized_vol: float
+    parkinson_vol: float
+    yang_zhang_vol: float
+    rolling_vol_series: List[float]
+
+class VaRMetrics(BaseModel):
+    var_95: float
+    var_99: float
+    cvar_95: float
+    cvar_99: float
+
+class FactorExposures(BaseModel):
+    beta: float
+    momentum: float
+    rsi: float
+    volatility_regime: str
+
+class DrawdownMetrics(BaseModel):
+    max_drawdown: float
+    current_drawdown: float
+    dd_duration: int
+    recovery_factor: float
+
+class APIResponse_VolatilityMetrics(BaseModel):
+    status: str
+    data: VolatilityMetrics
+    timestamp: datetime
+
+class APIResponse_VaRMetrics(BaseModel):
+    status: str
+    data: VaRMetrics
+    timestamp: datetime
+
+class APIResponse_FactorExposures(BaseModel):
+    status: str
+    data: FactorExposures
+    timestamp: datetime
+
+class APIResponse_DrawdownMetrics(BaseModel):
+    status: str
+    data: DrawdownMetrics
+    timestamp: datetime
