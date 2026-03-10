@@ -1,5 +1,4 @@
-from typing import Any, Optional, Type, Literal
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 from app.core.globals import services
 import logging
@@ -15,16 +14,22 @@ class SkillManagerTool(BaseTool):
     name: str = "save_persistent_skill"
     description: str = (
         "Manage permanent skills. You can 'save' a successfully executed Python script or logic as a skill, "
-        "'delete' an existing skill, or 'validate' a skill's structure before saving. "
+        " 'delete' an existing skill, or 'validate' a skill's structure before saving. "
         "For saving and validation, provide the full SKILL.md content. For deleting, only provide the skill name."
     )
     args_schema: Type[BaseModel] = SkillInput
 
-    def _run(self, name: str, action: str = "save", content: Optional[str] = None) -> str:
-        import asyncio
-        return asyncio.run(self._arun(name, action, content))
-
-    async def _arun(self, name: str, action: str = "save", content: Optional[str] = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        name = ""
+        action = "save"
+        content = None
+        
+        if isinstance(input_data, dict):
+            name = input_data.get("name", "")
+            action = input_data.get("action", "save")
+            content = input_data.get("content")
+        
+        skill_service = services.get("skill")
         skill_service = services.get("skill")
         memory_service = services.get("memory")
         

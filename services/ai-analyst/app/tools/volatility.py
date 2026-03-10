@@ -17,7 +17,7 @@ class VolatilityStructureTool(BaseTool):
         "Input: {'symbol': 'XAUUSD', 'timeframe': 'H1'}."
     )
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         if isinstance(input_data, dict):

@@ -27,19 +27,25 @@ class PlaceOrderTool(BaseTool):
     name: str = "place_execution_order"
     description: str = "Places a market order via the Execution service."
 
-    async def run(self, symbol: str, units: float, trade_id: str = None) -> str:
-        # 1. Prepare Payload
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        # 1. Normalize Input
+        symbol = "XAUUSD"
+        units = 1000
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            units = input_data.get("units", units)
+        
+        # 2. Prepare Payload
         payload = {
             "symbol": symbol,
-            "units": units, # Positve for BUY, Negative for SELL
-            "order_type": "MARKET",
-            "trade_id": trade_id
+            "units": units, # Positive for BUY, Negative for SELL
+            "order_type": "MARKET"
         }
         
-        # 2. Call Gateway
+        # 3. Call Gateway with metadata context
         async with aiohttp.ClientSession() as session:
             url = f"{GATEWAY_URL}/api/v1/orders"
-            headers = {"X-Internal-API-Key": INTERNAL_KEY}
+            headers = {"Authorization": f"Bearer {auth_token}"}
             async with session.post(url, json=payload, headers=headers) as resp:
                 result = await resp.json()
                 return f"Execution Response: {result}"

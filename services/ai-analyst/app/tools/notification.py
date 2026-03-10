@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Optional, Type
 from pydantic import BaseModel, Field
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from app.core.config import settings
 import httpx
 
@@ -22,11 +22,13 @@ class SendNotificationTool(BaseTool):
     )
     args_schema: Type[BaseModel] = NotificationInput
 
-    def _run(self, message: str) -> str:
-        import asyncio
-        return asyncio.run(self._arun(message))
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        message = ""
+        if isinstance(input_data, dict):
+            message = input_data.get("message", "")
+        elif isinstance(input_data, str):
+            message = input_data
 
-    async def _arun(self, message: str, auth_token: str = None, **kwargs) -> str:
         if not message:
             return "❌ Notification failed: Empty message provided."
 

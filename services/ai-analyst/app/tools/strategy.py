@@ -9,7 +9,7 @@ class StrategyBacktestTool(BaseTool):
     name: str = "backtest_runner"
     description: str = "Executes a Python strategy using vectorbt on historical data and returns performance metrics (Sharpe, PnL, MDD). WARNING: This is a high-latency tool for historical auditing only. NEVER use for real-time risk or immediate drawdown queries."
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         url = f"{settings.STRATEGY_CORE_URL}/api/v1/backtest/custom"
 
         payload = {}

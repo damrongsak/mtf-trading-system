@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Type, Any
 import httpx
 import redis.asyncio as redis
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 from app.core.config import settings
 
@@ -20,11 +20,19 @@ class GetEconomicCalendarTool(BaseTool):
     description: str = "Fetches economic calendar events from the internal data service."
     args_schema: Type[BaseModel] = CalendarInput
 
-    def _run(self, currency: Optional[str] = "USD", impact: Optional[str] = None, days: int = 7) -> str:
-        import asyncio
-        return asyncio.run(self._arun(currency, impact, days))
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        currency = "USD"
+        impact = None
+        days = 7
+        
+        if isinstance(input_data, dict):
+            currency = input_data.get("currency", currency)
+            impact = input_data.get("impact")
+            days = input_data.get("days", 7)
+        elif isinstance(input_data, str):
+            currency = input_data
 
-    async def _arun(self, currency: Optional[str] = "USD", impact: Optional[str] = None, days: int = 7, **kwargs) -> str:
+        events = None
         events = None
         if currency and currency.upper() == "USD":
             try:

@@ -2,7 +2,7 @@ import logging
 from typing import Any, Optional, Type
 import aiohttp
 from app.core.config import settings
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -18,11 +18,7 @@ class GetAccountStatusTool(BaseTool):
     )
     args_schema: Type[BaseModel] = AccountStatusInput
 
-    def _run(self) -> str:
-        import asyncio
-        return asyncio.run(self._arun())
-
-    async def _arun(self, auth_token: str = None, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 headers = {}

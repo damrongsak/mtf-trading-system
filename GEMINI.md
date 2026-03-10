@@ -72,6 +72,7 @@ The system utilizes two primary patterns for high resilience:
     - **NO `command` OVERRIDE**: Do NOT use the `command` field in `docker-compose.yml` for infrastructure services like `redis` or `mtf-postgres`. Overriding the command can prevent critical modules (e.g., RediSearch, RedisJSON) from loading.
     - **Use `REDIS_ARGS` / `POSTGRES_INITDB_ARGS`**: If you need to tune parameters like `--maxmemory`, use the designated environment variables supported by the official images. This ensures the default entrypoint can still initialize required extensions.
     - **Single Point of Configuration**: Maintain total memory allocation within the 8GB RAM host limit (Docker target: ~6.5GB).
+    - **Institutional Tool Standard (MUST FOLLOW)**: All AI tools MUST inherit from `app.core.base_tool.BaseTool` and implement logic inside `async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs)`. Do NOT use `_run` or `_arun`. Automated validation is performed by `scripts/verify_tool_standards.py`.
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).

@@ -13,7 +13,7 @@ class GetJournalEntriesTool(BaseTool):
     name: str = "get_journal_entries"
     description: str = "Fetches recent trading journal entries (trades, reflections) for the user. Supports pagination."
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         limit = 5
         page = 1
         

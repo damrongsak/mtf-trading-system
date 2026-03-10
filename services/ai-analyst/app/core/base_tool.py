@@ -59,16 +59,18 @@ class BaseTool(LCTool):
         self._failure_count = 0 # Reset on success
         return result
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)),
-        reraise=True
-    )
     async def _run_with_retry(self, *args: Any, **kwargs: Any) -> Any:
         """Actual tool logic should be implemented in run_tool by subclasses."""
-        return await self.run_tool(*args, **kwargs)
+        # Normalize input: LangChain arun passes a single arg (dict or str)
+        # But if it was called via tool.arun(**dict), it comes in kwargs.
+        input_data = args[0] if args else kwargs
+        
+        # Extract metadata from kwargs
+        auth_token = kwargs.get("auth_token")
+        request_id = kwargs.get("request_id")
+        
+        return await self.run_tool(input_data, auth_token=auth_token, request_id=request_id)
 
-    async def run_tool(self, *args: Any, **kwargs: Any) -> Any:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         """Subclasses should implement this instead of run or _arun."""
         raise NotImplementedError("Subclasses must implement run_tool.")

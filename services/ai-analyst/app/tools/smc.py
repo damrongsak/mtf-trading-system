@@ -1,4 +1,4 @@
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 from typing import Type, Optional, Any, Dict
 import httpx
@@ -18,11 +18,19 @@ class SMCAnalystTool(BaseTool):
     description: str = "Perform institutional Smart Money Concepts (SMC) technical analysis on a specific trading symbol."
     args_schema: Type[BaseModel] = SMCInput
 
-    def _run(self, symbol: str, timeframe: str = "H1", include_distant_zones: bool = False) -> str:
-        import asyncio
-        return asyncio.run(self._arun(symbol, timeframe, include_distant_zones))
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        symbol = "XAUUSD"
+        timeframe = "H1"
+        include_distant_zones = False
+        
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            timeframe = input_data.get("timeframe", timeframe)
+            include_distant_zones = input_data.get("include_distant_zones", False)
+        elif isinstance(input_data, str):
+            symbol = input_data
 
-    async def _arun(self, symbol: str, timeframe: str = "H1", include_distant_zones: bool = False, auth_token: str = None, **kwargs) -> str:
+        # Normalize symbol
         # Normalize symbol
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         

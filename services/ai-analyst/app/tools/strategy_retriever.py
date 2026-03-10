@@ -9,7 +9,7 @@ class StrategyRetrieverTool(BaseTool):
     name: str = "list_active_strategies"
     description: str = "Lists the user's currently active strategies. Returns ID, Symbol, Type, and Semantic Description."
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
         url = f"{base_url}/api/v1/strategies/"
 

@@ -1,7 +1,7 @@
 from typing import Any, Optional, Type
 import aiohttp
 from app.core.config import settings
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 
 class SignalInput(BaseModel):
@@ -12,11 +12,13 @@ class GetTechnicalSignalsTool(BaseTool):
     description: str = "Checks for active technical trading trading signals (SMC, Order Blocks) for a symbol."
     args_schema: Type[BaseModel] = SignalInput
 
-    def _run(self, symbol: str = "XAUUSD") -> str:
-        import asyncio
-        return asyncio.run(self._arun(symbol))
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        symbol = "XAUUSD"
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+        elif isinstance(input_data, str):
+            symbol = input_data
 
-    async def _arun(self, symbol: str = "XAUUSD", auth_token: str = None, **kwargs) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 url = f"{settings.API_GATEWAY_URL}/api/v1/signal/latest/{symbol}"

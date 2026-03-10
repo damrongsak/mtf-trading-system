@@ -1,6 +1,6 @@
 ---
 name: ai-agent-guardrails
-description: Best practices and guardrails for implementing AI agents to prevent infinite loops, token limit explosion, and state bleeding in LangGraph.
+description: Best practices and guardrails for implementing AI agents and resilient tools to prevent infinite loops, state bleeding, and tool execution failures.
 ---
 
 # AI Agent Guardrails
@@ -32,6 +32,31 @@ When agents operate in a stateless environment (e.g., REST API calls) but use st
 *   **Ephemeral Thread IDs**: For stateless requests or tests, **never** default to a static identifier like `user_id` for the checkpointer's `thread_id`. If omitted by the client, generate a fresh `uuid4()` on the backend.
     *   *Why:* Defaulting to `user_id` causes all stateless calls for that user to share the same history, causing the LLM to trigger false stopping conditions based on previous queries, or blowing up the prompt size.
 *   **Stateless Test Environments**: When writing automated verification tests (Pytest) or E2E scripts, use an ephemeral memory saver (e.g., `MemorySaver()` from LangGraph) rather than a persistent database/Redis saver, to ensure tests do not pollute the main session store.
+
+## 4. Institutional Tool Standards (Resilience Layer)
+
+To ensure institutional stability, all tools in this project MUST inherit from our resilient base class rather than standard LangChain classes. Failure to do so bypasses retries, circuit breakers, and concurrency controls.
+
+*   **Inheritance**: ALWAYS inherit from `app.core.base_tool.BaseTool`.
+    *   *Bad:* `from langchain_core.tools import BaseTool`
+    *   *Good:* `from app.core.base_tool import BaseTool`
+*   **Method Implementation**: Implementation logic MUST live in `async def run_tool()`.
+    *   **NEVER** implement `_run()`, `run()`, or `_arun()`. These are handled by the BaseTool's resilience layer.
+*   **Input Normalization**: `run_tool` receives a single `input_data` argument which can be a `dict` (for structured tools) or a `str` (for simple tools).
+    *   *Pattern:*
+        ```python
+        async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+            # 1. Normalize
+            symbol = "XAUUSD"
+            if isinstance(input_data, dict):
+                symbol = input_data.get("symbol", symbol)
+            elif isinstance(input_data, str):
+                symbol = input_data
+            
+            # 2. Execute with meta (auth_token/request_id is passed in kwargs)
+            ...
+        ```
+*   **Metadata**: `auth_token` and `request_id` are injected by the orchestrator into the tool execution context. Always include them in your `run_tool` signature if network calls are required.
 
 ---
 **When to Use this Skill:** Apply these checks during code reviews of `ai-analyst` components, when adding new tools, tuning prompts, or debugging agent timeouts/crashes.

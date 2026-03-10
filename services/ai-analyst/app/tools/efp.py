@@ -15,7 +15,7 @@ class EFPCalibrationTool(BaseTool):
     Updates the market symbol metadata with the newly calibrated parameters.
     """
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         days = 30

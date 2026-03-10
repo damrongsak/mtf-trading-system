@@ -22,7 +22,7 @@ class RiskMapTool(BaseTool):
     )
     args_schema: Any = RiskMapInput
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         input_dict = parse_tool_input(input_data)
         symbol = input_dict.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
         timeframe = input_dict.get("timeframe", "H1")

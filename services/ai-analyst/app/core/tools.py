@@ -43,7 +43,7 @@ class KnowledgeBaseTool(BaseTool):
     description: str = "Search system documentation, coding strategies, and past journal entries."
     rag_service: Any = Field(exclude=True) # Runtime dependency
 
-    async def run(self, query: str, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, query: str, auth_token: str = None, request_id: str = None) -> str:
         # We assume RAG service is initialized already
         try:
             docs = await self.rag_service.search_documentation(query)
@@ -64,7 +64,7 @@ class StrategyManagerTool(BaseTool):
     name: str = "strategy_manager"
     description: str = "\n    Manage trading strategies. \n    Action can be 'list', 'start', 'stop', or 'delete'.\n    Action 'start'/'stop' requires 'strategy_id'.\n    "
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
         # Parse simple input
@@ -109,7 +109,7 @@ class BacktestRunnerTool(BaseTool):
     name: str = "backtest_runner"
     description: str = "Run a backtest on a strategy. Input JSON: {strategy_id, ...} or {symbol, timeframe...}"
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
         url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/backtest/run"
@@ -140,7 +140,7 @@ class SmartOrderTool(BaseTool):
     name: str = "smart_order"
     description: str = "Place an AI-guided order. Input JSON: {symbol, direction, risk_usd, stop_loss...}"
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
         url = f"{settings.API_GATEWAY_URL or 'http://api-gateway:8000'}/api/v1/execution/smart-orders"
@@ -169,7 +169,7 @@ class MarketDataTool(BaseTool):
     name: str = "market_data"
     description: str = "Get market analysis, price context, and news. Input JSON: {symbol: str, timeframe: str='H1', include_candles: bool=True, include_news: bool=True, from_date: str (ISO), to_date: str (ISO)}"
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
         # Parse Input
@@ -294,7 +294,7 @@ class RiskCheckTool(BaseTool):
     name: str = "risk_check"
     description: str = "Calculate trade parameters including Risk-Reward (R:R) ratio, Position Size, and Risk Amount. Use to validate trade ideas or suggest sizing."
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         if not auth_token: return "Error: Authentication required."
         
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
@@ -346,7 +346,7 @@ class PythonSandboxTool(BaseTool):
     name: str = "python_sandbox"
     description: str = "\n    Execute Python code for custom quantitative calculations and validation. \n    DO NOT use this tool for standard market analysis, SMC, or price forecasts if specialized tools exist.\n    Context includes 'pd', 'np'. \n    Input: Python code string. \n    Output: Standard Output of the code.\n    "
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         # Security Warning: In production, this must be sandboxed (e.g. e2b, gvisor).
         # For this MVP/Project, we run it with restricted globals.
         

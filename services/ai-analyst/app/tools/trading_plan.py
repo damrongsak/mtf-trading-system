@@ -2,7 +2,7 @@ import os
 import httpx
 from typing import Any, List, Dict, Optional, Type
 from pydantic import BaseModel, Field
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from app.core.config import settings
 import logging
 
@@ -21,11 +21,18 @@ class TradingPlanTool(BaseTool):
     )
     args_schema: Type[BaseModel] = TradingPlanInput
 
-    def _run(self, symbol: str, timeframe: str = "M15", risk_percentage: Optional[float] = None) -> str:
-        import asyncio
-        return asyncio.run(self._arun(symbol, timeframe, risk_percentage))
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        symbol = "XAUUSD"
+        timeframe = "M15"
+        risk_percentage = None
+        
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            timeframe = input_data.get("timeframe", timeframe)
+            risk_percentage = input_data.get("risk_percentage")
+        elif isinstance(input_data, str):
+            symbol = input_data
 
-    async def _arun(self, symbol: str, timeframe: str = "M15", risk_percentage: Optional[float] = None, auth_token: str = None, **kwargs) -> str:
         normalized_symbol = symbol.upper().replace("/", "").replace("_", "")
         headers = {}
         if auth_token:

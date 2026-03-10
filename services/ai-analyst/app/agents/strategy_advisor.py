@@ -987,7 +987,8 @@ class StrategyAdvisorAgent:
                         # Langchain Tool
                         if isinstance(tool_input, dict):
                             # Inject request_id into kwargs if possible for Langchain tools
-                            result = await tool.arun(**tool_input)
+                            # Note: LangChain arun takes a single input argument (dict/str)
+                            result = await tool.arun(tool_input)
                         else:
                             result = await tool.arun(tool_input)
                     return f"Tool '{tool_name}' output:\n{result}"

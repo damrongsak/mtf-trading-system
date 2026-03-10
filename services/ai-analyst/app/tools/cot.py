@@ -15,7 +15,7 @@ class COTAnalystTool(BaseTool):
     Input JSON: {"symbol": "XAUUSD"}
     """
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
         symbol = "GOLD" # COT uses GOLD as symbol name in our parser for XAUUSD maps
         

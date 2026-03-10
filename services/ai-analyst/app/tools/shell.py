@@ -1,5 +1,4 @@
-from typing import Type, Optional, Any
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 import subprocess
 import asyncio
@@ -19,31 +18,16 @@ class ShellCommandTool(BaseTool):
     )
     args_schema: Type[BaseModel] = ShellInput
 
-    def _run(self, command: str) -> str:
-        # We prefer async execution in this service, but provide sync fallback
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-        if loop.is_running():
-            # This is tricky in a running event loop, but for sync call we hope for the best
-            # or just use subprocess sync
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            stdout, stderr = process.communicate(timeout=30)
-            return (stdout + stderr)[:5000]
-        else:
-            return loop.run_until_complete(self._arun(command))
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        command = ""
+        if isinstance(input_data, dict):
+            command = input_data.get("command", "")
+        elif isinstance(input_data, str):
+            command = input_data
 
-    async def _arun(self, command: str) -> str:
+        if not command:
+            return "Error: No command provided."
+
         """Execute bash command asynchronously."""
         try:
             # 30s timeout to prevent hanging
@@ -56,7 +40,9 @@ class ShellCommandTool(BaseTool):
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
             except asyncio.TimeoutError:
-                process.kill()
+                try:
+                    process.kill()
+                except: pass
                 return "Error: Command timed out after 30 seconds."
 
             result = stdout.decode().strip()

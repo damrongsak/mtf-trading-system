@@ -1,6 +1,6 @@
 import logging
 from typing import Type, Optional, Any
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 import aiohttp
 from app.core.config import settings
@@ -24,17 +24,19 @@ class AlphaDeployerTool(BaseTool):
     description: str = "Deploys a new Alpha Strategy to the live core. Use this when the user wants to start trading a formula."
     args_schema: Type[BaseModel] = AlphaDeployInput
 
-    def _run(self, **kwargs) -> str:
-        import asyncio
-        return asyncio.run(self._arun(**kwargs))
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        if not isinstance(input_data, dict):
+            return "Error: AlphaDeployerTool requires a structured input dictionary."
 
-    async def _arun(self, user_id: str, symbol: str, formula: str, 
-                    threshold_long: Optional[float] = None, 
-                    threshold_short: Optional[float] = None, 
-                    condition_long: str = "lt", 
-                    condition_short: str = "gt",
-                    strategy_type: str = "ALPHA_ENGINE_V1", 
-                    description: str = "", **kwargs) -> str:
+        user_id = input_data.get("user_id")
+        symbol = input_data.get("symbol")
+        formula = input_data.get("formula")
+        threshold_long = input_data.get("threshold_long")
+        threshold_short = input_data.get("threshold_short")
+        condition_long = input_data.get("condition_long", "lt")
+        condition_short = input_data.get("condition_short", "gt")
+        strategy_type = input_data.get("strategy_type", "ALPHA_ENGINE_V1")
+        description = input_data.get("description", "")
         
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
         url = f"{base_url}/api/v1/strategies/"

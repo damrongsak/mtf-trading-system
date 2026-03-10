@@ -62,10 +62,12 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - Agent analyzes the trade (Execution Data vs Original Narrative).
     - Extracts `ai_insight` (the actionable lesson) and stores it in the `JournalEntry` table.
 
-### 2.8. Tool Standardization (v2.9)
-- **Native Implementation**: All core tools inherit from `langchain_core.tools.BaseTool`.
-- **Schema Enforcement**: Tools use Pydantic `args_schema` for strict input validation, eliminating 422 errors.
-- **Efficiency**: Direct resolution in `workflow.py` eliminates runtime wrapping latency.
+### 2.8. Institutional Tool Resilience (v2.9+)
+- **Base Inheritance**: All core tools MUST inherit from `app.core.base_tool.BaseTool`.
+- **Logic Isolation**: Logic is implemented in `async def run_tool()`. Legacy `_run`/`_arun` patterns are forbidden.
+- **Resilience Features**: Automatic exponential backoff, circuit breakers, and IO semaphores are enabled by default.
+- **Schema Enforcement**: Tools use Pydantic `args_schema` and centralized normalization to handle both `dict` and `str` inputs.
+- **Validation**: Enforced via `scripts/verify_tool_standards.py`.
 
 ### 2.9. Dynamic Agent Skills (agentskills.io Standard)
 - **Goal:** Enable the agent to discover, load, and execute specialized workflows defined in `SKILL.md` files.
@@ -119,23 +121,24 @@ graph TD
     - `system_docs`: Project documentation for context.
 
 ### 3.2. Reasoning Engine (LangChain/LangGraph)
-- **Orchestrator:** LangGraph `create_react_agent`.
-- **Tools:**
+- **Orchestrator**: LangGraph `create_react_agent`.
+- **Tool Architecture**: Resilient Wrapper pattern using `BaseTool`.
+- **Core Tools**:
     - `GetMarketContextTool`: Fetch price/trend.
-    - `GetTechnicalSignalsTool`: unique signals.
+    - `GetTechnicalSignalsTool`: Unique signals.
     - `GetAccountStatusTool`: Exposure checking.
     - `GoogleSearchTool`: Real-time web search.
     - `GetEconomicCalendarTool`: Scheduled events.
-    - `GetStrategyPerformanceTool`: Backtest runner.
+    - `CalculateEfficientFrontierTool`: Portfolio optimization.
     - `ShellCommandTool`: Execute bash commands for system operations.
     - `PythonInterpreterTool`: Run generic Python code for advanced logic.
-    - `WebReaderTool`: Local, boilerplate-free web content extraction.
-- **Nodes & Loop (OODA):**
-    - **Observe:** Fetch data via tools.
-    - **Orient:** Retrieve similar historical contexts or specs.
-    - **Decide (Hypothesis Verification):** Formulate an opinion based on **Institutional Synthesis Protocols**. The new `hypothesis_tester` node ensures tools actually verify assumptions before finalizing.
-    - **Act:** Output analysis or alert.
-    - **Learn:** The `node_learn_from_outcomes` continuously extracts lessons from the `trades` table.
+    - `WebReaderTool`: Web content extraction.
+- **Nodes & Loop (OODA)**:
+    - **Observe**: Fetch data via resilient tools.
+    - **Orient**: Retrieve similar historical contexts or specs via RAG.
+    - **Decide (Hypothesis Verification)**: Formulate an opinion based on **Institutional Synthesis Protocols**. The `hypothesis_tester` node ensures tools actually verify assumptions before finalizing.
+    - **Act**: Output analysis or alert.
+    - **Learn**: The `node_learn_from_outcomes` continuously extracts lessons from the `trades` table to build episodic memory.
 
 ### 3.3. Institutional Synthesis Protocols (v2.6)
 To ensure high-fidelity responses for institutional-grade queries, the following routing logic is enforced:

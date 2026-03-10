@@ -87,6 +87,12 @@ docker compose exec ai-analyst python3 scripts/chat_cli.py
 # Manual Daily Post-Mortem Trigger
 docker compose exec ai-analyst python3 tests/manual_post_mortem_run.py
 
+# Tool Standards Verification
+docker compose exec ai-analyst python3 scripts/verify_tool_standards.py
+
+# New Tool Scaffolding
+docker compose exec ai-analyst python3 scripts/scaffold_tool.py <tool_name> '<description>'
+
 # Crisis Workflow Integration Test
 docker compose exec ai-analyst python3 tests/test_crisis_workflow_integration.py
 
@@ -120,7 +126,7 @@ app/
 │   └── sentinel/      # Safety gate and multi-model consensus logic
 ├── core/              # Persona prompts, Pydantic schemas, & Scheduler
 ├── services/          # Model clients (Gemini/OpenRouter), RAG, & Memory
-├── tools/             # Standardized Native BaseTools (SMC, OI, etc.)
+├── tools/             # Resilient Institutional Tools (BaseTool standardized)
 ├── skills/            # Internal persistent skills (SKILL.md Physical Skeleton)
 ├── routers/           # FastAPI routers (Agents, Ingest, Orchestration)
 └── main.py            # FastAPI entrypoint & Scheduler init

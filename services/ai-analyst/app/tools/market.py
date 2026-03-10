@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Any, Optional, Type
-from langchain_core.tools import BaseTool as LCTool
+from app.core.base_tool import BaseTool
 import aiohttp
 import json
 from app.core.config import settings
@@ -10,16 +10,23 @@ class MarketContextInput(BaseModel):
     timeframe: str = Field(default="H1", description="Timeframe for analysis (e.g. M15, H1, H4, D1)")
     count: int = Field(default=15, description="Number of recent candles to fetch. Max 20 recommended to save tokens.")
 
-class GetMarketContextTool(LCTool):
+class GetMarketContextTool(BaseTool):
     name: str = "get_market_context"
     description: str = "Fetches current market price, trends, and limited technical historical candles for a symbol on a specific timeframe."
     args_schema: Type[BaseModel] = MarketContextInput
 
-    def _run(self, symbol: str = "XAUUSD", timeframe: str = "H1", count: int = 15) -> str:
-        import asyncio
-        return asyncio.run(self._arun(symbol, timeframe, count))
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, **kwargs) -> str:
+        symbol = "XAUUSD"
+        timeframe = "H1"
+        count = 15
+        
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            timeframe = input_data.get("timeframe", timeframe)
+            count = input_data.get("count", count)
+        elif isinstance(input_data, str):
+            symbol = input_data
 
-    async def _arun(self, symbol: str = "XAUUSD", timeframe: str = "H1", count: int = 15, auth_token: str = None, request_id: str = None) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 # Use strategy-core market/candles endpoint

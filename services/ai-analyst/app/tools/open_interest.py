@@ -5,7 +5,7 @@ import redis.asyncio as redis
 from typing import Any, Optional, Type, Dict
 import aiohttp
 from app.core.config import settings
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -24,11 +24,18 @@ class OpenInterestTool(BaseTool):
     )
     args_schema: Type[BaseModel] = OpenInterestInput
 
-    def _run(self, symbol: str = "XAUUSD", snapshot_at: Optional[str] = None, horizon: Optional[str] = None) -> str:
-        import asyncio
-        return asyncio.run(self._arun(symbol, snapshot_at, horizon))
+    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+        symbol = "XAUUSD"
+        snapshot_at = None
+        horizon = None
+        
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", symbol)
+            snapshot_at = input_data.get("snapshot_at")
+            horizon = input_data.get("horizon")
+        elif isinstance(input_data, str):
+            symbol = input_data
 
-    async def _arun(self, symbol: str = "XAUUSD", snapshot_at: Optional[str] = None, horizon: Optional[str] = None, auth_token: str = None, **kwargs) -> str:
         data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         

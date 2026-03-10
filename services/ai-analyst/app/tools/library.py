@@ -22,7 +22,7 @@ class SearchQuantLibraryTool(BaseTool):
     args_schema: Any = LibrarySearchInput
     rag_service: Any = Field(exclude=True) # Runtime dependency
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         query = ""
         limit = 5
         collection = None
@@ -71,7 +71,7 @@ class ListLibraryBooksTool(BaseTool):
         "Use this to discover what knowledge is available before performing a search."
     )
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
         import httpx
         from app.core.config import settings
         

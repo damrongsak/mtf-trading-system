@@ -6,7 +6,7 @@ import math
 import statistics
 import logging
 from typing import Any, Optional, Type, Dict
-from langchain_core.tools import BaseTool
+from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,13 @@ class PythonInterpreterTool(BaseTool):
     )
     args_schema: Type[BaseModel] = PythonInput
 
-    def _run(self, code: str) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        code = ""
+        if isinstance(input_data, dict):
+            code = input_data.get("code", "")
+        elif isinstance(input_data, str):
+            code = input_data
+
         """Execute Python code and capture stdout."""
         # Redirect stdout to capture print statements
         old_stdout = sys.stdout
@@ -50,7 +56,3 @@ class PythonInterpreterTool(BaseTool):
             sys.stdout = old_stdout
             logger.error(f"PythonInterpreterTool error: {e}")
             return f"Error: {str(e)}"
-
-    async def _arun(self, code: str) -> str:
-        """Async execution (delegates to sync)."""
-        return self._run(code)
