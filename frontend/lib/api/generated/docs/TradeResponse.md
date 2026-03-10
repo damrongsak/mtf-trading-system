@@ -20,6 +20,8 @@ Name | Type | Description | Notes
 **exit_price** | **number** |  | [optional] [default to undefined]
 **exit_timestamp** | **string** |  | [optional] [default to undefined]
 **rejection_reason** | **string** |  | [optional] [default to undefined]
+**broker_trade_id** | **string** |  | [optional] [default to undefined]
+**broker_deal_id** | **string** |  | [optional] [default to undefined]
 **created_at** | **string** |  | [default to undefined]
 **updated_at** | **string** |  | [default to undefined]
 
@@ -44,6 +46,8 @@ const instance: TradeResponse = {
     exit_price,
     exit_timestamp,
     rejection_reason,
+    broker_trade_id,
+    broker_deal_id,
     created_at,
     updated_at,
 };

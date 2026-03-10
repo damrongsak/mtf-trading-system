@@ -19,6 +19,8 @@ from app.tools.python import PythonInterpreterTool
 from app.tools.web_reader import WebReaderTool
 from app.tools.skills import SkillManagerTool
 from app.tools.skills_execution import ExecuteSkillTool
+from app.tools.heatmap import LiquidityHeatmapTool
+from app.tools.handoff import ConsultSpecialistTool
 
 def bootstrap_tools():
     """
@@ -55,6 +57,8 @@ def bootstrap_tools():
     registry.register("web_reader", WebReaderTool())
     registry.register("save_persistent_skill", SkillManagerTool())
     registry.register("execute_skill", ExecuteSkillTool())
+    registry.register("liquidity_heatmap", LiquidityHeatmapTool())
+    registry.register("consult_specialist", ConsultSpecialistTool())
     
     print("All standard tools registered.")
 
@@ -78,7 +82,8 @@ async def run_diagnostics(auth_token: str = None) -> list:
         "open_interest": {},
         "market_state": "XAUUSD",
         "smc_technical_analysis": "XAUUSD",
-        "oi_drift_analysis": {}
+        "oi_drift_analysis": {},
+        "liquidity_heatmap": {"symbol": "XAUUSD"}
     }
     
     for name, tool in registry._tools.items():

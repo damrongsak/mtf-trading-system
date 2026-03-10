@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **symbol** | **string** |  | [default to undefined]
 **strategy_name** | **string** |  | [default to undefined]
 **signal_timestamp** | **string** |  | [default to undefined]
+**trace_id** | **string** | Unique HFT-lite execution trace identifier (Redis backed) | [optional] [default to undefined]
 **status** | **string** |  | [default to undefined]
 **rejection_reason** | **string** |  | [optional] [default to undefined]
 **direction** | **string** |  | [default to undefined]
@@ -40,6 +41,7 @@ const instance: Trade = {
     symbol,
     strategy_name,
     signal_timestamp,
+    trace_id,
     status,
     rejection_reason,
     direction,

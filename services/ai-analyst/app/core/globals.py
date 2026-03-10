@@ -10,5 +10,6 @@ services = {
     "skill": None,
     "skill_creator": None,
     "checkpointer": None,
-    "post_mortem": None
+    "post_mortem": None,
+    "redis": None
 }

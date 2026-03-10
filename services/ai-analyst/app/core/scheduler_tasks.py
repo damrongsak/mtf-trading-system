@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 import uuid
+import json
 from app.core.globals import services
 from app.database import SessionLocal
 from sqlalchemy import text
@@ -84,3 +85,79 @@ async def run_daily_post_mortem():
         logger.error(f"❌ Critical Failure in run_daily_post_mortem task: {e}")
     finally:
         db.close()
+
+async def check_sentiment_risk_drift():
+    """
+    Autonomous Pipeline: Sentiment-to-Risk.
+    Monitors sentiment drift for gold and triggers Strategy Advisor if drift > 20% (0.4 on -1 to 1 scale).
+    """
+    logger.info("🚨 Running Autonomous Sentiment-to-Risk Leak Check...")
+    
+    sentiment_service = services.get("sentiment")
+    if not sentiment_service:
+        return
+
+    try:
+        # 1. Get Current Sentiment
+        current_data = await sentiment_service.get_sentiment(symbol="XAUUSD")
+        current_score = current_data.get("score", 0.0)
+        
+        # 2. Get Previous Score from Redis (using SentimentService's redis client)
+        prev_key = "sentiment:previous_score:XAUUSD"
+        prev_score_raw = await sentiment_service.redis.get(prev_key)
+        prev_score = float(prev_score_raw) if prev_score_raw else 0.0
+        
+        # 3. Calculate Drift
+        drift = abs(current_score - prev_score)
+        threshold = 0.4 # Significant shift (20% of total 2.0 range)
+        
+        logger.info(f"📊 Sentiment Analysis: Current={current_score:.2f}, Prev={prev_score:.2f}, Drift={drift:.2f}")
+
+        # Log to Orchestration Audit Stream
+        redis = services.get("redis")
+        if redis:
+            audit_entry = {
+                "type": "pipeline_execution",
+                "pipeline": "Sentiment-to-Risk",
+                "symbol": "XAUUSD",
+                "current_score": str(current_score),
+                "prev_score": str(prev_score),
+                "drift": str(drift),
+                "triggered": "TRUE" if drift >= threshold else "FALSE",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            await redis.xadd("orchestration.audit.stream", audit_entry, maxlen=1000, approximate=True)
+
+        if drift >= threshold:
+            logger.warning(f"💥 SIGNIFICANT SENTIMENT DRIFT DETECTED ({drift:.2f} >= {threshold}). Triggering Risk Consultation...")
+            
+            # 4. Trigger ConsultSpecialistTool
+            from app.core.workflow import registry
+            consult_tool = registry.get("consult_specialist")
+            
+            if consult_tool:
+                query = (
+                    f"Gold sentiment has shifted significantly from {prev_score:.2f} to {current_score:.2f} "
+                    f"due to recent news: {current_data.get('reason')}. "
+                    "Please evaluate our XAUUSD risk parity weights and strategy parameters to ensure "
+                    "we are not over-exposed during this volatility."
+                )
+                
+                # We use a system-level user context for autonomous tasks
+                # Note: In production, this would use a valid service JWT
+                result = await consult_tool.arun(
+                    agent_id="strategy_advisor",
+                    query=query,
+                    context=f"Sentiment Data: {json.dumps(current_data)}",
+                    user_id="AUTONOMOUS_WORKFLOW_SYSTEM",
+                    auth_token="SYSTEM_SERVICE_TOKEN" # Managed by Gateway for local-only routes
+                )
+                logger.info(f"✅ Risk Consultation Triggered. Response: {str(result)[:100]}...")
+            else:
+                logger.error("❌ consult_specialist tool not found in registry.")
+
+        # 5. Update Previous Score
+        await sentiment_service.redis.set(prev_key, str(current_score))
+        
+    except Exception as e:
+        logger.error(f"❌ Error in check_sentiment_risk_drift: {e}")

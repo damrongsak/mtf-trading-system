@@ -1,32 +1,31 @@
 from pydantic import BaseModel, Field
 from typing import Any, Optional, Type
-from langchain_core.tools import BaseTool as LCTool
 import aiohttp
 import json
 import logging
 import redis.asyncio as aioredis
 from app.core.config import settings
+from app.core.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
 class GoogleSearchInput(BaseModel):
     query: str = Field(..., description="The search query or keyword (e.g. 'XAUUSD news')")
 
-class GoogleSearchTool(LCTool):
+class GoogleSearchTool(BaseTool):
     """
     Standardized tool for gathering market news and context.
     Provides news from internal data pipeline (scrapers/RSS) with semantic fallbacks.
-    SerpApi dependency has been removed.
     """
     name: str = "google_search"
     description: str = "Fetches real-time market news and institutional context. Use this to find sentiment and fundamental drivers."
     args_schema: Type[BaseModel] = GoogleSearchInput
+    is_heavy: bool = True
 
-    def _run(self, query: str) -> str:
-        import asyncio
-        return asyncio.run(self._arun(query))
-
-    async def _arun(self, query: str, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, query: str, **kwargs) -> str:
+        # Extract auth_token from kwargs
+        auth_token = kwargs.get("auth_token")
+        
         if not query:
             return "No query provided for search."
 
@@ -61,7 +60,7 @@ class GoogleSearchTool(LCTool):
             params = {"symbol": symbol_to_check, "count": 10}
             headers = {"Authorization": auth_token if auth_token and auth_token.startswith("Bearer ") else f"Bearer {auth_token}"} if auth_token else {}
             
-            timeout = aiohttp.ClientTimeout(total=3.0, connect=1.5)
+            timeout = aiohttp.ClientTimeout(total=5.0, connect=2.0)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(api_url, params=params, headers=headers) as resp:
                     if resp.status == 200:

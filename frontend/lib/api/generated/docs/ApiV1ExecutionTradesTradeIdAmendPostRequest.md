@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **broker_account_id** | **string** |  | [default to undefined]
 **stop_loss** | **number** |  | [optional] [default to undefined]
 **take_profit** | **number** |  | [optional] [default to undefined]
+**trailing_stop** | **boolean** | Enable/Disable trailing stop loss | [optional] [default to undefined]
 
 ## Example
 
@@ -18,6 +19,7 @@ const instance: ApiV1ExecutionTradesTradeIdAmendPostRequest = {
     broker_account_id,
     stop_loss,
     take_profit,
+    trailing_stop,
 };
 ```
 

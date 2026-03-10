@@ -1,0 +1,11 @@
+{
+  "symbol": "TBD",
+  "volatility_regime": "TBD",
+  "hv20": 0.0,
+  "hv60": 0.0,
+  "vol_ratio": 0.0,
+  "recommendation": {
+    "stop_multiplier": 1.5,
+    "position_sizing_bias": "Neutral"
+  }
+}

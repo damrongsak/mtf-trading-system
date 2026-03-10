@@ -2,27 +2,31 @@ import logging
 import json
 import os
 import redis.asyncio as redis
-from typing import Any, Optional
+from typing import Any, Optional, Type
 import aiohttp
+from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.base_tool import BaseTool
-from app.core.utils import parse_tool_input
 
 logger = logging.getLogger(__name__)
+
+class HeatmapInput(BaseModel):
+    symbol: str = Field(default="XAUUSD", description="The financial instrument symbol (e.g., XAUUSD).")
 
 class LiquidityHeatmapTool(BaseTool):
     name: str = "liquidity_heatmap"
     description: str = """
     Provides a spatial view of Gold (XAUUSD) liquidity density (Heatmap).
     Identifies 'Gravity Zones' where price is likely to be pinned or rejected.
-    Input JSON: {"symbol": "XAUUSD"}
     """
+    args_schema: Type[BaseModel] = HeatmapInput
+    is_heavy: bool = True # Heatmap fetch and price check involve multiple IO layers
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
-        strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
+    async def run_tool(self, symbol: str = "XAUUSD", **kwargs) -> str:
+        # Standardize auth_token extraction from kwargs or context
+        auth_token = kwargs.get("auth_token")
         
-        input_dict = parse_tool_input(input_data)
-        symbol = input_dict.get("symbol", "XAUUSD")
+        strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
         headers = {}
         if auth_token:
@@ -31,24 +35,20 @@ class LiquidityHeatmapTool(BaseTool):
         async with aiohttp.ClientSession() as session:
             try:
                 # 1. Fetch Current Spot Price — Multi-layer fallback for reliability
-                # Layer 1: data-pipeline candles (primary)
                 current_price = 0.0
                 
                 # Layer 0: Direct Redis Fetch (Fastest - New Hash Cache)
                 try:
-                    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                    redis_url = settings.REDIS_URL
                     redis_client = redis.from_url(redis_url, decode_responses=True)
                     
-                    # New L2 Cache: market_data:spot:{symbol} (Hash)
                     spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
                     if spot_data and "bid" in spot_data:
-                        # Use average or mid-price for heatmap
                         bid = float(spot_data.get("bid", 0))
                         ask = float(spot_data.get("ask", 0))
                         current_price = (bid + ask) / 2.0 if ask > 0 else bid
                         logger.info(f"Fetched live spot price from L2 Cache: {current_price}")
                     else:
-                        # Fallback to legacy features key if L2 not yet populated
                         features_json = await redis_client.get(f"features:{symbol}:M15")
                         if features_json:
                             features_data = json.loads(features_json)
@@ -79,26 +79,7 @@ class LiquidityHeatmapTool(BaseTool):
                     except Exception as e:
                         logger.warning(f"Layer 1 (data-pipeline) price fetch failed: {e}")
 
-                # Layer 2: strategy-core candles (fallback)
-                if current_price <= 0:
-                    try:
-                        sc_url = f"{strategy_core_url}/market/candles"
-                        async with session.get(sc_url, params={"symbol": symbol, "timeframe": "H1", "limit": 1}, headers=headers, timeout=aiohttp.ClientTimeout(total=5.0)) as resp:
-                            if resp.status == 200:
-                                data = await resp.json()
-                                bars = data.get("data", data.get("candles", []))
-                                if bars:
-                                    current_price = float(bars[-1].get("close") or 0.0)
-                    except Exception as e:
-                        logger.warning(f"Layer 2 (strategy-core) price fetch failed: {e}")
-
-                if current_price > 0:
-                    logger.info(f"Heatmap using spot price: {current_price:.2f} for {symbol}")
-                else:
-                    logger.warning(f"Could not fetch spot price for {symbol} heatmap — basis offset will be 0")
-
-                # 2. Fetch Gamma Levels — always pass current_price (even 0) so API knows we tried
-
+                # 2. Fetch Gamma Levels
                 url = f"{strategy_core_url}/analysis/gamma/levels"
                 params = {"symbol": symbol}
                 if current_price > 0:
@@ -109,7 +90,6 @@ class LiquidityHeatmapTool(BaseTool):
                         data = await resp.json()
                         heatmap = data.get("heatmap") or []
                         max_pain = data.get("max_pain") or 0.0
-                        # underlying_price in DB is NULL — use our locally-fetched spot price
                         underlying = data.get("underlying_price") or current_price or 0.0
                         
                         if not heatmap:
@@ -123,10 +103,7 @@ class LiquidityHeatmapTool(BaseTool):
                         report.append("\n| Strike | Relative Density | Actionable Bias |")
                         report.append("| :--- | :--- | :--- |")
                         
-                        # Sort heatmap by strike descending
                         sorted_heatmap = sorted(heatmap, key=lambda x: x['strike'], reverse=True)
-                        
-                        # Prune: Only show ±500 points around spot to keep output focused (~20-30 rows)
                         if underlying > 0:
                             sorted_heatmap = [
                                 h for h in sorted_heatmap 
@@ -136,7 +113,6 @@ class LiquidityHeatmapTool(BaseTool):
                         for entry in sorted_heatmap:
                             density = entry.get('relative_density', 0.0)
                             strike = entry.get('strike', 0.0)
-                            
                             bar_len = int(density * 10)
                             bar = "█" * bar_len + "░" * (10 - bar_len)
                             
@@ -151,7 +127,6 @@ class LiquidityHeatmapTool(BaseTool):
                                 bias = "🎯 **MAGNET ZONE**"
                                 
                             report.append(f"| {strike:.2f} | {bar} ({density*100:.0f}%) | {bias} |")
-
                         
                         report.append("\n> **Interpretation**: Areas with >70% density represent institutional 'walls'. Price tends to be sucked towards Max Pain during option expiry.")
                         return "\n".join(report)

@@ -45,6 +45,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1DeploymentsGet**](#apiv1deploymentsget) | **GET** /api/v1/deployments/ | List all deployments|
 |[**apiV1DeploymentsIdStopPost**](#apiv1deploymentsidstoppost) | **POST** /api/v1/deployments/{id}/stop | Stop a deployment|
 |[**apiV1DeploymentsPost**](#apiv1deploymentspost) | **POST** /api/v1/deployments/ | Create a new deployment|
+|[**apiV1DiscoveryGapsGet**](#apiv1discoverygapsget) | **GET** /api/v1/discovery/gaps | Discover data gaps|
 |[**apiV1ExecutionAccountSummaryGet**](#apiv1executionaccountsummaryget) | **GET** /api/v1/execution/account/summary | Get account summary|
 |[**apiV1ExecutionTradesSyncGet**](#apiv1executiontradessyncget) | **GET** /api/v1/execution/trades/sync | List trades with filtering and pagination|
 |[**apiV1FoundryValidatePost**](#apiv1foundryvalidatepost) | **POST** /api/v1/foundry/validate | Run Walk-Forward Validation (Proving Ground)|
@@ -1625,7 +1626,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1DataSourcesIdBackfillPost**
-> ApiV1DataSourcesIdBackfillPost202Response apiV1DataSourcesIdBackfillPost(apiV1DataSourcesIdBackfillPostRequest)
+> ApiV1DataSourcesIdBackfillPost202Response apiV1DataSourcesIdBackfillPost(backfillRequest)
 
 Proxies the request to the Data Pipeline service to fetch and ingest historical candles.
 
@@ -1635,18 +1636,18 @@ Proxies the request to the Data Pipeline service to fetch and ingest historical 
 import {
     DefaultApi,
     Configuration,
-    ApiV1DataSourcesIdBackfillPostRequest
+    BackfillRequest
 } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let id: string; // (default to undefined)
-let apiV1DataSourcesIdBackfillPostRequest: ApiV1DataSourcesIdBackfillPostRequest; //
+let backfillRequest: BackfillRequest; //
 
 const { status, data } = await apiInstance.apiV1DataSourcesIdBackfillPost(
     id,
-    apiV1DataSourcesIdBackfillPostRequest
+    backfillRequest
 );
 ```
 
@@ -1654,7 +1655,7 @@ const { status, data } = await apiInstance.apiV1DataSourcesIdBackfillPost(
 
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
-| **apiV1DataSourcesIdBackfillPostRequest** | **ApiV1DataSourcesIdBackfillPostRequest**|  | |
+| **backfillRequest** | **BackfillRequest**|  | |
 | **id** | [**string**] |  | defaults to undefined|
 
 
@@ -2181,6 +2182,57 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Created deployment |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1DiscoveryGapsGet**
+> GapDiscoveryResponse apiV1DiscoveryGapsGet()
+
+Scans for missing candle data (gaps) for active symbols and timeframes.
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let days: number; //Number of days to look back for gaps (optional) (default to 7)
+
+const { status, data } = await apiInstance.apiV1DiscoveryGapsGet(
+    days
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **days** | [**number**] | Number of days to look back for gaps | (optional) defaults to 7|
+
+
+### Return type
+
+**GapDiscoveryResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Gap discovery results |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

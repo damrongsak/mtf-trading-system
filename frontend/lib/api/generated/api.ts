@@ -274,6 +274,30 @@ export interface APIResponseDeploymentList {
 }
 
 
+export interface APIResponseDrawdownMetrics {
+    'status': ResponseStatus;
+    'data'?: DrawdownMetrics;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseFactorExposures {
+    'status': ResponseStatus;
+    'data'?: FactorExposures;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseFoundryAssembleResponse {
     'status': ResponseStatus;
     'data'?: FoundryAssembleResponse;
@@ -439,6 +463,44 @@ export interface APIResponseOpenInterestAnalytics {
 }
 
 
+export interface APIResponseOrchestrationLogs {
+    'status': ResponseStatus;
+    'data'?: Array<APIResponseOrchestrationLogsAllOfData>;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseOrchestrationLogsAllOfData {
+    'id'?: string;
+    'type'?: string;
+    'source_agent'?: string;
+    'target_agent'?: string;
+    'status'?: string;
+    'timestamp'?: string;
+}
+export interface APIResponsePipelineStatus {
+    'status': ResponseStatus;
+    'data'?: { [key: string]: APIResponsePipelineStatusAllOfData; };
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponsePipelineStatusAllOfData {
+    'status'?: string;
+    'last_run'?: string;
+    'monitored_symbol'?: string;
+    'current_reference_score'?: number;
+}
 export interface APIResponseRiskCheckResponse {
     'status': ResponseStatus;
     'data'?: RiskCheckResponse;
@@ -600,6 +662,30 @@ export interface APIResponseUserResponse {
 }
 
 
+export interface APIResponseVaRMetrics {
+    'status': ResponseStatus;
+    'data'?: VaRMetrics;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseVolatilityMetrics {
+    'status': ResponseStatus;
+    'data'?: VolatilityMetrics;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseWalkForwardResponse {
     'status': ResponseStatus;
     'data'?: WalkForwardResponse;
@@ -721,11 +807,6 @@ export interface ApiV1DataSourcesIdBackfillPost202Response {
     'message'?: string;
     'job_id'?: string;
 }
-export interface ApiV1DataSourcesIdBackfillPostRequest {
-    'symbol': string;
-    'timeframe': string;
-    'count'?: number;
-}
 export interface ApiV1DataSyncPost202Response {
     'message'?: string;
 }
@@ -746,6 +827,10 @@ export interface ApiV1ExecutionOrdersOrderIdPutRequest {
     'price'?: number;
     'stop_loss'?: number;
     'take_profit'?: number;
+    /**
+     * Enable/Disable trailing stop loss
+     */
+    'trailing_stop'?: boolean;
 }
 export interface ApiV1ExecutionTradesCloseAllPostRequest {
     'broker_account_id': string;
@@ -775,6 +860,10 @@ export interface ApiV1ExecutionTradesTradeIdAmendPostRequest {
     'broker_account_id': string;
     'stop_loss'?: number;
     'take_profit'?: number;
+    /**
+     * Enable/Disable trailing stop loss
+     */
+    'trailing_stop'?: boolean;
 }
 export interface ApiV1ExecutionTradesTradeIdClosePostRequest {
     'exit_price': number;
@@ -848,6 +937,20 @@ export interface AuthTokens {
     'token_type'?: string;
     'expires_in': number;
     'expires_at': string;
+}
+export interface BackfillRequest {
+    'symbol': string;
+    /**
+     * Specific timeframe or \'ALL\' for all supported timeframes
+     */
+    'timeframe'?: string;
+    /**
+     * Optional list of specific timeframes to backfill
+     */
+    'timeframes'?: Array<string>;
+    'count'?: number;
+    'from_date'?: string | null;
+    'to_date'?: string | null;
 }
 export interface BacktestMetrics {
     'total_return'?: number;
@@ -1069,6 +1172,12 @@ export interface DeploymentCreate {
     'is_live'?: boolean;
     'config_snapshot': object;
 }
+export interface DrawdownMetrics {
+    'max_drawdown'?: number;
+    'current_drawdown'?: number;
+    'dd_duration'?: number;
+    'recovery_factor'?: number;
+}
 export interface DriftAnalysis {
     'pcr_drift'?: number;
     'net_oi_drift'?: number;
@@ -1124,6 +1233,12 @@ export interface ExternalSearchRequest {
     'query': string;
     'limit'?: number;
     'partner_id'?: string;
+}
+export interface FactorExposures {
+    'beta'?: number;
+    'momentum'?: number;
+    'rsi'?: number;
+    'volatility_regime'?: string;
 }
 export interface FoundryAssembleRequest {
     'config'?: StrategyConfigUpdate;
@@ -1190,6 +1305,20 @@ export const FundUpdateStrategyTypeEnum = {
 
 export type FundUpdateStrategyTypeEnum = typeof FundUpdateStrategyTypeEnum[keyof typeof FundUpdateStrategyTypeEnum];
 
+export interface GapDiscoveryResponse {
+    'status'?: string;
+    'discovery_days'?: number;
+    'gaps_found'?: number;
+    'details'?: Array<GapInfo>;
+}
+export interface GapInfo {
+    'market_symbol_id'?: string;
+    'symbol'?: string;
+    'timeframe'?: string;
+    'gap_start'?: string;
+    'gap_end'?: string;
+    'missing_count'?: number;
+}
 export interface IndicatorResponse {
     'values'?: Array<number | null>;
 }
@@ -1814,6 +1943,10 @@ export interface Trade {
     'symbol': string;
     'strategy_name': string;
     'signal_timestamp': string;
+    /**
+     * Unique HFT-lite execution trace identifier (Redis backed)
+     */
+    'trace_id'?: string | null;
     'status': TradeStatusEnum;
     'rejection_reason'?: string | null;
     'direction': TradeDirectionEnum;
@@ -1833,8 +1966,9 @@ export interface Trade {
 }
 
 export const TradeStatusEnum = {
-    Open: 'OPEN',
-    Closed: 'CLOSED',
+    Pending: 'PENDING',
+    Filled: 'FILLED',
+    Cancelled: 'CANCELLED',
     Rejected: 'REJECTED'
 } as const;
 
@@ -1871,6 +2005,8 @@ export interface TradeResponse {
     'exit_price'?: number | null;
     'exit_timestamp'?: string | null;
     'rejection_reason'?: string | null;
+    'broker_trade_id'?: string | null;
+    'broker_deal_id'?: string | null;
     'created_at': string;
     'updated_at': string;
 }
@@ -1985,6 +2121,18 @@ export interface UserResponse {
     'username'?: string;
     'email'?: string;
     'is_active'?: boolean;
+}
+export interface VaRMetrics {
+    'var_95'?: number;
+    'var_99'?: number;
+    'cvar_95'?: number;
+    'cvar_99'?: number;
+}
+export interface VolatilityMetrics {
+    'realized_vol'?: number;
+    'parkinson_vol'?: number;
+    'yang_zhang_vol'?: number;
+    'rolling_vol_series'?: Array<number>;
 }
 export interface WalkForwardRequest {
     'symbol': string;
@@ -3408,6 +3556,415 @@ export class AnalysisApi extends BaseAPI {
 
 
 /**
+ * AnalyticsApi - axios parameter creator
+ */
+export const AnalyticsApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Get drawdown metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsDrawdownGet: async (symbol: string, timeframe?: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1AnalyticsDrawdownGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/analytics/drawdown`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+            if (timeframe !== undefined) {
+                localVarQueryParameter['timeframe'] = timeframe;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get factor exposures for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsFactorsGet: async (symbol: string, timeframe?: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1AnalyticsFactorsGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/analytics/factors`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+            if (timeframe !== undefined) {
+                localVarQueryParameter['timeframe'] = timeframe;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get VaR/CVaR metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsVarGet: async (symbol: string, timeframe?: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1AnalyticsVarGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/analytics/var`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+            if (timeframe !== undefined) {
+                localVarQueryParameter['timeframe'] = timeframe;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get volatility metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsVolatilityGet: async (symbol: string, timeframe?: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1AnalyticsVolatilityGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/analytics/volatility`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (symbol !== undefined) {
+                localVarQueryParameter['symbol'] = symbol;
+            }
+
+            if (timeframe !== undefined) {
+                localVarQueryParameter['timeframe'] = timeframe;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * AnalyticsApi - functional programming interface
+ */
+export const AnalyticsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = AnalyticsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Get drawdown metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsDrawdownGet(symbol: string, timeframe?: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseDrawdownMetrics>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsDrawdownGet(symbol, timeframe, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsDrawdownGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get factor exposures for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsFactorsGet(symbol: string, timeframe?: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseFactorExposures>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsFactorsGet(symbol, timeframe, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsFactorsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get VaR/CVaR metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsVarGet(symbol: string, timeframe?: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseVaRMetrics>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsVarGet(symbol, timeframe, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsVarGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get volatility metrics for a symbol
+         * @param {string} symbol 
+         * @param {string} [timeframe] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsVolatilityGet(symbol: string, timeframe?: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseVolatilityMetrics>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsVolatilityGet(symbol, timeframe, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsVolatilityGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * AnalyticsApi - factory interface
+ */
+export const AnalyticsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = AnalyticsApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Get drawdown metrics for a symbol
+         * @param {AnalyticsApiApiV1AnalyticsDrawdownGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsDrawdownGet(requestParameters: AnalyticsApiApiV1AnalyticsDrawdownGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseDrawdownMetrics> {
+            return localVarFp.apiV1AnalyticsDrawdownGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get factor exposures for a symbol
+         * @param {AnalyticsApiApiV1AnalyticsFactorsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsFactorsGet(requestParameters: AnalyticsApiApiV1AnalyticsFactorsGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFactorExposures> {
+            return localVarFp.apiV1AnalyticsFactorsGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get VaR/CVaR metrics for a symbol
+         * @param {AnalyticsApiApiV1AnalyticsVarGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsVarGet(requestParameters: AnalyticsApiApiV1AnalyticsVarGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseVaRMetrics> {
+            return localVarFp.apiV1AnalyticsVarGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get volatility metrics for a symbol
+         * @param {AnalyticsApiApiV1AnalyticsVolatilityGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsVolatilityGet(requestParameters: AnalyticsApiApiV1AnalyticsVolatilityGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseVolatilityMetrics> {
+            return localVarFp.apiV1AnalyticsVolatilityGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1AnalyticsDrawdownGet operation in AnalyticsApi.
+ */
+export interface AnalyticsApiApiV1AnalyticsDrawdownGetRequest {
+    readonly symbol: string
+
+    readonly timeframe?: string
+
+    readonly limit?: number
+}
+
+/**
+ * Request parameters for apiV1AnalyticsFactorsGet operation in AnalyticsApi.
+ */
+export interface AnalyticsApiApiV1AnalyticsFactorsGetRequest {
+    readonly symbol: string
+
+    readonly timeframe?: string
+
+    readonly limit?: number
+}
+
+/**
+ * Request parameters for apiV1AnalyticsVarGet operation in AnalyticsApi.
+ */
+export interface AnalyticsApiApiV1AnalyticsVarGetRequest {
+    readonly symbol: string
+
+    readonly timeframe?: string
+
+    readonly limit?: number
+}
+
+/**
+ * Request parameters for apiV1AnalyticsVolatilityGet operation in AnalyticsApi.
+ */
+export interface AnalyticsApiApiV1AnalyticsVolatilityGetRequest {
+    readonly symbol: string
+
+    readonly timeframe?: string
+
+    readonly limit?: number
+}
+
+/**
+ * AnalyticsApi - object-oriented interface
+ */
+export class AnalyticsApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get drawdown metrics for a symbol
+     * @param {AnalyticsApiApiV1AnalyticsDrawdownGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsDrawdownGet(requestParameters: AnalyticsApiApiV1AnalyticsDrawdownGetRequest, options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsDrawdownGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get factor exposures for a symbol
+     * @param {AnalyticsApiApiV1AnalyticsFactorsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsFactorsGet(requestParameters: AnalyticsApiApiV1AnalyticsFactorsGetRequest, options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsFactorsGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get VaR/CVaR metrics for a symbol
+     * @param {AnalyticsApiApiV1AnalyticsVarGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsVarGet(requestParameters: AnalyticsApiApiV1AnalyticsVarGetRequest, options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsVarGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get volatility metrics for a symbol
+     * @param {AnalyticsApiApiV1AnalyticsVolatilityGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsVolatilityGet(requestParameters: AnalyticsApiApiV1AnalyticsVolatilityGetRequest, options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsVolatilityGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * DataApi - axios parameter creator
  */
 export const DataApiAxiosParamCreator = function (configuration?: Configuration) {
@@ -4658,15 +5215,15 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * Proxies the request to the Data Pipeline service to fetch and ingest historical candles.
          * @summary Trigger a historical backfill
          * @param {string} id 
-         * @param {ApiV1DataSourcesIdBackfillPostRequest} apiV1DataSourcesIdBackfillPostRequest 
+         * @param {BackfillRequest} backfillRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1DataSourcesIdBackfillPost: async (id: string, apiV1DataSourcesIdBackfillPostRequest: ApiV1DataSourcesIdBackfillPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        apiV1DataSourcesIdBackfillPost: async (id: string, backfillRequest: BackfillRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'id' is not null or undefined
             assertParamExists('apiV1DataSourcesIdBackfillPost', 'id', id)
-            // verify required parameter 'apiV1DataSourcesIdBackfillPostRequest' is not null or undefined
-            assertParamExists('apiV1DataSourcesIdBackfillPost', 'apiV1DataSourcesIdBackfillPostRequest', apiV1DataSourcesIdBackfillPostRequest)
+            // verify required parameter 'backfillRequest' is not null or undefined
+            assertParamExists('apiV1DataSourcesIdBackfillPost', 'backfillRequest', backfillRequest)
             const localVarPath = `/api/v1/data-sources/{id}/backfill`
                 .replace(`{${"id"}}`, encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
@@ -4687,7 +5244,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(apiV1DataSourcesIdBackfillPostRequest, localVarRequestOptions, configuration)
+            localVarRequestOptions.data = serializeDataIfNeeded(backfillRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -5046,6 +5603,41 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(deploymentCreate, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Scans for missing candle data (gaps) for active symbols and timeframes.
+         * @summary Discover data gaps
+         * @param {number} [days] Number of days to look back for gaps
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DiscoveryGapsGet: async (days?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/discovery/gaps`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (days !== undefined) {
+                localVarQueryParameter['days'] = days;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -7364,12 +7956,12 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * Proxies the request to the Data Pipeline service to fetch and ingest historical candles.
          * @summary Trigger a historical backfill
          * @param {string} id 
-         * @param {ApiV1DataSourcesIdBackfillPostRequest} apiV1DataSourcesIdBackfillPostRequest 
+         * @param {BackfillRequest} backfillRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1DataSourcesIdBackfillPost(id: string, apiV1DataSourcesIdBackfillPostRequest: ApiV1DataSourcesIdBackfillPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1DataSourcesIdBackfillPost202Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataSourcesIdBackfillPost(id, apiV1DataSourcesIdBackfillPostRequest, options);
+        async apiV1DataSourcesIdBackfillPost(id: string, backfillRequest: BackfillRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1DataSourcesIdBackfillPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataSourcesIdBackfillPost(id, backfillRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1DataSourcesIdBackfillPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -7503,6 +8095,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DeploymentsPost(deploymentCreate, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1DeploymentsPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Scans for missing candle data (gaps) for active symbols and timeframes.
+         * @summary Discover data gaps
+         * @param {number} [days] Number of days to look back for gaps
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1DiscoveryGapsGet(days?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GapDiscoveryResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DiscoveryGapsGet(days, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1DiscoveryGapsGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -8503,7 +9108,7 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @throws {RequiredError}
          */
         apiV1DataSourcesIdBackfillPost(requestParameters: DefaultApiApiV1DataSourcesIdBackfillPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1DataSourcesIdBackfillPost202Response> {
-            return localVarFp.apiV1DataSourcesIdBackfillPost(requestParameters.id, requestParameters.apiV1DataSourcesIdBackfillPostRequest, options).then((request) => request(axios, basePath));
+            return localVarFp.apiV1DataSourcesIdBackfillPost(requestParameters.id, requestParameters.backfillRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -8603,6 +9208,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiV1DeploymentsPost(requestParameters: DefaultApiApiV1DeploymentsPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseDeployment> {
             return localVarFp.apiV1DeploymentsPost(requestParameters.deploymentCreate, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Scans for missing candle data (gaps) for active symbols and timeframes.
+         * @summary Discover data gaps
+         * @param {DefaultApiApiV1DiscoveryGapsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DiscoveryGapsGet(requestParameters: DefaultApiApiV1DiscoveryGapsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<GapDiscoveryResponse> {
+            return localVarFp.apiV1DiscoveryGapsGet(requestParameters.days, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -9354,7 +9969,7 @@ export interface DefaultApiApiV1DataOpenInterestUploadPostRequest {
 export interface DefaultApiApiV1DataSourcesIdBackfillPostRequest {
     readonly id: string
 
-    readonly apiV1DataSourcesIdBackfillPostRequest: ApiV1DataSourcesIdBackfillPostRequest
+    readonly backfillRequest: BackfillRequest
 }
 
 /**
@@ -9425,6 +10040,16 @@ export interface DefaultApiApiV1DeploymentsIdStopPostRequest {
  */
 export interface DefaultApiApiV1DeploymentsPostRequest {
     readonly deploymentCreate: DeploymentCreate
+}
+
+/**
+ * Request parameters for apiV1DiscoveryGapsGet operation in DefaultApi.
+ */
+export interface DefaultApiApiV1DiscoveryGapsGetRequest {
+    /**
+     * Number of days to look back for gaps
+     */
+    readonly days?: number
 }
 
 /**
@@ -10115,7 +10740,7 @@ export class DefaultApi extends BaseAPI {
      * @throws {RequiredError}
      */
     public apiV1DataSourcesIdBackfillPost(requestParameters: DefaultApiApiV1DataSourcesIdBackfillPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1DataSourcesIdBackfillPost(requestParameters.id, requestParameters.apiV1DataSourcesIdBackfillPostRequest, options).then((request) => request(this.axios, this.basePath));
+        return DefaultApiFp(this.configuration).apiV1DataSourcesIdBackfillPost(requestParameters.id, requestParameters.backfillRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -10225,6 +10850,17 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1DeploymentsPost(requestParameters: DefaultApiApiV1DeploymentsPostRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1DeploymentsPost(requestParameters.deploymentCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Scans for missing candle data (gaps) for active symbols and timeframes.
+     * @summary Discover data gaps
+     * @param {DefaultApiApiV1DiscoveryGapsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1DiscoveryGapsGet(requestParameters: DefaultApiApiV1DiscoveryGapsGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1DiscoveryGapsGet(requestParameters.days, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -11915,6 +12551,62 @@ export const ExternalApiAxiosParamCreator = function (configuration?: Configurat
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Low-latency WebSocket connection for executing trading commands. Supports: execute, cancel, close, amend, get_orders, get_trades, get_account  **Authentication:** HMAC-SHA256 via query parameters (same as REST) **URL:** wss://{host}/api/v1/external/ws/command 
+         * @summary WebSocket for High-Frequency Trading Commands
+         * @param {string} apiKey Partner API Key
+         * @param {string} signature HMAC-SHA256 signature
+         * @param {string} timestamp Unix timestamp for signature
+         * @param {string} [commands] Comma-separated commands to subscribe
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalWsCommandGet: async (apiKey: string, signature: string, timestamp: string, commands?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiKey' is not null or undefined
+            assertParamExists('apiV1ExternalWsCommandGet', 'apiKey', apiKey)
+            // verify required parameter 'signature' is not null or undefined
+            assertParamExists('apiV1ExternalWsCommandGet', 'signature', signature)
+            // verify required parameter 'timestamp' is not null or undefined
+            assertParamExists('apiV1ExternalWsCommandGet', 'timestamp', timestamp)
+            const localVarPath = `/api/v1/external/ws/command`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (apiKey !== undefined) {
+                localVarQueryParameter['api_key'] = apiKey;
+            }
+
+            if (signature !== undefined) {
+                localVarQueryParameter['signature'] = signature;
+            }
+
+            if (timestamp !== undefined) {
+                localVarQueryParameter['timestamp'] = timestamp;
+            }
+
+            if (commands !== undefined) {
+                localVarQueryParameter['commands'] = commands;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -11937,6 +12629,22 @@ export const ExternalApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ExternalApi.apiV1AiExternalSearchPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Low-latency WebSocket connection for executing trading commands. Supports: execute, cancel, close, amend, get_orders, get_trades, get_account  **Authentication:** HMAC-SHA256 via query parameters (same as REST) **URL:** wss://{host}/api/v1/external/ws/command 
+         * @summary WebSocket for High-Frequency Trading Commands
+         * @param {string} apiKey Partner API Key
+         * @param {string} signature HMAC-SHA256 signature
+         * @param {string} timestamp Unix timestamp for signature
+         * @param {string} [commands] Comma-separated commands to subscribe
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExternalWsCommandGet(apiKey: string, signature: string, timestamp: string, commands?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExternalWsCommandGet(apiKey, signature, timestamp, commands, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExternalApi.apiV1ExternalWsCommandGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -11956,6 +12664,16 @@ export const ExternalApiFactory = function (configuration?: Configuration, baseP
         apiV1AiExternalSearchPost(requestParameters: ExternalApiApiV1AiExternalSearchPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseLibraryResults> {
             return localVarFp.apiV1AiExternalSearchPost(requestParameters.externalSearchRequest, options).then((request) => request(axios, basePath));
         },
+        /**
+         * Low-latency WebSocket connection for executing trading commands. Supports: execute, cancel, close, amend, get_orders, get_trades, get_account  **Authentication:** HMAC-SHA256 via query parameters (same as REST) **URL:** wss://{host}/api/v1/external/ws/command 
+         * @summary WebSocket for High-Frequency Trading Commands
+         * @param {ExternalApiApiV1ExternalWsCommandGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalWsCommandGet(requestParameters: ExternalApiApiV1ExternalWsCommandGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1ExternalWsCommandGet(requestParameters.apiKey, requestParameters.signature, requestParameters.timestamp, requestParameters.commands, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -11964,6 +12682,31 @@ export const ExternalApiFactory = function (configuration?: Configuration, baseP
  */
 export interface ExternalApiApiV1AiExternalSearchPostRequest {
     readonly externalSearchRequest?: ExternalSearchRequest
+}
+
+/**
+ * Request parameters for apiV1ExternalWsCommandGet operation in ExternalApi.
+ */
+export interface ExternalApiApiV1ExternalWsCommandGetRequest {
+    /**
+     * Partner API Key
+     */
+    readonly apiKey: string
+
+    /**
+     * HMAC-SHA256 signature
+     */
+    readonly signature: string
+
+    /**
+     * Unix timestamp for signature
+     */
+    readonly timestamp: string
+
+    /**
+     * Comma-separated commands to subscribe
+     */
+    readonly commands?: string
 }
 
 /**
@@ -11979,6 +12722,17 @@ export class ExternalApi extends BaseAPI {
      */
     public apiV1AiExternalSearchPost(requestParameters: ExternalApiApiV1AiExternalSearchPostRequest = {}, options?: RawAxiosRequestConfig) {
         return ExternalApiFp(this.configuration).apiV1AiExternalSearchPost(requestParameters.externalSearchRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Low-latency WebSocket connection for executing trading commands. Supports: execute, cancel, close, amend, get_orders, get_trades, get_account  **Authentication:** HMAC-SHA256 via query parameters (same as REST) **URL:** wss://{host}/api/v1/external/ws/command 
+     * @summary WebSocket for High-Frequency Trading Commands
+     * @param {ExternalApiApiV1ExternalWsCommandGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExternalWsCommandGet(requestParameters: ExternalApiApiV1ExternalWsCommandGetRequest, options?: RawAxiosRequestConfig) {
+        return ExternalApiFp(this.configuration).apiV1ExternalWsCommandGet(requestParameters.apiKey, requestParameters.signature, requestParameters.timestamp, requestParameters.commands, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -12162,6 +12916,176 @@ export class FoundryApi extends BaseAPI {
      */
     public foundryValidate(requestParameters: FoundryApiFoundryValidateRequest = {}, options?: RawAxiosRequestConfig) {
         return FoundryApiFp(this.configuration).foundryValidate(requestParameters.walkForwardRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * OrchestrationApi - axios parameter creator
+ */
+export const OrchestrationApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Fetch latest agent orchestration logs
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationLogsGet: async (limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/orchestration/logs`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get autonomous pipeline status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationPipelineStatusGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/orchestration/pipeline/status`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * OrchestrationApi - functional programming interface
+ */
+export const OrchestrationApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = OrchestrationApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Fetch latest agent orchestration logs
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1OrchestrationLogsGet(limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseOrchestrationLogs>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1OrchestrationLogsGet(limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrchestrationApi.apiV1OrchestrationLogsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get autonomous pipeline status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1OrchestrationPipelineStatusGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponsePipelineStatus>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1OrchestrationPipelineStatusGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrchestrationApi.apiV1OrchestrationPipelineStatusGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * OrchestrationApi - factory interface
+ */
+export const OrchestrationApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = OrchestrationApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Fetch latest agent orchestration logs
+         * @param {OrchestrationApiApiV1OrchestrationLogsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationLogsGet(requestParameters: OrchestrationApiApiV1OrchestrationLogsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseOrchestrationLogs> {
+            return localVarFp.apiV1OrchestrationLogsGet(requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get autonomous pipeline status
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationPipelineStatusGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponsePipelineStatus> {
+            return localVarFp.apiV1OrchestrationPipelineStatusGet(options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1OrchestrationLogsGet operation in OrchestrationApi.
+ */
+export interface OrchestrationApiApiV1OrchestrationLogsGetRequest {
+    readonly limit?: number
+}
+
+/**
+ * OrchestrationApi - object-oriented interface
+ */
+export class OrchestrationApi extends BaseAPI {
+    /**
+     * 
+     * @summary Fetch latest agent orchestration logs
+     * @param {OrchestrationApiApiV1OrchestrationLogsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1OrchestrationLogsGet(requestParameters: OrchestrationApiApiV1OrchestrationLogsGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return OrchestrationApiFp(this.configuration).apiV1OrchestrationLogsGet(requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get autonomous pipeline status
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1OrchestrationPipelineStatusGet(options?: RawAxiosRequestConfig) {
+        return OrchestrationApiFp(this.configuration).apiV1OrchestrationPipelineStatusGet(options).then((request) => request(this.axios, this.basePath));
     }
 }
 

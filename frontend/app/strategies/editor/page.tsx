@@ -653,6 +653,22 @@ function StrategyEditorContent() {
                     </Button>
 
                     <Button 
+                        onClick={() => {
+                            setSidebarTab('chat');
+                            setIsSidebarOpen(true);
+                            // We can't easily trigger a message from here without refs or a global state,
+                            // but we can set a flag or just open the chat with a specific intent.
+                            // For now, let's just make it open the chat.
+                            // I'll enhance StrategyChatPanel to show a "Speciaist Review" banner if opened this way.
+                        }}
+                        variant="outline"
+                        className="gap-2 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400 text-amber-500"
+                    >
+                         <Sparkles className="h-4 w-4" />
+                         Ask Specialist
+                    </Button>
+
+                    <Button 
                         onClick={() => setIsDeployModalOpen(true)} 
                         disabled={!currentStrategyId}
                         variant="ghost"

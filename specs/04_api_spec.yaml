@@ -794,6 +794,36 @@ paths:
         '503':
            description: Agent Unavailable
 
+  /api/v1/orchestration/logs:
+    get:
+      summary: Fetch latest agent orchestration logs
+      tags: [Orchestration]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_OrchestrationLogs'
+
+  /api/v1/orchestration/pipeline/status:
+    get:
+      summary: Get autonomous pipeline status
+      tags: [Orchestration]
+      responses:
+        '200':
+          description: Pipeline status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_PipelineStatus'
+
   /api/v1/ai/ingest/upload:
     post:
       summary: Upload context file
@@ -5936,6 +5966,49 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GapInfo'
+
+    APIResponse_OrchestrationLogs:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  type:
+                    type: string
+                  source_agent:
+                    type: string
+                  target_agent:
+                    type: string
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+    APIResponse_PipelineStatus:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                   status:
+                     type: string
+                   last_run:
+                     type: string
+                   monitored_symbol:
+                     type: string
+                   current_reference_score:
+                     type: number
 
 
 

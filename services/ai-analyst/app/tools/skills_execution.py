@@ -1,11 +1,11 @@
 import logging
 from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel, Field
-from langchain_core.tools import BaseTool
 from app.core.globals import services
 from langgraph.prebuilt import create_react_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.core.config import settings
+from app.core.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,9 @@ class ExecuteSkillTool(BaseTool):
         "specific task for that skill."
     )
     args_schema: Type[BaseModel] = SkillExecutionInput
+    is_heavy: bool = True
 
-    def _run(self, skill_name: str, task: str) -> str:
-        import asyncio
-        return asyncio.run(self._arun(skill_name, task))
-
-    async def _arun(self, skill_name: str, task: str, **kwargs) -> str:
+    async def run_tool(self, skill_name: str, task: str, **kwargs) -> str:
         skill_service = services.get("skill")
         if not skill_service:
             return "Error: Skill service not available."
@@ -44,6 +41,9 @@ class ExecuteSkillTool(BaseTool):
             all_tool_names = list(registry._tools.keys())
             all_tools = resolve_tools(all_tool_names)
             
+            # Extract auth_token if present in kwargs to pass down to sub-agent tools
+            auth_token = kwargs.get("auth_token") or kwargs.get("config", {}).get("configurable", {}).get("auth_token")
+
             llm = ChatGoogleGenerativeAI(
                 model="gemini-2.0-flash", # Use flash for sub-tasks for speed
                 google_api_key=settings.GOOGLE_API_KEY,
@@ -64,8 +64,10 @@ class ExecuteSkillTool(BaseTool):
             sub_agent = create_react_agent(llm, all_tools, prompt=full_prompt)
             
             # 3. Execute
+            # Inject auth_token into configurable context for sub-agent
+            config = {"configurable": {"auth_token": auth_token}} if auth_token else {}
             inputs = {"messages": [("user", task)]}
-            result = await sub_agent.ainvoke(inputs)
+            result = await sub_agent.ainvoke(inputs, config=config)
             
             # 4. Format result
             content = result["messages"][-1].content

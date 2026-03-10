@@ -385,6 +385,9 @@ class PythonSandboxTool(BaseTool):
             sys.stdout = sys.__stdout__ # Restore stdout
 
 
+from app.tools.handoff import ConsultSpecialistTool
+
+
 class ToolRegistry:
     def __init__(self, rag_service: RAGService):
         self.rag = rag_service
@@ -421,7 +424,8 @@ class ToolRegistry:
             "generate_trading_plan": TradingPlanTool(),
             "search_quant_library": SearchQuantLibraryTool(rag_service=rag_service),
             "list_library_books": ListLibraryBooksTool(),
-            "execute_skill": ExecuteSkillTool()
+            "execute_skill": ExecuteSkillTool(),
+            "consult_specialist": ConsultSpecialistTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

@@ -27,6 +27,8 @@ docs/APIResponseDataSource.md
 docs/APIResponseDataSourceList.md
 docs/APIResponseDeployment.md
 docs/APIResponseDeploymentList.md
+docs/APIResponseDrawdownMetrics.md
+docs/APIResponseFactorExposures.md
 docs/APIResponseFoundryAssembleResponse.md
 docs/APIResponseFoundryValidateResponse.md
 docs/APIResponseFoundryValidateResponseData.md
@@ -40,6 +42,10 @@ docs/APIResponseLibraryResults.md
 docs/APIResponseLibraryStatus.md
 docs/APIResponseLibraryStatusAllOfData.md
 docs/APIResponseOpenInterestAnalytics.md
+docs/APIResponseOrchestrationLogs.md
+docs/APIResponseOrchestrationLogsAllOfData.md
+docs/APIResponsePipelineStatus.md
+docs/APIResponsePipelineStatusAllOfData.md
 docs/APIResponseRiskCheckResponse.md
 docs/APIResponseSignalList.md
 docs/APIResponseSignalResponse.md
@@ -54,6 +60,8 @@ docs/APIResponseTransactionResponse.md
 docs/APIResponseUnifiedOIProfile.md
 docs/APIResponseUserPreferencesResponse.md
 docs/APIResponseUserResponse.md
+docs/APIResponseVaRMetrics.md
+docs/APIResponseVolatilityMetrics.md
 docs/APIResponseWalkForwardResponse.md
 docs/AdxRequest.md
 docs/AdxResponse.md
@@ -66,6 +74,7 @@ docs/AnalysisDistribution.md
 docs/AnalysisDriftPost200Response.md
 docs/AnalysisResponse.md
 docs/AnalysisSummary.md
+docs/AnalyticsApi.md
 docs/ApiV1AiAgentObserverRunPost200Response.md
 docs/ApiV1AiAgentObserverRunPost200ResponseData.md
 docs/ApiV1AiAgentObserverRunPostRequest.md
@@ -75,7 +84,6 @@ docs/ApiV1DataIngestManualPost202Response.md
 docs/ApiV1DataOpenInterestSnapshotsGet200ResponseInner.md
 docs/ApiV1DataOpenInterestUploadPost201Response.md
 docs/ApiV1DataSourcesIdBackfillPost202Response.md
-docs/ApiV1DataSourcesIdBackfillPostRequest.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
 docs/ApiV1ExecutionOrdersGet200Response.md
@@ -99,6 +107,7 @@ docs/ApiV1TelegramSendPost200Response.md
 docs/ApiV1TelegramWebhookPost200Response.md
 docs/AtrRequest.md
 docs/AuthTokens.md
+docs/BackfillRequest.md
 docs/BacktestMetrics.md
 docs/BacktestRequest.md
 docs/BacktestResponse.md
@@ -123,6 +132,7 @@ docs/DataSourceUpdate.md
 docs/DefaultApi.md
 docs/Deployment.md
 docs/DeploymentCreate.md
+docs/DrawdownMetrics.md
 docs/DriftAnalysis.md
 docs/EmaRequest.md
 docs/ErrorCode.md
@@ -130,6 +140,7 @@ docs/ErrorDetail.md
 docs/ExecutionApi.md
 docs/ExternalApi.md
 docs/ExternalSearchRequest.md
+docs/FactorExposures.md
 docs/FoundryApi.md
 docs/FoundryAssembleRequest.md
 docs/FoundryAssembleResponse.md
@@ -137,6 +148,8 @@ docs/FoundryValidateRequest.md
 docs/Fund.md
 docs/FundCreate.md
 docs/FundUpdate.md
+docs/GapDiscoveryResponse.md
+docs/GapInfo.md
 docs/IndicatorResponse.md
 docs/JournalAnalysisRequest.md
 docs/JournalEntryCreate.md
@@ -163,6 +176,7 @@ docs/MonteCarloResponse.md
 docs/OpenInterestAnalysisResponse.md
 docs/OpenInterestCommon.md
 docs/OpportunityLog.md
+docs/OrchestrationApi.md
 docs/OrderResponse.md
 docs/PaginatedResponseFund.md
 docs/PaginatedResponseJournalEntryResponse.md
@@ -222,6 +236,8 @@ docs/UpdatePreferencesDto.md
 docs/UserCreate.md
 docs/UserPreferencesResponse.md
 docs/UserResponse.md
+docs/VaRMetrics.md
+docs/VolatilityMetrics.md
 docs/WalkForwardRequest.md
 docs/WalkForwardResponse.md
 git_push.sh

@@ -43,10 +43,17 @@ class UniversalAgent:
         # 4. Build Graph
         # Enhanced System Role for Planning (Protocol Approval v2.6)
         planning_prefix = (
-            "You are an adaptive system agent. Before executing complex tasks using shell or python: "
+            "You are an adaptive system agent and a primary node in the MTF Olympus 'Market Brain'. "
+            "Your goal is to provide institutional-grade analysis and execution guidance. "
+            "Before executing complex tasks using shell or python: "
             "1. FORMULATE a step-by-step plan. "
             "2. EXECUTE tools one by one. "
             "3. ADAPT your plan if tool outputs differ from expectations. "
+            "\n\n### MULTI-AGENT ORCHESTRATION PROTOCOL ###\n"
+            "If a request requires deep specialization beyond your current tools, use the 'consult_specialist' tool: \n"
+            "- Consult 'market_observer' for broad trend context or economic drivers. \n"
+            "- Consult 'strategy_advisor' for complex risk-management, code generation, or backtest deep-dives. \n"
+            "Always include relevant technical data in the 'context' field of the consultation request to minimize redundant lookups. \n"
             "\n\nBase Role:\n"
         )
         full_role = planning_prefix + self.role

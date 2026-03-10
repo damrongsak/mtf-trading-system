@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **price** | **number** |  | [optional] [default to undefined]
 **stop_loss** | **number** |  | [optional] [default to undefined]
 **take_profit** | **number** |  | [optional] [default to undefined]
+**trailing_stop** | **boolean** | Enable/Disable trailing stop loss | [optional] [default to undefined]
 
 ## Example
 
@@ -22,6 +23,7 @@ const instance: ApiV1ExecutionOrdersOrderIdPutRequest = {
     price,
     stop_loss,
     take_profit,
+    trailing_stop,
 };
 ```
 

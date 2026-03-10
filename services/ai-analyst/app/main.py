@@ -16,7 +16,7 @@ from app.agents.episodic_memory import EpisodicMemoryAgent
 from app.agents.post_mortem import PostMortemAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
-from app.routers import ingest, agents, admin, external
+from app.routers import ingest, agents, admin, external, orchestration
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
 from langgraph.checkpoint.redis import RedisSaver
@@ -67,7 +67,16 @@ async def lifespan(app: FastAPI):
     for key in services.keys():
         services[key] = None
 
-    # 1. Bootstrap Tools
+    # 1. Boostrap Redis (for Task State and Audit Logs)
+    try:
+        from redis.asyncio import Redis
+        redis_bus = Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"), decode_responses=True)
+        services["redis"] = redis_bus
+        logger.info("✅ Redis Message Bus Initialized")
+    except Exception as e:
+        logger.error(f"❌ Redis Initialization Failed: {e}")
+
+    # 1b. Bootstrap Tools
     try:
         bootstrap_tools()
         logger.info("✅ Tools Bootstrapped")
@@ -172,11 +181,12 @@ async def lifespan(app: FastAPI):
             scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'], misfire_grace_time=3600)
             scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'], misfire_grace_time=3600)
             
-            # Gold Sentiment Analysis (Every 15 minutes)
-            from app.core.scheduler_tasks import update_gold_sentiment
-            scheduler.add_job(update_gold_sentiment, 'interval', minutes=60, misfire_grace_time=600)
-            # Run once on startup IF cache is missing/stale handled inside get_sentiment via SentimentService
-            scheduler.add_job(update_gold_sentiment, 'date', run_date=datetime.now(), misfire_grace_time=60)
+            # Gold Sentiment Analysis (Every 60 minutes)
+            # Replaced with Sentiment-to-Risk Autonomous Pipeline
+            from app.core.scheduler_tasks import check_sentiment_risk_drift
+            scheduler.add_job(check_sentiment_risk_drift, 'interval', minutes=60, misfire_grace_time=600)
+            # Run once on startup to initialize previous_score and detect immediate drift
+            scheduler.add_job(check_sentiment_risk_drift, 'date', run_date=datetime.now(), misfire_grace_time=60)
             
             # Predictor Stability Check (Every 15 minutes)
             scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=60, misfire_grace_time=300)
@@ -234,6 +244,7 @@ app.include_router(agents.router, prefix="/api/v1/ai", tags=["Agents"])
 app.include_router(admin.router, prefix="/api/v1/ai/admin", tags=["Admin"])
 app.include_router(external.router, prefix="/api/v1/ai/external", tags=["External"])
 app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"]) 
+app.include_router(orchestration.router, prefix="/api/v1", tags=["Orchestration"])
 
 
 @app.get("/health")

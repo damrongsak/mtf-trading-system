@@ -19,6 +19,7 @@ interface StrategyChatPanelProps {
 }
 
 const SUGGESTIONS = [
+    { label: "Specialist Review", prompt: "I need a formal specialist review of this code. Please check for edge cases, performance bottlenecks, and SME alignment. Then verify with a backtest.", icon: Sparkles },
     { label: "Analyze Code", prompt: "Analyze this strategy code and identify potential risks.", icon: Code2 },
     { label: "Optimize Parameters", prompt: "Suggest optimal parameter ranges for backtesting.", icon: Zap },
     { label: "Explain Strategy", prompt: "Explain the logic of this strategy in plain English.", icon: Sparkles },

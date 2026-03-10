@@ -3,8 +3,8 @@ import trafilatura
 from bs4 import BeautifulSoup
 import logging
 from typing import Any, Optional, Type
-from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
+from app.core.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,9 @@ class WebReaderTool(BaseTool):
         "Uses local open-source tools (trafilatura/bs4) for extraction."
     )
     args_schema: Type[BaseModel] = WebReaderInput
+    is_heavy: bool = True
 
-    def _run(self, url: str) -> str:
-        import asyncio
-        return asyncio.run(self._arun(url))
-
-    async def _arun(self, url: str) -> str:
+    async def run_tool(self, url: str) -> str:
         """Fetch and extract webpage content."""
         if not url.startswith("http"):
             url = f"https://{url}"

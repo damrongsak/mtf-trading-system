@@ -119,3 +119,19 @@ class SkillService:
         logger.info(f"Saved skill '{name}' to disk and initialized directory skeleton.")
         
         return str(skill_file)
+
+    async def delete_skill(self, name: str) -> bool:
+        """Delete a skill and its directory skeleton from disk."""
+        skill_dir = self.base_dir / name
+        if not skill_dir.exists() or not skill_dir.is_dir():
+            return False
+            
+        try:
+            import shutil
+            shutil.rmtree(skill_dir)
+            self._cache = [] # Invalidate cache
+            logger.info(f"Deleted skill '{name}' from disk.")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting skill {name}: {e}")
+            return False

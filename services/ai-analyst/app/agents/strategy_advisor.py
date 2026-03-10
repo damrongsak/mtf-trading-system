@@ -1341,10 +1341,36 @@ class StrategyAdvisorAgent:
         query = state["optimized_query"]
         response = state["final_response"]
         iteration = state.get("iteration_count", 0)
+        intent = state.get("intent", "CHAT")
 
         if iteration >= 3:
             logger.warning(f"⚠️ Hard Safety Cap reached (Iteration {iteration}). Forcing satisfactory=True.")
             return {"is_satisfactory": True, "iteration_count": iteration + 1}
+
+        # --- Phase 4: Strategy Design Backtest Loop ---
+        # If the user is asking to design or modify a strategy, we enforce a backtest check.
+        # This only triggers on the first iteration to allow the tool loop to execute.
+        if intent == "STRATEGY_DESIGN" and iteration == 1:
+            # Check if backtest results are in the scratchpad (via backtest_runner tool)
+            has_backtest = any("Backtest Results" in str(s) for s in state.get("scratchpad", [])) or "Backtest Results" in response
+            
+            # Identify if code or strategy parameters are being proposed
+            import re
+            has_code = bool(re.search(r"```python|class \w+\(Strategy\)|def next\(", response))
+            
+            if has_code and not has_backtest:
+                logger.info("🛡️ Backtest Loop Enforcement: Strategy change detected without verification. Forcing refinement via backtest_runner.")
+                return {
+                    "is_satisfactory": False,
+                    "evaluation_feedback": (
+                        "You have proposed a strategy modification or new trading logic. "
+                        "You MUST now run a 30-day backtest simulation (backtest_runner tool) "
+                        "on 'XAUUSD' with the proposed parameters to verify performance. "
+                        "Include the Sharpe Ratio and PnL metrics in your final recommendation."
+                    ),
+                    "iteration_count": iteration + 1
+                }
+        # ---------------------------------------------
 
         logger.info(f"Evaluating Response (Iteration {iteration})...")
 
