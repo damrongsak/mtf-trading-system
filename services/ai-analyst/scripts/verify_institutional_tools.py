@@ -30,7 +30,7 @@ async def test_tools():
         try:
             # We skip auth_token for local testing if services are up and don't require it
             # or if they handle missing auth gracefully
-            result = await tool.run(input_data={"symbol": "XAUUSD"})
+            result = await tool.arun(input_data={"symbol": "XAUUSD"})
             print(result)
         except Exception as e:
             print(f"❌ Error running {tool_name}: {e}")

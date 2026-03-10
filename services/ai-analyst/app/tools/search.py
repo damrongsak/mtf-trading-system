@@ -22,7 +22,16 @@ class GoogleSearchTool(BaseTool):
     args_schema: Type[BaseModel] = GoogleSearchInput
     is_heavy: bool = True
 
-    async def run_tool(self, query: str, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        query = ""
+        if hasattr(input_data, "dict"):
+            input_data = input_data.dict()
+            
+        if isinstance(input_data, dict):
+            query = input_data.get("query", "")
+        elif isinstance(input_data, str):
+            query = input_data
+
         # Extract auth_token from kwargs
         auth_token = kwargs.get("auth_token")
         
@@ -65,12 +74,21 @@ class GoogleSearchTool(BaseTool):
                 async with session.get(api_url, params=params, headers=headers) as resp:
                     if resp.status == 200:
                         raw_data = await resp.json()
-                        news_items = raw_data.get("data", [])
-                        if news_items:
+                        # Handle both {"data": [...]} and [...] formats
+                        news_items = raw_data.get("data", []) if isinstance(raw_data, dict) else raw_data
+                        
+                        if news_items and isinstance(news_items, list):
                             results = [f"--- Internal News Feed for {symbol_to_check} ---"]
                             for item in news_items[:5]:
-                                results.append(f"News: {item.get('title')}\nSource: {item.get('source')} ({item.get('published_at')})\n")
-                            return "\n".join(results)
+                                if isinstance(item, dict) and item.get("title"):
+                                    title = item.get("title")
+                                    source = item.get("source", "Unknown Source")
+                                    date = item.get("published_at", "Unknown Date")
+                                    results.append(f"News: {title}\nSource: {source} ({date})\n")
+                            
+                            if len(results) > 1:
+                                return "\n".join(results)
+                            return f"No valid news articles found for '{symbol_to_check}'."
                     else:
                         logger.warning(f"Internal News API returned {resp.status}")
         except Exception as e:

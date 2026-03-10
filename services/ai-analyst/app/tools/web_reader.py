@@ -21,8 +21,20 @@ class WebReaderTool(BaseTool):
     args_schema: Type[BaseModel] = WebReaderInput
     is_heavy: bool = True
 
-    async def run_tool(self, url: str) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
         """Fetch and extract webpage content."""
+        url = ""
+        if hasattr(input_data, "dict"):
+            input_data = input_data.dict()
+            
+        if isinstance(input_data, dict):
+            url = input_data.get("url", "")
+        elif isinstance(input_data, str):
+            url = input_data
+            
+        if not url:
+            return "Error: URL not provided."
+
         if not url.startswith("http"):
             url = f"https://{url}"
 

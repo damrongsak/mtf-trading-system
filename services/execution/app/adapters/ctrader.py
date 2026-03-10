@@ -12,9 +12,6 @@ from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
 
 logger = logging.getLogger(__name__)
 
-from app.database import AsyncSessionLocal
-from app.models import MarketSymbol, DataSource
-from sqlalchemy import select, or_
 import asyncio  # for asyncio.create_task in fire-and-forget publish
 
 class RiskValidationError(Exception):

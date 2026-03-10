@@ -22,7 +22,19 @@ class ConsultSpecialistTool(BaseTool):
     args_schema: Type[BaseModel] = SpecialistConsultationInput
     is_heavy: bool = True # Agent-to-agent consultation is a heavy operation
 
-    async def run_tool(self, agent_id: str, query: str, context: Optional[str] = None, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        agent_id = ""
+        query = ""
+        context = None
+        
+        if hasattr(input_data, "dict"):
+            input_data = input_data.dict()
+            
+        if isinstance(input_data, dict):
+            agent_id = input_data.get("agent_id", "")
+            query = input_data.get("query", "")
+            context = input_data.get("context")
+            
         # 1. Robust Context Extraction
         # We try to extract auth_token and user_id from:
         # a) Direct kwargs (passed during manual call)

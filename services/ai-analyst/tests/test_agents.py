@@ -1,6 +1,7 @@
 import sys
 import os
 from unittest.mock import MagicMock
+from fastapi.testclient import TestClient
 sys.modules["app.services.gemini_client"] = MagicMock()
 sys.modules["app.services.rag_service"] = MagicMock()
 

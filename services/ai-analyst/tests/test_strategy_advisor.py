@@ -25,15 +25,20 @@ async def test_strategy_advisor_run():
     advisor = StrategyAdvisorAgent(mock_rag, mock_gemini)
     
     state: AgentState = {
+        "input_text": "Create a strategy",
         "messages": [HumanMessage(content="Create a strategy")],
         "user_id": "test",
         "user_config": {},
         "context": {},
-        "scratchpad": []
+        "scratchpad": [],
+        "iteration_count": 0,
+        "tool_loop_count": 0,
+        "evaluation_feedback": "",
+        "is_satisfactory": False
     }
     
     # Run
-    new_state = await advisor.run(state)
+    new_state = await advisor.graph.ainvoke(state)
     
     # Verify Flow
     mock_rag.search_documentation.assert_called_once()
@@ -57,16 +62,21 @@ async def test_strategy_advisor_multimodal_file():
     advisor = StrategyAdvisorAgent(mock_rag, mock_gemini)
     
     state: AgentState = {
+        "input_text": "Analyze this chart",
         "messages": [HumanMessage(content="Analyze this chart")],
         "user_id": "test",
         "user_config": {},
         "context": {
             "file_context": {"type": "base64", "data": "ABCD", "mime_type": "image/png"}
         },
-        "scratchpad": []
+        "scratchpad": [],
+        "iteration_count": 0,
+        "tool_loop_count": 0,
+        "evaluation_feedback": "",
+        "is_satisfactory": False
     }
     
-    await advisor.run(state)
+    await advisor.graph.ainvoke(state)
     
     # Verify image data passed to prompt
     call_args = mock_client.aio.models.generate_content.call_args_list[0]

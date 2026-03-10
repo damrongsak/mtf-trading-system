@@ -23,8 +23,19 @@ class ExecuteSkillTool(BaseTool):
     args_schema: Type[BaseModel] = SkillExecutionInput
     is_heavy: bool = True
 
-    async def run_tool(self, skill_name: str, task: str, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        skill_name = ""
+        task = ""
+        
+        if hasattr(input_data, "dict"):
+            input_data = input_data.dict()
+            
+        if isinstance(input_data, dict):
+            skill_name = input_data.get("skill_name", "")
+            task = input_data.get("task", "")
+            
         skill_service = services.get("skill")
+        logger.info(f"Executing skill '{skill_name}' for task: {task[:50]}...")
         if not skill_service:
             return "Error: Skill service not available."
 

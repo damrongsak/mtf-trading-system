@@ -93,51 +93,107 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ Equity Guardian Init Failed: {e}")
     
-    # [HFT-lite] Pre-hydrate L3 Symbol Cache for all CTRADER accounts (READ-ONLY, non-destructive)
-    # This eliminates the cold-start latency on the first live trade command.
+    # [HFT-lite] Pre-hydrate L3 Execution Cache for all active accounts
+    # This eliminates the cold-start latency (DB I/O) on the first live trade command.
     # It runs in a background task so it does not block service readiness.
-    asyncio.create_task(_warmup_symbol_cache())
+    asyncio.create_task(_warmup_execution_cache())
 
-async def _warmup_symbol_cache():
+async def _warmup_execution_cache():
     """
-    [SAFETY] Read-only warm-up of the L3 Symbol/Contract ID cache.
-    This queries the database for cTrader symbol metadata and pre-populates
-    the adapter's in-memory cache. It does NOT connect to any live broker
-    and does NOT execute any trades. It is safe to run at startup.
+    [HFT-lite] Deep Warm-up of the Execution Cache.
+    Pre-populates Redis and L1 (memory) with:
+    1. Active Broker Accounts & Credentials
+    2. Associated Funds
+    3. Mandatory Risk Filters
+    4. cTrader Symbol/Contract ID mappings
     """
     try:
         from app.database import AsyncSessionLocal
-        from app.models import BrokerAccount
-        from sqlalchemy import select
+        from app.models import BrokerAccount, Fund, RiskFilter, TargetType
+        from sqlalchemy import select, or_
         from app.adapters.factory import BrokerFactory
         from app.utils.crypto import decrypt_data
+        from app.services.cache_service import execution_cache
+        import uuid
         
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(BrokerAccount).where(
-                    BrokerAccount.is_active == True,
-                    BrokerAccount.broker_name == "CTRADER"
-                )
-            )
+            # 1. Fetch all active accounts
+            result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active == True))
             accounts = result.scalars().all()
-        
-        if not accounts:
-            logger.info("[HFT-lite] No active cTrader accounts found for cache warm-up.")
-            return
-        
-        # Use credentials from the first account to populate the shared symbol table
-        # (Symbol metadata is not account-specific, so one account is sufficient)
-        account = accounts[0]
-        try:
-            credentials = decrypt_data(account.credentials_encrypted)
-            credentials["environment"] = account.environment
-            adapter = BrokerFactory.get_adapter("CTRADER", credentials)
-            await adapter._populate_symbol_cache()
-            logger.info(f"[HFT-lite] ✅ L3 Symbol Cache warm-up complete for {len(accounts)} cTrader account(s).")
-        except Exception as e:
-            logger.warning(f"[HFT-lite] ⚠️ Symbol Cache warm-up failed (non-fatal): {e}")
+            
+            if not accounts:
+                logger.info("[HFT-lite] No active accounts found for cache warm-up.")
+                return
+
+            logger.info(f"[HFT-lite] Warming up cache for {len(accounts)} active accounts...")
+            
+            warmed_funds = set()
+            ctrader_hydrated = False
+
+            for account in accounts:
+                acc_id = str(account.id)
+                # Cache Account
+                await execution_cache.set_account(acc_id, {
+                    "id": acc_id,
+                    "is_active": account.is_active,
+                    "broker_name": account.broker_name,
+                    "credentials_encrypted": account.credentials_encrypted,
+                    "environment": account.environment,
+                    "fund_id": str(account.fund_id) if account.fund_id else None,
+                    "risk_settings": account.risk_settings,
+                    "account_number": account.account_number
+                })
+                
+                # Cache Credentials (L1 only)
+                try:
+                    creds = decrypt_data(account.credentials_encrypted)
+                    creds["environment"] = account.environment
+                    execution_cache.set_credentials(acc_id, creds)
+                except Exception as ce:
+                    logger.warning(f"[HFT-lite] Failed to decrypt credentials for {account.broker_name}:{acc_id}: {ce}")
+                    continue
+
+                # Cache Fund
+                if account.fund_id and str(account.fund_id) not in warmed_funds:
+                    fund_res = await db.execute(select(Fund).where(Fund.id == account.fund_id))
+                    fund = fund_res.scalars().first()
+                    if fund:
+                        fund_id = str(fund.id)
+                        await execution_cache.set_fund(fund_id, {
+                            "id": fund_id,
+                            "max_risk_per_trade": float(fund.max_risk_per_trade),
+                            "risk_percentage": float(fund.risk_percentage) if fund.risk_percentage else 0
+                        })
+                        
+                        # Cache Risk Filters for this Fund
+                        conditions = [
+                            RiskFilter.target_type == TargetType.SYSTEM.value,
+                            RiskFilter.target_type == TargetType.FUND.value,
+                            RiskFilter.target_id == fund.id
+                        ]
+                        filter_res = await db.execute(
+                            select(RiskFilter).where(RiskFilter.is_enabled == True).where(or_(*conditions))
+                        )
+                        filters = filter_res.scalars().all()
+                        filters_raw = [
+                            {"filter_type": f.filter_type, "config_json": f.threshold_parameters, "is_enabled": f.is_enabled} 
+                            for f in filters
+                        ]
+                        await execution_cache.set_risk_filters(fund_id, filters_raw)
+                        warmed_funds.add(fund_id)
+
+                # Special: cTrader Symbol Cache (once per provider)
+                if account.broker_name == "CTRADER" and not ctrader_hydrated:
+                    try:
+                        adapter = BrokerFactory.get_adapter("CTRADER", creds)
+                        await adapter._populate_symbol_cache()
+                        ctrader_hydrated = True
+                    except Exception as e:
+                        logger.warning(f"[HFT-lite] cTrader symbol hydration failed: {e}")
+
+        logger.info(f"[HFT-lite] ✅ Execution Cache deep warm-up complete.")
     except Exception as e:
-        logger.warning(f"[HFT-lite] ⚠️ Symbol Cache warm-up task failed (non-fatal): {e}")
+        logger.error(f"[HFT-lite] ❌ Execution Cache warm-up failed: {e}", exc_info=True)
 
 @app.on_event("shutdown")
 async def shutdown_event():

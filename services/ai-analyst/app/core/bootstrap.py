@@ -107,7 +107,7 @@ async def run_diagnostics(auth_token: str = None) -> list:
                 res = await tool.ainvoke(exec_input)
             elif hasattr(tool, "run"):
                 try:
-                    res = await tool.run(test_input, auth_token=auth_token)
+                    res = await tool.arun(test_input, auth_token=auth_token)
                 except NotImplementedError:
                     # Fallback for LangChain tools that have a 'run' that raises this
                     if hasattr(tool, "_arun"):

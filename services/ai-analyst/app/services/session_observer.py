@@ -24,7 +24,7 @@ class SessionObserver:
         try:
             # Run the drift analysis tool
             # Note: run() handles snapshot retrieval automatically
-            report = await self.drift_tool.run()
+            report = await self.drift_tool.arun()
             
             # Log the full report
             logger.info(f"📊 {session_name} SESSION DRIFT REPORT:\n{report}")

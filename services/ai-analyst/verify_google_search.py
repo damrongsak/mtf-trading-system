@@ -16,7 +16,7 @@ async def main():
     
     print(f"\n--- Testing GoogleSearchTool with query: '{query}' ---")
     try:
-        result = await tool.run(query)
+        result = await tool.arun(query)
         print("\n--- Result ---")
         print(result)
         print("--------------")

@@ -144,12 +144,15 @@ async def check_sentiment_risk_drift():
                 )
                 
                 # We use a system-level user context for autonomous tasks
-                # Note: In production, this would use a valid service JWT
+                # Wrap positional argument correctly for BaseTool.arun
+                tool_input = {
+                    "agent_id": "strategy_advisor",
+                    "query": query,
+                    "context": f"Sentiment Data: {json.dumps(current_data)}"
+                }
+                
                 result = await consult_tool.arun(
-                    agent_id="strategy_advisor",
-                    query=query,
-                    context=f"Sentiment Data: {json.dumps(current_data)}",
-                    user_id="AUTONOMOUS_WORKFLOW_SYSTEM",
+                    tool_input,
                     auth_token="SYSTEM_SERVICE_TOKEN" # Managed by Gateway for local-only routes
                 )
                 logger.info(f"✅ Risk Consultation Triggered. Response: {str(result)[:100]}...")

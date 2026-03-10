@@ -1100,7 +1100,7 @@ class StrategyAdvisorAgent:
                  elif name == "smc_technical_analysis": inp = {"symbol": symbol, "timeframe": "H1"}
                  else: inp = symbol
                  
-                 res = await tool.run(inp, auth_token=auth_token)
+                 res = await tool.arun(inp, auth_token=auth_token)
                  return f"### {name.replace('_', ' ').title()}\n{res}"
              except Exception as e:
                  return f"Error running {name}: {e}"
@@ -1162,7 +1162,7 @@ class StrategyAdvisorAgent:
                  elif name == "market_state": inp = {"symbol": "XAUUSD", "timeframe": "H1"}
                  
                  # Per-tool timeout: 8 seconds
-                 res = await asyncio.wait_for(tool.run(inp, auth_token=auth_token), timeout=8.0)
+                 res = await asyncio.wait_for(tool.arun(inp, auth_token=auth_token), timeout=8.0)
                  logger.info(f"Briefing Tool {name} finished. Output size: {len(res)} chars")
                  return f"### {name.replace('_', ' ').title()}\n{res}"
              except asyncio.TimeoutError:

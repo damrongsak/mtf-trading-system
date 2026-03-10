@@ -18,6 +18,17 @@ Agents must authenticate with the **API Gateway** before calling downstream serv
 ## 🛠️ Step 3: Implement Tool Definitions
 MTF Olympus follows a "Tool-First" design. Instead of making raw HTTP calls, wrap API endpoints into "Tools" that LLMs can understand.
 
+### Mandatory Tool Standards (Resilience Layer)
+All tools must adhere to the FOLLOWING standards to ensure system stability:
+1. **Inherit from `BaseTool`**: Must use `app.core.base_tool.BaseTool`.
+2. **Implement `run_tool`**: Logic must reside in `async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs)`.
+3. **Use Scaffolding**: NEVER create a tool from scratch. Always use the scaffolding script:
+   ```bash
+   docker compose exec ai-analyst python scripts/scaffold_tool.py --name "YourToolName"
+   ```
+4. **Input Normalization**: Handle both Pydantic models and dictionary inputs.
+5. **Timeout Guardrail**: The `BaseTool` automatically applies a 60s timeout. Ensure IO operations are optimized.
+
 ### Example Tool Implementation (Python/LangChain style)
 ```python
 from app.core.base_tool import BaseTool

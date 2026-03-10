@@ -25,7 +25,7 @@ class TestMarketStateTool(unittest.IsolatedAsyncioTestCase):
         mock_get.return_value.__aenter__.return_value = mock_resp
 
         tool = MarketStateTool()
-        result = await tool.run(input_data={"symbol": "XAUUSD", "timeframe": "M15"})
+        result = await tool.arun(input_data={"symbol": "XAUUSD", "timeframe": "M15"})
         
         print(f"\n--- Output (High Prob) ---\n{result}")
         self.assertIn("**Dynamic Risk**: 1.2x (AGGRESSIVE", result)
@@ -49,7 +49,7 @@ class TestMarketStateTool(unittest.IsolatedAsyncioTestCase):
         mock_get.return_value.__aenter__.return_value = mock_resp
 
         tool = MarketStateTool()
-        result = await tool.run(input_data={"symbol": "XAUUSD", "timeframe": "M15"})
+        result = await tool.arun(input_data={"symbol": "XAUUSD", "timeframe": "M15"})
         
         print(f"\n--- Output (Caution) ---\n{result}")
         self.assertIn("**Dynamic Risk**: 0.5x (REDUCED SIZE", result)

@@ -22,6 +22,7 @@ class BaseTool(LCTool):
     3. Standardized retries.
     """
     is_heavy: bool = Field(default=False, description="Whether this tool performs heavy IO/CPU work.")
+    timeout: int = Field(default=60, description="Max execution time in seconds before cancellation.")
     
     # Circuit Breaker state (simplified)
     # Note: In Pydantic v2/LangChain BaseTool, private attributes starting with _ are allowed
@@ -69,7 +70,14 @@ class BaseTool(LCTool):
         auth_token = kwargs.get("auth_token")
         request_id = kwargs.get("request_id")
         
-        return await self.run_tool(input_data, auth_token=auth_token, request_id=request_id)
+        try:
+            return await asyncio.wait_for(
+                self.run_tool(input_data, auth_token=auth_token, request_id=request_id),
+                timeout=self.timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"⌛ Tool '{self.name}' timed out after {self.timeout}s.")
+            return f"❌ Tool '{self.name}' timed out after {self.timeout}s. Please try again or simplify the query."
 
     async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         """Subclasses should implement this instead of run or _arun."""

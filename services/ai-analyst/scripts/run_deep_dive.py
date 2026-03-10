@@ -28,16 +28,16 @@ async def main():
     
     # 2. Gather Data
     print("📈 Fetching COT Data...")
-    cot_data = await cot_tool.run({"symbol": "XAUUSD"})
+    cot_data = await cot_tool.arun({"symbol": "XAUUSD"})
     
     print("📊 Fetching OI Drift Analysis...")
-    drift_data = await drift_tool.run()
+    drift_data = await drift_tool.arun()
     
     print("🎯 Fetching Open Interest Zones...")
-    oi_data = await oi_tool.run({"symbol": "XAUUSD"})
+    oi_data = await oi_tool.arun({"symbol": "XAUUSD"})
     
     print("🤖 Fetching ML Predictor Signal...")
-    predictor_data = await predictor_tool.run({"symbol": "XAUUSD"})
+    predictor_data = await predictor_tool.arun({"symbol": "XAUUSD"})
     
     # 3. Create Synthesis Prompt
     prompt = f"""

@@ -12,7 +12,7 @@ async def test_adx_tool():
     # We need a mock or real auth token if required, but let's try without first
     # or use a dummy one if it expects something.
     try:
-        result = await tool.run(input_data={"symbol": "XAUUSD", "timeframe": "H1"})
+        result = await tool.arun(input_data={"symbol": "XAUUSD", "timeframe": "H1"})
         print(f"Tool Result:\n{result}")
     except Exception as e:
         print(f"Error: {e}")

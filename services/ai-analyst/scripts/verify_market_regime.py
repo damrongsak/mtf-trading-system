@@ -59,12 +59,12 @@ async def verify_ai_tool():
     try:
         # Test 1: String Input
         print("Input: 'XAUUSD'")
-        res1 = await tool.run("XAUUSD")
+        res1 = await tool.arun("XAUUSD")
         print(f"Result:\n{res1}\n")
         
         # Test 2: Dict Input with Timeframe
         print("Input: {'symbol': 'XAUUSD', 'timeframe': 'H4'}")
-        res2 = await tool.run({"symbol": "XAUUSD", "timeframe": "H4"})
+        res2 = await tool.arun({"symbol": "XAUUSD", "timeframe": "H4"})
         print(f"Result:\n{res2}\n")
         
         if "Adaptive Market State" in res1 and "Adaptive Market State" in res2:

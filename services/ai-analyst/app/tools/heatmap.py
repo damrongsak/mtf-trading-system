@@ -22,7 +22,21 @@ class LiquidityHeatmapTool(BaseTool):
     args_schema: Type[BaseModel] = HeatmapInput
     is_heavy: bool = True # Heatmap fetch and price check involve multiple IO layers
 
-    async def run_tool(self, symbol: str = "XAUUSD", **kwargs) -> str:
+    async def run_tool(self, input_data: Any, **kwargs) -> str:
+        logger.info(f"DEBUG HEATMAP: input_data={input_data} ({type(input_data)})")
+        logger.info(f"DEBUG HEATMAP: kwargs={kwargs}")
+        
+        symbol = "XAUUSD"
+        if hasattr(input_data, "dict"):
+            input_data = input_data.dict()
+            
+        if isinstance(input_data, dict):
+            symbol = input_data.get("symbol", "XAUUSD")
+        elif isinstance(input_data, str):
+            symbol = input_data
+
+        logger.info(f"DEBUG HEATMAP: FINAL symbol={symbol} ({type(symbol)})")
+
         # Standardize auth_token extraction from kwargs or context
         auth_token = kwargs.get("auth_token")
         

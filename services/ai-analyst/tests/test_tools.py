@@ -25,7 +25,7 @@ async def test_market_context_tool_success(mock_aiohttp_session):
     }
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run({"symbol": "XAU/USD", "timeframe": "M15"})
+    result = await tool.arun({"symbol": "XAU/USD", "timeframe": "M15"})
     
     assert "2000.0" in result
     mock_aiohttp_session.get.assert_called_once()
@@ -40,7 +40,7 @@ async def test_market_context_tool_failure(mock_aiohttp_session):
     mock_resp.status = 500
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run({"symbol": "XAU/USD", "timeframe": "M15"})
+    result = await tool.arun({"symbol": "XAU/USD", "timeframe": "M15"})
     assert "Error fetching market data: 500" in result
 
 @pytest.mark.asyncio
@@ -58,7 +58,7 @@ async def test_strategy_backtest_tool_success(mock_aiohttp_session):
     }
     mock_aiohttp_session.post.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run({"symbol": "XAU/USD", "code": "code..."})
+    result = await tool.arun({"symbol": "XAU/USD", "code": "code..."})
     
     assert "Total Return: 10.50%" in result
     assert "Sharpe Ratio: 1.50" in result
@@ -77,7 +77,7 @@ async def test_strategy_backtest_tool_failure(mock_aiohttp_session):
     mock_resp.text.return_value = "Syntax Error"
     mock_aiohttp_session.post.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run({"symbol": "XAU/USD", "code": "bad code"})
+    result = await tool.arun({"symbol": "XAU/USD", "code": "bad code"})
     assert "Strategy Core Error (400): Syntax Error" in result
 
 @pytest.mark.asyncio
@@ -93,13 +93,18 @@ async def test_economic_calendar_tool():
         mock_get.return_value = mock_resp
         
         # Test USD
-        result_usd = await tool.run("USD")
-        assert "USD: NFP" in result_usd
-        assert "High" in result_usd
+        with patch("redis.asyncio.from_url") as mock_redis_cls:
+            mock_redis = AsyncMock()
+            mock_redis.get.return_value = None
+            mock_redis_cls.return_value = mock_redis
+            
+            result_usd = await tool.arun("USD")
+            assert "USD: NFP" in result_usd
+            assert "High" in result_usd
         
         # Test XYZ (empty response)
         mock_resp.json.return_value = []
-        result_xyz = await tool.run("XYZ")
+        result_xyz = await tool.arun("XYZ")
         assert "No economic events found" in result_xyz
 
 from app.tools.account import GetAccountStatusTool
@@ -128,19 +133,18 @@ async def test_account_status_tool(mock_aiohttp_session):
     }
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run({}, auth_token="fake_token")
+    result = await tool.arun({}, auth_token="fake_token")
     
     # Verify Parsing
-    # Look for formatted currency strings as output by the tool
-    assert "$10,500.50" in result  # Equity (Float parsed & formatted)
-    assert "$10,000.00" in result  # Balance
-    assert "Active Positions: 2" in result # Should be 2 now with correct key
+    assert "$10,500.50" in result
+    assert "$10,000.00" in result
+    assert "Active Positions: 2" in result
     assert "XAU/USD: PnL $50.00" in result
     
     # Mock Failure
     mock_resp.status = 500
     mock_resp.text.return_value = "Server Error"
-    result = await tool.run({}, auth_token="fake_token")
+    result = await tool.arun({}, auth_token="fake_token")
     assert "Error fetching account data" in result
 
 @pytest.mark.asyncio
@@ -155,43 +159,34 @@ async def test_technical_signals_tool(mock_aiohttp_session):
     }
     mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
     
-    result = await tool.run("XAU/USD")
+    result = await tool.arun("XAU/USD")
     assert "BULLISH" in result
     assert "SMC" in result
     
     # Mock Failure
     mock_resp.status = 500
     mock_resp.text.return_value = "Server Error"
-    result = await tool.run("XAU/USD")
+    result = await tool.arun("XAU/USD")
     assert "Error fetching signals" in result
 
 @pytest.mark.asyncio
-async def test_google_search_tool():
+async def test_google_search_tool(mock_aiohttp_session):
     tool = GoogleSearchTool()
     
-    # Needs settings patch for API keys
-    with patch("app.tools.search.settings") as mock_settings:
-        mock_settings.SERPAPI_API_KEY = "fake"
+    with patch("redis.asyncio.from_url") as mock_redis_cls:
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = None # Cache miss
+        mock_redis_cls.return_value = mock_redis
         
-        with patch("app.tools.search.aiohttp.ClientSession") as mock_session_cls:
-            mock_session = MagicMock()
-            mock_session_cls.return_value.__aenter__.return_value = mock_session
-            
-            # Mock Success
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json.return_value = {
-                    "organic_results": [
-                        {"title": "Result 1", "snippet": "Snippet 1", "link": "http://example.com"}
-                    ]
-                }
-            mock_session.get.return_value.__aenter__.return_value = mock_resp
-            
-            result = await tool.run("query")
-            assert "Result 1" in result
-            assert "Snippet 1" in result
-            
-            # Mock No Keys
-            mock_settings.SERPAPI_API_KEY = None
-            result = await tool.run("query")
-            assert "MOCK SEARCH RESULT" in result
+        # Mock API Gateway Success
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.json.return_value = {
+            "data": [{"title": "Gold up $50", "source": "Bloomberg", "published_at": "2024-03-10"}]
+        }
+        mock_aiohttp_session.get.return_value.__aenter__.return_value = mock_resp
+        
+        result = await tool.arun("XAUUSD")
+        assert "Internal News Feed" in result
+        assert "Gold up $50" in result
+        assert "Bloomberg" in result

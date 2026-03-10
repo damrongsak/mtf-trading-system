@@ -21,7 +21,7 @@ async def verify():
     for horizon in [None, "short", "long"]:
         try:
             print(f"\n--- Testing {horizon if horizon else 'Universal'} Horizon Report ---")
-            result = await tool.run(input_data={"symbol": "XAUUSD", "horizon": horizon}, auth_token=auth_token)
+            result = await tool.arun(input_data={"symbol": "XAUUSD", "horizon": horizon}, auth_token=auth_token)
             print(result)
         except Exception:
             traceback.print_exc()
