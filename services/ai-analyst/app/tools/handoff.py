@@ -12,6 +12,7 @@ class SpecialistConsultationInput(BaseModel):
     agent_id: str = Field(..., description="The ID of the specialist agent to consult (e.g., 'market_observer', 'strategy_advisor').")
     query: str = Field(..., description="The specific question or task for the specialist.")
     context: Optional[str] = Field(None, description="Additional technical context or data to share with the specialist.")
+    context_snippet: Optional[dict] = Field(None, description="JSON snippet containing technical state (levels, biases, etc.) for direct consumption.")
 
 class ConsultSpecialistTool(BaseTool):
     name: str = "consult_specialist"
@@ -34,6 +35,7 @@ class ConsultSpecialistTool(BaseTool):
             agent_id = input_data.get("agent_id", "")
             query = input_data.get("query", "")
             context = input_data.get("context")
+            context_snippet = input_data.get("context_snippet")
             
         # 1. Robust Context Extraction
         # We try to extract auth_token and user_id from:
@@ -73,7 +75,7 @@ class ConsultSpecialistTool(BaseTool):
                 "model": settings.GEMINI_MODEL_ID,
                 "temperature": 0.2
             },
-            "input_text": f"### CONSULTATION REQUEST ###\nQuery: {query}\n\n### ADDITIONAL CONTEXT ###\n{context or 'No additional context provided.'}",
+            "input_text": f"### CONSULTATION REQUEST ###\nQuery: {query}\n\n### ADDITIONAL CONTEXT ###\n{context or 'No additional context provided.'}\n\n### TECHNICAL STATE ###\n{json.dumps(context_snippet) if context_snippet else 'None'}",
             "user_id": user_id
         }
 

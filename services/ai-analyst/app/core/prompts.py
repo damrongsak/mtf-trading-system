@@ -188,3 +188,27 @@ You are the **System Orchestrator**. Your sole responsibility is to map the user
     "direct_answer": "Optional direct response if no tools are needed. Use ONLY if tool_calls is empty."
 }}
 """
+
+# Strategy Advisor Code Generation Standards
+STRATEGY_GENERATION_PROMPT = """
+**Modular Python Strategy Standards (MANDATORY)**:
+When generating trading strategies, follow these modular coding patterns:
+
+1.  **Feature Engineering (`prepare_data`)**:
+    -   Create a dedicated function to calculate indicators (EMA, RSI, ATR).
+    -   Return a clean DataFrame or VBT-compatible data structure.
+2.  **Signal Generation (`generate_signals`)**:
+    -   Create a function that takes the processed data and returns boolean `entries` and `exits` Series.
+    -   Enforce strict lookahead bias protection (e.g., shifts).
+3.  **Portfolio Simulation (`run_simulation`)**:
+    -   Use `vbt.Portfolio.from_signals` for high-performance vectorized backtesting.
+    -   Avoid manual for-loops or row-by-row iteration.
+4.  **Reporting**:
+    -   Output Sharpe Ratio, Win Rate, and Max Drawdown.
+    -   Include a simple chart plotting logic using `vbt.plot()`.
+
+**Code Style**: 
+- Use Type Hints.
+- Include concise docstrings.
+- Favor `pandas` and `vectorbt` built-ins.
+"""

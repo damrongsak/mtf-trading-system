@@ -27,7 +27,8 @@ from app.core.prompts import (
     SYSTEM_PERSONA, 
     RETRIEVAL_SYSTEM_PROMPT, 
     REASONING_PROMPT_TEMPLATE,
-    TOOL_ROUTER_SYSTEM_PROMPT
+    TOOL_ROUTER_SYSTEM_PROMPT,
+    STRATEGY_GENERATION_PROMPT
 )
 from app.core.base_tool import BaseTool
 from app.core.tools import ToolRegistry
@@ -1253,12 +1254,17 @@ class StrategyAdvisorAgent:
              history_str = "\n".join(formatted)
         
         # 2. Build Generation Prompt
+        strategy_standards = ""
+        if state.get("intent") == "strategy_design":
+            strategy_standards = f"\n{STRATEGY_GENERATION_PROMPT}\n"
+
         from datetime import datetime
         current_date_str = datetime.utcnow().strftime("%Y-%m-%d")
         
         # System instructions embedded for generation
         prompt = f"""
         {SYSTEM_PERSONA}
+        {strategy_standards}
         
         Current Date: {current_date_str}
         

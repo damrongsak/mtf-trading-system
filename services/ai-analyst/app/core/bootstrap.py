@@ -21,6 +21,7 @@ from app.tools.skills import SkillManagerTool
 from app.tools.skills_execution import ExecuteSkillTool
 from app.tools.heatmap import LiquidityHeatmapTool
 from app.tools.handoff import ConsultSpecialistTool
+from app.tools.EconomicImpactCorrelation import EconomicImpactCorrelationTool
 
 def bootstrap_tools():
     """
@@ -59,6 +60,7 @@ def bootstrap_tools():
     registry.register("execute_skill", ExecuteSkillTool())
     registry.register("liquidity_heatmap", LiquidityHeatmapTool())
     registry.register("consult_specialist", ConsultSpecialistTool())
+    registry.register("economic_impact_correlation", EconomicImpactCorrelationTool())
     
     print("All standard tools registered.")
 

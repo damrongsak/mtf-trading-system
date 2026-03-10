@@ -307,6 +307,20 @@ class OrderService:
             }
             # Log total time
             total_duration = (time.time() - start_t) * 1000
+            res["latency_ms"] = round(total_duration, 2)
+            
+            # [Latency] Publish internal latency metric
+            try:
+                from app.utils.redis_client import get_redis_client
+                rc = get_redis_client()
+                await rc.publish("system.metrics.latency", json.dumps({
+                    "type": "internal_latency",
+                    "symbol": req_data["symbol"],
+                    "latency_ms": round(total_duration, 2),
+                    "trace_id": trace_id
+                }))
+            except: pass
+
             logger.info(f"✨ HFT-lite Order Complete: {req_data['symbol']} in {total_duration:.2f}ms")
             return res
         except ValueError as ve:

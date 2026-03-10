@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 import redis.asyncio as redis
+import time
 from app.database import AsyncSessionLocal
 from app.services.order_service import OrderService
 
@@ -85,7 +86,26 @@ class ExecutionWorker:
                         result = await OrderService.update_market_quotes(req_data, db)
                         logger.info(f"Quote Update Success for {req_data.get('symbol')}")
                     else:
+                        # [Latency] Capture Queue Latency
+                        enqueued_at = req_data.get("enqueued_at")
+                        queue_latency_ms = None
+                        if enqueued_at:
+                            queue_latency_ms = (time.time() - float(enqueued_at)) * 1000
+                            logger.info(f"Queue Latency for {client_order_id or 'unknown'}: {queue_latency_ms:.2f}ms")
+                            if self.redis:
+                                await self.redis.publish("system.metrics.latency", json.dumps({
+                                    "type": "queue_latency",
+                                    "symbol": req_data.get("symbol"),
+                                    "latency_ms": round(queue_latency_ms, 2),
+                                    "client_order_id": client_order_id
+                                }))
+
                         result = await OrderService.execute_smart_order(req_data, db)
+                        
+                        # [Latency] Enrich result with latency if available
+                        if queue_latency_ms is not None:
+                            result["queue_latency_ms"] = round(queue_latency_ms, 2)
+                        
                         logger.info(f"Async Execution Success for {req_data.get('symbol')}: {result.get('id')}")
                 except Exception as biz_e:
                     logger.error(f"Async Execution Biz Logic Error: {biz_e}")
