@@ -8,7 +8,8 @@ from app.logging_config import setup_logging
 
 # Configure logging
 logger = setup_logging()
-from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics
+from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics, orchestration
+
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
 from app.streaming.manager import stream_manager
@@ -175,6 +176,7 @@ app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
 app.include_router(news.router)
 app.include_router(external.router, prefix="/api/v1", tags=["3rd Party Gateway"])
 app.include_router(api_key.router, prefix="/api/v1", tags=["API Key Management"])
+app.include_router(orchestration.router)
 
 @app.get("/health")
 async def health():
