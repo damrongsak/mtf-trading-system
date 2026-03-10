@@ -1,8 +1,8 @@
-from typing import Any, Optional
+from typing import Any, Optional, Type
 import aiohttp
 import logging
 from app.core.config import settings
-from app.core.base_tool import BaseTool
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -14,18 +14,13 @@ class MarketStateInput(BaseModel):
 class MarketStateTool(BaseTool):
     name: str = "market_state"
     description: str = "Fetches comprehensive institutional market state including PCR, Max Pain, and Volatility projected from strategy-core."
-    args_schema: Any = MarketStateInput
+    args_schema: Type[BaseModel] = MarketStateInput
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
-        symbol = "XAUUSD"
-        timeframe = "H1"
-        
-        if isinstance(input_data, dict):
-            symbol = input_data.get("symbol", "XAUUSD")
-            timeframe = input_data.get("timeframe", "H1")
-        elif isinstance(input_data, str) and input_data:
-            symbol = input_data
-        
+    def _run(self, symbol: str = "XAUUSD", timeframe: str = "H1") -> str:
+        import asyncio
+        return asyncio.run(self._arun(symbol, timeframe))
+
+    async def _arun(self, symbol: str = "XAUUSD", timeframe: str = "H1", auth_token: str = None, **kwargs) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 # We use direct service URLs instead of API Gateway
@@ -99,7 +94,6 @@ class MarketStateTool(BaseTool):
                             f"  - Call Wall: {call_wall['strike'] if call_wall else 'N/A'}\n"
                             f"  - Put Wall: {put_wall['strike'] if put_wall else 'N/A'}"
                         )
-
                 adx_slope = float(ctx.get("adx_slope", 0.0))
                 p_di = float(ctx.get("plus_di", 0.0))
                 m_di = float(ctx.get("minus_di", 0.0))

@@ -1,4 +1,5 @@
 from app.core.workflow import registry
+import uuid
 from app.tools.market import GetMarketContextTool
 from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool
@@ -17,6 +18,7 @@ from app.tools.shell import ShellCommandTool
 from app.tools.python import PythonInterpreterTool
 from app.tools.web_reader import WebReaderTool
 from app.tools.skills import SkillManagerTool
+from app.tools.skills_execution import ExecuteSkillTool
 
 def bootstrap_tools():
     """
@@ -52,6 +54,7 @@ def bootstrap_tools():
     registry.register("python_interpreter", PythonInterpreterTool())
     registry.register("web_reader", WebReaderTool())
     registry.register("save_persistent_skill", SkillManagerTool())
+    registry.register("execute_skill", ExecuteSkillTool())
     
     print("All standard tools registered.")
 

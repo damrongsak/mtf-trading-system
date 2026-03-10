@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, Body
 from typing import Optional, List, Dict, Any
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timezone
@@ -151,6 +151,54 @@ async def run_market_observer(
         except httpx.HTTPStatusError as exc:
             logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+
+@router.get("/diagnose")
+async def proxy_diagnose(
+    request: Request,
+    authorization: str = Header(None, alias="Authorization")
+):
+    """Proxy diagnose smoke tests to AI Analyst."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization} if authorization else {}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+        
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{AI_SERVICE_URL}/api/v1/ai/diagnose",
+                headers=headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Diagnose proxy failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/agent/memory/sync")
+async def proxy_memory_sync(
+    request: Request,
+    authorization: str = Header(None, alias="Authorization")
+):
+    """Proxy episodic memory sync to AI Analyst."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization} if authorization else {}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+        
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{AI_SERVICE_URL}/api/v1/ai/agent/memory/sync",
+                headers=headers,
+                timeout=60.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Memory sync proxy failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/briefing")
 @cached_response(ttl=3600)
@@ -517,3 +565,51 @@ async def proxy_external_search(request: Request):
             timeout=30.0
         )
         return response.json()
+
+
+@router.post("/agent/universal/run")
+async def proxy_run_universal_agent(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+):
+    """Proxy universal agent run to AI Analyst."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{AI_SERVICE_URL}/api/v1/ai/agent/universal/run",
+                json=payload,
+                headers=headers,
+                timeout=AI_SERVICE_TIMEOUT
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Universal agent proxy failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/skill-creator/run")
+async def proxy_run_skill_creator(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+):
+    """Proxy skill creator agent run to AI Analyst."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{AI_SERVICE_URL}/api/v1/ai/agent/skill-creator/run",
+                json=payload,
+                headers=headers,
+                timeout=AI_SERVICE_TIMEOUT
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Skill creator proxy failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))

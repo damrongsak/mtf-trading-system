@@ -1,4 +1,4 @@
-# MTF Olympus: AI Analyst (v2.6)
+# MTF Olympus: AI Analyst (v2.9)
 
 The **AI Analyst** is the institutional-grade "Market Brain" of the MTF Olympus system. It utilizes **Google Gemini 2.5 (Pro/Flash)** and **OpenRouter (Claude 3.5)** within an **Agentic RAG (LangGraph)** architecture to provide structural market mapping, cross-service stability observation, and automated strategy planning with institutional safety guards.
 
@@ -62,7 +62,8 @@ graph TD
 - **Adaptive News Re-ranking**: Dynamic feedback loop that extracts "Key Drivers" from news and re-ranks subsequent data for faster volatility response.
 - **OS-Level Tool Suite**: Direct access to local Shell, Python Interpreter, and Web Reader for autonomous research and data processing.
 - **Hybrid Adaptive Memory**: Injects both persistent User Facts and Institutional Lessons Learned into every agent session.
-- **Persistent Skill Manager**: Allows the agent to save and recall successful Python scripts and logic paths as long-term "Skills".
+- **Persistent Skill Manager (agentskills.io)**: Allows the agent to discover, load, and execute specialized workflows defined in `SKILL.md` files. Supports both internal and external skill paths.
+- **Native Tool Standardization (v2.9)**: All core analytical tools (SMC, OI, Account, Calendar) are implemented as native `BaseTool`s for maximum reliability and strict schema validation.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -113,9 +114,21 @@ app/
 │   └── sentinel/      # Safety gate and multi-model consensus logic
 ├── core/              # Persona prompts, Pydantic schemas, & Scheduler
 ├── services/          # Model clients (Gemini/OpenRouter), RAG, & Memory
-├── tools/             # Market data, Strategy planning, Shell, Python, & Web
-├── persistent_skills/ # Locally stored AI-generated Python scripts
+├── tools/             # Standardized Native BaseTools (SMC, OI, etc.)
+├── skills/            # Internal persistent skills (SKILL.md Physical Skeleton)
 └── main.py            # FastAPI entrypoint & Scheduler init
+```
+
+## 📚 Dynamic Skills (agentskills.io Standard)
+
+The agent dynamically discovers skills from two primary locations:
+1.  **Internal**: `services/ai-analyst/skills/`
+2.  **External/Examples**: `example/skills/`
+
+Each skill follows the **Physical Skeleton** standard:
+- `SKILL.md`: Frontmatter + Instructions.
+- `references/`: Contextual data injected into sub-agents.
+- `scripts/`: Executable assets.
 ```
 
 ## 🛠️ Development

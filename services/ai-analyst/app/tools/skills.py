@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class SkillInput(BaseModel):
     name: str = Field(description="The name of the skill (snake_case)")
-    code: str = Field(description="The Python code to save as a skill")
+    content: str = Field(description="The full content of the SKILL.md file or Python code")
 
 class SkillManagerTool(BaseTool):
     name: str = "save_persistent_skill"
@@ -19,20 +19,35 @@ class SkillManagerTool(BaseTool):
     )
     args_schema: Type[BaseModel] = SkillInput
 
-    def _run(self, name: str, code: str) -> str:
+    def _run(self, name: str, content: str) -> str:
         import asyncio
-        return asyncio.run(self._arun(name, code))
+        return asyncio.run(self._arun(name, content))
 
-    async def _arun(self, name: str, code: str) -> str:
+    async def _arun(self, name: str, content: str) -> str:
+        skill_service = services.get("skill")
         memory_service = services.get("memory")
-        if not memory_service:
-            return "Error: Memory service not available."
-            
-        user_id = "agent_skill"
         
-        try:
-            await memory_service.save_persistent_skill(user_id, name, code)
-            return f"Skill '{name}' saved successfully and indexed for future reasoning."
-        except Exception as e:
-            logger.error(f"SkillManagerTool error: {e}")
-            return f"Error saving skill: {str(e)}"
+        results = []
+        
+        # 1. Save to Disk (Skill Discovery Path)
+        if skill_service and ("---" in content or "name:" in content.lower()):
+            try:
+                path = await skill_service.save_skill(name, content)
+                results.append(f"Disk: {path}")
+            except Exception as e:
+                logger.error(f"SkillManagerTool (Disk) error: {e}")
+                results.append(f"Disk Error: {e}")
+
+        # 2. Save to Memory (Semantic Search Path)
+        if memory_service:
+            try:
+                await memory_service.save_persistent_skill("agent_skill", name, content)
+                results.append("Memory: OK")
+            except Exception as e:
+                logger.error(f"SkillManagerTool (Memory) error: {e}")
+                results.append(f"Memory Error: {e}")
+        
+        if not results:
+            return "Error: No persistence services available."
+            
+        return " | ".join(results)

@@ -95,6 +95,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Memory Service Failed: {e}")
 
+    try:
+        from app.services.skill import SkillService
+        services["skill"] = SkillService()
+        logger.info("✅ Skill Service Initialized")
+    except Exception as e:
+        logger.error(f"❌ Skill Service Failed: {e}")
+
     # 3. Handle Checkpointer and Agents within AsyncExitStack
     from contextlib import AsyncExitStack
     from langgraph.checkpoint.memory import MemorySaver
@@ -141,10 +148,15 @@ async def lifespan(app: FastAPI):
 
         try:
             if services["rag"]:
+                from app.agents.skill_creator import SkillCreatorAgent
+                services["skill_creator"] = SkillCreatorAgent(services["gemini"])
+                logger.info("✅ Skill Creator Agent Ready")
+                
                 services["post_mortem"] = PostMortemAgent(services["gemini"], services["rag"])
                 logger.info("✅ Post-Mortem Agent Ready")
         except Exception as e:
-            logger.error(f"❌ Post-Mortem Agent Failed: {e}")
+            logger.error(f"❌ Skill Creator or Post-Mortem Agent Failed: {e}")
+            logger.error(traceback.format_exc())
 
         try:
             services["sentiment"] = SentimentService()

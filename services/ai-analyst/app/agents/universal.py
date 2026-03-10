@@ -1,9 +1,11 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
+from langchain_core.tools import StructuredTool, BaseTool as LCTool
 from app.schemas.agent import AgentConfig
 from app.core.config import settings
 from app.core.workflow import registry
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +18,8 @@ class UniversalAgent:
         self.config = config
         
         # 1. Resolve Tools
-        self.tools = []
-        for tool_name in config.tools:
-            tool = registry.get(tool_name)
-            if tool:
-                self.tools.append(tool)
-            else:
-                logger.warning(f"Tool '{tool_name}' not found in registry. Skipping.")
+        from app.core.workflow import resolve_tools
+        self.tools = resolve_tools(config.tools)
 
         # 2. Resolve Role
         self.role = config.role
@@ -79,7 +76,17 @@ class UniversalAgent:
         if memory_service:
             context = await memory_service.get_adaptive_context(user_id, input_text)
             
-        full_input = f"### CONTEXT ###\n{context}\n\n### REQUEST ###\n{input_text}" if context else input_text
+        # 2. Inject Available Skills (v2.8)
+        skills_context = ""
+        skill_service = services.get("skill")
+        if skill_service:
+            available_skills = skill_service.list_skills()
+            if available_skills:
+                skills_list = "\n".join([f"- {s['name']}: {s['description']}" for s in available_skills])
+                skills_context = f"\n### AVAILABLE SPECIALIZED SKILLS ###\n{skills_list}\n"
+                skills_context += "Use the 'execute_skill' tool if one of these matches the user's intent.\n"
+
+        full_input = f"### CONTEXT ###\n{context}\n{skills_context}\n### REQUEST ###\n{input_text}" if context or skills_context else input_text
         inputs = {"messages": [("user", full_input)]}
         
         try:

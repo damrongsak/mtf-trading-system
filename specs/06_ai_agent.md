@@ -1,7 +1,7 @@
 # 03 - AI Agent Specification
 
-**Version:** 1.2
-**Status:** IN_PROGRESS (v2.2 Architecture)
+**Version:** 1.3
+**Status:** STABLE (v2.9 Architecture - agentskills.io Standard)
 
 ---
 
@@ -58,9 +58,25 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 ### 2.7. Episodic Memory (Trade Learning)
 - **Goal:** Autonomous learning from historical trade outcomes to prevent recurrent mistakes.
 - **Process:**
-    - Background job (`/agent/memory/sync`) finds closed trades without an AI-generated `JournalEntry`.
+    - Background job (`/api/v1/ai/agent/memory/sync`) finds closed trades without an AI-generated `JournalEntry`.
     - Agent analyzes the trade (Execution Data vs Original Narrative).
     - Extracts `ai_insight` (the actionable lesson) and stores it in the `JournalEntry` table.
+
+### 2.8. Tool Standardization (v2.9)
+- **Native Implementation**: All core tools inherit from `langchain_core.tools.BaseTool`.
+- **Schema Enforcement**: Tools use Pydantic `args_schema` for strict input validation, eliminating 422 errors.
+- **Efficiency**: Direct resolution in `workflow.py` eliminates runtime wrapping latency.
+
+### 2.9. Dynamic Agent Skills (agentskills.io Standard)
+- **Goal:** Enable the agent to discover, load, and execute specialized workflows defined in `SKILL.md` files.
+- **Architecture:**
+    - **Progressive Disclosure**: Main agent system prompt contains only skill names and descriptions (metadata).
+    - **Skill Discovery**: Scans `services/ai-analyst/skills/` AND `example/skills/` for `SKILL.md` files.
+    - **Physical Skeleton**: Skills use a standard folder structure:
+        - `SKILL.md`: Main instructions and frontmatter.
+        - `scripts/`: Executable assets.
+        - `references/`: Contextual documents injected into sub-agents.
+    - **Skill Execution**: Spawns a transient **Sub-Agent** with full skill instructions when triggered via `ExecuteSkillTool`.
 
 ## 3. Architecture components
 

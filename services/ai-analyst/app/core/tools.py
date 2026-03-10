@@ -31,6 +31,7 @@ from app.tools.volatility import VolatilityStructureTool
 from app.tools.quant_analysis import RiskMapTool
 from app.tools.trading_plan import TradingPlanTool
 from app.tools.library import SearchQuantLibraryTool, ListLibraryBooksTool
+from app.tools.skills_execution import ExecuteSkillTool
 
 
 logger = logging.getLogger(__name__)
@@ -419,7 +420,8 @@ class ToolRegistry:
             "get_risk_map": RiskMapTool(),
             "generate_trading_plan": TradingPlanTool(),
             "search_quant_library": SearchQuantLibraryTool(rag_service=rag_service),
-            "list_library_books": ListLibraryBooksTool()
+            "list_library_books": ListLibraryBooksTool(),
+            "execute_skill": ExecuteSkillTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

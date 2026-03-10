@@ -1,14 +1,18 @@
-from typing import Any, Optional
+from pydantic import BaseModel, Field
+from typing import Any, Optional, Type
+from langchain_core.tools import BaseTool as LCTool
 import aiohttp
 import json
 import logging
 import redis.asyncio as aioredis
 from app.core.config import settings
-from app.core.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
-class GoogleSearchTool(BaseTool):
+class GoogleSearchInput(BaseModel):
+    query: str = Field(..., description="The search query or keyword (e.g. 'XAUUSD news')")
+
+class GoogleSearchTool(LCTool):
     """
     Standardized tool for gathering market news and context.
     Provides news from internal data pipeline (scrapers/RSS) with semantic fallbacks.
@@ -16,14 +20,13 @@ class GoogleSearchTool(BaseTool):
     """
     name: str = "google_search"
     description: str = "Fetches real-time market news and institutional context. Use this to find sentiment and fundamental drivers."
+    args_schema: Type[BaseModel] = GoogleSearchInput
 
-    async def run(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
-        query = ""
-        if isinstance(input_data, str):
-            query = input_data
-        elif isinstance(input_data, dict):
-            query = input_data.get("query", "")
-            
+    def _run(self, query: str) -> str:
+        import asyncio
+        return asyncio.run(self._arun(query))
+
+    async def _arun(self, query: str, auth_token: str = None, request_id: str = None) -> str:
         if not query:
             return "No query provided for search."
 

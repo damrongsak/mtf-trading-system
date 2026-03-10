@@ -1,9 +1,14 @@
+import logging
+import uuid
 from typing import TypedDict, List, Dict, Any, Optional, Union
 from typing_extensions import Annotated
 import operator
 from langchain_core.messages import BaseMessage
+from langchain_core.tools import StructuredTool, BaseTool as LCTool
 from app.services.gemini import GeminiClient
 from app.tools.episodic_memory import fetch_unanalyzed_trades, save_episodic_memory
+
+logger = logging.getLogger(__name__)
 
 # --- State Definition (The "Wire") ---
 class UserConfig(TypedDict):
@@ -85,6 +90,42 @@ class ToolRegistry:
 
 # Global Registry Instance
 registry = ToolRegistry()
+
+def resolve_tools(tool_names: List[str]) -> List[LCTool]:
+    """
+    Standardizes tool resolution for all agents.
+    Most tools are now native LangChain BaseTools.
+    Non-native callables are wrapped into StructuredTools.
+    """
+    resolved = []
+    logger.info(f"Resolving tools: {tool_names}")
+    for name in tool_names:
+        tool = registry.get(name)
+        if not tool:
+            logger.warning(f"Tool '{name}' not found.")
+            continue
+            
+        # 1. Native LangChain Tool
+        if isinstance(tool, LCTool):
+            resolved.append(tool)
+            continue
+            
+        # 2. Legacy/Simple Callable Wrap
+        try:
+            func = tool.run if hasattr(tool, "run") else tool
+            st = StructuredTool.from_function(
+                name=getattr(tool, "name", name),
+                description=getattr(tool, "description", ""),
+                func=func if not asyncio.iscoroutinefunction(func) else None,
+                coroutine=func if asyncio.iscoroutinefunction(func) else None
+            )
+            resolved.append(st)
+        except Exception as e:
+            logger.error(f"Failed to resolve tool '{name}': {e}")
+            
+    logger.info(f"Successfully resolved {len(resolved)} tools.")
+    return resolved
+
 registry.register("fetch_unanalyzed_trades", fetch_unanalyzed_trades, "Fetches historical closed trades missing AI Journal Entry")
 registry.register("save_episodic_memory", save_episodic_memory, "Save actionable lessons for the Episodic Memory module")
 

@@ -12,6 +12,8 @@ from app.core.utils import extract_auth_token
 from app.services.telegram import send_telegram_message
 from app.utils.response import success_response
 from app.services.guardrail import check_guardrails
+from app.agents.universal import UniversalAgent
+from app.schemas.agent import AgentConfig
 
 router = APIRouter(tags=["agents"])
 logger = logging.getLogger(__name__)
@@ -59,6 +61,17 @@ class StrategyChatRequest(BaseModel):
     telegram_message_id: Optional[int] = None  # For reply threading
     telegram_thread_id: Optional[int] = None   # For forum topics
     thread_id: Optional[str] = None # For LangGraph persistence
+
+
+class UniversalAgentRunRequest(BaseModel):
+    config: AgentConfig
+    input_text: str
+    user_id: str = "default_user"
+
+
+class SkillCreatorRunRequest(BaseModel):
+    user_intent: str
+    user_id: str = "skill_creator"
 
 
 @router.get("/diagnose")
@@ -269,4 +282,39 @@ async def sync_episodic_memory(authorization: str = Header(None, alias="Authoriz
         )
     except Exception as e:
         logger.error(f"Error executing Episodic Memory Sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/universal/run")
+async def run_universal_agent(
+    request: UniversalAgentRunRequest
+):
+    """
+    Run a dynamic agent based on the provided configuration.
+    """
+    try:
+        agent = UniversalAgent(request.config)
+        result = await agent.run(request.input_text, user_id=request.user_id)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"Error executing Universal Agent: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/skill-creator/run")
+async def run_skill_creator(
+    request: SkillCreatorRunRequest
+):
+    """
+    Run the specialized Skill Creator Agent to draft and save new skills.
+    """
+    if "skill_creator" not in services or not services["skill_creator"]:
+        raise HTTPException(status_code=503, detail="Skill Creator Agent unavailable")
+    
+    try:
+        result = await services["skill_creator"].run(request.user_intent, user_id=request.user_id)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"Error executing Skill Creator: {e}")
         raise HTTPException(status_code=500, detail=str(e))

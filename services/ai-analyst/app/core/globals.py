@@ -7,6 +7,8 @@ services = {
     "strategy_advisor": None,
     "sentiment": None,
     "memory": None,
+    "skill": None,
+    "skill_creator": None,
     "checkpointer": None,
     "post_mortem": None
 }

@@ -1,28 +1,37 @@
-from typing import Any, Optional
-import aiohttp
 import logging
+from typing import Any, Optional, Type
+import aiohttp
 from app.core.config import settings
-from app.core.base_tool import BaseTool
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+class AccountStatusInput(BaseModel):
+    pass # No input required
+
 class GetAccountStatusTool(BaseTool):
     name: str = "get_account_status"
-    description: str = "Fetches comprehensive account health including balance, equity, margin, open positions, and risk metrics. REQUIRED for calculating position size."
+    description: str = (
+        "Fetches dimensions of account health including balance, equity, margin, "
+        "open positions, and risk metrics. REQUIRED for calculating position size."
+    )
+    args_schema: Type[BaseModel] = AccountStatusInput
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    def _run(self) -> str:
+        import asyncio
+        return asyncio.run(self._arun())
+
+    async def _arun(self, auth_token: str = None, **kwargs) -> str:
         async with aiohttp.ClientSession() as session:
             try:
                 headers = {}
                 if auth_token:
-                    if not auth_token.startswith("Bearer "):
-                        headers["Authorization"] = f"Bearer {auth_token}"
-                    else:
-                        headers["Authorization"] = auth_token
+                    headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
                 
                 url = f"{settings.API_GATEWAY_URL}/api/v1/execution/account/summary"
                 
-                async with session.get(url, headers=headers, timeout=3.0) as resp:
+                async with session.get(url, headers=headers, timeout=5.0) as resp:
                      if resp.status == 200:
                          json_resp = await resp.json()
                          data = json_resp.get("data", {})
@@ -31,10 +40,8 @@ class GetAccountStatusTool(BaseTool):
                              if isinstance(v, (float, int)): return float(v)
                              if isinstance(v, str):
                                  clean = v.split(' ')[0].replace(',', '')
-                                 try:
-                                     return float(clean)
-                                 except:
-                                     return 0.0
+                                 try: return float(clean)
+                                 except: return 0.0
                              return 0.0
 
                          balance = parse_float(data.get("balance"))
@@ -63,11 +70,7 @@ class GetAccountStatusTool(BaseTool):
                          )
                          return report
                      else:
-                         resp_text = await resp.text()
-                         if "INVALID_REQUEST" in resp_text or "not authorized" in resp_text:
-                             return "Account Summary: Unable to retrieve account status. This is likely due to an **Expired or Unauthorized cTrader Token**. \n\n**Action Required**: Please go to **Broker Settings** and re-authorize your cTrader account."
-                         elif "SRV_9001" in resp_text:
-                             return "Account Summary: Service encounterd an internal error (SRV_9001). This typically happens when the broker connection is unstable. Please retry in a few moments."
-                         return f"Account Summary: Error fetching account data ({resp.status}): {resp_text}"
+                         return f"Account Summary: Error {resp.status}"
             except Exception as e:
-                return f"Account Summary: Failed to connect to Execution Service: {e}. Please ensure the system infrastructure is running."
+                logger.error(f"GetAccountStatusTool error: {e}")
+                return f"Account Summary Error: {str(e)}"

@@ -2,235 +2,115 @@ import json
 import logging
 import os
 import redis.asyncio as redis
-from typing import Any, Optional
+from typing import Any, Optional, Type, Dict
 import aiohttp
 from app.core.config import settings
-from app.core.base_tool import BaseTool
-from app.core.utils import parse_tool_input
+from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+class OpenInterestInput(BaseModel):
+    symbol: str = Field(default="XAUUSD", description="Symbol to analyze (e.g. XAUUSD)")
+    snapshot_at: Optional[str] = Field(None, description="ISO-date for the snapshot at a specific time")
+    horizon: Optional[str] = Field(None, description="Analysis horizon: 'short', 'medium', or 'long'")
+
 class OpenInterestTool(BaseTool):
     name: str = "open_interest"
-    description: str = """
-    Fetches institutional Open Interest (OI) analysis for GOLD (XAU/USD).
-    Auto-resolves to the LATEST available snapshot if date not provided.
-    Input JSON: {"snapshot_at": "ISO-date", "contract": "optional-contract"}
-    Returns total OI, Net OI, Put/Call Ratio, Max Pain, and OIWAP.
-    """
+    description: str = (
+        "Fetches institutional Open Interest (OI) analysis for GOLD (XAU/USD). "
+        "Auto-resolves to the LATEST available snapshot if date not provided. "
+        "Returns total OI, Net OI, Put/Call Ratio, Max Pain, and OIWAP."
+    )
+    args_schema: Type[BaseModel] = OpenInterestInput
 
-    async def run(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
-        # We use direct service URLs instead of API Gateway
+    def _run(self, symbol: str = "XAUUSD", snapshot_at: Optional[str] = None, horizon: Optional[str] = None) -> str:
+        import asyncio
+        return asyncio.run(self._arun(symbol, snapshot_at, horizon))
+
+    async def _arun(self, symbol: str = "XAUUSD", snapshot_at: Optional[str] = None, horizon: Optional[str] = None, auth_token: str = None, **kwargs) -> str:
         data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1"
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
-        # Parse Inputs
-        input_dict = parse_tool_input(input_data)
-        symbol = input_dict.get("symbol", "XAUUSD")
-        snapshot_at = input_dict.get("snapshot_at")
-        horizon = input_dict.get("horizon")
-        
-        if not symbol or symbol == "{": # safety check for failed parse
-             symbol = "XAUUSD"
-
-        # Map horizon to term
         horizon_map = {
             "short": "SHORT_TERM",
             "medium": "MEDIUM_TERM",
             "long": "LONG_TERM"
         }
-        target_term = horizon_map.get(str(horizon).lower())
+        target_term = horizon_map.get(str(horizon).lower()) if horizon else None
 
-        # Prepare Headers
         headers = {}
         if auth_token:
-            if not auth_token.startswith("Bearer "):
-                headers["Authorization"] = f"Bearer {auth_token}"
-            else:
-                headers["Authorization"] = auth_token
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
         
         async with aiohttp.ClientSession() as session:
             try:
-                # 1. Fetch Current Spot Price for Symbol
+                # 1. Fetch Current Spot Price
                 current_price = 0.0
-                
-                # Layer 0: Direct Redis Fetch (Fastest - New Hash Cache)
                 try:
-                    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-                    redis_client = redis.from_url(redis_url, decode_responses=True)
-                    
-                    # New L2 Cache: market_data:spot:{symbol} (Hash)
+                    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
                     spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
                     if spot_data and "bid" in spot_data:
                         bid = float(spot_data.get("bid", 0))
                         ask = float(spot_data.get("ask", 0))
                         current_price = (bid + ask) / 2.0 if ask > 0 else bid
-                        logger.info(f"Fetched live spot price from L2 Cache: {current_price}")
-                    else:
-                        # Legacy Fallback
-                        features_json = await redis_client.get(f"features:{symbol}:M15")
-                        if features_json:
-                            features_data = json.loads(features_json)
-                            close_array = features_data.get("columns", [])
-                            if "close" in close_array:
-                                close_idx = close_array.index("close")
-                                data_index = features_data.get("data", [])
-                                if data_index and len(data_index) > 0:
-                                    current_price = float(data_index[-1][close_idx])
-                                    logger.info(f"Fetched price from legacy Redis (features): {current_price}")
-                    
                     await redis_client.close()
-                except Exception as e:
-                    logger.warning(f"Layer 0 (Redis) price fetch failed: {e}")
+                except: pass
 
-                # Layer 1: data-pipeline candles (primary fallback)
                 if current_price <= 0:
                     try:
                         price_url = f"{data_pipeline_url}/candles"
                         params = {"symbol": symbol, "timeframe": "H1", "page_size": 1}
-                        async with session.get(price_url, params=params, headers=headers, timeout=15.0) as resp:
+                        async with session.get(price_url, params=params, headers=headers, timeout=5.0) as resp:
                             if resp.status == 200:
                                 candle_data = await resp.json()
                                 candles = candle_data.get("data", [])
                                 if candles:
                                     current_price = float(candles[0].get("close") or 0.0)
-                                    logger.info(f"Fetched live spot price from candles: {current_price}")
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch live spot price from candles: {e}")
+                    except: pass
 
-                # 2. Fetch Gamma Levels (Basis Adjusted) with SWR/3s Target
+                # 2. Fetch Gamma Levels
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
-                cache_key = f"cache:gamma_levels:{symbol}"
                 params = {"symbol": symbol}
-                if current_price and current_price > 0:
-                    params["current_price"] = str(current_price)
-                if snapshot_at:
-                    params["snapshot_at"] = snapshot_at
+                if current_price > 0: params["current_price"] = str(current_price)
+                if snapshot_at: params["snapshot_at"] = snapshot_at
                 
-                gamma_levels = []
-                underlying_futures = 0.0
-                actual_snapshot_at = "Unknown"
-                g_data = {} 
-                cached_g_data = None
-
-                # 2.1 Check Cache First
-                try:
-                    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                    cached_raw = await redis_client.get(cache_key)
-                    if cached_raw:
-                        cached_g_data = json.loads(cached_raw)
-                        # If extremely fresh (< 30s), we could skip the fetch, 
-                        # but for OI we usually want to try fetching the absolute latest within 3s.
-                    await redis_client.close()
-                except Exception as e:
-                    logger.warning(f"OI Tool Cache fetch failed: {e}")
-
-                # 2.2 Attempt API Fetch with 3s Timeout
-                try:
-                    async with session.get(gamma_url, params=params, headers=headers, timeout=3.0) as resp:
-                        if resp.status == 200:
-                            g_data = await resp.json()
-                            gamma_levels = g_data.get("levels", [])
-                            underlying_futures = float(g_data.get("underlying_price") or 0.0)
-                            actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
-                            
-                            # Update Cache in background (we don't wait for this to return to user)
-                            try:
-                                redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                                await redis_client.set(cache_key, json.dumps(g_data), ex=300) # 5 min cache
-                                await redis_client.close()
-                            except: pass
-                        else:
-                            logger.warning(f"Gamma API returned {resp.status}. Using cache.")
-                            if cached_g_data: g_data = cached_g_data
-                except Exception as e:
-                    logger.warning(f"Gamma fetch failed/timed out ({e}). Using cache.")
-                    if cached_g_data:
-                        g_data = cached_g_data
+                async with session.get(gamma_url, params=params, headers=headers, timeout=5.0) as resp:
+                    if resp.status == 200:
+                        g_data = await resp.json()
                         gamma_levels = g_data.get("levels", [])
                         underlying_futures = float(g_data.get("underlying_price") or 0.0)
-                        actual_snapshot_at = g_data.get("snapshot_at", "Unknown") + " (STALE)"
+                        actual_snapshot_at = g_data.get("snapshot_at", "Unknown")
                     else:
-                        raise e # Re-raise if no cache available
+                        return f"Error fetching Gamma data: {resp.status}"
 
-                # Filter by horizon if requested
                 if target_term:
                     gamma_levels = [l for l in gamma_levels if l.get('term') == target_term]
 
-                # 3. Fetch Confirmation State (Market Regime) - Direct from strategy-core
-                confirmation_info = "RSI/EMA data unavailable"
-                try:
-                    # Strategy Core endpoint: POST /api/v1/market/regime
-                    regime_url = f"{strategy_core_url}/market/regime"
-                    regime_payload = {"symbol": "XAUUSD", "timeframe": "D1", "bias": "NEUTRAL"}
-                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=1.5) as resp:
-                        if resp.status == 200:
-                            ctx = await resp.json()
-                            regime = ctx.get("regime", "UNKNOWN")
-                            r_score = float(ctx.get('regime_score') or 0.0)
-                            confirmation_info = f"Current Regime: {regime} (ADX: {r_score:.1f})"
-                except: pass
-
-                # 4. Build the Concise Report
+                # 3. Build Report
                 raw_futures = float(underlying_futures or 0.0)
                 raw_spot = float(current_price or 0.0)
                 max_pain = float(g_data.get("max_pain", 0.0))
-                basis = raw_futures - raw_spot if raw_futures > 0 and raw_spot > 0 else 0
                 
-                report = [f"**OI Snapshot ({actual_snapshot_at})**"]
-                if horizon:
-                    report.append(f"Horizon: {horizon.capitalize()}-Term")
-
-                report.append(f"Spot: {raw_spot:.2f} | Futures: {raw_futures:.2f} | Max Pain: {max_pain:.2f} | Basis: {basis:+.2f}")
+                report = [
+                    f"**OI Snapshot ({actual_snapshot_at})**",
+                    f"Spot: {raw_spot:.2f} | Futures: {raw_futures:.2f} | Max Pain: {max_pain:.2f}",
+                    "\n**Key Liquidity Zones**:"
+                ]
                 
                 if gamma_levels:
-                    report.append("\n**Key Liquidity Zones**:")
-                    # Group by term for display
-                    terms = ["SHORT_TERM", "MEDIUM_TERM", "LONG_TERM"]
-                    for t in terms:
-                        term_levels = [l for l in gamma_levels if l.get('term') == t]
-                        if term_levels:
-                            # Prune: Sort by significance score and take top 15 per term
-                            term_levels = sorted(term_levels, key=lambda x: x.get("significance_score", 0), reverse=True)[:15]
-                            
-                            report.append(f"[{t}]")
-                            for lvl in term_levels:
-                                z_type = lvl.get("zone_type", "MAJOR")
-                                action = lvl.get("market_action", "PIVOT")
-                                score = lvl.get("significance_score", 0.5)
-                                mapped_price = lvl.get("price", 0.0)
-                                dte = lvl.get("dte")
-                                confluence = lvl.get("confluence", [])
-                                zone_v2 = lvl.get("zone_type_v2", "NEUTRAL")
-
-                                # Concise Highlighting
-                                prefix = "*" if z_type == "MAJOR" else ""
-                                p_type = ""
-                                if zone_v2 == "DEMAND_ZONE": p_type = " [D]"
-                                elif zone_v2 == "SUPPLY_ZONE": p_type = " [S]"
-                                
-                                conf_str = f" | Conf: {','.join(confluence)}" if confluence else ""
-                                dte_str = f" | DTE:{dte}" if dte is not None else ""
-                                
-                                report.append(f"- {prefix}{mapped_price:.2f}{p_type} [{action}] {dte_str} | Sig:{score:.2f}{conf_str}")
+                    # Sort by significance and take top 10
+                    for lvl in sorted(gamma_levels, key=lambda x: x.get("significance_score", 0), reverse=True)[:10]:
+                        z_type = lvl.get("zone_type", "MAJOR")
+                        action = lvl.get("market_action", "PIVOT")
+                        price_val = float(lvl.get("price", 0.0))
+                        report.append(f"- {price_val:.2f} [{z_type}/{action}] | Significance: {lvl.get('significance_score', 0):.2f}")
                 else:
-                    report.append("\nNo major OI liquidity zones detected.")
- 
-                report.append(f"\nExecution: {confirmation_info}")
+                    report.append("No major zones detected.")
                 
-                # Dynamic advice based on horizon
-                if horizon == "short":
-                    report.append(f"Focus: 0-7 DTE gamma spikes, pinning near Max Pain.")
-                elif horizon == "long":
-                    report.append(f"Focus: Institutional anchors for macro boundaries.")
-                else:
-                    report.append(f"Focus: Use Basis Adjusted Spot Levels. Await structure shift.")
-
                 return "\n".join(report)
 
             except Exception as e:
-                import traceback
-                traceback.print_exc()
-                logger.error(f"OI Tool Failed: {repr(e)}")
-                return f"OI Tool Error: {repr(e)}"
+                logger.error(f"OpenInterestTool error: {e}")
+                return f"Error: {str(e)}"
 
