@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Zap, ShieldAlert, History, ArrowRightRight, BrainCircuit } from "lucide-react";
+import { Activity, Zap, ShieldAlert, History, ArrowRight, BrainCircuit } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { OrchestrationApi, PipelineStatus } from '@/lib/api/generated';
+import { OrchestrationApi } from '@/lib/api/generated';
 import { format } from 'date-fns';
 import axios from 'axios';
 
@@ -19,8 +19,8 @@ export function AIOrchestrationMonitor() {
 
   const fetchOrchestrationData = async () => {
     try {
-      const logsResp = await orchestrationApi.getOrchestrationLogs({ limit: 50 });
-      const statusResp = await orchestrationApi.getPipelineStatus();
+      const logsResp = await orchestrationApi.apiV1OrchestrationLogsGet({ limit: 50 });
+      const statusResp = await orchestrationApi.apiV1OrchestrationPipelineStatusGet();
       
       setLogs(logsResp.data.data || []);
       setStatus(statusResp.data.data || {});
@@ -39,7 +39,7 @@ export function AIOrchestrationMonitor() {
 
   const getLogIcon = (type: string) => {
     switch (type) {
-      case 'agent_handoff': return <ArrowRightRight className="h-3 w-3 text-indigo-400" />;
+      case 'agent_handoff': return <ArrowRight className="h-3 w-3 text-indigo-400" />;
       case 'pipeline_execution': return <Zap className="h-3 w-3 text-amber-400" />;
       case 'risk_audit': return <ShieldAlert className="h-3 w-3 text-red-400" />;
       default: return <Activity className="h-3 w-3 text-gray-400" />;
@@ -126,7 +126,7 @@ export function AIOrchestrationMonitor() {
                           {log.source_agent && (
                              <>
                                {log.source_agent}
-                               <ArrowRightRight className="h-2 w-2 opacity-40" />
+                               <ArrowRight className="h-2 w-2 opacity-40" />
                                {log.target_agent}
                              </>
                           )}

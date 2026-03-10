@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { DeploymentModal } from './DeploymentModal';
-import { Play, Save, Terminal, Loader2, Trash2, Copy, Check, Plus, Rocket, PanelRight, Bot, Settings2, BookOpen, SlidersHorizontal, Activity } from 'lucide-react';
+import { Play, Save, Terminal, Loader2, Trash2, Copy, Check, Plus, Rocket, PanelRight, Bot, Settings2, BookOpen, SlidersHorizontal, Activity, Sparkles } from 'lucide-react';
 import InteractiveBacktestChart from '@/components/dashboard/InteractiveBacktestChart';
 import { runCustomBacktest } from '@/lib/api/backtest';
 import { getPreferences } from '@/lib/api/settings';

@@ -26,13 +26,15 @@ export const DashboardLatencyWidget: React.FC = () => {
     eventSource.onmessage = (event) => {
       try {
         const rawData = JSON.parse(event.data);
-        const { trace_id, step, duration_ms } = rawData;
+        const trace_id = String(rawData.trace_id || '');
+        const step = String(rawData.step || 'unknown');
+        const duration_ms = Number(rawData.duration_ms || 0);
 
-        setCurrentTrace((prev) => {
+        setCurrentTrace((prev): TraceData | null => {
           if (prev?.trace_id === trace_id) {
-            const updatedSteps = [...prev.steps, { step, duration_ms }];
+            const updatedSteps: TraceStep[] = [...prev.steps, { step, duration_ms }];
             return {
-              ...prev,
+              trace_id: prev.trace_id,
               steps: updatedSteps,
               total_ms: updatedSteps.reduce((acc, s) => acc + s.duration_ms, 0),
             };
@@ -98,9 +100,9 @@ export const DashboardLatencyWidget: React.FC = () => {
                 itemStyle={{ color: '#94a3b8', fontSize: '12px' }}
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 labelStyle={{ display: 'none' }}
-                formatter={(value: number, name: string, props: any) => [
-                  `${value.toFixed(2)}ms`, 
-                  props.payload.step.replace(/_/g, ' ')
+                formatter={(value: any, name: any, props: any) => [
+                  `${Number(value || 0).toFixed(2)}ms`, 
+                  props?.payload?.step?.replace(/_/g, ' ') || ''
                 ]}
               />
               <Bar dataKey="duration_ms">

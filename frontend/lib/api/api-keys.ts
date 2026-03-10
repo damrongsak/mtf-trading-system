@@ -1,4 +1,4 @@
-import { api } from './index';
+import { apiClient } from './index';
 
 export interface ApiKeyResponse {
     id: string;
@@ -11,15 +11,15 @@ export interface ApiKeyResponse {
 }
 
 export const getApiKeys = async (): Promise<ApiKeyResponse[]> => {
-    const response = await api.get('/api-keys');
+    const response = await apiClient.get('/api-keys');
     return response.data;
 };
 
 export const createApiKey = async (name: string): Promise<ApiKeyResponse> => {
-    const response = await api.post('/api-keys', { name });
+    const response = await apiClient.post('/api-keys', { name });
     return response.data;
 };
 
 export const deleteApiKey = async (id: string): Promise<void> => {
-    await api.delete(`/api-keys/${id}`);
+    await apiClient.delete(`/api-keys/${id}`);
 };
