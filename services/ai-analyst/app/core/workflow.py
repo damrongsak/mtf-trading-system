@@ -6,7 +6,7 @@ import operator
 from langchain_core.messages import BaseMessage
 from langchain_core.tools import StructuredTool, BaseTool as LCTool
 from app.services.gemini import GeminiClient
-from app.tools.episodic_memory import fetch_unanalyzed_trades, save_episodic_memory
+from app.tools.episodic_memory import FetchUnanalyzedTradesTool, SaveEpisodicMemoryTool
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +126,8 @@ def resolve_tools(tool_names: List[str]) -> List[LCTool]:
     logger.info(f"Successfully resolved {len(resolved)} tools.")
     return resolved
 
-registry.register("fetch_unanalyzed_trades", fetch_unanalyzed_trades, "Fetches historical closed trades missing AI Journal Entry")
-registry.register("save_episodic_memory", save_episodic_memory, "Save actionable lessons for the Episodic Memory module")
+registry.register("fetch_unanalyzed_trades", FetchUnanalyzedTradesTool(), "Fetches historical closed trades missing AI Journal Entry")
+registry.register("save_episodic_memory", SaveEpisodicMemoryTool(), "Save actionable lessons for the Episodic Memory module")
 
 # --- Workflow Base ---
 class OlympusWorkflow:

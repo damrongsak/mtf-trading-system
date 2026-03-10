@@ -3,7 +3,7 @@ from typing import Dict, Any, List
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
 from app.core.config import settings
-from app.tools.episodic_memory import fetch_unanalyzed_trades, save_episodic_memory
+from app.tools.episodic_memory import FetchUnanalyzedTradesTool, SaveEpisodicMemoryTool
 from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class EpisodicMemoryAgent:
     """
     def __init__(self):
         # 1. Tools
-        self.tools = [fetch_unanalyzed_trades, save_episodic_memory]
+        self.tools = [FetchUnanalyzedTradesTool(), SaveEpisodicMemoryTool()]
         
         # 2. Role / System Prompt
         self.role = (
