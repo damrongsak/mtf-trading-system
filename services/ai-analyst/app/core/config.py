@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[int] = None
+    
+    # OpenClaw Integration
+    OPENCLAW_URL: str = "http://host.docker.internal:18789"
+    OPENCLAW_GATEWAY_TOKEN: Optional[str] = None
 
     @property
     def gemini(self) -> GeminiSettings:

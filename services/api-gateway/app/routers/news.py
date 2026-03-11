@@ -5,6 +5,8 @@ import os
 import logging
 from datetime import datetime
 
+from app.utils.http_client import get_internal_client
+
 router = APIRouter(
     prefix="/api/v1/news",
     tags=["news"],
@@ -13,10 +15,6 @@ router = APIRouter(
 
 DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
 AI_ANALYST_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
-
-# Shared HTTP Client (Assuming app/main.py manages global client or we create one here)
-# For simplicity, using async context manager per request or similar pattern to other routers
-# But better to use shared if available. Let's use clean AsyncClient per request for now to match data.py pattern
 
 @router.get("/headlines")
 async def get_headlines(
@@ -28,7 +26,7 @@ async def get_headlines(
     """
     Proxy to Data Pipeline: Get News Headlines
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             params = {"symbol": symbol, "count": count}
             if from_date: params["from_date"] = from_date
@@ -59,7 +57,7 @@ async def get_sentiment_history(
     if start_date: params["start_date"] = start_date
     if end_date: params["end_date"] = end_date
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/news/sentiment/history",
@@ -80,7 +78,7 @@ async def trigger_analysis(
     Proxy to AI Analyst: Trigger Sentiment Analysis
     Payload: {"symbol": "XAU/USD", "context": "..."}
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # AI Analyst endpoint: /analyze/sentiment
             response = await client.post(
@@ -110,7 +108,7 @@ async def get_calendar(
     if date_from: params["date_from"] = date_from
     if date_to: params["date_to"] = date_to
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/news/calendar",
@@ -128,7 +126,7 @@ async def sync_calendar():
     """
     Proxy to Data Pipeline: Sync Calendar
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{DATA_SERVICE_URL}/api/v1/news/calendar/sync",

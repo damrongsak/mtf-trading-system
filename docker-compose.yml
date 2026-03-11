@@ -27,9 +27,14 @@ services:
       - /app/.venv
       - ./specs:/specs
     depends_on:
-      # - postgres
-      # - qdrant
-      - execution
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      execution:
+        condition: service_healthy
+      data-pipeline:
+        condition: service_healthy
     environment:
       - EXECUTION_SERVICE_URL=http://execution:8000
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
@@ -73,6 +78,14 @@ services:
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mtf-postgres:
+        condition: service_healthy
 
   data-pipeline:
     build: ./services/data-pipeline
@@ -85,14 +98,21 @@ services:
       - ./services:/shared/services
       - /app/.venv
     depends_on:
-      # - postgres
-      - execution # Just to ensure order, though not strictly dependent
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - WEB_CONCURRENCY=1
       - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -112,8 +132,10 @@ services:
       - /app/.venv
     env_file: .env
     depends_on:
-      - redis
-      - data-pipeline
+      redis:
+        condition: service_healthy
+      data-pipeline:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
@@ -138,7 +160,12 @@ services:
       - ./services/strategy-core:/app
       - /app/.venv
     depends_on:
-      - data-pipeline
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      data-pipeline:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
@@ -163,6 +190,11 @@ services:
       - ./services/ai-analyst:/app
       - /app/.venv
     command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - REDIS_URL=redis://redis:6379/0
@@ -170,6 +202,10 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
+      - OPENCLAW_URL=http://host.docker.internal:18789
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-9b0cb07e142a651540bf2659bb8663ea62641504e8d81309}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     deploy:
       resources:
@@ -190,6 +226,11 @@ services:
       - ./services/olympus-predictor:/app
       - /app/.venv
       - ./trained_models:/app/models
+    depends_on:
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
@@ -214,8 +255,10 @@ services:
       - /app/.venv
       - ./trained_models:/app/models
     depends_on:
-      - redis
-      - olympus-predictor
+      redis:
+        condition: service_healthy
+      olympus-predictor:
+        condition: service_started
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
@@ -247,6 +290,11 @@ services:
           memory: 512M
     volumes:
       - ./infra/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader -d mtf_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - default
       - external
@@ -278,6 +326,9 @@ services:
     networks:
       - default
       - external
+    depends_on:
+      api-gateway:
+        condition: service_started
 
   redis:
     image: redis/redis-stack-server:latest
@@ -291,6 +342,11 @@ services:
       resources:
         limits:
           memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - default
       - external

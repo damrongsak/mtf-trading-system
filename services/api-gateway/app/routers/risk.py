@@ -7,6 +7,8 @@ from app.models.user import User
 import httpx
 import os
 
+from app.utils.http_client import get_internal_client
+
 router = APIRouter(
     prefix="/api/v1/risk",
     tags=["risk"]
@@ -22,7 +24,7 @@ async def check_risk(
     """
     Proxy risk check to the Strategy Core Service.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # Forward request to strategy-core service
             response = await client.post(

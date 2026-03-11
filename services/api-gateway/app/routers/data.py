@@ -9,6 +9,7 @@ from app.schemas.open_interest import (
     OpenInterestAnalysisResponse
 )
 from app.utils.redis_client import redis_client
+from app.utils.http_client import get_internal_client
 from app.schemas.response import APIResponse
 from app.utils.response import success_response, error_response
 import httpx
@@ -42,7 +43,7 @@ async def upload_historical_data(
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV.")
 
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # Read file content
             content = await file.read()
@@ -62,7 +63,7 @@ async def upload_historical_data(
                 f"{DATA_SERVICE_URL}/api/v1/upload",
                 params=params,
                 files=files,
-                timeout=30.0 # Allow more time for large uploads
+                timeout=300.0 # Allow more time for large uploads
             )
             
             if response.status_code != 201:
@@ -98,7 +99,7 @@ async def upload_open_interest(
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx).")
 
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             content = await file.read()
             files = {'file': (file.filename, content, file.content_type or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
@@ -278,7 +279,7 @@ async def trigger_sync(
     Trigger manual data sync for a symbol.
     Proxies to Data Pipeline.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{DATA_SERVICE_URL}/api/v1/ingest/manual",
@@ -308,7 +309,7 @@ async def get_candles(
     """
     Get candles from Data Pipeline. Proxy endpoint.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # Normalize and validate symbol
             clean_symbol = symbol.strip().upper()
@@ -348,7 +349,7 @@ async def get_active_symbols(
     Get list of active symbols for a specific broker.
     Proxies to Data Pipeline.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.get(
                 f"{DATA_SERVICE_URL}/api/v1/symbols",
@@ -381,7 +382,7 @@ async def create_symbol(
     """
     Create/Register a symbol in the pipeline.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{DATA_SERVICE_URL}/api/v1/symbols",
@@ -414,7 +415,7 @@ async def update_symbol_status(
     """
     Update symbol status. Proxies to Data Pipeline.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.patch(
                 f"{DATA_SERVICE_URL}/api/v1/symbols/{symbol_id}",
@@ -448,7 +449,7 @@ async def get_latest_tick(
     Get the latest tick data for a symbol. Proxies to Data Pipeline.
     Requires authentication.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # Normalize symbol
             clean_symbol = symbol.strip().upper()

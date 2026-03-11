@@ -23,6 +23,7 @@ from app.tools.heatmap import LiquidityHeatmapTool
 from app.tools.handoff import ConsultSpecialistTool
 from app.tools.EconomicImpactCorrelation import EconomicImpactCorrelationTool
 from app.tools.trade_modification import ModifyTradeTool
+from app.tools.open_claw import OpenClawResearcherTool
 
 def bootstrap_tools():
     """
@@ -63,6 +64,7 @@ def bootstrap_tools():
     registry.register("consult_specialist", ConsultSpecialistTool())
     registry.register("economic_impact_correlation", EconomicImpactCorrelationTool())
     registry.register("modify_trade", ModifyTradeTool())
+    registry.register("open_claw_research", OpenClawResearcherTool())
     
     print("All standard tools registered.")
 

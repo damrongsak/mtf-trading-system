@@ -1,6 +1,7 @@
 import logging
 import httpx
 import json
+from datetime import datetime, timezone
 from typing import Any, Optional, Type
 from pydantic import BaseModel, Field
 from app.core.config import settings
@@ -71,6 +72,7 @@ class ConsultSpecialistTool(BaseTool):
         payload = {
             "config": {
                 "name": agent_id,
+                "role": f"Specialized AI Agent: {agent_id}", # Required by AgentConfig schema
                 "role_prompt_id": agent_id,
                 "model": settings.GEMINI_MODEL_ID,
                 "temperature": 0.2

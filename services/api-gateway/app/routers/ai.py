@@ -35,6 +35,8 @@ from app.schemas.generated import (
     ResponseStatus
 )
 
+from app.utils.http_client import get_internal_client
+
 router = APIRouter(
     prefix="/api/v1/ai",
     tags=["ai"]
@@ -51,7 +53,7 @@ async def list_agents(request: Request):
     request_id = getattr(request.state, "request_id", None)
     headers = {"X-Request-ID": request_id} if request_id else {}
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.get(
                 f"{AI_SERVICE_URL}/api/v1/ai/agents",
@@ -75,7 +77,7 @@ async def analyze_market(req: MarketAnalysisRequest, request: Request):
     request_id = getattr(request.state, "request_id", None)
     headers = {"X-Request-ID": request_id} if request_id else {}
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/analyze/market", 
@@ -100,7 +102,7 @@ async def analyze_journal(req: JournalAnalysisRequest, request: Request):
     request_id = getattr(request.state, "request_id", None)
     headers = {"X-Request-ID": request_id} if request_id else {}
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/analyze/journal", 
@@ -135,7 +137,7 @@ async def run_market_observer(
     if request_id:
         headers["X-Request-ID"] = request_id
         
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
@@ -163,7 +165,7 @@ async def proxy_diagnose(
     if request_id:
         headers["X-Request-ID"] = request_id
         
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.get(
                 f"{AI_SERVICE_URL}/api/v1/ai/diagnose",
@@ -187,7 +189,7 @@ async def proxy_memory_sync(
     if request_id:
         headers["X-Request-ID"] = request_id
         
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/memory/sync",
@@ -210,7 +212,7 @@ async def get_daily_briefing(
     """
     Get the latest daily briefing from AI Analyst.
     """
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # We call the POST endpoint on AI Analyst to generate/fetch
             request_id = getattr(request.state, "request_id", None)
@@ -272,7 +274,7 @@ async def chat_strategy(
     if request_id:
         headers["X-Request-ID"] = request_id
 
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             # Forward to AI Analyst
             response = await client.post(
@@ -307,7 +309,7 @@ async def chat_strategy_stream(
     from fastapi.responses import StreamingResponse
 
     async def stream_proxy():
-        async with httpx.AsyncClient() as client:
+        async with await get_internal_client() as client:
             async with client.stream(
                 "POST",
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/stream",
@@ -383,6 +385,7 @@ def list_session_messages(
 async def send_chat_message(
     session_id: uuid.UUID,
     msg_in: ChatMessageCreate,
+    request: Request, # Added to support request_id extraction
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     authorization: str = Header(None, alias="Authorization")
@@ -432,7 +435,7 @@ async def send_chat_message(
             "thread_id": str(session_id) # Use session_id as LangGraph thread_id
         }
         
-        async with httpx.AsyncClient() as client:
+        async with await get_internal_client() as client:
             # Pass the Authorization header from the incoming request if it exists
             request_id = getattr(request.state, "request_id", None)
             headers = {}
@@ -474,7 +477,7 @@ async def send_chat_message(
 @router.post("/ingest/upload")
 async def proxy_upload_file(request: Request):
     """Proxy file upload to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         # We need to forward the multipart content
         content_type = request.headers.get("Content-Type")
         body = await request.body()
@@ -490,7 +493,7 @@ async def proxy_upload_file(request: Request):
 @router.post("/library/ingest")
 async def proxy_library_ingest(request: Request):
     """Proxy library book ingestion to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         content_type = request.headers.get("Content-Type")
         body = await request.body()
         
@@ -505,7 +508,7 @@ async def proxy_library_ingest(request: Request):
 @router.get("/library/status/{filename}")
 async def proxy_library_status(filename: str):
     """Proxy library book ingestion status to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         response = await client.get(
             f"{AI_SERVICE_URL}/api/v1/ai/library/status/{filename}",
             timeout=10.0
@@ -515,7 +518,7 @@ async def proxy_library_status(filename: str):
 @router.get("/library/list")
 async def proxy_library_list():
     """Proxy library book list to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         response = await client.get(
             f"{AI_SERVICE_URL}/api/v1/ai/library/list",
             timeout=10.0
@@ -525,7 +528,7 @@ async def proxy_library_list():
 @router.get("/admin/qdrant/health")
 async def proxy_qdrant_health(request: Request):
     """Proxy Qdrant health check to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         response = await client.get(
             f"{AI_SERVICE_URL}/api/v1/ai/admin/qdrant/health",
             timeout=10.0
@@ -535,7 +538,7 @@ async def proxy_qdrant_health(request: Request):
 @router.post("/admin/qdrant/collections/{collection_name}/clear")
 async def proxy_clear_qdrant_collection(collection_name: str):
     """Proxy Qdrant collection clear to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         response = await client.post(
             f"{AI_SERVICE_URL}/api/v1/ai/admin/qdrant/collections/{collection_name}/clear",
             timeout=30.0
@@ -545,7 +548,7 @@ async def proxy_clear_qdrant_collection(collection_name: str):
 @router.post("/external/search")
 async def proxy_external_search(request: Request):
     """Proxy external search to AI Analyst."""
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         body = await request.json()
         response = await client.post(
             f"{AI_SERVICE_URL}/api/v1/ai/external/search",
@@ -564,7 +567,7 @@ async def proxy_run_universal_agent(
     request_id = getattr(request.state, "request_id", None)
     headers = {"X-Request-ID": request_id} if request_id else {}
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/universal/run",
@@ -588,7 +591,7 @@ async def proxy_run_skill_creator(
     request_id = getattr(request.state, "request_id", None)
     headers = {"X-Request-ID": request_id} if request_id else {}
     
-    async with httpx.AsyncClient() as client:
+    async with await get_internal_client() as client:
         try:
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/skill-creator/run",
