@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List, Union
+from typing import TypedDict, Annotated, List, Union, Any, Dict, Optional
 import operator
 import json
 import logging
@@ -76,16 +76,22 @@ class AgentState(TypedDict):
     
     # AI Analyst v2.2 - Dynamic Topology & Sentinel
     severity: str # 'ROUTINE' | 'VOLATILITY' | 'CRISIS'
+    intent: str # 'chat', 'strategy_design', 'market_analysis', 'research', 'tool_use', 'briefing'
+    market_severity: str
+    market_context_data: dict # Renamed to avoid collision with 'market_context' string field
     sentinel_result: dict # Results from node_sentinel
     consensus_result: dict # Results from consensus_layer
     proposed_trade: dict # Captured trade proposal for sanity checking
+    specialist_response: Optional[Dict[str, Any]] # Response from a specialist node
 
 class StrategyAdvisorAgent:
     def __init__(self, 
                  rag_service: RAGService, 
                  gemini_client: GeminiClient, 
                  checkpointer: BaseCheckpointSaver = None,
-                 memory_service: MemoryService = None):
+                 memory_service: MemoryService = None,
+                 post_mortem_agent: Any = None,
+                 trade_manager_agent: Any = None):
         
         self.rag = rag_service
         self.gemini = gemini_client
@@ -93,6 +99,8 @@ class StrategyAdvisorAgent:
         self.cache = SemanticCache(gemini_client)
         self.openrouter = OpenRouterClient()
         self.checkpointer = checkpointer
+        self.post_mortem = post_mortem_agent
+        self.trade_manager = trade_manager_agent
         
         # Initialize Tools
         self.tool_registry = ToolRegistry(rag_service)
@@ -130,10 +138,17 @@ class StrategyAdvisorAgent:
         workflow.add_node("market_scan", self.node_market_scan)
         workflow.add_node("generate_briefing", self.node_generate_briefing)
 
+        workflow.add_node("market_context", self.node_market_context)
+        
+        # Specialist Scaling v2.5
+        workflow.add_node("journal_analysis", self.node_journal_analysis)
+        workflow.add_node("portfolio_management", self.node_portfolio_management)
+        
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
-        workflow.add_edge("query_optimizer", "severity_classifier")
+        workflow.add_edge("query_optimizer", "market_context")
+        workflow.add_edge("market_context", "severity_classifier")
         workflow.add_edge("severity_classifier", "check_cache")
 
         workflow.add_conditional_edges(
@@ -156,7 +171,9 @@ class StrategyAdvisorAgent:
                 "tool_use": "tool_selection",
                 "confirmation_check": "tool_selection", # Route pending confirmations here
                 "market_scan": "market_scan",
-                "generate_briefing": "generate_briefing"
+                "generate_briefing": "generate_briefing",
+                "journal_analysis": "journal_analysis",
+                "portfolio_management": "portfolio_management"
             }
         )
         
@@ -201,6 +218,8 @@ class StrategyAdvisorAgent:
         # Edges for Consolidated Nodes
         workflow.add_edge("market_scan", "generate")
         workflow.add_edge("generate_briefing", "generate")
+        workflow.add_edge("journal_analysis", "generate")
+        workflow.add_edge("portfolio_management", "generate")
         
         workflow.add_edge("generate", "evaluator")
         
@@ -220,6 +239,143 @@ class StrategyAdvisorAgent:
         return workflow.compile(checkpointer=self.checkpointer)
 
     # --- NODE IMPLEMENTATIONS ---
+
+    async def node_market_context(self, state: AgentState):
+        """
+        Fetches real-time market context (volatility, trend) for benchmark symbols.
+        Used to inform the severity classifier of current market regimes.
+        """
+        logger.info("Fetching real-time market context for severity assessment...")
+        
+        # Benchmark symbols for regime detection
+        benchmarks = ["XAUUSD", "EURUSD", "BTCUSD"]
+        context_results = {}
+        
+        try:
+            # We use the registry to get the tool
+            from app.core.workflow import registry
+            market_tool = registry.get("get_market_context")
+            
+            if market_tool:
+                # Run parallel fetches for benchmarks
+                tasks = []
+                for sym in benchmarks:
+                    tasks.append(market_tool.ainvoke({"symbol": sym, "auth_token": state.get("auth_token")}))
+                
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for i, sym in enumerate(benchmarks):
+                    res = results[i]
+                    if isinstance(res, Exception):
+                        logger.error(f"Failed to fetch context for {sym}: {res}")
+                        continue
+                    context_results[sym] = res
+            
+            return {"market_context_data": context_results}
+        except Exception as e:
+            logger.error(f"Error in node_market_context: {e}")
+            return {"market_context_data": {}}
+
+    async def node_journal_analysis(self, state: AgentState):
+        """
+        Orchestrates the PostMortemAgent to analyze recent trades.
+        """
+        logger.info("Executing Journal Analysis Specialist...")
+        if not self.post_mortem:
+            return {"final_response": "Post-Mortem Agent not initialized.", "intent": "CHAT"}
+
+        try:
+            # 1. Fetch unanalyzed trades via tool
+            from app.core.workflow import registry
+            fetch_tool = registry.get("fetch_unanalyzed_trades")
+            if not fetch_tool:
+                return {"final_response": "Tool 'fetch_unanalyzed_trades' not found.", "intent": "CHAT"}
+
+            res = await fetch_tool.run_tool({"limit": 5})
+            trades = res.get("trades", [])
+
+            if not trades:
+                 return {
+                     "final_response": "I couldn't find any unanalyzed trades in your journal to review at this moment.",
+                     "intent": "JOURNAL_ANALYSIS"
+                 }
+
+            # 2. Run specialist analysis
+            analysis_results = await self.post_mortem.run_batch_analysis(trades, state["user_id"])
+            
+            # 3. Format result for generator
+            summary = []
+            for i, r in enumerate(analysis_results):
+                if not r: continue
+                symbol = trades[i].get("instrument") or trades[i].get("symbol", "Unknown")
+                pnl = trades[i].get("realized_pnl", 0)
+                summary.append(f"- {symbol} (${pnl}): {r.get('classification')} | Lesson: {r.get('critical_lesson')}")
+
+            response_text = "### 📊 Recent Trade Post-Mortem\n\n" + "\n".join(summary)
+            response_text += "\n\nInsights have been saved to your episodic memory."
+
+            return {
+                "specialist_response": {"results": analysis_results},
+                "final_response": response_text,
+                "intent": "JOURNAL_ANALYSIS"
+            }
+        except Exception as e:
+            logger.error(f"Journal analysis failed: {e}")
+            return {"final_response": f"Error during journal analysis: {e}", "intent": "CHAT"}
+
+    async def node_portfolio_management(self, state: AgentState):
+        """
+        Orchestrates the TradeManagementAgent to actively manage positions.
+        """
+        logger.info("Executing Portfolio Management Specialist...")
+        if not self.trade_manager:
+            return {"final_response": "Trade Management Agent not initialized.", "intent": "CHAT"}
+
+        try:
+             # 1. Fetch Open Trades
+             from app.core.workflow import registry
+             fetch_tool = registry.get("get_account_status") # This tool returns positions
+             if not fetch_tool:
+                 return {"final_response": "Tool 'get_account_status' not found.", "intent": "CHAT"}
+
+             account_data = await fetch_tool.run_tool({}, auth_token=state.get("auth_token"))
+             positions = account_data.get("positions", [])
+
+             if not positions:
+                 return {
+                     "final_response": "You have no open positions that require active management right now.",
+                     "intent": "PORTFOLIO_MANAGEMENT"
+                 }
+
+             # 2. Run specialist management
+             # We pass the market_context string from state
+             market_ctx = state.get("market_context", "Normal volatility, follow standard protocol.")
+             results = await self.trade_manager.manage_trades(positions, market_ctx, auth_token=state.get("auth_token"))
+
+             # 3. Format response
+             summary = []
+             actions_taken = 0
+             for r in results:
+                 if r.get("error"):
+                     summary.append(f"❌ Error managing trade {r.get('trade_id')}: {r['error']}")
+                 else:
+                     actions_taken += 1
+                     summary.append(f"✅ {r['action']} for {r.get('trade_id')}: {r.get('reason')}")
+
+             if actions_taken == 0:
+                 response_text = "All open positions were reviewed. Based on current market context, no management actions (BE/Trailing) are required at this time."
+             else:
+                 response_text = "### 🛡️ Portfolio Management Actions\n\n" + "\n".join(summary)
+
+             return {
+                 "specialist_response": {"results": results},
+                 "final_response": response_text,
+                 "intent": "PORTFOLIO_MANAGEMENT"
+             }
+
+        except Exception as e:
+            logger.error(f"Portfolio management failed: {e}")
+            return {"final_response": f"Error during portfolio management: {e}", "intent": "CHAT"}
 
     async def node_query_optimizer(self, state: AgentState):
         """
@@ -270,6 +426,8 @@ class StrategyAdvisorAgent:
         - **STRATEGY_DESIGN**: User wants to CREATE, modify, or optimize a trading strategy or code.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
+        - **JOURNAL_ANALYSIS**: User asks to analyze, review, or "post-mortem" their recent closed trades to extract lessons or psychological patterns.
+        - **PORTFOLIO_MANAGEMENT**: User asks to manage, move SL to breakeven, trail stops, or actively adjust open positions/portfolio risk.
         - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
         
         **Previous Chat History for Context:**
@@ -324,34 +482,50 @@ class StrategyAdvisorAgent:
         # Simple heuristic: TOOL_USE for trades is always at least VOLATILITY
         # But let LLM decide based on context.
         
-        prompt = f"""
-        You are a Severity Classifier for a Trading AI (MTF Olympus).
-        Your goal is to classify the urgency and risk of a user query.
-        
-        Query: "{query}"
-        Intent: {intent}
-        
-        **Severity Levels:**
-        - **CRISIS**: Use for:
-            - Asking to PLACE a live trade or large order.
-            - Requests regarding flash crashes, immediate risk-of-ruin, or regime changes.
-            - Anything involving direct financial execution in high-volatility markets.
-        - **VOLATILITY**: Use for:
-            - Market analysis on high-impact news (CPI, FOMC).
-            - Complex quantitative research or strategy optimization.
-            - General market outlooks that drive trading bias.
-        - **ROUTINE**: Use for:
-            - General chat, briefings, account status checks (balance/equity).
-            - Simple technical questions or documentation retrieval.
-        
-        **Output JSON only:**
-        {{
-            "severity": "...",
-            "rationale": "..."
-        }}
-        """
-        
         try:
+            # Incorporate market context into the prompt
+            context_summary = "No market context available."
+            if state.get("market_context_data"):
+                # Simplify context for LLM
+                summaries = []
+                for sym, data in state["market_context_data"].items():
+                    vol = data.get("volatility", "unknown")
+                    trend = data.get("trend_bias", "neutral")
+                    summaries.append(f"{sym}: Volatility={vol}, Trend={trend}")
+                context_summary = " | ".join(summaries)
+
+            prompt = f"""
+            You are a Severity Classifier for a Trading AI (MTF Olympus).
+            Your goal is to classify the urgency and risk of a user query based on the query and CURRENT MARKET CONDITIONS.
+            
+            **Current Market Context:**
+            {context_summary}
+
+            Query: "{query}"
+            Intent: {intent}
+            
+            **Severity Levels:**
+            - **CRISIS**: Use for:
+                - Asking to PLACE a live trade or large order.
+                - Requests regarding flash crashes, immediate risk-of-ruin, or regime changes.
+                - Anything involving direct financial execution in high-volatility markets.
+            - **VOLATILITY**: Use for:
+                - Market analysis on high-impact news (CPI, FOMC).
+                - Complex quantitative research or strategy optimization.
+                - General market outlooks that drive trading bias.
+            - **ROUTINE**: Use for:
+                - General chat, briefings, account status checks (balance/equity).
+                - Simple technical questions or documentation retrieval.
+            
+            **Output JSON only:**
+            {{
+                "severity": "...",
+                "rationale": "..."
+            }}
+            """
+            
+            logger.info(f"Severity Classification Input: {query} | Market: {context_summary}")
+            
             response = await self.gemini.generate_content(
                 model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id],
                 contents=[prompt],
@@ -361,7 +535,7 @@ class StrategyAdvisorAgent:
             data = SeverityClassification.model_validate_json(text)
             
             logger.info(f"Severity: {data.severity} | Rationale: {data.rationale}")
-            return {"severity": data.severity}
+            return {"severity": data.severity, "market_severity": data.severity}
         except Exception as e:
             logger.error(f"Severity classification failed: {e}")
             return {"severity": "VOLATILITY"} # Default to safe middle ground
@@ -620,6 +794,10 @@ class StrategyAdvisorAgent:
                 return "market_scan"
             if intent == "DAILY_BRIEFING":
                 return "generate_briefing"
+            if intent == "JOURNAL_ANALYSIS":
+                return "journal_analysis"
+            if intent == "PORTFOLIO_MANAGEMENT":
+                return "portfolio_management"
         
         # Default routing for VOLATILITY / CRISIS or complex ROUTINE
         if intent == "TOOL_USE":
@@ -632,6 +810,10 @@ class StrategyAdvisorAgent:
             return "market_scan"
         elif intent == "DAILY_BRIEFING":
             return "generate_briefing"
+        elif intent == "JOURNAL_ANALYSIS":
+            return "journal_analysis"
+        elif intent == "PORTFOLIO_MANAGEMENT":
+            return "portfolio_management"
         
         return "direct"
 
@@ -1517,7 +1699,7 @@ class StrategyAdvisorAgent:
 
     # --- PUBLIC API ---
 
-    async def stream(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None):
+    async def stream(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
         """
         Streaming entry point using LangGraph astream_events (v2).
         Yields events as they occur in the graph.
@@ -1526,6 +1708,7 @@ class StrategyAdvisorAgent:
             "input_text": input_text,
             "user_id": user_id,
             "auth_token": auth_token,
+            "intent": intent_hint,
             "scratchpad": [],
             "retrieved_docs": [],
             "user_facts": [],
@@ -1536,7 +1719,8 @@ class StrategyAdvisorAgent:
             "evaluation_feedback": "",
             "is_satisfactory": False,
             "context_code": context_code,
-            "image_b64": image_b64
+            "image_b64": image_b64,
+            "severity": "ROUTINE"
         }
         
         import uuid
@@ -1576,10 +1760,12 @@ class StrategyAdvisorAgent:
                      "type": "final", 
                      "response": final_state.get("final_response"),
                      "thoughts": final_state.get("thoughts"),
+                     "intent": final_state.get("intent"),
+                     "market_severity": final_state.get("market_severity"),
                      "thread_id": thread_id
                  }
 
-    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None):
+    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
         """
         Main entry point.
         """
@@ -1587,6 +1773,7 @@ class StrategyAdvisorAgent:
             "input_text": input_text,
             "user_id": user_id,
             "auth_token": auth_token,
+            "intent": intent_hint,
             "scratchpad": [],
             "retrieved_docs": [],
             "user_facts": [],
@@ -1595,7 +1782,8 @@ class StrategyAdvisorAgent:
             "iteration_count": 0,
             "tool_loop_count": 0,
             "evaluation_feedback": "",
-            "is_satisfactory": False
+            "is_satisfactory": False,
+            "severity": "ROUTINE"
         }
         
         import uuid
@@ -1610,5 +1798,8 @@ class StrategyAdvisorAgent:
         
         return {
             "response": result.get("final_response"),
-            "thoughts": result.get("thoughts")
+            "thoughts": result.get("thoughts"),
+            "intent": result.get("intent"),
+            "market_severity": result.get("market_severity"),
+            "metadata": result.get("metadata", {})
         }

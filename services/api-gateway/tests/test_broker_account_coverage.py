@@ -196,20 +196,18 @@ async def test_fetch_symbols_cold_start(client, local_mock_db, mock_user):
     
     mock_uf = MagicMock(spec=UserFund)
     
+    # Mock DataSource
+    mock_ds = MagicMock(spec=DataSource)
+    mock_ds.id = uuid.uuid4()
+    mock_ds.name = "OANDA"
+    mock_ds.is_active = True
+
     # Mock Decrypt
     with patch("app.routers.broker_account.decrypt_data") as mock_decrypt:
         mock_decrypt.return_value = {"api_key": "key", "account_id": "123"}
         
-        # Mock Fetch Instruments helper (to avoid internal http call if we mocked it higher up)
-        # But wait, endpoint has custom logic for cold start that calls httpx directly?
-        # Re-reading code: valid logic uses `fetch_oanda_instruments` initially, then later does another `httpx` call for full details? 
-        # Yes, lines 360 and 395. We need to mock both or `httpx` globally.
-        
-        # Strategy: Mock httpx.AsyncClient to handle both calls
-        
+        # Mock Fetch Instruments helper
         async def mock_get(*args, **kwargs):
-            # First call (fetch_oanda_instruments helper) -> returns names
-            # Second call (bulk detail) -> returns instruments list with type
             return MagicMock(status_code=200, json=lambda: {
                 "instruments": [
                     {"name": "EUR_USD", "type": "CURRENCY", "displayName": "EUR/USD"},
@@ -225,11 +223,12 @@ async def test_fetch_symbols_cold_start(client, local_mock_db, mock_user):
             # DB Mocks
             def side_effect_query(model):
                 q = MagicMock()
-                if model == BrokerAccount: q.filter.return_value.first.return_value = mock_acc
-                elif model == UserFund: q.filter.return_value.first.return_value = mock_uf
-                elif model == DataSource: q.filter.return_value.first.return_value = None # Force cold start
-                elif model == MarketCategory: q.all.return_value = [] # Force cat creation
-                elif model == MarketSymbol: q.filter.return_value.first.return_value = None # Force creation
+                f = q.filter.return_value
+                if model == BrokerAccount: f.first.return_value = mock_acc
+                elif model == UserFund: f.first.return_value = mock_uf
+                elif model == DataSource: f.first.return_value = mock_ds # Return DS instead of None
+                elif model == MarketCategory: q.all.return_value = []
+                elif model == MarketSymbol: q.filter.return_value.first.return_value = None
                 return q
             local_mock_db.query.side_effect = side_effect_query
             

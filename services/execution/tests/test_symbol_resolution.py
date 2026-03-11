@@ -13,12 +13,12 @@ def adapter_with_symbols():
     """Create adapter with pre-populated L3 cache for all test symbols."""
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
-    # Pre-populate the L3 cache directly (replaces old per-test DB mocking)
-    a._symbol_cache["XAU_USD"] = (41, 10000)
-    a._symbol_cache["XAUUSD"] = (41, 10000)
-    a._symbol_cache["XAU/USD"] = (100, 10000)
-    a._symbol_cache["ID_41"] = ("XAU_USD", 10000)
-    a._symbol_cache["ID_100"] = ("XAU/USD", 10000)
+    # Pre-populate the L3 cache directly: (ID, lot_size, step_size)
+    a._symbol_cache["XAU_USD"] = (41, 10000, 100)
+    a._symbol_cache["XAUUSD"] = (41, 10000, 100)
+    a._symbol_cache["XAU/USD"] = (100, 10000, 100)
+    a._symbol_cache["ID_41"] = ("XAU_USD", 10000, 100)
+    a._symbol_cache["ID_100"] = ("XAU/USD", 10000, 100)
     return a
 
 
@@ -31,13 +31,13 @@ async def test_resolve_symbol_id_flexible_naming(adapter_with_symbols):
     """
     result = adapter_with_symbols._resolve_symbol_from_cache("XAUUSD")
     assert result is not None
-    symbol_id, lot_size = result
+    symbol_id, lot_size, step_size = result
     assert symbol_id in (41, 100)  # Any valid Gold symbol ID is acceptable
 
     # XAU/USD: normalizes to XAUUSD, so it resolves via the XAUUSD cache key
     result = adapter_with_symbols._resolve_symbol_from_cache("XAU/USD")
     assert result is not None
-    symbol_id, _ = result
+    symbol_id, _, _ = result
     assert symbol_id in (41, 100)  # Resolves to a Gold instrument ID
 
 

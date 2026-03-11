@@ -19,9 +19,9 @@ def adapter():
     )
     a.client = AsyncMock()
     # Pre-populate L3 cache for all symbols used in tests
-    a._symbol_cache["XAU/USD"] = (1001, 10000)
-    a._symbol_cache["EUR/USD"] = (1002, 10000000)
-    a._symbol_cache["S"] = (1001, 10000)
+    a._symbol_cache["XAU/USD"] = (1001, 10000, 100)
+    a._symbol_cache["EUR/USD"] = (1002, 10000000, 100000)
+    a._symbol_cache["S"] = (1001, 10000, 100)
     return a
 
 

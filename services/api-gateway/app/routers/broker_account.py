@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.broker_account import BrokerAccount
-from app.models.user_fund import Fund, UserFund
+from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.user_preferences import UserPreferences
 from app.security import get_current_user
+from app.dependencies.rbac import RequireRole, get_fund_id_from_account
 from app.utils.crypto import encrypt_data, decrypt_data
 from pydantic import BaseModel, Field, ConfigDict
 from app.schemas.response import APIResponse
@@ -16,7 +16,8 @@ import hmac
 import hashlib
 import time
 from app.models.market import MarketCategory, MarketSymbol
-from app.models.data_source import DataSource
+from app.models.broker_account import BrokerAccount
+from fastapi import Request
 import os
 import logging
 
@@ -217,6 +218,7 @@ class BrokerAccountResponse(BaseModel):
 
 @router.post("/", response_model=APIResponse[BrokerAccountResponse], status_code=status.HTTP_201_CREATED)
 async def create_account(
+    request: Request,
     account: BrokerAccountCreate,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -241,17 +243,9 @@ async def create_account(
                     detail="No fund found. Please create a fund first."
                 )
 
-    # Verify User has access to this Fund
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == target_fund_id
-    ).first()
-    
-    if not user_fund:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Not authorized to manage this fund"
-        )
+    # Verify User has access to this Fund with OWNER or MANAGER role
+    rbac = RequireRole([UserRole.OWNER, UserRole.MANAGER])
+    user_fund = await rbac(request, fund_id=target_fund_id, db=db, current_user=current_user)
     
     # 1. Check for Duplicate Account Number in this Fund
     if account.account_number:
@@ -329,22 +323,38 @@ async def create_account(
 
 @router.get("/", response_model=APIResponse[List[BrokerAccountResponse]])
 async def list_accounts(
+    fund_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """List all broker accounts for funds user has access to."""
-    accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+    query = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
         UserFund.user_id == current_user.id
-    ).all()
+    )
+    
+    if fund_id:
+        query = query.filter(BrokerAccount.fund_id == fund_id)
+        
+    accounts = query.all()
+    
+    # RBAC: Mask credentials for VIEWER roles. 
+    user_fund_map = {uf.fund_id: uf.role for uf in db.query(UserFund).filter(UserFund.user_id == current_user.id).all()}
     
     resp_list = []
     for a in accounts:
         item = BrokerAccountResponse.model_validate(a)
-        if a.credentials_encrypted:
+        role = user_fund_map.get(a.fund_id)
+        
+        # Security: Only decrypt credentials for OWNER and MANAGER
+        if a.credentials_encrypted and role in [UserRole.OWNER, UserRole.MANAGER]:
             try:
                 item.credentials = decrypt_data(a.credentials_encrypted)
             except Exception as e:
                 logger.error(f"Failed to decrypt credentials for account {a.id}: {e}")
+        else:
+            # Mask or Omit
+            item.credentials = {"masked": "******** (Insufficient Permissions)"} if a.credentials_encrypted else None
+            
         resp_list.append(item)
     
     return success_response(
@@ -355,23 +365,16 @@ async def list_accounts(
 async def update_account(
     account_id: uuid.UUID,
     updates: BrokerAccountUpdate,
+    fund_id: uuid.UUID = Depends(get_fund_id_from_account),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER]))
 ):
     """Update a broker account."""
     account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-
-    # Check permission logic
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == account.fund_id
-    ).first()
-    
-    if not user_fund:
-         raise HTTPException(status_code=403, detail="Not authorized")
         
     if updates.account_name is not None:
         account.account_name = updates.account_name
@@ -406,23 +409,16 @@ async def update_account(
 @router.delete("/{account_id}")
 async def delete_account(
     account_id: uuid.UUID,
+    fund_id: uuid.UUID = Depends(get_fund_id_from_account),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER]))
 ):
     """Delete a broker account."""
     account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-        
-    # Check permission logic
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == account.fund_id
-    ).first()
-    
-    if not user_fund:
-         raise HTTPException(status_code=403, detail="Not authorized")
          
     db.delete(account)
     db.commit()
@@ -433,22 +429,16 @@ async def delete_account(
 @router.post("/{account_id}/fetch-symbols", response_model=APIResponse[List[str]])
 async def fetch_account_symbols(
     account_id: uuid.UUID,
+    fund_id: uuid.UUID = Depends(get_fund_id_from_account),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]))
 ):
     """Fetch tradable symbols. Prioritizes local DB cache to prevent rate limits."""
     account = db.query(BrokerAccount).filter(BrokerAccount.id == account_id).first()
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-        
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == account.fund_id
-    ).first()
-    
-    if not user_fund:
-         raise HTTPException(status_code=403, detail="Not authorized")
          
     if account.broker_name != "OANDA" and account.broker_name != "BINANCE" and account.broker_name != "CTRADER":
         return success_response(data=[], message="Fetching symbols not supported for this broker yet")
@@ -517,8 +507,8 @@ async def fetch_account_symbols(
                     if "BTC" in name or "ETH" in name:
                          cat_name = "Crypto"
                          
-                    cat_obj = categories.get(cat_name, float('inf')) 
-                    if cat_obj == float('inf'):
+                    cat_obj = categories.get(cat_name) 
+                    if not cat_obj:
                         # Create if missing or map to Other
                         if "Other" in categories:
                             cat_obj = categories["Other"]
@@ -695,17 +685,21 @@ async def fetch_account_symbols(
 
             return success_response(data=symbol_list, message=f"Fetched and cached {len(symbol_list)} symbols")
         
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(e)
+        logger.exception("Unexpected error in fetch_account_symbols")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{account_id}/refresh-token")
 async def refresh_account_token(
     account_id: uuid.UUID,
+    fund_id: uuid.UUID = Depends(get_fund_id_from_account),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]))
 ):
     """
     Refresh Access Token using stored Refresh Token (cTrader).
@@ -714,15 +708,6 @@ async def refresh_account_token(
     
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-
-    # Check permission logic (consistent with update_account)
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == account.fund_id
-    ).first()
-    
-    if not user_fund:
-         raise HTTPException(status_code=403, detail="Not authorized")
         
     if account.broker_name != "CTRADER":
         raise HTTPException(status_code=400, detail="Only cTrader supports manual token refresh")

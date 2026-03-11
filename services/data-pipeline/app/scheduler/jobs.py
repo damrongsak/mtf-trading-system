@@ -740,6 +740,14 @@ async def run_gvz_sync_job():
     except Exception as e:
         logger.error(f"GVZ sync job failed: {e}")
 
+async def run_broker_sync_job():
+    """Wrapper for Broker Sync (Phase 47)."""
+    try:
+        from app.services.sync_service import sync_service
+        await sync_service.run_broker_sync()
+    except Exception as e:
+        logger.error(f"Broker Sync job failed: {e}")
+
 async def run_cot_sync_job():
     """Scheduled job to fetch and store COT reports from CFTC."""
     logger.info("Starting scheduled COT Sync job...")

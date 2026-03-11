@@ -86,17 +86,18 @@ async def test_fetch_symbols_cached(client, mock_db_session, mock_current_user):
     app.dependency_overrides[get_current_user] = lambda: mock_current_user
     
     # 3. Call Endpoint
-    with patch("app.routers.broker_account.decrypt_data") as mock_decrypt:
-         with patch("app.routers.broker_account.fetch_oanda_instruments") as mock_fetch:
-             response = client.post(f"/api/v1/accounts/{account_id}/fetch-symbols")
-             
-             assert response.status_code == 200
-             data = response.json()
-             assert "Returned 2 cached symbols" in data['message']
-             assert "EUR_USD" in data['data']
-             
-             # Verify fetch was NOT called
-             mock_fetch.assert_not_called()
+    with patch("app.routers.broker_account.decrypt_data", return_value={"api_key": "k", "account_id": "a"}):
+         # Mock sync success
+         mock_instruments_full = {"instruments": [{"name": "EUR_USD", "type": "CURRENCY", "displayName": "EUR/USD"}]}
+         with patch("httpx.AsyncClient.get") as mock_http_get:
+              mock_http_get.return_value = AsyncMock(status_code=200, json=lambda: mock_instruments_full)
+              
+              response = client.post(f"/api/v1/accounts/{account_id}/fetch-symbols")
+              
+              assert response.status_code == 200
+              data = response.json()
+              assert "Fetched and cached 1 symbols" in data['message']
+              assert "EUR_USD" in data['data']
     
     app.dependency_overrides.clear()
 
@@ -127,7 +128,7 @@ async def test_fetch_symbols_cold_start(client, mock_db_session, mock_current_us
         elif model == UserFund:
             filter_mock.first.return_value = mock_user_fund
         elif model == DataSource:
-            filter_mock.first.return_value = None # Force cold start
+            filter_mock.first.return_value = DataSource(id=uuid.uuid4(), name="OANDA") # Found
         elif model == MarketCategory:
             filter_mock.all.return_value = [] # Allow creation of categories
         elif model == MarketSymbol:

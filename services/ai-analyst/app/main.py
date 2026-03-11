@@ -14,6 +14,7 @@ from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.episodic_memory import EpisodicMemoryAgent
 from app.agents.post_mortem import PostMortemAgent
+from app.agents.trade_manager import TradeManagementAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents, admin, external, orchestration
@@ -143,7 +144,9 @@ async def lifespan(app: FastAPI):
                     services["rag"], 
                     services["gemini"], 
                     checkpointer=services["checkpointer"],
-                    memory_service=services.get("memory")
+                    memory_service=services.get("memory"),
+                    post_mortem_agent=services.get("post_mortem"),
+                    trade_manager_agent=services.get("trade_manager")
                 )
                 logger.info("✅ Strategy Advisor Agent Ready")
         except Exception as e:
@@ -163,6 +166,9 @@ async def lifespan(app: FastAPI):
                 
                 services["post_mortem"] = PostMortemAgent(services["gemini"], services["rag"])
                 logger.info("✅ Post-Mortem Agent Ready")
+
+                services["trade_manager"] = TradeManagementAgent(services["gemini"])
+                logger.info("✅ Trade Management Agent Ready")
         except Exception as e:
             logger.error(f"❌ Skill Creator or Post-Mortem Agent Failed: {e}")
             logger.error(traceback.format_exc())

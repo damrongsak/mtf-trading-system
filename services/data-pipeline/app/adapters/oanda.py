@@ -1,5 +1,8 @@
+from typing import List
+from typing import List, Dict
 from oandapyV20 import API
 import oandapyV20.endpoints.instruments as instruments
+import oandapyV20.endpoints.trades as trades
 from app.core.config import settings
 import logging
 
@@ -50,4 +53,16 @@ class OandaClient:
             return r.response.get('candles', [])
         except Exception as e:
             logger.error(f"Failed to fetch candles for {symbol}: {e}")
+            raise e
+
+    def get_open_positions(self) -> List[dict]:
+        """
+        Fetch all open trades from Oanda.
+        """
+        try:
+            r = trades.TradesList(accountID=self.account_id, params={"state": "OPEN"})
+            self.client.request(r)
+            return r.response.get("trades", [])
+        except Exception as e:
+            logger.error(f"Failed to fetch open OANDA trades: {e}")
             raise e

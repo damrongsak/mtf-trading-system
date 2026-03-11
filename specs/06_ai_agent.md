@@ -82,34 +82,28 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 
 ## 3. Architecture components
 
-### 3.1. System Data Flow
+### 3.1. System Data Flow (Consolidated v3.0)
 
 ```mermaid
 graph TD
-    Client[Client / API Gateway] -->|HTTP/JSON| API[FastAPI Entry Point]
+    Client[Client / API Gateway] -->|POST /ai/think| API[FastAPI Orchestrator]
 
-    subgraph "AI Analyst Service"
-        API -->|Dispatch| Router{Router}
-        Router -->|Direct Analysis| Gemini[GeminiClient]
-        Router -->|Agent Task| Agent[LangGraph Agent]
-        Router -->|Sentiment| SS[SentimentService]
+    subgraph "AI Analyst Orchestrator"
+        API -->|1. Parse| Supervisor{Supervisor Agent}
+        Supervisor -->|2. Route| Specialist{Specialist Graphs}
         
-        Agent -->|Tools| Search[Google Search]
-        Agent -->|Tools| RAG[RAGService]
-        Agent -->|Tools| MK[Market Data Tool]
+        Specialist -->|Strategy| StrategyGraph[Strategy Advisor]
+        Specialist -->|Market| MarketGraph[Market Observer]
+        Specialist -->|Briefing| BriefingGraph[Briefing Agent]
+        
+        StrategyGraph -->|Tools| Exec[Execution Tool]
+        MarketGraph -->|Tools| Search[Google Search]
+        BriefingGraph -->|Tools| Data[Market Data Tool]
+        
+        Specialist -->|3. Synthesize| Final[Response Generator]
     end
 
-    subgraph "Data & Infra"
-        Gemini <-->|GenAI API| Google[Google Vertex AI]
-        RAG <-->|Vector Search| Qdrant[(Qdrant DB)]
-        SS <-->|Cache| Redis[(Redis)]
-        MK <-->|Fetch| DataPipe[Data Pipeline Service]
-    end
-
-    classDef service fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef infra fill:#dfd,stroke:#333,stroke-width:2px;
-    class Gemini,Agent,SS service;
-    class Google,Qdrant,Redis,DataPipe infra;
+    Final -->|JSON Response| Client
 ```
 
 ### 3.2. RAG Engine (Retrieval Augmented Generation)
@@ -186,37 +180,23 @@ class MarketNarrative(BaseModel):
     recommendation: str # "Risk Off", "Look for Longs"
 ```
 
-## 5. API Interface
+## 5. Unified API Interface
 
-### 5.1. Generate Analysis
-- **POST** `/analyze/market`
-- **Body:** `MarketAnalysisRequest` (OHLCV, Trends, Image)
-- **Response:** `AnalysisResponse`
+### 5.1. Unified Orchestration
+- **POST** `/api/v1/ai/think`
+- **Body:** `AIThinkRequest` (Generic entry point)
+- **Response:** `AIThinkResponse`
+- **Logic**: Routes internally to `StrategyAdvisor`, `MarketObserver`, or `BriefingAgent` based on semantic intent and market regime.
 
-### 5.2. Journal Feedback
-- **POST** `/analyze/journal`
-- **Body:** `JournalAnalysisRequest` (Content, Entry ID)
-- **Response:** `AnalysisResponse` (Analysis + RAG matches implied in text)
+### 5.2. Background & Episodic Tasks
+- **POST** `/api/v1/ai/agent/memory/sync`
+- **Logic**: Background sync for trade learning.
 
-### 5.3. SMC Narrative
-- **POST** `/analyze/smc-narrative`
-- **Body:** `SMCNarrativeRequest` (Smart Money Concepts Data)
-- **Response:** `AnalysisResponse`
-
-### 5.4. Market Observer Agent
-- **POST** `/agent/observer/run`
-- **Body:** `{ "input_text": "Analyze XAUUSD details" }`
-- **Response:** `{ "report": "...", "timestamp": "..." }`
-
-### 5.5. Strategy Advisor Chat
-- **POST** `/ai/chat/sessions/message`
-- **Body:** `{ "message": "Optimize this MACD params...", "context_code": "..." }`
-- **Response:** `{ "response": "..." }`
-
-### 5.6. Episodic Memory Sync
-- **POST** `/agent/memory/sync`
-- **Body:** Internal / Cron triggered
-- **Response:** `{ "status": "success", "trades_analyzed": 5 }`
+### 5.3. Legacy Endpoints (DEPRECATED)
+- `/api/v1/ai/briefing` (Use `/ai/think?intent=briefing`)
+- `/api/v1/ai/market-analysis`
+- `/api/v1/ai/journal-analysis`
+- `/api/v1/ai/agent/observer/run`
 
 ## 6. Infrastructure & Roadmap
 The service is fully containerized and integrated with:

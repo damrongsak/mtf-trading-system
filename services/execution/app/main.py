@@ -76,6 +76,10 @@ async def startup_event():
         # [THE JANITOR] Schedule State Reconciliation every 1 minute
         scheduler.add_job(JanitorService.reconcile_all_accounts, 'interval', minutes=1, misfire_grace_time=60)
         
+        # [PHASE 47] Schedule Multi-Broker Sync every 5 minutes
+        from app.services.sync_service import SyncService
+        scheduler.add_job(SyncService.reconcile_all_funds, 'interval', minutes=5, misfire_grace_time=60)
+        
         # [STREAMER] Schedule Stream Sync every 5 minutes (to handle new/deleted accounts)
         scheduler.add_job(MultiStreamManager.sync_streams, 'interval', minutes=5, misfire_grace_time=60)
         

@@ -60,7 +60,7 @@ class PostMortemAgent:
         
         try:
             response = await self.gemini.generate_content(
-                model="gemini-2.0-flash",
+                model=[self.gemini.model_id, "gemini-2.5-flash", "gemini-2.0-flash"],
                 contents=[prompt],
                 config={"response_mime_type": "application/json"}
             )

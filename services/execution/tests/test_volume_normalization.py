@@ -14,9 +14,9 @@ def gold_adapter():
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
     a.client.create_order.return_value = MagicMock()
-    # Gold: 1 standard lot = 100oz. lotSize=10000 cents.
-    a._symbol_cache["XAUUSD"] = (93, 10000)
-    a._symbol_cache["ID_93"] = ("XAUUSD", 10000)
+    # Gold: 1 standard lot = 100oz. lotSize=10000 cents, step=100 cents (1oz)
+    a._symbol_cache["XAUUSD"] = (93, 10000, 100)
+    a._symbol_cache["ID_93"] = ("XAUUSD", 10000, 100)
     return a
 
 
@@ -26,9 +26,9 @@ def fx_adapter():
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
     a.client.create_order.return_value = MagicMock()
-    # FX: 1 standard lot = 100,000 units. lotSize=10,000,000 cents.
-    a._symbol_cache["EURUSD"] = (1, 10000000)
-    a._symbol_cache["ID_1"] = ("EURUSD", 10000000)
+    # FX: 1 standard lot = 100,000 units. lotSize=10,000,000 cents, step=100,000 cents (1,000 units)
+    a._symbol_cache["EURUSD"] = (1, 10000000, 100000)
+    a._symbol_cache["ID_1"] = ("EURUSD", 10000000, 100000)
     return a
 
 
@@ -68,9 +68,9 @@ async def test_ctrader_reverse_normalization():
     """
     a = CTraderOrderAdapter("id", "secret", "123", "token")
     a.client = AsyncMock()
-    # Pre-populate reverse cache
-    a._symbol_cache["XAUUSD"] = (93, 10000)
-    a._symbol_cache["ID_93"] = ("XAUUSD", 10000)
+    # Pre-populate reverse cache: XAUUSD, lotSize=10000, step=100
+    a._symbol_cache["XAUUSD"] = (93, 10000, 100)
+    a._symbol_cache["ID_93"] = ("XAUUSD", 10000, 100)
 
     mock_position = MagicMock()
     mock_position.tradeData.symbolId = 93

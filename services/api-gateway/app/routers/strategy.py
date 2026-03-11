@@ -4,10 +4,11 @@ from typing import List, Optional
 from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
-from app.models.user_fund import Fund, UserFund
+from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.user import User
 from app.routers.auth import oauth2_scheme
 from app.security import get_current_user
+from app.dependencies.rbac import RequireRole
 from app.schemas.response import APIResponse, PaginatedResponse
 from app.utils.response import success_response, paginated_response
 
@@ -37,7 +38,12 @@ class StrategyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 @router.post("/", response_model=APIResponse[StrategyResponse])
-def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def create_strategy(
+    strategy: StrategyCreate, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER]))
+):
     # Verify fund exists
     fund = db.query(Fund).filter(Fund.id == strategy.fund_id).first()
     if not fund:
@@ -58,21 +64,15 @@ def create_strategy(strategy: StrategyCreate, db: Session = Depends(get_db), tok
     return success_response(data=StrategyResponse.model_validate(new_strategy))
 
 @router.get("/", response_model=PaginatedResponse[StrategyResponse])
-def list_strategies(
-    fund_id: Optional[UUID4] = None, 
+async def list_strategies(
+    fund_id: UUID4, 
     page: int = 1,
     per_page: int = 10,
     db: Session = Depends(get_db), 
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER]))
 ):
-    if fund_id:
-        # Check access
-        # Assuming we check if user belongs to fund
-        # For now, simplistic check or trust if valid
-        query = db.query(Strategy).filter(Strategy.fund_id == fund_id)
-    else:
-        # Join strategies -> funds -> user_funds to get all strategies for this user
-        query = db.query(Strategy).join(Fund).join(UserFund).filter(UserFund.user_id == current_user.id)
+    query = db.query(Strategy).filter(Strategy.fund_id == fund_id)
         
     total = query.count()
     strategies = query.offset((page - 1) * per_page).limit(per_page).all()
@@ -90,10 +90,22 @@ class StrategyConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 @router.post("/{id}/config", response_model=APIResponse[StrategyResponse])
-async def update_strategy_config(id: UUID4, config: StrategyConfigUpdate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def update_strategy_config(
+    id: UUID4, 
+    config: StrategyConfigUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
+
+    # Resolve Fund ID from strategy
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER])(
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
     
     if config.config_json is not None:
         strategy.config_json = config.config_json
@@ -189,10 +201,21 @@ def list_templates():
 from app.services.internal_client import strategy_client
 
 @router.post("/{id}/start", response_model=APIResponse[dict])
-async def start_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def start_strategy(
+    id: UUID4, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
     
     # Update DB status
     strategy.is_active = True
@@ -231,10 +254,21 @@ async def start_strategy(id: UUID4, db: Session = Depends(get_db), token: str = 
     return success_response(data={"status": "started", "id": str(id)})
 
 @router.post("/{id}/stop", response_model=APIResponse[dict])
-async def stop_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def stop_strategy(
+    id: UUID4, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
         
     # Update DB status
     strategy.is_active = False
@@ -250,10 +284,21 @@ async def stop_strategy(id: UUID4, db: Session = Depends(get_db), token: str = D
     return success_response(data={"status": "stopped", "id": str(id)})
 
 @router.delete("/{id}", response_model=APIResponse[dict])
-async def delete_strategy(id: UUID4, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def delete_strategy(
+    id: UUID4, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    # Verify RBAC (OWNER or MANAGER)
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER])(
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
         
     # Ensure stopped
     if strategy.is_active:

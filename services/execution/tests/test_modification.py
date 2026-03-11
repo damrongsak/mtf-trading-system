@@ -17,9 +17,9 @@ async def test_ctrader_amend_order():
     """
     adapter = CTraderOrderAdapter("id", "secret", "123", "token")
     adapter.client = AsyncMock()
-    # Pre-populate L3 cache: XAUUSD, lotSize=10000 cents
-    adapter._symbol_cache["XAUUSD"] = (93, 10000)
-    adapter._symbol_cache["ID_93"] = ("XAUUSD", 10000)
+    # Pre-populate L3 cache: XAUUSD, lotSize=10000 cents, step=100
+    adapter._symbol_cache["XAUUSD"] = (93, 10000, 100)
+    adapter._symbol_cache["ID_93"] = ("XAUUSD", 10000, 100)
 
     # Mock get_pending_orders to provide target order state
     adapter.get_pending_orders = AsyncMock(return_value=[
@@ -29,8 +29,7 @@ async def test_ctrader_amend_order():
     # Amend: Change units to 2000 (0.02 lot of Gold) and price to 2350.0
     await adapter.amend_order(order_id="555", units=2000.0, price=2350.0)
 
-    # Verify client call:
-    # (2000 / 100000) * 10000 = 200 cTrader cents
+    # (2000 / 100000) * 10000 = 200 cents
     call_args = adapter.client.amend_order.call_args[1]
     assert call_args["order_id"] == 555
     assert call_args["volume"] == 200
@@ -117,7 +116,7 @@ async def test_ctrader_get_current_price_success():
     """
     adapter = CTraderOrderAdapter("id", "secret", "123", "token")
     adapter.client = AsyncMock()
-    adapter._symbol_cache["XAUUSD"] = (93, 10000)
+    adapter._symbol_cache["XAUUSD"] = (93, 10000, 100)
 
     # Mock get_spot_price to return (Bid, Ask)
     adapter.client.get_spot_price.return_value = (2000.0, 2002.0)
@@ -133,7 +132,7 @@ async def test_ctrader_get_current_price_zero_raises_error():
     """
     adapter = CTraderOrderAdapter("id", "secret", "123", "token")
     adapter.client = AsyncMock()
-    adapter._symbol_cache["XAUUSD"] = (93, 10000)
+    adapter._symbol_cache["XAUUSD"] = (93, 10000, 100)
 
     adapter.client.get_spot_price.return_value = (0.0, 0.0)
 

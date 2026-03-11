@@ -23,7 +23,7 @@ def make_filled_res(order_id="ord-123", position_id="pos-456", exec_price=2055.5
 
     # payloadType matches (not REJECTED)
     res.payloadType = 2186   # ProtoOAExecutionEvent payloadType
-    res.executionType = 2    # ProtoOAExecutionType.ORDER_FILLED (not ORDER_REJECTED=4)
+    res.executionType = 3    # ProtoOAExecutionType.ORDER_FILLED (not ORDER_REJECTED=4)
 
     # position field present
     res.HasField = lambda f: f in {"position", "deal", "order"}
@@ -39,7 +39,7 @@ def make_rejected_res(error_code="TRADING_BAD_VOLUME"):
     """Simulate a cTrader ORDER_REJECTED ExecutionEvent."""
     res = MagicMock()
     res.payloadType = 2186
-    res.executionType = 4   # ProtoOAExecutionType.ORDER_REJECTED
+    res.executionType = 7   # ProtoOAExecutionType.ORDER_REJECTED
 
     res.HasField = lambda f: f == "errorCode"
     res.errorCode = error_code
@@ -73,8 +73,8 @@ def adapter():
         )
         a.client = mock_client
         # Pre-populate symbol cache to skip DB call
-        a._symbol_cache["XAU_USD"] = (1, 10000000)
-        a._symbol_cache["XAUUSD"] = (1, 10000000)
+        a._symbol_cache["XAU_USD"] = (1, 10000000, 100000)
+        a._symbol_cache["XAUUSD"] = (1, 10000000, 100000)
         yield a, mock_client
 
 

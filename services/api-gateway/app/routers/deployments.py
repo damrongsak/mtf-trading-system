@@ -7,8 +7,12 @@ from app.database import get_db, SessionLocal
 from app.security import get_current_user
 from app.models.deployment import Deployment
 from app.models.user import User
+from app.models.user_fund import UserFund, UserRole
+from app.dependencies.rbac import RequireRole
 from app.schemas.deployment import DeploymentCreate, DeploymentResponse
 import os
+import uuid
+from uuid import UUID
 from datetime import datetime, timezone
 
 router = APIRouter()
@@ -20,21 +24,23 @@ from app.schemas.response import PaginatedResponse
 from app.utils.response import paginated_response
 
 @router.get("/", response_model=PaginatedResponse[DeploymentResponse])
-def list_deployments(
+async def list_deployments(
+    fund_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100,
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER]))
 ):
     """
     List active deployments.
     """
     # 1. Get Total Count
-    total = db.query(Deployment).filter(Deployment.user_id == current_user.id).count()
+    total = db.query(Deployment).filter(Deployment.fund_id == fund_id).count()
     
     # 2. Get Data
     deployments = db.query(Deployment).options(joinedload(Deployment.strategy)).filter(
-        Deployment.user_id == current_user.id
+        Deployment.fund_id == fund_id
     ).order_by(Deployment.started_at.desc()).offset(skip).limit(limit).all()
     
     # Calculate PnL for each deployment
@@ -72,8 +78,8 @@ def list_deployments(
         total=total
     )
 @router.get("/{id}", response_model=DeploymentResponse)
-def get_deployment(
-    id: str,
+async def get_deployment(
+    id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -81,12 +87,18 @@ def get_deployment(
     Get a single deployment by ID.
     """
     deployment = db.query(Deployment).options(joinedload(Deployment.strategy)).filter(
-        Deployment.id == id, 
-        Deployment.user_id == current_user.id
+        Deployment.id == id
     ).first()
     
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER])(
+        fund_id=deployment.fund_id,
+        current_user=current_user,
+        db=db
+    )
         
     # Calculate PnL (Copy-paste logic from list for now, or move to service)
     from sqlalchemy import func
@@ -110,13 +122,14 @@ async def create_deployment(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]))
 ):
     """
     Deploy a new strategy instance.
     """
-    # 1. Check limit
+    # 1. Check limit for this fund
     active_count = db.query(Deployment).filter(
-        Deployment.user_id == current_user.id, 
+        Deployment.fund_id == deployment_in.fund_id, 
         Deployment.status == "ACTIVE"
     ).count()
     
@@ -126,6 +139,7 @@ async def create_deployment(
     # 2. Create DB Record
     deployment = Deployment(
         user_id=current_user.id,
+        fund_id=deployment_in.fund_id,
         strategy_id=deployment_in.strategy_id,
         stock_symbol=deployment_in.stock_symbol,
         timeframe=deployment_in.timeframe,
@@ -144,7 +158,7 @@ async def create_deployment(
 
 @router.post("/{id}/stop", response_model=DeploymentResponse)
 async def stop_deployment(
-    id: str,
+    id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -152,9 +166,16 @@ async def stop_deployment(
     """
     Stop a running deployment.
     """
-    deployment = db.query(Deployment).filter(Deployment.id == id, Deployment.user_id == current_user.id).first()
+    deployment = db.query(Deployment).filter(Deployment.id == id).first()
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        fund_id=deployment.fund_id,
+        current_user=current_user,
+        db=db
+    )
         
     deployment.status = "STOPPING"
     db.commit()
@@ -162,12 +183,11 @@ async def stop_deployment(
     # Trigger Backend Stop
     background_tasks.add_task(stop_bot_instance, str(deployment.id))
     
-    
     return deployment
 
 @router.post("/{id}/restart", response_model=DeploymentResponse)
 async def restart_deployment(
-    id: str,
+    id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -175,9 +195,16 @@ async def restart_deployment(
     """
     Restart a stopped deployment.
     """
-    deployment = db.query(Deployment).filter(Deployment.id == id, Deployment.user_id == current_user.id).first()
+    deployment = db.query(Deployment).filter(Deployment.id == id).first()
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        fund_id=deployment.fund_id,
+        current_user=current_user,
+        db=db
+    )
         
     if deployment.status not in ["STOPPED", "ERROR", "STOPPING"]:
         raise HTTPException(status_code=400, detail="Only STOPPED, ERROR, or STOPPING deployments can be restarted")
@@ -188,7 +215,6 @@ async def restart_deployment(
     db.commit()
     
     # Trigger Backend Start ( reusing start_bot_instance logic )
-    # Note: start_bot_instance expects config dict, but we can access deployment.config_snapshot
     config = deployment.config_snapshot or {}
     background_tasks.add_task(start_bot_instance, str(deployment.id), config)
     
@@ -273,8 +299,8 @@ async def stop_bot_instance(deployment_id: str):
         db.close()
 
 @router.get("/{id}/logs", response_model=PaginatedResponse[Any]) # Using Any to avoid circular imports if schema issue, or specific schema
-def get_deployment_logs(
-    id: str,
+async def get_deployment_logs(
+    id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     skip: int = 0,
@@ -283,10 +309,17 @@ def get_deployment_logs(
     """
     Get execution logs for a deployment.
     """
-    # Verify ownership
-    deployment = db.query(Deployment).filter(Deployment.id == id, Deployment.user_id == current_user.id).first()
+    # Verify existence
+    deployment = db.query(Deployment).filter(Deployment.id == id).first()
     if not deployment:
          raise HTTPException(status_code=404, detail="Deployment not found")
+
+    # Verify RBAC
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER])(
+        fund_id=deployment.fund_id,
+        current_user=current_user,
+        db=db
+    )
 
     from app.models.strategy_execution_log import StrategyExecutionLog
     from app.schemas.deployment import StrategyLogResponse

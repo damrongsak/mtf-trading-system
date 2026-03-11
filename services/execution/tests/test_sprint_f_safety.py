@@ -22,8 +22,8 @@ def adapter():
     """Adapter with patched client and pre-populated L3 cache."""
     a = CTraderOrderAdapter("id", "secret", "12345", "token")
     a.client = AsyncMock()
-    a._symbol_cache["XAU_USD"] = (93, 10000)
-    a._symbol_cache["ID_93"] = ("XAU_USD", 10000)
+    a._symbol_cache["XAU_USD"] = (93, 10000, 100)
+    a._symbol_cache["ID_93"] = ("XAU_USD", 10000, 100)
     return a
 
 

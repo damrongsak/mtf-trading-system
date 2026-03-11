@@ -309,3 +309,51 @@ class CTraderClient:
             raise e
         finally:
             await client.disconnect()
+
+    async def get_open_positions(self) -> List[dict]:
+        """
+        Fetch all open positions from cTrader.
+        """
+        if not self.client_id:
+            raise ValueError("cTrader credentials not configured")
+            
+        client = AsyncCTraderClient(self.host, self.port)
+        try:
+            await client.connect()
+            await client.authorize_app(self.client_id, self.client_secret)
+            await client.authorize_account(self.account_id, self.token)
+            
+            # Use get_reconcile to fetch positions
+            reconcile = await client.get_reconcile(self.account_id)
+            
+            if not hasattr(reconcile, 'position') or not reconcile.position:
+                return []
+                
+            # Fetch symbols for naming
+            symbols_list = await client.get_symbols_list(self.account_id)
+            sym_map = {s.symbolId: s.symbolName for s in symbols_list}
+            
+            results = []
+            for p in reconcile.position:
+                from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATradeSide
+                
+                s_name = sym_map.get(p.tradeData.symbolId, f"Unknown_{p.tradeData.symbolId}")
+                units = p.tradeData.volume / 100.0 # cents to units
+                
+                results.append({
+                    "id": str(p.positionId),
+                    "broker_trade_id": str(p.positionId),
+                    "symbol": s_name,
+                    "units": units if p.tradeData.tradeSide == ProtoOATradeSide.BUY else -units,
+                    "price": float(p.price) if hasattr(p, 'price') else 0.0,
+                    "sl": float(p.stopLoss) if p.HasField("stopLoss") else None,
+                    "tp": float(p.takeProfit) if p.HasField("takeProfit") else None,
+                    "pnl": float(p.grossProfit) / 100.0 if p.HasField("grossProfit") else 0.0,
+                    "side": "BUY" if p.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
+                })
+            return results
+        except Exception as e:
+            logger.error(f"Fetch open positions error: {e}")
+            raise e
+        finally:
+            await client.disconnect()

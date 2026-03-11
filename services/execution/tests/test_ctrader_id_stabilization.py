@@ -26,8 +26,8 @@ def adapter():
     a.client.connect = AsyncMock()
     a.client.authorize_app = AsyncMock()
     a.client.authorize_account = AsyncMock()
-    # Mock symbol resolution
-    a._resolve_symbol_id_and_lot_size = AsyncMock(return_value=(1001, 10000))
+    # Mock symbol resolution: Using FX-scale lotSize (10M) so volume=1000 -> 10 units
+    a._resolve_symbol_id_and_lot_size = AsyncMock(return_value=(1001, 10000000, 100000))
     a._resolve_symbol_name = AsyncMock(return_value="XAU/USD")
     return a
 

@@ -38,6 +38,9 @@ class AgentState(TypedDict):
     
     # Decisions
     next_node: Optional[str]
+    intent: Optional[str]
+    market_severity: Optional[str]
+    market_context: Optional[Dict[str, Any]]
     final_response: Optional[str]
 
 # --- Tool Registry (The "Node" Library) ---

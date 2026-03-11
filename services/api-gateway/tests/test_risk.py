@@ -4,17 +4,24 @@ import httpx
 
 def test_check_risk_success(client):
     payload = {
-        "risk_usd": 10.0,
-        "sl_distance_usd": 5.0,
-        "min_lot": 0.01
+        "symbol": "XAUUSD",
+        "entry_price": 2000.0,
+        "stop_loss": 1990.0,
+        "risk_usd": 10.0
     }
     
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "can_execute": True,
-        "reason": "Risk within limits",
-        "lot": 0.1
+        "data": {
+            "symbol": "XAUUSD",
+            "direction": "LONG",
+            "risk_reward_ratio": 2.5,
+            "position_size": {"units": 100, "lots": 1.0, "standard_lot_size": 100},
+            "financials": {"risk_usd": 10.0, "profit_usd": 25.0, "account_balance": None},
+            "is_safe": True,
+            "warnings": []
+        }
     }
     
     # Mock httpx.AsyncClient
@@ -26,13 +33,15 @@ def test_check_risk_success(client):
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == ResponseStatus.SUCCESS
-        assert data["data"]["can_execute"] is True
+        assert data["data"]["is_safe"] is True
+        assert data["data"]["symbol"] == "XAUUSD"
 
 def test_check_risk_service_unavailable(client):
     payload = {
-        "risk_usd": 10.0,
-        "sl_distance_usd": 5.0,
-        "min_lot": 0.01
+        "symbol": "XAUUSD",
+        "entry_price": 2000.0,
+        "stop_loss": 1990.0,
+        "risk_usd": 10.0
     }
     
     with patch("httpx.AsyncClient.post", side_effect=httpx.RequestError("Connection failed")):
@@ -44,9 +53,10 @@ def test_check_risk_service_unavailable(client):
 
 def test_check_risk_service_error(client):
     payload = {
-        "risk_usd": 10.0,
-        "sl_distance_usd": 5.0,
-        "min_lot": 0.01
+        "symbol": "XAUUSD",
+        "entry_price": 2000.0,
+        "stop_loss": 1990.0,
+        "risk_usd": 10.0
     }
     
     mock_response = MagicMock()

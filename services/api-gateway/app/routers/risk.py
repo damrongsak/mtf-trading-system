@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.trade import RiskCheckRequest, RiskCheckResponse
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
+from app.security import get_current_user
+from app.models.user import User
 import httpx
 import os
 
@@ -13,7 +15,10 @@ EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:800
 STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
 @router.post("/check", response_model=APIResponse[RiskCheckResponse])
-async def check_risk(req: RiskCheckRequest):
+async def check_risk(
+    req: RiskCheckRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Proxy risk check to the Strategy Core Service.
     """
@@ -26,8 +31,15 @@ async def check_risk(req: RiskCheckRequest):
                 timeout=5.0
             )
             response.raise_for_status()
-            return success_response(data=response.json())
+            
+            resp_data = response.json()
+            # strategy-core returns {"data": {...}}
+            if "data" in resp_data:
+                return success_response(data=resp_data["data"])
+            else:
+                return success_response(data=resp_data)
+                
         except httpx.RequestError as exc:
-            raise HTTPException(status_code=503, detail=f"Execution service unreachable: {exc}")
+            raise HTTPException(status_code=503, detail=f"Risk service unreachable: {exc}")
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=exc.response.status_code, detail=f"Execution service error: {exc.response.text}")
+            raise HTTPException(status_code=exc.response.status_code, detail=f"Risk service error: {exc.response.text}")

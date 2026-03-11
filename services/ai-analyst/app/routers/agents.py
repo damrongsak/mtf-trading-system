@@ -14,6 +14,7 @@ from app.utils.response import success_response
 from app.services.guardrail import check_guardrails
 from app.agents.universal import UniversalAgent
 from app.schemas.agent import AgentConfig
+from app.schemas.orchestration import AIThinkRequest, AIThinkResponse, Severity
 
 router = APIRouter(tags=["agents"])
 logger = logging.getLogger(__name__)
@@ -43,6 +44,22 @@ AGENTS = {
         "description": "Generates daily summary reports of market activity.",
         "status": "active",
         "capabilities": ["report_generation", "summarization"]
+    },
+    "journal_analyst": {
+        "id": "journal_analyst",
+        "name": "Journal Analyst",
+        "role": "Reviewer",
+        "description": "Reviews closed trades to extract lessons and psychological patterns.",
+        "status": "active",
+        "capabilities": ["trade_post_mortem", "episodic_memory", "pattern_recognition"]
+    },
+    "portfolio_manager": {
+        "id": "portfolio_manager",
+        "name": "Portfolio Manager",
+        "role": "Risk Manager",
+        "description": "Management of open positions (BE moves, trailing stops, risk parity).",
+        "status": "active",
+        "capabilities": ["trade_management", "risk_mitigation", "dynamic_sl_tp"]
     }
 }
 
@@ -119,32 +136,76 @@ async def get_agent_details(agent_id: str):
     return success_response(data=agent)
 
 
-@router.post("/agent/observer/run")
+@router.post("/think", response_model=Dict[str, Any])
+async def ai_think(
+    request: AIThinkRequest,
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Unified AI Orchestrator Entry Point.
+    Routes requests to StrategyAdvisor, MarketObserver, or General based on intent and market regime.
+    """
+    # 1. Check for Strategy Advisor (Main Orchestrator)
+    if not services.get("strategy_advisor"):
+        raise HTTPException(status_code=503, detail="AI Orchestrator unavailable")
+    
+    try:
+        # 2. Check Guardrails
+        guardrail_result = check_guardrails(request.message)
+        if guardrail_result.blocked:
+            return success_response(
+                data={
+                    "response": f"⚠️ Request blocked: {guardrail_result.reason}",
+                    "severity": Severity.ROUTINE,
+                    "metadata": {"guardrail_triggered": True}
+                },
+                message="Request blocked by guardrail"
+            )
+
+        # 3. Execute Unified Thinking (via Strategy Advisor which acts as the main graph)
+        # Note: In a true Supervisor pattern, we might call services["supervisor"].
+        # But our StrategyAdvisor IS the complex graph that starts with a supervisor/router node.
+        auth_token = extract_auth_token(authorization)
+        
+        result = await services["strategy_advisor"].run(
+            input_text=request.message,
+            user_id="unified_user",
+            auth_token=auth_token,
+            image_b64=request.image_b64,
+            thread_id=request.thread_id,
+            # Pass hint if provided
+            intent_hint=request.intent
+        )
+        
+        # 4. Format Response according to AIThinkResponse
+        return success_response(
+            data={
+                "response": result.get("response", "No response generated"),
+                "intent_resolved": result.get("intent", "general"),
+                "severity": result.get("market_severity", Severity.ROUTINE),
+                "metadata": result.get("metadata", {}),
+                "timestamp": datetime.now()
+            },
+            message="AI Thought processed successfully"
+        )
+
+    except Exception as e:
+        logger.error(f"Unified AI Error: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Orchestration Error: {str(e)}")
+
+
+
+@router.post("/agent/observer/run", tags=["deprecated"])
 async def run_observer_agent(
     request: AgentRunRequest,
     authorization: str = Header(None, alias="Authorization")
 ):
-    """Run the Market Observer (via Strategy Advisor)."""
-    if not services["strategy_advisor"]:
-        raise HTTPException(status_code=503, detail="AI Agent unavailable")
-    
-    try:
-        auth_token = extract_auth_token(authorization)
-        result = await services["strategy_advisor"].run(
-            input_text=request.input_text,
-            user_id="observer_report",
-            auth_token=auth_token
-        )
-        return success_response(
-            data=result,
-            message="Observer agent execution successful"
-        )
-    except Exception as e:
-        logger.error(f"Error executing Market Observer flow: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """DEPRECATED: Use /ai/think instead."""
+    return await ai_think(AIThinkRequest(message=request.input_text, intent="analysis"), authorization)
 
 
-@router.post("/agent/briefing")
+@router.post("/agent/briefing", tags=["deprecated"])
 async def run_daily_briefing(authorization: str = Header(None, alias="Authorization")):
     """Run the Daily Briefing (via Strategy Advisor)."""
     if not services["strategy_advisor"]:

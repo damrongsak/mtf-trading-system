@@ -6,7 +6,7 @@ Source of truth: specs/03_data_model.yaml -> Trade entity
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from uuid import UUID
 from enum import Enum
 
@@ -115,6 +115,22 @@ class RiskCheckRequest(BaseModel):
     risk_usd: Optional[float] = Field(None, description="Risk in USD (overrides percentage)")
 
 
+class PositionSizeDetail(BaseModel):
+    units: float
+    lots: float
+    standard_lot_size: float
+
+class FinancialsDetail(BaseModel):
+    risk_usd: float
+    profit_usd: float
+    account_balance: Optional[float] = None
+
 class RiskCheckResponse(BaseModel):
     """Schema for risk validation response."""
-    data: Dict[str, Any]
+    symbol: str
+    direction: str
+    risk_reward_ratio: float
+    position_size: PositionSizeDetail
+    financials: FinancialsDetail
+    is_safe: bool
+    warnings: List[str] = []

@@ -66,7 +66,7 @@ async def test_ctrader_trade_history_normalization():
     
     adapter.client = AsyncMock()
     adapter.client.get_deal_list.return_value = [mock_deal]
-    adapter._resolve_name_from_id_cache = MagicMock(return_value=("XAU_USD", 10000000))
+    adapter._resolve_name_from_id_cache = MagicMock(return_value=("XAU_USD", 10000000, 100000))
     adapter._populate_symbol_cache = AsyncMock()
 
     start = datetime(2024, 3, 1, tzinfo=timezone.utc)

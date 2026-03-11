@@ -732,3 +732,11 @@
     - **Economic Intelligence:** Developed `EconomicImpactCorrelationTool` for historical volatility analysis.
     - **Quant Logic:** Integrated `STRATEGY_GENERATION_PROMPT` for modular strategy standards.
     - **Performance:** Implemented real-time latency monitoring for queue and internal engine paths.
+
+### Phase 47: Institutional Risk Refinement & Multi-Broker Sync
+- **Status:** 🟡 In Progress
+- **Features:**
+    - **Risk Engine:** Implement Portfolio Risk Parity (PyPortfolioOpt) for multi-asset position sizing.
+    - **Broker Sync:** Real-time state synchronization between OANDA and cTrader accounts.
+    - **AI Modification:** "Dynamic SL/TP" agent for automated trade management based on order flow.
+    - **Verification:** Cross-broker arbitrage/drift detection tests.

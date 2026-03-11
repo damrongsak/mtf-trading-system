@@ -4,8 +4,11 @@ from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch, AsyncMock, ANY
 from app.main import app
 from app.models.deployment import Deployment
-from app.models.trade import Trade
 from app.models.user import User
+from app.models.signal_log import SignalLog
+from app.models.telegram_chat_mapping import TelegramChatMapping
+from app.models.market import MarketSymbol # just in case
+from app.services.internal_client import execution_client
 from app.database import get_db
 import uuid
 from datetime import datetime, timezone
@@ -48,12 +51,24 @@ def test_internal_signal_execution(mock_db_session, mock_execution_client, overr
     # 3. Query UserFund/BrokerAccount (skipped in simplified logic if snapshot has it)
     
     # We can use side_effect for db.query
+    # Mock DB Query Results
     def query_side_effect(model):
         q = MagicMock()
+        # Standard chain: query(M).filter(...).order_by(...).first()
+        f = q.filter.return_value
+        o = f.order_by.return_value
+        
         if model == Deployment:
-            q.filter.return_value.first.return_value = mock_deployment
+            f.first.return_value = mock_deployment
         elif model == User:
-            q.filter.return_value.first.return_value = mock_user
+            f.first.return_value = mock_user
+        elif model == SignalLog:
+            o.first.return_value = None # Prevent throttling
+            f.first.return_value = None
+        elif model == TelegramChatMapping:
+            f.first.return_value = None
+        else:
+            f.first.return_value = None
         return q
     
     mock_db_session.query.side_effect = query_side_effect

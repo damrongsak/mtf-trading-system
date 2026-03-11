@@ -5,6 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 class DeploymentBase(BaseModel):
+    fund_id: UUID
     strategy_id: UUID
     stock_symbol: str
     timeframe: str

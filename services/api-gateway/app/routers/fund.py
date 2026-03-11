@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user_fund import Fund, UserFund
+from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.user import User
 from app.security import get_current_user
+from app.dependencies.rbac import RequireRole
 from pydantic import BaseModel, ConfigDict
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
@@ -98,22 +99,13 @@ async def list_user_funds(
 async def get_fund(
     fund_id: uuid.UUID,
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER]))
 ):
     """
     Get details of a specific fund
     """
-    # Check if user has access to this fund
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == fund_id
-    ).first()
-    
-    if not user_fund:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fund not found or access denied"
-        )
+    # Access checked by RequireRole dependency
     
     fund = db.query(Fund).filter(Fund.id == fund_id).first()
     
@@ -253,24 +245,15 @@ async def update_fund(
     fund_id: uuid.UUID,
     fund_update: FundUpdate,
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER]))
 ):
     """
     Update fund details. Requires MANAGER or OWNER role.
     """
     from app.models.user_fund import UserRole as UserFundRole
     
-    # Check permissions
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == fund_id
-    ).first()
-    
-    if not user_fund or user_fund.role not in [UserFundRole.OWNER, UserFundRole.MANAGER]:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this fund"
-        )
+    # Permission handled by RequireRole dependency
     
     fund = db.query(Fund).filter(Fund.id == fund_id).first()
     if not fund:
@@ -332,24 +315,15 @@ async def update_fund(
 async def delete_fund(
     fund_id: uuid.UUID,
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER]))
 ):
     """
     Delete a fund. Requires OWNER role.
     """
     from app.models.user_fund import UserRole as UserFundRole
     
-    # Check permissions (Strictly OWNER)
-    user_fund = db.query(UserFund).filter(
-        UserFund.user_id == current_user.id,
-        UserFund.fund_id == fund_id
-    ).first()
-    
-    if not user_fund or user_fund.role != UserFundRole.OWNER:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the fund owner can delete this fund"
-        )
+    # Permission handled by RequireRole dependency (OWNER only)
     
     fund = db.query(Fund).filter(Fund.id == fund_id).first()
     if not fund:

@@ -409,36 +409,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Deployment'
 
-  /api/v1/ai/chat/sessions:
-    get:
-      summary: List chat sessions
-      parameters:
-        - name: strategy_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: List of chat sessions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIResponse_ChatSessionList'
+  /api/v1/ai/think:
     post:
-      summary: Create a new chat session
+      summary: Unified AI Orchestrator
+      description: Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+      tags: [AI]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChatSessionCreate'
+              $ref: '#/components/schemas/AIThinkRequest'
       responses:
-        '201':
-          description: Created chat session
+        '200':
+          description: AI Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse_ChatSession'
+                $ref: '#/components/schemas/AIThinkResponse'
+        '503':
+          description: Orchestrator Busy/Unavailable
+
+  /api/v1/ai/chat/sessions:
 
   /api/v1/ai/briefing:
     get:
@@ -3981,28 +3973,59 @@ components:
     RiskCheckRequest:
       type: object
       required:
-        - risk_usd
-        - sl_distance_usd
-        - min_lot
+        - symbol
+        - entry_price
+        - stop_loss
       properties:
+        symbol:
+          type: string
+        entry_price:
+          type: number
+        stop_loss:
+          type: number
+        take_profit:
+          type: number
+        account_balance:
+          type: number
+        risk_percentage:
+          type: number
+          default: 1.0
         risk_usd:
           type: number
-          description: Maximum risk in USD allowed for this trade
-        sl_distance_usd:
-          type: number
-          description: Distance to stop loss in USD (per unit/contract)
-        min_lot:
-          type: number
-          description: Minimum allowed lot size (e.g., 0.01)
     RiskCheckResponse:
       type: object
       properties:
-        can_execute:
-          type: boolean
-        lot:
-          type: number
-        reason:
+        symbol:
           type: string
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        risk_reward_ratio:
+          type: number
+        position_size:
+          type: object
+          properties:
+            units:
+              type: number
+            lots:
+              type: number
+            standard_lot_size:
+              type: number
+        financials:
+          type: object
+          properties:
+            risk_usd:
+              type: number
+            profit_usd:
+              type: number
+            account_balance:
+              type: number
+        is_safe:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
     UserCreate:
       type: object
       required:
@@ -6012,3 +6035,37 @@ components:
 
 
 
+    AIThinkRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: "User input or command"
+        intent:
+          type: string
+          description: "Optional hint for the orchestrator (e.g. 'briefing', 'market_analysis')"
+        context:
+          type: object
+          description: "Additional dynamic context (deployment_id, strategy_id, symbol)"
+        image_b64:
+          type: string
+          description: "Optional base64 encoded image for multimodal analysis"
+
+    AIThinkResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: "Final narrative or data from the AI"
+        intent_resolved:
+          type: string
+        severity:
+          type: string
+          enum: [ROUTINE, VOLATILITY, CRISIS]
+        metadata:
+          type: object
+        timestamp:
+          type: string
+          format: date-time

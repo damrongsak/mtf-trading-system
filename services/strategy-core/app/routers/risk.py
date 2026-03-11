@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import logging
+from app.services.portfolio_service import portfolio_service
 
 logger = logging.getLogger(__name__)
 
@@ -117,4 +118,28 @@ async def calculate_risk(req: RiskCheckRequest = Body(...)):
 
     except Exception as e:
         logger.error(f"Risk calc error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class PortfolioParityRequest(BaseModel):
+    symbols: List[str] = Field(..., description="List of symbols to optimize (e.g. ['XAUUSD', 'EURUSD'])")
+    lookback_days: int = Field(252, description="Lookback window for history (market days)")
+
+@router.post("/parity", response_model=Dict[str, Any])
+async def calculate_portfolio_parity(req: PortfolioParityRequest = Body(...)):
+    """
+    Calculate Institutional Risk Parity weights for a multi-asset portfolio.
+    """
+    try:
+        result = await portfolio_service.optimize_portfolio(
+            symbols=req.symbols,
+            lookback_days=req.lookback_days
+        )
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        
+        return {"data": result}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Portfolio parity error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

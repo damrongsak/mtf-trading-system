@@ -23,6 +23,11 @@ def compile_jsonb_sqlite(type_, compiler, **kw):
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Monkeypatch app.database to use the testing engine/session
+import app.database
+app.database.engine = engine
+app.database.SessionLocal = TestingSessionLocal
+
 @pytest.fixture(scope="function")
 def db_session():
     """

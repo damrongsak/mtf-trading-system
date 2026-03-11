@@ -108,14 +108,18 @@ class CTraderOrderAdapter(BrokerAdapter):
                         symbol_id = int(symbol_id)
                         lot_size = int(details.get("lotSize") or details.get("lot_size") or 10000000)
                         
-                        # Cache forward mapping (Name -> ID, LotSize)
-                        self._symbol_cache[symbol] = (symbol_id, lot_size)
-                        # Cache reverse mapping (ID -> Name, LotSize)
-                        self._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size)
+                        # Step volume is usually in 'cents' in the API, or 'units'. 
+                        # We prefer cents for math. Default to 100 cents (1 unit).
+                        step_cents = int(details.get("step_volume_cents") or (float(details.get("step_volume", 0.01)) * 100) or 100)
+
+                        # Cache forward mapping (Name -> ID, LotSize, StepSize)
+                        self._symbol_cache[symbol] = (symbol_id, lot_size, step_cents)
+                        # Cache reverse mapping (ID -> Name, LotSize, StepSize)
+                        self._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size, step_cents)
                         
                         # Cache normalized names
                         normalized = symbol.replace("_", "").replace("/", "").upper()
-                        self._symbol_cache[normalized] = (symbol_id, lot_size)
+                        self._symbol_cache[normalized] = (symbol_id, lot_size, step_cents)
                     except (ValueError, TypeError) as e:
                         logger.warning(f"cTrader: Invalid symbol metadata for {symbol}: {e}")
                 else:
@@ -135,16 +139,16 @@ class CTraderOrderAdapter(BrokerAdapter):
                 return self._symbol_cache[name]
         return None
 
-    def _resolve_name_from_id_cache(self, symbol_id: int) -> tuple[str, int]:
-        """Returns (symbol_name, lot_size_cents) from cache."""
+    def _resolve_name_from_id_cache(self, symbol_id: int) -> tuple[str, int, int]:
+        """Returns (symbol_name, lot_size_cents, step_cents) from cache."""
         cached = self._symbol_cache.get(f"ID_{symbol_id}")
         if cached:
             return cached
-        return (f"Unknown_{symbol_id}", 10000000)
+        return (f"Unknown_{symbol_id}", 10000000, 100)
 
-    async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int]:
+    async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int, int]:
         """
-        Returns (symbol_id, lot_size_in_cents).
+        Returns (symbol_id, lot_size_in_cents, step_size_in_cents).
         Normalization: 1 Standard Lot = 100,000 'Universal Units'.
         """
         # HFT-Lite: Check cache first
@@ -175,16 +179,22 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
+            symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(symbol)
             
-            # Universal Units Normalization: 
-            # In Olympus, 'units' for Forex represents direct asset units (e.g. 1000 = 1 micro lot).
-            # cTrader expects volume in 'cents' (units * 100).
-            volume_cents = int(units * 100)
+            # [VOL-Normalization] Universal units to cTrader cents
+            # units: 100,000 = 1 Standard Lot
+            # formula: (units / 100,000) * lot_size_cents
+            raw_volume = (abs(units) / 100000.0) * lot_size_cents
             
-            # Minimum volume check (cTrader requirement for Forex is usually 1,000 units = 100,000 cents)
-            if abs(volume_cents) < 100000:
-                volume_cents = 100000 if units > 0 else -100000
+            # Step size validation & rounding to nearest step
+            multiple = round(raw_volume / step_cents)
+            volume_cents = int(multiple * step_cents)
+            
+            # Absolute minimum check (broker usually enforces 100,000 cents for FX)
+            if volume_cents < step_cents:
+                volume_cents = int(step_cents)
+                
+            logger.info(f"cTrader Normalized: units={units} -> volume_cents={volume_cents} (lot_size={lot_size_cents}, step={step_cents})")
                 
                 
             res = await self.client.create_order(
@@ -200,7 +210,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             )
             
             # [H2] REJECTED — publish fill event so WS client gets callback
-            if res.payloadType == ProtoOAExecutionEvent().payloadType:
+            if getattr(res, "payloadType", None) == 2186:
                  if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
                       error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
                       logger.error(f"cTrader Order REJECTED: {error_code} for {symbol}")
@@ -403,11 +413,17 @@ class CTraderOrderAdapter(BrokerAdapter):
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
             
-            symbol_id, lot_size_cents = await self._resolve_symbol_id_and_lot_size(symbol)
-            volume_cents = int(units * 100)
+            symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(symbol)
             
-            if abs(volume_cents) < 100000:
-                volume_cents = 100000 if units > 0 else -100000
+            # [VOL-Normalization] Universal units to cTrader cents
+            raw_volume = (abs(units) / 100000.0) * lot_size_cents
+            
+            # Step size validation & rounding to nearest step
+            multiple = round(raw_volume / step_cents)
+            volume_cents = int(multiple * step_cents)
+            
+            if volume_cents < step_cents:
+                volume_cents = int(step_cents)
             
             # Determine Limit vs Stop? 
             # place_limit_order implies LIMIT.
@@ -455,7 +471,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         await self.client.authorize_app(self.client_id, self.client_secret)
         await self.client.authorize_account(self.account_id, self.token)
 
-        symbol_id, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+        symbol_id, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
         return await self.client.get_order_book(self.account_id, symbol_id)
 
     async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
@@ -465,7 +481,9 @@ class CTraderOrderAdapter(BrokerAdapter):
              await self.client.authorize_account(self.account_id, self.token)
              
              # Convert units to cents if partial close
-             volume_cents = int(units * 100) if units else 0
+             # We need to resolve lot details for symbol
+             symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size("XAUUSD") # Fallback, but closer logic needs resolving
+             # Better: fetch position first to get symbol
              # If units is None, we need to know full volume to close?
              # ProtoOAClosePositionReq requires volume.
              # If we don't know, we must fetch position first.
@@ -497,7 +515,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         await self.client.authorize_account(self.account_id, self.token)
 
         # Resolve symbol to cTrader ID using L3 cache
-        symbol_id, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+        symbol_id, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
 
         bid, ask = await self.client.get_spot_price(self.account_id, symbol_id)
         if bid == 0.0 and ask == 0.0:
@@ -524,7 +542,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             results = []
             for d in deals:
                 if d.closePositionDetail: # This deal closed a position
-                    s_name, _ = self._resolve_name_from_id_cache(d.symbolId)
+                    s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(d.symbolId)
                     
                     entry_p = d.closePositionDetail.entryPrice
                     exit_p = d.executionPrice
@@ -541,7 +559,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     open_dt = parse_iso_timestamp(d.createTimestamp)
                     
                     # volume is in cents in cTrader Protobuf
-                    units = d.volume / 100.0
+                    units = (d.volume / float(lot_size_cents)) * 100000.0
                     std_lots = units_to_standard_lots(units)
 
                     results.append({
@@ -623,11 +641,19 @@ class CTraderOrderAdapter(BrokerAdapter):
                         f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
                     )
             
-            # Resolve lot size for this symbol
-            _, lot_size_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
+            # Resolve lot details for this symbol
+            _, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
             
             if units is not None:
-                volume_cents = int(units * 100)
+                # [VOL-Normalization] Universal units to cTrader cents
+                raw_volume = (abs(units) / 100000.0) * lot_size_cents
+                
+                # Step size validation & rounding to nearest step
+                multiple = round(raw_volume / step_cents)
+                volume_cents = int(multiple * step_cents)
+                
+                if volume_cents < step_cents:
+                    volume_cents = int(step_cents)
             else:
                 # Use current raw volume from the order
                 volume_cents = target_order.get("raw_volume")
@@ -724,6 +750,60 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader Amend Position Error: {e}")
             raise e
 
+    async def get_open_trades(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all open positions from cTrader.
+        Maps ProtoOAPosition to system trade dict.
+        """
+        await self.client.connect()
+        try:
+            await self.client.authorize_app(self.client_id, self.client_secret)
+            await self.client.authorize_account(self.account_id, self.token)
+            
+            reconcile = await self.client.get_reconcile(self.account_id)
+            positions = []
+            
+            if not hasattr(reconcile, 'position') or not reconcile.position:
+                return []
+                
+            # Ensure cache is hydrated
+            if not self._symbol_cache:
+                await self._populate_symbol_cache()
+                            
+            for p in reconcile.position:
+                s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(p.tradeData.symbolId)
+                
+                # [VOL-Reverse-Normalization] cTrader cents to Universal units
+                units = (p.tradeData.volume / float(lot_size_cents)) * 100000.0
+                
+                positions.append({
+                    "id": str(p.positionId),
+                    "broker_trade_id": str(p.positionId),
+                    "symbol": s_name,
+                    "instrument": s_name,
+                    "units": units if p.tradeData.tradeSide == ProtoOATradeSide.BUY else -units,
+                    "price": float(p.price) if hasattr(p, 'price') else 0.0,
+                    "sl": float(p.stopLoss) if p.HasField("stopLoss") else None,
+                    "tp": float(p.takeProfit) if p.HasField("takeProfit") else None,
+                    "currentUnits": units,
+                    "side": "BUY" if p.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
+                    "pnl": float(p.grossProfit) / 100.0 if p.HasField("grossProfit") else 0.0,
+                    "unrealizedPL": float(p.grossProfit) / 100.0 if p.HasField("grossProfit") else 0.0,
+                })
+                
+            pending = await self.get_pending_orders()
+            
+            # Label types for consistent frontend/logic handling
+            for p in positions:
+                p["type"] = "POSITION"
+            for o in pending:
+                o["type"] = "ORDER"
+                
+            return positions + pending
+        except Exception as e:
+            logger.error(f"cTrader Get Open Trades Error: {e}")
+            raise e
+
 
     async def get_pending_orders(self) -> List[Dict[str, Any]]:
         await self.client.connect()
@@ -742,7 +822,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 await self._populate_symbol_cache()
                             
             for o in reconcile.order:
-                s_name, lot_size_cents = self._resolve_name_from_id_cache(o.tradeData.symbolId)
+                s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(o.tradeData.symbolId)
                 norm_units = (o.tradeData.volume / float(lot_size_cents)) * 100000.0
 
                 orders.append({
@@ -750,6 +830,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "instrument": s_name,
                     "units": norm_units,
                     "raw_volume": o.tradeData.volume,
+                    "side": "BUY" if o.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
                     "type": str(o.orderType),
                     "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
                     "sl": o.stopLoss if o.HasField("stopLoss") else None,

@@ -13,7 +13,7 @@ async def test_ctrader_get_order_book_success():
     adapter.client = AsyncMock()
     
     # Mock symbol resolution
-    adapter._resolve_symbol_id_and_lot_size = AsyncMock(return_value=(1, 10000000))
+    adapter._resolve_symbol_id_and_lot_size = AsyncMock(return_value=(1, 10000000, 100000))
     
     # Mock client.get_order_book return value
     mock_book = {

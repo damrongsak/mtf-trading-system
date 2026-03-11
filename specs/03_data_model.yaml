@@ -1477,6 +1477,11 @@ validation_rules:
         type: uuid
         foreign_key: "users.id"
         required: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+        description: "The Fund this deployment belongs to"
       - name: strategy_id
         type: uuid
         foreign_key: "saved_strategies.id"
