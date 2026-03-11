@@ -109,14 +109,7 @@ To maintain a "Single Source of Truth" and prevent configuration drift:
 - **Docker Integration**: All services are configured via `docker-compose.yml` to read the root `.env` file automatically.
 
 ## 📋 Step 7: Standardized Handoff & Progress Tracking
-To ensure continuity across multiple AI agent sessions or human developer handoffs, every major task must conclude with a standardized handoff report.
-
-### 🏠 Storage Location
-Store handoff files in the root `task/` directory.
-
-### 🏷️ Naming Convention
-Use the ISO date followed by the specific feature and status:
-`YYYY-MM-DD-FEATURE-NAME-STATUS.md`
+...
 *(Example: `2026-03-08-AI-ANALYST-V2.2-POST-MORTEM-SENTINEL.md`)*
 
 ### 📝 Content Structure
@@ -126,6 +119,37 @@ Each handoff MUST include:
 3.  **Just Finished / Verification**: Results of unit/integration tests and manual verification.
 4.  **Next Steps**: Actionable items for the next agent (e.g., monitor performance, tune prompts).
 5.  **Key Files**: List of critical files modified or new components created.
+
+## 🔍 Step 8: Standardized Logging (Observability)
+To comply with **Observability Guardrails**, all services must implement structured JSON logging.
+
+### 1. JSON Configuration
+Use `python-json-logger` in `app/logging_config.py`. Ensure a `TracingFilter` is used to inject the `request_id` or `correlation_id` from the singleton utility.
+
+```python
+# Standard Filter Pattern
+from app.utils.tracing import request_id_ctx
+class TracingFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_ctx.get() or ""
+        return True
+```
+
+### 2. Traceability in Services
+- **FastAPI**: Apply `RequestIDMiddleware` to capture headers.
+- **Workers**: Set the correlation context at the start of task processing.
+
+```python
+# Worker ID Handling
+correlation_id = message.get("correlation_id") or str(uuid.uuid4())
+token = correlation_id_ctx.set(correlation_id)
+try:
+    await process_task(...)
+finally:
+    correlation_id_ctx.reset(token)
+```
+
+Refer to `specs/13_logging_standard.md` for the full schema requirements.
 
 ---
 **MTF Olympus** | *Institutional Alpha at Scale*

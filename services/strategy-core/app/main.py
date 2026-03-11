@@ -30,7 +30,8 @@ import logging
 import time
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+from app.logging_config import setup_logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Strategy Core Service")
@@ -42,6 +43,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from app.middleware import CorrelationIDMiddleware
+app.add_middleware(CorrelationIDMiddleware)
 
 # --- Router definition ---
 router = APIRouter(prefix="/api/v1")

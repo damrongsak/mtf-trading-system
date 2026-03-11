@@ -46,7 +46,8 @@ async def verify_internal_api_key(api_key: str = Depends(api_key_header)):
     return api_key
 
 # Setup Logger
-logging.basicConfig(level=logging.INFO)
+from app.logging_config import setup_logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Execution Service")

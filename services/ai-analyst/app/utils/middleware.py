@@ -36,22 +36,35 @@ def get_request_id() -> str:
 
 import logging
 
+from pythonjsonlogger import jsonlogger
+
 class TracingFormatter(logging.Formatter):
     """Custom formatter that injects request_id into logs."""
     def format(self, record):
         request_id = get_request_id()
-        record.request_id = f"[{request_id}] " if request_id else ""
-        return super().format(record)
+        record.request_id = request_id or ""
+        return True # Just inject field, base class handles formatting? 
+                    # No, we'll use jsonlogger.JsonFormatter which uses record attributes.
 
 def setup_tracing_logging():
-    """Configures the ROOT logger to use TracingFormatter."""
-    # Use the root logger
+    """Configures the ROOT logger to use JSON structured logging."""
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     
     handler = logging.StreamHandler()
-    formatter = TracingFormatter(
-        '%(asctime)s %(levelname)s %(request_id)s%(name)s: %(message)s',
+    
+    # Custom filter to inject request_id
+    class TracingFilter(logging.Filter):
+        def filter(self, record):
+            record.request_id = get_request_id() or ""
+            return True
+            
+    if not any(isinstance(f, TracingFilter) for f in root_logger.filters):
+        root_logger.addFilter(TracingFilter())
+
+    formatter = jsonlogger.JsonFormatter(
+        '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s',
+        rename_fields={"asctime": "timestamp", "levelname": "severity"},
         datefmt='%Y-%m-%dT%H:%M:%SZ'
     )
     handler.setFormatter(formatter)

@@ -73,6 +73,11 @@ The system utilizes two primary patterns for high resilience:
     - **Use `REDIS_ARGS` / `POSTGRES_INITDB_ARGS`**: If you need to tune parameters like `--maxmemory`, use the designated environment variables supported by the official images. This ensures the default entrypoint can still initialize required extensions.
     - **Single Point of Configuration**: Maintain total memory allocation within the 8GB RAM host limit (Docker target: ~6.5GB).
     - **Institutional Tool Standard (MUST FOLLOW)**: All AI tools MUST inherit from `app.core.base_tool.BaseTool` and implement logic inside `async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs)`. Do NOT use `_run` or `_arun`. Automated validation is performed by `scripts/verify_tool_standards.py`.
+    - **🔍 Observability Guardrails (MANDATORY)**:
+        - **Standardized JSON Logging**: All services MUST emit structured JSON logs using `pythonjsonlogger.JsonFormatter`. Plain text logs are forbidden in production.
+        - **Correlation ID Tracking**: All logs MUST include either `request_id` (API Gateway) or `correlation_id` (Execution/Strategy).
+        - **Singleton Tracing Utility**: Use a centralized `app.utils.tracing` (or equivalent) to manage `ContextVar` propagation. Do NOT redefine the context variable in multiple files.
+        - **Context Propagation**: Workers MUST extract correlation IDs from queue messages to ensure end-to-end traceability.
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).

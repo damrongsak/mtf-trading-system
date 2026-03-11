@@ -119,14 +119,6 @@ app.add_middleware(
 from app.middleware import RequestIDMiddleware
 app.add_middleware(RequestIDMiddleware)
 
-@app.middleware("http")
-async def debug_routing(request: Request, call_next):
-    logger.info(f"Incoming: {request.method} {request.url.path}")
-    response = await call_next(request)
-    if response.status_code == 404:
-        logger.warning(f"404 Route Missing: {request.method} {request.url.path}")
-    return response
-
 # Mount static files
 static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")
 if not os.path.exists(static_path):

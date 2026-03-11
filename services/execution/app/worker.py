@@ -7,7 +7,9 @@ import redis.asyncio as redis
 import time
 from app.database import AsyncSessionLocal
 from app.services.order_service import OrderService
+from app.logging_config import setup_logging, set_correlation_id, reset_correlation_id
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 class ExecutionWorker:
@@ -51,9 +53,15 @@ class ExecutionWorker:
         logger.info("Execution Worker stopped.")
 
     async def _process_command(self, queue_key: str, message_json: str):
+        token = None
         try:
             req_data = json.loads(message_json)
             
+            # Setup Correlation Context from client_order_id or request_id
+            cid = req_data.get("client_order_id") or req_data.get("request_id")
+            if cid:
+                token = set_correlation_id(cid)
+
             # 0. Global Kill Switch Check
             if self.redis:
                 is_halted = await self.redis.get("system:kill_switch") == "1"
@@ -117,6 +125,9 @@ class ExecutionWorker:
             logger.error(f"Invalid JSON received in queue: {message_json}")
         except Exception as e:
             logger.error(f"Unexpected error in _process_command: {e}", exc_info=True)
+        finally:
+            if token:
+                reset_correlation_id(token)
 
     async def _handle_error(self, origin_queue: str, req_data: dict, error_msg: str):
         if not self.redis:
