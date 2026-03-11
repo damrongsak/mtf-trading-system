@@ -753,8 +753,8 @@ class StrategyAdvisorAgent:
         query = state["optimized_query"]
         intent = state.get("intent", "CHAT")
         
-        # Only cache RESEARCH and STRATEGY_DESIGN 
-        if intent in ["RESEARCH", "STRATEGY_DESIGN"]:
+        # Cache RESEARCH, STRATEGY_DESIGN, MARKET_ANALYSIS, and CHAT
+        if intent in ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "CHAT"]:
             if self.cache:
                 cached_response = await self.cache.check(query)
                 if cached_response:
@@ -1653,7 +1653,8 @@ class StrategyAdvisorAgent:
         
         # Store in Semantic Cache if high quality response and NOT from cache
         intent = state.get("intent")
-        if self.cache and intent in ["RESEARCH", "STRATEGY_DESIGN"] and state.get("is_satisfactory") and not state.get("from_cache"):
+        cacheable_intents = ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "CHAT"]
+        if self.cache and intent in cacheable_intents and state.get("is_satisfactory") and not state.get("from_cache"):
              await self.cache.store(state["optimized_query"], state["final_response"])
         
         # Condense History if needed (Working Memory Sliding Window)

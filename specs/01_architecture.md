@@ -127,8 +127,11 @@ To achieve sub-50ms round-trip latency for external clients, the system utilizes
 2.  **L2 Service Cache (Redis)**: Shared state like `BrokerAccount` metadata and `Credentials` are cached in Redis for fast cross-service resolution.
 3.  **L3 Adapter Cache (In-Memory)**: `Execution Service` adapters (e.g., cTrader) maintain a pre-hydrated Symbol/Contract ID map to eliminate DB lookups during order execution.
 4.  **HFT-lite Execution Path**:
-    - **Bypass DB**: Execution commands (`execute`, `cancel`, `amend`, `close`) use tiered caches instead of direct DB queries.
     - **Non-blocking Persistence**: Trade journaling is performed via background tasks to ensure minimal WebSocket response latency.
+5.  **Rule 7 Hot-Path Protection (DB-Free)**:
+    - **Logic**: Removal of ALL proactive `await db.execute()` calls from the critical path (Order placement -> Broker send -> Fill confirmation).
+    - **Persistence**: Decoupled via Redis Streams (`execution.filled.stream`) consumed by background workers for eventual consistency.
+    - **Resolution**: Use Tiered Caching (L3) for symbol metadata and risk limits.
 
 ## 4.8. Safety Guardrails (Sprint F)
 
@@ -335,3 +338,11 @@ To ensure partner integration safety, the WebSocket channel and its reference SD
 3.  If Pattern persists, **AI Analyst** locks Execution API.
 4.  Frontend displays **Mental Hand History** form.
 5.  User submits reflection -> AI unlocks Execution.
+
+## 6. Intelligence & Caching (v2.7+)
+To manage the high latency of Gemini LLM calls, the **AI Analyst** implements **Semantic Caching**:
+- **Mechanism**: Redis Vector Search using `redisvl`.
+- **Logic**: Queries are embedded and compared against cached responses. If Cosine Distance <= 0.1 (Similarity > 0.9), the cached response is returned.
+- **Freshness**: A 1-hour TTL is enforced for `MARKET_ANALYSIS` and `CHAT` queries to ensure data relevance.
+- **Telemetry**: Hit/Miss metrics are exposed to the AI Dashboard for performance monitoring.
+```

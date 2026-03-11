@@ -74,6 +74,10 @@ graph TD
     - **Deal Tracking**: Implemented `broker_deal_id` for robust deduplication across service boundaries.
     - **Reconciliation Enhancement**: Updated Janitor sync to include Pending Orders, preventing accidental pruning of working limit/stop orders.
     - **Priority Verification**: Confirmed sub-10ms processing of `priority` queue vs `commands` queue under load.
+- **✅ Rule 7 — Hot Path Isolation** (Phase 28 Complete 2026-03-11):
+    - **DB-Free Execution**: Eliminated all blocking database writes from the order placement and confirmation path.
+    - **Async Fill Persistence**: Implemented Redis Streams for decoupled trade journaling.
+    - **Passive Latency Auditing**: Integrated `baseline_latency_analyzer.py` for continuous compliance verification.
 
 ## 🤖 AI-Agent Operational Guide
 

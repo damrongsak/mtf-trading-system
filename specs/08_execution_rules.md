@@ -137,6 +137,10 @@ To ensure survival during extreme market events (Flash Crashes, News Spikes), th
 5.  **Multi-Timeframe Timeout**:
     *   **Logic**: `asyncio.wait_for` on all broker I/O.
     *   **Duration**: 15s (Standard) to 30s (Account Summary).
+6.  **Rule 7 (DB-Free Hot Path)**:
+    *   **Policy**: Proactive database writes are FORBIDDEN in the execution hot path.
+    *   **Constraint**: Internal processing latency target < 10ms.
+    *   **Enforcement**: Use Redis Streams for fill persistence.
 
 ---
 

@@ -160,6 +160,12 @@ Dual-model verification using:
 - **Secondary**: Claude 3.5 Sonnet / MiniMax via **OpenRouter**.
 Both models must agree on trade direction and critical levels within 0.5% tolerance.
 
+#### 3.4.4. Semantic Caching Node
+A high-speed filtering node that checks Redis for semantically similar historical responses before invoking the Reasoner.
+- **Coverage**: `RESEARCH`, `STRATEGY_DESIGN`, `MARKET_ANALYSIS`, `CHAT`.
+- **Freshness Window**: 3600s (1 hour).
+- **Threshold**: 0.90 similarity.
+
 ## 4. Data Models
 
 ### 4.1. AnalysisResponse (Implemented)

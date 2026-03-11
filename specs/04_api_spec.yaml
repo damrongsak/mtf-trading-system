@@ -806,7 +806,7 @@ paths:
 
   /api/v1/orchestration/pipeline/status:
     get:
-      summary: Get autonomous pipeline status
+      summary: Get status of autonomous pipelines
       tags: [Orchestration]
       responses:
         '200':
@@ -815,6 +815,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse_PipelineStatus'
+
+  /api/v1/orchestration/cache/status:
+    get:
+      summary: Get semantic cache statistics
+      tags: [Orchestration]
+      responses:
+        '200':
+          description: Cache stats
 
   /api/v1/ai/ingest/upload:
     post:

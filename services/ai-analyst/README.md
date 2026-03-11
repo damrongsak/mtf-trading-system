@@ -99,6 +99,7 @@ docker compose exec ai-analyst python3 tests/test_crisis_workflow_integration.py
 # Orchestration Monitoring API
 GET /api/v1/orchestration/logs
 GET /api/v1/orchestration/pipeline/status
+GET /api/v1/orchestration/cache/status
 ```
 
 ### Common Issues & Fixes

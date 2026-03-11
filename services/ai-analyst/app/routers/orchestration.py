@@ -66,3 +66,41 @@ async def get_pipeline_status():
     except Exception as e:
         logger.error(f"Failed to fetch pipeline status: {e}")
         return success_response(data={"sentiment_to_risk": "ERROR", "detail": str(e)})
+
+@router.get("/cache/status")
+async def get_cache_status():
+    """
+    Get Semantic Cache statistics and index information.
+    """
+    redis = services.get("redis")
+    advisor = services.get("strategy_advisor")
+    
+    stats = {
+        "hits": 0,
+        "misses": 0,
+        "total_entries": 0,
+        "hit_rate": 0.0
+    }
+    
+    if redis:
+        try:
+            hits = await redis.get("stats:cache:hit")
+            misses = await redis.get("stats:cache:miss")
+            stats["hits"] = int(hits) if hits else 0
+            stats["misses"] = int(misses) if misses else 0
+            
+            total = stats["hits"] + stats["misses"]
+            if total > 0:
+                stats["hit_rate"] = round(stats["hits"] / total, 4)
+        except Exception as e:
+            logger.error(f"Failed to fetch cache stats from Redis: {e}")
+
+    if advisor and hasattr(advisor, "cache") and advisor.cache.index:
+        try:
+            # RedisVL SearchIndex.info() returns a dict of index metadata
+            info = advisor.cache.index.info()
+            stats["total_entries"] = int(info.get("num_docs", 0))
+        except Exception as e:
+            logger.error(f"Failed to fetch RedisVL index info: {e}")
+
+    return success_response(data=stats)

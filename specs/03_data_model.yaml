@@ -1,5 +1,5 @@
 # MTF Trading System - Data Model Specification (v1.0)
-# Last Validated: 2025-12-18 (Matches Codebase)
+# Last Validated: 2026-03-11 (Matches Codebase)
 # This is the source of truth for all database entities and their relationships
 # All Pydantic models and Alembic migrations must align with this specification
 
