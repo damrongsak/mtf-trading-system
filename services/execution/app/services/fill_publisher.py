@@ -105,6 +105,22 @@ async def publish_fill(
                     approximate=True,
                 )
 
+            # 3. [Latency] Log "fill_received" step to original trace
+            if trace_id:
+                # We use the same helper logic as OrderService but without needing the full service
+                duration_ms = (time.time() - payload["fill_time"]) * 1000 # This is just internal pub time
+                # However, the goal is to append to trace:{trace_id}
+                # Trace keys are trace:{trace_id}, values are List[step:ms]
+                # We don't have the original start_t here easily, but we can log the step name
+                try:
+                    msg = f"fill_received:{time.time()*1000:.2f}" # Using absolute time for sync if needed, or delta
+                    # Better: OrderService._log_trace style
+                    # Since we don't have start_t, we just append a timestamped marker
+                    await rc.rpush(f"trace:{trace_id}", f"fill_received:{time.time()}")
+                    await rc.publish("execution:traces", json.dumps({"trace_id": trace_id, "step": "fill_received", "duration_ms": 0.0}))
+                except:
+                    pass
+
         logger.info(
             f"[H2] Fill published: account={account_id} trace_id={trace_id} "
             f"status={status} price={fill_price} instrument={instrument}"

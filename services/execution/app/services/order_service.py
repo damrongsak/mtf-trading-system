@@ -65,39 +65,27 @@ class OrderService:
                 # but for unit tests this happens because of loop closure.
                 pass
 
-            # 1. Resolve Account (Cached)
+            # 1. Resolve Account (Tiered Cache Only)
             try:
                 account_id = req_data.get("broker_account_id")
-                account_uuid = uuid.UUID(account_id)
+                # UUID validation is fast/local
+                uuid.UUID(account_id)
             except (ValueError, TypeError):
                 raise ValueError("Invalid UUID format for broker_account_id")
 
             start_t = time.time()
             trace_id = req_data.get("client_order_id") or f"trace:{uuid.uuid4().hex[:8]}"
             
-            # --- TIERED CACHE: Account ---
+            # --- TIERED CACHE: Account (Rule 7: No DB Fallback here) ---
             account_data = await execution_cache.get_account(account_id)
-            if account_data:
-                # Convert dict to object-like if needed or use dict access
-                # For simplicity, we'll use dict access below but need to be careful with existing code
-                account = type('obj', (object,), account_data)
-                await OrderService._log_trace(trace_id, "account_cache_hit", start_t)
-            else:
-                result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == account_uuid))
-                account = result.scalars().first()
-                if not account:
-                    raise ValueError("Broker Account not found")
-                # Populate cache
-                await execution_cache.set_account(account_id, {
-                    "id": str(account.id),
-                    "is_active": account.is_active,
-                    "broker_name": account.broker_name,
-                    "credentials_encrypted": account.credentials_encrypted,
-                    "environment": account.environment,
-                    "fund_id": str(account.fund_id) if account.fund_id else None,
-                    "risk_settings": account.risk_settings
-                })
-                await OrderService._log_trace(trace_id, "account_db_query", start_t)
+            if not account_data:
+                logger.error(f"Rule 7 Violation Prevented: Account {account_id} not in cache. Rejecting for hot-path protection.")
+                # We could trigger a background fetch here, but the current order must fail to keep loop latency <10ms
+                raise HTTPException(status_code=503, detail="System warming up. Broker account metadata not yet cached.")
+
+            # Map dict to object for compatibility
+            account = type('obj', (object,), account_data)
+            await OrderService._log_trace(trace_id, "account_cache_hit", start_t)
 
             if not account.is_active:
                 raise ValueError("Broker Account is inactive")
@@ -131,27 +119,19 @@ class OrderService:
             if not req_data.get("signal_id"):
                  logger.warning("Smart Order missing 'signal_id'. Traceability will be limited.")
 
-            # 4. Hierarchical Risk Calculation (Cached)
+            # 4. Hierarchical Risk Calculation (Cache Only)
             if not account.fund_id:
                 raise ValueError("Broker Account is not linked to a Fund")
             
             fund_start = time.time()
             fund_id = str(account.fund_id)
             fund_data = await execution_cache.get_fund(fund_id)
-            if fund_data:
-                fund = type('obj', (object,), fund_data)
-                await OrderService._log_trace(trace_id, "fund_cache_hit", fund_start)
-            else:
-                result_fund = await db.execute(select(Fund).where(Fund.id == account.fund_id))
-                fund = result_fund.scalars().first()
-                if not fund:
-                    raise ValueError("Fund not found")
-                await execution_cache.set_fund(fund_id, {
-                    "id": str(fund.id),
-                    "max_risk_per_trade": float(fund.max_risk_per_trade),
-                    "risk_percentage": float(fund.risk_percentage) if fund.risk_percentage else 0
-                })
-                await OrderService._log_trace(trace_id, "fund_db_query", fund_start)
+            if not fund_data:
+                logger.error(f"Rule 7 Violation Prevented: Fund {fund_id} not in cache. Rejecting.")
+                raise HTTPException(status_code=503, detail="System warming up. Fund metadata not yet cached.")
+
+            fund = type('obj', (object,), fund_data)
+            await OrderService._log_trace(trace_id, "fund_cache_hit", fund_start)
 
             # Determine Max Risk Limit
             fund_limit = float(fund.max_risk_per_trade)
@@ -341,13 +321,21 @@ class OrderService:
         bid_vol = req_data.get("bid_volume", 1000)
         ask_vol = req_data.get("ask_volume", 1000)
         
-        # 1. Resolve Account (Same as execute_smart_order)
+        # 1. Resolve Account (Cache Only - Rule 7)
         account_id = req_data.get("broker_account_id")
-        result = await db.execute(select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(account_id)))
-        account = result.scalars().first()
+        account_data = await execution_cache.get_account(account_id)
+        if not account_data:
+            logger.error(f"Rule 7 Violation Prevented: Account {account_id} not in cache for Market Making.")
+            raise ValueError("Market Making metadata not available in cache.")
         
-        credentials = decrypt_data(account.credentials_encrypted)
-        credentials["environment"] = account.environment
+        account = type('obj', (object,), account_data)
+        credentials = await execution_cache.get_credentials(account_id)
+        if not credentials:
+             # decrypt if not in L1
+             credentials = decrypt_data(account.credentials_encrypted)
+             credentials["environment"] = account.environment
+             execution_cache.set_credentials(account_id, credentials)
+             
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # 2. Update Quotes (Broker Specific)
@@ -388,22 +376,13 @@ class OrderService:
         active_filters_raw = await execution_cache.get_risk_filters(fund_id, broker_account_id)
         
         if active_filters_raw is None:
-            # Fallback to DB
-            conditions = [RiskFilter.target_type == "SYSTEM", RiskFilter.target_type == "FUND", RiskFilter.target_id == fund.id]
-            if broker_account_id:
-                conditions.append(RiskFilter.target_id == uuid.UUID(broker_account_id))
-            stmt = select(RiskFilter).where(RiskFilter.is_enabled == True).where(or_(*conditions))
-            result = await db.execute(stmt)
-            active_filters_objs = result.scalars().all()
-            # Serialize for cache
-            active_filters_raw = [
-                {"filter_type": f.filter_type, "config_json": f.config_json, "is_enabled": f.is_enabled} 
-                for f in active_filters_objs
-            ]
-            await execution_cache.set_risk_filters(fund_id, active_filters_raw, broker_account_id)
-            if trace_id: await OrderService._log_trace(trace_id, "filters_db_query", filter_start)
-        else:
-            if trace_id: await OrderService._log_trace(trace_id, "filters_cache_hit", filter_start)
+            # Rule 7 Compliance: Do not fallback to DB in hot path.
+            # If cache is missing, it's safer to fail or use a very minimal default.
+            # However, for Risk Filters, a missing cache means we can't guarantee safety.
+            logger.error(f"Rule 7 Violation Prevented: Risk filters not in cache for fund {fund_id}. Rejecting.")
+            raise ValueError("Risk safety metadata not available. Please retry in 5s.")
+        
+        if trace_id: await OrderService._log_trace(trace_id, "filters_cache_hit", filter_start)
 
         # 2. Sequential Validation for Phase 1 (Synchronous logic, very fast)
         # OrderValidator currently expects objects, let's convert or mock
@@ -446,7 +425,7 @@ class OrderService:
                     )
                 )
         
-        # Task for Phase 3 Limits
+        # Task for Phase 3 Limits (Now DB-free)
         tasks.append(RiskLimitsAgent.check_limits(db, fund, broker_account_id))
 
         if tasks:

@@ -217,6 +217,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                       # Fire-and-forget publish (non-blocking, non-fatal)
                       try:
                           from app.services.fill_publisher import publish_fill
+                          # Rule 7: publish_fill is async and does I/O (Redis)
+                          # Using create_task to avoid blocking the hot loop
                           asyncio.create_task(publish_fill(
                               account_id=str(self.account_id),
                               trace_id=trade_id or "",
@@ -299,6 +301,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             if is_filled:
                 try:
                     from app.services.fill_publisher import publish_fill
+                    # Rule 7: publish_fill now primarily pushes to Redis Stream
                     asyncio.create_task(publish_fill(
                         account_id=str(self.account_id),
                         trace_id=trade_id or "",

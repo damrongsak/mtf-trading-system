@@ -1,6 +1,8 @@
 import { PromptEditor } from '@/components/ai/PromptEditor';
 import { AgentList } from '@/components/ai/AgentList';
 import { ChatInterface } from '@/components/ai/ChatInterface';
+import { OrchestrationLog } from '@/components/ai/OrchestrationLog';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function AIWorkspacePage() {
@@ -15,6 +17,7 @@ export default function AIWorkspacePage() {
         <TabsList>
           <TabsTrigger value="prompts">Prompts</TabsTrigger>
           <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="prompts" className="flex-1 min-h-0 mt-4">
@@ -22,6 +25,9 @@ export default function AIWorkspacePage() {
         </TabsContent>
         <TabsContent value="agents" className="flex-1 min-h-0 mt-4 overflow-y-auto">
           <AgentList />
+        </TabsContent>
+        <TabsContent value="intelligence" className="flex-1 min-h-0 mt-4 overflow-y-auto">
+          <OrchestrationLog />
         </TabsContent>
         <TabsContent value="chat" className="flex-1 min-h-0 mt-4">
           <ChatInterface />
