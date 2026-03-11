@@ -29,7 +29,7 @@ def test_get_daily_briefing_success(client, mock_current_user):
         # Setup Response
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = mock_briefing_data # Code expects "report" key at top level from AI Analyst
+        mock_response.json.return_value = {"status": "success", "data": mock_briefing_data}
 
         # Setup POST method as AsyncMock returning the response (Code calls client.post)
         mock_instance.post = AsyncMock(return_value=mock_response)

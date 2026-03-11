@@ -4,10 +4,19 @@ from app.services.internal_client import StrategyClient, ExecutionClient
 
 @pytest.fixture
 def mock_httpx_client():
-    with patch("httpx.AsyncClient") as mock:
-        # Create a mock client instance that will be returned by __aenter__
+    with patch("httpx.AsyncClient") as mock_cls, \
+         patch("app.services.internal_client.get_execution_session") as mock_get_session:
+        
+        # Create a mock client instance that handles async context manager
         client_instance = AsyncMock()
-        mock.return_value.__aenter__.return_value = client_instance
+        mock_cls.return_value.__aenter__.return_value = client_instance
+        
+        # Also make get_execution_session return this mock
+        mock_get_session.return_value = client_instance
+        
+        # Ensure 'request' is an AsyncMock
+        client_instance.request = AsyncMock()
+        
         yield client_instance
 
 @pytest.mark.asyncio
@@ -99,12 +108,13 @@ async def test_close_trade(mock_httpx_client):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"data": {"closed": True}}
-    mock_httpx_client.post.return_value = mock_response
+    mock_httpx_client.request.return_value = mock_response
     
     result = await client.close_trade("t1", {"k":"v"})
     assert result == {"closed": True}
-    args, kwargs = mock_httpx_client.post.call_args
-    assert "/trades/close" in args[0]
+    args, kwargs = mock_httpx_client.request.call_args
+    assert "POST" in args[0]
+    assert "/trades/close" in args[1]
     assert kwargs["json"]["broker_trade_id"] == "t1"
 
 @pytest.mark.asyncio
@@ -112,13 +122,13 @@ async def test_place_smart_order(mock_httpx_client):
     client = ExecutionClient()
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"ord": "ok"}
-    mock_httpx_client.post.return_value = mock_response
+    mock_response.json.return_value = {"data": {"ord": "ok"}}
+    mock_httpx_client.request.return_value = mock_response
     
     result = await client.place_smart_order({"o":"d"})
     assert result == {"ord": "ok"}
-    args, _ = mock_httpx_client.post.call_args
-    assert "/smart-orders" in args[0]
+    args, _ = mock_httpx_client.request.call_args
+    assert "/smart-orders" in args[1]
 
 @pytest.mark.asyncio
 async def test_get_account_summary(mock_httpx_client):
@@ -126,14 +136,14 @@ async def test_get_account_summary(mock_httpx_client):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"balance": 1000}
-    mock_httpx_client.post.return_value = mock_response
+    mock_httpx_client.request.return_value = mock_response
     
-    result = await client.get_account_summary({"key": "val"})
+    result = await client.get_account_summary("val")
     
     assert result == {"balance": 1000}
-    args, kwargs = mock_httpx_client.post.call_args
-    assert "account/summary" in args[0]
-    assert kwargs["json"]["broker"] == {"key": "val"}
+    args, kwargs = mock_httpx_client.request.call_args
+    assert "account/summary" in args[1]
+    assert kwargs["json"]["broker_account_id"] == "val"
 
 @pytest.mark.asyncio
 async def test_get_open_trades(mock_httpx_client):
@@ -141,7 +151,7 @@ async def test_get_open_trades(mock_httpx_client):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"data": [{"id": 1}]}
-    mock_httpx_client.post.return_value = mock_response
+    mock_httpx_client.request.return_value = mock_response
     
     result = await client.get_open_trades({"key": "val"})
     
@@ -151,7 +161,7 @@ async def test_get_open_trades(mock_httpx_client):
 @pytest.mark.asyncio
 async def test_place_order_error(mock_httpx_client):
     client = ExecutionClient()
-    mock_httpx_client.post.side_effect = Exception("Network Error")
+    mock_httpx_client.request.side_effect = Exception("Network Error")
     
     with pytest.raises(Exception, match="Network Error"):
         await client.place_order({}, {})

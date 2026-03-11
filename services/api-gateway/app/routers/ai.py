@@ -340,10 +340,7 @@ def list_chat_sessions(
     
     sessions = query.order_by(ChatSession.updated_at.desc()).all()
     
-    return {
-        "status": "success",
-        "data": sessions
-    }
+    return success_response(data=sessions)
 
 @router.post("/chat/sessions", response_model=APIResponseChatSession)
 def create_chat_session(
@@ -360,10 +357,7 @@ def create_chat_session(
     db.commit()
     db.refresh(new_session)
     
-    return {
-        "status": "success",
-        "data": new_session
-    }
+    return success_response(data=new_session)
 
 @router.get("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessageList)
 def list_session_messages(
@@ -383,10 +377,7 @@ def list_session_messages(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.created_at.asc()).all()
     
-    return {
-        "status": "success",
-        "data": messages
-    }
+    return success_response(data=messages)
 
 @router.post("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessage)
 async def send_chat_message(
@@ -478,10 +469,7 @@ async def send_chat_message(
     db.commit()
     db.refresh(ai_msg)
     
-    return {
-        "status": "success",
-        "data": ai_msg
-    }
+    return success_response(data=ai_msg)
 
 @router.post("/ingest/upload")
 async def proxy_upload_file(request: Request):
