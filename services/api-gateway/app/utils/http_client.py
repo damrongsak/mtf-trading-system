@@ -14,7 +14,7 @@ class InternalHTTPClient:
     - Centralized logging.
     """
     
-    def __init__(self, timeout: float = 10.0, max_retries: int = 3):
+    def __init__(self, timeout: float = 600.0, max_retries: int = 3):
         self.timeout = timeout
         self.max_retries = max_retries
         # Transport with retries

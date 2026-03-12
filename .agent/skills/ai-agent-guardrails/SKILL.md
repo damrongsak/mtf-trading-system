@@ -57,6 +57,20 @@ To ensure institutional stability, all tools in this project MUST inherit from o
             ...
         ```
 *   **Metadata**: `auth_token` and `request_id` are injected by the orchestrator into the tool execution context. Always include them in your `run_tool` signature if network calls are required.
+    
+## 5. Service Decoupling & Communication Patterns (Anti-Deadlock)
+
+To prevent reentrancy deadlocks (circular dependencies) and high-coupling, all tools and service logic MUST follow these institutional patterns:
+
+*   **🚫 NO REENTRANT GATEWAY CALLS**: AI Tools MUST NOT call the `api-gateway` from within another internal service to fetch data.
+*   **Direct Service Calls**: If Service A needs data from Service B, it should call B's internal endpoint directly OR use a shared client.
+*   **ECST (Event-Carried State Transfer)**: For frequently accessed data (like News, Symbol Metadata), services should subscribe to events and cache state locally in Redis/Memory for O(1) reads.
+*   **Async RPC**: Use Redis Queues for high-latency or risky operations instead of blocking HTTP requests.
+*   **Communication Choice Matrix**:
+    *   *Read-heavy / Static*: Use **ECST** (Local Cache).
+    *   *Complex / Batch Read*: Use **CQRS Read Model** (Qdrant/JSONB).
+    *   *Simple Response*: Use **API Composition** (Gateway aggregates; services stay isolated).
+    *   *Write/Heavy Logic*: Use **Async RPC** (Message Broker).
 
 ---
 **When to Use this Skill:** Apply these checks during code reviews of `ai-analyst` components, when adding new tools, tuning prompts, or debugging agent timeouts/crashes.

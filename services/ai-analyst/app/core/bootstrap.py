@@ -89,7 +89,8 @@ async def run_diagnostics(auth_token: str = None) -> list:
         "market_state": "XAUUSD",
         "smc_technical_analysis": "XAUUSD",
         "oi_drift_analysis": {},
-        "liquidity_heatmap": {"symbol": "XAUUSD"}
+        "liquidity_heatmap": {"symbol": "XAUUSD"},
+        "open_claw_research": {"task": "Verify if the Olympus research bridge is online."}
     }
     
     for name, tool in registry._tools.items():

@@ -25,9 +25,11 @@ The project distinguishes itself through:
 | **Cloud Target** | GCP (Cloud Run, SQL) | Production environment. |
 
 ### 🛠️ Decoupled Architecture (v2.1+)
-The system utilizes two primary patterns for high resilience:
-1.  **Event-Carried State Transfer (ECST)**: `data-pipeline` broadcasts symbol metadata which is cached locally by `api-gateway`.
-2.  **Asynchronous RPC**: `strategy-core` pushes trade commands to a Redis queue, processed asynchronously by the `execution` worker.
+The system utilizes four primary patterns for high resilience and low coupling:
+1.  **Event-Carried State Transfer (ECST)**: Services broadcast state changes (e.g., `data-pipeline` symbol metadata) via Redis/Event Bus. Consumers cache this locally (e.g., `api-gateway` ECST cache) for O(1) reads without I/O.
+2.  **Asynchronous RPC**: High-latency or complex commands (e.g., `strategy-core` trade commands) are pushed to a Redis queue and processed asynchronously by dedicated workers (`execution` service).
+3.  **API Composition**: The **API Gateway** aggregates data from multiple microservices to respond to the client, ensuring services don't need to "know" about each other's endpoints for simple reads.
+4.  **CQRS + Read Models**: For complex queries, services build optimized Read Models (e.g., in Postgres JSONB or Qdrant) from event streams, providing dedicated, fast access without stressing the source of truth.
 
 ### 📂 Directory Structure
 *   `specs/`: **Source of Truth**. Contains Architecture (`01`), Data Models (`03`), API Contracts (`04`), and Logic Rules (`08`).
@@ -78,6 +80,9 @@ The system utilizes two primary patterns for high resilience:
         - **Correlation ID Tracking**: All logs MUST include either `request_id` (API Gateway) or `correlation_id` (Execution/Strategy).
         - **Singleton Tracing Utility**: Use a centralized `app.utils.tracing` (or equivalent) to manage `ContextVar` propagation. Do NOT redefine the context variable in multiple files.
         - **Context Propagation**: Workers MUST extract correlation IDs from queue messages to ensure end-to-end traceability.
+    - **🚫 NO REENTRANT GATEWAY CALLS**: AI Agents and Tools MUST NOT call the `api-gateway` from within another service to fetch internal data.
+        - **Reason**: This creates circular dependencies and deadlocks (especially with low `WEB_CONCURRENCY`).
+        - **Solution**: Use **Direct Service Calls** for internal operations or, preferably, **ECST (Local Cache)** for shared state.
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).

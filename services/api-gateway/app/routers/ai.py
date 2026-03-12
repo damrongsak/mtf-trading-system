@@ -165,18 +165,23 @@ async def proxy_diagnose(
     if request_id:
         headers["X-Request-ID"] = request_id
         
-    async with await get_internal_client() as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         try:
+            logger.info(f"Proxying diagnose to {AI_SERVICE_URL}/api/v1/ai/diagnose with headers: {headers}")
             response = await client.get(
                 f"{AI_SERVICE_URL}/api/v1/ai/diagnose",
-                headers=headers,
-                timeout=30.0
+                headers=headers
             )
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            logger.error(f"Diagnose proxy failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            err_type = type(e).__name__
+            err_msg = str(e)
+            logger.error(f"!!! DIAGNOSE PROXY CRITICAL FAILURE !!! Type: {err_type} | Message: {err_msg}")
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(f"Traceback:\n{tb}")
+            raise HTTPException(status_code=500, detail=f"Proxy Error: {err_type} - {err_msg}")
 
 @router.post("/agent/memory/sync")
 async def proxy_memory_sync(
@@ -323,9 +328,13 @@ async def chat_strategy_stream(
                     yield json.dumps({"type": "error", "content": f"AI Service Error {response.status_code}: {response.text}"}) + "\n"
                     return
 
-                async for chunk in response.aiter_lines():
-                    if chunk:
-                        yield chunk + "\n"
+                try:
+                    async for chunk in response.aiter_lines():
+                        if chunk:
+                            yield chunk + "\n"
+                except (httpx.ReadError, httpx.RemoteProtocolError) as e:
+                    logger.error(f"Streaming connection lost: {e}")
+                    yield json.dumps({"type": "error", "content": "Peer closed connection prematurely. Technical details: " + str(e)}) + "\n"
 
     return StreamingResponse(stream_proxy(), media_type="application/x-ndjson")
 
@@ -578,8 +587,10 @@ async def proxy_run_universal_agent(
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            logger.error(f"Universal agent proxy failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error(f"Universal agent proxy failed: {repr(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Proxy Error: {repr(e)}")
 
 
 @router.post("/agent/skill-creator/run")

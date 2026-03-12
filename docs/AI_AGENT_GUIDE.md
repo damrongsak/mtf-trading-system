@@ -151,5 +151,17 @@ finally:
 
 Refer to `specs/13_logging_standard.md` for the full schema requirements.
 
+## 🕸️ Step 9: Service Communication Patterns (Resilience)
+To avoid deadlocks and high-coupling, follow these patterns when designing inter-service logic:
+
+| Pattern | Usage | Benefit |
+| :--- | :--- | :--- |
+| **ECST** | Frequently read data (News, Metadata) | O(1) Local Reads, No Network I/O. |
+| **CQRS Read Model** | Complex queries / RAG | Optimized schema, no source-of-truth stress. |
+| **API Composition** | Gateway responses only | Gateway aggregates; Services stay decoupled. |
+| **Async RPC** | High-latency/Risk actions | Non-blocking, built-in retries/queuing. |
+
+**CRITICAL RULE**: **NEVER** call the `api-gateway` from an internal service tool. If Service A needs data from Service B, call B directly or use a cached Event-Carried state.
+
 ---
 **MTF Olympus** | *Institutional Alpha at Scale*

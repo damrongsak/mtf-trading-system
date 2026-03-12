@@ -170,7 +170,7 @@ async def get_open_interest_snapshots(
         # Update Cache
         try:
             r = await redis_client.get_client()
-            await r.setex(cache_key, 300, json.dumps(data)) # 5 min TTL
+            await r.setex(cache_key, 300, json.dumps(data, default=str)) # 5 min TTL
             logger.info("OI Snapshots: Cache UPDATED")
         except Exception as re:
             logger.warning(f"Redis cache update failed: {re}")
@@ -243,7 +243,7 @@ async def get_open_interest_analysis(
         # Update Cache
         try:
             r = await redis_client.get_client()
-            await r.setex(cache_key, 300, json.dumps(data))
+            await r.setex(cache_key, 300, json.dumps(data, default=str))
             logger.info("OI Analysis: Cache UPDATED")
         except Exception as re:
             logger.warning(f"Redis cache update failed: {re}")

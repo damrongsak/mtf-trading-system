@@ -61,11 +61,11 @@ class GoogleSearchTool(BaseTool):
         except Exception as e:
             logger.error(f"SearchTool Redis error: {e}")
 
-        # 2. Cache MISS: Call Internal News API via API Gateway
+        # 2. Cache MISS: Call Internal News API via Data Pipeline (Avoid Gateway for reentrancy)
         logger.info(f"SearchTool: Cache MISS for {query}. Fetching from internal News API.")
         try:
             # Map query keywords to symbol for internal API
-            api_url = f"{settings.API_GATEWAY_URL}/api/v1/news/headlines"
+            api_url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines"
             params = {"symbol": symbol_to_check, "count": 10}
             headers = {"Authorization": auth_token if auth_token and auth_token.startswith("Bearer ") else f"Bearer {auth_token}"} if auth_token else {}
             

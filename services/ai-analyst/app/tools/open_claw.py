@@ -32,6 +32,7 @@ class OpenClawResearcherTool(BaseTool):
     )
     args_schema: Type[BaseModel] = OpenClawInput
     is_heavy: bool = True
+    timeout: int = 600
 
     async def run_tool(self, input_data: Any, **kwargs) -> str:
         task = ""
@@ -168,6 +169,7 @@ class OpenClawChatTool(BaseTool):
     )
     args_schema: Type[BaseModel] = OpenClawChatInput
     is_heavy: bool = True
+    timeout: int = 600
 
     async def run_tool(self, input_data: Any, **kwargs) -> str:
         message = ""

@@ -438,4 +438,11 @@ class ToolRegistry:
         return self.tools.get(name)
     
     def get_tool_descriptions(self) -> str:
-        return "\n".join([f"- {t.name}: {t.description}" for t in self.tools.values()])
+        descriptions = []
+        for t in self.tools.values():
+            schema_info = ""
+            if hasattr(t, "args_schema") and t.args_schema:
+                schema_json = t.args_schema.model_json_schema()
+                schema_info = f" | Schema: {json.dumps(schema_json.get('properties', {}))}"
+            descriptions.append(f"- {t.name}: {t.description}{schema_info}")
+        return "\n".join(descriptions)

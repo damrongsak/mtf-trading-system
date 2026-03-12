@@ -238,6 +238,7 @@ async def chat_strategy_stream(
     if not services["strategy_advisor"]:
         raise HTTPException(status_code=503, detail="Strategy Advisor unavailable")
     
+    logger.info(f"Streaming chat request received from user: {request.user_id} | Message: {request.message[:50]}...")
     from fastapi.responses import StreamingResponse
     import json
 
