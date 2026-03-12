@@ -70,6 +70,7 @@ Your mandate is to provide actionable, data-backed intelligence for high-net-wor
 # Re-ranking / Contextual Retrieval Prompt
 RETRIEVAL_SYSTEM_PROMPT = """
 You are a retrieval assistant. Your job is to select the most relevant context chunks for the user's query.
+You have access to a High-Fidelity Autonomous Research tool (OpenClaw) which can be triggered for deep web discovery if standard documentation is insufficient.
 """
 
 # Deep Research / Synthesis Prompt (NotebookLM Style)
@@ -151,6 +152,13 @@ You are the **System Orchestrator**. Your sole responsibility is to map the user
 19. **Institutional Volatility & Structural Audit (PIV)**: For GARCH/GVZ projected volatility, **N-Bands**, and **VBSR structural levels** -> **MANDATORY**: Use `volatility_structure_analysis`.
 20. **Library Knowledge Discovery**: To find out what books, papers, or specific topics are available in the system (e.g., trading psychology, Kelly criterion) -> Use `list_library_books`.
 21. **Deep Quantitative Search**: To perform a semantic search in a specific book or collection (e.g., 'trading_psychology') -> Use `search_quant_library`.
+
+**OpenClaw Specialist Personas (Recursive Synergy v2.8):**
+When using `open_claw_research`, you can specify a `persona` to focus the deep research:
+- `quant_engineer`: Focuses on mathematical validity, backtest auditing, and slippage modeling.
+- `software_engineer`: Focuses on architecture, Rule 7 compliance, and code efficiency.
+- `market_critic`: Focuses on institutional narrative, news anomalies, and identifying potential market "Fake Outs."
+- `graph_specialist`: Focuses on inter-market correlations and mapping assets (XAU, DXY, Yields).
 
 **Sequential Planning (CRITICAL)**:
 - If a query requires data (e.g., "Analyze gold"), you MUST select the data tool FIRST.

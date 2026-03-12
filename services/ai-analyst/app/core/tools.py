@@ -32,7 +32,7 @@ from app.tools.quant_analysis import RiskMapTool
 from app.tools.trading_plan import TradingPlanTool
 from app.tools.library import SearchQuantLibraryTool, ListLibraryBooksTool
 from app.tools.skills_execution import ExecuteSkillTool
-from app.tools.open_claw import OpenClawResearcherTool
+from app.tools.open_claw import OpenClawResearcherTool, OpenClawChatTool
 
 
 logger = logging.getLogger(__name__)
@@ -427,7 +427,8 @@ class ToolRegistry:
             "list_library_books": ListLibraryBooksTool(),
             "execute_skill": ExecuteSkillTool(),
             "consult_specialist": ConsultSpecialistTool(),
-            "open_claw_research": OpenClawResearcherTool()
+            "open_claw_research": OpenClawResearcherTool(),
+            "open_claw_chat": OpenClawChatTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

@@ -94,7 +94,7 @@ def contains_encoded_payload(text: str) -> bool:
             try:
                 # Try to decode and check if it contains suspicious keywords
                 decoded = base64.b64decode(match).decode('utf-8', errors='ignore')
-                if detect_injection_patterns(decoded) or len(decoded) > 0:
+                if detect_injection_patterns(decoded):
                     return True
             except Exception:
                 pass

@@ -113,7 +113,11 @@ class ConsultSpecialistTool(BaseTool):
                 if status_code == 200:
                     data = response.json()
                     inner_data = data.get("data", {})
-                    result = inner_data.get("response") or inner_data.get("report") or str(inner_data)
+                    
+                    if isinstance(inner_data, str):
+                        result = inner_data
+                    else:
+                        result = inner_data.get("response") or inner_data.get("report") or str(inner_data)
                     
                     if redis:
                         await redis.xadd("orchestration.audit.stream", {

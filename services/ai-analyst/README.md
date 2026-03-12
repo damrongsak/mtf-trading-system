@@ -65,6 +65,7 @@ graph TD
 - **Autonomous Meta-Skill Management**: The agent can autonomously create, refine, and delete its own specialized skills (`SKILL.md`) using the `skill_manager` meta-skill.
 - **Dynamic Topology Routing**: Automatically escalates to `CRISIS` mode for high-volatility events detected by background observers.
 - **Institutional Sentinel Gate**: Multi-model consensus and hard risk validation that prevents AI hallucinations from reaching market execution.
+- **Zero-Cost Autonomous Search**: High-fidelity browser-based research via OpenClaw (DuckDuckGo scraping) that avoids paid Search API costs.
 - **Automated Daily Post-Mortem**: (01:00 UTC) Self-correcting learning loop that transforms past trades into persistent RAG memory.
 
 ## 🤖 AI-Agent Operational Guide
@@ -128,6 +129,8 @@ app/
 ├── core/              # Persona prompts, Pydantic schemas, & Scheduler
 ├── services/          # Model clients (Gemini/OpenRouter), RAG, & Memory
 ├── tools/             # Resilient Institutional Tools (BaseTool standardized)
+│   ├── open_claw.py   # Agentic Browser & Autonomous Search
+│   └── ...
 ├── skills/            # Internal persistent skills (SKILL.md Physical Skeleton)
 ├── routers/           # FastAPI routers (Agents, Ingest, Orchestration)
 └── main.py            # FastAPI entrypoint & Scheduler init

@@ -144,6 +144,9 @@ class StrategyAdvisorAgent:
         workflow.add_node("journal_analysis", self.node_journal_analysis)
         workflow.add_node("portfolio_management", self.node_portfolio_management)
         
+        # Recursive Synergy v2.8 (External Auditor)
+        workflow.add_node("external_critic", self.node_external_critic)
+        
         # 2. Add Edges
         workflow.set_entry_point("query_optimizer")
         
@@ -213,7 +216,10 @@ class StrategyAdvisorAgent:
         workflow.add_edge("consensus_layer", "tool_selection")
         
         workflow.add_edge("reasoning", "tool_selection") # Pass plan to tool selector
-        workflow.add_edge("synthesize", "memory_write") # Research ends here usually
+        
+        # Recursive Critique Flow
+        workflow.add_edge("synthesize", "external_critic")
+        workflow.add_edge("external_critic", "memory_write")
 
         # Edges for Consolidated Nodes
         workflow.add_edge("market_scan", "generate")
@@ -457,8 +463,8 @@ class StrategyAdvisorAgent:
             
             # The SDK will return a parsed object if response_schema is provided
             # and our wrapper returns response.text (which should be the JSON string)
-            text = response.get("text", "")
-            data = QueryOptimization.model_validate_json(text)
+            content = response.get("text", "") if isinstance(response, dict) else str(response)
+            data = QueryOptimization.model_validate_json(content)
             
             logger.info(f"Optimization Result - Intent: {data.intent}, Query: {data.optimized_query}")
             return {
@@ -489,6 +495,9 @@ class StrategyAdvisorAgent:
                 # Simplify context for LLM
                 summaries = []
                 for sym, data in state["market_context_data"].items():
+                    if not isinstance(data, dict):
+                         logger.warning(f"Market context for {sym} is not a dict: {type(data)}")
+                         continue
                     vol = data.get("volatility", "unknown")
                     trend = data.get("trend_bias", "neutral")
                     summaries.append(f"{sym}: Volatility={vol}, Trend={trend}")
@@ -531,8 +540,19 @@ class StrategyAdvisorAgent:
                 contents=[prompt],
                 response_schema=SeverityClassification
             )
-            text = response.get("text", "")
-            data = SeverityClassification.model_validate_json(text)
+            # Extremely safe extraction
+            content = ""
+            try:
+                if isinstance(response, dict):
+                    content = response.get("text", "")
+                elif hasattr(response, "text"):
+                     content = response.text
+                else:
+                    content = str(response)
+            except Exception:
+                content = str(response)
+                
+            data = SeverityClassification.model_validate_json(content)
             
             logger.info(f"Severity: {data.severity} | Rationale: {data.rationale}")
             return {"severity": data.severity, "market_severity": data.severity}
@@ -920,6 +940,20 @@ class StrategyAdvisorAgent:
         # 5. Lessons Learned (Post-Mortem Analysis)
         tasks.append(self.rag.search_lessons(query, user_id, limit=top_k))
 
+        # 6. Autonomous High-Fidelity Research (NEW v2.7)
+        # If intent is RESEARCH, trigger a deep web discovery task in parallel
+        if intent == "RESEARCH":
+            logger.info("🚀 Triggering Autonomous High-Fidelity Research via OpenClaw...")
+            open_claw_tool = self.tool_registry.get_tool("open_claw_research")
+            if open_claw_tool:
+                tasks.append(open_claw_tool.arun({"task": f"Deep research on: {query}"}))
+            else:
+                async def no_claw(): return "OpenClaw tool not found."
+                tasks.append(no_claw())
+        else:
+             async def skip_claw(): return None
+             tasks.append(skip_claw())
+
         # Execute all retrieval tasks in parallel
         results = await asyncio.gather(*tasks)
         
@@ -928,6 +962,7 @@ class StrategyAdvisorAgent:
         library_docs = results[2]
         strategies = results[3]
         lessons = results[4]
+        open_claw_result = results[5]
 
         user_facts = [user_facts_str] if user_facts_str and "No specific user preferences" not in user_facts_str else []
         
@@ -936,8 +971,12 @@ class StrategyAdvisorAgent:
         lib_texts = [f"[Source: Quant Library - {d['filename']}]\n{d['content']}" for d in library_docs]
         strat_texts = [f"[Strategy: {s.get('name', 'Unnamed')}]\n{s['code']}" for s in strategies]
         lesson_texts = [f"[Lesson Learned]\n{l}" for l in lessons]
+        
+        claw_texts = []
+        if open_claw_result:
+            claw_texts.append(f"[Autonomous High-Fidelity Research]\n{open_claw_result}")
 
-        logger.info(f"✅ Retrieval complete | UserFacts: {len(user_facts)} | SystemDocs: {len(doc_texts)} | LibraryDocs: {len(lib_texts)} | Strategies: {len(strat_texts)} | Lessons: {len(lesson_texts)}")
+        logger.info(f"✅ Retrieval complete | UserFacts: {len(user_facts)} | SystemDocs: {len(doc_texts)} | LibraryDocs: {len(lib_texts)} | Strategies: {len(strat_texts)} | Lessons: {len(lesson_texts)} | OpenClaw: {'Yes' if open_claw_result else 'No'}")
 
         # 5. Inject Tool Context (Dynamic Capabilities)
         tool_info = self.tool_registry.get_tool_descriptions()
@@ -949,15 +988,15 @@ class StrategyAdvisorAgent:
              refinement_ctx.append(f"**Previous Evaluation Feedback (Reason to refine search):**\n{state['evaluation_feedback']}")
         
         # Merge and Prune
-        max_chunks = 20 if intent == "RESEARCH" else 12
+        max_chunks = 25 if intent == "RESEARCH" else 15
         existing_docs = state.get("retrieved_docs", []) or []
         
-        # Priority: Quant Library results at the VERY TOP for Research intents
+        # Priority: OpenClaw and Quant Library results at the VERY TOP for Research intents
         # Then system docs, strategies, tools.
         if intent == "RESEARCH":
-            combined_docs = lesson_texts + lib_texts + doc_texts + strat_texts + refinement_ctx + [tool_ctx] + existing_docs
+            combined_docs = claw_texts + lesson_texts + lib_texts + doc_texts + strat_texts + refinement_ctx + [tool_ctx] + existing_docs
         else:
-            combined_docs = existing_docs + [tool_ctx] + refinement_ctx + lesson_texts + doc_texts + lib_texts + strat_texts
+            combined_docs = existing_docs + claw_texts + [tool_ctx] + refinement_ctx + lesson_texts + doc_texts + lib_texts + strat_texts
         
         # Unique and latest N
         pruned_docs = list(dict.fromkeys(combined_docs))[:max_chunks]
@@ -1236,7 +1275,8 @@ class StrategyAdvisorAgent:
                 model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"],
                 contents=[prompt]
             )
-            summary = response.get("text", "")
+            content = response.get("text", "") if isinstance(response, dict) else str(response)
+            summary = content
             
             logger.info("Scratchpad summarized successfully.")
             # We explicitly REPLACE the scratchpad to clear the raw outputs and reset context size.
@@ -1272,7 +1312,7 @@ class StrategyAdvisorAgent:
         logger.info("Starting Market Scan...")
 
         # Select tools for scan (Observer Parity)
-        tools = ["smc_technical_analysis", "market_state", "get_technical_signals", "market_data", "google_search", "get_market_context"]
+        tools = ["smc_technical_analysis", "market_state", "get_technical_signals", "market_data", "google_search", "get_market_context", "open_claw_research"]
         
         async def run_market_tool(name):
              tool = self.tool_registry.get_tool(name)
@@ -1380,6 +1420,59 @@ class StrategyAdvisorAgent:
                 "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure with institutional formatting."
             ]
         }
+
+    async def node_external_critic(self, state: AgentState):
+        """
+        Recursive Synergy v2.8: External Auditor Node.
+        Sends Olympus's synthesized findings to OpenClaw for an external critique.
+        """
+        intent = state.get("intent")
+        # Only run critique for RESEARCH or if explicitly requested in a complex flow
+        if intent != "RESEARCH" and state.get("iteration_count", 0) < 2:
+             return {"scratchpad": ["Skipping external critique for routine query."]}
+
+        logger.info("🕵️ Triggering Recursive Critique Loop (Olympus <--> OpenClaw)...")
+        
+        # 1. Determine Persona based on intent/context
+        persona = "market_critic" # Default
+        if state.get("intent") == "strategy_design":
+            persona = "quant_engineer"
+        elif "code" in str(state.get("input_text", "")).lower():
+            persona = "software_engineer"
+            
+        # 2. Extract context for critique (synthesized docs or results)
+        summary = "\n".join(state.get("scratchpad", []))[-5000:]
+        retrieved = "\n".join(state.get("retrieved_docs", []))[-5000:]
+        
+        context_to_audit = {
+                "olympus_synthesis": summary,
+                "retrieved_evidence": retrieved,
+                "user_query": state.get("input_text")
+        }
+        
+        # 3. Call OpenClaw with Persona
+        open_claw_tool = self.tool_registry.get_tool("open_claw_research")
+        if open_claw_tool:
+             critique = await open_claw_tool.arun({
+                 "task": "Critique this internal Olympus analysis. Look for logical gaps, missing institutional context, or technical flaws.",
+                 "persona": persona,
+                 "context_data": context_to_audit
+             })
+             
+             logger.info(f"✅ External Critique Received from '{persona}'")
+             
+             # 4. Inject critique into scratchpad for the final generator
+             feedback = f"\n\n### ⚖️ EXTERNAL AUDIT ({persona.replace('_', ' ').upper()}) ###\n{critique}\n"
+             
+             # 5. Autonomous self-improvement (Save to memory)
+             if "lesson" in critique.lower() or "suggest" in critique.lower():
+                  try:
+                      await self.rag.add_user_memory(state.get("user_id"), f"Criticism from {persona}: {critique[:500]}...")
+                  except: pass
+                  
+             return {"scratchpad": [feedback]}
+        
+        return {"scratchpad": ["External critique unavailable."]}
 
     async def node_generate(self, state: AgentState):
         """
@@ -1491,8 +1584,8 @@ class StrategyAdvisorAgent:
                 contents=[prompt],
                 thinking_config=thinking
             )
-            final = result.get("text") or ""
-            finish_reason = result.get("finish_reason", "STOP")
+            final = result.get("text") if isinstance(result, dict) else str(result)
+            finish_reason = result.get("finish_reason", "STOP") if isinstance(result, dict) else "STOP"
             
             if not final:
                  logger.warning(f"Gemini returned EMPTY text for query: {state['optimized_query']}. Finish Reason: {finish_reason}")
@@ -1514,7 +1607,7 @@ class StrategyAdvisorAgent:
                      )
             
             logger.info(f"Generation successful. Final response size: {len(final)} chars.")
-            thoughts = result.get("thoughts") or (reasoning_trace[0] if reasoning_trace else None)
+            thoughts = (result.get("thoughts") if isinstance(result, dict) else None) or (reasoning_trace[0] if reasoning_trace else None)
         except Exception as e:
             logger.error(f"Generation failed: {e}")
             final = f"I'm sorry, I encountered an error during generation: {e}"
@@ -1645,7 +1738,8 @@ class StrategyAdvisorAgent:
                 model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash-lite"],
                 contents=[prompt]
             )
-            fact = response.get("text", "").strip()
+            fact_text = response.get("text", "") if isinstance(response, dict) else str(response)
+            fact = fact_text.strip()
             if "NO_FACT" not in fact and len(fact) < 200:
                 await self.memory.add_user_fact(state["user_id"], fact)
         except:

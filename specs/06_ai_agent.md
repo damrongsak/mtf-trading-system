@@ -48,7 +48,7 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 ### 2.5. Real-Time Search Grounding (Market Observer)
 - **Goal:** Incorporate live breaking news (not just scheduled calendar events).
 - **Agent:** `MarketObserverAgent`
-- **Process:** Use Google Search Tool to find reasons for sudden volatility (e.g., "Why is Gold dropping?").
+- **Process:** Use Google Search Tool or **OpenClaw Autonomous Researcher** (browser-based scraping) to find reasons for sudden volatility (e.g., "Why is Gold dropping?").
 
 ### 2.6. Daily Briefing Agent
 - **Goal:** Autonomous daily market reporting.
@@ -123,6 +123,8 @@ graph TD
     - `GetAccountStatusTool`: Exposure checking.
     - `GoogleSearchTool`: Real-time web search.
     - `GetEconomicCalendarTool`: Scheduled events.
+    - `OpenClawResearcherTool`: Agentic browser research with **Autonomous Mode** for zero-cost scraping.
+    - `OpenClawChatTool`: Direct stateful conversation with AI Browser agents.
     - `CalculateEfficientFrontierTool`: Portfolio optimization.
     - `ShellCommandTool`: Execute bash commands for system operations.
     - `PythonInterpreterTool`: Run generic Python code for advanced logic.
