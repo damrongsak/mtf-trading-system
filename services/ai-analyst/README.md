@@ -66,6 +66,7 @@ graph TD
 - **Dynamic Topology Routing**: Automatically escalates to `CRISIS` mode for high-volatility events detected by background observers.
 - **Institutional Sentinel Gate**: Multi-model consensus and hard risk validation that prevents AI hallucinations from reaching market execution.
 - **Zero-Cost Autonomous Search**: High-fidelity browser-based research via OpenClaw (DuckDuckGo scraping) that avoids paid Search API costs.
+- **ECST Local Cache (v3.1)**: Uses an in-memory `StateCache` to subscribe to `state_updates` from the data-pipeline, providing O(1) reads for tools and agents.
 - **Automated Daily Post-Mortem**: (01:00 UTC) Self-correcting learning loop that transforms past trades into persistent RAG memory.
 
 ## 🤖 AI-Agent Operational Guide

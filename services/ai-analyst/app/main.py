@@ -25,6 +25,7 @@ from redis.asyncio import Redis
 from app.core.scheduler import scheduler
 from app.services.session_observer import session_observer
 from app.services.stability_observer import stability_observer
+from app.utils.state_cache import state_cache
 
 # Setup Logging
 from app.utils.middleware import setup_tracing_logging
@@ -205,6 +206,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"❌ Scheduler/Session Observer Failed: {e}")
             
+        # 4. Start StateCache (ECST)
+        try:
+            await state_cache.start()
+            logger.info("✅ StateCache (ECST) Started")
+        except Exception as e:
+            logger.error(f"❌ StateCache Startup Failed: {e}")
+
         logger.info("\n" + "="*50)
         logger.info("✨ Service Startup Complete")
         logger.info("="*50 + "\n")
@@ -228,6 +236,9 @@ async def lifespan(app: FastAPI):
     if services.get("checkpointer"):
         # If it's a RedisSaver, we might want to ensure it's closed
         logger.info("✅ Checkpointer Cleanup Complete")
+
+    await state_cache.stop()
+    logger.info("✅ StateCache Cleanup Complete")
 
     logger.info("✨ Application Shutdown Finished.")
 

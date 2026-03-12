@@ -26,7 +26,9 @@ The project distinguishes itself through:
 
 ### 🛠️ Decoupled Architecture (v2.1+)
 The system utilizes four primary patterns for high resilience and low coupling:
-1.  **Event-Carried State Transfer (ECST)**: Services broadcast state changes (e.g., `data-pipeline` symbol metadata) via Redis/Event Bus. Consumers cache this locally (e.g., `api-gateway` ECST cache) for O(1) reads without I/O.
+1.  **Event-Carried State Transfer (ECST)**: Services broadcast state changes via Redis/Event Bus. 
+    - **Market Data**: `data-pipeline` broadcasts symbol metadata to `api-gateway`.
+    - **Global State**: `data-pipeline` broadcasts updates (News, Context) to the `state_updates` channel, cached locally by `ai-analyst` for O(1) reads.
 2.  **Asynchronous RPC**: High-latency or complex commands (e.g., `strategy-core` trade commands) are pushed to a Redis queue and processed asynchronously by dedicated workers (`execution` service).
 3.  **API Composition**: The **API Gateway** aggregates data from multiple microservices to respond to the client, ensuring services don't need to "know" about each other's endpoints for simple reads.
 4.  **CQRS + Read Models**: For complex queries, services build optimized Read Models (e.g., in Postgres JSONB or Qdrant) from event streams, providing dedicated, fast access without stressing the source of truth.

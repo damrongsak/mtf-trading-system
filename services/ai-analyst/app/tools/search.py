@@ -38,31 +38,54 @@ class GoogleSearchTool(BaseTool):
         if not query:
             return "No query provided for search."
 
-        # 1. Attempt to fetch from Redis Cache first
+        # 1. Attempt to fetch from StateCache (ECST - Zero I/O) first
         symbol_to_check = "XAUUSD" # Default
+        upper_query = query.upper()
+        if "GOLD" in upper_query or "XAU" in upper_query:
+            symbol_to_check = "XAUUSD"
+        elif "EUR" in upper_query:
+            symbol_to_check = "EURUSD"
+        elif "BITCOIN" in upper_query or "BTC" in upper_query:
+            symbol_to_check = "BTCUSD"
+
+        # Check local memory first
+        from app.utils.state_cache import state_cache
+        context_key = f"market_context:{symbol_to_check}"
+        cached_context = state_cache.get(context_key)
+        
+        if cached_context:
+            logger.info(f"SearchTool: ECST HIT for {context_key}")
+            return cached_context.get("context", "No context found.")
+
+        # 2. ECST MISS: Attempt to fetch from Redis L2 Cache
         try:
             redis = aioredis.from_url(settings.redis.url, decode_responses=True)
-            upper_query = query.upper()
-            if "GOLD" in upper_query or "XAU" in upper_query:
-                symbol_to_check = "XAUUSD"
-            elif "EUR" in upper_query:
-                symbol_to_check = "EURUSD"
-            elif "BITCOIN" in upper_query or "BTC" in upper_query:
-                symbol_to_check = "BTCUSD"
-                
-            cache_key = f"market_context:{symbol_to_check}"
-            cached_data = await redis.get(cache_key)
+            cached_data = await redis.get(context_key)
             if cached_data:
                 data = json.loads(cached_data)
-                logger.info(f"SearchTool: Cache HIT for {symbol_to_check}")
+                logger.info(f"SearchTool: Redis HIT for {symbol_to_check}")
+                # Backfill StateCache for O(1) next time
+                state_cache.set_local(context_key, data)
                 await redis.aclose()
                 return data.get("context", "No context found.")
             await redis.aclose()
         except Exception as e:
             logger.error(f"SearchTool Redis error: {e}")
 
-        # 2. Cache MISS: Call Internal News API via Data Pipeline (Avoid Gateway for reentrancy)
-        logger.info(f"SearchTool: Cache MISS for {query}. Fetching from internal News API.")
+        # 3. Cache MISS: Check ECST for News Headlines
+        news_key = f"news:headlines:{symbol_to_check}"
+        cached_news = state_cache.get(news_key)
+        if cached_news and isinstance(cached_news, list):
+            logger.info(f"SearchTool: ECST News HIT for {news_key}")
+            results = [f"--- Internal News Feed (ECST) for {symbol_to_check} ---"]
+            for item in cached_news[:5]:
+                if isinstance(item, dict) and item.get("title"):
+                    results.append(f"News: {item.get('title')}\nSource: {item.get('source', 'Unknown')} ({item.get('publishedAt', 'Recent')})\n")
+            if len(results) > 1:
+                return "\n".join(results)
+
+        # 4. Final Attempt: Call Internal News API via Data Pipeline (Avoid Gateway for reentrancy)
+        logger.info(f"SearchTool: Full MISS for {query}. Fetching from internal News API.")
         try:
             # Map query keywords to symbol for internal API
             api_url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines"
@@ -78,12 +101,15 @@ class GoogleSearchTool(BaseTool):
                         news_items = raw_data.get("data", []) if isinstance(raw_data, dict) else raw_data
                         
                         if news_items and isinstance(news_items, list):
+                            # Populate StateCache for future O(1)
+                            state_cache.set_local(news_key, news_items)
+                            
                             results = [f"--- Internal News Feed for {symbol_to_check} ---"]
                             for item in news_items[:5]:
                                 if isinstance(item, dict) and item.get("title"):
                                     title = item.get("title")
                                     source = item.get("source", "Unknown Source")
-                                    date = item.get("published_at", "Unknown Date")
+                                    date = item.get("published_at", item.get("publishedAt", "Unknown Date"))
                                     results.append(f"News: {title}\nSource: {source} ({date})\n")
                             
                             if len(results) > 1:

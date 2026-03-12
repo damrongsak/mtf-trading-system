@@ -30,9 +30,10 @@ graph TD
     end
 
     subgraph "Data Fabric"
-        Data[Data Pipeline] -->|Ticks| Redis[(Redis Pub/Sub)]
+        Data[Data Pipeline] -->|Ticks / State Updates| Redis[(Redis Pub/Sub)]
         Data -->|OHLCV| DB
         AI -->|RAG| Qdrant[(Qdrant Vector Store)]
+        Redis -->|ECST Broadcast| AI
     end
 
     subgraph "External"
@@ -95,6 +96,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Professional CLI (v2.6)**: Bloomberg-style terminal with institutional autocompletion and rotating pro-tips.
     - **Performance Benchmarking (3s Target)**: Strict latency enforcement using SWR (Stale-While-Revalidate) caching and parallel Tool orchestration (e.g., Regime + Gamma).
     - **Internal News Engine**: Decoupled from external search providers; uses internal `data-pipeline` scrapers for institutional-grade fundamental analysis.
+    - **ECST Local Cache**: Maintains zero-latency in-memory state for news and market context via Redis `state_updates` broadcasting.
     - **Strategic Synthesis**: Multi-source mandatory confluence logic (SMC + COT + Heatmap) for high-net-worth decisions.
     - **Psychological MRI**: Analyzes execution patterns for "Tilt".
 

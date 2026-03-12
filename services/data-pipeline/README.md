@@ -12,7 +12,9 @@ The service operates as a **Stateful Producer** in a de-coupled microservices ar
     - **L1 (In-Memory)**: High-frequency candle buffers for rapid indicator calculation.
     - **L2 (Shared Cache)**: Redis Hash stores (e.g., `market_data:spot:XAUUSD`) for cross-service state sharing.
     - **L3 (Database)**: PostgreSQL handles historical candles, news articles, and COT reports.
-3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers (Strategy Core, AI Analyst, Dashboard). Includes **EFP** (Spot/Futures spread) and predictive **Feature** data.
+3.  **Broadcasting**: Real-time market events are broadcasted via **Redis Pub/Sub** to downstream consumers.
+    - **Ticks/Candles**: Prices and spread data.
+    - **State Updates**: Broadcasts to the `state_updates` channel whenever news or market context is cached, enabling ECST for consumers like AI Analyst.
 4.  **Multi-Timeframe (MTF) Support**: Native support for 8 timeframes (`M1`, `M5`, `M15`, `H1`, `H4`, `D1`, `W1`, `MN1`) with optimized `interval_map` for accurate gap detection.
 5.  **Ingestion Optimization**:
     - **Reduced Payload**: Real-time candle fetching limited to latest 20 candles (previously 100) to minimize I/O and CPU load.

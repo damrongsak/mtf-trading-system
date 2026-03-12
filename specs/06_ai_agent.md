@@ -167,6 +167,7 @@ A high-speed filtering node that checks Redis for semantically similar historica
 - **Coverage**: `RESEARCH`, `STRATEGY_DESIGN`, `MARKET_ANALYSIS`, `CHAT`.
 - **Freshness Window**: 3600s (1 hour).
 - **Threshold**: 0.90 similarity.
+- **ECST Integration (v3.1)**: Market context and headlines are pre-hydrated into the `StateCache` via Redis Pub/Sub, allowing `GetMarketContextTool` to resolve in O(1) time without external I/O.
 
 ## 4. Data Models
 

@@ -49,10 +49,19 @@ class BaseService:
         return None
 
     async def _cache_set(self, key: str, value: Any, ttl: int = 3600):
-        """Helper to set JSON data to cache."""
+        """Helper to set JSON data to cache and broadcast update."""
         redis = await self.get_redis()
         try:
             dumped = json.dumps(value)
             await redis.set(key, dumped, ex=ttl)
+            
+            # Broadcast update for ECST (Local Cache)
+            # Payload includes key and full value for O(1) state transfer
+            broadcast_payload = {
+                "key": key,
+                "value": value
+            }
+            await redis.publish("state_updates", json.dumps(broadcast_payload))
+            logger.debug(f"Broadcasted state update for key: {key}")
         except Exception as e:
             logger.error(f"Failed to set cache key {key}: {e}")
