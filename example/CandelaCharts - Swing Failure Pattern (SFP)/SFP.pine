@@ -1,0 +1,646 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// © CandelaCharts
+
+//@version=6
+indicator( 'CandelaCharts - Swing Failure Pattern (SFP)', 'CandelaCharts - Swing Failure Pattern (SFP)', max_bars_back = 5000, max_labels_count = 500, max_lines_count = 500, max_boxes_count = 500, overlay = true)
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Colors   |
+// # ========================================================================= #
+
+//#region
+
+// # Core -------------------------------------------------------------------- #
+
+colors_white                        = color.white
+colors_black                        = color.black
+colors_green                        = color.green
+colors_red                          = color.red
+colors_gray                         = color.gray
+colors_transparent                  = color.new(color.white, 100)
+
+// # Custom ------------------------------------------------------------------ #
+
+colors_cyan_dark                    = #089981
+colors_red_bright                   = #f23645
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Inputs   |
+// # ========================================================================= #
+
+//#region
+
+// # General ----------------------------------------------------------------- #
+
+general_font                        = input.string("Monospace", "Text                     ", options = ["Default", "Monospace"], inline = "5", group = "General")
+general_text                        = input.string("Tiny", "", options = ["Tiny", "Small", "Normal", "Large", "Huge", "Auto"], inline = "5", group = "General", tooltip = "Customize global text size and style")
+general_brand_show                  = input.bool(false, "Hide Brand", group = "General")
+
+// # SFP --------------------------------------------------------------------- #
+
+institutional_c_length              = input.int(7, 'Length                 ', inline = '1', group = 'Settings', minval = 1)
+institutional_c_bull                = input.bool(true, 'Bullish SFP   ', inline = '2', group = 'Settings')
+institutional_c_bull_line_css       = input.color(colors_cyan_dark, '', inline = '2' , group = 'Settings')
+institutional_c_bull_wick_css       = input.color(color.new(colors_cyan_dark, 50), '', inline='2', group = 'Settings', tooltip = '[I] Lines and Labels color.\n[II] Wick outside Swing color')
+institutional_c_bear                = input.bool(true, 'Bearish SFP  ', inline = '3', group = 'Settings')
+institutional_c_bear_line_css       = input.color(colors_red_bright, '', inline = '3', group = 'Settings')
+institutional_c_bear_wick_css       = input.color(color.new(colors_red_bright, 50), '', inline='3', group = 'Settings', tooltip = '[I] Lines and Labels color.\n[II] Wick outside Swing color')
+
+institutional_c_label_size          = input.string("Normal", "Label                   ", options = ["Tiny", "Small", "Normal", "Large", "Huge", "Auto"], inline = "1", group = "Style")
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Functions   |
+// # ========================================================================= #
+
+//#region
+
+// # Text Size --------------------------------------------------------------- #
+
+method text_size(string size) =>
+
+    out = switch size
+
+        "Tiny"   => size.tiny
+        "Small"  => size.small
+        "Normal" => size.normal
+        "Large"  => size.large
+        "Huge"   => size.huge
+        "Auto"   => size.auto
+    out
+
+// # Line Style -------------------------------------------------------------- #
+
+method line_style(string line) =>
+
+    out = switch line
+
+        '⎯⎯⎯'  => line.style_solid
+        '----'   => line.style_dashed
+        '····'   => line.style_dotted
+
+// # Font Style -------------------------------------------------------------- #
+
+method font_style(string font) =>
+
+    out = switch font
+
+        'Default'   => font.family_default
+        'Monospace' => font.family_monospace
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   UDTs   |
+// # ========================================================================= #
+
+//#region
+
+type UDT_Swing 
+    int   bar_idx 
+    float price
+    int   t
+
+type UDT_Sfp
+    float   swing_price
+    int     swing_barindex_x1
+    int     swing_barindex_x2
+    float   opposing_price
+    int     opposing_barindex_x1
+    int     opposing_barindex_x2
+    float   wick_price
+    int     wick_barindex
+    float   wick_symbol_price
+    int     wick_symbol_barindex
+    bool    active    
+    bool    confirmed 
+    string  label_text
+    bool    alert_fired = false
+    bool    invalidated = false
+
+type UDT_Bar
+    float   o = open
+    float   c = close
+    float   h = high
+    float   l = low
+    float   v = volume
+    int     n = bar_index
+    int     t = time
+
+type UDT_Alerts
+    bool sfp = false
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Variables   |
+// # ========================================================================= #
+
+//#region
+
+UDT_Bar b                = UDT_Bar.new()
+
+UDT_Alerts bull_alert    = UDT_Alerts.new()
+UDT_Alerts bear_alert    = UDT_Alerts.new()
+
+var UDT_Swing swing_h    = UDT_Swing.new() 
+var UDT_Swing swing_l    = UDT_Swing.new() 
+var UDT_Sfp piv_h        = UDT_Sfp.new()
+var UDT_Sfp piv_l        = UDT_Sfp.new()
+
+var UDT_Sfp[] pivots_h   = array.new<UDT_Sfp>()
+var UDT_Sfp[] pivots_l   = array.new<UDT_Sfp>()
+
+sfp_ph                   = ta.pivothigh(institutional_c_length, 1)
+sfp_pl                   = ta.pivotlow (institutional_c_length, 1)
+
+buffer                   = 100
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Store   |
+// # ========================================================================= #
+
+//#region
+
+type UDT_Store
+    line    [] sfp_lines
+    label   [] sfp_label
+
+var UDT_Store bin = UDT_Store.new(sfp_lines = array.new<line>(), sfp_label = array.new<label>())
+
+method clean_sfp(UDT_Store store) =>
+    for obj in store.sfp_lines
+        obj.delete()
+    for obj in store.sfp_label
+        obj.delete()
+        
+    store.sfp_lines.clear()
+    store.sfp_label.clear()
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Alerts Methods   |
+// # ========================================================================= #
+
+//#region
+
+method enable_sfp_alerts(UDT_Alerts alerts, UDT_Sfp sfp) =>
+    if not na(sfp)
+        // Alert when SFP is confirmed and hasn't fired yet
+        // Note: We don't check sfp.active because it's set to false on confirmation
+        if sfp.confirmed and not(sfp.invalidated) and not(sfp.alert_fired)
+            alerts.sfp := true
+            sfp.alert_fired := true
+    alerts
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   SFP Methods   |
+// # ========================================================================= #
+
+method nth(float UDT_Sfp) => bool out = not na(UDT_Sfp)
+
+method draw_SPF(UDT_Sfp pivot, bool bull) =>
+    line_color = bull ? institutional_c_bull_line_css : institutional_c_bear_line_css
+    wick_color = bull ? institutional_c_bull_wick_css : institutional_c_bear_wick_css
+    wick_style = bull ? label.style_label_up : label.style_label_down
+
+    swing_line  = line.new (x1 = pivot.swing_barindex_x1, y1 = pivot.swing_price, x2 = pivot.swing_barindex_x2, y2 = pivot.swing_price, color = line_color )
+    bin.sfp_lines.push(swing_line)
+    
+    oppos_line  = line.new (x1 = pivot.opposing_barindex_x1, y1 = pivot.opposing_price, x2 = pivot.opposing_barindex_x2, y2 = pivot.opposing_price, color = line_color , style = line.style_dotted)
+    bin.sfp_lines.push(oppos_line)
+    
+    wicky_line  = line.new (x1 = pivot.wick_barindex, y1 = pivot.wick_price, x2 = pivot.wick_barindex, y2 = pivot.swing_price, color = wick_color, width = 3)
+    bin.sfp_lines.push(wicky_line)
+    
+    wicky_label = label.new(x = pivot.wick_barindex, y = pivot.wick_price, style = wick_style, text = pivot.label_text, textcolor = line_color, color = colors_transparent, size = text_size(institutional_c_label_size), text_font_family = font_style(general_font))
+    bin.sfp_label.push(wicky_label)
+
+    // if not na(pivot.wick_symbol_barindex)
+    //     wick_symbol = label.new(x = pivot.wick_symbol_barindex, y = pivot.wick_symbol_price, style = wick_style, text = bull ? '▲' : '▼', textcolor = line_color, color = colors_transparent, size = text_size(institutional_c_label_size), text_font_family = font_style(general_font))
+    //     bin.sfp_label.push(wick_symbol)
+    // else
+    //     wicky_label.set_text(bull ? '▲\nSFP' : 'SFP\n▼')
+
+    pivot
+
+method place_SFP(UDT_Sfp pivot, UDT_Sfp sfp, bool bull) =>
+    if pivot.active and not pivot.confirmed 
+        // Only update x2 on confirmation to prevent repainting
+        if (bull ? close > pivot.opposing_price : close < pivot.opposing_price)
+            pivot.confirmed   := true
+            pivot.active      := false  // Once confirmed, mark as inactive to prevent further invalidation checks
+            sfp.confirmed   := true
+            sfp.active      := false    // Once confirmed, mark as inactive
+            sfp.swing_barindex_x2 := bar_index
+            sfp.opposing_barindex_x2 := bar_index
+            if sfp.wick_barindex == bar_index  
+                sfp.wick_symbol_barindex := na
+                sfp.wick_symbol_price := na
+            else
+                sfp.wick_symbol_barindex := bar_index
+                sfp.wick_symbol_price := bull ? low : high
+            
+            // Trigger alert immediately when SFP is confirmed
+            if not na(sfp) and not(sfp.alert_fired)
+                if bull
+                    bull_alert.enable_sfp_alerts(sfp)
+                else
+                    bear_alert.enable_sfp_alerts(sfp)
+
+    // Invalidation should only happen on current bar, not retroactively
+    // IMPORTANT: Once confirmed, SFPs should never be invalidated
+    if pivot.active and not pivot.confirmed
+        in_range = bull ? close < pivot.swing_price : close > pivot.swing_price
+        bars_since_swing = bar_index - pivot.swing_barindex_x1
+        if bars_since_swing > 500 or in_range
+            pivot.active := false 
+            if not na(sfp) and not sfp.confirmed
+                sfp.invalidated := true
+                sfp.active := false 
+
+    pivot
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Bearish SFP   |
+// # ========================================================================= #
+
+//#region
+
+detect_bear_SFP() =>
+    if sfp_ph.nth() 
+        swing_h.bar_idx := bar_index - 1 
+        swing_h.price := sfp_ph 
+
+    swing_price = swing_h.price
+    bar_idx = swing_h.bar_idx
+
+    if high > swing_price and open < swing_price and close < swing_price
+
+        // Find opposing price only up to the swing bar, not including current bar
+        // This prevents repainting by fixing the opposing price at detection time
+        opposing_price = swing_price 
+        opposing_barindex_x1 = bar_idx
+
+        lookback_bars = bar_index - bar_idx - 1
+        if lookback_bars > 0
+            for i = 1 to lookback_bars
+                if low [i] < opposing_price 
+                    opposing_price := low [i]
+                    opposing_barindex_x1 := bar_index  - i
+
+        // Only invalidate previous unconfirmed pivot if we're creating a new one
+        // This prevents repainting by only invalidating on the current bar
+        // IMPORTANT: Never invalidate confirmed SFPs - they should remain valid
+        if pivots_h.size() > 0
+            pivot = pivots_h.get(0)
+            // Only invalidate if the previous pivot is unconfirmed
+            if not pivot.confirmed
+                pivot.invalidated := true
+
+        new_piv_h = UDT_Sfp.new(swing_price = swing_price, swing_barindex_x1 = bar_idx, opposing_price = opposing_price, opposing_barindex_x1 = opposing_barindex_x1, active = true, confirmed = false)
+        
+        pivot = UDT_Sfp.new(
+             swing_price = swing_price, 
+             swing_barindex_x1 = bar_idx,
+             swing_barindex_x2 = bar_index,
+             opposing_price = opposing_price,
+             opposing_barindex_x1 = opposing_barindex_x1,
+             opposing_barindex_x2 = bar_index,
+             wick_barindex = bar_index,
+             wick_price = high,
+             active = true,
+             confirmed = false,
+             invalidated = false,
+             label_text = 'SFP'
+             )
+
+        if pivots_h.size() > buffer
+            pivots_h.pop()
+
+        pivots_h.unshift(pivot)
+
+        new_piv_h
+    else
+        piv_h
+
+if institutional_c_bear
+
+    piv_h := detect_bear_SFP()
+
+    sfp = pivots_h.size() > 0 ? pivots_h.get(0) : na
+    piv_h.place_SFP(sfp, false)
+                
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Bullish SFP   |
+// # ========================================================================= #
+
+//#region
+
+detect_bull_SFP() =>
+    if sfp_pl.nth() 
+        swing_l.bar_idx := bar_index - 1 
+        swing_l.price := sfp_pl 
+
+    swing_price = swing_l.price
+    bar_idx = swing_l.bar_idx
+
+    if low  < swing_price and open > swing_price and close > swing_price
+
+        // Find opposing price only up to the swing bar, not including current bar
+        // This prevents repainting by fixing the opposing price at detection time
+        opposing_price = swing_price 
+        opposing_barindex_x1 = bar_idx
+
+        lookback_bars = bar_index - bar_idx - 1
+        if lookback_bars > 0
+            for i = 1 to lookback_bars
+                if high[i] > opposing_price 
+                    opposing_price := high[i]
+                    opposing_barindex_x1 := bar_index - i
+
+        // Only invalidate previous unconfirmed pivot if we're creating a new one
+        // This prevents repainting by only invalidating on the current bar
+        // IMPORTANT: Never invalidate confirmed SFPs - they should remain valid
+        if pivots_l.size() > 0
+            pivot = pivots_l.get(0)
+            // Only invalidate if the previous pivot is unconfirmed
+            if not pivot.confirmed
+                pivot.invalidated := true
+
+        new_piv_l = UDT_Sfp.new(swing_price = swing_price, swing_barindex_x1 = bar_idx, opposing_price = opposing_price, opposing_barindex_x1 = opposing_barindex_x1, active = true, confirmed = false)
+
+        pivot = UDT_Sfp.new(
+             swing_price = swing_price, 
+             swing_barindex_x1 = bar_idx,
+             swing_barindex_x2 = bar_index,
+             opposing_price = opposing_price,
+             opposing_barindex_x1 = opposing_barindex_x1,
+             opposing_barindex_x2 = bar_index,
+             wick_barindex = bar_index,
+             wick_price = low,
+             active = true,
+             confirmed = false,
+             label_text = 'SFP'
+             )
+
+        if pivots_l.size() > buffer
+            pivots_l.pop()
+
+        pivots_l.unshift(pivot)
+
+        new_piv_l
+    else
+        piv_l
+
+if institutional_c_bull
+    piv_l := detect_bull_SFP()
+
+    sfp = pivots_l.size() > 0 ? pivots_l.get(0) : na
+    piv_l.place_SFP(sfp, true)
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Drawing (Non-Repainting)   |
+// # ========================================================================= #
+
+//#region
+
+// Clean and draw all SFPs only on the last bar to prevent repainting
+if barstate.islast
+    bin.clean_sfp()
+    
+    if institutional_c_bear
+        for [index, pivot_h] in pivots_h
+            if not pivot_h.invalidated
+                pivot_h.draw_SPF(false)
+                // Alerts are already triggered on confirmation, but check for any missed ones
+                bear_alert.enable_sfp_alerts(pivot_h)
+    
+    if institutional_c_bull
+        for [index, pivot_l] in pivots_l
+            if not pivot_l.invalidated
+                pivot_l.draw_SPF(true)
+                // Alerts are already triggered on confirmation, but check for any missed ones
+                bull_alert.enable_sfp_alerts(pivot_l)
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Alerts   |
+// # ========================================================================= #
+
+//#region
+    
+alertcondition(bull_alert.sfp             , "Bullish SFP", "Bullish SFP")
+alertcondition(bear_alert.sfp             , "Bearish SFP", "Bearish SFP")
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
+
+
+
+
+
+
+
+
+
+
+
+
+
+// # ========================================================================= #
+// # |   Brand   |
+// # ========================================================================= #
+
+//#region
+
+if barstate.isfirst and general_brand_show == false
+    var table brand = table.new(position.bottom_right, 1, 1, bgcolor = chart.bg_color)
+    table.cell(brand, 0, 0,  "© CandelaCharts", text_color = colors_gray, text_halign = text.align_center, text_size = text_size(general_text), text_font_family = font_style(general_font))
+
+//#endregion
+
+// # ========================================================================= #
+// # |   End   |
+// # ========================================================================= #
