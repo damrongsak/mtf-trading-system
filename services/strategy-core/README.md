@@ -97,3 +97,18 @@ app/
 
 ---
 **MTF Olympus** | *Institutional Alpha at Scale*
+
+## ⚠️ Critical Maintenance & Operational Notes (2026-03-13)
+
+### 1. `ReconciliationWorker` Structure Fix
+A critical regression was fixed in `app/workers/reconciliation.py`. 
+- **The Issue**: The `on_execution_event` method (Redis callback) was accidentally merged into the `stop` method, causing an `AttributeError` on startup.
+- **The Fix**: Methods were decoupled. `on_execution_event` must remain a standalone method as it is passed as a callback to `RedisSubscriber` during `__init__`.
+- **Warning for AI Agents**: When refactoring workers, ensure callbacks are not inadvertently moved or deleted.
+
+### 2. Concurrency Constraint (`WEB_CONCURRENCY`)
+This service is currently pinned to **`WEB_CONCURRENCY=1`** in `docker-compose.yml`.
+- **Reason**: During the "Hydration Phase" (Startup), the `FleetManager` and `SharedMarketDataManager` perform heavy PostgreSQL reads (1,000 candles per symbol for 3+ active symbols). 
+- **The Problem**: Multi-worker setups (`WEB_CONCURRENCY > 1`) cause race conditions and resource exhaustion (CPU/Memory) during this heavy I/O/Compute phase, leading to "Child process died" errors and silent crashes.
+- **Future Scaling**: Horizontal scaling should be achieved by deploying multiple *instances* of the service (e.g., partitioned by symbol) rather than increasing uvicorn workers within a single container until the hydration logic is optimized to be more process-safe or centralized.
+

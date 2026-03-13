@@ -68,7 +68,7 @@ services:
       resources:
         limits:
           cpus: '0.5'
-          memory: 384M
+          memory: 512M
     networks:
       - default
       - external
@@ -76,7 +76,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - PYTHONUNBUFFERED=1
-      - WEB_CONCURRENCY=2
+      - WEB_CONCURRENCY=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -105,7 +105,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
-      - WEB_CONCURRENCY=2
+      - WEB_CONCURRENCY=1
       - PYTHONUNBUFFERED=1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -116,7 +116,7 @@ services:
       resources:
         limits:
           cpus: "0.25"
-          memory: 512M
+          memory: 768M
     networks:
       - default
       - external
@@ -171,7 +171,7 @@ services:
       - NUMBA_NUM_THREADS=2
       - OMP_NUM_THREADS=2
       - PYTHONUNBUFFERED=1
-      - WEB_CONCURRENCY=2
+      - WEB_CONCURRENCY=1
     deploy:
       resources:
         limits:

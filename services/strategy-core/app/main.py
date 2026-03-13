@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, APIRouter, WebSocket, WebSocketDisconnect, Query
-print("DEBUG: Starting app/main.py loading...")
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import (
     IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
