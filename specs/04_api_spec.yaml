@@ -3411,7 +3411,7 @@ components:
       enum: [api, csv, db, websocket]
     DataSourceProvider:
       type: string
-      enum: [OANDA, BINANCE]
+      enum: [OANDA, BINANCE, CTRADER]
 
 
     DataSource:

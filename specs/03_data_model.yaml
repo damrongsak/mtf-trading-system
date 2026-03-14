@@ -607,7 +607,7 @@ entities:
           Standardized JSON structure (after decryption):
           - OANDA: {api_key, account_id}
           - BINANCE: {api_key, secret_key}
-          - CTRADER: {client_id, client_secret, account_id, token, refresh_token, port, host}
+          - CTRADER / ICMARKETS / ICMARKETSSC: {client_id, client_secret, account_id, token, refresh_token, port, host}
       - name: is_active
         type: boolean
         default: true

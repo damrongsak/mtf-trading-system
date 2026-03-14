@@ -17,6 +17,7 @@ import hashlib
 import time
 from app.models.market import MarketCategory, MarketSymbol
 from app.models.broker_account import BrokerAccount
+from app.models.data_source import DataSource
 from fastapi import Request
 import os
 import logging
@@ -178,6 +179,52 @@ async def fetch_binance_instruments(api_key: str, secret_key: str, is_live: bool
         except Exception as e:
              raise ValueError(f"Binance Symbol Fetch Error: {str(e)}")
 
+async def verify_ctrader_credentials(credentials: Dict[str, Any], is_live: bool = False):
+    """Verify cTrader credentials via Data Pipeline discovery."""
+    client_id = credentials.get("client_id", "").strip()
+    client_secret = credentials.get("client_secret", "").strip()
+    token = credentials.get("token", "").strip()
+    account_id = credentials.get("account_id", "").strip()
+    
+    if not all([client_id, client_secret, token, account_id]):
+        missing = [k for k, v in {"client_id": client_id, "client_secret": client_secret, "token": token, "account_id": account_id}.items() if not v]
+        raise ValueError(f"Missing required cTrader credentials: {', '.join(missing)}")
+        
+    discovery_payload = {
+        "provider": "CTRADER",
+        "config": {
+            "host": "live.ctraderapi.com" if is_live else "demo.ctraderapi.com",
+            "port": 5035,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "account_id": account_id,
+            "token": token
+        }
+    }
+    
+    DATA_SERVICE_URL = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{DATA_SERVICE_URL}/api/v1/discovery/symbols",
+                json=discovery_payload,
+                timeout=20.0
+            )
+            
+            if resp.status_code != 200:
+                try:
+                    err_data = resp.json()
+                    detail = err_data.get("detail", resp.text)
+                except:
+                    detail = resp.text
+                raise ValueError(f"cTrader Verification Failed: {detail}")
+                
+            return # Success
+            
+        except httpx.RequestError as e:
+            raise ValueError(f"Data Pipeline Connection Error: {str(e)}")
+
 # --- Schemas ---
 
 class BrokerAccountCreate(BaseModel):
@@ -290,6 +337,16 @@ async def create_account(
              
         try:
             await verify_binance_credentials(api_key, secret_key, account.is_live)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            
+    elif account.broker_name.upper() in ["CTRADER", "ICMARKETS", "ICMARKETSSC"]:
+        try:
+            # Sync account_id to credentials if passed in account_number
+            if account.account_number and "account_id" not in account.credentials:
+                account.credentials["account_id"] = account.account_number
+            
+            await verify_ctrader_credentials(account.credentials, account.is_live)
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     
@@ -440,11 +497,11 @@ async def fetch_account_symbols(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
          
-    if account.broker_name != "OANDA" and account.broker_name != "BINANCE" and account.broker_name != "CTRADER":
+    if account.broker_name not in ["OANDA", "BINANCE", "CTRADER", "ICMARKETS", "ICMARKETSSC"]:
         return success_response(data=[], message="Fetching symbols not supported for this broker yet")
 
-    # Proxy to Data Pipeline for cTrader
-    if account.broker_name == "CTRADER":
+    # Proxy to Data Pipeline for cTrader based brokers
+    if account.broker_name in ["CTRADER", "ICMARKETS", "ICMARKETSSC"]:
         try:
             creds = decrypt_data(account.credentials_encrypted)
             
@@ -709,7 +766,7 @@ async def refresh_account_token(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
         
-    if account.broker_name != "CTRADER":
+    if account.broker_name not in ["CTRADER", "ICMARKETS", "ICMARKETSSC"]:
         raise HTTPException(status_code=400, detail="Only cTrader supports manual token refresh")
         
     try:

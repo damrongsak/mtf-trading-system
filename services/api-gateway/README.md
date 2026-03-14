@@ -69,6 +69,10 @@ graph TD
     - **[J2] Deduplicated Ingest**: Integrated `broker_deal_id` for fill events to prevent duplicate trade creation during asynchronous broker callbacks.
     - **[J3] Multi-Entity Reconciliation**: Janitor Service now synchronizes both open positions and pending orders, offering 100% state parity.
     - **[J4] MTF Scaling**: Verified full architectural support for H1, D1, W1, and MN1 symbol details broadcast.
+- **✅ Sprint K — Broker Verification Hardening** (Complete 2026-03-14):
+    - **[K1] Live Credential Validation**: Integrated mandatory broker-side verification for `CTRADER`, `ICMARKETS`, and `ICMARKETSSC` during account creation via `data-pipeline`.
+    - **[K2] Demo Activation Fix**: Resolved issue where demo accounts failed to activate by ensuring all required credentials (`client_id`, `client_secret`, `token`, `account_id`) are validated.
+    - **[K3] Automatic Account Sync**: Added logic to automatically map `account_number` to `account_id` if missing, improving UX for cTrader-based brokers.
 
 ## 🤖 AI-Agent Operational Guide
 

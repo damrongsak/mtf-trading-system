@@ -142,6 +142,13 @@ To ensure survival during extreme market events (Flash Crashes, News Spikes), th
     *   **Constraint**: Internal processing latency target < 10ms.
     *   **Enforcement**: Use Redis Streams for fill persistence.
 
+### 3.6 Broker Credential Verification (Demo/Activation Fix)
+To prevent "dead" accounts and ensure immediate demo activation, the system enforces broker-side validation during account creation:
+1.  **Validation Path**: `API Gateway` -> `Data Pipeline` (`/api/v1/discovery/symbols`).
+2.  **Required Fields**: `client_id`, `client_secret`, `token`, and `account_id` (cTrader/ICMarkets).
+3.  **Automatic Sync**: `account_number` is automatically synced to `credentials["account_id"]` if missing.
+4.  **Enforcement**: Accounts with invalid credentials will be rejected with `HTTP 400 Bad Request` and a descriptive error from the broker.
+
 ---
 
 ## 4. Layer 5: AI Coach Intervention

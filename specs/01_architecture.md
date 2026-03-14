@@ -63,6 +63,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Risk Validation**: Multi-layer filters (Sequential + Parallel) for Rule Consistency.
     - **HFT-lite Layer**: High-performance execution core with sub-50ms round-trip targets.
     - **State Awareness**: Replaces direct DB hits with Event-Carried State Transfer (ECST) and Multi-Tiered Caching (Redis + In-Memory + Adapter-specific).
+    - **Broker Verification Edge**: Implements mandatory broker-side credential validation for cTrader/ICMarkets via `data-pipeline` before account activation.
 
 ### Layer 5: Data (In-Situ & Stream)
 - **Shared Memory Cache (L1)**: In-process caching for hot account/fund state.
