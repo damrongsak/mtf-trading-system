@@ -12,11 +12,11 @@ def setup_logging(level=logging.INFO):
     # Console Handler
     handler = logging.StreamHandler(sys.stdout)
     
-    # Custom filter to inject correlation_id
-    from app.middleware import correlation_id_ctx
+    # Custom filter to inject request_id
+    from app.utils.tracing import get_request_id
     class TracingFilter(logging.Filter):
         def filter(self, record):
-            record.correlation_id = correlation_id_ctx.get() or ""
+            record.request_id = get_request_id()
             return True
             
     if not any(isinstance(f, TracingFilter) for f in logger.filters):
@@ -24,7 +24,7 @@ def setup_logging(level=logging.INFO):
 
     # Custom format with common fields
     formatter = jsonlogger.JsonFormatter(
-        '%(asctime)s %(levelname)s %(name)s %(correlation_id)s %(message)s',
+        '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s',
         rename_fields={"asctime": "timestamp", "levelname": "severity"},
         datefmt='%Y-%m-%dT%H:%M:%SZ'
     )

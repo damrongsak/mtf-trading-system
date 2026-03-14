@@ -141,11 +141,23 @@ async def place_order(
         if not account:
             raise HTTPException(status_code=404, detail="Broker account not found")
 
-        # 1. Execute Order
+        # 1. Normalize order data for Execution Service (HFT-Lite)
+        # Ensure 'price' is used instead of 'limit_price' for LIMIT/STOP orders
+        # Ensure 'sl_price' and 'tp_price' are used instead of 'stop_loss' and 'take_profit'
+        if "limit_price" in order_data and "price" not in order_data:
+            order_data["price"] = order_data.pop("limit_price")
+        
+        if "stop_loss" in order_data and "sl_price" not in order_data:
+            order_data["sl_price"] = order_data.pop("stop_loss")
+            
+        if "take_profit" in order_data and "tp_price" not in order_data:
+            order_data["tp_price"] = order_data.pop("take_profit")
+
+        # 2. Execute Order
         # Pass ID directly
         execution_result = await execution_client.place_order(order_data, str(account.id))
         
-        # 2. Persist Trade & Create Journal Entry
+        # 3. Persist Trade & Create Journal Entry
         if execution_result and "id" in execution_result:
             try:
                 trade = TradeService.create_trade_from_execution(

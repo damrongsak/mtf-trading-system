@@ -13,10 +13,10 @@ def setup_logging(level=logging.INFO):
     handler = logging.StreamHandler(sys.stdout)
     
     # Custom filter to inject request_id
-    from app.utils.tracing import request_id_ctx
+    from app.utils.tracing import get_request_id
     class TracingFilter(logging.Filter):
         def filter(self, record):
-            record.request_id = request_id_ctx.get() or ""
+            record.request_id = get_request_id()
             return True
             
     if not any(isinstance(f, TracingFilter) for f in logger.filters):

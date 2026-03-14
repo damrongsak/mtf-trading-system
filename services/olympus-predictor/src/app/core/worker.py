@@ -8,7 +8,10 @@ from src.app.domain.models import HybridPredictor
 from src.app.infrastructure.data_loader import DataLoader
 from src.app.infrastructure.feature_store import FeatureStore
 from src.app.core.config import settings
+from src.app.core.logging import setup_logging
+from src.app.utils.tracing import request_id_ctx
 
+setup_logging()
 logger = logging.getLogger("olympus-predictor.worker")
 
 class TrainingWorker:
@@ -80,6 +83,10 @@ class TrainingWorker:
         try:
             task_data = json.loads(message_json)
             job_id = task_data.get("job_id")
+            
+            # Set job_id as correlation_id
+            token = request_id_ctx.set(job_id or f"job-unknown-{os.getpid()}")
+            
             symbol = task_data.get("symbol", "XAUUSD")
             lookback = task_data.get("lookback", 2000)
             macro_lookback = task_data.get("macro_lookback", 59)
@@ -111,9 +118,12 @@ class TrainingWorker:
             logger.error(f"Invalid JSON received in training queue: {message_json}")
         except Exception as e:
             logger.error(f"Unexpected error in _process_task: {e}", exc_info=True)
+        finally:
+            if 'token' in locals():
+                request_id_ctx.reset(token)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    setup_logging()
     worker = TrainingWorker()
     try:
         asyncio.run(worker.start())

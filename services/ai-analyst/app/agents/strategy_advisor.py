@@ -456,7 +456,12 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 fallback logic
             response = await self.gemini.generate_content(
-                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"], 
+                model=[
+                    settings.gemini.flash_lite_model_id, 
+                    settings.gemini.flash_model_id, 
+                    "gemini-3-flash-preview",
+                    "gemini-2.0-flash"
+                ], 
                 contents=[prompt],
                 response_schema=QueryOptimization
             )
@@ -536,7 +541,12 @@ class StrategyAdvisorAgent:
             logger.info(f"Severity Classification Input: {query} | Market: {context_summary}")
             
             response = await self.gemini.generate_content(
-                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id],
+                model=[
+                    settings.gemini.flash_lite_model_id, 
+                    settings.gemini.flash_model_id,
+                    "gemini-3-flash-preview",
+                    "gemini-2.0-flash"
+                ],
                 contents=[prompt],
                 response_schema=SeverityClassification
             )
@@ -1564,7 +1574,12 @@ class StrategyAdvisorAgent:
         try:
             logger.info(f"Generating terminal response for {state['intent']}. Prompt size: {len(prompt)} chars.")
             # Tier 2 (3-Model Fallback) - Final response heavy lifting
-            models = [settings.gemini.flash_model_id, settings.gemini.model_id, "gemini-2.0-flash"]
+            models = [
+                settings.gemini.flash_model_id, 
+                settings.gemini.model_id, 
+                "gemini-3-flash-preview",
+                "gemini-2.0-flash"
+            ]
             
             # Thinking mode only if first model is a "pro" model
             thinking = None

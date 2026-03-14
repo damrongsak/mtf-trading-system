@@ -4,8 +4,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-# ContextVar to store request_id across the request life-cycle
-request_id_ctx = contextvars.ContextVar("request_id", default=None)
+from app.utils.tracing import request_id_ctx, get_request_id
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -30,21 +29,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             # 6. Reset the context variable
             request_id_ctx.reset(token)
 
-def get_request_id() -> str:
-    """Helper to get the current request ID from context."""
-    return request_id_ctx.get()
-
 import logging
 
 from pythonjsonlogger import jsonlogger
-
-class TracingFormatter(logging.Formatter):
-    """Custom formatter that injects request_id into logs."""
-    def format(self, record):
-        request_id = get_request_id()
-        record.request_id = request_id or ""
-        return True # Just inject field, base class handles formatting? 
-                    # No, we'll use jsonlogger.JsonFormatter which uses record attributes.
 
 def setup_tracing_logging():
     """Configures the ROOT logger to use JSON structured logging."""
@@ -56,6 +43,7 @@ def setup_tracing_logging():
     # Custom filter to inject request_id
     class TracingFilter(logging.Filter):
         def filter(self, record):
+            # Ensure request_id is never None for JSON serialization
             record.request_id = get_request_id() or ""
             return True
             

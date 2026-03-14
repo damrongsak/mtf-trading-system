@@ -136,24 +136,37 @@ class GeminiClient:
                 import traceback
                 logger.debug(f"DEBUG: Calling generate_content on {current_model}...")
                 
-                try:
-                    # Resolve config into the right type
-                    # FORCE: tool_config to NONE to prevent UNEXPECTED_TOOL_CALL errors
-                    if 'tool_config' not in current_config:
-                         current_config['tool_config'] = types.ToolConfig(
-                             function_calling_config=types.FunctionCallingConfig(mode='NONE')
-                         )
-                    
-                    gen_config = types.GenerateContentConfig(**current_config)
-                    
-                    response = await active_client.aio.models.generate_content(
-                        model=current_model,
-                        contents=contents,
-                        config=gen_config
-                    )
-                except Exception as e:
-                    logger.error(f"DEBUG: CRASH in google-genai SDK call: {e}\n{traceback.format_exc()}")
-                    raise e
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        # Resolve config into the right type
+                        # FORCE: tool_config to NONE to prevent UNEXPECTED_TOOL_CALL errors
+                        if 'tool_config' not in current_config:
+                             current_config['tool_config'] = types.ToolConfig(
+                                 function_calling_config=types.FunctionCallingConfig(mode='NONE')
+                             )
+                        
+                        gen_config = types.GenerateContentConfig(**current_config)
+                        
+                        response = await active_client.aio.models.generate_content(
+                            model=current_model,
+                            contents=contents,
+                            config=gen_config
+                        )
+                        break # Success! Break retry loop
+                    except Exception as e:
+                        error_str = str(e).upper()
+                        is_unavailable_error = "503" in error_str or "UNAVAILABLE" in error_str
+                        
+                        if is_unavailable_error and attempt < max_retries - 1:
+                            wait_time = (attempt + 1) * 2
+                            logger.warning(f"Model {current_model} hit 503 (High Demand). Retrying in {wait_time}s (Attempt {attempt+1}/{max_retries})...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        
+                        # If not a retryable 503 or we exhausted retries, log and raise for fallback logic
+                        logger.error(f"DEBUG: CRASH in google-genai SDK call on {current_model}: {e}\n{traceback.format_exc()}")
+                        raise e
 
                 # Check for safety blocks
                 if response.candidates and response.candidates[0].finish_reason:
@@ -210,8 +223,9 @@ class GeminiClient:
                 is_unavailable_error = "404" in error_str or "NOT_FOUND" in error_str or "503" in error_str
                 
                 if is_quota_error or is_unavailable_error:
-                    # Apply Circuit Breaker lock out (e.g., 60 seconds)
-                    lockout_duration = 60
+                    # Apply Circuit Breaker lock out
+                    # Quota (429) -> 60s, Unavailable (503) -> 15s (shorter as it might be transient)
+                    lockout_duration = 60 if is_quota_error else 15
                     self._rate_limit_lockouts[current_model] = time.time() + lockout_duration
                     
                     if i < len(models) - 1:

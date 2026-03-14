@@ -59,11 +59,11 @@ def setup_demo_test():
         else:
             print(f"Fund '{fund_name}' already exists.")
 
-        # 3. Create cTrader Demo Account
+        # 3. Create cTrader Demo Account (ICMARKETSSC)
         raw_creds = {
             "host": "demo.ctraderapi.com",
             "port": 5035,
-            "account_id": "9919680",
+            "account_id": "46656483",  # Correct API CTID
             "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
             "client_secret": "Ba7u0sGyBKrGjzIC3jYMvLGqBQP6q2ofYiE4pFy1BPQtG6GFFW",
             "token": "EA0tpIDJ6rLLDWtri3fjF8JqvxNzjHQ9VwBkVFSQHAM",
@@ -72,14 +72,14 @@ def setup_demo_test():
         }
         enc_creds = encrypt_data(raw_creds)
 
-        acc = db.execute(select(BrokerAccount).where(BrokerAccount.fund_id == fund.id, BrokerAccount.broker_name == "CTRADER")).scalar_one_or_none()
+        acc = db.execute(select(BrokerAccount).where(BrokerAccount.fund_id == fund.id, BrokerAccount.broker_name == "ICMARKETSSC")).scalar_one_or_none()
         if not acc:
-            print("Creating cTrader Demo BrokerAccount...")
+            print("Creating ICMARKETSSC Demo BrokerAccount...")
             acc = BrokerAccount(
                 id=uuid.uuid4(),
                 fund_id=fund.id,
-                broker_name="CTRADER",
-                account_name="cTrader Demo System Test",
+                broker_name="ICMARKETSSC",
+                account_name="ICMarkets Demo System Test",
                 account_number="9919680",
                 credentials_encrypted=enc_creds,
                 is_live=False,
@@ -89,8 +89,9 @@ def setup_demo_test():
             )
             db.add(acc)
         else:
-            print("cTrader Demo BrokerAccount already exists. Updating credentials...")
+            print("ICMARKETSSC Demo BrokerAccount already exists. Updating credentials...")
             acc.credentials_encrypted = enc_creds
+            acc.broker_name = "ICMARKETSSC"
             acc.environment = "demo"
             acc.is_live = False
             acc.is_active = True

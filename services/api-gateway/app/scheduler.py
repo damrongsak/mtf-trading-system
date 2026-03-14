@@ -7,6 +7,7 @@ import asyncio
 from app.database import SessionLocal
 from app.models.broker_account import BrokerAccount
 from app.services.auth_service import refresh_ctrader_token_internal
+from app.utils.scheduler_utils import with_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ async def auto_load_trades_to_journal_job():
 
 def start_scheduler():
     scheduler.add_job(
-        check_and_refresh_tokens_job,
+        with_tracing(check_and_refresh_tokens_job),
         CronTrigger(hour=0, minute=0), # Daily midnight
         id="daily_token_refresh",
         replace_existing=True
@@ -160,7 +161,7 @@ def start_scheduler():
     
     # Schedule Log Cleanup every hour
     scheduler.add_job(
-        cleanup_strategy_logs_job,
+        with_tracing(cleanup_strategy_logs_job),
         IntervalTrigger(hours=1),
         id="strategy_log_cleanup",
         replace_existing=True
@@ -168,7 +169,7 @@ def start_scheduler():
     
     # Schedule Auto-Load Journal every 5 minutes
     scheduler.add_job(
-        auto_load_trades_to_journal_job,
+        with_tracing(auto_load_trades_to_journal_job),
         IntervalTrigger(minutes=5),
         id="auto_load_journal",
         misfire_grace_time=30, # Allow 30 seconds of lag

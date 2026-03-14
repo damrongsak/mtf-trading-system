@@ -2,9 +2,11 @@ import logging
 import sys
 from pythonjsonlogger import jsonlogger
 
+from app.utils.tracing import get_request_id
+
 def setup_logging(level=logging.INFO):
     """
-    Configures structured JSON logging.
+    Configures structured JSON logging with request tracing.
     """
     logger = logging.getLogger()
     logger.setLevel(level)
@@ -12,9 +14,18 @@ def setup_logging(level=logging.INFO):
     # Console Handler
     handler = logging.StreamHandler(sys.stdout)
     
-    # Custom format with commonly used fields
+    # Custom filter to inject request_id
+    class TracingFilter(logging.Filter):
+        def filter(self, record):
+            record.request_id = get_request_id()
+            return True
+            
+    if not any(isinstance(f, TracingFilter) for f in logger.filters):
+        logger.addFilter(TracingFilter())
+
+    # Custom format with common fields and request_id
     formatter = jsonlogger.JsonFormatter(
-        '%(asctime)s %(levelname)s %(name)s %(message)s',
+        '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s',
         rename_fields={"asctime": "timestamp", "levelname": "severity"},
         datefmt='%Y-%m-%dT%H:%M:%SZ'
     )

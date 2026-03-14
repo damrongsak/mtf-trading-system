@@ -11,6 +11,7 @@ from src.app.core.logging import setup_logging
 from src.app.domain.models import HybridPredictor
 from src.app.infrastructure.data_loader import DataLoader
 from src.app.infrastructure.feature_store import FeatureStore
+from src.app.utils.middleware import RequestIDMiddleware
 from src.app.api.schemas import (
     PredictionRequest, PredictionResponse, 
     TrainRequest, TrainResponse, JobStatusResponse,
@@ -71,6 +72,7 @@ app = FastAPI(
     version="2.1.0",
     lifespan=lifespan
 )
+app.add_middleware(RequestIDMiddleware)
 
 @app.get("/health")
 async def health():

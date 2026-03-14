@@ -5,14 +5,8 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from app.utils.tracing import request_id_ctx
+from app.utils.tracing import request_id_ctx, get_request_id
 logger = logging.getLogger(__name__)
-
-class TracingFormatter(logging.Formatter):
-    def format(self, record):
-        request_id = request_id_ctx.get()
-        record.request_id = request_id or ""
-        return super().format(record)
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -28,6 +22,3 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             return response
         finally:
             request_id_ctx.reset(token)
-
-def get_request_id() -> str:
-    return request_id_ctx.get()

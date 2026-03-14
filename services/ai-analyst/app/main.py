@@ -23,6 +23,7 @@ from app.services.memory import MemoryService
 from langgraph.checkpoint.redis import RedisSaver
 from redis.asyncio import Redis
 from app.core.scheduler import scheduler
+from app.utils.scheduler_utils import with_tracing
 from app.services.session_observer import session_observer
 from app.services.stability_observer import stability_observer
 from app.utils.state_cache import state_cache
@@ -185,22 +186,22 @@ async def lifespan(app: FastAPI):
             scheduler.start()
             
             # Gold OI Drift Session Reports
-            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=8, minute=0, args=['London'], misfire_grace_time=3600)
-            scheduler.add_job(session_observer.run_session_drift_report, 'cron', hour=13, minute=30, args=['New York'], misfire_grace_time=3600)
+            scheduler.add_job(with_tracing(session_observer.run_session_drift_report), 'cron', hour=8, minute=0, args=['London'], misfire_grace_time=3600)
+            scheduler.add_job(with_tracing(session_observer.run_session_drift_report), 'cron', hour=13, minute=30, args=['New York'], misfire_grace_time=3600)
             
             # Gold Sentiment Analysis (Every 60 minutes)
             # Replaced with Sentiment-to-Risk Autonomous Pipeline
             from app.core.scheduler_tasks import check_sentiment_risk_drift
-            scheduler.add_job(check_sentiment_risk_drift, 'interval', minutes=60, misfire_grace_time=600)
+            scheduler.add_job(with_tracing(check_sentiment_risk_drift), 'interval', minutes=60, misfire_grace_time=600)
             # Run once on startup to initialize previous_score and detect immediate drift
-            scheduler.add_job(check_sentiment_risk_drift, 'date', run_date=datetime.now(), misfire_grace_time=60)
+            scheduler.add_job(with_tracing(check_sentiment_risk_drift), 'date', run_date=datetime.now(), misfire_grace_time=60)
             
             # Predictor Stability Check (Every 15 minutes)
-            scheduler.add_job(stability_observer.run_predictor_stability_check, 'interval', minutes=60, misfire_grace_time=300)
+            scheduler.add_job(with_tracing(stability_observer.run_predictor_stability_check), 'interval', minutes=60, misfire_grace_time=300)
             
             # Daily Post-Mortem Analysis (01:00 UTC)
             from app.core.scheduler_tasks import run_daily_post_mortem
-            scheduler.add_job(run_daily_post_mortem, 'cron', hour=1, minute=0, misfire_grace_time=3600)
+            scheduler.add_job(with_tracing(run_daily_post_mortem), 'cron', hour=1, minute=0, misfire_grace_time=3600)
             
             logger.info("✅ Scheduler Started (Guardian, Session, Sentiment, Stability & Post-Mortem Jobs Added)")
         except Exception as e:

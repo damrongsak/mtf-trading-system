@@ -12,6 +12,7 @@ from app.database import SessionLocal
 from app.models.market import MarketSymbol
 from app.indicators.garch_engine import garch_engine
 from app.quant.engine import quant_engine
+from app.utils.scheduler_utils import tracing_context
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +57,9 @@ class MarketContextWorker:
             try:
                 await self._refresh_cache()
                 for symbol, market_symbol_id in self.symbol_cache.items():
-                    # Process each symbol concurrently or simply sequentially
-                    await self._process_symbol(symbol, market_symbol_id)
+                    async with tracing_context(f"worker-context-{symbol}"):
+                        # Process each symbol concurrently or simply sequentially
+                        await self._process_symbol(symbol, market_symbol_id)
             except Exception as e:
                 logger.error(f"MarketContextWorker loop error: {e}")
             

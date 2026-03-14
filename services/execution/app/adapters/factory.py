@@ -24,7 +24,7 @@ class BrokerFactory:
                 secret_key=credentials.get("secret_key"),
                 is_live=(credentials.get("environment") == "live")
             )
-        elif broker_name == "CTRADER":
+        elif broker_name in ["CTRADER", "ICMARKETS", "ICMARKETSSC"]:
             from app.adapters.ctrader import CTraderOrderAdapter
             # Map credentials: schema in DB has: client_id, client_secret, account_id, token
             # Note: We fallback to 'app_id'/'secret' for legacy compatibility if needed, but primary is client_id

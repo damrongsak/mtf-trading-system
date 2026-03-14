@@ -3,6 +3,8 @@ from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job, run_cot_sync_job, run_gvz_sync_job, run_search_sync_job, run_broker_sync_job
 from app.logging_config import setup_logging
+from app.utils.scheduler_utils import with_tracing
+from app.utils.middleware import RequestIDMiddleware
 import logging
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -11,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 logger = setup_logging()
 
 app = FastAPI(title="Data Pipeline Service")
+app.add_middleware(RequestIDMiddleware)
 
 app.include_router(router)
 
@@ -28,35 +31,35 @@ async def start_scheduler():
     first_run = datetime.now(timezone.utc) + timedelta(seconds=30)
     
     # Schedule ingestion every 5 minutes (Optimized for RAM/CPU)
-    scheduler.add_job(run_ingestion_job, 'interval', minutes=5, id='ingestion_job', 
+    scheduler.add_job(with_tracing(run_ingestion_job), 'interval', minutes=5, id='ingestion_job', 
                       next_run_time=first_run, misfire_grace_time=60)
     
     # Schedule Economic Calendar every 1 hour
-    scheduler.add_job(run_calendar_sync_job, 'interval', hours=1, id='calendar_sync_job', 
+    scheduler.add_job(with_tracing(run_calendar_sync_job), 'interval', hours=1, id='calendar_sync_job', 
                       next_run_time=first_run, misfire_grace_time=300)
     
     # Schedule News Sync every 1 hour
-    scheduler.add_job(run_news_sync_job, 'interval', hours=1, id='news_sync_job', 
+    scheduler.add_job(with_tracing(run_news_sync_job), 'interval', hours=1, id='news_sync_job', 
                       next_run_time=first_run, misfire_grace_time=300)
 
     # Schedule Search Sync every 30 minutes (SerpApi Market Context)
-    scheduler.add_job(run_search_sync_job, 'interval', minutes=30, id='search_sync_job', 
+    scheduler.add_job(with_tracing(run_search_sync_job), 'interval', minutes=30, id='search_sync_job', 
                       next_run_time=first_run, misfire_grace_time=300)
 
     # Schedule Trade Sync every 5 minutes (cTrader Rate Limit Friendly)
-    scheduler.add_job(run_trade_sync_job, 'interval', minutes=5, id='trade_sync_job', 
+    scheduler.add_job(with_tracing(run_trade_sync_job), 'interval', minutes=5, id='trade_sync_job', 
                       next_run_time=first_run, misfire_grace_time=60)
 
     # Schedule COT Sync every 1 day
-    scheduler.add_job(run_cot_sync_job, 'interval', days=1, id='cot_sync_job', 
+    scheduler.add_job(with_tracing(run_cot_sync_job), 'interval', days=1, id='cot_sync_job', 
                       next_run_time=first_run, misfire_grace_time=3600)
     
     # Schedule GVZ Sync every 5 minutes
-    scheduler.add_job(run_gvz_sync_job, 'interval', minutes=5, id='gvz_sync_job', 
+    scheduler.add_job(with_tracing(run_gvz_sync_job), 'interval', minutes=5, id='gvz_sync_job', 
                       next_run_time=first_run, misfire_grace_time=60)
     
     # Schedule Broker Sync every 5 minutes (Phase 47)
-    scheduler.add_job(run_broker_sync_job, 'interval', minutes=5, id='broker_sync_job', 
+    scheduler.add_job(with_tracing(run_broker_sync_job), 'interval', minutes=5, id='broker_sync_job', 
                       next_run_time=first_run, misfire_grace_time=60)
     
     try:
