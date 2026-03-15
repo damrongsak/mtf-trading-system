@@ -12,11 +12,8 @@ from app.security import get_current_user
 from fastapi import BackgroundTasks
 from app.database import SessionLocal
 
-router = APIRouter(
-    prefix="/data-sources",
-    tags=["data-sources"],
-    responses={404: {"description": "Not found"}},
-)
+from app.utils.crypto import encrypt_data, decrypt_data
+import httpx
 
 @router.get("", response_model=APIResponse[List[DataSourceResponse]])
 async def get_data_sources(
@@ -25,8 +22,19 @@ async def get_data_sources(
 ):
     """List all data sources."""
     sources = db.query(DataSource).all()
-    # Convert ORM to Pydantic explicitly to avoid serialization errors
-    data = [DataSourceResponse.model_validate(s) for s in sources]
+    # Decrypt config_json for response
+    data = []
+    for s in sources:
+        try:
+            # If it's a dict, it might be plain text (pre-migration) or already decrypted
+            # If it's a string, it's likely encrypted Base64
+            if isinstance(s.config_json, str):
+                s.config_json = decrypt_data(s.config_json)
+        except Exception as e:
+            # If decryption fails, it might be plain text or invalid. 
+            # Leave as is (might be dict from legacy)
+            pass
+        data.append(DataSourceResponse.model_validate(s))
     return success_response(data=data)
 
 @router.get("/{source_id}", response_model=APIResponse[DataSourceResponse])
@@ -39,6 +47,13 @@ async def get_data_source(
     source = db.query(DataSource).filter(DataSource.id == source_id).first()
     if not source:
         raise HTTPException(status_code=404, detail="Data Source not found")
+    
+    try:
+        if isinstance(source.config_json, str):
+            source.config_json = decrypt_data(source.config_json)
+    except Exception:
+        pass
+
     return success_response(data=DataSourceResponse.model_validate(source))
 
 @router.post("", response_model=APIResponse[DataSourceResponse])
@@ -53,19 +68,26 @@ async def create_data_source(
     if existing:
         raise HTTPException(status_code=400, detail=f"Data Source '{data.name}' already exists")
 
+    # Encrypt config_json before saving
+    encrypted_config = encrypt_data(data.config_json)
+
     new_source = DataSource(
         name=data.name,
         provider=data.provider,
         type=data.type,
-        config_json=data.config_json,
+        config_json=encrypted_config,
         is_active=data.is_active
     )
     db.add(new_source)
     db.commit()
     db.refresh(new_source)
     
+    # Return response with decrypted data
+    res_data = DataSourceResponse.model_validate(new_source)
+    res_data.config_json = data.config_json
+    
     return success_response(
-        data=DataSourceResponse.model_validate(new_source), 
+        data=res_data, 
         message="Data Source created successfully"
     )
 
@@ -92,15 +114,24 @@ async def update_data_source(
         source.type = data.type
     
     if data.config_json is not None:
-        source.config_json = data.config_json
+        source.config_json = encrypt_data(data.config_json)
         
     if data.is_active is not None:
         source.is_active = data.is_active
 
     db.commit()
     db.refresh(source)
+    
+    # Return decrypted for UI
+    res_data = DataSourceResponse.model_validate(source)
+    try:
+        if isinstance(source.config_json, str):
+            res_data.config_json = decrypt_data(source.config_json)
+    except Exception:
+        pass
+
     return success_response(
-        data=DataSourceResponse.model_validate(source), 
+        data=res_data, 
         message="Data Source updated successfully"
     )
 
@@ -183,9 +214,16 @@ async def get_source_symbols(
         # Proxy to Data Pipeline for generic/external discovery
         DATA_PIPELINE_URL = "http://data-pipeline:8000/api/v1/discovery/symbols"
         
+        config = source.config_json
+        try:
+            if isinstance(config, str):
+                config = decrypt_data(config)
+        except Exception:
+            pass
+
         payload = {
             "provider": source.provider,
-            "config": source.config_json
+            "config": config
         }
         
         async with httpx.AsyncClient() as client:

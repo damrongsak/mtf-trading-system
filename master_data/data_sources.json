@@ -1,32 +1,19 @@
 [
   {
-    "id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "name": "OANDA",
-    "provider": "OANDA",
-    "type": "api",
-    "config_json": {
-      "token": "SECRET_TOKEN",
-      "account_id": "001-011-437083-005",
-      "environment": "live"
-    },
-    "schema_json": null,
-    "is_active": true
-  },
-  {
     "id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
     "name": "CTRADER",
     "provider": "CTRADER",
     "type": "api",
-    "config_json": {
-      "host": "live.ctraderapi.com",
-      "port": 5035,
-      "token": "SECRET_TOKEN",
-      "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
-      "account_id": "40816494",
-      "expires_at": 1775815201,
-      "client_secret": "SECRET_CLIENT_SECRET",
-      "refresh_token": "SECRET_REFRESH_TOKEN"
-    },
+    "config_json": "Z0FBQUFBQnB0cHM1OEJ1UFJxVlFqc1dGZmJSdkdwWUhQYlVDV2NzM0IwYnJjS0lZVS1FaXA5M3c2bm1BdmtNWDJnSGZTSnNfQkJwU1RjU2xfdjZ2ZUpzVGh1dVQ5WmdMNmpLU21ScUQ4LWdXVU9wblFkVGExUl93VjFHTHhRNDR6LXBHcE56Nzk2QmppVmlLOUFUdW5PWFhGbFZ4Vl9BSHRyU3IwSWhxNnZpc21QMl9KY1dCZmUwWkxESFFVa1RwZzlmU0FhY181dnV3VHZXR09wbHMwN01CTmVORFBkVzU3c3VGejhrZGFOY0pqRld6bFlYV3ZNNXZ0TTBMd0VUekpybEtLTXBTMklQQ2JnSlZaTFVIYWRfRTk1cXZoUFJzOXdrV1N1a3FVbi1Vd0gzZXdPckpmWi1tcTNaNy1VaFdVNkprXzJReENNNXRqeHVzaXZxZVhvOXM2anBTNkF3WFVXeWJ1Wk5ManFpcWxFTjRwOEtDd0k2ZDg4WUd2Yl9RUWVMUXpzUFNOUVIyblVTc19DVmhCcU84MWZJYjQ3S1RYZWE5ODFVVXN1TjVETWU3Zk9YS05aQkRiZDFuT2xpU1FLLWlBdFNndVk1alZtdHVjaXRFVkdvWFFHUG0zb3F3cmtrcU1XQ2VZSHRxbzZwSm9zOERKalBQNHAtajhydDE1Q21mRVdkQU1sRlBwMWE4SFg0aUNiOGFlbFlpTzR4WEljTjNSOWNvS0ZFLXhfMlB5YzVOUDBRPQ==",
+    "schema_json": null,
+    "is_active": true
+  },
+  {
+    "id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "name": "OANDA",
+    "provider": "OANDA",
+    "type": "api",
+    "config_json": "Z0FBQUFBQnB0cHM1SUdIRHhTV05lRm94UTJRVURRb3phQnJXWlMzTzh4aWc1R3JuVnU5TTRVcEVIMFZUTUlmVEI4RmxyMnE5d2RCenA2RWpJeHBHWHlkSEdKZkNZN2tDWWUyNmVKUFpSangzY3h5UnlKN0NqYzdoc3ZLcGU5WVozZ2hGM0ttcWJFVDBxbVd2b1RxdmNSdUZVTHpESW90dmIxYm9CYjhxS1hDa3ZvSmpyMlZYd3FCS0JsUHB0UUt4ZmJoM3NVRGphVVVHVV82R2VkYnREa0pvZmFyVER2ODdfaV80NjFXSXd3dWJrbTkzSUVKdXJPc2VuV2JSenB0bTRpbkcwN093NXR6NA==",
     "schema_json": null,
     "is_active": true
   }

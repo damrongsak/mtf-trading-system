@@ -74,6 +74,24 @@ def export_data():
                 # Convert model instance to dict
                 columns = [c.key for c in inspect(item).mapper.column_attrs]
                 item_dict = {c: getattr(item, c) for c in columns}
+                
+                # Sanitize sensitive fields in DataSources
+                if model_class == DataSource and "config_json" in item_dict:
+                    config = item_dict["config_json"]
+                    # If encrypted, decrypt first so we can sanitize keys
+                    try:
+                        if isinstance(config, str):
+                            config = decrypt_data(config)
+                    except Exception:
+                        pass
+                        
+                    if isinstance(config, dict):
+                        sensitive_keys = ["token", "client_secret", "refresh_token", "api_key", "password"]
+                        for sk in sensitive_keys:
+                            if sk in config:
+                                config[sk] = f"SECRET_{sk.upper()}"
+                        item_dict["config_json"] = config
+                
                 data.append(item_dict)
             
             filepath = os.path.join(MASTER_DATA_DIR, filename)
@@ -121,10 +139,37 @@ def import_data():
                 if existing:
                     # Update
                     for key, value in item_dict.items():
-                        if key not in pk_names:
+                        if key in pk_names:
+                            continue
+                            
+                        # Special handling for JSONB fields with sanitization
+                        if isinstance(value, dict) and key == "config_json":
+                            existing_config = getattr(existing, key) or {}
+                            for sub_key, sub_val in value.items():
+                                # Only update if it's not a placeholder
+                                if isinstance(sub_val, str) and sub_val.startswith("SECRET_"):
+                                    # Try to recover from ENV
+                                    env_key = sub_val.replace("SECRET_", "")
+                                    env_val = os.getenv(env_key)
+                                    if env_val:
+                                        existing_config[sub_key] = env_val
+                                    # else: keep existing_config[sub_key] as is
+                                else:
+                                    existing_config[sub_key] = sub_val
+                            setattr(existing, key, existing_config)
+                        else:
                             setattr(existing, key, value)
                 else:
                     # Insert
+                    # Resolve placeholders from ENV before inserting
+                    if "config_json" in item_dict and isinstance(item_dict["config_json"], dict):
+                        for sub_key, sub_val in item_dict["config_json"].items():
+                            if isinstance(sub_val, str) and sub_val.startswith("SECRET_"):
+                                env_key = sub_val.replace("SECRET_", "")
+                                env_val = os.getenv(env_key)
+                                if env_val:
+                                    item_dict["config_json"][sub_key] = env_val
+                    
                     new_item = model_class(**item_dict)
                     db.add(new_item)
             
