@@ -26,6 +26,7 @@ services:
       - ./services/api-gateway:/app
       - /app/.venv
       - ./specs:/specs
+      - ./master_data:/master_data
     depends_on:
       mtf-postgres:
         condition: service_healthy

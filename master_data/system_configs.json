@@ -1,0 +1,19 @@
+[
+  {
+    "id": "e724506d-48a5-45ad-9733-b2c8132b1fbe",
+    "key": "supported_timeframes",
+    "value": [
+      "M1",
+      "M5",
+      "M15",
+      "H1",
+      "H4",
+      "D1",
+      "W1",
+      "MN1"
+    ],
+    "description": "Default supported timeframes",
+    "created_at": "2026-03-07T07:31:44.651662+00:00",
+    "updated_at": "2026-03-07T07:31:44.651662+00:00"
+  }
+]

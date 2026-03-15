@@ -1,0 +1,33 @@
+[
+  {
+    "id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "name": "OANDA",
+    "provider": "OANDA",
+    "type": "api",
+    "config_json": {
+      "token": "8cbc29b8f0208bb1b92c66ffb9a5f265-cd601bc5b06240aa8115cc036e01e873",
+      "account_id": "001-011-437083-005",
+      "environment": "live"
+    },
+    "schema_json": null,
+    "is_active": true
+  },
+  {
+    "id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "name": "CTRADER",
+    "provider": "CTRADER",
+    "type": "api",
+    "config_json": {
+      "host": "live.ctraderapi.com",
+      "port": 5035,
+      "token": "J6o7q513zaL--93GRTPgkWWI9qQRPbNS_EOc6eUdiYY",
+      "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
+      "account_id": "40816494",
+      "expires_at": 1775815201,
+      "client_secret": "Ba7u0sGyBKrGjzIC3jYMvLGqBQP6q2ofYiE4pFy1BPQtG6GFFW",
+      "refresh_token": "AK2nXHGXSjThrGKTtd76uR3yG49Mfvva3FGaMwT_1nQ"
+    },
+    "schema_json": null,
+    "is_active": true
+  }
+]

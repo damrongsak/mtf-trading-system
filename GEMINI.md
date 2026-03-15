@@ -96,6 +96,17 @@ The system utilizes four primary patterns for high resilience and low coupling:
     *   **Backend**: `docker compose exec api-gateway /venv/bin/bash scripts/gen_backend.sh`
     *   **Frontend**: `cd frontend && pnpm run gen:api`
 4.  **Implement & Verify**: Finalize implementation and run contract tests (`uv run pytest`).
+5.  **Master Data Management (MDMS)**:
+    *   **GOLDEN STATE**: The "Master Data" (Users, Accounts, Rules, Symbols) is versioned in `master_data/*.json`.
+    *   **EXPORT**: After any manual database modification (via Admin UI or SQL), you MUST sync the JSON state:
+        ```bash
+        docker compose exec api-gateway python scripts/manage_master_data.py export
+        ```
+    *   **IMPORT**: For new environments or data recovery:
+        ```bash
+        docker compose exec api-gateway python scripts/manage_master_data.py import
+        ```
+    *   **Git Integrity**: Always commit changes in `master_data/` along with the feature to maintain deployment reproducibility.
 
 ### 2. Running the System
 **Prerequisites:** Docker & Docker Compose, Node.js (pnpm), `uv` (for backend development).
