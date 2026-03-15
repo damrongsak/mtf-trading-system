@@ -3433,14 +3433,9 @@ components:
           $ref: '#/components/schemas/DataSourceType'
         config_json:
           type: object
+          description: "Internal connection details. Decrypted automatically for authenticated API responses."
         is_active:
           type: boolean
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
 
     DataSourceCreate:
       type: object

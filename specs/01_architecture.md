@@ -108,10 +108,24 @@ The system is organized into five decoupled layers of responsibility:
     - **Smart Latch**: Atomic data consistency using Redis Streams (`market.data.stream` -> `market.alpha.stream`).
     - **Feature Worker**: Real-time calculation of technical indicators (RSI, ATR) immediately after candle close.
     - **Tick Streamer**: Dedicated service for real-time market data streaming.
-    - **Data Sources**: DB-driven configuration (`DataSource` model).
+    - **Data Sources**: DB-driven configuration (`DataSource` model) with institutional Fernet encryption for `config_json`.
     - **MTF Implementation**: Native support for 8 timeframes (`M1` to `MN1`) with vectorized transition logic.
     - **Adaptive Throttling**: 10Hz (100ms) safety cap on price updates in `StreamManager` for platform stability.
     - **Ingestion Optimization**: Real-time candle fetching reduced to 20 candles per request to optimize event-loop timing.
+
+## 4.11. Data Governance & Institutional Security
+
+### H1: Master Data Management System (MDMS)
+To prevent schema drift and ensure deployment reproducibility, the system implements a **Spec-First MDMS**:
+- **Golden State**: The "Master Data" (Users, Accounts, Symbols, Rules) is versioned in `master_data/*.json` at the project root.
+- **Bi-directional Sync**: The `manage_master_data.py` script provides atomic `export` (DB -> JSON) and `import` (JSON -> DB) capabilities.
+- **Sanitization**: Export operations automatically sanitize sensitive credentials with `SECRET_` placeholders to prevent Git leaks.
+
+### H2: Institutional Security Standard (DataSource Encryption)
+All sensitive 3rd-party credentials (API Keys, Tokens, Secret Keys) are protected at rest via **Institutional Security Standards**:
+- **Field-Level Encryption**: Both `BrokerAccount` and `DataSource` configurations are encrypted using **Fernet (AES-128 in CBC mode)**.
+- **Zero-Exposure Backups**: Exported `master_data/` files contain encrypted Base64 blobs. Decryption keys are managed strictly via environment variables (`SETTINGS_ENCRYPTION_KEY`).
+- **Runtime Decryption**: Decryption occurs only at the point of use (e.g., within the `api-gateway` or during `data-pipeline` discovery) and is never persisted in logs.
 
 
 

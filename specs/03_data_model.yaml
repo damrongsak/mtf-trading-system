@@ -446,7 +446,10 @@ entities:
       - name: config_json
         type: jsonb
         required: true
-        description: "Connection details (API keys, URLs) - Encrypted in app"
+        description: >-
+          Encrypted connection details (API keys, URLs).
+          Uses institutional Fernet encryption (Base64).
+          Internal keys: OANDA {token, account_id}, CTRADER {token, client_id, client_secret, refresh_token, ...}
       - name: schema_json
         type: jsonb
         nullable: true

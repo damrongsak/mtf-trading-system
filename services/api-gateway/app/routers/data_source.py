@@ -14,6 +14,15 @@ from app.database import SessionLocal
 
 from app.utils.crypto import encrypt_data, decrypt_data
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/data-sources",
+    tags=["data-sources"],
+    responses={404: {"description": "Not found"}},
+)
 
 @router.get("", response_model=APIResponse[List[DataSourceResponse]])
 async def get_data_sources(
@@ -22,19 +31,27 @@ async def get_data_sources(
 ):
     """List all data sources."""
     sources = db.query(DataSource).all()
-    # Decrypt config_json for response
     data = []
     for s in sources:
-        try:
-            # If it's a dict, it might be plain text (pre-migration) or already decrypted
-            # If it's a string, it's likely encrypted Base64
-            if isinstance(s.config_json, str):
-                s.config_json = decrypt_data(s.config_json)
-        except Exception as e:
-            # If decryption fails, it might be plain text or invalid. 
-            # Leave as is (might be dict from legacy)
-            pass
-        data.append(DataSourceResponse.model_validate(s))
+        # Convert to dict for safe manipulation
+        s_dict = {
+            "id": s.id,
+            "name": s.name,
+            "provider": s.provider,
+            "type": s.type,
+            "config_json": s.config_json,
+            "is_active": s.is_active
+        }
+        
+        config = s.config_json
+        if isinstance(config, str):
+            try:
+                decrypted = decrypt_data(config)
+                s_dict["config_json"] = decrypted
+            except Exception as e:
+                logger.error(f"Failed to decrypt DataSource {s.id}: {e}")
+            
+        data.append(DataSourceResponse.model_validate(s_dict))
     return success_response(data=data)
 
 @router.get("/{source_id}", response_model=APIResponse[DataSourceResponse])
@@ -44,17 +61,26 @@ async def get_data_source(
     current_user = Depends(get_current_user)
 ):
     """Get a specific data source."""
-    source = db.query(DataSource).filter(DataSource.id == source_id).first()
-    if not source:
+    s = db.query(DataSource).filter(DataSource.id == source_id).first()
+    if not s:
         raise HTTPException(status_code=404, detail="Data Source not found")
     
+    s_dict = {
+        "id": s.id,
+        "name": s.name,
+        "provider": s.provider,
+        "type": s.type,
+        "config_json": s.config_json,
+        "is_active": s.is_active
+    }
+    
     try:
-        if isinstance(source.config_json, str):
-            source.config_json = decrypt_data(source.config_json)
+        if isinstance(s_dict["config_json"], str):
+            s_dict["config_json"] = decrypt_data(s_dict["config_json"])
     except Exception:
         pass
 
-    return success_response(data=DataSourceResponse.model_validate(source))
+    return success_response(data=DataSourceResponse.model_validate(s_dict))
 
 @router.post("", response_model=APIResponse[DataSourceResponse])
 async def create_data_source(
