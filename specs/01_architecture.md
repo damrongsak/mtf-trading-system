@@ -8,38 +8,41 @@
 
 ```mermaid
 graph TD
-    User[User / Quant] -->|HTTPS| Nginx[Nginx Reverse Proxy]
-    Nginx -->|/api| Gateway[API Gateway]
-    Nginx -->|/| Frontend[Frontend -Next.js-]
+    User[Web Dashboard] -->|REST/HTTPS| Nginx[Nginx Reverse Proxy]
+    Nginx --> Gateway[API Gateway: Aggregator]
 
-    subgraph "Layer 1 & 2: Strategy Foundry"
-        Gateway -->|/foundry| Foundry[Strategy Core: Foundry]
-        Foundry -->|Validate| ProvingGround[Strategy Core: Proving Ground]
-        ProvingGround -->|Store| DB[(PostgreSQL)]
+    subgraph "Data Fabric (ECST & Streaming)"
+        Data[Data Pipeline] -->|Tick Stream| PubSub[(Redis Pub/Sub)]
+        Data -->|Metadata Broadcast| PubSub
+        PubSub -->|Real-time Cache| AI[AI Analyst]
+        PubSub -->|Live Dashboard| User
     end
 
-    subgraph "Layer 3 & 4: Risk Citadel"
-        Gateway -->|/execution| Execution[Execution Service]
-        Execution -->|Minimax Check| Citadel[Risk Citadel Engine]
-        Citadel -->|Risk Parity| DB
+    subgraph "Citadel: Execution & Risk"
+        Strategy[Strategy Core] -- "Async RPC (Queue)" --> Queue[(Redis Queue)]
+        Queue --> Worker[Execution Worker]
+        Worker -->|Risk Check| Risk[Risk Engine]
+        Worker -->|Order/Fill| Brokers[[External APIs]]
+        Worker -->|Async Persistence| Stream[(Redis Streams)]
+        Stream --> Persist[Persistence Worker]
+        Persist --> DB[(PostgreSQL 15)]
     end
 
-    subgraph "Layer 5: AI Coach"
-        Gateway -->|/analyst| AI[AI Analyst]
-        AI -->|Logs| MentalDB[(Psychology DB)]
+    subgraph "Olympus Brain (AI & ML)"
+        Gateway --> AI
+        AI -->|RAG| Qdrant[(Vector Store)]
+        AI -->|Neural Forecasts| ML[Olympus Predictor]
+        AI -->|Persona/Logs| DB
+        ML -->|Market Features| DB
     end
 
-    subgraph "Data Fabric"
-        Data[Data Pipeline] -->|Ticks / State Updates| Redis[(Redis Pub/Sub)]
-        Data -->|OHLCV| DB
-        AI -->|RAG| Qdrant[(Qdrant Vector Store)]
-        Redis -->|ECST Broadcast| AI
+    subgraph "Golden State (MDMS)"
+        JSON[(Master Data JSON)] <--> Gateway
     end
 
-    subgraph "External"
-        AI --> Gemini[Google Gemini API]
-        Data --> Oanda[Oanda v20 API]
-    end
+    Brokers --- cTraderAPI[cTrader / ICM]
+    Brokers --- OandaAPI[Oanda v20]
+    Brokers --- BinanceAPI[Binance / Crypto]
 ```
 
 ## 3. The 5-Layer Stack
