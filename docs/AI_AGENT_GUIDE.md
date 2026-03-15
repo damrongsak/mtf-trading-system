@@ -71,6 +71,9 @@ Use an orchestration framework like **LangGraph** to manage complex workflows.
 
 ### 🆔 Broker ID Lifecycle (CRITICAL)
 Agents must handle differing identifier lifecycles across brokers:
+- **STRICT SYMBOL NAMING**: Always use underscores (`XAU_USD`) in the database. Slashes are for display only.
+- **CTRADER METADATA**: Never create cTrader symbols without the mandatory `details` fields (lot_size, pipPosition, symbol_id). See `GEMINI.md` for the full list.
+- **NO IMPLEMENTATION without SPEC**: You MUST NOT modify Python/React code until the corresponding `.yaml` or `.md` spec in `specs/` is updated.
 - **OANDA**: `orderID` is stable for both pending and filled states.
 - **cTrader**: 
     - `orderId` is used for **Pending/Accepted** state.
@@ -162,6 +165,15 @@ To avoid deadlocks and high-coupling, follow these patterns when designing inter
 | **Async RPC** | High-latency/Risk actions | Non-blocking, built-in retries/queuing. |
 
 **CRITICAL RULE**: **NEVER** call the `api-gateway` from an internal service tool. If Service A needs data from Service B, call B directly or use a cached Event-Carried state.
+
+## 💾 Step 10: Initial Seeding & Environment Setup
+For a fresh environment, AI agents should ensure the following sequence is executed in the `api-gateway` service:
+
+1.  **System Config**: `seed_system.py` (Ensures M1+ timeframes).
+2.  **Market Data**: `seed_market_data.py` (Filters to EURUSD, USDJPY, BTCUSD, XAUUSD, WTI).
+3.  **Broker Auth**: `seed_ctrader.py` (Links `trader1` to cTrader).
+4.  **Test Data**: `seed_test_data.py` (Enforces trader1 -> cTrader and trader2 -> OANDA mappings).
+5.  **Demo Setup**: `setup_ctrader_demo.py` (Configures `demo1` and account `9919680`).
 
 ---
 **MTF Olympus** | *Institutional Alpha at Scale*

@@ -36,8 +36,9 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
             kwargs["includeFirst"] = True
         
         try:
-            # Call adapter method
-            candles = await fetch_candles_safe(client, symbol=symbol_name, timeframe=tf, **kwargs)
+            # Call adapter method with broker_symbol if available
+            broker_sym = ms.details.get("broker_symbol") or ms.details.get("symbolName") if ms.details else None
+            candles = await fetch_candles_safe(client, symbol=symbol_name, timeframe=tf, broker_symbol=broker_sym, **kwargs)
             
             if not candles:
                 break
@@ -317,7 +318,8 @@ async def run_ingestion_job(
                             # 2. Regular Real-time Catchup (Only if not already caught up via backfill)
                             if not catchup_performed:
                                 if source.provider == "OANDA":
-                                    candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=20)
+                                    broker_sym = ms.details.get("broker_symbol") or ms.details.get("symbolName") if ms.details else None
+                                    candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=20, broker_symbol=broker_sym)
                                     if candles:
                                         for c in candles:
                                             timestamp = pd.to_datetime(c['time']).to_pydatetime()

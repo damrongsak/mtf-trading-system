@@ -74,6 +74,45 @@ graph TD
     - **[K2] Demo Activation Fix**: Resolved issue where demo accounts failed to activate by ensuring all required credentials (`client_id`, `client_secret`, `token`, `account_id`) are validated.
     - **[K3] Automatic Account Sync**: Added logic to automatically map `account_number` to `account_id` if missing, improving UX for cTrader-based brokers.
 
+## ⚡ Performance & Concurrency Guardrails (Critical)
+
+The API Gateway operates on a **single-threaded Event Loop** (FastAPI/Uvicorn). Maintaining a non-blocking loop is critical for WebSocket stability and API responsiveness.
+
+### 🚫 The Event Loop Blocking Rule
+**MANDATORY**: You MUST NOT perform synchronous I/O (SQLAlchemy queries, heavy file reads, or long-polling) directly inside `async def` functions without offloading.
+
+*   **Symptoms of Failure**: High CPU usage, "Missed run time" warnings from APScheduler, and dropped WebSocket connections.
+*   **The Fix**: Use `asyncio.to_thread` to wrap synchronous database calls or blocking logic.
+
+```python
+# ❌ BAD: Blocks the entire gateway while waiting for DB
+async def background_job():
+    db = SessionLocal()
+    results = db.query(MyModel).all() # BLOCKING
+    db.close()
+
+# ✅ GOOD: Offloads DB work to a thread pool
+async def background_job():
+    def get_data():
+        db = SessionLocal()
+        try:
+            return db.query(MyModel).all()
+        finally:
+            db.close()
+    
+    results = await asyncio.to_thread(get_data) # NON-BLOCKING
+```
+
+### 🗄️ Database Access Patterns
+Until the gateway is fully refactored to `AsyncSession` (SQLAlchemy 2.0+), follow these patterns:
+1.  **FastAPI Routes**: Use `db: Session = Depends(get_db)`. FastAPI handles `def` (sync) routes in its own thread pool automatically.
+2.  **Background Tasks/Workers**: If using `async def` for workers (e.g., `telegram_polling.py` or `scheduler.py`), you **must** use `asyncio.to_thread` for all DB operations.
+3.  **Thread-Specific Sessions**: Always create, use, and **close** a new `SessionLocal()` within the threaded helper function to prevent connection leaks.
+
+### 📦 Dependency Management
+*   **Baseline Memory**: ~175MB (constrained by heavy libs like `pandas`, `numpy`, `vectorbt`).
+*   **Guideline**: Do NOT add heavy computational libraries to the Gateway. Move all quantitative analysis or backtesting logic to the `strategy-core` service. The Gateway should remain a thin, fast orchestrator.
+
 ## 🤖 AI-Agent Operational Guide
 
 To navigate or modify the Gateway behavior, follow this priority path:
@@ -112,8 +151,12 @@ For external consumers, use the dedicated `/api/v1/external` router.
 # Sync database schema (Alembic)
 docker compose exec api-gateway alembic upgrade head
 
-# Initialize system data (Seed)
+# Initialize system data (Full Sequence)
+docker compose exec api-gateway python scripts/seed_system.py
+docker compose exec api-gateway python scripts/seed_market_data.py
 docker compose exec api-gateway python scripts/seed_risk_rules.py
+docker compose exec api-gateway python scripts/seed_ctrader.py
+docker compose exec api-gateway python scripts/seed_test_data.py
 
 # Emergency Halt / Resume
 docker compose exec api-gateway curl -X POST http://localhost:8000/api/v1/system/halt

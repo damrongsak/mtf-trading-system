@@ -16,15 +16,16 @@ class OandaClient:
         self.client = API(access_token=settings.OANDA_API_KEY, environment=settings.OANDA_ENV)
         self.account_id = settings.OANDA_ACCOUNT_ID
 
-    def fetch_candles(self, symbol: str, timeframe: str, count: int = 500, **kwargs):
+    def fetch_candles(self, symbol: str, timeframe: str, count: int = 500, broker_symbol: str = None, **kwargs):
         """
         Fetch OHLCV candles from Oanda.
         
         Args:
-            symbol: Instrument name (e.g., 'XAU_USD')
+            symbol: Internal system symbol (e.g., 'WTI_USD')
             timeframe: Granularity (e.g., 'M15', 'H1', 'H4')
             count: Number of candles to fetch
-            **kwargs: Additional parameters for Oanda API (e.g., fromTime, toTime, price, includeFirst)
+            broker_symbol: Optional broker-specific instrument name (e.g., 'WTICO_USD')
+            **kwargs: Additional parameters for Oanda API
         """
         # Map internal timeframes to OANDA granularities
         tf_map = {
@@ -42,8 +43,8 @@ class OandaClient:
         params.update(kwargs) # Merge additional parameters
         
         try:
-            # Oanda requires underscore, e.g. XAU_USD
-            norm_symbol = symbol.replace('/', '_')
+            # Use broker_symbol if provided, else fallback to OANDA's expected underscore format
+            norm_symbol = broker_symbol or symbol.replace('/', '_')
             logger.info(f"OANDA API Request: instrument={norm_symbol}, params={params}")
             r = instruments.InstrumentsCandles(instrument=norm_symbol, params=params)
             

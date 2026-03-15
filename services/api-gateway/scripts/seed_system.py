@@ -13,7 +13,7 @@ def seed_system_config():
         print("Seeding System Config...")
         
         configs = {
-            "supported_timeframes": ["M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
+            "supported_timeframes": ["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
         }
         
         for key, value in configs.items():

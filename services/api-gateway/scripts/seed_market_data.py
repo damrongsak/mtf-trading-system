@@ -11,13 +11,45 @@ import json
 def seed_data():
     db = SessionLocal()
     try:
-        print("Seeding Market Categories...")
+        print("Seeding OANDA DataSource...")
+        ds = db.query(DataSource).filter(DataSource.name == "OANDA").first()
+        if not ds:
+            config = {
+                "api_key": os.getenv("OANDA_API_KEY", "REPLACE_ME"),
+                "account_id": os.getenv("OANDA_ACCOUNT_ID", "REPLACE_ME"),
+                "environment": os.getenv("OANDA_ENV", "live")
+            }
+            ds = DataSource(
+                name="OANDA",
+                provider="OANDA",
+                type="api",
+                config_json=config,
+                is_active=True
+            )
+            db.add(ds)
+            db.commit()
+            db.refresh(ds)
+            print("Created OANDA DataSource.")
+        else:
+            print("OANDA DataSource already exists.")
+
+        print("Seeding Market Categories and Symbols...")
         
         # Categories
         categories = {
-            "Forex": ["EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD", "USD_CAD"],
-            "Crypto": ["BTC_USD", "ETH_USD", "SOL_USD"],
-            "Metals": ["XAU_USD", "XAG_USD"]
+            "Forex": ["EUR_USD", "USD_JPY"],
+            "Crypto": ["BTC_USD"],
+            "Metals": ["XAU_USD"],
+            "Commodities": ["WTI_USD"]
+        }
+        
+        # Broker-specific mappings for OANDA
+        broker_mapping = {
+            "WTI_USD": "WTICO_USD",
+            "XAU_USD": "XAU_USD",
+            "EUR_USD": "EUR_USD",
+            "USD_JPY": "USD_JPY",
+            "BTC_USD": "BTC_USD"
         }
         
         for idx, (cat_name, symbols) in enumerate(categories.items()):
@@ -30,42 +62,36 @@ def seed_data():
                 print(f"Created category: {cat_name}")
             
             for s_idx, symbol in enumerate(symbols):
-                sym = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol, MarketSymbol.category_id == cat.id).first()
+                # Check for symbol + data_source_id uniqueness
+                sym = db.query(MarketSymbol).filter(
+                    MarketSymbol.symbol == symbol, 
+                    MarketSymbol.data_source_id == ds.id
+                ).first()
+                
+                # Standardized details for OANDA mapping
+                oanda_details = {
+                    "symbolName": broker_mapping.get(symbol, symbol.replace("_", "/")),
+                    "broker_symbol": broker_mapping.get(symbol)
+                }
+                
                 if not sym:
                     sym = MarketSymbol(
                         category_id=cat.id, 
                         symbol=symbol, 
                         display_name=symbol.replace("_", "/"),
-                        order_index=s_idx
+                        order_index=s_idx,
+                        data_source_id=ds.id,
+                        details=oanda_details,
+                        is_active=True
                     )
                     db.add(sym)
-                    print(f"  Added symbol: {symbol}")
+                    print(f"  Added symbol: {symbol} (OANDA: {oanda_details['symbolName']})")
+                else:
+                    print(f"  Updating details for {symbol} (OANDA)...")
+                    sym.details = oanda_details
         
         db.commit()
         print("Market Data seeded successfully.")
-        
-        print("Seeding OANDA DataSource...")
-        ds = db.query(DataSource).filter(DataSource.name == "OANDA").first()
-        if not ds:
-            # Create a placeholder or real config if available
-            # Warning: Using placeholder token. User must update.
-            config = {
-                "token": os.getenv("OANDA_API_TOKEN", "REPLACE_ME"),
-                "account_id": os.getenv("OANDA_ACCOUNT_ID", "REPLACE_ME"),
-                "environment": "practice"
-            }
-            ds = DataSource(
-                name="OANDA",
-                provider="OANDA",
-                type="api",
-                config_json=config,
-                is_active=True
-            )
-            db.add(ds)
-            db.commit()
-            print("Created OANDA DataSource (Requires valid credentials).")
-        else:
-            print("OANDA DataSource already exists.")
 
     except Exception as e:
         print(f"Error seeding data: {e}")

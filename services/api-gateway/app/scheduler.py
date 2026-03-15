@@ -18,27 +18,40 @@ async def check_and_refresh_tokens_job():
     Background job to check cTrader accounts for expiring tokens.
     """
     logger.info("Starting Daily Token Refresh Check...")
-    db = SessionLocal()
+    
+    def get_active_ctrader_accounts():
+        db = SessionLocal()
+        try:
+            return db.query(BrokerAccount).filter(
+                BrokerAccount.broker_name == "CTRADER",
+                BrokerAccount.is_active == True
+            ).all()
+        finally:
+            db.close()
+
     try:
-        accounts = db.query(BrokerAccount).filter(
-            BrokerAccount.broker_name == "CTRADER",
-            BrokerAccount.is_active == True
-        ).all()
+        accounts = await asyncio.to_thread(get_active_ctrader_accounts)
         
         refreshed_count = 0
         total_count = len(accounts)
         
         for account in accounts:
-            # We call internal service which handles checks
-            # Note: The service currently only logs if skipping.
-            # We need to ensure it checks 'expires_at'. 
-            # Yes, refresh_ctrader_token_internal logic:
-            # - decrypt
-            # - if force=False: check expires_at > 3 days -> skip
-            # - else -> post to data-pipeline -> update DB
-            
             try:
-                result = await refresh_ctrader_token_internal(account, db, force=False)
+                # We need a new session for each refresh if it does DB updates
+                # refresh_ctrader_token_internal takes a db session.
+                # Let's run it in a way that handles its own session if possible, 
+                # or provide one.
+                
+                async def refresh_with_session(acc):
+                    db = SessionLocal()
+                    try:
+                        # refresh_ctrader_token_internal is async but contains sync DB calls.
+                        # We still call it with await.
+                        return await refresh_ctrader_token_internal(acc, db, force=False)
+                    finally:
+                        db.close()
+                
+                result = await refresh_with_session(account)
                 if result:
                     refreshed_count += 1
             except Exception as e:
@@ -48,8 +61,6 @@ async def check_and_refresh_tokens_job():
         
     except Exception as e:
         logger.error(f"Token Refresh Job Failed: {e}")
-    finally:
-        db.close()
 
 
 async def cleanup_strategy_logs_job():
@@ -57,22 +68,32 @@ async def cleanup_strategy_logs_job():
     Deletes strategy execution logs older than 6 hours.
     """
     logger.info("Starting Strategy Log Cleanup...")
-    db = SessionLocal()
+    
+    def do_cleanup():
+        db = SessionLocal()
+        try:
+            from app.models.strategy_execution_log import StrategyExecutionLog
+            from datetime import datetime, timedelta
+            
+            cutoff = datetime.now() - timedelta(hours=6)
+            deleted = db.query(StrategyExecutionLog).filter(
+                StrategyExecutionLog.timestamp < cutoff
+            ).delete(synchronize_session=False)
+            
+            db.commit()
+            return deleted
+        except Exception as e:
+            logger.error(f"Strategy Log Cleanup DB Error: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     try:
-        from app.models.strategy_execution_log import StrategyExecutionLog
-        from datetime import datetime, timedelta
-        
-        cutoff = datetime.now() - timedelta(hours=6)
-        deleted = db.query(StrategyExecutionLog).filter(
-            StrategyExecutionLog.timestamp < cutoff
-        ).delete(synchronize_session=False)
-        
-        db.commit()
+        deleted = await asyncio.to_thread(do_cleanup)
         logger.info(f"Cleaned up {deleted} strategy execution logs.")
     except Exception as e:
         logger.error(f"Strategy Log Cleanup Failed: {e}")
-    finally:
-        db.close()
 
 
 async def auto_load_trades_to_journal_job():
@@ -81,74 +102,82 @@ async def auto_load_trades_to_journal_job():
     Runs every 5 minutes.
     """
     logger.info("Starting Auto-Load Trades to Journal Job...")
-    db = SessionLocal()
-    try:
-        from app.models.trade import Trade
-        from app.models.journal import JournalEntry
-        from sqlalchemy import and_
-        
-        # 1. Fetch CLOSED trades that do not have a corresponding JournalEntry
-        # trade_id is unique in journal_entries
-        journal_subq = db.query(JournalEntry.trade_id).filter(JournalEntry.trade_id.isnot(None)).subquery()
-        
-        pending_trades = db.query(Trade).filter(
-            and_(
-                Trade.status.in_(["CLOSED", "REJECTED"]), # Also load rejected for review
-                Trade.trade_id.notin_(journal_subq)
-            )
-        ).all()
-        
-        if not pending_trades:
-            logger.info("No new closed trades found for journaling.")
-            return
+    
+    def do_auto_load():
+        db = SessionLocal()
+        try:
+            from app.models.trade import Trade
+            from app.models.journal import JournalEntry
+            from sqlalchemy import and_
             
-        added_count = 0
-        for trade in pending_trades:
-            # 2. Resolve user_id (Consistency with journal internal API)
-            user_id = None
-            if hasattr(trade, 'broker_account_id') and trade.broker_account_id:
-                from app.models.broker_account import BrokerAccount
-                account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
-                if account and hasattr(account, 'fund_id') and account.fund_id:
-                    from app.models.user_fund import UserFund
-                    uf = db.query(UserFund).filter(UserFund.fund_id == account.fund_id).first()
-                    if uf:
-                        user_id = uf.user_id
-
-            # Fallback to the first system user if resolution fails
-            if not user_id:
-                from app.models.user import User
-                first_user = db.query(User).first()
-                if first_user:
-                    user_id = first_user.id
+            # 1. Fetch CLOSED trades that do not have a corresponding JournalEntry
+            journal_subq = db.query(JournalEntry.trade_id).filter(JournalEntry.trade_id.isnot(None)).subquery()
             
-            if not user_id:
-                logger.warning(f"Could not resolve user_id for trade {trade.trade_id}. Skipping auto-load.")
-                continue
+            pending_trades = db.query(Trade).filter(
+                and_(
+                    Trade.status.in_(["CLOSED", "REJECTED"]),
+                    Trade.trade_id.notin_(journal_subq)
+                )
+            ).all()
+            
+            if not pending_trades:
+                return 0
                 
-            # 3. Create Draft Journal Entry
-            new_entry = JournalEntry(
-                user_id=user_id,
-                trade_id=trade.trade_id,
-                symbol=trade.symbol,
-                direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
-                entry_price=float(trade.entry_price) if trade.entry_price else None,
-                exit_price=float(trade.exit_price) if trade.exit_price else None,
-                pnl_amount=float(trade.pnl_usd) if trade.pnl_usd else None,
-                session="Auto-Load",
-                is_ai_generated=False # This is a human/draft entry
-            )
-            db.add(new_entry)
-            added_count += 1
-            
-        db.commit()
-        logger.info(f"Auto-Load Complete: Created {added_count} draft journal entries.")
-        
+            added_count = 0
+            for trade in pending_trades:
+                # 2. Resolve user_id
+                user_id = None
+                if hasattr(trade, 'broker_account_id') and trade.broker_account_id:
+                    from app.models.broker_account import BrokerAccount
+                    account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
+                    if account and hasattr(account, 'fund_id') and account.fund_id:
+                        from app.models.user_fund import UserFund
+                        uf = db.query(UserFund).filter(UserFund.fund_id == account.fund_id).first()
+                        if uf:
+                            user_id = uf.user_id
+
+                if not user_id:
+                    from app.models.user import User
+                    first_user = db.query(User).first()
+                    if first_user:
+                        user_id = first_user.id
+                
+                if not user_id:
+                    logger.warning(f"Could not resolve user_id for trade {trade.trade_id}. Skipping auto-load.")
+                    continue
+                    
+                # 3. Create Draft Journal Entry
+                new_entry = JournalEntry(
+                    user_id=user_id,
+                    trade_id=trade.trade_id,
+                    symbol=trade.symbol,
+                    direction=trade.direction.value if hasattr(trade.direction, 'value') else str(trade.direction),
+                    entry_price=float(trade.entry_price) if trade.entry_price else None,
+                    exit_price=float(trade.exit_price) if trade.exit_price else None,
+                    pnl_amount=float(trade.pnl_usd) if trade.pnl_usd else None,
+                    session="Auto-Load",
+                    is_ai_generated=False
+                )
+                db.add(new_entry)
+                added_count += 1
+                
+            db.commit()
+            return added_count
+        except Exception as e:
+            logger.error(f"Auto-Load DB Error: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    try:
+        added_count = await asyncio.to_thread(do_auto_load)
+        if added_count > 0:
+            logger.info(f"Auto-Load Complete: Created {added_count} draft journal entries.")
+        else:
+            logger.info("No new closed trades found for journaling.")
     except Exception as e:
         logger.error(f"Auto-Load Trades Job Failed: {e}")
-        db.rollback()
-    finally:
-        db.close()
 
 
 def start_scheduler():

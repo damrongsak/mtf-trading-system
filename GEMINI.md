@@ -85,6 +85,9 @@ The system utilizes four primary patterns for high resilience and low coupling:
     - **🚫 NO REENTRANT GATEWAY CALLS**: AI Agents and Tools MUST NOT call the `api-gateway` from within another service to fetch internal data.
         - **Reason**: This creates circular dependencies and deadlocks (especially with low `WEB_CONCURRENCY`).
         - **Solution**: Use **Direct Service Calls** for internal operations or, preferably, **ECST (Local Cache)** for shared state.
+    - **🔐 NO HARDCODED CREDENTIALS**: You MUST NOT hardcode API keys, tokens, secrets, or JWTs in any Python, TypeScript, or Shell scripts.
+        - **MANDATORY**: Use `.env` files for local development and `os.getenv()` or `app.core.config` for access.
+        - **Sanitization**: Before committing code or finalizing a task, audit all newly created scripts for sensitive data leaks.
 
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).
@@ -183,6 +186,25 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
     ```
 
 ## 🔑 Key Logic & Constraints (Phases 1-28)
+*   **Symbol Naming Standard (CRITICAL)**:
+    - All symbols in the database MUST use the **underscore separator** (e.g., `XAU_USD`, `EUR_USD`, `BTC_USD`).
+    - **NEVER** use slashes (e.g., `XAU/USD`) or raw strings (e.g., `XAUUSD`) in the `market_symbols` table. 
+    - The `execution` adapters (e.g., cTrader) handle internal normalization automatically.
+*   **cTrader Symbol Metadata (details field)**:
+    - For cTrader-linked symbols, the `details` JSONB field MUST contain:
+        - `symbol_id`: The numeric ID from cTrader (e.g., `"1"` for Gold).
+        - `lot_size`: cTrader volume unit (usually `10000000` or `100000000`).
+        - `pipPosition`: Pip decimal location (e.g., `1` for Gold, `-4` for FX).
+        - `digits`: Price decimal places.
+        - `minLot`, `maxLot`, `step_volume`: Order volume constraints.
+    - These fields are cached in-memory by the `execution` service (HFT-lite path). Missing fields will cause trade calculation failures.
+*   **Seeding & Environment Standards:**
+    *   **Timeframes:** `["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]` (M1 is required for execution confirm).
+    *   **Symbols:** `EUR_USD`, `USD_JPY`, `BTC_USD`, `XAU_USD`, `WTI_USD`.
+    *   **Trader Mappings:**
+        *   `trader1`: Mapped to **cTrader** (Live/Demo).
+        *   `trader2`: Mapped to **OANDA** (Live/Demo).
+        *   `demo1`: Dedicated **cTrader Demo** tester.
 *   **Risk Management:** 
     *   **Smart Dynamic Risk:** 1% of NAV per trade, capped by Fund Limit.
     *   **Guardrails:** Risk-Reward Ratio (RRR) must be >= 1.5.

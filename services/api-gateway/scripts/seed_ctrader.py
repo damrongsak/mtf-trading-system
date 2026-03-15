@@ -72,7 +72,7 @@ def seed_ctrader():
                 name="CTrader Data",
                 type="websocket",
                 config_json={
-                    "host": "demo.ctraderapi.com",
+                    "host": os.getenv("CTRADER_HOST", "live.ctraderapi.com"),
                     "port": 5035,
                     "client_id": client_id,
                     "client_secret": client_secret,
@@ -87,8 +87,21 @@ def seed_ctrader():
         else:
             print("cTrader DataSource already exists.")
 
-        # 4. Ensure BrokerAccount Exists
-        account = db.query(BrokerAccount).filter(BrokerAccount.broker_name == 'CTRADER').first()
+        from app.utils.crypto import encrypt_data
+        
+        # 4. Ensure BrokerAccount Exists (Deduplicate by name or number)
+        account = db.query(BrokerAccount).filter(
+            (BrokerAccount.account_name == 'CTrader Demo') | 
+            (BrokerAccount.account_number == account_id)
+        ).first()
+        creds = {
+            "app_id": client_id,
+            "secret": client_secret,
+            "account_id": account_id,
+            "token": token,
+            "refresh_token": refresh_token
+        }
+        
         if not account:
             print("Creating cTrader BrokerAccount...")
             account = BrokerAccount(
@@ -96,13 +109,7 @@ def seed_ctrader():
                 fund_id=fund.id,
                 broker_name="CTRADER",
                 account_name="CTrader Demo",
-                credentials_encrypted={
-                    "app_id": client_id,
-                    "secret": client_secret,
-                    "account_id": account_id,
-                    "token": token,
-                    "refresh_token": refresh_token
-                },
+                credentials_encrypted=encrypt_data(creds),
                 is_live=False,
                 is_active=True,
                 supported_symbols=["XAU/USD", "EUR/USD", "GBP/USD", "USD/JPY"]
@@ -110,39 +117,76 @@ def seed_ctrader():
             db.add(account)
             db.commit()
         else:
-             print("cTrader BrokerAccount already exists.")
+             print("Updating cTrader BrokerAccount credentials (encrypted)...")
+             account.credentials_encrypted = encrypt_data(creds)
+             db.commit()
 
-        # 5. Ensure MarketSymbol exists and is linked
-        # Ensure 'Metals' Category
-        cat = db.query(MarketCategory).filter(MarketCategory.name == "Metals").first()
-        if not cat:
-            cat = MarketCategory(name="Metals")
-            db.add(cat)
-            db.commit()
-            
-        symbol_name = "XAU/USD"
-        symbol = db.query(MarketSymbol).filter(MarketSymbol.symbol == symbol_name).first()
-        if not symbol:
-            print(f"Creating Symbol {symbol_name}...")
-            symbol = MarketSymbol(
-                id=uuid.uuid4(),
-                category_id=cat.id,
-                data_source_id=ds.id, # Link to CTrader as default source?
-                symbol=symbol_name,
-                display_name="Gold vs USD",
-                details={
-                    "digits": 2, 
-                    "pipPosition": 1,
-                    "ctrader_symbol_id":  "1" # Just generic XAUUSD ID, requires lookup really
+        # 5. Ensure All Core Symbols exist for cTrader
+        # Categories mapping for new symbols
+        symbol_categories = {
+            "Forex": ["EUR_USD", "USD_JPY"],
+            "Crypto": ["BTC_USD"],
+            "Metals": ["XAU_USD"],
+            "Commodities": ["WTI_USD"]
+        }
+        
+        # cTrader Metadata mapping (Common defaults)
+        symbol_metadata = {
+            "XAU_USD": {"id": "1", "lot_size": 10000000, "digits": 2, "pipPosition": 1},
+            "EUR_USD": {"id": "2", "lot_size": 100000, "digits": 5, "pipPosition": -4},
+            "USD_JPY": {"id": "4", "lot_size": 100000, "digits": 3, "pipPosition": -2},
+            "BTC_USD": {"id": "100", "lot_size": 100, "digits": 2, "pipPosition": 0.01}, 
+            "WTI_USD": {"id": "50", "lot_size": 1000, "digits": 3, "pipPosition": -2, "broker_symbol": "XTIUSD"}
+        }
+
+        for cat_name, symbols in symbol_categories.items():
+            cat = db.query(MarketCategory).filter(MarketCategory.name == cat_name).first()
+            if not cat:
+                cat = MarketCategory(name=cat_name)
+                db.add(cat)
+                db.commit()
+                db.refresh(cat)
+
+            for symbol_name in symbols:
+                meta = symbol_metadata.get(symbol_name, {})
+                
+                # Standardized Details for cTrader
+                ctrader_details = {
+                    "symbol_id": meta.get("id"),
+                    "lot_size": meta.get("lot_size"),
+                    "digits": meta.get("digits"), 
+                    "pipPosition": meta.get("pipPosition"),
+                    "minLot": 0.01,
+                    "maxLot": 100.0,
+                    "step_volume": 0.01,
+                    "symbolName": meta.get("broker_symbol") or symbol_name.replace("_", ""),
+                    "raw": {"symbolId": meta.get("id"), "digits": meta.get("digits"), "lotSize": meta.get("lot_size")}
                 }
-            )
-            db.add(symbol)
-            db.commit()
-        else:
-            # Update data source if not set?
-            if not symbol.data_source_id:
-                print(f"Linking {symbol_name} to cTrader DataSource...")
-                symbol.data_source_id = ds.id
+
+                symbol = db.query(MarketSymbol).filter(
+                    MarketSymbol.symbol == symbol_name,
+                    MarketSymbol.data_source_id == ds.id
+                ).first()
+
+                if not symbol:
+                    print(f"Creating Symbol {symbol_name} for cTrader...")
+                    symbol = MarketSymbol(
+                        id=uuid.uuid4(),
+                        category_id=cat.id,
+                        data_source_id=ds.id,
+                        symbol=symbol_name,
+                        display_name=symbol_name.replace("_", "/"),
+                        details=ctrader_details,
+                        is_active=True
+                    )
+                    db.add(symbol)
+                else:
+                    print(f"Updating details for {symbol_name} (cTrader)...")
+                    # Merge/Update details
+                    current_details = symbol.details or {}
+                    current_details.update(ctrader_details)
+                    symbol.details = current_details
+                
                 db.commit()
         
         print("✅ cTrader Master Data Initialization Complete.")

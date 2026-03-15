@@ -97,12 +97,18 @@ class TelegramPollingService:
         """
         Looks up UserPreferences for tokens and starts/stops workers as needed.
         """
-        db: Session = self.db_session_factory()
+        def get_bot_prefs():
+            db: Session = self.db_session_factory()
+            try:
+                # 1. Find all users with personal bot tokens
+                return db.query(UserPreferences).filter(
+                    UserPreferences.telegram_bot_token.isnot(None)
+                ).all()
+            finally:
+                db.close()
+
         try:
-            # 1. Find all users with personal bot tokens
-            prefs_list = db.query(UserPreferences).filter(
-                UserPreferences.telegram_bot_token.isnot(None)
-            ).all()
+            prefs_list = await asyncio.to_thread(get_bot_prefs)
             
             active_personal_user_ids = set()
             personal_tokens = set()
@@ -119,8 +125,6 @@ class TelegramPollingService:
             # 2. Ensure System Bot is running ONLY if it's not already covered by a personal worker
             if self.system_bot_token:
                 if self.system_bot_token in personal_tokens:
-                    # If someone is using the system token as their personal bot, 
-                    # we don't need a separate "System" worker for it.
                     if None in self._user_tasks:
                         logger.info("Stopping System worker because it's now handled by a personal worker")
                         await self._stop_worker(None)
@@ -133,9 +137,8 @@ class TelegramPollingService:
                 if user_id is not None and user_id not in active_personal_user_ids:
                     logger.info(f"Stopping worker for user {user_id} (token removed)")
                     await self._stop_worker(user_id)
-
-        finally:
-            db.close()
+        except Exception as e:
+            logger.error(f"Sync bots failed: {e}")
 
     async def _ensure_worker(self, user_id: Optional[UUID], token: str):
         """Start or restart a worker if the token has changed."""
@@ -238,43 +241,54 @@ class TelegramPollingService:
         text = message.get("text", "").strip()
         if not chat_id or not text: return
 
-        db: Session = self.db_session_factory()
-        user = None
-        try:
-            if bot_owner_id:
-                # 1. Personal Bot -> Message always belongs to the owner
-                user = db.query(User).filter(User.id == bot_owner_id).first()
-                if user:
-                    # Sync chat_id in mappings for this user if it's new
-                    await self._auto_link_chat(db, user.id, chat_id)
-            else:
-                # 2. System Bot -> Lookup user by chat_id
-                mapping = db.query(TelegramChatMapping).filter(
-                    TelegramChatMapping.chat_id == chat_id,
-                    TelegramChatMapping.is_active == True
-                ).first()
-                
-                if mapping:
-                    user = db.query(User).filter(User.id == mapping.user_id).first()
+        def get_user_and_auto_link():
+            db: Session = self.db_session_factory()
+            try:
+                user = None
+                if bot_owner_id:
+                    # 1. Personal Bot -> Message always belongs to the owner
+                    user = db.query(User).filter(User.id == bot_owner_id).first()
+                    if user:
+                        # Sync chat_id in mappings for this user if it's new
+                        self._auto_link_chat(db, user.id, chat_id)
                 else:
-                    await self._send_raw(token, chat_id, "⚠️ *Account Not Linked*\n\nLink via Dashboard -> Settings")
-                    return
+                    # 2. System Bot -> Lookup user by chat_id
+                    mapping = db.query(TelegramChatMapping).filter(
+                        TelegramChatMapping.chat_id == chat_id,
+                        TelegramChatMapping.is_active == True
+                    ).first()
+                    
+                    if mapping:
+                        user = db.query(User).filter(User.id == mapping.user_id).first()
+                
+                if user:
+                    return {"username": user.username, "id": user.id}
+                return None
+            finally:
+                db.close()
 
-            if not user:
-                logger.warning(f"User not found for update in {bot_owner_id or 'System'} bot")
+        try:
+            user_data = await asyncio.to_thread(get_user_and_auto_link)
+            
+            if not user_data:
+                if not bot_owner_id:
+                    await self._send_raw(token, chat_id, "⚠️ *Account Not Linked*\n\nLink via Dashboard -> Settings")
+                else:
+                    logger.warning(f"User not found for update in {bot_owner_id} bot")
                 return
 
             # 3. Forward to AI Analyst
-            logger.info(f"📨 Telegram (owner={bot_owner_id or 'System'}) from user={user.username} [thread={thread_id}]: {text[:50]}")
+            username = user_data["username"]
+            logger.info(f"📨 Telegram (owner={bot_owner_id or 'System'}) from user={username} [thread={thread_id}]: {text[:50]}")
             
             # Generate JWT for the user
-            access_token = create_access_token(data={"sub": user.username})
+            access_token = create_access_token(data={"sub": username})
             
             async with httpx.AsyncClient(timeout=60.0) as client:
                 headers = {"Authorization": f"Bearer {access_token}"}
                 payload = {
                     "message": text,
-                    "user_id": user.username,
+                    "user_id": username,
                     "reply_via_telegram": True,
                     "telegram_chat_id": chat_id,
                     "telegram_message_id": message_id,
@@ -291,11 +305,9 @@ class TelegramPollingService:
 
         except Exception as e:
             logger.error(f"Failed to process update: {e}", exc_info=True)
-        finally:
-            db.close()
 
-    async def _auto_link_chat(self, db: Session, user_id: UUID, chat_id: int):
-        """Automatically create or update a mapping for personal bot users."""
+    def _auto_link_chat(self, db: Session, user_id: UUID, chat_id: int):
+        """Automatically create or update a mapping for personal bot users. Synchronous."""
         try:
             mapping = db.query(TelegramChatMapping).filter(
                 TelegramChatMapping.user_id == user_id,

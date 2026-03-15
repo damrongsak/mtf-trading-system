@@ -76,52 +76,52 @@ async def refresh_ctrader_token_internal(account: BrokerAccount, db: Session, fo
             # Sync to DataSources (api-gateway & data-pipeline share DB)
             from app.models.data_source import DataSource
             
-            # Find all CTRADER sources
-            data_sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
-            
-            for ds in data_sources:
-                if not ds.config_json:
-                    continue
-                    
-                # Check if this Source uses the same account_id
-                # Config JSON usually has strings, ensure int/str comparison handles both
-                ds_acc_id = str(ds.config_json.get("account_id", ""))
-                acc_id_str = str(creds.get("account_id", ""))
+            def sync_db_updates():
+                # Find all CTRADER sources
+                data_sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
                 
-                if ds_acc_id == acc_id_str:
-                    # Update this Source
-                    ds_config = dict(ds.config_json)
-                    ds_config["token"] = new_access_token
-                    ds_config["refresh_token"] = new_refresh_token
-                    # Also update expires for good measure? Not strictly in schema but helpful
-                    ds_config["expires_at"] = creds["expires_at"]
+                for ds in data_sources:
+                    if not ds.config_json:
+                        continue
+                        
+                    # Check if this Source uses the same account_id
+                    ds_acc_id = str(ds.config_json.get("account_id", ""))
+                    acc_id_str_local = str(creds.get("account_id", ""))
                     
-                    ds.config_json = ds_config
-                    db.add(ds)
-                    logger.info(f"Synced refreshed token to DataSource {ds.name} (ID: {ds.id})")
+                    if ds_acc_id == acc_id_str_local:
+                        # Update this Source
+                        ds_config = dict(ds.config_json)
+                        ds_config["token"] = new_access_token
+                        ds_config["refresh_token"] = new_refresh_token
+                        ds_config["expires_at"] = creds["expires_at"]
+                        
+                        ds.config_json = ds_config
+                        db.add(ds)
+                        logger.info(f"Synced refreshed token to DataSource {ds.name} (ID: {ds.id})")
 
-            # NEW: Sync to other BrokerAccount records with the same account_id
-            # This handles duplicate accounts in different funds
-            acc_id_str = str(creds.get("account_id", ""))
-            other_accounts = db.query(BrokerAccount).filter(
-                BrokerAccount.broker_name == "CTRADER",
-                BrokerAccount.id != account.id
-            ).all()
-            
-            for other_acc in other_accounts:
-                try:
-                    other_creds = decrypt_data(other_acc.credentials_encrypted)
-                    if str(other_creds.get("account_id", "")) == acc_id_str:
-                        other_creds["token"] = new_access_token
-                        other_creds["refresh_token"] = new_refresh_token
-                        other_creds["expires_at"] = creds["expires_at"]
-                        other_acc.credentials_encrypted = encrypt_data(other_creds)
-                        db.add(other_acc)
-                        logger.info(f"Synced refreshed token to duplicate BrokerAccount {other_acc.id}")
-                except Exception as sync_err:
-                    logger.error(f"Failed to sync to duplicate account {other_acc.id}: {sync_err}")
+                # Sync to other BrokerAccount records with the same account_id
+                acc_id_str_local = str(creds.get("account_id", ""))
+                other_accounts = db.query(BrokerAccount).filter(
+                    BrokerAccount.broker_name == "CTRADER",
+                    BrokerAccount.id != account.id
+                ).all()
+                
+                for other_acc in other_accounts:
+                    try:
+                        other_creds = decrypt_data(other_acc.credentials_encrypted)
+                        if str(other_creds.get("account_id", "")) == acc_id_str_local:
+                            other_creds["token"] = new_access_token
+                            other_creds["refresh_token"] = new_refresh_token
+                            other_creds["expires_at"] = creds["expires_at"]
+                            other_acc.credentials_encrypted = encrypt_data(other_creds)
+                            db.add(other_acc)
+                            logger.info(f"Synced refreshed token to duplicate BrokerAccount {other_acc.id}")
+                    except Exception as sync_err:
+                        logger.error(f"Failed to sync to duplicate account {other_acc.id}: {sync_err}")
 
-            db.commit()
+                db.commit()
+
+            await asyncio.to_thread(sync_db_updates)
             
             logger.info(f"Successfully refreshed token for account {account.id}")
             return True

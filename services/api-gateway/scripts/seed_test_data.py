@@ -24,6 +24,9 @@ from app.models.user import User
 from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from app.models.trade import Trade, TradeStatus, TradeDirection
+from app.models.user_preferences import UserPreferences
+from app.models.broker_account import BrokerAccount
+from app.utils.crypto import encrypt_data
 from app.security import get_password_hash
 import uuid
 
@@ -76,6 +79,32 @@ def seed_users(db, count=3):
     db.commit()
     return created_users
 
+def seed_user_preferences(db, users, funds):
+    """Create sample user preferences."""
+    print(f"\n⚙️  Creating user preferences...")
+    
+    alpha_fund = next((f for f in funds if f.name == "Alpha Trading Fund"), None)
+    beta_fund = next((f for f in funds if f.name == "Beta Testing Fund"), None)
+    
+    for user in users:
+        existing = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
+        if existing:
+            print(f"  ⚠️  Preferences for '{user.username}' already exist, skipping")
+            continue
+        
+        default_fund = alpha_fund if user.username == "trader1" else beta_fund if user.username == "trader2" else alpha_fund
+        
+        pref = UserPreferences(
+            user_id=user.id,
+            default_fund_id=default_fund.id if default_fund else None,
+            preferred_timeframes=["M1", "M5", "M15", "H1", "H4"],
+            default_symbol="XAU_USD" if user.username != "trader2" else "EUR_USD"
+        )
+        db.add(pref)
+        print(f"  ✓ Created preferences for: {user.username}")
+    
+    db.commit()
+
 
 def seed_funds(db, users, count=2):
     """Create sample funds."""
@@ -113,8 +142,8 @@ def seed_funds(db, users, count=2):
     
     # Assign users to funds
     print(f"\n🔗 Assigning users to funds...")
-    for i, user in enumerate(users):
-        for j, fund in enumerate(created_funds):
+    for user in users:
+        for fund in created_funds:
             # Check if relationship already exists
             existing = db.query(UserFund).filter(
                 UserFund.user_id == user.id,
@@ -124,19 +153,88 @@ def seed_funds(db, users, count=2):
             if existing:
                 continue
             
-            # Assign role based on user type
-            role = UserRole.OWNER if user.is_superuser else UserRole.TRADER
-            
-            user_fund = UserFund(
-                user_id=user.id,
-                fund_id=fund.id,
-                role=role
-            )
-            db.add(user_fund)
-            print(f"  ✓ Assigned {user.username} to {fund.name} as {role.value}")
+            should_assign = False
+            if user.username == "admin":
+                should_assign = True
+            elif user.username == "trader1" and fund.name == "Alpha Trading Fund":
+                should_assign = True
+            elif user.username == "trader2" and fund.name == "Beta Testing Fund":
+                should_assign = True
+                
+            if should_assign:
+                role = UserRole.OWNER if user.is_superuser else UserRole.TRADER
+                user_fund = UserFund(
+                    user_id=user.id,
+                    fund_id=fund.id,
+                    role=role
+                )
+                db.add(user_fund)
+                print(f"  ✓ Assigned {user.username} to {fund.name} as {role.value}")
     
     db.commit()
     return created_funds
+
+
+def seed_broker_accounts(db, funds):
+    """Create sample broker accounts."""
+    print(f"\n🏦 Creating test broker accounts...")
+    
+    alpha_fund = next((f for f in funds if f.name == "Alpha Trading Fund"), None)
+    beta_fund = next((f for f in funds if f.name == "Beta Testing Fund"), None)
+    
+    if alpha_fund:
+        # cTrader Account for Alpha Fund
+        existing = db.query(BrokerAccount).filter(
+            BrokerAccount.fund_id == alpha_fund.id,
+            BrokerAccount.broker_name == "CTRADER"
+        ).first()
+        
+        if not existing:
+            creds = {
+                "client_id": os.getenv("CTRADER_CLIENT_ID", "demo_id"),
+                "client_secret": os.getenv("CTRADER_CLIENT_SECRET", "demo_secret"),
+                "token": os.getenv("CTRADER_TOKEN", "demo_token"),
+                "account_id": os.getenv("CTRADER_ACCOUNT_ID", "40816494")
+            }
+            account = BrokerAccount(
+                fund_id=alpha_fund.id,
+                broker_name="CTRADER",
+                account_name="CTRADER-ALPHA",
+                account_number=creds["account_id"],
+                credentials_encrypted=encrypt_data(creds),
+                is_active=True,
+                is_live=True if os.getenv("CTRADER_HOST") == "live.ctraderapi.com" else False,
+                environment="live" if os.getenv("CTRADER_HOST") == "live.ctraderapi.com" else "practice"
+            )
+            db.add(account)
+            print(f"  ✓ Created cTrader account for Alpha Fund")
+
+    if beta_fund:
+        # OANDA Account for Beta Fund
+        existing = db.query(BrokerAccount).filter(
+            BrokerAccount.fund_id == beta_fund.id,
+            BrokerAccount.broker_name == "OANDA"
+        ).first()
+        
+        if not existing:
+            creds = {
+                "api_key": os.getenv("OANDA_API_KEY", "demo_key"),
+                "account_id": os.getenv("OANDA_ACCOUNT_ID", "001-011-437083-005")
+            }
+            account = BrokerAccount(
+                fund_id=beta_fund.id,
+                broker_name="OANDA",
+                account_name="OANDA-BETA",
+                account_number=creds["account_id"],
+                credentials_encrypted=encrypt_data(creds),
+                is_active=True,
+                is_live=True if os.getenv("OANDA_ENV") == "live" else False,
+                environment=os.getenv("OANDA_ENV", "practice")
+            )
+            db.add(account)
+            print(f"  ✓ Created OANDA account for Beta Fund")
+
+    db.commit()
 
 
 def seed_journal_entries(db, users, count=10):
@@ -240,7 +338,6 @@ def seed_journal_entries(db, users, count=10):
         print(f"  ✓ Created journal entry: {symbol} {direction} (PnL: ${pnl_amount:.2f})")
     
     db.commit()
-    db.commit()
     return created_entries
 
 
@@ -289,7 +386,6 @@ def seed_trades(db, count=20):
     return created_trades
 
 
-
 def main():
     """Main seeding function."""
     print("🌱 Seeding test data for MTF Trading System...")
@@ -297,16 +393,22 @@ def main():
     db = SessionLocal()
     
     try:
-        # Seed users
+        # 1. Seed users
         users = seed_users(db, count=3)
         
-        # Seed funds
+        # 2. Seed funds
         funds = seed_funds(db, users, count=2)
         
-        # Seed journal entries
+        # 3. Seed user preferences
+        seed_user_preferences(db, users, funds)
+        
+        # 4. Seed broker accounts
+        seed_broker_accounts(db, funds)
+        
+        # 5. Seed journal entries
         entries = seed_journal_entries(db, users, count=15)
 
-        # Seed strategy trades
+        # 6. Seed strategy trades
         trades = seed_trades(db, count=50)
         
         # Summary

@@ -1,13 +1,13 @@
+import os
+import datetime
 from app.database import SessionLocal
 from app.models.plugins import Plugin, UserPlugin, PluginCategory
-import uuid
-import datetime
 
 # Configuration
-USER_ID = "93cb8075-0e29-47f9-a939-8f413fb1dac4"
+USER_ID = os.getenv("DEFAULT_USER_ID", "93cb8075-0e29-47f9-a939-8f413fb1dac4")
 PLUGIN_ID = "telegram-notifier"
-BOT_TOKEN = "8367617972:AAE5srGYV2W0iN2knq5Vw5ckyimUJt1XA44"
-CHAT_ID = "916700879"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def seed():
     db = SessionLocal()
