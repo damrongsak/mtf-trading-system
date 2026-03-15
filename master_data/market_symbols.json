@@ -10,66 +10,6 @@
     "details": null
   },
   {
-    "id": "0d0df02f-cc9e-45ab-ba63-2913e0cd12ac",
-    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XAGEUR",
-    "display_name": "XAGEUR",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "111bea0d-63d4-4e3c-886b-ef81b1d66747",
-    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XAUJPY",
-    "display_name": "XAUJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "1589b265-a508-4d14-9598-42ef21d785d6",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "VIX_Z6",
-    "display_name": "VIX_Z6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "afcb14a5-0af2-4bb6-85bf-1f45447f9cc6",
-    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
-    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "symbol": "XAU_USD",
-    "display_name": "XAU/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": null
-  },
-  {
-    "id": "2d99c6b8-9745-4e5b-8e61-3b979f8b7f56",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "symbol": "EUR_USD",
-    "display_name": "EUR/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": null
-  },
-  {
-    "id": "f4f74939-53a3-42e9-ad4d-64fbe3459d6d",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "symbol": "GBP_USD",
-    "display_name": "GBP/USD",
-    "order_index": 0,
-    "is_active": false,
-    "details": null
-  },
-  {
     "id": "06a0dbf2-42af-40ce-b305-87b10ec4e86e",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -96,30 +36,24 @@
     }
   },
   {
-    "id": "a7836ff9-3f70-4222-b2ee-1fc7be81e78d",
+    "id": "0d0df02f-cc9e-45ab-ba63-2913e0cd12ac",
     "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XAUUSD",
-    "display_name": "XAU/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "raw": {
-        "digits": 2,
-        "lotSize": 10000,
-        "symbolId": 41
-      },
-      "digits": 2,
-      "maxLot": 10000.0,
-      "minLot": 1.0,
-      "lotStep": 1.0,
-      "lot_size": 10000,
-      "symbol_id": 41,
-      "pipPosition": 2,
-      "step_volume": 1.0,
-      "baseCurrency": "XAU",
-      "quoteCurrency": "USD"
-    }
+    "symbol": "XAGEUR",
+    "display_name": "XAGEUR",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "111bea0d-63d4-4e3c-886b-ef81b1d66747",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XAUJPY",
+    "display_name": "XAUJPY",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
   },
   {
     "id": "12a88060-9239-499c-9105-42cd81d3a570",
@@ -132,13 +66,13 @@
     "details": null
   },
   {
-    "id": "8f8bdaef-d587-48a9-ace4-4653b5264a88",
+    "id": "1589b265-a508-4d14-9598-42ef21d785d6",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "GBPUSD",
-    "display_name": "GBPUSD",
+    "symbol": "VIX_Z6",
+    "display_name": "VIX_Z6",
     "order_index": 999,
-    "is_active": true,
+    "is_active": false,
     "details": null
   },
   {
@@ -189,6 +123,16 @@
     "display_name": "FLOKIUSD",
     "order_index": 999,
     "is_active": false,
+    "details": null
+  },
+  {
+    "id": "2d99c6b8-9745-4e5b-8e61-3b979f8b7f56",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "symbol": "EUR_USD",
+    "display_name": "EUR/USD",
+    "order_index": 0,
+    "is_active": true,
     "details": null
   },
   {
@@ -272,101 +216,127 @@
     "details": null
   },
   {
-    "id": "59f66bcc-1bf3-41ad-8aa8-832d97c5b11d",
+    "id": "8f8bdaef-d587-48a9-ace4-4653b5264a88",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XTIUSD",
-    "display_name": "XTIUSD",
+    "symbol": "GBPUSD",
+    "display_name": "GBPUSD",
     "order_index": 999,
     "is_active": true,
     "details": null
   },
   {
-    "id": "00abf69e-b5df-45c3-a29f-99524b107ecd",
+    "id": "a7836ff9-3f70-4222-b2ee-1fc7be81e78d",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XAUUSD",
+    "display_name": "XAU/USD",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "raw": {
+        "digits": 2,
+        "lotSize": 10000,
+        "symbolId": 41
+      },
+      "digits": 2,
+      "maxLot": 10000.0,
+      "minLot": 1.0,
+      "lotStep": 1.0,
+      "lot_size": 10000,
+      "symbol_id": 41,
+      "pipPosition": 2,
+      "step_volume": 1.0,
+      "baseCurrency": "XAU",
+      "quoteCurrency": "USD"
+    }
+  },
+  {
+    "id": "afcb14a5-0af2-4bb6-85bf-1f45447f9cc6",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "symbol": "XAU_USD",
+    "display_name": "XAU/USD",
+    "order_index": 0,
+    "is_active": true,
+    "details": null
+  },
+  {
+    "id": "f4f74939-53a3-42e9-ad4d-64fbe3459d6d",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "symbol": "GBP_USD",
+    "display_name": "GBP/USD",
+    "order_index": 0,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f53d1e16-52db-47af-85ba-af95382708a0",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "EURJPY",
-    "display_name": "EURJPY",
+    "symbol": "AUDCAD",
+    "display_name": "AUDCAD",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "03ed30f6-8d5f-4853-b5f2-4681992c8cb2",
+    "id": "f681d155-a5ab-4deb-a6e9-06f9a2c5ecdc",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "WLFIUSD",
-    "display_name": "WLFIUSD",
+    "symbol": "AUS200",
+    "display_name": "AUS200",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "04c5aa12-4c11-4151-86a9-fb4528d89e15",
+    "id": "f7c441c8-3348-48c1-b62f-a4595d99347e",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "WTI_G6",
-    "display_name": "WTI_G6",
+    "symbol": "BCHUSD",
+    "display_name": "BCHUSD",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "0c5ca9f4-1212-4b49-9468-ae029dcf35d1",
+    "id": "f88ffdb8-9190-4070-9b33-3d5e572daf95",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "PYTHUSD",
-    "display_name": "PYTHUSD",
+    "symbol": "BRETTUSD",
+    "display_name": "BRETTUSD",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "0c8d65a9-3879-40c9-b350-6f427ff6c463",
+    "id": "fa3d64f0-9a66-4085-9885-0b3d9af95d34",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "MANAUSD",
-    "display_name": "MANAUSD",
+    "symbol": "AUDJPY",
+    "display_name": "AUDJPY",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "0cdd7f19-11b4-4f3e-bae5-b231965dcff0",
+    "id": "fa55bd64-0730-450f-89d8-69be10d15f5b",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "THETAUSD",
-    "display_name": "THETAUSD",
+    "symbol": "CADJPY",
+    "display_name": "CADJPY",
     "order_index": 999,
     "is_active": false,
     "details": null
   },
   {
-    "id": "0edb7136-93c2-4da9-bbbf-681d6a683249",
+    "id": "fe5a556e-7f30-490d-97c6-c9cd2558ba16",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "KSMUSD",
-    "display_name": "KSMUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "132bb57f-595f-4f4f-9999-436f7ab8f87e",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "EURBBL_U6",
-    "display_name": "EURBBL_U6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "14851343-cb1b-4436-b391-7f9f606a3b43",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "SUIUSD",
-    "display_name": "SUIUSD",
+    "symbol": "PENDLEUSD",
+    "display_name": "PENDLEUSD",
     "order_index": 999,
     "is_active": false,
     "details": null
@@ -802,6 +772,16 @@
     "details": null
   },
   {
+    "id": "59f66bcc-1bf3-41ad-8aa8-832d97c5b11d",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XTIUSD",
+    "display_name": "XTIUSD",
+    "order_index": 999,
+    "is_active": true,
+    "details": null
+  },
+  {
     "id": "5a940d9d-d8aa-49c5-b9e0-85e50c36f54a",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -977,16 +957,6 @@
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
     "symbol": "WTI_H6",
     "display_name": "WTI_H6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "6b961dca-1cd8-46df-99cb-d6d80efa5357",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "HBARUSD",
-    "display_name": "HBARUSD",
     "order_index": 999,
     "is_active": false,
     "details": null
@@ -1772,6 +1742,316 @@
     "details": null
   },
   {
+    "id": "e0d11bd1-423c-4d70-8f31-820e437c54c3",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "JTOUSD",
+    "display_name": "JTOUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e136ff02-4520-48dd-957c-d1eae6a62b33",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "NZDJPY",
+    "display_name": "NZDJPY",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e19461d4-1f50-4da1-9306-f1a5fb062af3",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "BONKUSD",
+    "display_name": "BONKUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e2b114cd-ddb2-441f-989f-ac5d23f739e7",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XPTUSD",
+    "display_name": "XPTUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e2e286d5-3327-4442-8d9a-03e4d2e6dcc4",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "USDCUSD",
+    "display_name": "USDCUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e320a6b9-40b7-44e3-8347-4095dab6184c",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "DXY_M6",
+    "display_name": "DXY_M6",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e320c6ee-cebc-4bf9-8d55-3d57d7351fce",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "GBPJPY",
+    "display_name": "GBPJPY",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e41ebb47-a3a9-4a43-922a-51cb08ebe46b",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "EURSCA_H6",
+    "display_name": "EURSCA_H6",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e50f5269-4de0-4d11-90dc-34b02afd2cd6",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "EURCZK",
+    "display_name": "EURCZK",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e52d857a-1a03-4615-be2b-dcf75c38d0b2",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "AUDDKK",
+    "display_name": "AUDDKK",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e64e6341-50f1-4b4d-9992-257f7db13853",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "USDHKD",
+    "display_name": "USDHKD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e6b34d62-1d02-49e4-88a1-e1293676ff1b",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "GBPSEK",
+    "display_name": "GBPSEK",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e6f6d33b-01c4-4501-9b0a-196db5f376e4",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "SEIUSD",
+    "display_name": "SEIUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e70cdea4-8e7c-4c92-b1b9-f84143e9a34a",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "GRTUSD",
+    "display_name": "GRTUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "e959ed18-8824-4df7-8a1e-31a9c9a761c7",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "GBPNZD",
+    "display_name": "GBPNZD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "ecc93597-cde1-4f61-a7da-d30fd22e5d52",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "LNKUSD",
+    "display_name": "LNKUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f1d23d1b-ea0c-4ca4-8700-5e21ca854d6a",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "ARBUSD",
+    "display_name": "ARBUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f26b64e5-f48a-46c7-a509-c4c879b4502c",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "USDSGD",
+    "display_name": "USDSGD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f2abe2f2-c22f-47f7-90f3-c3512baeb381",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "CHFJPY",
+    "display_name": "CHFJPY",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f4225a13-ac80-4f58-bb7c-3b3088b0e7e0",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "AUDUSD",
+    "display_name": "AUDUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "f4cd8ff7-7ffb-4324-843e-6b05834e4b11",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "DXY_Z6",
+    "display_name": "DXY_Z6",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "00abf69e-b5df-45c3-a29f-99524b107ecd",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "EURJPY",
+    "display_name": "EURJPY",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "03ed30f6-8d5f-4853-b5f2-4681992c8cb2",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "WLFIUSD",
+    "display_name": "WLFIUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "04c5aa12-4c11-4151-86a9-fb4528d89e15",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "WTI_G6",
+    "display_name": "WTI_G6",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "0c5ca9f4-1212-4b49-9468-ae029dcf35d1",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "PYTHUSD",
+    "display_name": "PYTHUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "0c8d65a9-3879-40c9-b350-6f427ff6c463",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "MANAUSD",
+    "display_name": "MANAUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "0cdd7f19-11b4-4f3e-bae5-b231965dcff0",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "THETAUSD",
+    "display_name": "THETAUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "0edb7136-93c2-4da9-bbbf-681d6a683249",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "KSMUSD",
+    "display_name": "KSMUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "132bb57f-595f-4f4f-9999-436f7ab8f87e",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "EURBBL_U6",
+    "display_name": "EURBBL_U6",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "14851343-cb1b-4436-b391-7f9f606a3b43",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "SUIUSD",
+    "display_name": "SUIUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
+    "id": "6b961dca-1cd8-46df-99cb-d6d80efa5357",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "HBARUSD",
+    "display_name": "HBARUSD",
+    "order_index": 999,
+    "is_active": false,
+    "details": null
+  },
+  {
     "id": "bf7409e9-4017-4581-a459-d9b49cd863cf",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -2002,6 +2282,16 @@
     "details": null
   },
   {
+    "id": "dc195892-5c05-4de2-897c-fb533c06440f",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XBRUSD",
+    "display_name": "XBRUSD",
+    "order_index": 999,
+    "is_active": true,
+    "details": null
+  },
+  {
     "id": "dcd8f1ea-edb8-4807-b9b5-1828574db580",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -2019,296 +2309,6 @@
     "display_name": "RENDERUSD",
     "order_index": 999,
     "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e0d11bd1-423c-4d70-8f31-820e437c54c3",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "JTOUSD",
-    "display_name": "JTOUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e136ff02-4520-48dd-957c-d1eae6a62b33",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "NZDJPY",
-    "display_name": "NZDJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e19461d4-1f50-4da1-9306-f1a5fb062af3",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "BONKUSD",
-    "display_name": "BONKUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e2b114cd-ddb2-441f-989f-ac5d23f739e7",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XPTUSD",
-    "display_name": "XPTUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e2e286d5-3327-4442-8d9a-03e4d2e6dcc4",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "USDCUSD",
-    "display_name": "USDCUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e320a6b9-40b7-44e3-8347-4095dab6184c",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "DXY_M6",
-    "display_name": "DXY_M6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e320c6ee-cebc-4bf9-8d55-3d57d7351fce",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "GBPJPY",
-    "display_name": "GBPJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e41ebb47-a3a9-4a43-922a-51cb08ebe46b",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "EURSCA_H6",
-    "display_name": "EURSCA_H6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e50f5269-4de0-4d11-90dc-34b02afd2cd6",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "EURCZK",
-    "display_name": "EURCZK",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e52d857a-1a03-4615-be2b-dcf75c38d0b2",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "AUDDKK",
-    "display_name": "AUDDKK",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e64e6341-50f1-4b4d-9992-257f7db13853",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "USDHKD",
-    "display_name": "USDHKD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e6b34d62-1d02-49e4-88a1-e1293676ff1b",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "GBPSEK",
-    "display_name": "GBPSEK",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e6f6d33b-01c4-4501-9b0a-196db5f376e4",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "SEIUSD",
-    "display_name": "SEIUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e70cdea4-8e7c-4c92-b1b9-f84143e9a34a",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "GRTUSD",
-    "display_name": "GRTUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "e959ed18-8824-4df7-8a1e-31a9c9a761c7",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "GBPNZD",
-    "display_name": "GBPNZD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "ecc93597-cde1-4f61-a7da-d30fd22e5d52",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "LNKUSD",
-    "display_name": "LNKUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f1d23d1b-ea0c-4ca4-8700-5e21ca854d6a",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "ARBUSD",
-    "display_name": "ARBUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f26b64e5-f48a-46c7-a509-c4c879b4502c",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "USDSGD",
-    "display_name": "USDSGD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f2abe2f2-c22f-47f7-90f3-c3512baeb381",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "CHFJPY",
-    "display_name": "CHFJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f4225a13-ac80-4f58-bb7c-3b3088b0e7e0",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "AUDUSD",
-    "display_name": "AUDUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f4cd8ff7-7ffb-4324-843e-6b05834e4b11",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "DXY_Z6",
-    "display_name": "DXY_Z6",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f53d1e16-52db-47af-85ba-af95382708a0",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "AUDCAD",
-    "display_name": "AUDCAD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f681d155-a5ab-4deb-a6e9-06f9a2c5ecdc",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "AUS200",
-    "display_name": "AUS200",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f7c441c8-3348-48c1-b62f-a4595d99347e",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "BCHUSD",
-    "display_name": "BCHUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "f88ffdb8-9190-4070-9b33-3d5e572daf95",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "BRETTUSD",
-    "display_name": "BRETTUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "fa3d64f0-9a66-4085-9885-0b3d9af95d34",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "AUDJPY",
-    "display_name": "AUDJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "fa55bd64-0730-450f-89d8-69be10d15f5b",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "CADJPY",
-    "display_name": "CADJPY",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "fe5a556e-7f30-490d-97c6-c9cd2558ba16",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "PENDLEUSD",
-    "display_name": "PENDLEUSD",
-    "order_index": 999,
-    "is_active": false,
-    "details": null
-  },
-  {
-    "id": "dc195892-5c05-4de2-897c-fb533c06440f",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XBRUSD",
-    "display_name": "XBRUSD",
-    "order_index": 999,
-    "is_active": true,
     "details": null
   }
 ]
