@@ -8,11 +8,32 @@ import pandas as pd
 import logging
 import json
 import asyncio
+import traceback
 from decimal import Decimal, ROUND_HALF_UP
 from app.streaming.publisher import RedisPublisher
 from app.utils.retry import async_retry
 from app.utils.crypto import decrypt_data
 from sqlalchemy.dialects.postgresql import insert
+import json
+
+def decrypt_and_parse(val):
+    if not val: return {}
+    if isinstance(val, str):
+        # Try decrypting first
+        try:
+            decrypted = decrypt_data(val)
+            if isinstance(decrypted, dict): return decrypted
+            return json.loads(decrypted)
+        except:
+            # If decryption fails, try direct JSON load
+            try:
+                return json.loads(val)
+            except:
+                return {}
+    return val or {}
+
+def ensure_dict(val):
+    return decrypt_and_parse(val)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +58,8 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
         
         try:
             # Call adapter method with broker_symbol if available
-            broker_sym = ms.details.get("broker_symbol") or ms.details.get("symbolName") if ms.details else None
+            details = ensure_dict(ms.details)
+            broker_sym = details.get("broker_symbol") or details.get("symbolName") if details else None
             candles = await fetch_candles_safe(client, symbol=symbol_name, timeframe=tf, broker_symbol=broker_sym, **kwargs)
             
             if not candles:
@@ -96,7 +118,11 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
     ct_period = tf_map.get(tf)
     if not ct_period: return 0
     
-    symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+    details = ensure_dict(ms.details)
+    if not details:
+        logger.error(f"Missing details for {ms.symbol} in cTrader backfill.")
+        return 0
+    symbol_id = details.get('symbol_id') or details.get('symbolId') or details.get('raw', {}).get('symbolId')
     if not symbol_id:
         logger.error(f"Missing symbol_id for {ms.symbol} in cTrader backfill.")
         return 0
@@ -106,8 +132,9 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
     
     logger.info(f"Fetching cTrader candles for {ms.symbol} | TF: {tf} (Period: {ct_period}) | Count: 2000")
     
+    config = ensure_dict(source.config_json)
     trendbars = await client.get_trendbars(
-        account_id=int(source.config_json.get("account_id")),
+        account_id=int(config.get("account_id")),
         symbol_id=symbol_id,
         period=ct_period,
         count=2000,
@@ -230,7 +257,7 @@ async def run_ingestion_job(
                 
             elif source.provider == "CTRADER":
                 from app.adapters.ctrader_client import AsyncCTraderClient
-                config = source.config_json
+                config = decrypt_and_parse(source.config_json)
                 if not config:
                      logger.warning(f"Missing config for cTrader source {source.name}")
                      continue
@@ -318,7 +345,8 @@ async def run_ingestion_job(
                             # 2. Regular Real-time Catchup (Only if not already caught up via backfill)
                             if not catchup_performed:
                                 if source.provider == "OANDA":
-                                    broker_sym = ms.details.get("broker_symbol") or ms.details.get("symbolName") if ms.details else None
+                                    details = ensure_dict(ms.details)
+                                    broker_sym = details.get("broker_symbol") or details.get("symbolName") if details else None
                                     candles = await asyncio.to_thread(client.fetch_candles, symbol_name, tf, count=20, broker_symbol=broker_sym)
                                     if candles:
                                         for c in candles:
@@ -350,7 +378,11 @@ async def run_ingestion_job(
                                         logger.warning(f"Unsupported TF {tf} for cTrader. Skipping.")
                                         return
                                     
-                                    symbol_id = ms.details.get('symbol_id') or ms.details.get('symbolId') or ms.details.get('raw', {}).get('symbolId')
+                                    details = ensure_dict(ms.details)
+                                    if not details:
+                                        logger.error(f"Missing details for {ms.symbol} in cTrader real-time catchup.")
+                                        return
+                                    symbol_id = details.get('symbol_id') or details.get('symbolId') or details.get('raw', {}).get('symbolId')
                                     if not symbol_id:
                                         logger.error(f"Missing symbol_id for {ms.symbol} in cTrader real-time catchup.")
                                         return
@@ -367,8 +399,9 @@ async def run_ingestion_job(
                                     
                                     # logger.debug(f"Fetching cTrader candles for {symbol_name} | TF: {tf} (Period: {ct_period}) | Count: {count_limit}")
                                     
+                                    config = ensure_dict(source.config_json)
                                     trendbars = await client.get_trendbars(
-                                        account_id=int(source.config_json.get("account_id")),
+                                        account_id=int(config.get("account_id")),
                                         symbol_id=symbol_id,
                                         period=ct_period,
                                         count=count_limit,
@@ -507,6 +540,7 @@ async def run_ingestion_job(
 
     except Exception as e:
         logger.error(f"Ingestion job failed: {e}")
+        logger.error(traceback.format_exc())
         db.rollback()
     finally:
         if 'publisher' in locals():

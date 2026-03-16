@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, text
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
 from typing import List, Optional, Dict, Any
@@ -98,4 +98,18 @@ class CandleRepository:
         except Exception as e:
             self.db.rollback()
             logger.error(f"Bulk upsert failed: {e}")
+            raise e
+
+    def truncate_candles(self) -> None:
+        """
+        High-performance truncate of the candles table.
+        This will clear all records and reset identity if any.
+        """
+        try:
+            self.db.execute(text("TRUNCATE TABLE candles;"))
+            self.db.commit()
+            logger.info("Successfully truncated candles table.")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to truncate candles table: {e}")
             raise e
