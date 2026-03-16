@@ -1,23 +1,5 @@
 [
   {
-    "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "broker_name": "CTRADER",
-    "account_name": "cTrader Live 40816494",
-    "account_number": "6023410",
-    "credentials_encrypted": "Z0FBQUFBQnB0MVg4UEx1Qm1tczBuX2M4RFZNeUVrZllfeEJCSEpFY0h6VnpzWnA2dmd3bXdRVGZuN3AxM0NTd3VEclduZEZsbVkwcXItamE3QjNnTzlOR3NGQXdSTklqdUlLWTM3MlVPajI3ZzR4azVPcDIzd3JxMWNDcXFSRzRmdGl2T0hTMExCU1g1eEg2Y0NweHdtb0FLVFM1WlhzNUlUaG0yU2tzOHFCMGY0aG0yU2tXdk0xT3BXeXVrbHpPNlFzQmJBd3hwNFV4T3hJbnYyOUs2RnJ2MDlPT0lVM01zN093Mk85ek1IVXU0ZnRlQXN2WmpGR0c2a1h6ektoZDBIMkVYcWs2R1lzbmxlNzJReVYtQTRMb2VOUkVCS2JSZC03VUNLeFd3TnNUOUdKaHE4SWI0Zm5FdEs2djRWcDFZR2M3R3czYVdmclJGdFZMS3FNNTdHWm4yQzdjSE90ckFzRUpJWTBHc1ZueHpGU1FVN203elZ4S1JuZ1o1dV9FcHJla3N4VkRPWEpfdE9zbVIzSl85VmdOOENvQzhYQmdocWtfZ3hSbzMwTHJ2b1BiZTBqMks1eDVqeFVSd2hENlJ0SUZoaFJYeld0alVSemQ3NG9sMHdSQmVTSGFLTHhQMk1HWW9VWW9rU2RKbDlWOWt3dFBYTDFEb1dTOHhOM1E0Y0tHeDJiSk5KMHBjRG9NOWliQk5OdGVIUkNBR2pOeVdxOHZMclFkLVBid3pGeWNDYlBHUXJVPQ==",
-    "is_active": true,
-    "is_live": true,
-    "environment": "live",
-    "supported_symbols": [
-      "XAUUSD",
-      "EURUSD"
-    ],
-    "risk_settings": null,
-    "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-15T10:00:46.509027+00:00"
-  },
-  {
     "id": "066e21a0-0933-4f70-8e35-605f4759f927",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
     "broker_name": "ICMARKETSSC",
@@ -35,6 +17,24 @@
     ],
     "risk_settings": null,
     "created_at": "2026-03-14T10:11:51.015390+00:00",
+    "updated_at": "2026-03-15T10:00:46.509027+00:00"
+  },
+  {
+    "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "broker_name": "CTRADER",
+    "account_name": "cTrader Live 40816494",
+    "account_number": "6023410",
+    "credentials_encrypted": "Z0FBQUFBQnB0MVg4UEx1Qm1tczBuX2M4RFZNeUVrZllfeEJCSEpFY0h6VnpzWnA2dmd3bXdRVGZuN3AxM0NTd3VEclduZEZsbVkwcXItamE3QjNnTzlOR3NGQXdSTklqdUlLWTM3MlVPajI3ZzR4azVPcDIzd3JxMWNDcXFSRzRmdGl2T0hTMExCU1g1eEg2Y0NweHdtb0FLVFM1WlhzNUlUaG0yU2tzOHFCMGY0aG0yU2tXdk0xT3BXeXVrbHpPNlFzQmJBd3hwNFV4T3hJbnYyOUs2RnJ2MDlPT0lVM01zN093Mk85ek1IVXU0ZnRlQXN2WmpGR0c2a1h6ektoZDBIMkVYcWs2R1lzbmxlNzJReVYtQTRMb2VOUkVCS2JSZC03VUNLeFd3TnNUOUdKaHE4SWI0Zm5FdEs2djRWcDFZR2M3R3czYVdmclJGdFZMS3FNNTdHWm4yQzdjSE90ckFzRUpJWTBHc1ZueHpGU1FVN203elZ4S1JuZ1o1dV9FcHJla3N4VkRPWEpfdE9zbVIzSl85VmdOOENvQzhYQmdocWtfZ3hSbzMwTHJ2b1BiZTBqMks1eDVqeFVSd2hENlJ0SUZoaFJYeld0alVSemQ3NG9sMHdSQmVTSGFLTHhQMk1HWW9VWW9rU2RKbDlWOWt3dFBYTDFEb1dTOHhOM1E0Y0tHeDJiSk5KMHBjRG9NOWliQk5OdGVIUkNBR2pOeVdxOHZMclFkLVBid3pGeWNDYlBHUXJVPQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "live",
+    "supported_symbols": [
+      "XAUUSD",
+      "EURUSD"
+    ],
+    "risk_settings": null,
+    "created_at": "2026-03-07T07:31:48.641343+00:00",
     "updated_at": "2026-03-15T10:00:46.509027+00:00"
   },
   {

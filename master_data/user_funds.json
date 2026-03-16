@@ -1,11 +1,5 @@
 [
   {
-    "id": "1042c2a6-48c7-44c0-ba2b-4c55aef6ea4d",
-    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "role": "TRADER"
-  },
-  {
     "id": "1d8f9d5d-42aa-4f50-b006-5c6f74762452",
     "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
@@ -16,18 +10,6 @@
     "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "role": "TRADER"
-  },
-  {
-    "id": "4cbae844-0b39-4f2e-a119-f95e08075dda",
-    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "role": "TRADER"
-  },
-  {
-    "id": "61a6748d-a7be-44e2-8c90-f0b318f21a00",
-    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
-    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
-    "role": "OWNER"
   },
   {
     "id": "8420072c-ff6e-4e15-95f6-2f467bbfd097",
@@ -56,6 +38,18 @@
   {
     "id": "d8dc0671-92f1-4341-a3b9-45de0b035b11",
     "user_id": "6a4a2b5d-c41a-4b2a-b467-66b6ebbf6644",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "role": "OWNER"
+  },
+  {
+    "id": "ae5241b1-4613-49a7-94e7-77f7cb038f00",
+    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "role": "OWNER"
+  },
+  {
+    "id": "4cbae844-0b39-4f2e-a119-f95e08075dda",
+    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "role": "OWNER"
   }
