@@ -785,6 +785,105 @@ paths:
                     type: string
         '503':
            description: Agent Unavailable
+  /api/v1/knowledge/ingest:
+    post:
+      summary: Upload a file for knowledge ingestion
+      tags: [Knowledge]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Ingestion task queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+
+  /api/v1/knowledge/ingest/batch:
+    post:
+      summary: Upload multiple files for batch ingestion
+      tags: [Knowledge]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '202':
+          description: Batch ingestion queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch_id:
+                    type: string
+                  tasks:
+                    type: array
+                    items:
+                      type: object
+
+  /api/v1/knowledge/ingest/url:
+    post:
+      summary: Ingest content from a URL
+      tags: [Knowledge]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        '202':
+          description: URL ingestion task queued
+
+  /api/v1/knowledge/status/{task_id}:
+    get:
+      summary: Check status of knowledge ingestion task
+      tags: [Knowledge]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task status result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/knowledge/tasks:
+    get:
+      summary: List all knowledge ingestion tasks
+      tags: [Knowledge]
+      responses:
+        '200':
+          description: List of tasks
+
 
   /api/v1/orchestration/logs:
     get:
