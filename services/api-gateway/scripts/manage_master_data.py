@@ -22,6 +22,7 @@ from app.models.system_config import SystemConfig
 from app.models.risk_rule import RiskRule
 from app.models.plugins import Plugin, UserPlugin
 from app.models.telegram_chat_mapping import TelegramChatMapping
+from app.models.strategy import Strategy
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MDMS")
@@ -41,7 +42,8 @@ TABLE_MODELS = [
     (MarketSymbol, "market_symbols.json"),
     (Plugin, "plugins.json"),
     (UserPlugin, "user_plugins.json"),
-    (TelegramChatMapping, "telegram_chat_mappings.json")
+    (TelegramChatMapping, "telegram_chat_mappings.json"),
+    (Strategy, "strategies.json")
 ]
 
 from enum import Enum
