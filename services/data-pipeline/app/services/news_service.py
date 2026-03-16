@@ -99,6 +99,9 @@ class NewsApiService(BaseService):
             logger.warning(f"No NewsAPI Key found and Scraper returned no results for {symbol}.")
             return [self._create_sys_msg("No News Sources Available")]
 
+        # Check Cache for SerpApi market context if it was already fetched/cached
+        # This helps if NewsAPI is also quota-limited.
+
         # 2. Check Quota
         if not await self.check_quota():
             logger.warning(f"NewsAPI quota exceeded. Attempting fallback to search cache for {symbol}.")
@@ -126,6 +129,9 @@ class NewsApiService(BaseService):
                 
             return results
         except Exception as e:
+            if "429" in str(e):
+                logger.warning(f"Quota exceeded for news fetch (429) for {symbol}. Skipping cycle.")
+                return [self._create_sys_msg("Quota Exceeded (Transient)")]
             logger.error(f"News fetch failed: {e}")
             return [self._create_sys_msg(f"Fetch Failed: {str(e)}")]
 

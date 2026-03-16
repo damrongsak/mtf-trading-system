@@ -38,7 +38,19 @@ class CTraderClient:
         try:
             await client.connect()
             await client.authorize_app(self.client_id, self.client_secret)
-            await client.authorize_account(self.account_id, self.token)
+            try:
+                await client.authorize_account(self.account_id, self.token)
+            except Exception as e:
+                if "CH_ACCESS_TOKEN_INVALID" in str(e):
+                    logger.warning(f"cTrader token expired for account {self.account_id}. Attempting refresh...")
+                    new_token = await self._refresh_token_and_update_db(client)
+                    if new_token:
+                        self.token = new_token
+                        await client.authorize_account(self.account_id, self.token)
+                    else:
+                        raise e
+                else:
+                    raise e
             
             # Map Symbol -> ID
             # This is expensive to do every time. Better to cache.
@@ -165,7 +177,19 @@ class CTraderClient:
         try:
             await client.connect()
             await client.authorize_app(self.client_id, self.client_secret)
-            await client.authorize_account(self.account_id, self.token)
+            try:
+                await client.authorize_account(self.account_id, self.token)
+            except Exception as e:
+                if "CH_ACCESS_TOKEN_INVALID" in str(e):
+                    logger.warning(f"cTrader token expired for account {self.account_id}. Attempting refresh...")
+                    new_token = await self._refresh_token_and_update_db(client)
+                    if new_token:
+                        self.token = new_token
+                        await client.authorize_account(self.account_id, self.token)
+                    else:
+                        raise e
+                else:
+                    raise e
             
             # Convert dates to milliseconds
             from_ts = int(start_date.timestamp() * 1000)
@@ -321,7 +345,19 @@ class CTraderClient:
         try:
             await client.connect()
             await client.authorize_app(self.client_id, self.client_secret)
-            await client.authorize_account(self.account_id, self.token)
+            try:
+                await client.authorize_account(self.account_id, self.token)
+            except Exception as e:
+                if "CH_ACCESS_TOKEN_INVALID" in str(e):
+                    logger.warning(f"cTrader token expired for account {self.account_id}. Attempting refresh...")
+                    new_token = await self._refresh_token_and_update_db(client)
+                    if new_token:
+                        self.token = new_token
+                        await client.authorize_account(self.account_id, self.token)
+                    else:
+                        raise e
+                else:
+                    raise e
             
             # Use get_reconcile to fetch positions
             reconcile = await client.get_reconcile(self.account_id)

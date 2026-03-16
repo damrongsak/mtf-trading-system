@@ -18,19 +18,43 @@ import json
 
 def decrypt_and_parse(val):
     if not val: return {}
+    
+    # If it's already a dict, return it
+    if isinstance(val, dict):
+        return val
+        
     if isinstance(val, str):
-        # Try decrypting first
+        # 1. Try decrypting
         try:
             decrypted = decrypt_data(val)
             if isinstance(decrypted, dict): return decrypted
-            return json.loads(decrypted)
-        except:
-            # If decryption fails, try direct JSON load
-            try:
-                return json.loads(val)
-            except:
-                return {}
-    return val or {}
+            # If decrypted is still a string, it might be double-encoded JSON
+            if isinstance(decrypted, str):
+                try:
+                    loaded = json.loads(decrypted)
+                    if isinstance(loaded, dict): return loaded
+                except:
+                    pass
+        except Exception:
+            # Not an encrypted string or decryption failed
+            pass
+            
+        # 2. Try direct JSON load
+        try:
+            loaded = json.loads(val)
+            if isinstance(loaded, dict):
+                return loaded
+            # If loaded is still a string, try parsing it again (double-encoded)
+            if isinstance(loaded, str):
+                try:
+                    nested = json.loads(loaded)
+                    if isinstance(nested, dict): return nested
+                except:
+                    pass
+        except Exception:
+            pass
+            
+    return {}
 
 def ensure_dict(val):
     return decrypt_and_parse(val)

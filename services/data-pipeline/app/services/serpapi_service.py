@@ -33,6 +33,10 @@ class SerpApiService(BaseService):
         try:
             session = await self.get_session()
             async with session.get(self.base_url, params=params, timeout=15.0) as resp:
+                if resp.status == 429:
+                    logger.warning(f"SerpApi quota exceeded for {symbol}")
+                    return {"error": "429 Quota Exceeded"}
+
                 if resp.status != 200:
                     error_text = await resp.text()
                     logger.error(f"SerpApi error: {resp.status} - {error_text}")
