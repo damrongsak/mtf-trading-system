@@ -34,6 +34,8 @@ graph TD
         AI -->|Neural Forecasts| ML[Olympus Predictor]
         AI -->|Persona/Logs| DB
         ML -->|Market Features| DB
+        KI[Knowledge Ingestor] -->|Document RAG| Qdrant
+        KI -->|Knowledge Graph| Falkor[(FalkorDB)]
     end
 
     subgraph "Golden State (MDMS)"
@@ -115,6 +117,14 @@ The system is organized into five decoupled layers of responsibility:
     - **MTF Implementation**: Native support for 8 timeframes (`M1` to `MN1`) with vectorized transition logic.
     - **Adaptive Throttling**: 10Hz (100ms) safety cap on price updates in `StreamManager` for platform stability.
     - **Ingestion Optimization**: Real-time candle fetching reduced to 20 candles per request to optimize event-loop timing.
+
+### 4.6. Knowledge Ingestor (`services/knowledge-ingestor`)
+- **Role**: The "Ingestion Engine" for the Brain.
+- **Key Features**:
+    - **Hierarchical Ingestion**: 3-tier processing (Planner -> Architect -> Committer) for complex document understanding.
+    - **Async Pipeline**: Fully asynchronous LLM-orchestrated pipeline for high throughput.
+    - **Graph Intelligence**: Ingests unstructured data into FalkorDB for relationship mapping.
+    - **Vector Integration**: Generates embeddings and syncs with Qdrant for semantic search.
 
 ## 4.11. Data Governance & Institutional Security
 

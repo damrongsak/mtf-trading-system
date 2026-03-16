@@ -43,6 +43,7 @@ graph TD
         SC[Strategy Core]
         AI[AI Analyst]
         EX[Execution Service]
+        KI[Knowledge Ingestor]
     end
 
     subgraph Storage["Persistence & Messaging"]
@@ -63,11 +64,14 @@ graph TD
     AGW -->|Manage| SC
     AGW -->|Queries| AI
     AGW -->|Orders| EX
+    AGW -->|Knowledge| KI
     
     DP -->|Ingest| CT
     DP -->|Broadcast| RED
     RED -->|Price Stream| SC & AGW
     AI -->|RAG| VEC
+    KI -->|Ingest| VEC
+    KI -->|Graph| RED
     EX -->|Fix/WS| CT
 ```
 
@@ -92,6 +96,7 @@ To navigate this project as an AI Agent, use the following **System Discovery Pa
 | **Strategy Core** | L2/L3: Structure | [README](services/strategy-core/README.md) | Vectorized strategy engine & Alpha design. |
 | **AI Analyst** | L5: Intelligence | [README](services/ai-analyst/README.md) | LangGraph reasoning, RAG, & Psychological coaching. |
 | **Execution** | L4: Risk | [README](services/execution/README.md) | Prioritized cTrader execution & Minimax Risk. |
+| **Knowledge Ingestor** | L5: Ingestion | [README](services/knowledge-ingestor/README.md) | Hierarchical document ingestion for Knowledge Graphs. |
 | **API Gateway** | Orchestration | [README](services/api-gateway/README.md) | Central Routing, Auth, & ECST synchronization. |
 
 ---

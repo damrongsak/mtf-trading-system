@@ -219,6 +219,31 @@ services:
       - default
       - external
 
+  knowledge-ingestor:
+    build: ./services/knowledge-ingestor
+    container_name: knowledge-ingestor
+    env_file: .env
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./services/knowledge-ingestor:/app
+      - /app/.venv
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    environment:
+      - FALKORDB_URL=redis://falkordb:6379
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - default
+      - external
+
   olympus-predictor:
     build: ./services/olympus-predictor
     container_name: olympus-predictor

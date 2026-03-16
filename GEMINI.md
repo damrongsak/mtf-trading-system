@@ -19,6 +19,7 @@ The project distinguishes itself through:
 | **Execution Service** | Python (Async Worker, Redis) | **Resilient Background Worker** for trade lifecycle & Risk. |
 | **AI Analyst** | Python (LangGraph, Gemini 2.5) | "Market Observer" Agent and RAG-based Journal analysis. |
 | **Data Pipeline** | Python (StreamManager, Oanda) | Real-time streams and **Symbol Details event broadcasting**. |
+| **Knowledge Ingestor** | Python (FastAPI, FalkorDB) | Agentic ingestion for Knowledge Graphs. |
 | **Database** | PostgreSQL 15 | Stores relational trade data and **Cached Symbol Metadata (JSONB)**. |
 | **Vector Store** | Qdrant | Handles similarity search for pattern recognition and RAG. |
 | **Infrastructure** | Redis, Docker, Nginx | Messaging backbone, container orchestration, and proxying. |
@@ -35,7 +36,7 @@ The system utilizes four primary patterns for high resilience and low coupling:
 
 ### 📂 Directory Structure
 *   `specs/`: **Source of Truth**. Contains Architecture (`01`), Data Models (`03`), API Contracts (`04`), and Logic Rules (`08`).
-*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `execution`, `data-pipeline`).
+*   `services/`: Backend microservices (`api-gateway`, `strategy-core`, `ai-analyst`, `execution`, `data-pipeline`, `knowledge-ingestor`).
 *   `frontend/`: Next.js web application.
 *   `infra/`: Infrastructure configurations (Nginx, etc.).
 *   `docker-compose.yml`: Orchestration for local development.
