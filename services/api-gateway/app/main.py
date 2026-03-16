@@ -154,7 +154,7 @@ app.include_router(deployments.router, prefix="/api/v1/deployments")
 app.include_router(internal.router)
 app.include_router(foundry.router, prefix="/api/v1")
 
-from app.routers import plugins, alpha, telegram, news, data_source, analysis, prompts
+from app.routers import plugins, alpha, telegram, news, data_source, analysis, prompts, knowledge
 
 app.include_router(plugins.router, prefix="/api/v1")
 app.include_router(alpha.router, prefix="/api/v1")
@@ -165,6 +165,7 @@ app.include_router(backtest.router, prefix="/api/v1", tags=["Backtest"])
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Analysis"])
 app.include_router(quant.router, prefix="/api/v1/quant", tags=["Quant"])
 app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["Prompts"])
+app.include_router(knowledge.router)
 app.include_router(news.router)
 app.include_router(external.router, prefix="/api/v1", tags=["3rd Party Gateway"])
 app.include_router(api_key.router, prefix="/api/v1", tags=["API Key Management"])

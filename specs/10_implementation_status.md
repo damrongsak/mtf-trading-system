@@ -783,4 +783,5 @@
     - **Package Refactoring:** Updated internal structure to use the standard `app` package pattern.
     - **Docker Integration:** Fully integrated into root `docker-compose.yml` with proper health checks and dependencies.
     - **Optimization:** Cleaned up redundant CLI scripts and legacy documentation to maintain service integrity.
+    - **Service Integration:** Connected `api-gateway` to `knowledge-ingestor` via a dedicated proxy router for unified access.
     - **Verification:** Achieved 100% test pass rate (47/47) and verified cross-service orchestration.

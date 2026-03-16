@@ -30,6 +30,7 @@ graph TD
 
     subgraph "Olympus Brain (AI & ML)"
         Gateway --> AI
+        Gateway --> KI[Knowledge Ingestor]
         AI -->|RAG| Qdrant[(Vector Store)]
         AI -->|Neural Forecasts| ML[Olympus Predictor]
         AI -->|Persona/Logs| DB

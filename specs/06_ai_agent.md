@@ -62,7 +62,15 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - Agent analyzes the trade (Execution Data vs Original Narrative).
     - Extracts `ai_insight` (the actionable lesson) and stores it in the `JournalEntry` table.
 
-### 2.8. Institutional Tool Resilience (v2.9+)
+### 2.8. Knowledge Graph Ingestion
+- **Goal**: Build a semantic network of connections between market concepts, documents, and entities.
+- **Process**:
+    - **Tripartite Extraction**: Extracts (Subject, Predicate, Object) triplets from unstructured text.
+    - **Entity Resolution**: Clusters similar entities to build a clean graph.
+    - **Storage**: Persists triplets into **FalkorDB**.
+    - **Synergy**: Combines with Vector RAG to enable "GraphRAG" (traversing nodes to find relevant context).
+
+### 2.9. Institutional Tool Resilience (v2.9+)
 - **Base Inheritance**: All core tools MUST inherit from `app.core.base_tool.BaseTool`.
 - **Logic Isolation**: Logic is implemented in `async def run_tool()`. Legacy `_run`/`_arun` patterns are forbidden.
 - **Resilience Features**: Automatic exponential backoff, circuit breakers, and IO semaphores are enabled by default.
@@ -106,13 +114,17 @@ graph TD
     Final -->|JSON Response| Client
 ```
 
-### 3.2. RAG Engine (Retrieval Augmented Generation)
+### 3.2. RAG & Knowledge Engine
 - **Vector Database:** Qdrant
+- **Graph Database**: FalkorDB
 - **Embedding Model:** `models/gemini-embedding-001` (Google).
-- **Collections:**
+- **Collections (Qdrant):**
     - `journal_entries`: Past trade reviews and psychological states.
     - `strategies`: Catalog of trading strategies and code.
     - `system_docs`: Project documentation for context.
+- **Graph Metadata (FalkorDB)**:
+    - Entity nodes (e.g., "CPI", "USD", "Bullish Narrative").
+    - Relationship edges (e.g., "USD" -> "INVERSELY_CORRELATED_WITH" -> "Gold").
 
 ### 3.2. Reasoning Engine (LangChain/LangGraph)
 - **Orchestrator**: LangGraph `create_react_agent`.
