@@ -130,6 +130,26 @@ class StreamManager:
 
         if event_type == "symbol_details":
             channel = f"market_data:info:{symbol}"
+            # Update Database in background to avoid blocking stream
+            import asyncio
+            from app.database import SessionLocal
+            from app.repositories.market_repository import MarketRepository
+            
+            async def update_db():
+                db = SessionLocal()
+                try:
+                    repo = MarketRepository(db)
+                    source_name = data.get("source", "").upper()
+                    ms = repo.get_symbol_by_name_and_source(symbol, source_name)
+                    if ms:
+                        repo.update(ms, details=data.get("details"))
+                        logger.info(f"Updated symbol {symbol} details from {source_name} feed.")
+                except Exception as e:
+                    logger.error(f"Failed to update symbol details for {symbol}: {e}")
+                finally:
+                    db.close()
+            
+            asyncio.create_task(update_db())
         else:
             channel = f"market_data:tick:{symbol}"
             

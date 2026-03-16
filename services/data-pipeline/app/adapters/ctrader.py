@@ -3,6 +3,7 @@ import pandas as pd
 from typing import List, Optional
 from datetime import datetime
 from app.core.config import settings
+from app.utils.crypto import decrypt_data, encrypt_data
 from app.adapters.ctrader_client import AsyncCTraderClient
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATrendbarPeriod
 
@@ -393,3 +394,76 @@ class CTraderClient:
             raise e
         finally:
             await client.disconnect()
+
+    async def _refresh_token_and_update_db(self, client: AsyncCTraderClient) -> Optional[str]:
+        """
+        Internal helper to refresh token using existing refresh_token and update DB.
+        """
+        from app.database import SessionLocal
+        from app.models import BrokerAccount, DataSource
+        import json
+
+        db = SessionLocal()
+        try:
+            # 1. Find the BrokerAccount
+            account = db.query(BrokerAccount).filter(BrokerAccount.id == self.account_id).first()
+            if not account:
+                # Fallback: search by account_id in credentials if id is not UUID
+                # (Some systems might use numeric ID in self.account_id)
+                logger.warning(f"Account {self.account_id} not found by ID. Searching by account_id in credentials...")
+                accounts = db.query(BrokerAccount).all()
+                for acc in accounts:
+                    try:
+                        c = decrypt_data(acc.credentials_encrypted)
+                        if str(c.get("account_id")) == str(self.account_id):
+                            account = acc
+                            break
+                    except: continue
+
+            if not account:
+                logger.error(f"Could not find BrokerAccount for ID {self.account_id}")
+                return None
+
+            # 2. Get Refresh Token
+            creds = decrypt_data(account.credentials_encrypted)
+            refresh_token = creds.get("refresh_token")
+            if not refresh_token:
+                logger.error(f"No refresh_token found for account {self.account_id}")
+                return None
+
+            # 3. Request New Tokens
+            logger.info(f"Requesting token refresh for account {self.account_id}...")
+            new_access, new_refresh, expires_in, _ = await client.refresh_token(refresh_token)
+
+            # 4. Update BrokerAccount
+            creds["token"] = new_access
+            creds["refresh_token"] = new_refresh
+            account.credentials_encrypted = encrypt_data(creds)
+            
+            # 5. Update related DataSource(s)
+            sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
+            for src in sources:
+                try:
+                    # Use the jobs.py logic to handle nested/encrypted JSON
+                    from app.scheduler.jobs import ensure_dict
+                    config = ensure_dict(src.config_json)
+                    if str(config.get("account_id")) == str(self.account_id):
+                        config["token"] = new_access
+                        config["refresh_token"] = new_refresh
+                        # DataSource.config_json is usually just JSONB in this DB
+                        src.config_json = config
+                        db.add(src)
+                except Exception as src_e:
+                    logger.warning(f"Failed to update DataSource {src.id}: {src_e}")
+
+            db.add(account)
+            db.commit()
+            logger.info(f"Successfully refreshed and persisted tokens for account {self.account_id}")
+            return new_access
+
+        except Exception as e:
+            logger.error(f"Token refresh failed for account {self.account_id}: {e}")
+            db.rollback()
+            return None
+        finally:
+            db.close()

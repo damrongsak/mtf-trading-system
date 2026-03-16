@@ -56,12 +56,14 @@ def test_get_candles_pagination(db_session, mock_market_symbol):
     # usage of bulk upsert via service or direct DB
     c1 = Candle(
         market_symbol_id=mock_market_symbol.id, 
+        symbol=mock_market_symbol.symbol,
         timeframe="M15", 
         timestamp=datetime(2025, 1, 1, 10, 0),
         open=1, high=2, low=0.5, close=1.5, volume=100
     )
     c2 = Candle(
         market_symbol_id=mock_market_symbol.id, 
+        symbol=mock_market_symbol.symbol,
         timeframe="M15", 
         timestamp=datetime(2025, 1, 1, 10, 15),
         open=1, high=2, low=0.5, close=1.5, volume=100

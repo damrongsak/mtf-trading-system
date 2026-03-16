@@ -95,15 +95,44 @@ class CTraderStreamer(StreamAdapter):
                         symbol_name = self._subscription_map.get(fs.symbolId)
                         if symbol_name:
                             # Convert Protobuf to dict for serialization
-                            details = {}
-                            for field, value in fs.ListFields():
-                                details[field.name] = value
+                            # Convert Protobuf to dict for serialization
+                            from google.protobuf.json_format import MessageToDict
+                            raw_details = MessageToDict(fs)
+                            
+                            # Standard Enriched Format (Matching sync_ctrader_symbols.py)
+                            # Attempt to parse currencies from symbol name
+                            base_curr = None
+                            quote_curr = None
+                            if symbol_name:
+                                slashed = symbol_name.replace("_", "/")
+                                if "/" in slashed:
+                                    parts = slashed.split("/")
+                                    if len(parts) == 2:
+                                        base_curr = parts[0]
+                                        quote_curr = parts[1]
+                                elif len(symbol_name) == 6:
+                                    base_curr = symbol_name[:3]
+                                    quote_curr = symbol_name[3:]
+
+                            enriched_details = {
+                                "symbol_id": fs.symbolId,
+                                "lot_size": int(fs.lotSize) if fs.HasField('lotSize') else 10000000,
+                                "digits": fs.digits if fs.HasField('digits') else 5,
+                                "pipPosition": fs.pipPosition if fs.HasField('pipPosition') else -4,
+                                "minLot": float(fs.minVolume) / 100.0 if fs.HasField('minVolume') else 0.01,
+                                "maxLot": float(fs.maxVolume) / 100.0 if fs.HasField('maxVolume') else 100.0,
+                                "lotStep": float(fs.stepVolume) / 100.0 if fs.HasField('stepVolume') else 0.01,
+                                "step_volume": float(fs.stepVolume) / 100.0 if fs.HasField('stepVolume') else 0.01,
+                                "baseCurrency": base_curr,
+                                "quoteCurrency": quote_curr,
+                                "raw": raw_details
+                            }
                             
                             await self.callback({
                                 "type": "SYMBOL_DETAILS",
                                 "source": "ctrader",
                                 "instrument": symbol_name,
-                                "details": details
+                                "details": enriched_details
                             })
     
                 # 3. Subscribe

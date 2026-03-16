@@ -24,7 +24,7 @@ async def test_redis_publisher_datetime_serialization():
     
     assert channel == "test_channel"
     parsed_msg = json.loads(message)
-    assert parsed_msg["timestamp"] == "2023-01-01 12:00:00"
+    assert parsed_msg["timestamp"] == "2023-01-01T12:00:00"
     assert parsed_msg["value"] == 100.5
 
 def test_backfill_request_validation():

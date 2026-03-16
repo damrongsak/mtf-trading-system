@@ -34,7 +34,22 @@ def test_get_active_strike_range_calculation():
     ]
     
     mock_result = MagicMock()
-    mock_result.fetchall.return_value = rows
+    # sum_oi = 1200
+    # sum_w_x = (2000*100) + (2010*1000) + (2020*100) = 2412000
+    # sum_w_x2 = (2000^2 * 100) + (2010^2 * 1000) + (2020^2 * 100) = 400,000,000 + 4,040,100,000 + 408,040,000 = 4,848,140,000
+    
+    mock_row = MagicMock()
+    mock_row.sum_oi = 1200
+    mock_row.sum_w_x = 2412000
+    mock_row.sum_w_x2 = 4848140000
+    
+    # Variance check:
+    # E[X] = 2010
+    # E[X^2] = 4848140000 / 1200 = 4040116.666
+    # Var = 4040116.666 - (2010^2) = 4040116.666 - 4040100 = 16.666
+    # StdDev = 4.082
+    
+    mock_result.fetchone.return_value = mock_row
     mock_execute.return_value = mock_result
     
     repo = OpenInterestRepository(mock_db)

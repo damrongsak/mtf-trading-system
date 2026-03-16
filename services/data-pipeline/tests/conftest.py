@@ -21,6 +21,18 @@ from sqlalchemy.ext.compiler import compiles
 def compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
+from sqlalchemy.sql.expression import TextClause
+
+@compiles(TextClause, "sqlite")
+def compile_text_sqlite(element, compiler, **kw):
+    # Replace Postgres-specific defaults with SQLite alternatives
+    s = element.text.lower()
+    if '::jsonb' in s:
+        s = s.replace('::jsonb', '')
+    if 'now()' in s:
+        s = s.replace('now()', 'CURRENT_TIMESTAMP')
+    return s
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Monkeypatch app.database to use the testing engine/session

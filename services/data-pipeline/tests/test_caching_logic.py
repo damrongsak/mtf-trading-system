@@ -47,12 +47,13 @@ async def test_stream_manager_publish_callback_price_event():
         
         await manager._publish_callback(price_data)
         
-        expected_channel = "market_data:tick:XAUUSD"
-        expected_cache_key = "market_data:spot:XAUUSD"
+        expected_channel = "market_data:tick:CTRADER:XAUUSD"
+        expected_cache_key = "market_data:spot:CTRADER:XAUUSD"
         expected_mapping = {
             "bid": 2500.0,
             "ask": 2501.0,
-            "ts": 123456789.0
+            "ts": 123456789.0,
+            "source": "CTRADER"
         }
         
         publisher_instance.publish_with_cache.assert_called_once_with(

@@ -508,9 +508,21 @@ async def get_latest_tick(
         r = aioredis.from_url(redis_url, decode_responses=True)
         # Normalize symbol
         norm_symbol = symbol.replace("_", "").replace("/", "").upper()
-        cache_key = f"market_data:spot:{norm_symbol}"
         
-        snapshot = await r.hgetall(cache_key)
+        # Try multiple key formats (CTRADER, OANDA, or no prefix)
+        cache_keys = [
+            f"market_data:spot:CTRADER:{norm_symbol}",
+            f"market_data:spot:OANDA:{norm_symbol}",
+            f"market_data:spot:{norm_symbol}"
+        ]
+        
+        snapshot = {}
+        for key in cache_keys:
+            temp = await r.hgetall(key)
+            if temp and "bid" in temp:
+                snapshot = temp
+                break
+        
         await r.close()
         
         if not snapshot or "bid" not in snapshot:

@@ -16,6 +16,15 @@ class MarketRepository:
             MarketSymbol.is_active == True
         ).order_by(MarketSymbol.symbol).all()
 
+    def get_symbol_by_name_and_source(self, symbol: str, source_name: str) -> Optional[MarketSymbol]:
+        """Find a symbol by name and its associated data source provider or name."""
+        from sqlalchemy import or_
+        return self.db.query(MarketSymbol).join(DataSource).filter(
+            MarketSymbol.symbol == symbol,
+            or_(DataSource.provider == source_name, DataSource.name == source_name),
+            MarketSymbol.is_active == True
+        ).first()
+
     def get_by_id(self, symbol_id: UUID) -> Optional[MarketSymbol]:
         return self.db.query(MarketSymbol).filter(MarketSymbol.id == symbol_id).first()
         
