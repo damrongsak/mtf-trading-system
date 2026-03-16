@@ -5,6 +5,7 @@ from app.streaming.adapters.ctrader import CTraderStreamer
 from app.streaming.publisher import RedisPublisher
 from app.repositories.market_repository import MarketRepository
 from app.streaming.efp_engine import EFPEngine
+from app.utils.crypto import decrypt_data
 import logging
 import time
 
@@ -45,10 +46,19 @@ class StreamManager:
                     logger.warning(f"No symbols found for data source {ds.name}")
                     continue
 
+                # Decrypt config if it's a string (encrypted)
+                config = ds.config_json
+                if isinstance(config, str):
+                    try:
+                        config = decrypt_data(config)
+                    except Exception as e:
+                        logger.error(f"Failed to decrypt config for {ds.name}: {e}")
+                        continue
+
                 if ds.provider == 'OANDA':
-                    self._start_oanda(ds.config_json, symbol_list)
+                    self._start_oanda(config, symbol_list)
                 elif ds.provider == 'CTRADER':
-                    self._start_ctrader(ds.config_json, symbol_list)
+                    self._start_ctrader(config, symbol_list)
                 
         except Exception as e:
             logger.error(f"Failed to load data sources: {e}")

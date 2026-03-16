@@ -140,6 +140,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
       - STREAM_SYMBOLS=EURUSD,USDJPY,XAUUSD
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
     deploy:
       resources:
         limits:
@@ -173,6 +174,7 @@ services:
       - OMP_NUM_THREADS=2
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
     deploy:
       resources:
         limits:
@@ -202,6 +204,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=4
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - OPENCLAW_URL=http://host.docker.internal:18789
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-9b0cb07e142a651540bf2659bb8663ea62641504e8d81309}
     extra_hosts:
