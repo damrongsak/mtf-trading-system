@@ -1,1 +1,39 @@
-[]
+[
+  {
+    "id": "telegram-notifier",
+    "name": "Telegram Notifier",
+    "description": "Sends signals to Telegram",
+    "author": null,
+    "version": "1.0.0",
+    "category": "UTILITY",
+    "base_config_schema": {},
+    "is_system": true,
+    "created_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "id": "risk-guardrail",
+    "name": "Risk Guardrail",
+    "description": "Hard risk limits enforcement",
+    "author": null,
+    "version": "1.0.0",
+    "category": "RISK",
+    "base_config_schema": {
+      "max_risk_per_trade": 10.0
+    },
+    "is_system": true,
+    "created_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "id": "olympus-lstm-predictor",
+    "name": "Olympus LSTM Predictor",
+    "description": "AI Signal Refinement",
+    "author": null,
+    "version": "1.0.0",
+    "category": "ALPHA",
+    "base_config_schema": {
+      "mode": "PRUDENT"
+    },
+    "is_system": true,
+    "created_at": "2026-03-16T05:43:57.340801+00:00"
+  }
+]

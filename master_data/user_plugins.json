@@ -1,1 +1,64 @@
-[]
+[
+  {
+    "instance_id": "0247144b-bc78-465a-8ecd-4dcd2b11e268",
+    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
+    "plugin_id": "telegram-notifier",
+    "is_active": true,
+    "config_overrides": {
+      "token": "8367617972:AAE5srGYV2W0iN2knq5Vw5ckyimUJt1XA44",
+      "chat_id": "916700879"
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "instance_id": "4c6e55d2-aaba-4cc5-acb7-7326243a4ad6",
+    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
+    "plugin_id": "risk-guardrail",
+    "is_active": true,
+    "config_overrides": {
+      "max_risk_per_trade": 10.0
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "instance_id": "078f6509-da8d-4e58-b05b-5ba782e0d31e",
+    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
+    "plugin_id": "olympus-lstm-predictor",
+    "is_active": true,
+    "config_overrides": {
+      "mode": "PRUDENT"
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "instance_id": "9d76541a-60fe-44b4-ac65-e11f8a2df739",
+    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
+    "plugin_id": "telegram-notifier",
+    "is_active": true,
+    "config_overrides": {
+      "token": "8367617972:AAE5srGYV2W0iN2knq5Vw5ckyimUJt1XA44",
+      "chat_id": "916700879"
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "instance_id": "8b1f95c8-4cd2-40d7-8866-e0f1c5042bf0",
+    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
+    "plugin_id": "risk-guardrail",
+    "is_active": true,
+    "config_overrides": {
+      "max_risk_per_trade": 10.0
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  },
+  {
+    "instance_id": "c7de6252-399f-48d3-9416-126bb4d196c7",
+    "user_id": "19198238-6c06-4d59-83b3-c1d83dedafe9",
+    "plugin_id": "olympus-lstm-predictor",
+    "is_active": true,
+    "config_overrides": {
+      "mode": "PRUDENT"
+    },
+    "activated_at": "2026-03-16T05:43:57.340801+00:00"
+  }
+]
