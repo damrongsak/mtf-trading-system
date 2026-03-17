@@ -5,6 +5,8 @@ base.ts
 common.ts
 configuration.ts
 docs/AIApi.md
+docs/AIThinkRequest.md
+docs/AIThinkResponse.md
 docs/APIResponse.md
 docs/APIResponseAIReport.md
 docs/APIResponseAgent.md
@@ -96,6 +98,12 @@ docs/ApiV1ExecutionTradesSyncPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdAmendPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdClosePostRequest.md
 docs/ApiV1InternalSignalsPostRequest.md
+docs/ApiV1KnowledgeIngestBatchPost202Response.md
+docs/ApiV1KnowledgeIngestBatchPost202ResponseTasksInner.md
+docs/ApiV1KnowledgeIngestPost202Response.md
+docs/ApiV1KnowledgeIngestUrlPost202Response.md
+docs/ApiV1KnowledgeIngestUrlPostRequest.md
+docs/ApiV1KnowledgeStatusTaskIdGet200Response.md
 docs/ApiV1PluginsIdActivatePost200Response.md
 docs/ApiV1PromptsIdRenderPost200Response.md
 docs/ApiV1PromptsIdRenderPostRequest.md
@@ -157,6 +165,7 @@ docs/JournalEntryCreateMentalState.md
 docs/JournalEntryCreateRootCause.md
 docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
+docs/KnowledgeApi.md
 docs/LibraryHit.md
 docs/LinkTelegramRequest.md
 docs/LinkTelegramResponse.md
@@ -191,6 +200,8 @@ docs/RateLimitInfo.md
 docs/ResponseStatus.md
 docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md
+docs/RiskCheckResponseFinancials.md
+docs/RiskCheckResponsePositionSize.md
 docs/RsiRequest.md
 docs/SMCFVG.md
 docs/SMCInducement.md

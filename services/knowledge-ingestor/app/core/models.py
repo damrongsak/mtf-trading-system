@@ -33,3 +33,4 @@ class HierarchicalResult(IngestionResult):
     conclusion_queries: List[str] = field(default_factory=list)
     category: str = "unknown"
     priority: str = "medium"
+    confidence_score: float = 1.0  # Normalized 0.0-1.0

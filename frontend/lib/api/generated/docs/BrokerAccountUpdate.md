@@ -12,6 +12,10 @@ Name | Type | Description | Notes
 **risk_settings** | **object** |  | [optional] [default to undefined]
 **is_active** | **boolean** |  | [optional] [default to undefined]
 **is_live** | **boolean** |  | [optional] [default to undefined]
+**data_source_id** | **string** |  | [optional] [default to undefined]
+**leverage** | **number** |  | [optional] [default to undefined]
+**currency** | **string** |  | [optional] [default to undefined]
+**balance_snapshot** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -26,6 +30,10 @@ const instance: BrokerAccountUpdate = {
     risk_settings,
     is_active,
     is_live,
+    data_source_id,
+    leverage,
+    currency,
+    balance_snapshot,
 };
 ```
 

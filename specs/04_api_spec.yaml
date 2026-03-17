@@ -430,7 +430,7 @@ paths:
         '503':
           description: Orchestrator Busy/Unavailable
 
-  /api/v1/ai/chat/sessions:
+
 
   /api/v1/ai/briefing:
     get:
@@ -800,7 +800,7 @@ paths:
                   format: binary
       responses:
         '202':
-          description: Ingestion task queued
+          description: Ingestion job accepted
           content:
             application/json:
               schema:
@@ -810,10 +810,12 @@ paths:
                     type: string
                   status:
                     type: string
+                  filename:
+                    type: string
 
   /api/v1/knowledge/ingest/batch:
     post:
-      summary: Upload multiple files for batch ingestion
+      summary: Upload multiple files for knowledge ingestion
       tags: [Knowledge]
       requestBody:
         content:
@@ -828,7 +830,7 @@ paths:
                     format: binary
       responses:
         '202':
-          description: Batch ingestion queued
+          description: Batch ingestion jobs accepted
           content:
             application/json:
               schema:
@@ -840,27 +842,46 @@ paths:
                     type: array
                     items:
                       type: object
+                      properties:
+                        task_id:
+                          type: string
+                        filename:
+                          type: string
 
   /api/v1/knowledge/ingest/url:
     post:
-      summary: Ingest content from a URL
+      summary: Provide a URL for knowledge ingestion
       tags: [Knowledge]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
-              required: [url]
+              required:
+                - url
               properties:
                 url:
                   type: string
+                  format: uri
       responses:
         '202':
-          description: URL ingestion task queued
+          description: URL ingestion job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+                  url:
+                    type: string
 
   /api/v1/knowledge/status/{task_id}:
     get:
-      summary: Check status of knowledge ingestion task
+      summary: Get the status of a specific ingestion task
       tags: [Knowledge]
       parameters:
         - name: task_id
@@ -870,19 +891,34 @@ paths:
             type: string
       responses:
         '200':
-          description: Task status result
+          description: Task status details
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+                  filename:
+                    type: string
+                  detail:
+                    type: string
 
   /api/v1/knowledge/tasks:
     get:
-      summary: List all knowledge ingestion tasks
+      summary: List all recent ingestion tasks
       tags: [Knowledge]
       responses:
         '200':
-          description: List of tasks
+          description: List of ingestion tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
 
 
   /api/v1/orchestration/logs:
@@ -5231,7 +5267,7 @@ components:
         risk_settings:
           type: object
           nullable: true
-          default: false
+          default: {}
         data_source_id:
           type: string
           format: uuid

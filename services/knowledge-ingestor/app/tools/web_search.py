@@ -34,14 +34,14 @@ class WebSearchTool:
         Perform a search using DDGS in a thread pool.
         Results are limited and ranked by DDG.
         """
-        logger.info("web_search_start", search_query=query, max_results=max_results)
+        logger.info("web_search_start", extra={"search_query": query, "max_results": max_results})
         
         def _sync_search():
             try:
                 with DDGS() as ddgs:
                     return list(ddgs.text(query, max_results=max_results))
             except Exception as e:
-                logger.error("ddg_library_error", error=str(e))
+                logger.error("ddg_library_error", extra={"error": str(e)})
                 return []
         
         try:
@@ -55,10 +55,10 @@ class WebSearchTool:
                     "source": "DuckDuckGo"
                 })
             
-            logger.info("web_search_success", search_query=query, result_count=len(results))
+            logger.info("web_search_success", extra={"search_query": query, "result_count": len(results)})
             return results
         except Exception as e:
-            logger.error("web_search_failure", search_query=query, error=str(e))
+            logger.error("web_search_failure", extra={"search_query": query, "error": str(e)})
             return []
 
     @staticmethod

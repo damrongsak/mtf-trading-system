@@ -10,6 +10,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AiLibraryStatusFilenameGet**](#apiv1ailibrarystatusfilenameget) | **GET** /api/v1/ai/library/status/{filename} | Get Library Ingestion Status|
 |[**apiV1AiMarketAnalysisPost**](#apiv1aimarketanalysispost) | **POST** /api/v1/ai/market-analysis | Generate market outlook|
 |[**apiV1AiSmcNarrativePost**](#apiv1aismcnarrativepost) | **POST** /api/v1/ai/smc-narrative | Generate SMC Narrative|
+|[**apiV1AiThinkPost**](#apiv1aithinkpost) | **POST** /api/v1/ai/think | Unified AI Orchestrator|
 
 # **apiV1AiJournalAnalysisPost**
 > APIResponseAnalysis apiV1AiJournalAnalysisPost()
@@ -317,6 +318,59 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | SMC Narrative |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiThinkPost**
+> AIThinkResponse apiV1AiThinkPost(aIThinkRequest)
+
+Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+
+### Example
+
+```typescript
+import {
+    AIApi,
+    Configuration,
+    AIThinkRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AIApi(configuration);
+
+let aIThinkRequest: AIThinkRequest; //
+
+const { status, data } = await apiInstance.apiV1AiThinkPost(
+    aIThinkRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **aIThinkRequest** | **AIThinkRequest**|  | |
+
+
+### Return type
+
+**AIThinkResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | AI Response |  -  |
+|**503** | Orchestrator Busy/Unavailable |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

@@ -28,10 +28,12 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             process_time = (time.time() - start_time) * 1000
             logger.info(
                 "request_processed",
-                method=request.method,
-                path=request.url.path,
-                status=response.status_code,
-                latency_ms=round(process_time, 2)
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                    "latency_ms": round(process_time, 2)
+                }
             )
             return response
         finally:

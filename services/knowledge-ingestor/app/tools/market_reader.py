@@ -39,10 +39,11 @@ class MarketReaderTool:
                 price = data['chart']['result'][0]['meta']['regularMarketPrice']
                 return float(price)
             else:
-                logger.warning(f"Failed to fetch price for {ticker}: HTTP {response.status_code}")
+                logger.warning(f"Failed to fetch price for {ticker}: HTTP {response.status_code}", 
+                               extra={"ticker": ticker, "status_code": response.status_code})
                 return None
         except Exception as e:
-            logger.error(f"Error in MarketReader: {e}")
+            logger.error(f"Error in MarketReader: {e}", extra={"ticker": ticker, "error": str(e)})
             return None
 
 if __name__ == "__main__":

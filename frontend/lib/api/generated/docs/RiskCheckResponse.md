@@ -5,9 +5,13 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**can_execute** | **boolean** |  | [optional] [default to undefined]
-**lot** | **number** |  | [optional] [default to undefined]
-**reason** | **string** |  | [optional] [default to undefined]
+**symbol** | **string** |  | [optional] [default to undefined]
+**direction** | **string** |  | [optional] [default to undefined]
+**risk_reward_ratio** | **number** |  | [optional] [default to undefined]
+**position_size** | [**RiskCheckResponsePositionSize**](RiskCheckResponsePositionSize.md) |  | [optional] [default to undefined]
+**financials** | [**RiskCheckResponseFinancials**](RiskCheckResponseFinancials.md) |  | [optional] [default to undefined]
+**is_safe** | **boolean** |  | [optional] [default to undefined]
+**warnings** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -15,9 +19,13 @@ Name | Type | Description | Notes
 import { RiskCheckResponse } from './api';
 
 const instance: RiskCheckResponse = {
-    can_execute,
-    lot,
-    reason,
+    symbol,
+    direction,
+    risk_reward_ratio,
+    position_size,
+    financials,
+    is_safe,
+    warnings,
 };
 ```
 

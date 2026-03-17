@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import asyncio
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -39,7 +40,7 @@ Output format (Valid JSON only):
   "source": "Source name",
   "timestamp": "YYYY-MM-DD",
   "cypher_queries": [
-    "MERGE (p:Paper {title: 'Doc Title', source: 'Source', date: 'Date'})",
+    "MERGE (p:Paper {title: 'Doc Title', source: 'Source', date: 'Date', hash: 'HASH_PLACEHOLDER'})",
     "MERGE (a:Asset {name: 'XAUUSD', type: 'COMMODITY'})"
   ]
 }"""
@@ -88,6 +89,17 @@ COMMITTER_PROMPT = """You are THE COMMITTER for Project Olympus.
 
 Your role: Merge results from 3 tiers, deduplicate entities, and generate final clean Cypher queries.
 
+DEDUPLICATION RULES:
+1. Financial Synonyms: Merge "Fed" -> "Federal Reserve", "Gold" -> "XAUUSD", "BTC" -> "Bitcoin", "ECB" -> "European Central Bank".
+2. Case Sensitivity: Treat "Interest Rates" and "interest rates" as the same entity.
+3. Proper Names: Prefer full names over acronyms where possible.
+
+RELATIONSHIP METADATA:
+For EVERY relationship (edge), add the following properties if available:
+- source_ref: Filename or URL
+- confidence: high|medium|low
+- extracted_at: Current ISO timestamp
+
 Output format (Valid JSON only):
 {
   "merge_notes": "Summary of deduplication and conflicts resolved",
@@ -95,7 +107,7 @@ Output format (Valid JSON only):
   "final_edges": ["Node1 -> Node2"],
   "cypher_queries": [
      "MATCH (n) ...",
-     "MERGE (n) ..."
+     "MERGE (n:Asset {name: 'Gold'})-[:INFLUENCES {source_ref: 'doc.pdf', confidence: 'high', extracted_at: '...'}]->(m:MacroIndicator {name: 'Inflation'})"
   ],
   "deduplication_stats": {
     "nodes_removed": 5,
@@ -175,6 +187,10 @@ class HierarchicalIngestor(BaseIngestor):
         
         return {"tiers": tiers, "metadata": metadata}
     
+    def _calculate_hash(self, content: str) -> str:
+        """Calculate SHA-256 hash of content"""
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
     def _chunk_by_headings(self, content: str) -> List[str]:
         """Split content by markdown headings for better context"""
         parts = re.split(r'(?=^##\s+.+$)', content, flags=re.MULTILINE)
@@ -303,10 +319,38 @@ Total queries to merge: {len(all_queries)}
         return enrichment_queries
 
     async def run_pipeline(self, file_path: Path) -> HierarchicalResult:
-        """Execute the full 3-tier pipeline"""
+        """Execute the full 3-tier pipeline with incremental sync check"""
         import time
         start_time = time.time()
         
+        # Read content first for hashing
+        if file_path.suffix.lower() == '.pdf':
+            import pypdf
+            try:
+                reader = pypdf.PdfReader(file_path)
+                full_content = "\n".join([page.extract_text() for page in reader.pages])
+            except Exception as e:
+                self.logger.error(f"Failed to read PDF {file_path.name}: {e}")
+                raise
+        else:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                full_content = f.read()
+        
+        content_hash = self._calculate_hash(full_content)
+        
+        # Check if already exists in FalkorDB
+        if self.client.check_content_exists(content_hash):
+            self.logger.info(f"⏭️ Skipping {file_path.name} (Hash already exists: {content_hash})")
+            return HierarchicalResult(
+                filename=file_path.name,
+                status="complete",
+                summary_queries=[],
+                detail_queries=[],
+                conclusion_queries=[],
+                committer_result={"merge_notes": "Skipped due to existing hash"},
+                processing_time_ms=int((time.time() - start_time) * 1000)
+            )
+
         file_data = self.read_file_tiers(file_path)
         
         summary_task = self.process_tier_summary(file_data["tiers"]["summary"])
@@ -321,6 +365,11 @@ Total queries to merge: {len(all_queries)}
         final_queries = commit_result["final_queries"] + web_queries
         
         # Execute to FalkorDB
+        # Replace hash placeholders with actual hash
+        final_queries = []
+        for q in (commit_result["final_queries"] + web_queries):
+            final_queries.append(q.replace("HASH_PLACEHOLDER", content_hash))
+            
         exec_result = self.execute_to_falkor(final_queries)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
@@ -338,10 +387,24 @@ Total queries to merge: {len(all_queries)}
         )
 
     async def run_pipeline_on_text(self, text: str, filename: str = "web_content.txt") -> HierarchicalResult:
-        """Execute the 3-tier pipeline on raw text content"""
+        """Execute the 3-tier pipeline on raw text content with hash check"""
         import time
         start_time = time.time()
         
+        content_hash = self._calculate_hash(text)
+        
+        if self.client.check_content_exists(content_hash):
+            self.logger.info(f"⏭️ Skipping text ingestion (Hash already exists: {content_hash})")
+            return HierarchicalResult(
+                filename=filename,
+                status="complete",
+                summary_queries=[],
+                detail_queries=[],
+                conclusion_queries=[],
+                committer_result={"merge_notes": "Skipped due to existing hash"},
+                processing_time_ms=int((time.time() - start_time) * 1000)
+            )
+
         # Prepare tiers from text
         file_size = len(text)
         tiers = {}
@@ -374,6 +437,11 @@ Total queries to merge: {len(all_queries)}
         final_queries = commit_result["final_queries"] + web_queries
         
         # Execute
+        # Replace hash placeholders with actual hash
+        final_queries = []
+        for q in (commit_result["final_queries"] + web_queries):
+            final_queries.append(q.replace("HASH_PLACEHOLDER", content_hash))
+            
         exec_result = self.execute_to_falkor(final_queries)
         
         elapsed_ms = int((time.time() - start_time) * 1000)

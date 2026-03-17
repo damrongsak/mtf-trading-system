@@ -116,6 +116,22 @@ class FalkorDBClient:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    def check_content_exists(self, content_hash: str) -> bool:
+        """Check if a node with this hash already exists in the graph"""
+        if not self._client: self.connect()
+        if not self._client: return False
+        
+        query = f"MATCH (p:Paper {{hash: '{content_hash}'}}) RETURN p.title LIMIT 1"
+        try:
+            result = self._client.execute_command("GRAPH.QUERY", self.graph_name, query)
+            # result[0] contains the header, result[1] contains rows
+            if len(result) > 1 and result[1]:
+                return True
+            return False
+        except Exception as e:
+            print(f"Error checking hash existence: {e}")
+            return False
+
 
 # Tool functions for OpenClaw
 def falkordb_connect(host: str = "localhost", port: int = 6380, graph: str = "OlympusKnowledgeGraph") -> str:

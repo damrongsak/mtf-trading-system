@@ -12,7 +12,10 @@ Name | Type | Description | Notes
 **credentials** | **object** |  | [default to undefined]
 **supported_symbols** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
 **risk_settings** | **object** |  | [optional] [default to undefined]
-**is_live** | **boolean** |  | [optional] [default to false]
+**data_source_id** | **string** |  | [optional] [default to undefined]
+**leverage** | **number** |  | [optional] [default to undefined]
+**currency** | **string** |  | [optional] [default to undefined]
+**balance_snapshot** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -27,7 +30,10 @@ const instance: BrokerAccountCreate = {
     credentials,
     supported_symbols,
     risk_settings,
-    is_live,
+    data_source_id,
+    leverage,
+    currency,
+    balance_snapshot,
 };
 ```
 

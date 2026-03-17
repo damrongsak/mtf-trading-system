@@ -1,7 +1,11 @@
 import unittest
 import json
-from unittest.mock import patch, MagicMock
+import asyncio
+from unittest.mock import patch, MagicMock, AsyncMock
 from app.tools.falkordb_client import falkordb_connect, falkordb_query, falkordb_batch
+from app.tools.web_search import WebSearchTool
+from app.tools.web_scraper import WebScraperTool
+from app.tools.market_reader import MarketReaderTool
 
 class TestTools(unittest.TestCase):
     def setUp(self):
@@ -45,6 +49,62 @@ class TestTools(unittest.TestCase):
         res = json.loads(res_str)
         self.assertEqual(res["total"], 2)
         self.assertEqual(res["success"], 2)
+
+class TestWebTools(unittest.IsolatedAsyncioTestCase):
+    @patch("app.tools.web_search.DDGS")
+    async def test_web_search(self, mock_ddgs):
+        mock_instance = MagicMock()
+        mock_ddgs.return_value.__enter__.return_value = mock_instance
+        mock_instance.text.return_value = [
+            {"title": "Title 1", "body": "Snippet 1", "href": "http://url1.com"},
+            {"title": "Title 2", "body": "Snippet 2", "href": "http://url2.com"}
+        ]
+        
+        results = await WebSearchTool.search("test query")
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["title"], "Title 1")
+        self.assertEqual(results[0]["url"], "http://url1.com")
+
+    @patch("httpx.AsyncClient.get")
+    async def test_web_scraper(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.text = "<html><body><h1>Hello World</h1><p>Test content</p></body></html>"
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+        
+        text = await WebScraperTool.scrape_url("http://example.com")
+        self.assertIn("Hello World", text)
+        self.assertIn("Test content", text)
+
+class TestMarketTools(unittest.TestCase):
+    @patch("requests.get")
+    def test_market_reader_success(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "regularMarketPrice": 2500.5
+                        }
+                    }
+                ]
+            }
+        }
+        mock_get.return_value = mock_response
+        
+        price = MarketReaderTool.get_spot_price("Gold")
+        self.assertEqual(price, 2500.5)
+
+    @patch("requests.get")
+    def test_market_reader_failure(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
+        
+        price = MarketReaderTool.get_spot_price("Unknown")
+        self.assertIsNone(price)
 
 if __name__ == "__main__":
     unittest.main()

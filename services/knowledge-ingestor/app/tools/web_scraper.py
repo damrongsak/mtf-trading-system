@@ -37,7 +37,7 @@ class WebScraperTool:
                 
                 return text
         except Exception as e:
-            logger.error(f"Failed to scrape {url}: {e}")
+            logger.error(f"Failed to scrape {url}: {e}", extra={"url": url, "error": str(e)})
             return None
 
 if __name__ == "__main__":

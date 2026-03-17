@@ -13,9 +13,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AiAgentsIdGet**](#apiv1aiagentsidget) | **GET** /api/v1/ai/agents/{id} | Get AI Agent details|
 |[**apiV1AiBriefingGet**](#apiv1aibriefingget) | **GET** /api/v1/ai/briefing | Get latest daily briefing|
 |[**apiV1AiBriefingPost**](#apiv1aibriefingpost) | **POST** /api/v1/ai/briefing | Trigger generation of a new briefing|
-|[**apiV1AiChatSessionsGet**](#apiv1aichatsessionsget) | **GET** /api/v1/ai/chat/sessions | List chat sessions|
 |[**apiV1AiChatSessionsMessagePost**](#apiv1aichatsessionsmessagepost) | **POST** /api/v1/ai/chat/sessions/message | Chat with Strategy Advisor|
-|[**apiV1AiChatSessionsPost**](#apiv1aichatsessionspost) | **POST** /api/v1/ai/chat/sessions | Create a new chat session|
 |[**apiV1AiChatSessionsSessionIdMessagesGet**](#apiv1aichatsessionssessionidmessagesget) | **GET** /api/v1/ai/chat/sessions/{session_id}/messages | Get messages for a session|
 |[**apiV1AiChatSessionsSessionIdMessagesPost**](#apiv1aichatsessionssessionidmessagespost) | **POST** /api/v1/ai/chat/sessions/{session_id}/messages | Send a message to the AI|
 |[**apiV1AiIngestUploadPost**](#apiv1aiingestuploadpost) | **POST** /api/v1/ai/ingest/upload | Upload context file|
@@ -528,56 +526,6 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **apiV1AiChatSessionsGet**
-> APIResponseChatSessionList apiV1AiChatSessionsGet()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let strategyId: string; // (optional) (default to undefined)
-
-const { status, data } = await apiInstance.apiV1AiChatSessionsGet(
-    strategyId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **strategyId** | [**string**] |  | (optional) defaults to undefined|
-
-
-### Return type
-
-**APIResponseChatSessionList**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | List of chat sessions |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **apiV1AiChatSessionsMessagePost**
 > ApiV1AiChatSessionsMessagePost200Response apiV1AiChatSessionsMessagePost()
 
@@ -628,57 +576,6 @@ No authorization required
 |-------------|-------------|------------------|
 |**200** | AI Response |  -  |
 |**503** | Agent Unavailable |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **apiV1AiChatSessionsPost**
-> APIResponseChatSession apiV1AiChatSessionsPost()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    ChatSessionCreate
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let chatSessionCreate: ChatSessionCreate; // (optional)
-
-const { status, data } = await apiInstance.apiV1AiChatSessionsPost(
-    chatSessionCreate
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **chatSessionCreate** | **ChatSessionCreate**|  | |
-
-
-### Return type
-
-**APIResponseChatSession**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**201** | Created chat session |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

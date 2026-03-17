@@ -23,6 +23,43 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+export interface AIThinkRequest {
+    /**
+     * User input or command
+     */
+    'message': string;
+    /**
+     * Optional hint for the orchestrator (e.g. \'briefing\', \'market_analysis\')
+     */
+    'intent'?: string;
+    /**
+     * Additional dynamic context (deployment_id, strategy_id, symbol)
+     */
+    'context'?: object;
+    /**
+     * Optional base64 encoded image for multimodal analysis
+     */
+    'image_b64'?: string;
+}
+export interface AIThinkResponse {
+    /**
+     * Final narrative or data from the AI
+     */
+    'response'?: string;
+    'intent_resolved'?: string;
+    'severity'?: AIThinkResponseSeverityEnum;
+    'metadata'?: object;
+    'timestamp'?: string;
+}
+
+export const AIThinkResponseSeverityEnum = {
+    Routine: 'ROUTINE',
+    Volatility: 'VOLATILITY',
+    Crisis: 'CRISIS'
+} as const;
+
+export type AIThinkResponseSeverityEnum = typeof AIThinkResponseSeverityEnum[keyof typeof AIThinkResponseSeverityEnum];
+
 export interface APIResponse {
     'status': ResponseStatus;
     'data'?: object | null;
@@ -877,6 +914,33 @@ export interface ApiV1InternalSignalsPostRequest {
     'reason'?: string;
     'deployment_id'?: string;
 }
+export interface ApiV1KnowledgeIngestBatchPost202Response {
+    'batch_id'?: string;
+    'tasks'?: Array<ApiV1KnowledgeIngestBatchPost202ResponseTasksInner>;
+}
+export interface ApiV1KnowledgeIngestBatchPost202ResponseTasksInner {
+    'task_id'?: string;
+    'filename'?: string;
+}
+export interface ApiV1KnowledgeIngestPost202Response {
+    'task_id'?: string;
+    'status'?: string;
+    'filename'?: string;
+}
+export interface ApiV1KnowledgeIngestUrlPost202Response {
+    'task_id'?: string;
+    'status'?: string;
+    'url'?: string;
+}
+export interface ApiV1KnowledgeIngestUrlPostRequest {
+    'url': string;
+}
+export interface ApiV1KnowledgeStatusTaskIdGet200Response {
+    'task_id'?: string;
+    'status'?: string;
+    'filename'?: string;
+    'detail'?: string;
+}
 export interface ApiV1PluginsIdActivatePost200Response {
     'status'?: string;
 }
@@ -1010,6 +1074,10 @@ export interface BrokerAccount {
     'risk_settings'?: object | null;
     'is_active'?: boolean;
     'is_live'?: boolean;
+    'data_source_id'?: string | null;
+    'leverage'?: number | null;
+    'currency'?: string | null;
+    'balance_snapshot'?: number | null;
 }
 export interface BrokerAccountCreate {
     'fund_id': string;
@@ -1019,7 +1087,10 @@ export interface BrokerAccountCreate {
     'credentials': object;
     'supported_symbols'?: Array<string> | null;
     'risk_settings'?: object | null;
-    'is_live'?: boolean;
+    'data_source_id'?: string | null;
+    'leverage'?: number | null;
+    'currency'?: string | null;
+    'balance_snapshot'?: number | null;
 }
 export interface BrokerAccountResponse {
     'id'?: string;
@@ -1038,6 +1109,10 @@ export interface BrokerAccountUpdate {
     'risk_settings'?: object | null;
     'is_active'?: boolean | null;
     'is_live'?: boolean | null;
+    'data_source_id'?: string | null;
+    'leverage'?: number | null;
+    'currency'?: string | null;
+    'balance_snapshot'?: number | null;
 }
 export interface Candle {
     'time': string;
@@ -1097,10 +1172,11 @@ export interface DataSource {
     'name': string;
     'provider': DataSourceProvider;
     'type': DataSourceType;
+    /**
+     * Internal connection details. Decrypted automatically for authenticated API responses.
+     */
     'config_json': object;
     'is_active'?: boolean;
-    'created_at'?: string;
-    'updated_at'?: string;
 }
 
 
@@ -1116,7 +1192,8 @@ export interface DataSourceCreate {
 
 export const DataSourceProvider = {
     Oanda: 'OANDA',
-    Binance: 'BINANCE'
+    Binance: 'BINANCE',
+    Ctrader: 'CTRADER'
 } as const;
 
 export type DataSourceProvider = typeof DataSourceProvider[keyof typeof DataSourceProvider];
@@ -1256,13 +1333,38 @@ export interface Fund {
     'id'?: string;
     'name'?: string;
     'description'?: string;
+    'strategy_type'?: FundStrategyTypeEnum;
+    'asset_classes'?: Array<string>;
+    'max_risk_per_trade'?: number;
+    /**
+     * Dynamic risk per trade as % of NAV (e.g. 0.01 = 1%)
+     */
+    'risk_percentage'?: number;
+    'default_lot_size'?: number;
+    'max_drawdown_threshold'?: number | null;
+    'max_portfolio_beta'?: number | null;
+    'gross_exposure_limit'?: number | null;
+    'net_exposure_limit'?: number | null;
+    'position_limit_single'?: number | null;
+    'position_limit_sector'?: number | null;
 }
+
+export const FundStrategyTypeEnum = {
+    MtfSmcBasic: 'MTF_SMC_BASIC',
+    LongShortEquity: 'LONG_SHORT_EQUITY',
+    MacroTactical: 'MACRO_TACTICAL',
+    MultiAsset: 'MULTI_ASSET'
+} as const;
+
+export type FundStrategyTypeEnum = typeof FundStrategyTypeEnum[keyof typeof FundStrategyTypeEnum];
+
 export interface FundCreate {
     'name': string;
     'description': string;
     'strategy_type'?: FundCreateStrategyTypeEnum;
     'asset_classes'?: Array<string>;
     'max_risk_per_trade'?: number;
+    'risk_percentage'?: number;
     'default_lot_size'?: number;
     'max_drawdown_threshold'?: number | null;
     'max_portfolio_beta'?: number | null;
@@ -1288,6 +1390,7 @@ export interface FundUpdate {
     'asset_classes'?: Array<string> | null;
     'max_risk_per_trade'?: number | null;
     'default_lot_size'?: number | null;
+    'risk_percentage'?: number | null;
     'max_drawdown_threshold'?: number | null;
     'max_portfolio_beta'?: number | null;
     'gross_exposure_limit'?: number | null;
@@ -1630,23 +1733,40 @@ export type ResponseStatus = typeof ResponseStatus[keyof typeof ResponseStatus];
 
 
 export interface RiskCheckRequest {
-    /**
-     * Maximum risk in USD allowed for this trade
-     */
-    'risk_usd': number;
-    /**
-     * Distance to stop loss in USD (per unit/contract)
-     */
-    'sl_distance_usd': number;
-    /**
-     * Minimum allowed lot size (e.g., 0.01)
-     */
-    'min_lot': number;
+    'symbol': string;
+    'entry_price': number;
+    'stop_loss': number;
+    'take_profit'?: number;
+    'account_balance'?: number;
+    'risk_percentage'?: number;
+    'risk_usd'?: number;
 }
 export interface RiskCheckResponse {
-    'can_execute'?: boolean;
-    'lot'?: number;
-    'reason'?: string;
+    'symbol'?: string;
+    'direction'?: RiskCheckResponseDirectionEnum;
+    'risk_reward_ratio'?: number;
+    'position_size'?: RiskCheckResponsePositionSize;
+    'financials'?: RiskCheckResponseFinancials;
+    'is_safe'?: boolean;
+    'warnings'?: Array<string>;
+}
+
+export const RiskCheckResponseDirectionEnum = {
+    Long: 'LONG',
+    Short: 'SHORT'
+} as const;
+
+export type RiskCheckResponseDirectionEnum = typeof RiskCheckResponseDirectionEnum[keyof typeof RiskCheckResponseDirectionEnum];
+
+export interface RiskCheckResponseFinancials {
+    'risk_usd'?: number;
+    'profit_usd'?: number;
+    'account_balance'?: number;
+}
+export interface RiskCheckResponsePositionSize {
+    'units'?: number;
+    'lots'?: number;
+    'standard_lot_size'?: number;
 }
 export interface RsiRequest {
     'close': Array<number>;
@@ -2372,6 +2492,42 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+         * @summary Unified AI Orchestrator
+         * @param {AIThinkRequest} aIThinkRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiThinkPost: async (aIThinkRequest: AIThinkRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'aIThinkRequest' is not null or undefined
+            assertParamExists('apiV1AiThinkPost', 'aIThinkRequest', aIThinkRequest)
+            const localVarPath = `/api/v1/ai/think`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(aIThinkRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -2461,6 +2617,19 @@ export const AIApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiSmcNarrativePost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+         * @summary Unified AI Orchestrator
+         * @param {AIThinkRequest} aIThinkRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiThinkPost(aIThinkRequest: AIThinkRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AIThinkResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiThinkPost(aIThinkRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiThinkPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -2529,6 +2698,16 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
         apiV1AiSmcNarrativePost(requestParameters: AIApiApiV1AiSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
             return localVarFp.apiV1AiSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(axios, basePath));
         },
+        /**
+         * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+         * @summary Unified AI Orchestrator
+         * @param {AIApiApiV1AiThinkPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiThinkPost(requestParameters: AIApiApiV1AiThinkPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AIThinkResponse> {
+            return localVarFp.apiV1AiThinkPost(requestParameters.aIThinkRequest, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -2574,6 +2753,13 @@ export interface AIApiApiV1AiMarketAnalysisPostRequest {
  */
 export interface AIApiApiV1AiSmcNarrativePostRequest {
     readonly sMCNarrativeRequest?: SMCNarrativeRequest
+}
+
+/**
+ * Request parameters for apiV1AiThinkPost operation in AIApi.
+ */
+export interface AIApiApiV1AiThinkPostRequest {
+    readonly aIThinkRequest: AIThinkRequest
 }
 
 /**
@@ -2643,6 +2829,17 @@ export class AIApi extends BaseAPI {
      */
     public apiV1AiSmcNarrativePost(requestParameters: AIApiApiV1AiSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig) {
         return AIApiFp(this.configuration).apiV1AiSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
+     * @summary Unified AI Orchestrator
+     * @param {AIApiApiV1AiThinkPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiThinkPost(requestParameters: AIApiApiV1AiThinkPostRequest, options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiThinkPost(requestParameters.aIThinkRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -4378,41 +4575,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary List chat sessions
-         * @param {string} [strategyId] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiChatSessionsGet: async (strategyId?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/ai/chat/sessions`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            if (strategyId !== undefined) {
-                localVarQueryParameter['strategy_id'] = strategyId;
-            }
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
          * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {StrategyChatRequest} [strategyChatRequest] 
@@ -4440,40 +4602,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(strategyChatRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Create a new chat session
-         * @param {ChatSessionCreate} [chatSessionCreate] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiChatSessionsPost: async (chatSessionCreate?: ChatSessionCreate, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/ai/chat/sessions`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(chatSessionCreate, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -7666,19 +7794,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary List chat sessions
-         * @param {string} [strategyId] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1AiChatSessionsGet(strategyId?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseChatSessionList>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiChatSessionsGet(strategyId, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiChatSessionsGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
          * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {StrategyChatRequest} [strategyChatRequest] 
@@ -7689,19 +7804,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiChatSessionsMessagePost(strategyChatRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiChatSessionsMessagePost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @summary Create a new chat session
-         * @param {ChatSessionCreate} [chatSessionCreate] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1AiChatSessionsPost(chatSessionCreate?: ChatSessionCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseChatSession>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiChatSessionsPost(chatSessionCreate, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1AiChatSessionsPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -8893,16 +8995,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.apiV1AiBriefingPost(options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary List chat sessions
-         * @param {DefaultApiApiV1AiChatSessionsGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiChatSessionsGet(requestParameters: DefaultApiApiV1AiChatSessionsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseChatSessionList> {
-            return localVarFp.apiV1AiChatSessionsGet(requestParameters.strategyId, options).then((request) => request(axios, basePath));
-        },
-        /**
          * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
          * @summary Chat with Strategy Advisor
          * @param {DefaultApiApiV1AiChatSessionsMessagePostRequest} requestParameters Request parameters.
@@ -8911,16 +9003,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiV1AiChatSessionsMessagePost(requestParameters: DefaultApiApiV1AiChatSessionsMessagePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1AiChatSessionsMessagePost200Response> {
             return localVarFp.apiV1AiChatSessionsMessagePost(requestParameters.strategyChatRequest, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Create a new chat session
-         * @param {DefaultApiApiV1AiChatSessionsPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiChatSessionsPost(requestParameters: DefaultApiApiV1AiChatSessionsPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseChatSession> {
-            return localVarFp.apiV1AiChatSessionsPost(requestParameters.chatSessionCreate, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -9772,24 +9854,10 @@ export interface DefaultApiApiV1AiAgentsIdGetRequest {
 }
 
 /**
- * Request parameters for apiV1AiChatSessionsGet operation in DefaultApi.
- */
-export interface DefaultApiApiV1AiChatSessionsGetRequest {
-    readonly strategyId?: string
-}
-
-/**
  * Request parameters for apiV1AiChatSessionsMessagePost operation in DefaultApi.
  */
 export interface DefaultApiApiV1AiChatSessionsMessagePostRequest {
     readonly strategyChatRequest?: StrategyChatRequest
-}
-
-/**
- * Request parameters for apiV1AiChatSessionsPost operation in DefaultApi.
- */
-export interface DefaultApiApiV1AiChatSessionsPostRequest {
-    readonly chatSessionCreate?: ChatSessionCreate
 }
 
 /**
@@ -10504,17 +10572,6 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
-     * 
-     * @summary List chat sessions
-     * @param {DefaultApiApiV1AiChatSessionsGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1AiChatSessionsGet(requestParameters: DefaultApiApiV1AiChatSessionsGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1AiChatSessionsGet(requestParameters.strategyId, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
      * Direct chat endpoint for Strategy Advisor agent. Highly latent multi-agent response (up to 300s timeout).
      * @summary Chat with Strategy Advisor
      * @param {DefaultApiApiV1AiChatSessionsMessagePostRequest} requestParameters Request parameters.
@@ -10523,17 +10580,6 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1AiChatSessionsMessagePost(requestParameters: DefaultApiApiV1AiChatSessionsMessagePostRequest = {}, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1AiChatSessionsMessagePost(requestParameters.strategyChatRequest, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Create a new chat session
-     * @param {DefaultApiApiV1AiChatSessionsPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1AiChatSessionsPost(requestParameters: DefaultApiApiV1AiChatSessionsPostRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1AiChatSessionsPost(requestParameters.chatSessionCreate, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -12922,10 +12968,448 @@ export class FoundryApi extends BaseAPI {
 
 
 /**
+ * KnowledgeApi - axios parameter creator
+ */
+export const KnowledgeApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Upload multiple files for knowledge ingestion
+         * @param {Array<File>} [files] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestBatchPost: async (files?: Array<File>, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/knowledge/ingest/batch`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+
+            if (files) {
+                files.forEach((element) => {
+                    localVarFormParams.append('files', element as any);
+                })
+            }
+
+    
+    
+            localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Upload a file for knowledge ingestion
+         * @param {File} [file] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestPost: async (file?: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/knowledge/ingest`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+
+
+            if (file !== undefined) { 
+                localVarFormParams.append('file', file as any);
+            }
+    
+    
+            localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Provide a URL for knowledge ingestion
+         * @param {ApiV1KnowledgeIngestUrlPostRequest} apiV1KnowledgeIngestUrlPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestUrlPost: async (apiV1KnowledgeIngestUrlPostRequest: ApiV1KnowledgeIngestUrlPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1KnowledgeIngestUrlPostRequest' is not null or undefined
+            assertParamExists('apiV1KnowledgeIngestUrlPost', 'apiV1KnowledgeIngestUrlPostRequest', apiV1KnowledgeIngestUrlPostRequest)
+            const localVarPath = `/api/v1/knowledge/ingest/url`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1KnowledgeIngestUrlPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get the status of a specific ingestion task
+         * @param {string} taskId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeStatusTaskIdGet: async (taskId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'taskId' is not null or undefined
+            assertParamExists('apiV1KnowledgeStatusTaskIdGet', 'taskId', taskId)
+            const localVarPath = `/api/v1/knowledge/status/{task_id}`
+                .replace(`{${"task_id"}}`, encodeURIComponent(String(taskId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List all recent ingestion tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeTasksGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/knowledge/tasks`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * KnowledgeApi - functional programming interface
+ */
+export const KnowledgeApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = KnowledgeApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Upload multiple files for knowledge ingestion
+         * @param {Array<File>} [files] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeIngestBatchPost(files?: Array<File>, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1KnowledgeIngestBatchPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeIngestBatchPost(files, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeIngestBatchPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Upload a file for knowledge ingestion
+         * @param {File} [file] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeIngestPost(file?: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1KnowledgeIngestPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeIngestPost(file, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeIngestPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Provide a URL for knowledge ingestion
+         * @param {ApiV1KnowledgeIngestUrlPostRequest} apiV1KnowledgeIngestUrlPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeIngestUrlPost(apiV1KnowledgeIngestUrlPostRequest: ApiV1KnowledgeIngestUrlPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1KnowledgeIngestUrlPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeIngestUrlPost(apiV1KnowledgeIngestUrlPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeIngestUrlPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get the status of a specific ingestion task
+         * @param {string} taskId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeStatusTaskIdGet(taskId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1KnowledgeStatusTaskIdGet200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeStatusTaskIdGet(taskId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeStatusTaskIdGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List all recent ingestion tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeTasksGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: object; }>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeTasksGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeTasksGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * KnowledgeApi - factory interface
+ */
+export const KnowledgeApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = KnowledgeApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Upload multiple files for knowledge ingestion
+         * @param {KnowledgeApiApiV1KnowledgeIngestBatchPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestBatchPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestBatchPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeIngestBatchPost202Response> {
+            return localVarFp.apiV1KnowledgeIngestBatchPost(requestParameters.files, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Upload a file for knowledge ingestion
+         * @param {KnowledgeApiApiV1KnowledgeIngestPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeIngestPost202Response> {
+            return localVarFp.apiV1KnowledgeIngestPost(requestParameters.file, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Provide a URL for knowledge ingestion
+         * @param {KnowledgeApiApiV1KnowledgeIngestUrlPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestUrlPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestUrlPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeIngestUrlPost202Response> {
+            return localVarFp.apiV1KnowledgeIngestUrlPost(requestParameters.apiV1KnowledgeIngestUrlPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get the status of a specific ingestion task
+         * @param {KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeStatusTaskIdGet(requestParameters: KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeStatusTaskIdGet200Response> {
+            return localVarFp.apiV1KnowledgeStatusTaskIdGet(requestParameters.taskId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List all recent ingestion tasks
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeTasksGet(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: object; }> {
+            return localVarFp.apiV1KnowledgeTasksGet(options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1KnowledgeIngestBatchPost operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1KnowledgeIngestBatchPostRequest {
+    readonly files?: Array<File>
+}
+
+/**
+ * Request parameters for apiV1KnowledgeIngestPost operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1KnowledgeIngestPostRequest {
+    readonly file?: File
+}
+
+/**
+ * Request parameters for apiV1KnowledgeIngestUrlPost operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1KnowledgeIngestUrlPostRequest {
+    readonly apiV1KnowledgeIngestUrlPostRequest: ApiV1KnowledgeIngestUrlPostRequest
+}
+
+/**
+ * Request parameters for apiV1KnowledgeStatusTaskIdGet operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest {
+    readonly taskId: string
+}
+
+/**
+ * KnowledgeApi - object-oriented interface
+ */
+export class KnowledgeApi extends BaseAPI {
+    /**
+     * 
+     * @summary Upload multiple files for knowledge ingestion
+     * @param {KnowledgeApiApiV1KnowledgeIngestBatchPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeIngestBatchPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestBatchPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeIngestBatchPost(requestParameters.files, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Upload a file for knowledge ingestion
+     * @param {KnowledgeApiApiV1KnowledgeIngestPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeIngestPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeIngestPost(requestParameters.file, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Provide a URL for knowledge ingestion
+     * @param {KnowledgeApiApiV1KnowledgeIngestUrlPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeIngestUrlPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestUrlPostRequest, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeIngestUrlPost(requestParameters.apiV1KnowledgeIngestUrlPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get the status of a specific ingestion task
+     * @param {KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeStatusTaskIdGet(requestParameters: KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeStatusTaskIdGet(requestParameters.taskId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List all recent ingestion tasks
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeTasksGet(options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeTasksGet(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * OrchestrationApi - axios parameter creator
  */
 export const OrchestrationApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * 
+         * @summary Get semantic cache statistics
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationCacheStatusGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/orchestration/cache/status`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @summary Fetch latest agent orchestration logs
@@ -12963,7 +13447,7 @@ export const OrchestrationApiAxiosParamCreator = function (configuration?: Confi
         },
         /**
          * 
-         * @summary Get autonomous pipeline status
+         * @summary Get status of autonomous pipelines
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -13002,6 +13486,18 @@ export const OrchestrationApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @summary Get semantic cache statistics
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1OrchestrationCacheStatusGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1OrchestrationCacheStatusGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrchestrationApi.apiV1OrchestrationCacheStatusGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Fetch latest agent orchestration logs
          * @param {number} [limit] 
          * @param {*} [options] Override http request option.
@@ -13015,7 +13511,7 @@ export const OrchestrationApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Get autonomous pipeline status
+         * @summary Get status of autonomous pipelines
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -13036,6 +13532,15 @@ export const OrchestrationApiFactory = function (configuration?: Configuration, 
     return {
         /**
          * 
+         * @summary Get semantic cache statistics
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1OrchestrationCacheStatusGet(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1OrchestrationCacheStatusGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Fetch latest agent orchestration logs
          * @param {OrchestrationApiApiV1OrchestrationLogsGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -13046,7 +13551,7 @@ export const OrchestrationApiFactory = function (configuration?: Configuration, 
         },
         /**
          * 
-         * @summary Get autonomous pipeline status
+         * @summary Get status of autonomous pipelines
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -13069,6 +13574,16 @@ export interface OrchestrationApiApiV1OrchestrationLogsGetRequest {
 export class OrchestrationApi extends BaseAPI {
     /**
      * 
+     * @summary Get semantic cache statistics
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1OrchestrationCacheStatusGet(options?: RawAxiosRequestConfig) {
+        return OrchestrationApiFp(this.configuration).apiV1OrchestrationCacheStatusGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
      * @summary Fetch latest agent orchestration logs
      * @param {OrchestrationApiApiV1OrchestrationLogsGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -13080,7 +13595,7 @@ export class OrchestrationApi extends BaseAPI {
 
     /**
      * 
-     * @summary Get autonomous pipeline status
+     * @summary Get status of autonomous pipelines
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */

@@ -9,10 +9,8 @@ Name | Type | Description | Notes
 **name** | **string** |  | [default to undefined]
 **provider** | [**DataSourceProvider**](DataSourceProvider.md) |  | [default to undefined]
 **type** | [**DataSourceType**](DataSourceType.md) |  | [default to undefined]
-**config_json** | **object** |  | [default to undefined]
+**config_json** | **object** | Internal connection details. Decrypted automatically for authenticated API responses. | [default to undefined]
 **is_active** | **boolean** |  | [optional] [default to undefined]
-**created_at** | **string** |  | [optional] [default to undefined]
-**updated_at** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -26,8 +24,6 @@ const instance: DataSource = {
     type,
     config_json,
     is_active,
-    created_at,
-    updated_at,
 };
 ```
 

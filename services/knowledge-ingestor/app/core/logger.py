@@ -1,52 +1,45 @@
-import sys
 import logging
-import structlog
+import sys
+from pythonjsonlogger import jsonlogger
 from app.utils.tracing import get_request_id
 
-def add_request_id(logger, method_name, event_dict):
-    """Processor to inject request_id from contextvars."""
-    event_dict["request_id"] = get_request_id()
-    return event_dict
+def setup_logging(level=logging.INFO):
+    """
+    Configures standardized JSON logging for Knowledge Ingestor.
+    """
+    logger = logging.getLogger()
+    logger.setLevel(level)
 
-def setup_logging():
-    """Configure professional structured logging for Project Olympus (Production Optimized)."""
+    # Console Handler
+    handler = logging.StreamHandler(sys.stdout)
     
-    # Standard library bridge logic
-    processors = [
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.contextvars.merge_contextvars,
-        add_request_id,  # Inject request_id
-        structlog.processors.StackInfoRenderer(),
-        structlog.dev.set_exc_info,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.format_exc_info,
-    ]
+    # Custom filter to inject request_id
+    class TracingFilter(logging.Filter):
+        def filter(self, record):
+            record.request_id = get_request_id()
+            return True
+            
+    if not any(isinstance(f, TracingFilter) for f in logger.filters):
+        logger.addFilter(TracingFilter())
 
-    # Use JSON in production (non-TTY) or if forced via env
-    if not sys.stderr.isatty():
-        processors.append(structlog.processors.JSONRenderer())
-    else:
-        processors.append(structlog.dev.ConsoleRenderer())
-
-    structlog.configure(
-        processors=processors,
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+    # Custom format with common fields and request_id
+    formatter = jsonlogger.JsonFormatter(
+        '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s',
+        rename_fields={"asctime": "timestamp", "levelname": "severity"},
+        datefmt='%Y-%m-%dT%H:%M:%SZ'
     )
-
-    # Bridge standard logging to structlog
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stderr,
-        level=logging.INFO,
-    )
+    
+    handler.setFormatter(formatter)
+    
+    # Avoid duplicate handlers
+    if not logger.handlers:
+        logger.addHandler(handler)
+        
+    return logger
 
 def get_logger(name: str):
-    """Get a structured logger instance."""
-    return structlog.get_logger(name)
+    """Get a logger instance."""
+    return logging.getLogger(name)
 
 # Initialize on import
 setup_logging()

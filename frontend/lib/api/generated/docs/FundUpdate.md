@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **asset_classes** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
 **max_risk_per_trade** | **number** |  | [optional] [default to undefined]
 **default_lot_size** | **number** |  | [optional] [default to undefined]
+**risk_percentage** | **number** |  | [optional] [default to undefined]
 **max_drawdown_threshold** | **number** |  | [optional] [default to undefined]
 **max_portfolio_beta** | **number** |  | [optional] [default to undefined]
 **gross_exposure_limit** | **number** |  | [optional] [default to undefined]
@@ -30,6 +31,7 @@ const instance: FundUpdate = {
     asset_classes,
     max_risk_per_trade,
     default_lot_size,
+    risk_percentage,
     max_drawdown_threshold,
     max_portfolio_beta,
     gross_exposure_limit,

@@ -71,7 +71,7 @@ async def run_ingestion_background(task_id: str, file_path: Path):
         tasks[task_id]["status"] = "failed"
         tasks[task_id]["error"] = str(e)
         tasks[task_id]["finished_at"] = datetime.now().isoformat()
-        logger.error("background_task_failed", task_id=task_id, error=str(e))
+        logger.error("background_task_failed", extra={"task_id": task_id, "error": str(e)})
     finally:
         request_id_ctx.reset(token)
 
@@ -158,7 +158,7 @@ async def ingest_url(background_tasks: BackgroundTasks, request: UrlRequest):
         except Exception as e:
             tasks[task_id]["status"] = "failed"
             tasks[task_id]["error"] = str(e)
-            logger.error(f"URL Ingestion failed: {e}", task_id=task_id)
+            logger.error(f"URL Ingestion failed: {e}", extra={"task_id": task_id})
         finally:
             request_id_ctx.reset(token)
 
