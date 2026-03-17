@@ -22,6 +22,12 @@ from fastapi import Request
 import os
 import logging
 
+from app.schemas.generated import (
+    BrokerAccount as GeneratedBrokerAccount,
+    BrokerAccountCreate as GeneratedBrokerAccountCreate,
+    BrokerAccountUpdate as GeneratedBrokerAccountUpdate
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -227,37 +233,9 @@ async def verify_ctrader_credentials(credentials: Dict[str, Any], is_live: bool 
 
 # --- Schemas ---
 
-class BrokerAccountCreate(BaseModel):
-    fund_id: Optional[uuid.UUID] = None
-    broker_name: str = Field(..., description="OANDA, BINANCE, etc.")
-    account_name: str = Field(..., description="User friendly alias")
-    account_number: Optional[str] = None
-    credentials: Dict[str, Any] = Field(..., description="API keys and secrets")
-    supported_symbols: Optional[List[str]] = None
-    risk_settings: Optional[Dict[str, Any]] = None
-    is_live: bool = False
-
-class BrokerAccountUpdate(BaseModel):
-    account_name: Optional[str] = None
-    account_number: Optional[str] = None
+class BrokerAccountResponse(GeneratedBrokerAccount):
     credentials: Optional[Dict[str, Any]] = None
-    supported_symbols: Optional[List[str]] = None
-    risk_settings: Optional[Dict[str, Any]] = None
-    is_active: Optional[bool] = None
-    is_live: Optional[bool] = None
-
-class BrokerAccountResponse(BaseModel):
-    id: uuid.UUID
-    fund_id: uuid.UUID
-    broker_name: str
-    account_name: str
-    account_number: Optional[str] = None
-    credentials: Optional[Dict[str, Any]] = None
-    supported_symbols: Optional[List[str]] = None
-    risk_settings: Optional[Dict[str, Any]] = None
-    is_active: Optional[bool] = True
-    is_live: Optional[bool] = False
-    created_at: Any
+    created_at: Optional[Any] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -266,7 +244,7 @@ class BrokerAccountResponse(BaseModel):
 @router.post("/", response_model=APIResponse[BrokerAccountResponse], status_code=status.HTTP_201_CREATED)
 async def create_account(
     request: Request,
-    account: BrokerAccountCreate,
+    account: GeneratedBrokerAccountCreate,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -362,7 +340,12 @@ async def create_account(
         supported_symbols=account.supported_symbols,
         risk_settings=account.risk_settings,
         is_live=account.is_live,
-        is_active=True
+        is_active=True,
+        # [NEW] Phase 28 Fields
+        data_source_id=account.data_source_id,
+        leverage=account.leverage,
+        currency=account.currency,
+        balance_snapshot=account.balance_snapshot
     )
     
     db.add(new_account)
@@ -421,7 +404,7 @@ async def list_accounts(
 @router.put("/{account_id}", response_model=APIResponse[BrokerAccountResponse])
 async def update_account(
     account_id: uuid.UUID,
-    updates: BrokerAccountUpdate,
+    updates: GeneratedBrokerAccountUpdate,
     fund_id: uuid.UUID = Depends(get_fund_id_from_account),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
@@ -447,6 +430,16 @@ async def update_account(
         account.supported_symbols = updates.supported_symbols
     if updates.risk_settings is not None:
         account.risk_settings = updates.risk_settings
+    
+    # [NEW] Phase 28 Fields
+    if updates.data_source_id is not None:
+        account.data_source_id = updates.data_source_id
+    if updates.leverage is not None:
+        account.leverage = updates.leverage
+    if updates.currency is not None:
+        account.currency = updates.currency
+    if updates.balance_snapshot is not None:
+        account.balance_snapshot = updates.balance_snapshot
         
     db.commit()
     db.refresh(account)

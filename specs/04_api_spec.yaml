@@ -4323,6 +4323,39 @@ components:
           type: string
         description:
           type: string
+        strategy_type:
+          type: string
+          enum: [MTF_SMC_BASIC, LONG_SHORT_EQUITY, MACRO_TACTICAL, MULTI_ASSET]
+        asset_classes:
+          type: array
+          items:
+            type: string
+        max_risk_per_trade:
+          type: number
+        risk_percentage:
+          type: number
+          format: float
+          description: "Dynamic risk per trade as % of NAV (e.g. 0.01 = 1%)"
+        default_lot_size:
+          type: number
+        max_drawdown_threshold:
+          type: number
+          nullable: true
+        max_portfolio_beta:
+          type: number
+          nullable: true
+        gross_exposure_limit:
+          type: number
+          nullable: true
+        net_exposure_limit:
+          type: number
+          nullable: true
+        position_limit_single:
+          type: number
+          nullable: true
+        position_limit_sector:
+          type: number
+          nullable: true
     FundCreate:
       type: object
       required:
@@ -4342,6 +4375,9 @@ components:
             type: string
         max_risk_per_trade:
           type: number
+        risk_percentage:
+          type: number
+          format: float
         default_lot_size:
           type: number
         max_drawdown_threshold:
@@ -4384,6 +4420,10 @@ components:
           nullable: true
         default_lot_size:
           type: number
+          nullable: true
+        risk_percentage:
+          type: number
+          format: float
           nullable: true
         max_drawdown_threshold:
           type: number
@@ -5149,6 +5189,19 @@ components:
           type: boolean
         is_live:
           type: boolean
+        data_source_id:
+          type: string
+          format: uuid
+          nullable: true
+        leverage:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        balance_snapshot:
+          type: number
+          nullable: true
     
     BrokerAccountCreate:
       type: object
@@ -5178,9 +5231,20 @@ components:
         risk_settings:
           type: object
           nullable: true
-        is_live:
-          type: boolean
           default: false
+        data_source_id:
+          type: string
+          format: uuid
+          nullable: true
+        leverage:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        balance_snapshot:
+          type: number
+          nullable: true
 
     BrokerAccountUpdate:
       type: object
@@ -5207,6 +5271,19 @@ components:
           nullable: true
         is_live:
           type: boolean
+          nullable: true
+        data_source_id:
+          type: string
+          format: uuid
+          nullable: true
+        leverage:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        balance_snapshot:
+          type: number
           nullable: true
 
     APIResponse_BrokerAccount:

@@ -11,6 +11,11 @@ from app.utils.response import success_response
 from typing import List, Optional, Any
 import uuid # Standard lib uuid
 from app.models.user_preferences import StrategyType # Import shared StrEnum
+from app.schemas.generated import (
+    Fund as GeneratedFund,
+    FundCreate as GeneratedFundCreate,
+    FundUpdate as GeneratedFundUpdate
+)
 
 router = APIRouter(
     prefix="/api/v1/funds",
@@ -18,24 +23,9 @@ router = APIRouter(
 )
 
 
-class FundResponse(BaseModel):
-    id: uuid.UUID
-    name: str
-    description: str | None
-    role: str | None  # User's role in this fund
+class FundResponse(GeneratedFund):
+    role: str | None = None  # User's role in this fund
     owner_name: str | None = None
-    
-    # Risk Settings
-    strategy_type: StrategyType | str
-    asset_classes: List[str]
-    max_risk_per_trade: float
-    default_lot_size: float
-    max_drawdown_threshold: float | None = None
-    max_portfolio_beta: float | None = None
-    gross_exposure_limit: float | None = None
-    net_exposure_limit: float | None = None
-    position_limit_single: float | None = None
-    position_limit_sector: float | None = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -150,38 +140,12 @@ async def get_fund(
     )
 
 
-class FundCreate(BaseModel):
-    name: str
-    description: str | None = None
-    strategy_type: StrategyType | None = None
-    asset_classes: List[str] | None = None
-    max_risk_per_trade: float | None = None
-    default_lot_size: float | None = None
-    max_drawdown_threshold: float | None = None
-    max_portfolio_beta: float | None = None
-    gross_exposure_limit: float | None = None
-    net_exposure_limit: float | None = None
-    position_limit_single: float | None = None
-    position_limit_sector: float | None = None
-
-class FundUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    strategy_type: StrategyType | None = None
-    asset_classes: List[str] | None = None
-    max_risk_per_trade: float | None = None
-    default_lot_size: float | None = None
-    max_drawdown_threshold: float | None = None
-    max_portfolio_beta: float | None = None
-    gross_exposure_limit: float | None = None
-    net_exposure_limit: float | None = None
-    position_limit_single: float | None = None
-    position_limit_sector: float | None = None
+# Local Fund schemas replaced by generated ones
 
 
 @router.post("", response_model=APIResponse[FundResponse], status_code=status.HTTP_201_CREATED)
 async def create_fund(
-    fund_data: FundCreate,
+    fund_data: GeneratedFundCreate,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -196,6 +160,7 @@ async def create_fund(
     if fund_data.strategy_type: new_fund.strategy_type = fund_data.strategy_type
     if fund_data.asset_classes: new_fund.asset_classes = fund_data.asset_classes
     if fund_data.max_risk_per_trade is not None: new_fund.max_risk_per_trade = fund_data.max_risk_per_trade
+    if fund_data.risk_percentage is not None: new_fund.risk_percentage = fund_data.risk_percentage
     if fund_data.default_lot_size is not None: new_fund.default_lot_size = fund_data.default_lot_size
     if fund_data.max_drawdown_threshold is not None: new_fund.max_drawdown_threshold = fund_data.max_drawdown_threshold
     if fund_data.max_portfolio_beta is not None: new_fund.max_portfolio_beta = fund_data.max_portfolio_beta
@@ -243,7 +208,7 @@ async def create_fund(
 @router.put("/{fund_id}", response_model=APIResponse[FundResponse])
 async def update_fund(
     fund_id: uuid.UUID,
-    fund_update: FundUpdate,
+    fund_update: GeneratedFundUpdate,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
     user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER]))
@@ -285,6 +250,8 @@ async def update_fund(
         fund.position_limit_single = fund_update.position_limit_single
     if fund_update.position_limit_sector is not None:
         fund.position_limit_sector = fund_update.position_limit_sector
+    if fund_update.risk_percentage is not None:
+        fund.risk_percentage = fund_update.risk_percentage
         
     db.commit()
     db.refresh(fund)

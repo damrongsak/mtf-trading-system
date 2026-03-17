@@ -52,6 +52,12 @@ class BrokerAccount(Base):
     supported_symbols = Column(JSONB, nullable=True)
     risk_settings = Column(JSONB, nullable=True)
     
+    # [NEW] Phase 28 Fields
+    leverage = Column(Integer, default=30, nullable=True)
+    currency = Column(String(10), default="USD", nullable=True)
+    balance_snapshot = Column(Numeric(18, 2), nullable=True)
+    data_source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=True)
+    
 class Fund(Base):
     __tablename__ = "funds"
     

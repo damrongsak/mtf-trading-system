@@ -148,7 +148,9 @@ async def _warmup_execution_cache():
                     "risk_settings": account.risk_settings,
                     "account_number": account.account_number,
                     "leverage": getattr(account, 'leverage', 30),
-                    "currency": getattr(account, 'currency', 'USD')
+                    "currency": getattr(account, 'currency', 'USD'),
+                    "balance_snapshot": float(account.balance_snapshot) if account.balance_snapshot else 0.0,
+                    "data_source_id": str(account.data_source_id) if account.data_source_id else None
                 })
                 
                 # Cache Credentials (L1 only)
