@@ -146,7 +146,9 @@ async def _warmup_execution_cache():
                     "environment": account.environment,
                     "fund_id": str(account.fund_id) if account.fund_id else None,
                     "risk_settings": account.risk_settings,
-                    "account_number": account.account_number
+                    "account_number": account.account_number,
+                    "leverage": getattr(account, 'leverage', 30),
+                    "currency": getattr(account, 'currency', 'USD')
                 })
                 
                 # Cache Credentials (L1 only)
@@ -317,7 +319,9 @@ async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
                 "environment": account.environment,
                 "fund_id": str(account.fund_id) if account.fund_id else None,
                 "risk_settings": account.risk_settings,
-                "account_number": account.account_number
+                "account_number": account.account_number,
+                "leverage": getattr(account, 'leverage', 30),
+                "currency": getattr(account, 'currency', 'USD')
             }
             await execution_cache.set_account(account_id_str, account_data)
             account = type('obj', (object,), account_data)

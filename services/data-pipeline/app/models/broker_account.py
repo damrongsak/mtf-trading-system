@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, text, Integer, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -10,6 +10,7 @@ class BrokerAccount(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
+    data_source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=True)
     
     broker_name = Column(String(50), nullable=False) # e.g., "OANDA", "BINANCE"
     account_name = Column(String(100), nullable=False) # User-defined alias
@@ -23,6 +24,11 @@ class BrokerAccount(Base):
     # Configuration
     supported_symbols = Column(JSONB, nullable=True)
     risk_settings = Column(JSONB, nullable=True) # Account overrides
+    
+    # [NEW] Phase 28 Account Metadata
+    leverage = Column(Integer, default=30, nullable=True)
+    currency = Column(String(10), default="USD", nullable=True)
+    balance_snapshot = Column(Numeric(18, 2), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

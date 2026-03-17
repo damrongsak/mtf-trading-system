@@ -244,6 +244,7 @@ class OrderService:
                 sl_price=stop_loss,
                 tp_price=take_profit,
                 entry_price=entry_ref,
+                units=units,
                 broker_account_id=account_id,
                 trace_id=trace_id
             )
@@ -363,6 +364,7 @@ class OrderService:
         sl_price: float,
         tp_price: float,
         entry_price: float = 0.0,
+        units: float = 0.0,
         broker_account_id: str = None,
         trace_id: str = None
     ):
@@ -427,6 +429,13 @@ class OrderService:
         
         # Task for Phase 3 Limits (Now DB-free)
         tasks.append(RiskLimitsAgent.check_limits(db, fund, broker_account_id))
+        
+        # [NEW] Phase 28: Account-Specific Margin Check
+        # Resolve full account for leverage
+        account_data = await execution_cache.get_account(broker_account_id)
+        if account_data:
+            account_obj = type('obj', (object,), account_data)
+            tasks.append(RiskLimitsAgent.check_margin(account_obj, symbol, units=units, current_price=entry_price))
 
         if tasks:
             await asyncio.gather(*tasks)

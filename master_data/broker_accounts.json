@@ -1,11 +1,32 @@
 [
   {
+    "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "broker_name": "icmarketssc",
+    "account_name": "ICMarkets Live 6023410",
+    "account_number": "6023410",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYVk0zWnN1blJzbm53UUFMWUdCLXRKNTl2TlNhWGFnRGRqOVdHaDE5NHV1QS1NTXV2YnE1ZEF1TmVtVW4xUDJZaEtOdmZpc1dpNUNQTEhKd3ZEMmQ5cG5MYWpIRS10cGxrTEFNR19keFBVdDNudmdxRWhGYU9jaVpjeXFPdFY0SnJVbWVKTUVBUHBQY2xNb1IwZktYcnI2c0tjYkJjZV92dDMtVV9tTzg0RE1pZDRQUXhFUXR2dXh1eFVDQnJEOF9tNjZMM3N5d3RrMGxzY3RSYmZfUVZETG5vcjNXSXMtX1JmV1Ntc0RnV3dqZFJSQjlVT3hhSThGNFBPdEc1MnFIb1dUaXVIMVFFUEx3LVJZRDFIZU4wcEh0Y0VJUFdTWWtHTFpLWUhWcnRhTWhQVjV3YXhRLTVnZmpPS0l3eUlEYXdQSzlScFJ5bHJGankzSHRrVXMtb2R4YmRlQWFMR0VvOU4wRFlVQ1FSa3pYZzEwRXBSaGlzXzhseTA3OER6NGwzaDdxRTBjclRXRzhIbmdRTTZ4NkdvbjFTMmxFRW5pNjRGSlR4VGowenBPdWo5SE04ZlNJRXlYTXNDOXRDMUM4c1ZJTVlVTHhIVzVPX19QU2lFTDdjOXVvdTlhWFMydjI5bXpOa2xiRXJScElqVm44cnZ0S09UMlZxUXNDWXFjSWk2cDRVNDE0QmczWDFWVS1TRURuWEdyZ3JxVUlNYzA1bVlmSDNzQUN0NzJBPQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "live",
+    "supported_symbols": [
+      "XAUUSD",
+      "EURUSD"
+    ],
+    "risk_settings": null,
+    "leverage": 1000,
+    "currency": "USD",
+    "balance_snapshot": "104285.00",
+    "created_at": "2026-03-07T07:31:48.641343+00:00",
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
+  },
+  {
     "id": "066e21a0-0933-4f70-8e35-605f4759f927",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "broker_name": "ICMARKETSSC",
-    "account_name": "ICMarkets Demo System Test",
+    "broker_name": "icmarketssc",
+    "account_name": "ICMarkets Demo 9919680",
     "account_number": "9919680",
-    "credentials_encrypted": "Z0FBQUFBQnB0Mm02NlV0X3NPTG1QVVJUTVI5akZSUUdoTnJuOEUya1cydFdSbm5QNE84UklTTjhVeUp6UVhIcGZnLUZic3pFSERBVkdhdUN6YXlJbFVoUTJSdW1ONmx2UU5wV015OExTV3pINjNHWWlYQ0dSamc3bXozbDRSSVk1aTFxdGY5ZkYxZWloc3VnQ2xQSzVNeU81STJBRUphZXhpQnRGcmJrR29wYTFJcGtfcUh5V1VENWRzc05BOFJlMHRJY3Nkbk1xT05VSk45N2pybk5RN1prUVRuNWctd3NOdFZUX25MOWlKWmZ4ZGxSakx5SUtQSmsxazluMUxUZ25nUUs5bzVrQXliamhqTUtxYXYzQXRtOGNEZ25oLUFYU0VkM2E3ckU0VTJfc2Y4SG9Ra01OUTFvMmk1eElnMkdKbVRvV0lGd0FUYkljUHVkcE5raU1WVFQwcUhNZGhIU2RJVHV4dUpXQU0zM2pKT1djdXV6Nkx4RktMLWJKbUx4d0xTZ3A1QV9sdWtjQUs3Z1htR1JTdUd1YTFxR0p5VElaYjNDZ1k4dmZHZFVvNVlubGRtTUxyNlNSV2duaXA3NWtCdFNIalQyWmlXeWFXVEtQOE8wOWs2WjgwbzN6SGlLYnk5cWxpTUUyUmpqT0EzRXYxbnByYm4xTUk1cmRUNnBORkNrck15SnQwTFcyblRoNmExZjBHSU5WT21GSFYxSW04ZjhyeUhKamlhVHNGcFlTT0pVSU9FPQ==",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYTjdtdm1RdmRIQW1GSEtpeTh2NzhLc3J0Z2JOc0lFTDROc2poQ003dXZjd2hhcTdab0FQU0JqalhGV19nWUxreTlhLXJsSE5rZHlZSkd0TDRYbnBiQ0ZQeVRCbHpCY3RpVkl3RkZhME1LcFg2dlVZX1daZElRWjh1RVE3STRIWGdRTkY0UDd2SWZ6X0VycC12ZDkxUDljVU9nUXlyTFlLcmFXMThtNE5zZ3NfT0FXNXZ0dXFGSkVtd09PVkg2WkVRSm10MWI0T2RiVV9KNjM5WXhJOXJBdTNRd1pTa3dPYk9Qd3VZaHJrLXJGY1dpMmxPWDdwNzJJaUw5bmdlZ2M5Nmdscmc3RHQ1YW9BTUdpWTJJZVJObTVwb1phU0ZVTnVtQUVVNzVfbUF1cUhMb244a0o5TGM3YXN1YUgwTFhjUDM2dVlaOXEzT05GRmpQUzFyUW0zOGlPX1B6eERRV0MxRENTOVNJRDlqc3FoWldLNVZPRURZYXktZXFlNl96dUVZZmo1N0NpdUEwaWp3c1lScVJtSDFMbXE0NTVrR0Fja05mSE84SS16YUJLeGhybEdqdTF0U2lwWm9PdDBTcE45YzFabWt6cVNHV1NId29LMEVxb01vOXd3MktOZWFPZF9wSEVYdTVidTY2RWN2VnJRN0ZUNVJzR0VWdzhxNDEyWE1zYUgwWENUb3FINEtZMVA1Y1ZILWNpck9YWEZRckdSdTlOVkdyaE9mOXEwPQ==",
     "is_active": true,
     "is_live": false,
     "environment": "demo",
@@ -16,26 +37,65 @@
       "USDJPY"
     ],
     "risk_settings": null,
+    "leverage": 1000,
+    "currency": "USD",
+    "balance_snapshot": "200000.00",
     "created_at": "2026-03-14T10:11:51.015390+00:00",
-    "updated_at": "2026-03-15T10:00:46.509027+00:00"
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
   },
   {
-    "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "id": "eac4f793-8e7d-40c6-b47e-3713a5361746",
     "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
-    "broker_name": "CTRADER",
-    "account_name": "cTrader Live 40816494",
-    "account_number": "6023410",
-    "credentials_encrypted": "Z0FBQUFBQnB0MVg4UEx1Qm1tczBuX2M4RFZNeUVrZllfeEJCSEpFY0h6VnpzWnA2dmd3bXdRVGZuN3AxM0NTd3VEclduZEZsbVkwcXItamE3QjNnTzlOR3NGQXdSTklqdUlLWTM3MlVPajI3ZzR4azVPcDIzd3JxMWNDcXFSRzRmdGl2T0hTMExCU1g1eEg2Y0NweHdtb0FLVFM1WlhzNUlUaG0yU2tzOHFCMGY0aG0yU2tXdk0xT3BXeXVrbHpPNlFzQmJBd3hwNFV4T3hJbnYyOUs2RnJ2MDlPT0lVM01zN093Mk85ek1IVXU0ZnRlQXN2WmpGR0c2a1h6ektoZDBIMkVYcWs2R1lzbmxlNzJReVYtQTRMb2VOUkVCS2JSZC03VUNLeFd3TnNUOUdKaHE4SWI0Zm5FdEs2djRWcDFZR2M3R3czYVdmclJGdFZMS3FNNTdHWm4yQzdjSE90ckFzRUpJWTBHc1ZueHpGU1FVN203elZ4S1JuZ1o1dV9FcHJla3N4VkRPWEpfdE9zbVIzSl85VmdOOENvQzhYQmdocWtfZ3hSbzMwTHJ2b1BiZTBqMks1eDVqeFVSd2hENlJ0SUZoaFJYeld0alVSemQ3NG9sMHdSQmVTSGFLTHhQMk1HWW9VWW9rU2RKbDlWOWt3dFBYTDFEb1dTOHhOM1E0Y0tHeDJiSk5KMHBjRG9NOWliQk5OdGVIUkNBR2pOeVdxOHZMclFkLVBid3pGeWNDYlBHUXJVPQ==",
+    "broker_name": "fxpro",
+    "account_name": "FxPro Live 8054381",
+    "account_number": "8054381",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYQzcxNGJuODVyOU9BVjJpcnNicGJjY1lNb2tuNHZ5WWg0RWdNM2xNWFlGV0xWNGFvTHJYd2tfU2ticDZpazNVSmpBS1RyRVVlZTY4bU5vRW5BNWR2NW5xUkZJMjh0SDNZeExNYWhfYWRNanRUX0lfMDEwckdyNkVUekRUc0ZQckF2TUxOZG1Ebl8xekhzLXZyOEFrUlNFSnRRaVA0azBOMTVwOVlibWY2cVNKUXhQVjBETGNVd0tXdElwWkdPamVCVWtzWFNKdTBQQW1VZjlGSmp3VFM1bWRZcUROcExqUjVoRmxJdE9QSXBJRlgzeC1yS0RqRE1xSWdldGIzQU1rSkRTZWQ1S0ZqYWZkaGo5ejAwbUFIN3pXb1BEUlZOUWhadlVjbGp0ZTBwWGZWVDhFTHVqNGhKTkJzNHJlcy1FbmJheWl1dGJVcDNSMWp4WC1VeGh3SnhkcUN6cTduU0JVQW1EYjJMbFc5ZE82YlRuZmJTbUxkeHY2SUNTanVLQ3QxZnZXbjZJUG1vMEZjZ3lZendfanREUFl3djI3VDBrMndhNHZhdFE3ZXBPQUJJNHYzM2hMN3o1dkZDRjlXTUc4WmxwU0ZGN1VmeDJNS09LTm5rVmxlLVlKdnhmUnlFeExtWmZCWDRMelh4TkhVOUhiTzBfcV83WHNUUHBuSkhvR3VEdDF0TDlPTmJfWnV0eGlVcjNFTmJndWV1MElQdm1GV0ZDUkx1UlNGWnlZPQ==",
     "is_active": true,
     "is_live": true,
-    "environment": "live",
-    "supported_symbols": [
-      "XAUUSD",
-      "EURUSD"
-    ],
+    "environment": "PRACTICE",
+    "supported_symbols": null,
     "risk_settings": null,
-    "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-15T10:00:46.509027+00:00"
+    "leverage": 30,
+    "currency": "USD",
+    "balance_snapshot": "0.00",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
+  },
+  {
+    "id": "9015103c-4c88-47f3-a46e-c07173c190df",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "broker_name": "pepperstone",
+    "account_name": "Pepperstone Live 1010319",
+    "account_number": "1010319",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYRHhrNkVHYVJnN3owc0xHd1hfSG1iMFNYTGFfaWpmU3lvaWRWRi1iOW91Um5Xcm5lelVpYmFERHM4eU1YZVJvbWxIbGFJUWFEYk5NdjBhMG5rVXNQUEpXZWdHRmswQWlUOWRlNlozaGhLNHR6cENWRWJLVWdwMldwYV9RSE1kZ0t4LWJocm93alA0WnE5Rm5JdElmWUs2S0lCMDNLSXlUcHR2eTZqWXVJd1h6ejdLdzZGY2tQMzkyeFd1ZGhDaG9tZTRoWlYxNUdUWmMyUzJ3Z3Z2d3hhZDhNb2Z5N2luMTRWS2hNS3Nnc0pWOVVJZ0ctQk0xa3N0QjZtTTR6bFRrVEg5QVNCYU03VUpNMG0wY3RhMEJHQTBhOUlTRXo3LVY2RjhCYnFhMmI4RzFuX1Y1UGhtZEFoTzc1Y2FWN3FXWXBzc1ljVTJ6LTBRMGV4TS16SzROSmxqOGM0aXZqalozSU9PS0xQOUJXQVZBd25na1JubnRkdU9QRjEzQ29wazRNVUNIVXFZOGNNSTdPM1BOcmNLa1dWTmJRYXJnbTZvWU5MYko0QndEU19HLUR0NlFJdFRkWHc3NWpZMWxFYndBNFVydnRSdUxIZmQyNjNSRmlELUtESHRTZ0cwcGxIb3VjM042YnZ4UXdVdHlyNFhQVkVORFJTU3VqWXlGWmd1NFplYmtmdVVDTTA2U2dGemVwbXItQ0tzYVlOampQYTdpMlJvNUtYN1J2U1Y4PQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "PRACTICE",
+    "supported_symbols": null,
+    "risk_settings": null,
+    "leverage": 30,
+    "currency": "JPY",
+    "balance_snapshot": "0.00",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
+  },
+  {
+    "id": "d7af00b8-e186-4dc2-b3c0-0ccd7d067d4a",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "broker_name": "pepperstone",
+    "account_name": "Pepperstone Live 1071818",
+    "account_number": "1071818",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYY3lFc2tHeXhDQXFSeF9SVWREMElvWEJVR2ozS3FmN011MkhGbnQ5QTh4dHhwaGZkZFYzd1FFa2xMbWZKMkwxcjlucFFoZVIwbnlDaWRVU01ZNldteFpjTGtLb3FXSWdBOFRKX2JGS21RSXg1a1Bob0pLdEhHMnBLNlB6dUVHbHJ5Z3FoaDVfUzJRRmY0NENINzU3dVRtbjJyTURFSEFJNEpSYWFGMHFoRTBGUjNXVmkzZUV4U0ZKMFdTM2FFTGYxcEVvQW5WOFBNYWV2RnRKNHdsNm1QUTM0YnRRMGdZaEkxQWl0eXh5LXlfN3c5Y1cyczlkRVRBcktRTU9LQzh2ZzlISVBBVG56d283NzRjZVFjUWRraGZEZFlpZ0tnejRwbkdaQnNLUG5nOTE0QzNNb3VZM1JyX29la1JVQ3Zhcmdvd2hRcDNDMDNuR1dYd0dFMTJ5VVVqU1Z3amc5STdSN25LSEpsQmxpZHZ1MmZFMWhjSlFjUWdMLTl2M3lXV0E3VEJOYWJMR1FVZVdYVDJaWDg3UkRGM1RXR3RLUHU5aWVfNHBsemxkd2IzVWlSbDlfeDBMeFlsdlBBUXF5SHBLcFFxbWQtT0ZnVWJwSWFXMG53NG9OUV9ILXlWbU5GNlIxeWxZSVJfeExUeUJudmlyNDh1dFdNTmJBMEdXeW9GYzMyUnEtWXZfMnhjTTdjVkZQaHlLbWZfTHBLU2ZOYlNaRnFsMGxKS3FLcV8wPQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "PRACTICE",
+    "supported_symbols": null,
+    "risk_settings": null,
+    "leverage": 30,
+    "currency": "USD",
+    "balance_snapshot": "106.00",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
   },
   {
     "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
@@ -52,7 +112,28 @@
       "EUR_USD"
     ],
     "risk_settings": null,
+    "leverage": null,
+    "currency": null,
+    "balance_snapshot": null,
     "created_at": "2026-03-07T07:31:48.641343+00:00",
     "updated_at": "2026-03-07T08:29:48.122462+00:00"
+  },
+  {
+    "id": "c414fe39-de58-412f-a87c-f14fdc6cdbb6",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "broker_name": "blackbullmarkets",
+    "account_name": "BlackBull Live 8095395",
+    "account_number": "8095395",
+    "credentials_encrypted": "Z0FBQUFBQnB1S3FYUUZ2dzdnaVhsVjN3Y1BzVmUzOXczTVpPLVBaTmp5TXlhYXk1dnpjdWZ0aHRZdUJMSkpNTk1rQXZNV3hyc2VqNVVac3NDdVpVNlUwb2M3ZFVXR1JNRHNkeEJCUlZDV2tmSEVVSkllMEhTRTgwQllrLWdSSHpVWHpQZXV2UnJFc21Gb0hvbXYtQ2ljV2lfeFBRRkN5SDFja2FzMmtOOVdTa2VUS1BEcFhGSFBPSXdEYk9rdkVuWFNvRGNlRFo3V0Z2bTJSUTV4Qm9tSmlER1VtVWlnNjk5ZW1Mb3BBLWVRRk9paGpIVzhSNVhBeE1ZejNqcTdTUHE1N1hFS1JOX2YzNnVySU9NdFBfQllmWXo5M1ZyU19KZUI4M09Cd2N2NkIzRmNHZElma0xfRXcyeFc2VV92WUoxeURuUFFBZlNJQU1aV1VLWk44NUUtRjZtczhvVFozV2ptWUFlazgwTlVUcjJZY1k5VUFSckNhX0Vuc25icU1ORC1sSEVMVjFWRkwtcldlR0Z5RnRMdk00c2ZieGI0QlhRY1RTVmI3OFMyUUVPNVAyQ0NMQWRYOUc1QlRQWE5HamU1N3dNeGdlQlF1bF9Oa0NqTHFUeGRLSTY4dXdVWmRPbzJieHZwaGY4WHZEN1V1TWtMQmRncDRFZ0xSWDBSTm9BQmdCNEFTOGxzbUkzeU14WDFma2gtOVhVVUg2d1Z6WmJOaWx5ZEVzU0N3elZPZXNvMHFQRkx3PQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "PRACTICE",
+    "supported_symbols": null,
+    "risk_settings": null,
+    "leverage": 1000,
+    "currency": "USD",
+    "balance_snapshot": "0.00",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-17T01:12:55.136117+00:00"
   }
 ]

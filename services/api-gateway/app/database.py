@@ -52,9 +52,9 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """
-    Initialize database tables.
-    This should typically be done via Alembic migrations.
-    """
-    Base.metadata.create_all(bind=engine)
+# def init_db():
+#     """
+#     Initialize database tables.
+#     This should typically be done via Alembic migrations.
+#     """
+#     Base.metadata.create_all(bind=engine)

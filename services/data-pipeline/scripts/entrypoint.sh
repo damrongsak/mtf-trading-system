@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "Running migrations for data-pipeline..."
-alembic upgrade head
+# echo "Running migrations for data-pipeline..."
+# alembic upgrade head
 
 echo "Running dry-run startup check..."
 python scripts/startup_check.py

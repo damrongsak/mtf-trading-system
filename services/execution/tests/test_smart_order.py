@@ -15,7 +15,8 @@ def override_price():
 @patch("app.services.order_service.BrokerFactory")
 @patch("app.services.order_service.decrypt_data")
 @patch("app.services.order_service.MinimaxService")
-def test_place_smart_order_dynamic_risk(mock_minimax, mock_decrypt, mock_factory, test_client, mock_db, override_price):
+@patch("app.services.order_service.execution_cache")
+def test_place_smart_order_dynamic_risk(mock_cache, mock_minimax, mock_decrypt, mock_factory, test_client, mock_db, override_price):
     # 1. Setup Mocks
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
@@ -50,6 +51,27 @@ def test_place_smart_order_dynamic_risk(mock_minimax, mock_decrypt, mock_factory
     mock_result.scalar.return_value = 0.0
     mock_db.execute.return_value = mock_result
     
+    # 3. Mock Cache
+    mock_cache.get_account = AsyncMock(return_value={
+        "id": str(account_id),
+        "is_active": True,
+        "broker_name": "OANDA",
+        "credentials_encrypted": b"encrypted",
+        "environment": "practice",
+        "fund_id": str(mock_account.fund_id),
+        "risk_settings": {},
+        "account_number": "123",
+        "leverage": 30,
+        "currency": "USD"
+    })
+    mock_cache.get_credentials = AsyncMock(return_value={"api_key": "xyz", "account_id": "123"})
+    mock_cache.get_fund = AsyncMock(return_value={
+        "id": str(mock_account.fund_id),
+        "max_risk_per_trade": 100.0,
+        "risk_percentage": 0.01
+    })
+    mock_cache.get_risk_filters = AsyncMock(return_value=[])
+    
     # Adapter response
     mock_adapter.get_account_summary = AsyncMock(return_value={"NAV": "10000"})
     mock_adapter.place_market_order = AsyncMock(return_value={"orderFillTransaction": {"id": "555"}})
@@ -74,7 +96,8 @@ def test_place_smart_order_dynamic_risk(mock_minimax, mock_decrypt, mock_factory
 
 @patch("app.services.order_service.BrokerFactory")
 @patch("app.services.order_service.decrypt_data")
-def test_place_smart_order_default_risk(mock_decrypt, mock_factory, test_client, mock_db, override_price):
+@patch("app.services.order_service.execution_cache")
+def test_place_smart_order_default_risk(mock_cache, mock_decrypt, mock_factory, test_client, mock_db, override_price):
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
     mock_decrypt.return_value = {"api_key": "xyz", "account_id": "123"}
@@ -123,7 +146,8 @@ def test_place_smart_order_default_risk(mock_decrypt, mock_factory, test_client,
     
 @patch("app.services.order_service.BrokerFactory")
 @patch("app.services.order_service.decrypt_data")
-def test_place_smart_order_price_fail(mock_decrypt, mock_factory, test_client, mock_db, override_price):
+@patch("app.services.order_service.execution_cache")
+def test_place_smart_order_price_fail(mock_cache, mock_decrypt, mock_factory, test_client, mock_db, override_price):
     mock_adapter = MagicMock()
     mock_factory.get_adapter.return_value = mock_adapter
     mock_decrypt.return_value = {"api_key": "xyz", "account_id": "123"}
@@ -156,6 +180,27 @@ def test_place_smart_order_price_fail(mock_decrypt, mock_factory, test_client, m
     mock_result = MagicMock()
     mock_result.scalars.return_value.first.side_effect = [mock_account, mock_fund]
     mock_db.execute.return_value = mock_result
+    
+    # Mock Cache
+    mock_cache.get_account = AsyncMock(return_value={
+        "id": str(account_id),
+        "is_active": True,
+        "broker_name": "OANDA",
+        "credentials_encrypted": b"encrypted",
+        "environment": "practice",
+        "fund_id": str(mock_account.fund_id),
+        "risk_settings": {},
+        "account_number": "123",
+        "leverage": 30,
+        "currency": "USD"
+    })
+    mock_cache.get_credentials = AsyncMock(return_value={"api_key": "xyz", "account_id": "123"})
+    mock_cache.get_fund = AsyncMock(return_value={
+        "id": str(mock_account.fund_id),
+        "max_risk_per_trade": 10.0,
+        "risk_percentage": 0.01
+    })
+    mock_cache.get_risk_filters = AsyncMock(return_value=[])
     
     payload = {
         "broker_account_id": str(account_id),

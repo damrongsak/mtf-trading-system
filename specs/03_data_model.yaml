@@ -587,6 +587,11 @@ entities:
         foreign_key: "funds.id"
         required: true
         description: "The Fund that owns this account"
+      - name: data_source_id
+        type: uuid
+        foreign_key: "data_sources.id"
+        nullable: true
+        description: "Direct link to the primary market data source for this account"
       - name: broker_name
         type: string
         required: true
@@ -629,6 +634,23 @@ entities:
         type: jsonb
         nullable: true
         description: "Account-specific risk override (must be <= Fund limits)"
+      - name: leverage
+        type: integer
+        nullable: true
+        default: 30
+        description: "Account leverage (e.g., 30 for 1:30, 1000 for 1:1000)"
+      - name: currency
+        type: string
+        max_length: 10
+        nullable: true
+        default: "USD"
+        description: "Account base currency (e.g., USD, JPY)"
+      - name: balance_snapshot
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Last known balance snapshot for risk calculations"
       - name: updated_at
         type: datetime
         default: "now()"

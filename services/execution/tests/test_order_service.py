@@ -1,5 +1,6 @@
 import pytest
 import uuid
+import fastapi
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.order_service import OrderService
 from app.models import BrokerAccount, Fund
@@ -41,6 +42,7 @@ async def test_execute_smart_order_oanda_success():
          patch("app.services.order_service.BrokerFactory") as mock_factory, \
          patch("app.services.order_service.decrypt_data") as mock_decrypt, \
          patch("app.services.order_service.MinimaxService") as mock_minimax, \
+         patch("app.services.order_service.execution_cache") as mock_cache, \
          patch("app.services.order_service.RiskLimitsAgent") as mock_risk_agent:
         
         mock_rc = AsyncMock()
@@ -48,8 +50,28 @@ async def test_execute_smart_order_oanda_success():
         mock_redis_factory.return_value = mock_rc
 
         mock_risk_agent.check_order_size = AsyncMock(return_value=True)
-        # We must also mock check_limits because it is appended to `tasks` for asyncio.gather
         mock_risk_agent.check_limits = AsyncMock(return_value=True)
+        mock_risk_agent.check_margin = AsyncMock(return_value=True)
+
+        mock_cache.get_account = AsyncMock(return_value={
+            "id": order_data["broker_account_id"],
+            "is_active": True,
+            "broker_name": "OANDA",
+            "credentials_encrypted": b"test",
+            "environment": "practice",
+            "fund_id": str(uuid.uuid4()),
+            "risk_settings": {},
+            "account_number": "001",
+            "leverage": 30,
+            "currency": "USD"
+        })
+        mock_cache.get_credentials = AsyncMock(return_value={"api_key": "test"})
+        mock_cache.get_fund = AsyncMock(return_value={
+            "id": "fund-123",
+            "max_risk_per_trade": 1000.0,
+            "risk_percentage": 0.01
+        })
+        mock_cache.get_risk_filters = AsyncMock(return_value=[])
 
         mock_adapter = AsyncMock()
         mock_factory.get_adapter.return_value = mock_adapter
@@ -104,8 +126,10 @@ async def test_execute_smart_order_account_not_found():
         mock_cache.get_account = AsyncMock(return_value=None)
     
     order_data = {"broker_account_id": str(uuid.uuid4())}
-    with pytest.raises(ValueError, match="Broker Account not found"):
+    # [FIX] Exception changed to HTTPException(503) due to Rule 7 enforcement
+    with pytest.raises(fastapi.exceptions.HTTPException) as exc:
         await OrderService.execute_smart_order(order_data, db)
+    assert exc.value.status_code == 503
 
 @pytest.mark.asyncio
 async def test_execute_smart_order_inactive_account():
@@ -118,7 +142,7 @@ async def test_execute_smart_order_inactive_account():
     db.execute.return_value = mock_result
     
     with patch("app.services.order_service.execution_cache") as mock_cache:
-        mock_cache.get_account = AsyncMock(return_value=None)
+        mock_cache.get_account = AsyncMock(return_value={"is_active": False, "id": str(uuid.uuid4())})
     
     order_data = {"broker_account_id": str(uuid.uuid4())}
     with pytest.raises(ValueError, match="Broker Account is inactive"):
