@@ -116,25 +116,6 @@
     "position_limit_sector": null
   },
   {
-    "id": "dbcdf594-6672-4be8-85ec-b6427a20f24d",
-    "name": "FxPro Live 8054381 Fund",
-    "description": "Dedicated Fund for FxPro Live 8054381",
-    "created_at": "2026-03-17T01:53:05.214445+00:00",
-    "strategy_type": "MTF_SMC_BASIC",
-    "asset_classes": [
-      "FX"
-    ],
-    "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0100",
-    "default_lot_size": "0.01",
-    "max_drawdown_threshold": null,
-    "max_portfolio_beta": null,
-    "gross_exposure_limit": null,
-    "net_exposure_limit": null,
-    "position_limit_single": null,
-    "position_limit_sector": null
-  },
-  {
     "id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
     "name": "Pepperstone Live 1010319 Fund",
     "description": "Dedicated Fund for Pepperstone Live 1010319",

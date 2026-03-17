@@ -13,7 +13,12 @@ ENCRYPTION_KEY = os.getenv("SETTINGS_ENCRYPTION_KEY")
 # Tokens from .env
 CTRADER_TOKEN = os.getenv("CTRADER_TOKEN")
 CTRADER_REFRESH_TOKEN = os.getenv("CTRADER_REFRESH_TOKEN")
+CTRADER_DEMO_TOKEN = os.getenv("CTRADER_DEMO_TOKEN")
 CTRADER_DEMO_REFRESH_TOKEN = os.getenv("CTRADER_DEMO_REFRESH_TOKEN")
+
+# Hosts
+CTRADER_HOST = os.getenv("CTRADER_HOST", "live.ctraderapi.com")
+CTRADER_DEMO_HOST = os.getenv("CTRADER_DEMO_HOST", "demo.ctraderapi.com")
 
 # App Credentials
 CTRADER_CLIENT_ID = os.getenv("CTRADER_CLIENT_ID")
@@ -67,16 +72,7 @@ ACCOUNT_DATA = [
         "currency": "USD",
         "balance": 200000,
         "live": False,
-    },
-    {
-        "account_number": "8054381",
-        "account_id": "179630",
-        "broker_name": "fxpro",
-        "account_name": "FxPro Live 8054381",
-        "leverage": 30,
-        "currency": "USD",
-        "balance": 0,
-        "live": True,
+        "host": "demo.ctraderapi.com"
     },
     {
         "account_number": "1010319",
@@ -132,16 +128,16 @@ def update_db():
     print("\nUpdating Broker Accounts & 1:1 Funds...")
     for acc in ACCOUNT_DATA:
         is_live = acc['live']
-        host = "live.ctraderapi.com" if is_live else "demo.ctraderapi.com"
+        host = acc.get('host') or (CTRADER_HOST if is_live else CTRADER_DEMO_HOST)
         
         credentials = {
             "host": host,
             "port": 5035,
             "account_id": acc['account_id'],
-            "client_id": CTRADER_CLIENT_ID,
-            "client_secret": CTRADER_CLIENT_SECRET,
-            "token": CTRADER_TOKEN if is_live else CTRADER_DEMO_REFRESH_TOKEN,
-            "refresh_token": CTRADER_REFRESH_TOKEN if is_live else CTRADER_DEMO_REFRESH_TOKEN,
+            "client_id": acc.get("client_id") or CTRADER_CLIENT_ID,
+            "client_secret": acc.get("client_secret") or CTRADER_CLIENT_SECRET,
+            "token": CTRADER_TOKEN if is_live else (CTRADER_DEMO_TOKEN or CTRADER_TOKEN),
+            "refresh_token": CTRADER_REFRESH_TOKEN if is_live else (CTRADER_DEMO_REFRESH_TOKEN or CTRADER_REFRESH_TOKEN),
             "expires_at": EXPIRES_AT
         }
         
