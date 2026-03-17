@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger("ai-analyst")
 
 class SMCInput(BaseModel):
-    symbol: str = Field(..., description="Symbol to analyze (e.g. XAU/USD, EUR/USD)")
+    symbol: str = Field(default="XAUUSD", description="Symbol to analyze (e.g. XAU/USD, EUR/USD)")
     timeframe: str = Field(default="H1", description="Timeframe for analysis (e.g. H1, 15m, 4H)")
     include_distant_zones: bool = Field(default=False, description="Set to True ONLY if macro/long-term zones are explicitly needed. False by default to save tokens.")
 
@@ -40,42 +40,59 @@ class SMCAnalystTool(BaseTool):
         elif timeframe.lower() in ["4h", "4hr", "h4"]: timeframe = "H4"
         elif timeframe.lower() in ["1d", "daily", "d1"]: timeframe = "D1"
 
-        base_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
-        url = f"{base_url}/api/v1/signal/latest/{normalized_symbol}"
-        cache_key = f"market_context:{normalized_symbol}"
+        from app.core.config import settings
+        data_url = f"{settings.DATA_PIPELINE_URL}/api/v1/candles"
+        smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc"
         
-        params = {"timeframe": timeframe}
         headers = {}
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
-        cached_data = None
-        # 1. Try to fetch from Redis Cache first (SWR pattern)
-        try:
-            from app.core.config import settings
-            import redis.asyncio as aioredis
-            redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-            cached_raw = await redis.get(cache_key)
-            if cached_raw:
-                cached_data = json.loads(cached_raw)
-                # If very fresh (< 15s) skip API? No, for tool we want fresh
-            await redis.aclose()
-        except Exception as e:
-            logger.error(f"SMC Tool Redis error: {e}")
-
-        # 2. Fetch from API with 3s timeout
+        data = None
+        # 1. Fetch Candles from Data Pipeline
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(url, params=params, headers=headers, timeout=3.0)
-                if resp.status_code == 200:
-                    data = resp.json().get("data")
-                    if not data: return "No data returned for SMC analysis."
+                # Fetch 100 candles
+                candles_resp = await client.get(data_url, params={"symbol": normalized_symbol, "timeframe": timeframe, "page_size": 100}, headers=headers, timeout=5.0)
+                if candles_resp.status_code != 200:
+                    return f"Error fetching candles from Data Pipeline: {candles_resp.status_code}"
+                
+                candles_data = candles_resp.json().get("data", [])
+                if not candles_data:
+                    return f"No candle data available for {normalized_symbol} on {timeframe}."
+                
+                # Reverse to ascending order for analysis
+                candles_data.reverse()
+                
+                # 2. Prepare payload for Strategy Core
+                payload = {
+                    "symbol": normalized_symbol,
+                    "timeframe": timeframe,
+                    "open": [float(c["open"]) for c in candles_data],
+                    "high": [float(c["high"]) for c in candles_data],
+                    "low": [float(c["low"]) for c in candles_data],
+                    "close": [float(c["close"]) for c in candles_data],
+                    "volume": [float(c["volume"]) for c in candles_data],
+                    "timestamps": [c["timestamp"] for c in candles_data]
+                }
+                
+                # 3. Call Strategy Core
+                smc_resp = await client.post(smc_url, json=payload, headers=headers, timeout=10.0)
+                if smc_resp.status_code == 200:
+                    # Enrich with market status metadata (Simplified version for AI)
+                    analysis_data = smc_resp.json()
+                    data = {
+                        "analysis": analysis_data,
+                        "direction": analysis_data.get("institutional_bias", "NEUTRAL"),
+                        "reason": analysis_data.get("strategic_reasoning", "Consolidating."),
+                        "entry_price": float(candles_data[-1]["close"]),
+                        "market_status": "open", # Assumed if we have recent candles
+                        "data_freshness": "real-time"
+                    }
                 else:
-                    if cached_data: data = cached_data
-                    else: return f"Error fetching SMC analysis: {resp.status_code} - {resp.text}"
-            except (httpx.TimeoutException, Exception) as e:
-                if cached_data: data = cached_data
-                else: return f"Failed to perform SMC analysis and no cached data available: {str(e)}"
+                    return f"Error from Strategy Core: {smc_resp.status_code} - {smc_resp.text}"
+            except Exception as e:
+                return f"Internal Orchestration Error in SMC Tool: {str(e)}"
                 
         # 3. Process data
         market_status = data.get("market_status", "unknown")

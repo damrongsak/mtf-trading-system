@@ -39,6 +39,7 @@ export interface UpdateFundDto {
     strategy_type?: StrategyType;
     asset_classes?: AssetClass[];
     max_risk_per_trade?: number;
+    risk_percentage?: number;
     default_lot_size?: number;
     max_drawdown_threshold?: number | null;
     max_portfolio_beta?: number | null;

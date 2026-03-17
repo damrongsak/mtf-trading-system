@@ -23,6 +23,7 @@ export function PortfolioSection() {
   // Basic Risk Parameters (Fund Level)
   const [strategyType, setStrategyType] = useState<StrategyType>('MTF_SMC_BASIC');
   const [maxRisk, setMaxRisk] = useState(10.0);
+  const [riskPercentage, setRiskPercentage] = useState(0.01);
   const [defaultLotSize, setDefaultLotSize] = useState(0.01);
   const [maxDrawdown, setMaxDrawdown] = useState<number | null>(null);
   
@@ -50,6 +51,7 @@ export function PortfolioSection() {
             // Initialize form with Fund's values
             setStrategyType(fund.strategy_type);
             setMaxRisk(fund.max_risk_per_trade);
+            setRiskPercentage(fund.risk_percentage || 0.01);
             setDefaultLotSize(fund.default_lot_size);
             setMaxDrawdown(fund.max_drawdown_threshold);
             setMaxBeta(fund.max_portfolio_beta || 0.35);
@@ -91,6 +93,7 @@ export function PortfolioSection() {
           await updateFund(selectedFundId, {
             strategy_type: strategyType,
             max_risk_per_trade: maxRisk,
+            risk_percentage: riskPercentage,
             default_lot_size: defaultLotSize,
             max_drawdown_threshold: maxDrawdown,
             max_portfolio_beta: maxBeta,
@@ -212,6 +215,17 @@ export function PortfolioSection() {
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
                 />
                 <p className="text-xs text-gray-500 mt-1">Default: $10.00</p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Risk Percentage (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={riskPercentage * 100}
+                  onChange={(e) => setRiskPercentage(parseFloat(e.target.value) / 100)}
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">Dynamic Risk (e.g. 1.0 = 1%)</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Default Lot Size</label>

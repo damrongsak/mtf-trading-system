@@ -101,8 +101,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Olympus Workflow Engine (OWE)**: Graph-based multi-agent orchestration.
     - **Self-Awareness (Doc-RAG)**: Ingests system documentation.
     - **Professional CLI (v2.6)**: Bloomberg-style terminal with institutional autocompletion and rotating pro-tips.
-    - **Performance Benchmarking (3s Target)**: Strict latency enforcement using SWR (Stale-While-Revalidate) caching and parallel Tool orchestration (e.g., Regime + Gamma).
-    - **Internal News Engine**: Decoupled from external search providers; uses internal `data-pipeline` scrapers for institutional-grade fundamental analysis.
+    - **Direct Service Orchestration (v3.2)**: Orchestrates internal tools by calling microservices directly (Ports 8001-8005), bypassing the API Gateway to prevent reentrant deadlocks.
     - **ECST Local Cache**: Maintains zero-latency in-memory state for news and market context via Redis `state_updates` broadcasting.
     - **Strategic Synthesis**: Multi-source mandatory confluence logic (SMC + COT + Heatmap) for high-net-worth decisions.
     - **Psychological MRI**: Analyzes execution patterns for "Tilt".
@@ -163,6 +162,9 @@ To achieve sub-50ms round-trip latency for external clients, the system utilizes
     - **Logic**: Removal of ALL proactive `await db.execute()` calls from the critical path (Order placement -> Broker send -> Fill confirmation).
     - **Persistence**: Decoupled via Redis Streams (`execution.filled.stream`) consumed by background workers for eventual consistency.
     - **Resolution**: Use Tiered Caching (L3) for symbol metadata and risk limits.
+6.  **No Reentrant Gateway Calls (Deadlock Prevention)**:
+    - **Logic**: AI Agents and Tools MUST NOT call the `api-gateway` internally to fetch data already managed by other services.
+    - **Standard**: All internal tool requests are routed directly to the target service (Discovery via Docker Service Names).
 
 ## 4.8. Safety Guardrails (Sprint F)
 

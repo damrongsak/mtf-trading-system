@@ -785,3 +785,13 @@
     - **Optimization:** Cleaned up redundant CLI scripts and legacy documentation to maintain service integrity.
     - **Service Integration:** Connected `api-gateway` to `knowledge-ingestor` via a dedicated proxy router for unified access.
     - **Verification:** Achieved 100% test pass rate (47/47) and verified cross-service orchestration.
+
+### Phase 53: AI Briefing Resolution & Direct Orchestration
+- **Status: ✅ Complete (2026-03-17)**
+- **Features:**
+    - **Stability:** Resolved AI Briefing timeouts by implementing **Direct Service Orchestration** (bypassing Gateway for internal tool calls).
+    - **Architecture:** Formalized "No Reentrant Gateway Calls" guardrail to prevent event-loop deadlocks.
+    - **AI Analyst:** Standardized Gemini models to `gemini-2.5-flash` for consistent 3rd-party API reliability.
+    - **Account Context:** Enhanced `GetAccountStatusTool` to synthesize Broker Leverage and Data Source metadata into briefings.
+    - **Infrastructure:** Optimized Gateway `keep-alive` and `timeout` parameters (180s) for long-running AI synthesis.
+    - **Verification:** Verified end-to-end briefing generation for `demo1` with full metadata parity.

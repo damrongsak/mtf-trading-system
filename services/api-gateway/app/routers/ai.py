@@ -45,6 +45,23 @@ router = APIRouter(
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 AI_SERVICE_TIMEOUT = float(os.getenv("AI_SERVICE_TIMEOUT", "300.0"))
 
+async def _get_broker_account_id(db: Session, user_id: Any) -> Optional[str]:
+    """Helper to get user's active broker account ID."""
+    from app.models.broker_account import BrokerAccount
+    from app.models.user_fund import UserFund, Fund
+    
+    account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+        UserFund.user_id == user_id,
+        BrokerAccount.is_active == True
+    ).first()
+    
+    if not account:
+        logger.warning(f"No active BrokerAccount found for user_id: {user_id}")
+    else:
+        logger.info(f"Retrieved active Account ID: {account.id} for user_id: {user_id}")
+        
+    return str(account.id) if account else None
+
 @router.get("/agents")
 async def list_agents(request: Request):
     """
@@ -70,12 +87,20 @@ async def list_agents(request: Request):
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/market-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_market(req: MarketAnalysisRequest, request: Request):
+async def analyze_market(
+    req: MarketAnalysisRequest, 
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Proxy market analysis request to AI Analyst service.
     """
     request_id = getattr(request.state, "request_id", None)
+    account_id = await _get_broker_account_id(db, current_user.id)
     headers = {"X-Request-ID": request_id} if request_id else {}
+    if account_id:
+        headers["X-Broker-Account-ID"] = account_id
     
     async with await get_internal_client() as client:
         try:
@@ -95,12 +120,20 @@ async def analyze_market(req: MarketAnalysisRequest, request: Request):
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
 @router.post("/journal-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_journal(req: JournalAnalysisRequest, request: Request):
+async def analyze_journal(
+    req: JournalAnalysisRequest, 
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Proxy journal analysis request to AI Analyst service.
     """
     request_id = getattr(request.state, "request_id", None)
+    account_id = await _get_broker_account_id(db, current_user.id)
     headers = {"X-Request-ID": request_id} if request_id else {}
+    if account_id:
+        headers["X-Broker-Account-ID"] = account_id
     
     async with await get_internal_client() as client:
         try:
@@ -133,9 +166,12 @@ async def run_market_observer(
     Proxy agent run request to AI Analyst service with authentication.
     """
     request_id = getattr(request.state, "request_id", None)
+    account_id = await _get_broker_account_id(db, current_user.id)
     headers = {"Authorization": f"Bearer {token}"}
     if request_id:
         headers["X-Request-ID"] = request_id
+    if account_id:
+        headers["X-Broker-Account-ID"] = account_id
         
     async with await get_internal_client() as client:
         try:
@@ -208,9 +244,10 @@ async def proxy_memory_sync(
             raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/briefing")
-@cached_response(ttl=3600)
+# @cached_response(ttl=3600)
 async def get_daily_briefing(
     request: Request,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
 ):
@@ -219,11 +256,15 @@ async def get_daily_briefing(
     """
     async with await get_internal_client() as client:
         try:
-            # We call the POST endpoint on AI Analyst to generate/fetch
             request_id = getattr(request.state, "request_id", None)
+            account_id = await _get_broker_account_id(db, current_user.id)
+            
+            logger.error(f"DEBUG_TRACER: Gateway proxying briefing for user {current_user.id}, account {account_id}")
             headers = {"Authorization": f"Bearer {token}"}
             if request_id:
                 headers["X-Request-ID"] = request_id
+            if account_id:
+                headers["X-Broker-Account-ID"] = account_id
 
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/agent/briefing",

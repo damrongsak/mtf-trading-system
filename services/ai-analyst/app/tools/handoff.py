@@ -59,8 +59,8 @@ class ConsultSpecialistTool(BaseTool):
         if not user_id:
             user_id = "orchestrator"
 
-        # 2. Route through API Gateway
-        gateway_url = f"{settings.API_GATEWAY_URL}/api/v1/ai/agent/universal/run"
+        # 2. Call local service directly to avoid circular dependency via Gateway
+        gateway_url = "http://localhost:8000/api/v1/ai/agent/universal/run"
         
         headers = {
             "Content-Type": "application/json"

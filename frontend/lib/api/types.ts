@@ -298,6 +298,7 @@ export interface Fund {
     strategy_type: StrategyType;
     asset_classes: AssetClass[];
     max_risk_per_trade: number;
+    risk_percentage: number; // [NEW] Phase 28
     default_lot_size: number;
     max_drawdown_threshold: number | null;
     max_portfolio_beta: number | null;
@@ -548,6 +549,10 @@ export interface BrokerAccount {
     created_at: string;
     supported_symbols?: string[];
     risk_settings?: Record<string, unknown>;
+    leverage?: number; // [NEW]
+    currency?: string; // [NEW]
+    data_source_id?: string; // [NEW]
+    balance_snapshot?: number; // [NEW]
 }
 
 export interface BrokerAccountCreate {
@@ -559,6 +564,10 @@ export interface BrokerAccountCreate {
     supported_symbols?: string[];
     risk_settings?: Record<string, unknown>;
     is_live: boolean;
+    leverage?: number; // [NEW]
+    currency?: string; // [NEW]
+    data_source_id?: string; // [NEW]
+    balance_snapshot?: number; // [NEW]
 }
 
 export interface BrokerAccountUpdate {
@@ -569,6 +578,10 @@ export interface BrokerAccountUpdate {
     risk_settings?: Record<string, unknown>;
     is_active?: boolean;
     is_live?: boolean;
+    leverage?: number; // [NEW]
+    currency?: string; // [NEW]
+    data_source_id?: string; // [NEW]
+    balance_snapshot?: number; // [NEW]
 }
 
 // ========================================

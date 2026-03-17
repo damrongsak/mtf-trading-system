@@ -47,6 +47,9 @@ import { logger } from "@/lib/api/app-logger";
     
     const [supportedSymbolsInput, setSupportedSymbolsInput] = useState('');
     const [riskSettingsInput, setRiskSettingsInput] = useState('');
+    const [leverage, setLeverage] = useState(30);
+    const [currency, setCurrency] = useState('USD');
+    const [dataSourceId, setDataSourceId] = useState('');
     const [isLive, setIsLive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -59,15 +62,17 @@ import { logger } from "@/lib/api/app-logger";
     
     // Dynamic Brokers
     const [availableBrokers, setAvailableBrokers] = useState<string[]>(['OANDA', 'BINANCE']);
+    const [dataSources, setDataSources] = useState<any[]>([]);
 
     const fetchBrokers = useCallback(async () => {
          try {
              // Fetch Data Sources to get available providers
              const sources = await getDataSources();
+             setDataSources(sources);
              const providers = Array.from(new Set(sources.map(s => s.provider)));
              // Ensure OANDA/BINANCE are always options if desired, or strictly from sources
              // Merging with defaults to ensure basic options exist
-             const defaults = ['OANDA', 'BINANCE'];
+             const defaults = ['OANDA', 'BINANCE', 'CTRADER'];
              const combined = Array.from(new Set([...defaults, ...providers])).filter((p): p is string => !!p);
              setAvailableBrokers(combined);
          } catch (err) {
@@ -168,7 +173,10 @@ import { logger } from "@/lib/api/app-logger";
                 is_live: isLive,
                 credentials,
                 supported_symbols: supportedSymbols,
-                risk_settings: riskSettings
+                risk_settings: riskSettings,
+                leverage: leverage,
+                currency: currency,
+                data_source_id: dataSourceId || undefined
             };
 
             setPendingData(payload);
@@ -197,6 +205,9 @@ import { logger } from "@/lib/api/app-logger";
             setSecretKey('');
             setAccessToken('');
             setRefreshToken('');
+            setLeverage(30);
+            setCurrency('USD');
+            setDataSourceId('');
             setSupportedSymbolsInput('');
             setRiskSettingsInput('');
         } catch (err) {
@@ -307,7 +318,10 @@ import { logger } from "@/lib/api/app-logger";
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const updates: Record<string, any> = {
                 account_name: editingAccount.account_name,
-                supported_symbols: editSymbols
+                supported_symbols: editSymbols,
+                leverage: editingAccount.leverage,
+                currency: editingAccount.currency,
+                data_source_id: editingAccount.data_source_id
             };
 
             // Include credentials if updated
@@ -442,6 +456,43 @@ import { logger } from "@/lib/api/app-logger";
                                     <p className="text-xs text-gray-500">
                                         Edit the raw credentials object. Invalid JSON will be rejected. 
                                     </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Leverage (1:X)</Label>
+                                        <Input 
+                                            type="number"
+                                            value={editingAccount.leverage || 30}
+                                            onChange={(e) => setEditingAccount({...editingAccount, leverage: parseInt(e.target.value)})}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Account Currency</Label>
+                                        <Input 
+                                            value={editingAccount.currency || 'USD'}
+                                            onChange={(e) => setEditingAccount({...editingAccount, currency: e.target.value.toUpperCase()})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Data Source Mapping</Label>
+                                    <Select 
+                                        value={editingAccount.data_source_id || 'none'} 
+                                        onValueChange={(val) => setEditingAccount({...editingAccount, data_source_id: val === 'none' ? undefined : val})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Data Source" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Explicitly Dynamic (No Source)</SelectItem>
+                                            {dataSources
+                                                .filter(s => s.provider === editingAccount.broker_name)
+                                                .map(source => (
+                                                    <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
+                                                ))
+                                            }
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         </div>
@@ -583,7 +634,44 @@ import { logger } from "@/lib/api/app-logger";
                                         </div>
                                     </>
                                 )}
-
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div className="space-y-2">
+                                         <Label>Account Leverage (1:X)</Label>
+                                         <Input 
+                                             type="number"
+                                             placeholder="30"
+                                             value={leverage}
+                                             onChange={(e) => setLeverage(parseInt(e.target.value) || 30)}
+                                             required
+                                         />
+                                     </div>
+                                     <div className="space-y-2">
+                                         <Label>Currency</Label>
+                                         <Input 
+                                             placeholder="USD"
+                                             value={currency}
+                                             onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                                             required
+                                         />
+                                     </div>
+                                </div>
+                                <div className="col-span-full space-y-2">
+                                    <Label>Primary Data Source (Link symbols/candles)</Label>
+                                    <Select value={dataSourceId || 'none'} onValueChange={(val) => setDataSourceId(val === 'none' ? '' : val)}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a data source to link..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Linking (Manual Only)</SelectItem>
+                                            {dataSources
+                                                .filter(s => s.provider === brokerName)
+                                                .map(source => (
+                                                    <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
+                                                ))
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <input 
@@ -633,6 +721,10 @@ import { logger } from "@/lib/api/app-logger";
                                                 <span className={`px-1.5 py-0.5 rounded ${acc.is_live ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
                                                     {acc.is_live ? 'LIVE' : 'DEMO'}
                                                 </span>
+                                                <span>•</span>
+                                                <span className="text-gray-400">1:{acc.leverage || 30}</span>
+                                                <span>•</span>
+                                                <span className="text-gray-400 font-medium">{acc.currency || 'USD'}</span>
                                             </div>
                                         </div>
                                     </div>

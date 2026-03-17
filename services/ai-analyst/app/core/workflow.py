@@ -132,6 +132,21 @@ def resolve_tools(tool_names: List[str]) -> List[LCTool]:
 registry.register("fetch_unanalyzed_trades", FetchUnanalyzedTradesTool(), "Fetches historical closed trades missing AI Journal Entry")
 registry.register("save_episodic_memory", SaveEpisodicMemoryTool(), "Save actionable lessons for the Episodic Memory module")
 
+from app.tools.account import GetAccountStatusTool
+from app.tools.smc import SMCAnalystTool
+from app.tools.market_state import MarketStateTool
+from app.tools.volatility import VolatilityStructureTool
+from app.tools.quant_analysis import RiskMapTool
+from app.tools.journal import GetJournalEntriesTool
+
+registry.register("get_account_status", GetAccountStatusTool(), "Fetches account health including balance, equity, and leverage.")
+registry.register("account_status", GetAccountStatusTool()) # Alias
+registry.register("smc_technical_analysis", SMCAnalystTool())
+registry.register("market_state", MarketStateTool())
+registry.register("volatility_structure_analysis", VolatilityStructureTool())
+registry.register("get_risk_map", RiskMapTool())
+registry.register("get_journal_entries", GetJournalEntriesTool())
+
 # --- Workflow Base ---
 class OlympusWorkflow:
     def __init__(self, gemini: GeminiClient):

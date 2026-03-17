@@ -128,18 +128,18 @@ class ExecutionCache:
             data_json = await r.get(key)
             if data_json:
                 data = json.loads(data_json)
-                self._set_l1(key, data, ttl=60) # Hot data, short TTL
+                self._set_l1(key, data, ttl=3600) # Hot data, increased TTL
                 return data
         except Exception as e:
             logger.error(f"Redis Cache Error (get_risk_filters): {e}")
         return None
 
-    async def set_risk_filters(self, fund_id: str, filters: List[Dict], account_id: str = None):
+    async def set_risk_filters(self, fund_id: str, filters: List[Dict], account_id: str = None, ttl: int = 3600):
         key = f"exec:filters:{fund_id}:{account_id or 'none'}"
-        self._set_l1(key, filters, ttl=60)
+        self._set_l1(key, filters, ttl=ttl)
         try:
             r = await self._get_redis()
-            await r.set(key, json.dumps(filters), ex=60)
+            await r.set(key, json.dumps(filters), ex=ttl)
         except Exception as e:
             logger.error(f"Redis Cache Error (set_risk_filters): {e}")
 

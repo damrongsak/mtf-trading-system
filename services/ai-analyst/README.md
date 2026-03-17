@@ -66,7 +66,7 @@ graph TD
 - **Dynamic Topology Routing**: Automatically escalates to `CRISIS` mode for high-volatility events detected by background observers.
 - **Institutional Sentinel Gate**: Multi-model consensus and hard risk validation that prevents AI hallucinations from reaching market execution.
 - **Zero-Cost Autonomous Search**: High-fidelity browser-based research via OpenClaw (DuckDuckGo scraping) that avoids paid Search API costs.
-- **ECST Local Cache (v3.1)**: Uses an in-memory `StateCache` to subscribe to `state_updates` from the data-pipeline, providing O(1) reads for tools and agents.
+- **Direct Service Connectivity (v3.2)**: Orchestrates internal data gathering (Strategy, Execution, Data) by calling services directly to eliminate reentrant deadlocks and Gateway latency.
 - **Automated Daily Post-Mortem**: (01:00 UTC) Self-correcting learning loop that transforms past trades into persistent RAG memory.
 
 ## 🤖 AI-Agent Operational Guide
@@ -109,6 +109,7 @@ GET /api/v1/orchestration/cache/status
 | Symptom | Probable Cause | Fix |
 | :--- | :--- | :--- |
 | **Consensus Failures** | OpenRouter API Down | Check root `.env` for `OPENROUTER_API_KEY`; Verify fallback logs. |
+| **Briefing Timeout** | Reentrant Deadlock | Refactor tool to use direct service connectivity (bypassing Gateway). |
 | **Sanity Gate Rejection** | Missing SL/TP or Lot > 0.1 | Ensure trade proposals follow institutional risk limits. |
 | **Serialization Errors** | UUID/Decimal in trades | Use `json_util` or string conversion in `scheduler_tasks.py`. |
 

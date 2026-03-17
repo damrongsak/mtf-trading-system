@@ -40,21 +40,51 @@ class TradingPlanTool(BaseTool):
 
         base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
         
+        from app.core.config import settings
+        data_url = f"{settings.DATA_PIPELINE_URL}/api/v1/candles"
+        smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc"
+        acc_url = f"{settings.EXECUTION_SERVICE_URL}/api/v1/account/summary"
+        quant_size_url = f"{settings.STRATEGY_CORE_URL}/api/v1/quant/size"
+        
         try:
             async with httpx.AsyncClient() as client:
-                # 1. Fetch Setups
-                signal_url = f"{base_url}/api/v1/signal/latest/{normalized_symbol}"
-                sig_resp = await client.get(signal_url, params={"timeframe": timeframe}, headers=headers, timeout=10.0)
-                if sig_resp.status_code != 200:
-                    return f"Error fetching setups: {sig_resp.status_code}"
+                # 1. Fetch Candles & Analyze Signal directly (Orchestration)
+                # Fetch 100 candles
+                candles_resp = await client.get(data_url, params={"symbol": normalized_symbol, "timeframe": timeframe, "page_size": 100}, headers=headers, timeout=5.0)
+                if candles_resp.status_code != 200:
+                    return f"Error fetching candles from Data Pipeline: {candles_resp.status_code}"
                 
-                sig_data = sig_resp.json().get("data", {})
+                candles_data = candles_resp.json().get("data", [])
+                if not candles_data:
+                    return f"No candle data available for {normalized_symbol} on {timeframe}."
+                
+                # Reverse to ascending order for analysis
+                candles_data.reverse()
+                
+                # Analyze with Strategy Core
+                smc_payload = {
+                    "symbol": normalized_symbol,
+                    "timeframe": timeframe,
+                    "open": [float(c["open"]) for c in candles_data],
+                    "high": [float(c["high"]) for c in candles_data],
+                    "low": [float(c["low"]) for c in candles_data],
+                    "close": [float(c["close"]) for c in candles_data],
+                    "volume": [float(c["volume"]) for c in candles_data],
+                    "timestamps": [c["timestamp"] for c in candles_data]
+                }
+                
+                sig_resp = await client.post(smc_url, json=smc_payload, headers=headers, timeout=10.0)
+                if sig_resp.status_code != 200:
+                    return f"Error from Strategy Core (SMC): {sig_resp.status_code}"
+                
+                sig_data = sig_resp.json()
                 setups = sig_data.get("setups", [])
                 if not setups:
-                    return f"No actionable setups found for {normalized_symbol}."
+                    # Fallback: if no setups, use the institutional bias to build a generic plan?
+                    # For now keep it strict
+                    return f"No actionable setups found for {normalized_symbol} in SMC analysis."
 
-                # 2. Fetch Equity & Risk
-                acc_url = f"{base_url}/api/v1/execution/account/summary"
+                # 2. Fetch Equity & Risk directly from Execution Service
                 acc_resp = await client.get(acc_url, headers=headers, timeout=5.0)
                 equity = 10000.0
                 if acc_resp.status_code == 200:
@@ -71,9 +101,8 @@ class TradingPlanTool(BaseTool):
                     "| :--- | :--- | :--- | :--- | :--- | :--- |"
                 ]
 
-                quant_size_url = f"{base_url}/api/v1/quant/size"
+                # 4. Calculate Sizing for each setup directly via Strategy Core
                 for setup in setups:
-                    # Call Quant Sizing
                     sizing_payload = {
                         "symbol": normalized_symbol,
                         "entry_price": float(setup["entry"]),

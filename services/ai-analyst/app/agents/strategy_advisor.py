@@ -457,7 +457,7 @@ class StrategyAdvisorAgent:
             # Tier 1 fallback logic
             response = await self.gemini.generate_content(
                 model=[
-                    settings.gemini.flash_lite_model_id, 
+                    settings.gemini.flash_model_id, 
                     settings.gemini.flash_model_id, 
                     "gemini-3-flash-preview",
                     "gemini-2.0-flash"
@@ -542,7 +542,7 @@ class StrategyAdvisorAgent:
             
             response = await self.gemini.generate_content(
                 model=[
-                    settings.gemini.flash_lite_model_id, 
+                    settings.gemini.flash_model_id, 
                     settings.gemini.flash_model_id,
                     "gemini-3-flash-preview",
                     "gemini-2.0-flash"
@@ -1274,7 +1274,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 (3-Model Fallback)
             response = await self.gemini.generate_content(
-                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"],
+                model=[settings.gemini.flash_model_id, settings.gemini.flash_model_id, "gemini-2.0-flash-lite"],
                 contents=[prompt]
             )
             content = response.get("text", "") if isinstance(response, dict) else str(response)
@@ -1370,10 +1370,12 @@ class StrategyAdvisorAgent:
                 "market_state"
             ]
         
+        from app.core.workflow import registry as global_registry
         async def run_briefing_tool(name):
-             tool = self.tool_registry.get_tool(name)
+             logger.error(f"DEBUG_TRACER: Analyst starting briefing tool: {name}")
+             tool = global_registry.get(name)
              if not tool:
-                 logger.warning(f"Briefing Tool {name} not found.")
+                 logger.error(f"DEBUG_TRACER: Tool {name} NOT FOUND in global registry")
                  return f"Tool {name} not found."
              try:
                  inp = {}
@@ -1401,7 +1403,7 @@ class StrategyAdvisorAgent:
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*[run_briefing_tool(t) for t in tools]),
-                timeout=20.0
+                timeout=60.0
             )
         except asyncio.TimeoutError:
             logger.error("🛑 GLOBAL Briefing Timeout! Falling back to partial results.")
@@ -1417,9 +1419,10 @@ class StrategyAdvisorAgent:
         return {
             "scratchpad": valid_results if valid_results else results,
             "reasoning_trace": [
-                "System gathered comprehensive report context: account status, calendar events, recent journal entries, technical signals, and real-time market news.",
+                "System gathered comprehensive report context: account status (including leverage and data source), calendar events, recent journal entries, technical signals, and real-time market news.",
                 "Persona Instruction: Act as 'The Weaver' (Quant Fund Manager Assistant).",
-                "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure with institutional formatting."
+                "Output Requirement: Use 'Morning Call', 'Market Focus', 'Psychological Weather', and 'Strategic Orders' structure with institutional formatting.",
+                "CRITICAL: You MUST explicitly mention the Account Health parameters in the 'Morning Call' section, specifically 'Broker Leverage' and 'Data Provider' to ensure the user knows which connection is active."
             ]
         }
 
@@ -1691,7 +1694,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 fallback logic
             res = await self.gemini.generate_content(
-                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash-lite"],
+                model=[settings.gemini.flash_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash"],
                 contents=[prompt],
                 response_schema=EvaluationResult
             )
@@ -1742,7 +1745,7 @@ class StrategyAdvisorAgent:
         try:
             # Tier 1 task
             response = await self.gemini.generate_content(
-                model=[settings.gemini.flash_lite_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash-lite"],
+                model=[settings.gemini.flash_model_id, settings.gemini.flash_model_id, "gemini-2.5-flash"],
                 contents=[prompt]
             )
             fact_text = response.get("text", "") if isinstance(response, dict) else str(response)
@@ -1777,7 +1780,7 @@ class StrategyAdvisorAgent:
             """
             try:
                 res = await self.gemini.client.aio.models.generate_content(
-                    model=settings.gemini.flash_lite_model_id,
+                    model=settings.gemini.flash_model_id,
                     contents=summary_prompt
                 )
                 condensed = f"--- Previous Conversation Summary ---\n{res.text}"

@@ -171,7 +171,8 @@ async def _warmup_execution_cache():
                         await execution_cache.set_fund(fund_id, {
                             "id": fund_id,
                             "max_risk_per_trade": float(fund.max_risk_per_trade),
-                            "risk_percentage": float(fund.risk_percentage) if fund.risk_percentage else 0
+                            "risk_percentage": float(fund.risk_percentage) if fund.risk_percentage else 0,
+                            "max_drawdown_threshold": float(fund.max_drawdown_threshold) if fund.max_drawdown_threshold else None
                         })
                         
                         # Cache Risk Filters for this Fund
@@ -270,6 +271,9 @@ class AccountSummaryResponse(BaseModel):
     marginAvailable: str
     openTradeCount: int
     openPositionCount: int
+    leverage: int = 30
+    currency: str = "USD"
+    data_source_id: Optional[str] = None
 
 class OrderResponse(BaseModel):
     id: str
@@ -339,6 +343,11 @@ async def get_account_summary(authenticated: str = Depends(verify_internal_api_k
         account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         data = await adapter.get_account_summary()
+        # Enrich with descriptive metadata from DB/Cache
+        data["leverage"] = int(getattr(account, 'leverage', 30))
+        data["currency"] = str(getattr(account, 'currency', 'USD'))
+        data["data_source_id"] = str(getattr(account, 'data_source_id', '')) or None
+        
         return success_response(data=data)
     except HTTPException as he:
         raise he

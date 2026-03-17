@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class RiskMapInput(BaseModel):
-    symbol: str = Field(description="Trading symbol, e.g., 'XAUUSD'.")
+    symbol: str = Field(default="XAUUSD", description="Trading symbol, e.g., 'XAUUSD'.")
     timeframe: str = Field(default="H1", description="Timeframe for analysis (M15, H1, H4, D1).")
 
 class RiskMapTool(BaseTool):

@@ -377,6 +377,10 @@ class OrderService:
         fund_id = str(fund.id)
         active_filters_raw = await execution_cache.get_risk_filters(fund_id, broker_account_id)
         
+        # Fallback to Fund-level filters if Account-level not found (Rule 7: No DB Fallback)
+        if active_filters_raw is None:
+            active_filters_raw = await execution_cache.get_risk_filters(fund_id)
+        
         if active_filters_raw is None:
             # Rule 7 Compliance: Do not fallback to DB in hot path.
             # If cache is missing, it's safer to fail or use a very minimal default.

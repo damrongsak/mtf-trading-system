@@ -53,7 +53,7 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 ### 2.6. Daily Briefing Agent
 - **Goal:** Autonomous daily market reporting.
 - **Agent:** `DailyBriefingAgent`
-- **Process:** Compiles overnight price action, news, and calendar events into a morning briefing.
+- **Process:** Compiles overnight price action, news, and calendar events. **Mandatory Synthesis**: Includes user account context (Leverage, Equity, Current Risk) and Data Provider details to ensure the briefing is tailored to the trader's specific environment.
 
 ### 2.7. Episodic Memory (Trade Learning)
 - **Goal:** Autonomous learning from historical trade outcomes to prevent recurrent mistakes.
@@ -70,11 +70,10 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - **Storage**: Persists triplets into **FalkorDB**.
     - **Synergy**: Combines with Vector RAG to enable "GraphRAG" (traversing nodes to find relevant context).
 
-### 2.9. Institutional Tool Resilience (v2.9+)
+- **Institutional Tool Resilience (v3.2)**:
 - **Base Inheritance**: All core tools MUST inherit from `app.core.base_tool.BaseTool`.
+- **Direct Service Orchestration**: Internal tools MUST call microservices directly (e.g., `strategy-core:8000`) instead of routing through the `api-gateway` to prevent reentrant deadlocks.
 - **Logic Isolation**: Logic is implemented in `async def run_tool()`. Legacy `_run`/`_arun` patterns are forbidden.
-- **Resilience Features**: Automatic exponential backoff, circuit breakers, and IO semaphores are enabled by default.
-- **Schema Enforcement**: Tools use Pydantic `args_schema` and centralized normalization to handle both `dict` and `str` inputs.
 - **Validation**: Enforced via `scripts/verify_tool_standards.py`.
 
 ### 2.9. Dynamic Agent Skills (agentskills.io Standard)

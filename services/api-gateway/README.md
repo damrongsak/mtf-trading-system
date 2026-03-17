@@ -78,6 +78,11 @@ graph TD
 
 The API Gateway operates on a **single-threaded Event Loop** (FastAPI/Uvicorn). Maintaining a non-blocking loop is critical for WebSocket stability and API responsiveness.
 
+### 🚫 No Reentrant Gateway Calls (Deadlock Prevention)
+**CRITICAL**: AI Agents and and internal services MUST NOT call the `api-gateway` endpoints to fetch data. 
+- **Reason**: This creates circular dependencies and event-loop deadlocks (reentrant calls).
+- **The Fix**: Use **Direct Service Calls** (e.g., `http://data-pipeline:8000`) for internal data gathering.
+
 ### 🚫 The Event Loop Blocking Rule
 **MANDATORY**: You MUST NOT perform synchronous I/O (SQLAlchemy queries, heavy file reads, or long-polling) directly inside `async def` functions without offloading.
 

@@ -22,45 +22,43 @@ class OpenInterestDriftTool(BaseTool):
     """
 
     async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
-        url_base = f"{settings.API_GATEWAY_URL}/api/v1/data/open-interest"
+        from app.core.config import settings
+        import httpx
         
-        # Prepare Headers
+        # 2. Call local service directly (Avoid Gateway Deadlock)
+        url_base = f"{settings.DATA_PIPELINE_URL}/api/v1/ingest/open-interest"
+        
         headers = {}
         if auth_token:
-            if not auth_token.startswith("Bearer "):
-                headers["Authorization"] = f"Bearer {auth_token}"
-            else:
-                headers["Authorization"] = auth_token
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
         
-        async with aiohttp.ClientSession() as session:
+        async with httpx.AsyncClient() as client:
             try:
                 # 1. Fetch Latest 2 Snapshots
-                async with session.get(f"{url_base}/snapshots?limit=2", headers=headers, timeout=5.0) as resp:
-                    if resp.status != 200:
-                        return f"Error: Failed to fetch snapshots ({resp.status})"
-                    
-                    snaps_resp = await resp.json()
-                    snaps = snaps_resp.get("data", [])
-                    if len(snaps) < 2:
-                        return "Insufficient data: Need at least 2 OI snapshots to perform drift analysis."
-                    
-                    latest_ts = snaps[0].get("snapshot_at")
-                    prev_ts = snaps[1].get("snapshot_at")
+                snaps_resp = await client.get(f"{url_base}/snapshots", params={"limit": 2}, headers=headers, timeout=5.0)
+                if snaps_resp.status_code != 200:
+                    return f"Error: Failed to fetch snapshots ({snaps_resp.status_code})"
+                
+                snaps = snaps_resp.json()
+                if not snaps or len(snaps) < 2:
+                    return "Insufficient data: Need at least 2 OI snapshots to perform drift analysis."
+                
+                latest_ts = snaps[0].get("snapshot_at")
+                prev_ts = snaps[1].get("snapshot_at")
 
                 # 2. Fetch Analysis for both
                 async def fetch_analysis(ts):
                     params = {"snapshot_at": ts}
-                    async with session.get(f"{url_base}/analysis", params=params, headers=headers, timeout=10.0) as r:
-                        if r.status == 200:
-                            res = await r.json()
-                            return res.get("data", {})
-                        return None
+                    r = await client.get(f"{url_base}/analysis", params=params, headers=headers, timeout=10.0)
+                    if r.status_code == 200:
+                        return r.json()
+                    return None
 
                 latest_analysis = await fetch_analysis(latest_ts)
                 prev_analysis = await fetch_analysis(prev_ts)
 
                 if not latest_analysis or not prev_analysis:
-                    return "Error: Failed to fetch analysis data for comparison."
+                    return f"Error: Failed to fetch analysis data for comparison (at {latest_ts} and {prev_ts})."
 
                 # 3. Perform Drift Calculation
                 lat_sum = latest_analysis.get("summary", {})
