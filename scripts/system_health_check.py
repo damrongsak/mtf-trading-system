@@ -4,10 +4,13 @@ import os
 import sys
 import httpx
 from datetime import datetime
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env if exists
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # ==========================================
 # MTF Olympus - Comprehensive Health Manifest
@@ -152,7 +155,7 @@ class Diagnostic:
         
         # 1. Fetch Profile
         try:
-            resp = httpx.get(f"{self.gateway_url}/auth/profile", headers={"Authorization": f"Bearer {self.token}"})
+            resp = httpx.get(f"{self.gateway_url}/auth/profile", headers={"Authorization": f"Bearer {self.token}"}, timeout=10.0)
             if resp.status_code == 200:
                 profile = resp.json().get("data", {})
                 self.user_data["profile"] = profile
@@ -164,7 +167,7 @@ class Diagnostic:
 
         # 2. Fetch Telegram Status
         try:
-            resp = httpx.get(f"{self.gateway_url}/telegram/status", headers={"Authorization": f"Bearer {self.token}"})
+            resp = httpx.get(f"{self.gateway_url}/telegram/status", headers={"Authorization": f"Bearer {self.token}"}, timeout=10.0)
             if resp.status_code == 200:
                 status = resp.json()
                 self.user_data["telegram"] = status
