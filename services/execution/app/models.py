@@ -142,6 +142,10 @@ class Trade(Base):
     symbol = Column(String(20), nullable=False)
     strategy_name = Column(String(100), nullable=False)
     signal_timestamp = Column(DateTime(timezone=True), nullable=False)
+    signal_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    is_shadow = Column(Boolean, default=False, nullable=True)
+    signal_timestamp_ns = Column(Numeric(20, 0), nullable=True)
+    latency_ms = Column(Numeric(10, 4), nullable=True)
     
     status = Column(SQLEnum(TradeStatus, name="tradestatus"), nullable=False) # OPEN, CLOSED, REJECTED
     rejection_reason = Column(String(500), nullable=True)
@@ -223,3 +227,13 @@ class UserFund(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
+
+class SignalLog(Base):
+    __tablename__ = "signal_logs"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    status = Column(String) # CREATED, PENDING_APPROVAL, EXECUTED, FILLED, REJECTED, EXPIRED, FAILED
+    execution_id = Column(UUID(as_uuid=True), nullable=True)
+    filled_price = Column(Numeric(18, 8), nullable=True)
+    filled_time = Column(DateTime(timezone=True), nullable=True)

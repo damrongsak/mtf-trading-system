@@ -256,6 +256,10 @@ entities:
       - name: is_active
         type: boolean
         default: false
+      - name: is_shadow
+        type: boolean
+        default: false
+        description: "If true, signals are processed fully but not sent to the broker"
       - name: last_backtest_result
         type: jsonb
         nullable: true
@@ -703,6 +707,24 @@ entities:
         type: datetime
         required: true
         description: "Timestamp when the signal was generated"
+      - name: signal_timestamp_ns
+        type: bigint
+        nullable: true
+        description: "Nanosecond precision timestamp for latency tracking"
+      - name: latency_ms
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Execution latency in milliseconds (Fill - Signal)"
+      - name: is_shadow
+        type: boolean
+        default: false
+        description: "True if this was a shadow/simulated trade"
+      - name: signal_id
+        type: uuid
+        nullable: true
+        description: "Link to the specific signal that triggered this trade"
       - name: status
         type: enum
         enum_values: ["OPEN", "CLOSED", "REJECTED"]
@@ -1611,6 +1633,7 @@ validation_rules:
       - fields: ["timestamp"]
       - fields: ["symbol"]
       - fields: ["deployment_id"]
+      - fields: ["timestamp", "user_id", "status"]
     fields:
       - name: id
         type: uuid
@@ -1640,6 +1663,18 @@ validation_rules:
         type: uuid
         foreign_key: "deployments.id"
         nullable: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        nullable: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        nullable: true
+      - name: broker_account_id
+        type: uuid
+        foreign_key: "broker_accounts.id"
+        nullable: true
       - name: confidence
         type: decimal
         precision: 5
@@ -1667,15 +1702,28 @@ validation_rules:
         type: text
         nullable: true
         description: "Explanation of the sentiment score"
+      - name: filled_price
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
+      - name: filled_time
+        type: datetime
+        nullable: true
+      - name: commission
+        type: decimal
+        precision: 18
+        scale: 8
+        nullable: true
       - name: status
         type: enum
-        enum_values: ["CREATED", "PENDING_APPROVAL", "EXECUTED", "REJECTED", "EXPIRED"]
+        enum_values: ["CREATED", "PENDING_APPROVAL", "EXECUTED", "FILLED", "REJECTED", "EXPIRED", "FAILED"]
         default: "CREATED"
         required: true
       - name: execution_id
-        type: string
+        type: uuid
         nullable: true
-        description: "ID of the executed trade order"
+        description: "ID of the executed trade (link to trades.trade_id)"
 
   Plugin:
     description: "Registry of available system plugins"

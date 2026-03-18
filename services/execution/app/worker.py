@@ -108,6 +108,19 @@ class ExecutionWorker:
                                     "client_order_id": client_order_id
                                 }))
 
+                        # [Latency] Capture Total E2E Latency
+                        signal_ns = req_data.get("signal_timestamp_ns")
+                        if signal_ns:
+                            total_latency_ms = (time.time_ns() - int(signal_ns)) / 1_000_000
+                            logger.info(f"⏱️ TOTAL E2E Latency for {client_order_id or 'unknown'}: {total_latency_ms:.2f}ms")
+                            if self.redis:
+                                await self.redis.publish("system.metrics.latency", json.dumps({
+                                    "type": "e2e_latency",
+                                    "symbol": req_data.get("symbol"),
+                                    "latency_ms": round(total_latency_ms, 2),
+                                    "client_order_id": client_order_id
+                                }))
+
                         result = await OrderService.execute_smart_order(req_data, db)
                         
                         # [Latency] Enrich result with latency if available
@@ -297,6 +310,10 @@ class FillTradeConsumer:
                     symbol=symbol,
                     strategy_name=comment,
                     signal_timestamp=datetime.utcnow(),
+                    signal_id=uuid.UUID(data.get("trace_id")) if data.get("trace_id") else None,
+                    signal_timestamp_ns=data.get("signal_timestamp_ns"),
+                    latency_ms=data.get("latency_ms"),
+                    is_shadow=data.get("is_shadow", False),
                     status=TradeStatus.OPEN,
                     direction=direction,
                     entry_price=fill_price,
@@ -315,13 +332,31 @@ class FillTradeConsumer:
                     },
                 )
                 await db.merge(new_trade)
-                await db.commit()
 
+                # [SIGNAL-BRIDGE] Synchronize SignalLog status
+                if new_trade.signal_id:
+                    from sqlalchemy import update as _update
+                    from app.models import SignalLog
+                    
+                    # Update SignalLog to FILLED and link the new trade_id
+                    await db.execute(
+                        _update(SignalLog)
+                        .where(SignalLog.id == new_trade.signal_id)
+                        .values(
+                            status="FILLED",
+                            execution_id=new_trade.trade_id,
+                            filled_price=new_trade.entry_price,
+                            filled_time=datetime.utcnow()
+                        )
+                    )
+                
+                await db.commit()
+            
             # XACK only after successful commit — ensures retry on failure
             await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
             logger.info(
-                f"[FillConsumer] ✅ Trade {trade_uuid} persisted for position {broker_order_id} "
-                f"risk_usd={risk_usd} rr_ratio={rr_ratio}"
+                f"[FillConsumer] ✅ Trade {trade_uuid} persisted and SignalLog {new_trade.signal_id} updated. "
+                f"Position {broker_order_id} risk_usd={risk_usd} rr_ratio={rr_ratio}"
             )
 
         except Exception as e:

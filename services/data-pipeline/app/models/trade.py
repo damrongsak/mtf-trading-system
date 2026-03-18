@@ -40,6 +40,14 @@ class Trade(Base):
                           comment="Name of the strategy that generated the signal")
     signal_timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
                              comment="Timestamp when the signal was generated")
+    signal_id = Column(UUID(as_uuid=True), nullable=True, index=True,
+                        comment="Link to the specific signal that triggered this trade")
+    signal_timestamp_ns = Column(Numeric(20, 0), nullable=True,
+                                 comment="Nanosecond precision timestamp for latency tracking")
+    latency_ms = Column(Numeric(10, 4), nullable=True,
+                        comment="Execution latency in milliseconds (Fill - Signal)")
+    is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
+    is_shadow = Column(Boolean, default=False, comment="If true, signals are not sent to the broker")
 
     # Status and Rejection Tracking
     status = Column(SQLEnum(TradeStatus), nullable=False, index=True,
