@@ -22,7 +22,7 @@ graph TD
     subgraph ExecutionFlow["Execution & Risk"]
         STR --> |"Signal"| HM[Hook Manager / Plugins]
         HM --> |"Validated Signal"| EC[Execution Client]
-        EC --> |"LPUSH (Priority)"| PQ[(Priority Queue)]
+        EC --> |"LPUSH (Priority/Shadow)"| PQ[(Priority Queue)]
         EC --> |"LPUSH (Default)"| DQ[(Command Queue)]
         PQ & DQ --> |"Async RPC"| EXS{{Execution Service}}
     end
@@ -56,6 +56,16 @@ All indicators are optimized using **Numba JIT**.
 The `HookManager` allows external injection into the trading loop:
 - `on_market_data`: Enrich data before strategies see it.
 - `filter_signal`: Final veto power for Risk/AI Sentiment plugins. [See: api-agent-guardrails skill]
+
+## 🚦 Institutional Strategy Lifecycle
+All strategies deployed in this service MUST follow the **7-Step Olympus Standard**:
+1. **SDD Spec**: Rules defined in `specs/08_logic`.
+2. **Backtest**: Vectorized validation via `vectorbt`.
+3. **Monte Carlo**: `app/analysis/monte_carlo.py` (Ruin Prob < 1%).
+4. **Walk-Forward**: Out-of-Sample verification (Score > 60%).
+5. **JSON Mapping**: 1:1:1 Strategy -> Fund -> Account.
+6. **Shadow Trading**: Run live but `is_shadow=True` (No broker calls).
+7. **Drift Monitor**: Continuous health check via `PerformanceMonitor`.
 
 ## 🚦 Operational Guide
 

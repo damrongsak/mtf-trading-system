@@ -111,7 +111,19 @@ To maintain a "Single Source of Truth" and prevent configuration drift:
 - **Service-Level Cleanup**: DO NOT create local `.env` files within individual microservice directories.
 - **Docker Integration**: All services are configured via `docker-compose.yml` to read the root `.env` file automatically.
 
-## 📋 Step 7: Standardized Handoff & Progress Tracking
+## 📋 Step 7: Professional Strategy Lifecycle (Idea-to-Live)
+Agents implementing or deploying strategies MUST follow the **7-Step Olympus Standard**:
+
+1.  **Logic Spec (08_logic)**: Define rules in YAML/Markdown before any Python code.
+2.  **Vectorized Backtest**: Use `vectorbt` for 1-Year historical validation with realistic slippage.
+3.  **Monte Carlo**: Run 1,000 simulations. **Ruin Probability < 1%** is mandatory.
+4.  **Walk-Forward (WFA)**: Validate out-of-sample stability. Robustness Score > 60%.
+5.  **1:1:1 Mapping**: Configure JSON (Strategy -> Fund -> Dedicated Broker Account) for clean audits.
+6.  **Shadow Trading**: (Requirement) Run on live data for 5+ days to measure execution drift.
+7.  **Drift Monitoring**: Use `PerformanceMonitor` to detect "Alpha Decay" and signal skipped vs. taken.
+
+---
+## 📋 Step 8: Standardized Handoff & Progress Tracking
 ...
 *(Example: `2026-03-08-AI-ANALYST-V2.2-POST-MORTEM-SENTINEL.md`)*
 

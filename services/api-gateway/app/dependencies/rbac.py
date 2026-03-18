@@ -6,6 +6,7 @@ import logging
 
 from app.database import get_db
 from app.models.user_fund import UserFund, UserRole
+from app.models.user import User
 from app.security import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class RequireRole:
         request: Request,
         fund_id: Optional[uuid.UUID] = None,
         db: Session = Depends(get_db),
-        current_user = Depends(get_current_user)
+        current_user: User = Depends(get_current_user) # Added type hint for current_user
     ):
         """
         Dependency that checks if the current user has the required roles for a fund.
@@ -58,7 +59,16 @@ class RequireRole:
 
         if not fund_id:
             # Note: For list endpoints, this might not be needed if they handle filtering internally
-            return None
+            # If fund_id is still not resolved, it means the endpoint might not be fund-specific
+            # or the fund_id could not be determined from the request context.
+            # For manual calls, fund_id should be provided.
+            # For FastAPI dependencies, if fund_id is truly optional for the route,
+            # this dependency might not be suitable or needs further logic.
+            # For now, we'll raise an error if fund_id is required but not found.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Fund ID could not be determined from the request."
+            )
 
         # 3. Check UserRole for this Fund
         user_fund = db.query(UserFund).filter(

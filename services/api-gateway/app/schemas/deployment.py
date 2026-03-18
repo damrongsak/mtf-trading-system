@@ -11,6 +11,7 @@ class DeploymentBase(BaseModel):
     timeframe: str
     config_snapshot: Dict[str, Any]
     is_live: bool = False
+    is_shadow: bool = False
 
 class DeploymentCreate(DeploymentBase):
     pass
@@ -19,6 +20,7 @@ class DeploymentResponse(DeploymentBase):
     id: UUID
     user_id: UUID
     status: str
+    is_shadow: bool = False
     started_at: datetime
     stopped_at: Optional[datetime] = None
     last_signal_at: Optional[datetime] = None

@@ -20,7 +20,7 @@ def cached_response(ttl: int = 300, key_prefix: str = "api_cache"):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Extract request and current_user if available
-            request: Optional[Request] = None
+            request = None
             user_id: str = "anonymous"
             
             for arg in args:

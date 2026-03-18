@@ -169,7 +169,9 @@ class CTraderOrderAdapter(BrokerAdapter):
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
                            comment: Optional[str] = None,
-                           tag: Optional[str] = None) -> Dict[str, Any]:
+                           tag: Optional[str] = None,
+                           signal_timestamp_ns: Optional[float] = None,
+                           is_shadow: bool = False) -> Dict[str, Any]:
         
         # Diagnostic logging for Unit Sign issue
         logger.info(f"cTrader: Placing market order for {symbol}, units={units}")
@@ -226,9 +228,11 @@ class CTraderOrderAdapter(BrokerAdapter):
                               status="REJECTED",
                               instrument=symbol,
                               fill_price=0.0,
-                              fill_volume=units,
-                              reason=str(error_code),
-                          ))
+                               fill_volume=units,
+                               reason=str(error_code),
+                               signal_timestamp_ns=signal_timestamp_ns,
+                               is_shadow=is_shadow,
+                           ))
                       except Exception as pub_err:
                           logger.warning(f"[H2] Failed to publish REJECTED fill: {pub_err}")
                       raise Exception(f"cTrader Order REJECTED: {error_code}")
@@ -312,10 +316,12 @@ class CTraderOrderAdapter(BrokerAdapter):
                         fill_volume=units,
                         sl_price=sl_price or 0.0,
                         tp_price=tp_price or 0.0,
-                        direction="LONG" if units > 0 else "SHORT",
-                        comment=comment or "",
-                        deal_id=str(res.deal.dealId) if res.HasField("deal") else None,
-                    ))
+                         direction="LONG" if units > 0 else "SHORT",
+                         comment=comment or "",
+                         deal_id=str(res.deal.dealId) if res.HasField("deal") else None,
+                         signal_timestamp_ns=signal_timestamp_ns,
+                         is_shadow=is_shadow,
+                     ))
                 except Exception as pub_err:
                     logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
             else:

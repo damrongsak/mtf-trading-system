@@ -53,7 +53,19 @@ class OrderService:
         Expects req_data to have: broker_account_id, symbol, direction, stop_loss, etc.
         """
         try:
-            # 0. Global Check (HFT-lite: Try Redis first)
+            # 0. Shadow Mode & Global Check
+            if req_data.get("is_shadow"):
+                logger.info(f"🕶️ SHADOW MODE: Bypassing execution for {req_data.get('symbol')}")
+                return {
+                    "id": f"shadow_{uuid.uuid4().hex[:8]}",
+                    "instrument": req_data["symbol"],
+                    "units": "0 (Shadow)",
+                    "price": "0 (Shadow)",
+                    "time": datetime.utcnow().isoformat(),
+                    "trace_id": req_data.get("client_order_id") or f"trace:{uuid.uuid4().hex[:8]}",
+                    "is_shadow": True
+                }
+
             try:
                 from app.utils.redis_client import get_redis_client
                 rc = get_redis_client()
@@ -263,7 +275,9 @@ class OrderService:
                     tp_price=take_profit,
                     time_in_force=req_data.get("time_in_force", "GTC"),
                     trade_id=None,
-                    comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}"
+                    comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}",
+                    signal_timestamp_ns=req_data.get("signal_timestamp_ns"),
+                    is_shadow=req_data.get("is_shadow", False)
                 )
             else:
                 response = await adapter.place_market_order(
@@ -272,7 +286,9 @@ class OrderService:
                     sl_price=stop_loss,
                     tp_price=take_profit,
                     trade_id=None,
-                    comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}"
+                    comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}",
+                    signal_timestamp_ns=req_data.get("signal_timestamp_ns"),
+                    is_shadow=req_data.get("is_shadow", False)
                 )
             
             await OrderService._log_trace(trace_id, "broker_execute", exec_start)

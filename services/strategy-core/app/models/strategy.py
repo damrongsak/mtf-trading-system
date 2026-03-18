@@ -13,7 +13,8 @@ class Strategy(Base):
     config_json = Column(JSONB, nullable=False)
     risk_settings = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     custom_code = Column(String, nullable=True)
-    is_active = Column(Boolean, default=False)
+    is_live = Column(Boolean, default=False)
+    is_shadow = Column(Boolean, default=False)
 
     # Persistence Fields
     last_backtest_result = Column(JSONB, nullable=True)

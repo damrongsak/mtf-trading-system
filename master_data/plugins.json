@@ -1,12 +1,14 @@
 [
   {
-    "id": "telegram-notifier",
-    "name": "Telegram Notifier",
-    "description": "Sends signals to Telegram",
+    "id": "olympus-lstm-predictor",
+    "name": "Olympus LSTM Predictor",
+    "description": "AI Signal Refinement",
     "author": null,
     "version": "1.0.0",
-    "category": "UTILITY",
-    "base_config_schema": {},
+    "category": "ALPHA",
+    "base_config_schema": {
+      "mode": "PRUDENT"
+    },
     "is_system": true,
     "created_at": "2026-03-16T05:43:57.340801+00:00"
   },
@@ -24,15 +26,13 @@
     "created_at": "2026-03-16T05:43:57.340801+00:00"
   },
   {
-    "id": "olympus-lstm-predictor",
-    "name": "Olympus LSTM Predictor",
-    "description": "AI Signal Refinement",
+    "id": "telegram-notifier",
+    "name": "Telegram Notifier",
+    "description": "Sends signals to Telegram",
     "author": null,
     "version": "1.0.0",
-    "category": "ALPHA",
-    "base_config_schema": {
-      "mode": "PRUDENT"
-    },
+    "category": "UTILITY",
+    "base_config_schema": {},
     "is_system": true,
     "created_at": "2026-03-16T05:43:57.340801+00:00"
   }

@@ -1,7 +1,7 @@
 
 import httpx
 from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, Request
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db, SessionLocal
 from app.security import get_current_user
@@ -80,6 +80,7 @@ async def list_deployments(
 @router.get("/{id}", response_model=DeploymentResponse)
 async def get_deployment(
     id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -95,6 +96,7 @@ async def get_deployment(
 
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER])(
+        request=request,
         fund_id=deployment.fund_id,
         current_user=current_user,
         db=db
@@ -145,6 +147,7 @@ async def create_deployment(
         timeframe=deployment_in.timeframe,
         config_snapshot=deployment_in.config_snapshot,
         is_live=deployment_in.is_live,
+        is_shadow=deployment_in.is_shadow,
         status="STARTING"
     )
     db.add(deployment)

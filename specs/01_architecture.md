@@ -372,6 +372,13 @@ To ensure partner integration safety, the WebSocket channel and its reference SD
 4.  Frontend displays **Mental Hand History** form.
 5.  User submits reflection -> AI unlocks Execution.
 
+### 5.4. Professional Deployment Pipeline (Prop-to-Live)
+To minimize capital risk, strategies follow a graduated lifecycle:
+1.  **Research**: Backtest & Monte Carlo validation.
+2.  **Shadow**: Live market data feed into `Strategy Core`, signals generated but **NOT** sent to broker.
+3.  **Paper**: Signals sent to a dedicated Demo/Paper account.
+4.  **Live**: Full capital deployment after 5+ days of positive Shadow/Paper performance.
+
 ## 6. Intelligence & Caching (v2.7+)
 To manage the high latency of Gemini LLM calls, the **AI Analyst** implements **Semantic Caching**:
 - **Mechanism**: Redis Vector Search using `redisvl`.

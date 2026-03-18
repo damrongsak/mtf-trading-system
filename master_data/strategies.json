@@ -1,31 +1,5 @@
 [
   {
-    "id": "bcb60a44-7d44-422f-8b2c-194b2b8ddf8f",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "SMC XAUUSD Live Monitoring",
-    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
-    "config_id": null,
-    "template_id": "smc_v1",
-    "config_json": {
-      "symbol": "XAUUSD",
-      "tf_macro": "H4",
-      "tf_setup": "H1",
-      "timeframe": "M15",
-      "execution_mode": "PENDING_APPROVAL"
-    },
-    "risk_settings": {
-      "max_drawdown_limit": 5.0,
-      "risk_per_trade_percent": 1.0
-    },
-    "custom_code": null,
-    "is_active": true,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-07T08:45:27.616010",
-    "updated_at": "2026-03-07T08:45:27.616010"
-  },
-  {
     "id": "cb12ce69-098b-44c6-8eef-dbf744c028c5",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "name": "SMC XAUUSD Live Monitoring",
@@ -52,28 +26,26 @@
     "updated_at": "2026-03-07T08:45:13.226081"
   },
   {
-    "id": "14bfbfb2-6f3e-4e77-8fc3-b6b9f6896287",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "SMC EURUSD Live Monitoring",
-    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "id": "e3fa821b-8df3-4f27-a938-48fda0994b1a",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "name": "SMC Capital Gold",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
     "config_id": null,
     "template_id": "smc_v1",
     "config_json": {
-      "symbol": "EURUSD",
+      "symbol": "XAU_USD",
+      "min_rrr": 1.5,
       "tf_macro": "4h",
       "tf_setup": "1h"
     },
-    "risk_settings": {
-      "max_trades": 3,
-      "risk_per_trade_usd": 10.0
-    },
+    "risk_settings": {},
     "custom_code": null,
     "is_active": true,
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-07T09:05:50.603113",
-    "updated_at": "2026-03-07T09:05:50.603113"
+    "created_at": "2026-03-16T05:35:27.873895",
+    "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
     "id": "066aa6c5-c431-4be1-a9d1-642faecf5e0a",
@@ -100,26 +72,28 @@
     "updated_at": "2026-03-07T09:05:50.603113"
   },
   {
-    "id": "9e0195a6-3068-4e10-b3ff-1dc77b7e2e78",
-    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
-    "name": "SMC Alpha Gold",
+    "id": "14bfbfb2-6f3e-4e77-8fc3-b6b9f6896287",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "SMC EURUSD Live Monitoring",
     "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
     "config_id": null,
     "template_id": "smc_v1",
     "config_json": {
-      "symbol": "XAUUSD",
-      "min_rrr": 1.5,
+      "symbol": "EURUSD",
       "tf_macro": "4h",
       "tf_setup": "1h"
     },
-    "risk_settings": {},
+    "risk_settings": {
+      "max_trades": 3,
+      "risk_per_trade_usd": 10.0
+    },
     "custom_code": null,
     "is_active": true,
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-16T05:35:27.873895",
-    "updated_at": "2026-03-16T05:35:27.873895"
+    "created_at": "2026-03-07T09:05:50.603113",
+    "updated_at": "2026-03-07T09:05:50.603113"
   },
   {
     "id": "4c18db33-c591-4f07-a39e-9352d46021a5",
@@ -167,14 +141,14 @@
     "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
-    "id": "e3fa821b-8df3-4f27-a938-48fda0994b1a",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "name": "SMC Capital Gold",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "id": "9e0195a6-3068-4e10-b3ff-1dc77b7e2e78",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "name": "SMC Alpha Gold",
+    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
     "config_id": null,
     "template_id": "smc_v1",
     "config_json": {
-      "symbol": "XAU_USD",
+      "symbol": "XAUUSD",
       "min_rrr": 1.5,
       "tf_macro": "4h",
       "tf_setup": "1h"
@@ -187,5 +161,63 @@
     "last_simulation_result": null,
     "created_at": "2026-03-16T05:35:27.873895",
     "updated_at": "2026-03-16T05:35:27.873895"
+  },
+  {
+    "id": "a9c449dc-6d65-4bcc-8a6b-6ce6af705919",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "BB Stochastic Scalping (Gold)",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "bb_stoch_ob_v1",
+    "config_json": {
+      "bb_std": 1.5,
+      "symbol": "XAUUSD",
+      "stoch_d": 3,
+      "stoch_k": 9,
+      "bb_period": 13,
+      "timeframe": "M15",
+      "ob_lookback": 15,
+      "ob_tolerance": 0.008,
+      "atr_multiplier": 2.0,
+      "stoch_oversold": 20,
+      "stoch_overbought": 80
+    },
+    "risk_settings": {
+      "max_drawdown_limit": 5.0,
+      "risk_per_trade_percent": 1.0
+    },
+    "custom_code": null,
+    "is_active": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-18T10:00:00",
+    "updated_at": "2026-03-18T10:00:00"
+  },
+  {
+    "id": "bcb60a44-7d44-422f-8b2c-194b2b8ddf8f",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "SMC XAUUSD Live Monitoring",
+    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "config_id": null,
+    "template_id": "smc_v1",
+    "config_json": {
+      "symbol": "XAUUSD",
+      "tf_macro": "H4",
+      "tf_setup": "H1",
+      "timeframe": "M15",
+      "execution_mode": "PENDING_APPROVAL"
+    },
+    "risk_settings": {
+      "max_drawdown_limit": 5.0,
+      "risk_per_trade_percent": 1.0
+    },
+    "custom_code": null,
+    "is_active": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-07T08:45:27.616010",
+    "updated_at": "2026-03-07T08:45:27.616010"
   }
 ]

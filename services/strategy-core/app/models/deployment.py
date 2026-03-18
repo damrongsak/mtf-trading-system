@@ -19,6 +19,7 @@ class Deployment(Base):
     
     status = Column(String, default="ACTIVE")
     is_live = Column(Boolean, default=False)
+    is_shadow = Column(Boolean, default=False)
     
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     stopped_at = Column(DateTime(timezone=True), nullable=True)

@@ -22,6 +22,7 @@ class Deployment(Base):
     # State
     status = Column(Enum("STARTING", "ACTIVE", "STOPPED", "ERROR", "STOPPING", name="deployment_status_enum"), default="STARTING", index=True, nullable=False)
     is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
+    is_shadow = Column(Boolean, default=False, comment="If true, signals are not sent to the broker")
     
     # Performance/Tracking
     started_at = Column(DateTime(timezone=True), server_default=func.now())

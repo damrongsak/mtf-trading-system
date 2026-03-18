@@ -4107,6 +4107,19 @@ components:
           type: string
         timeframe:
           type: string
+        user_id:
+          type: string
+          format: uuid
+        fund_id:
+          type: string
+          format: uuid
+        broker_account_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [CREATED, PENDING_APPROVAL, EXECUTED, FILLED, REJECTED, EXPIRED, FAILED]
+          default: CREATED
 
     RiskCheckRequest:
       type: object
@@ -4853,6 +4866,31 @@ components:
         sentiment_reason:
           type: string
           nullable: true
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        fund_id:
+          type: string
+          format: uuid
+          nullable: true
+        broker_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [CREATED, PENDING_APPROVAL, EXECUTED, FILLED, REJECTED, EXPIRED, FAILED]
+        filled_price:
+          type: number
+          nullable: true
+        filled_time:
+          type: string
+          format: date-time
+          nullable: true
+        commission:
+          type: number
+          nullable: true
 
     APIResponse_SignalResponse:
       allOf:
@@ -5031,6 +5069,10 @@ components:
           type: boolean
         config_snapshot:
           type: object
+        is_shadow:
+          type: boolean
+          default: false
+          description: "If true, signals are not sent to the broker"
         last_error:
           type: string
           nullable: true
@@ -5061,6 +5103,9 @@ components:
           type: boolean
         config_snapshot:
           type: object
+        is_shadow:
+          type: boolean
+          default: false
 
     APIResponse_DeploymentList:
       allOf:

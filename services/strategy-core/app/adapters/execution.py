@@ -26,6 +26,10 @@ class ExecutionClient:
         Prioritizes Close/Modify commands.
         """
         try:
+            import time
+            # Nanosecond precision for HFT-lite latency tracking
+            order_data["signal_timestamp_ns"] = time.time_ns()
+            
             r = await self._get_redis()
             
             # Determine priority

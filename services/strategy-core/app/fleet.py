@@ -89,6 +89,7 @@ class FleetManager:
                         "risk_settings": strategy.risk_settings,
                         "logic": logic_func,
                         "symbol": strategy.config_json.get("symbol", "XAU/USD"),
+                        "is_shadow": getattr(strategy, "is_shadow", False),
                         "state": {} 
                     }
                     self.active_strategies[str(strategy.id)] = context
@@ -118,6 +119,7 @@ class FleetManager:
                         "symbol": dep.stock_symbol,
                         "executor": executor,
                         "is_live": dep.is_live,
+                        "is_shadow": getattr(dep, "is_shadow", False),
                         "state": {}
                     }
                     self.active_deployments[str(dep.id)] = context
@@ -229,6 +231,7 @@ class FleetManager:
                             "stop_loss": signal_dict.get("stop_loss"),
                             "take_profit": signal_dict.get("take_profit"),
                             "risk_usd": signal_dict.get("risk_usd"), # Should be calculated or from config
+                            "is_shadow": context.get("is_shadow", False),
                             "reason": signal_dict.get("reason", "Template Strategy Signal"),
                             "meta_data": signal_dict.get("metadata", {})
                         }
@@ -281,6 +284,7 @@ class FleetManager:
                             "direction": signal.get("direction"), 
                             "stop_loss": signal.get("stop_loss"),
                             "risk_usd": signal.get("risk_usd"),
+                            "is_shadow": context.get("is_shadow", False),
                             "reason": signal.get("reason", "Dynamic Strategy Signal"),
                             "meta_data": signal.get("metadata", {})
                         }

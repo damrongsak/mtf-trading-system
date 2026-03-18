@@ -57,6 +57,8 @@ async def publish_fill(
     direction: str = "LONG",
     comment: str = "",
     deal_id: Optional[str] = None,
+    signal_timestamp_ns: Optional[float] = None,
+    is_shadow: bool = False,
 ) -> bool:
     """
     [H2] Publish a broker fill event to:
@@ -85,6 +87,8 @@ async def publish_fill(
         "direction":   direction,
         "comment":     comment,
         "deal_id":     deal_id,
+        "signal_timestamp_ns": signal_timestamp_ns,
+        "is_shadow":   is_shadow,
     }
     payload_json = json.dumps(payload)
 
