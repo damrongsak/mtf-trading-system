@@ -427,7 +427,9 @@ class AsyncCTraderClient:
 
     async def create_order(self, account_id: int, symbol_id: int, order_type: int, trade_side: int, volume: int, 
                            price: Optional[float] = None, sl: Optional[float] = None, tp: Optional[float] = None,
-                           comment: Optional[str] = None):
+                           comment: Optional[str] = None,
+                           slippage_pips: Optional[int] = None,
+                           base_price: Optional[float] = None):
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = int(account_id)
         req.symbolId = int(symbol_id)
@@ -439,6 +441,8 @@ class AsyncCTraderClient:
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
         if comment: req.comment = comment
+        if slippage_pips is not None: req.slippageInPoints = int(slippage_pips)
+        if base_price is not None: req.baseSlippagePrice = float(base_price)
         
         resp_msg = await self.send(req)
         

@@ -57,3 +57,4 @@ services/data-pipeline/debug_ingestion.py
 services/data-pipeline/debug_output.txt
 debug_*.py
 *.xlsx
+trained_models/

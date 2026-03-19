@@ -50,7 +50,7 @@ graph TD
 - **Idempotency & Safety**: Multi-layer protection against race conditions using Redis `SETNX` locking to ensure a signal is never executed twice.
 - **Dead Letter Handling**: Automated retry logic (3 attempts) with routing to `queue:exec:dead` for manual intervention on failed orders.
 - **Hierarchical Risk Citadel (3-Phase)**: Modular validation engine enforcing:
-    - **Phase 1 (Core)**: Mandatory SL/TP, distance, and RRR validation.
+    - **Phase 1 (Core)**: Flexible SL/TP (optional), distance, and RRR validation. Support for Market, Limit, and Stop orders with integrated slippage protection.
     - **Phase 2 (Market)**: Real-time News, Session, Volatility, Quant, and Liquidity filters synced via Redis for HFT speeds.
     - **Phase 3 (Account)**: Daily Drawdown, Max Trades, and Consecutive Loss limits.
 - **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers. Dynamically refreshes thresholds on AI-driven risk rebalancing events.

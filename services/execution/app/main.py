@@ -249,11 +249,13 @@ class OrderRequest(BaseModel):
     order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
     price: Optional[float] = None # For Limit/Stop
-    sl_price: float = Field(..., description="Stop Loss price (Required for Institutional Risk)")
-    tp_price: float = Field(..., description="Take Profit price (Required for Institutional Risk)")
+    sl_price: Optional[float] = Field(None, description="Stop Loss price")
+    tp_price: Optional[float] = Field(None, description="Take Profit price")
     trade_id: Optional[str] = None
     comment: Optional[str] = None
     tag: Optional[str] = None
+    slippage_pips: Optional[int] = None
+    base_price: Optional[float] = None
 
 class GetTradesRequest(BaseModel):
     broker_account_id: str
@@ -386,7 +388,9 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
                 comment=req.comment,
-                tag=req.tag
+                tag=req.tag,
+                slippage_pips=req.slippage_pips,
+                base_price=req.base_price
             )
         elif req.order_type == "STOP":
              if not req.price:
@@ -398,7 +402,9 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
                 comment=req.comment,
-                tag=req.tag
+                tag=req.tag,
+                slippage_pips=req.slippage_pips,
+                base_price=req.base_price
             )
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
@@ -866,6 +872,11 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
         logger.warning(f"Position not found for amendment: {position_id}")
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
+        # [SAFETY] Check if this is a Risk Validation error (422) from the adapter
+        from app.adapters.ctrader import RiskValidationError
+        if isinstance(e, RiskValidationError):
+            logger.warning(f"[SAFETY] Pre-trade risk check failed for amend position {position_id}: {e}")
+            raise HTTPException(status_code=422, detail=f"Risk validation failed: {str(e)}")
         logger.error(f"Amend Position Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

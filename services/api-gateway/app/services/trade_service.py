@@ -41,10 +41,20 @@ class TradeService:
             uuid.NAMESPACE_DNS, f"{acc_id_str}_{broker_trade_id}"
         )
         
+        symbol = request_data.get("symbol", "")
+        is_gold = "XAU" in symbol.upper()
+        # For XAUUSD, 1 lot = 100 units usually. In OANDA units are raw (e.g. 1 unit = 0.01 lot?)
+        # Let's use a safer conversion:
+        if is_gold:
+            lot_size = abs(units) / 100.0
+        else:
+            lot_size = abs(units) / 100000.0
+            
         # Create Trade Record
         trade = Trade(
             trade_id=trade_id,
-            symbol=request_data.get("symbol"),
+            broker_account_id=broker_account_id if broker_account_id else uuid.UUID(acc_id_str) if acc_id_str != "unknown" else None,
+            symbol=symbol,
             strategy_name="Manual Execution", # Default for manual trades
             signal_timestamp=datetime.now(timezone.utc),
             status=status,
@@ -52,7 +62,7 @@ class TradeService:
             entry_price=float(execution_data.get("price", 0)), # Actual fill price
             sl_price=request_data.get("sl_price"),
             tp_price=request_data.get("tp_price"),
-            lot_size=abs(units) / 100000.0, # Approx lot size (simplified)
+            lot_size=lot_size,
             risk_usd=10.0, # Default risk cap from specs
             pnl_usd=None,
             broker_trade_id=str(execution_data.get("id")),

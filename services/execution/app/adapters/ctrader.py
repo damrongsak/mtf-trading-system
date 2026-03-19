@@ -190,6 +190,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                            tag: Optional[str] = None,
                            signal_timestamp_ns: Optional[float] = None,
                            is_shadow: bool = False) -> Dict[str, Any]:
+
         
         # Diagnostic logging for Unit Sign issue
         logger.info(f"cTrader: Placing market order for {symbol}, units={units}")
@@ -435,7 +436,9 @@ class CTraderOrderAdapter(BrokerAdapter):
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
-                          tag: Optional[str] = None) -> Dict[str, Any]:
+                          tag: Optional[str] = None,
+                          slippage_pips: Optional[int] = None,
+                          base_price: Optional[float] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -466,7 +469,9 @@ class CTraderOrderAdapter(BrokerAdapter):
                 price=entry_price,
                 sl=sl_price,
                 tp=tp_price,
-                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
+                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto"),
+                slippage_pips=slippage_pips,
+                base_price=base_price
             )
 
             # Check for Rejection in ExecutionEvent

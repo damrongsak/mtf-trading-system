@@ -8,7 +8,9 @@ class OrderRequest(BaseModel):
     order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
     price: Optional[float] = None # For Limit/Stop
-    sl_price: float = Field(..., description="Stop Loss price (MANDATORY)")
-    tp_price: float = Field(..., description="Take Profit price (MANDATORY)")
+    sl_price: Optional[float] = Field(None, description="Stop Loss price")
+    tp_price: Optional[float] = Field(None, description="Take Profit price")
     comment: Optional[str] = None
     tag: Optional[str] = None
+    slippage_pips: Optional[int] = Field(None, description="Slippage tolerance in points")
+    base_price: Optional[float] = Field(None, description="Base price for slippage calculation")

@@ -61,9 +61,9 @@ class Trade(Base):
                       comment="Trade direction")
     entry_price = Column(Numeric(18, 8), nullable=False,
                         comment="Planned or actual entry price")
-    sl_price = Column(Numeric(18, 8), nullable=False,
+    sl_price = Column(Numeric(18, 8), nullable=True,
                      comment="Stop loss price")
-    tp_price = Column(Numeric(18, 8), nullable=False,
+    tp_price = Column(Numeric(18, 8), nullable=True,
                      comment="Take profit price")
     trailing_stop = Column(Boolean, default=False, nullable=True,
                           comment="Enable/Disable trailing stop loss")

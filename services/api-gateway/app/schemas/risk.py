@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
@@ -24,14 +24,18 @@ class KillSwitchRequest(BaseModel):
 
 class RiskCheckRequest(BaseModel):
     symbol: str
-    units: float
-    side: str
-    account_id: str
-    strategy_id: Optional[str] = None
+    entry_price: float
+    stop_loss: float
+    take_profit: Optional[float] = None
+    account_balance: Optional[float] = Field(None, description="Account Balance in USD")
+    risk_percentage: Optional[float] = Field(1.0, description="Risk per trade in % (default 1%)")
+    risk_usd: Optional[float] = Field(None, description="Risk in USD (overrides percentage)")
 
 class RiskCheckResponse(BaseModel):
-    is_allowed: bool
-    reason: Optional[str] = None
-    adjusted_units: Optional[float] = None
-    margin_required: Optional[float] = None
-    max_drawdown_hit: bool = False
+    symbol: str
+    direction: str
+    risk_reward_ratio: float
+    position_size: Dict[str, Any]
+    financials: Dict[str, Any]
+    is_safe: bool
+    warnings: List[str] = []

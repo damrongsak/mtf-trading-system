@@ -107,8 +107,18 @@ async def sync_account_trades(
         if not account:
             raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
             
-        result = await execution_client.sync_trades(str(account.id))
-        return success_response(data=result, message="Sync command sent")
+        # Fetch from broker
+        broker_trades = await execution_client.get_open_trades(str(account.id))
+        
+        # Sync to DB
+        synced = TradeService.sync_open_trades(
+            db=db,
+            broker_trades=broker_trades,
+            user=current_user,
+            broker_account_id=account.id
+        )
+        
+        return success_response(data={"count": len(synced)}, message="Sync completed successfully")
     except HTTPException:
         raise
     except Exception as e:
@@ -164,6 +174,7 @@ async def place_order(
         # 3. Persist Trade & Create Journal Entry
         if execution_result and "id" in execution_result:
             try:
+                # Ensure broker_account_id is passed to prevent DB constraint failure
                 trade = TradeService.create_trade_from_execution(
                     db=db,
                     user=current_user,
@@ -171,8 +182,6 @@ async def place_order(
                     request_data=order_data,
                     broker_account_id=account.id
                 )
-                # Link trade to account
-                trade.broker_account_id = account.id
                 db.commit()
             except Exception as persist_error:
                 # Log error but don't fail the request since order was placed
@@ -639,7 +648,17 @@ async def amend_position(
         if not account:
             raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
             
-        result = await execution_client.amend_position(position_id, payload)
+        # Resolve broker_trade_id from position_id (which might be an internal UUID)
+        broker_trade_id = position_id
+        try:
+            trade_uuid = uuid.UUID(position_id)
+            trade = db.query(Trade).filter(Trade.trade_id == trade_uuid).first()
+            if trade and trade.broker_trade_id:
+                broker_trade_id = trade.broker_trade_id
+        except (ValueError, TypeError):
+            pass
+
+        result = await execution_client.amend_position(broker_trade_id, payload)
         return success_response(data=result, message="Position amendment command sent")
         
     except HTTPException:

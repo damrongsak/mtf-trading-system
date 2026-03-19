@@ -172,8 +172,8 @@ class Trade(Base):
     
     direction = Column(SQLEnum(TradeDirection, name="tradedirection"), nullable=False) # LONG, SHORT
     entry_price = Column(Numeric(18, 8), nullable=False)
-    sl_price = Column(Numeric(18, 8), nullable=False)
-    tp_price = Column(Numeric(18, 8), nullable=False)
+    sl_price = Column(Numeric(18, 8), nullable=True)
+    tp_price = Column(Numeric(18, 8), nullable=True)
     trailing_stop = Column(Boolean, default=False, nullable=True)
     
     lot_size = Column(Numeric(10, 2), nullable=False)
