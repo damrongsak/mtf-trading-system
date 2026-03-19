@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import os
 
 # Inside container, /app is the root
 sys.path.append('/app')
@@ -24,7 +23,7 @@ async def test_icmarkets_limits():
         try:
             await RiskLimitsAgent.check_order_size(tc['symbol'], tc['units'])
             result = "PASS"
-        except ValueError as e:
+        except ValueError:
             result = "FAIL"
             # print(f"  Reason: {e}")
             

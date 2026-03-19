@@ -1,10 +1,9 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from app.adapters.ctrader import CTraderOrderAdapter
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATradeSide
 
 @pytest.mark.asyncio
 async def test_ctrader_get_order_book_success():
@@ -43,7 +42,6 @@ async def test_ctrader_client_get_order_book_logic():
     
     # Mock Send to return a successful subscription response
     from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeDepthQuotesRes, ProtoOADepthEvent
-    from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOADepthQuote
     
     sub_res_msg = ProtoMessage(payloadType=ProtoOASubscribeDepthQuotesRes().payloadType, payload=b"")
     client.send = AsyncMock(return_value=sub_res_msg)

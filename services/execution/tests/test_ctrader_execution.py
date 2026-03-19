@@ -4,7 +4,7 @@ Tests: place_market_order and place_limit_order comment/tag logic
 SAFETY: No real broker connections. Client and symbol cache are fully mocked.
 """
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 from app.adapters.ctrader import CTraderOrderAdapter
 
 

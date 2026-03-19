@@ -1,6 +1,6 @@
 import pytest
 import time
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from app.services.order_service import OrderService
 import uuid
 

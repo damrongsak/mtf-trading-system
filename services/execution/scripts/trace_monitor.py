@@ -1,7 +1,6 @@
 import redis
 import os
 import time
-import sys
 
 def watch_traces():
     redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")

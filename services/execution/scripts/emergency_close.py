@@ -1,7 +1,6 @@
 import asyncio
 import uuid
 import sys
-import os
 
 # Ensure app is in path
 sys.path.append('/app')

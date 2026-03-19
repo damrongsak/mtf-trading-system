@@ -1,8 +1,7 @@
 import logging
-import json
 import time
 import os
-from typing import Optional, Dict, Tuple
+from typing import Optional, Tuple
 import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)

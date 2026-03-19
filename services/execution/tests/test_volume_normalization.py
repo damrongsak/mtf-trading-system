@@ -4,7 +4,7 @@ Tests: Volume Normalization for cTrader (Gold & FX)
 SAFETY: No real broker connections. Client & symbol cache are fully mocked.
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from app.adapters.ctrader import CTraderOrderAdapter
 
 

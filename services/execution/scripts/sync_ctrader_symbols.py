@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 # Add parent directory to path to allow importing app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import get_db, AsyncSessionLocal
+from app.database import AsyncSessionLocal
 from app.models import BrokerAccount, MarketSymbol, DataSource
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data

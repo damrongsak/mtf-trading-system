@@ -1,10 +1,10 @@
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
-from app.main import app, sync_trades, SyncTradesRequest
+from app.main import sync_trades, SyncTradesRequest
 from app.models import BrokerAccount, Trade
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 
 @pytest.mark.asyncio
 async def test_sync_trades_endpoint():

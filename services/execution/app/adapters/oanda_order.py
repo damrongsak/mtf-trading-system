@@ -26,12 +26,29 @@ class OandaOrderAdapter(BrokerAdapter):
             # Run blocking call in threadpool
             await run_in_threadpool(self.client.request, r)
             acc = r.response.get("account", {})
+            
+            # OANDA provides these as strings
+            balance = float(acc.get("balance", "0"))
+            equity = float(acc.get("NAV", "0"))
+            used_margin = float(acc.get("marginUsed", "0"))
+            free_margin = float(acc.get("marginAvailable", "0"))
+            unrealized_net = float(acc.get("unrealizedPL", "0"))
+            margin_call_pct = float(acc.get("marginCallPercent", "0")) * 100 if acc.get("marginCallPercent") else None
+            
             return {
-                "balance": acc.get("balance", "0"),
-                "NAV": acc.get("NAV", "0"),
-                "marginAvailable": acc.get("marginAvailable", "0"),
-                "openTradeCount": acc.get("openTradeCount", 0),
-                "openPositionCount": acc.get("openPositionCount", 0)
+                "balance": balance,
+                "equity": equity,
+                "NAV": equity,
+                "used_margin": used_margin,
+                "marginUsed": used_margin,
+                "free_margin": free_margin,
+                "marginAvailable": free_margin,
+                "margin_level": margin_call_pct,
+                "unrealized_gross": unrealized_net, # OANDA usually combines these
+                "unrealized_net": unrealized_net,
+                "unrealizedPL": unrealized_net,
+                "openTradeCount": int(acc.get("openTradeCount", 0)),
+                "openPositionCount": int(acc.get("openPositionCount", 0))
             }
         except Exception as e:
             logger.error(f"OANDA Account Summary Error: {e}")

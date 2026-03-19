@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
 from app.adapters.oanda_order import OandaOrderAdapter
 from app.adapters.ctrader import CTraderOrderAdapter
-from app.models import TradeStatus, TradeDirection
+from app.models import TradeStatus
 
 @pytest.mark.asyncio
 async def test_oanda_trade_history_normalization():
@@ -48,7 +48,6 @@ async def test_ctrader_trade_history_normalization():
     adapter = CTraderOrderAdapter(client_id="id", client_secret="secret", account_id="12345", token="token")
     
     # Mock cTrader Deal List response
-    from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOADeal, ProtoOATradeSide, ProtoOAClosePositionDetail
     
     mock_deal = MagicMock()
     mock_deal.dealId = 5001

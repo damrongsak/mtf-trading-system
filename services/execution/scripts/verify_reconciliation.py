@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import uuid
 from sqlalchemy.future import select
 from app.database import AsyncSessionLocal
-from app.models import BrokerAccount, Fund, User, UserPreferences, UserFund, DataSource, Trade
+from app.models import BrokerAccount, Fund, User, UserPreferences, UserFund
 from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)

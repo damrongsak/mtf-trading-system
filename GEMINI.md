@@ -90,6 +90,13 @@ The system utilizes four primary patterns for high resilience and low coupling:
         - **MANDATORY**: Use `.env` files for local development and `os.getenv()` or `app.core.config` for access.
         - **Sanitization**: Before committing code or finalizing a task, audit all newly created scripts for sensitive data leaks.
 
+#### 🛡️ World-Class Quality Gates (Zero-Defect Standard)
+Before finalizing any task or proposing a commit, the agent MUST pass these four gates:
+1.  **Gate 1: Logic Verification**: 100% pass rate in `pytest` for affected modules with >80% coverage.
+2.  **Gate 2: Code Quality**: Zero errors in `ruff check` and `mypy` type validation.
+3.  **Gate 3: Schema Integrity**: `verify_schema.py` MUST return "No DDL changes needed" across all services.
+4.  **Gate 4: Security Audit**: `bandit` scan MUST return zero "High" or "Medium" severity issues in new code.
+
 #### 🛠️ SDD Workflow Steps
 1.  **Identify Change**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic/Architecture (`01`/`08`).
 2.  **Update Root Spec**: Modify the master file in the `specs/` directory.

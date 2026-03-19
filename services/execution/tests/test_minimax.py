@@ -1,4 +1,3 @@
-import pytest
 from app.services.minimax_service import MinimaxService
 
 def test_minimax_safe_trade():

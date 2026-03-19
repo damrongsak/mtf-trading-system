@@ -29,6 +29,9 @@ dependencies = [
     "aiohttp>=3.9.0",
     "httpx>=0.28.1",
     "websockets>=15.0.1",
+    "ruff>=0.15.6",
+    "mypy>=1.19.1",
+    "bandit>=1.9.4",
 ]
 
 [dependency-groups]

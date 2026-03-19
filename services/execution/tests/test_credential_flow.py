@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import MagicMock
 from app.adapters.factory import BrokerFactory
 from app.adapters.oanda_order import OandaOrderAdapter
 from app.adapters.ctrader import CTraderOrderAdapter

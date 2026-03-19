@@ -5,6 +5,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
+from datetime import datetime
 
 class Deployment(Base):
     __tablename__ = "deployments"
@@ -12,6 +13,9 @@ class Deployment(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False, index=True)
+    is_active = Column(Boolean, default=True)
+    is_shadow = Column(Boolean, default=False, nullable=True, comment="If true, signals are not sent to the broker")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Configuration Snapshot (Immutable for this deployment instance)

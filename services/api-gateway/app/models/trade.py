@@ -44,8 +44,9 @@ class Trade(Base):
                                 comment="Nanosecond precision timestamp for latency tracking")
     latency_ms = Column(Numeric(10, 4), nullable=True,
                         comment="Execution latency in milliseconds (Fill - Signal)")
+    is_live = Column(Boolean, default=False)
     is_shadow = Column(Boolean, default=False, nullable=True,
-                       comment="True if this was a shadow/simulated trade")
+                       comment="If true, signals are not sent to the broker")
     signal_id = Column(UUID(as_uuid=True), nullable=True, index=True,
                        comment="Link to the specific signal that triggered this trade")
 

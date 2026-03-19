@@ -4,7 +4,6 @@ E2E Test Script: Soda → Olympus → Broker
 =========================================
 Low-risk LIMIT order test with ATR-based price guardrails.
 """
-import argparse
 import asyncio
 import json
 import os

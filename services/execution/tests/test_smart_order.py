@@ -1,8 +1,6 @@
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
 import uuid
-from app.main import app
 from app.models import BrokerAccount, Fund
 
 @pytest.fixture

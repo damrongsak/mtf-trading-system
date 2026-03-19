@@ -1,11 +1,7 @@
 import asyncio
 import os
 import sys
-import argparse
-from datetime import datetime
-from pydantic import BaseModel
 import httpx
-from dotenv import load_dotenv
 
 # Common ANSI colors manually to avoid dependencies
 class Fore:
@@ -72,7 +68,7 @@ async def check_permissions():
         if balance < 10.0:
             log_test("Balance Check", False, f"Insufficient funds ($ {balance}) to run E2E test safely.")
         else:
-            log_test("Initialization", True, f"Account OK. Proceeding with E2E tests...")
+            log_test("Initialization", True, "Account OK. Proceeding with E2E tests...")
 
 async def get_live_price():
     """Test 1: Fetch Live Price"""

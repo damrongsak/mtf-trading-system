@@ -7,8 +7,7 @@ SAFETY NOTICE:
 - These tests verify that the safety guards PREVENT dangerous operations.
 """
 import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch, ANY
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.adapters.ctrader import CTraderOrderAdapter, RiskValidationError
 

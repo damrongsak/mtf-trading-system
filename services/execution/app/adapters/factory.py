@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from app.adapters.base import BrokerAdapter
 from app.adapters.oanda_order import OandaOrderAdapter
 from app.adapters.binance_adapter import BinanceAdapter

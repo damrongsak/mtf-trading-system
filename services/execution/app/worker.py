@@ -24,6 +24,11 @@ class ExecutionWorker:
         logger.info(f"Starting Execution Worker, listening on {self.queue_names}...")
         self._running = True
         
+        # Start Analytics Snapshot Loop (Parallel task)
+        asyncio.create_task(self._analytics_loop())
+        # Start Sync Loop (Parallel task)
+        asyncio.create_task(self._sync_loop())
+        
         while self._running:
             try:
                 if not self.redis:
@@ -159,6 +164,38 @@ class ExecutionWorker:
             logger.error(f"☠️ DEAD LETTER: Order {client_order_id} failed after 3 retries. Moving to DLQ.")
             req_data["last_error"] = error_msg
             await self.redis.lpush("queue:exec:dead", json.dumps(req_data))
+
+    async def _analytics_loop(self):
+        """
+        [INSTITUTIONAL] Background loop to capture account metrics every 15 minutes.
+        """
+        from app.services.analytics_service import AnalyticsService
+        
+        logger.info("⏱️ [Analytics] Periodic snapshot loop started.")
+        while self._running:
+            try:
+                await AnalyticsService.capture_all_account_snapshots()
+            except Exception as e:
+                logger.error(f"⏱️ [Analytics] Loop error: {e}")
+            
+            # Wait 15 minutes
+            await asyncio.sleep(900)
+
+    async def _sync_loop(self):
+        """
+        [INSTITUTIONAL] Periodic background reconciliation every 30 minutes.
+        """
+        from app.services.sync_service import SyncService
+        
+        logger.info("⏱️ [Sync] Periodic reconciliation loop started.")
+        while self._running:
+            try:
+                await SyncService.reconcile_all_funds()
+            except Exception as e:
+                logger.error(f"⏱️ [Sync] Loop error: {e}")
+            
+            # Wait 30 minutes
+            await asyncio.sleep(1800)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

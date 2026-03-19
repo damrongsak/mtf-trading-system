@@ -3,7 +3,6 @@ import os
 import sys
 import logging
 from app.services.janitor_service import JanitorService
-from app.core.scheduler import scheduler
 
 # Add the project root to sys.path
 sys.path.append(os.path.join(os.getcwd(), ".."))

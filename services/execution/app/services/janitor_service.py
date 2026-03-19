@@ -1,6 +1,5 @@
 import logging
-import asyncio
-from typing import List, Dict, Any
+from typing import Dict, Any
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import BrokerAccount, User, UserPreferences, DataSource, Trade, TradeStatus

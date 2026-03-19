@@ -5,7 +5,6 @@ import sys
 import httpx
 import websockets
 import json
-from dotenv import load_dotenv
 
 class Fore:
     GREEN = '\033[92m'
@@ -127,7 +126,7 @@ async def inspect_trade(trade_id: str):
                 log_test(f"Inspect Trade {trade_id}", True, f"Broker Verified -> SL: {sl}, TP: {tp}")
                 print(f"{Fore.GREEN}👉 VISUAL CHECK: Log in to cTrader and look for Trade. SL/TP should be visible.{Style.RESET_ALL}")
             else:
-                log_test(f"Inspect Trade {trade_id}", False, f"Trade not found in sync list.")
+                log_test(f"Inspect Trade {trade_id}", False, "Trade not found in sync list.")
         else:
             log_test(f"Inspect Trade {trade_id}", False, f"HTTP {res.status_code}: {res.text}")
 
@@ -194,7 +193,7 @@ async def inspect_order(order_id: str):
             if order:
                 log_test(f"Inspect Order {order_id}", True, f"Order state: {order.get('status')} Entry: {order.get('price')}")
             else:
-                log_test(f"Inspect Order {order_id}", False, f"Order not found in pending list.")
+                log_test(f"Inspect Order {order_id}", False, "Order not found in pending list.")
         else:
             log_test(f"Inspect Order {order_id}", False, f"HTTP {res.status_code}: {res.text}")
 

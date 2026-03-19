@@ -4,18 +4,15 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.utils.response import success_response, error_response
 from app.schemas.response import APIResponse
-from app.executor import can_execute, ExecutionRequest, ExecutionResult
 from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
-from app.services.minimax_service import MinimaxService
 import logging
 import asyncio
 from app.database import get_db
-from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
-from app.models import BrokerAccount, Fund, Trade, TradeStatus, TradeDirection
+from app.models import BrokerAccount, Trade, TradeStatus
 from app.utils.crypto import decrypt_data
 from sqlalchemy import desc, func
 import uuid
@@ -119,7 +116,6 @@ async def _warmup_execution_cache():
         from app.adapters.factory import BrokerFactory
         from app.utils.crypto import decrypt_data
         from app.services.cache_service import execution_cache
-        import uuid
         
         async with AsyncSessionLocal() as db:
             # 1. Fetch all active accounts
@@ -201,7 +197,7 @@ async def _warmup_execution_cache():
                     except Exception as e:
                         logger.warning(f"[HFT-lite] cTrader symbol hydration failed: {e}")
 
-        logger.info(f"[HFT-lite] ✅ Execution Cache deep warm-up complete.")
+        logger.info("[HFT-lite] ✅ Execution Cache deep warm-up complete.")
     except Exception as e:
         logger.error(f"[HFT-lite] ❌ Execution Cache warm-up failed: {e}", exc_info=True)
 

@@ -22,6 +22,7 @@ class Strategy(Base):
     risk_settings = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     custom_code = Column(String, nullable=True)
     is_active = Column(Boolean, default=False)
+    is_shadow = Column(Boolean, default=False, comment="If true, signals are processed fully but not sent to the broker")
     
     # Persistence Fields
     last_backtest_result = Column(JSONB, nullable=True)

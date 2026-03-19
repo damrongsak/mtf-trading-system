@@ -1,7 +1,5 @@
 import redis
 import os
-import json
-import time
 from datetime import datetime
 from statistics import mean, median
 
@@ -61,20 +59,20 @@ def analyze_latencies():
         print(f"Analyzed {len(keys)} traces.")
         
         if internal_latencies:
-            print(f"\n🔹 Internal Processing Overhead (ms):")
+            print("\n🔹 Internal Processing Overhead (ms):")
             print(f"  ├─ Min:    {min(internal_latencies):>7.2f}")
             print(f"  ├─ Avg:    {mean(internal_latencies):>7.2f}")
             print(f"  ├─ Median: {median(internal_latencies):>7.2f}")
             print(f"  └─ Max:    {max(internal_latencies):>7.2f}")
         
         if rtt_latencies:
-            print(f"\n🔹 Total Response Latency (Internal + Broker ms):")
+            print("\n🔹 Total Response Latency (Internal + Broker ms):")
             print(f"  ├─ Avg:    {mean(rtt_latencies):>7.2f}")
             print(f"  └─ p95:    {sorted(rtt_latencies)[int(0.95*len(rtt_latencies))]:>7.2f}")
 
         # Rule 7 Check
         violations = sum(1 for l in internal_latencies if l > 10.0)
-        print(f"\n🛡️ Rule 7 Compliance:")
+        print("\n🛡️ Rule 7 Compliance:")
         if violations == 0:
             print("  ✅ Status: COMPLIANT (All hot-path tasks < 10ms)")
         else:

@@ -2,7 +2,6 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from app.adapters.ctrader import CTraderOrderAdapter
-from datetime import datetime
 
 @pytest.fixture
 def mock_ctrader_client():

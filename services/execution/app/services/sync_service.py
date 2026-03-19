@@ -1,10 +1,10 @@
 import logging
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Set
+from datetime import datetime
+from typing import List, Dict, Any
 from sqlalchemy.future import select
-from app.models import BrokerAccount, Trade, TradeStatus, DataSource
+from app.models import BrokerAccount, Trade, TradeStatus
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.database import AsyncSessionLocal
@@ -24,7 +24,7 @@ class SyncService:
         
         async with AsyncSessionLocal() as db:
             # 1. Fetch all active broker accounts
-            stmt = select(BrokerAccount).where(BrokerAccount.is_active == True)
+            stmt = select(BrokerAccount).where(BrokerAccount.is_active)
             result = await db.execute(stmt)
             accounts = result.scalars().all()
             
@@ -134,18 +134,28 @@ class SyncService:
                 # Compare exposures
                 exposures = list(accounts.values())
                 if len(set(exposures)) > 1:
-                    max_drift = max(exposures) - min(exposures)
-                    if abs(max_drift) > 0.0001: # Threshold
-                        logger.warning(f"⚖️ [EXPOSURE DRIFT] Fund {fund_id} | {symbol}: Max Drift {max_drift:.4f} units across {len(accounts)} brokers.")
+                    max_val = max(exposures)
+                    min_val = min(exposures)
+                    max_drift = max_val - min_val
+                    
+                    # Institutional Tolerance: 10% relative drift or $100 equivalent (simplified)
+                    relative_drift = (max_drift / abs(max_val)) if max_val != 0 else 0
+                    
+                    if relative_drift > 0.1: # 10% threshold
+                        logger.error(f"🚨 [CRITICAL DRIFT] Fund {fund_id} | {symbol}: Drift {relative_drift:.2%} ({max_drift:.4f} units) across brokers.")
                         
                         drift_alert = {
                             "type": "EXPOSURE_DRIFT",
+                            "severity": "CRITICAL",
                             "fund_id": fund_id,
                             "symbol": symbol,
                             "drift_units": max_drift,
+                            "relative_drift": relative_drift,
                             "details": accounts,
                             "timestamp": datetime.utcnow().isoformat()
                         }
                         await redis_client.xadd("system.alerts.drift", {"payload": json.dumps(drift_alert)})
+                    elif max_drift > 0.0001:
+                        logger.warning(f"⚖️ [EXPOSURE DRIFT] Fund {fund_id} | {symbol}: Minor Drift {max_drift:.4f} units.")
 
 sync_service = SyncService()

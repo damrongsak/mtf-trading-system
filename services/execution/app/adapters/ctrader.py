@@ -2,9 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-from functools import lru_cache
 from app.adapters.base import BrokerAdapter
-from app.adapters.ctrader_client import AsyncCTraderClient
 from app.adapters.ctrader_connection import CTraderConnectionManager
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
@@ -12,7 +10,6 @@ from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
 
 logger = logging.getLogger(__name__)
 
-import asyncio  # for asyncio.create_task in fire-and-forget publish
 
 class RiskValidationError(Exception):
     """
@@ -59,13 +56,31 @@ class CTraderOrderAdapter(BrokerAdapter):
              # cTrader sends monetary values in 'cents' (e.g. 10000 = 100.00)
              balance = trader.balance / 100.0
              
+             # Calculate unrealized from positions
+             positions = reconcile.position if hasattr(reconcile, 'position') else []
+             unrealized_gross = sum(float(p.grossProfit) / 100.0 for p in positions)
+             unrealized_net = sum((float(p.grossProfit) + float(p.swap) + (float(p.commission) if hasattr(p, 'commission') else 0)) / 100.0 for p in positions)
+             used_margin = sum(float(p.usedMargin) / 100.0 for p in positions)
+             
+             equity = balance + unrealized_net
+             free_margin = equity - used_margin
+             margin_level = (equity / used_margin * 100) if used_margin > 0 else None
+             
              # openTradeCount is usually number of positions for cTrader
-             open_count = len(reconcile.position) if hasattr(reconcile, 'position') else 0
+             open_count = len(positions)
              
              return {
-                 "balance": str(balance), 
-                 "NAV": str(balance), 
-                 "marginAvailable": str(balance), 
+                 "balance": balance, 
+                 "equity": equity,
+                 "NAV": equity,
+                 "used_margin": used_margin,
+                 "marginUsed": used_margin,
+                 "free_margin": free_margin,
+                 "marginAvailable": free_margin,
+                 "margin_level": margin_level,
+                 "unrealized_gross": unrealized_gross,
+                 "unrealized_net": unrealized_net,
+                 "unrealizedPL": unrealized_net,
                  "openTradeCount": open_count, 
                  "openPositionCount": open_count
              }

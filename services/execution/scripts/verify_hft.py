@@ -1,10 +1,8 @@
 import asyncio
 import time
 import uuid
-import json
-from app.services.order_service import OrderService
 from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock
 
 async def simulate_hft_order():
     """
@@ -34,7 +32,7 @@ async def simulate_hft_order():
     # For a quick verification, we'll try to run it and catch errors.
     
     try:
-        print(f"1️⃣ First Order (Cold Cache - Expected ~50-100ms internal overhead)...")
+        print("1️⃣ First Order (Cold Cache - Expected ~50-100ms internal overhead)...")
         start = time.time()
         # This will likely fail without a real DB/Redis, but we want to see the TRACE.
         # We'll mock the internal db query parts if needed.

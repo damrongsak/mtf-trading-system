@@ -127,6 +127,15 @@ entities:
         type: jsonb
         default: '["FX"]'
         required: true
+      - name: risk_parity_enabled
+        type: boolean
+        default: false
+        description: "Whether Portfolio Risk Parity is enabled"
+      - name: risk_parity_model
+        type: enum
+        enum_values: ["MIN_VOL", "HRP", "ERC"]
+        default: "HRP"
+        description: "Model used for Risk Parity calculation"
 
   UserFund:
     description: "Many-to-Many relationship between Users and Funds with Roles"
@@ -598,6 +607,67 @@ entities:
         description: "Direct link to the primary market data source for this account"
       - name: broker_name
         type: string
+        required: true
+      - name: account_name
+        type: string
+        required: true
+      - name: account_number
+        type: string
+        nullable: true
+
+  AccountHistory:
+    description: "Time-series snapshots of broker account metrics"
+    table_name: "account_history"
+    indexes:
+      - fields: ["broker_account_id", "timestamp"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: broker_account_id
+        type: uuid
+        foreign_key: "broker_accounts.id"
+        required: true
+      - name: balance
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: equity
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: used_margin
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: free_margin
+        type: decimal
+        precision: 18
+        scale: 2
+        required: true
+      - name: margin_level
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Margin level percentage"
+      - name: unrealized_gross
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: unrealized_net
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+      - name: timestamp
+        type: datetime
+        default: "now()"
+        index: true
         required: true
         max_length: 50
         description: "Broker identifier (e.g., OANDA, BINANCE, CTRADER)"

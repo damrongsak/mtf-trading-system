@@ -4,7 +4,6 @@ import sys
 import httpx
 import websockets
 import json
-from dotenv import load_dotenv
 
 class Fore:
     GREEN = '\033[92m'

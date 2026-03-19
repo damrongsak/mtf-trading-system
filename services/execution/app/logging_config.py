@@ -1,6 +1,5 @@
 import logging
 import sys
-import contextvars
 from pythonjsonlogger import jsonlogger
 
 from app.utils.tracing import request_id_ctx, get_request_id

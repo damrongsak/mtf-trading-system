@@ -1,3 +1,4 @@
+from .account_history import AccountHistory
 from .api_key import ApiKey
 from .backtest_profile import BacktestConfig, BacktestHistory
 from .broker_account import BrokerAccount

@@ -57,6 +57,21 @@ class BrokerAccount(Base):
     currency = Column(String(10), default="USD", nullable=True)
     balance_snapshot = Column(Numeric(18, 2), nullable=True)
     data_source_id = Column(UUID(as_uuid=True), ForeignKey("data_sources.id"), nullable=True)
+
+class AccountHistory(Base):
+    __tablename__ = "account_history"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=False, index=True)
+    
+    balance = Column(Numeric(18, 2), nullable=False)
+    equity = Column(Numeric(18, 2), nullable=False)
+    used_margin = Column(Numeric(18, 2), nullable=False)
+    free_margin = Column(Numeric(18, 2), nullable=False)
+    margin_level = Column(Numeric(10, 2), nullable=True)
+    unrealized_gross = Column(Numeric(18, 2), nullable=True)
+    unrealized_net = Column(Numeric(18, 2), nullable=True)
+    
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
 class Fund(Base):
     __tablename__ = "funds"
@@ -69,13 +84,18 @@ class Fund(Base):
     default_lot_size = Column(Numeric(10, 2), nullable=False)
     max_drawdown_threshold = Column(Numeric(10, 2), nullable=True)
 
+    risk_parity_enabled = Column(Boolean, default=False)
+    risk_parity_model = Column(SQLEnum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")
+
 class MarketCategory(Base):
     __tablename__ = "market_categories"
 
     __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, unique=True, nullable=False, index=True)
+    is_live = Column(Boolean, default=False)
+    is_shadow = Column(Boolean, default=False, nullable=True, comment="If true, signals are not sent to the broker")
+    status = Column(SQLEnum(TradeStatus), nullable=False, index=True)
     order_index = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     
@@ -219,6 +239,16 @@ class UserPreferences(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
     oanda_janitor_enabled = Column(Boolean, default=False, nullable=False)
     ctrader_janitor_enabled = Column(Boolean, default=False, nullable=False)
+
+class Deployment(Base):
+    __tablename__ = "deployments"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False, index=True)
+    strategy_id = Column(UUID(as_uuid=True), nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_shadow = Column(Boolean, default=False, nullable=True, comment="If true, signals are not sent to the broker")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class UserFund(Base):
     __tablename__ = "user_funds"

@@ -214,7 +214,7 @@ class AsyncCTraderClient:
                 del self._response_futures[client_msg_id]
             logger.error(f"Timeout waiting for cTrader response (Type: {payload_obj.payloadType}, ID: {client_msg_id})")
             raise
-        except Exception as e:
+        except Exception:
             if client_msg_id in self._response_futures:
                 del self._response_futures[client_msg_id]
             raise

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Fund, RiskFilter
 

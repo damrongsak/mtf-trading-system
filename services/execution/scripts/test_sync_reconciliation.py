@@ -1,8 +1,6 @@
 import asyncio
 import json
 import uuid
-from decimal import Decimal
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch, MagicMock
 import sys
 import os
@@ -15,7 +13,7 @@ async def test_ghost_trade_detection():
     
     # We delay imports until after path is set
     from app.services.sync_service import SyncService
-    from app.models import BrokerAccount, Trade, TradeStatus
+    from app.models import BrokerAccount
 
     # 1. Setup Mock Data
     account_id = uuid.uuid4()

@@ -76,15 +76,18 @@ These rules are enforced by the `Execution Service` **before** any trade is subm
     *   *Example*: If User cannot handle a $50 loss (Pain Threshold), and the setup implies a $60 risk for a low-probability win, Minimax rejects it.
 
 ### 3.2 Portfolio Risk Parity (Allocation)
-**Goal**: Equalize risk contribution across strategies.
+**Goal**: Equalize risk contribution across symbols in a portfolio to prevent over-exposure to highly volatile assets.
 
-1.  **Formula**:
+1.  **Inverse Volatility (ERC)**:
     *   `Weight_i = (1 / Volatility_i) / Sum(1 / Volatility_j)`
-2.  **Effect**:
+2.  **Hierarchical Risk Parity (HRP)**:
+    *   Preferred for multi-asset portfolios. Uses tree-clustering to handle correlations without inverting a covariance matrix.
+3.  **Effect**:
     *   High-Volatility strategies get smaller position sizes.
     *   Low-Volatility strategies get larger position sizes.
-3.  **Constraint**:
+4.  **Constraint**:
     *   Total Risk across all active trades must not exceed `Fund_Max_Risk` (e.g., 2% of equity).
+    *   Dynamic sizing: `Units = (Equity * Risk% * Weight_i) / StopLoss_Distance`.
 
 ### 3.3 The Smart Constraints (Hierarchical Risk)
 These rules are dynamically enforced by the `Execution Service` via database configurations (`Fund`, `BrokerAccount`):

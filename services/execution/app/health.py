@@ -1,6 +1,5 @@
 import logging
 import os
-import asyncio
 import redis.asyncio as redis
 from sqlalchemy import text
 from app.database import AsyncSessionLocal

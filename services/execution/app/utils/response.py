@@ -1,8 +1,7 @@
 from typing import Any, Optional, List
-from datetime import datetime, timezone
 from app.schemas.response import (
     APIResponse, ResponseStatus, Meta, AuthTokens, RateLimitInfo, 
-    ErrorCode, ErrorDetail, PaginatedResponse
+    ErrorCode, ErrorDetail
 )
 
 def success_response(

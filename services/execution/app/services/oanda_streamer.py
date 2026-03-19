@@ -4,7 +4,7 @@ import asyncio
 import httpx
 from typing import Dict, Any, Optional
 from sqlalchemy.future import select
-from app.models import BrokerAccount, Trade, TradeStatus, User, UserPreferences
+from app.models import Trade, TradeStatus, User, UserPreferences
 from app.database import AsyncSessionLocal
 from app.utils.crypto import decrypt_data
 from datetime import datetime

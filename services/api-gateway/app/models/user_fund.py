@@ -35,6 +35,10 @@ class Fund(Base):
     net_exposure_limit = Column(Numeric(5, 2), default=15.0, nullable=True)
     position_limit_single = Column(Numeric(5, 2), default=3.0, nullable=True)
     position_limit_sector = Column(Numeric(5, 2), default=10.0, nullable=True)
+    
+    # [NEW] Phase 47 Risk Parity
+    risk_parity_enabled = Column(Boolean, default=False)
+    risk_parity_model = Column(Enum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")
 
     # Relationships
     users = relationship("UserFund", back_populates="fund", cascade="all, delete-orphan")

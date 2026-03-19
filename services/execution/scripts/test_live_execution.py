@@ -3,9 +3,7 @@ import os
 import uuid
 import sys
 import httpx
-import json
 import logging
-from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

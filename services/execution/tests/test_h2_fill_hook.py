@@ -7,10 +7,8 @@ including how to run them in sandbox/live-lite environments.
 Run:
     docker compose exec execution uv run pytest tests/test_h2_fill_hook.py -v
 """
-import asyncio
-import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ─────────────────────────────────────────────────────────────────────────────

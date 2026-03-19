@@ -8,7 +8,6 @@ Tests:
 4. publish_fill includes deal_id.
 """
 import pytest
-import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 from app.adapters.ctrader import CTraderOrderAdapter
 from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAExecutionEvent, ProtoOAReconcileRes

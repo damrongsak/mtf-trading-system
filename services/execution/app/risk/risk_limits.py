@@ -1,12 +1,9 @@
 import logging
-from datetime import datetime, timezone
-from sqlalchemy.future import select
-from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
-from typing import Optional, Any
+from typing import Any
 
-from app.models import Trade, TradeStatus, Fund, RiskFilter
+from app.models import Fund
 from app.risk.margin import MarginCalculator
 
 logger = logging.getLogger(__name__)

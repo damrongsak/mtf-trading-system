@@ -72,9 +72,10 @@ class MockAdapter(BrokerAdapter):
         }
 
     async def get_order_book(self, symbol: str) -> Dict[str, Any]:
+        price = await self.get_current_price(symbol)
         return {
-            "bids": [{"price": str(self.get_current_price(symbol)-0.1), "liquidity": "1000000"}],
-            "asks": [{"price": str(self.get_current_price(symbol)+0.1), "liquidity": "1000000"}]
+            "bids": [{"price": str(price - 0.1), "liquidity": "1000000"}],
+            "asks": [{"price": str(price + 0.1), "liquidity": "1000000"}]
         }
 
     async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
@@ -134,5 +135,5 @@ class MockAdapter(BrokerAdapter):
         ]
     
     # Optional dynamic method if needed
-    def get_summary(self):
-        return self.get_account_summary()
+    async def get_summary(self):
+        return await self.get_account_summary()

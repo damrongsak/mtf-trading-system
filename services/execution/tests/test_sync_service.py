@@ -2,10 +2,9 @@
 import pytest
 import json
 import uuid
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, AsyncMock, patch
 from app.services.sync_service import SyncService
-from app.models import BrokerAccount, Trade, TradeStatus
+from app.models import BrokerAccount
 
 @pytest.mark.asyncio
 async def test_reconcile_all_funds_no_accounts():

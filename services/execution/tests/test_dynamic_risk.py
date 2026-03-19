@@ -1,7 +1,6 @@
 import pytest
 import uuid
 from unittest.mock import MagicMock, patch, AsyncMock
-from app.main import app
 from app.models import BrokerAccount, Fund
 
 @pytest.fixture

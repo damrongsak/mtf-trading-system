@@ -1,14 +1,11 @@
 import logging
 import uuid
 import json
-from datetime import datetime, timedelta, timezone
-from sqlalchemy.future import select
-from sqlalchemy import func, or_
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from typing import Any
 
-from app.models import BrokerAccount, Fund, Trade, Candle, EconomicEvent, TradeStatus, RiskFilter
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.services.minimax_service import MinimaxService
@@ -18,7 +15,6 @@ from app.filters.news_filter import NewsFilter
 from app.filters.volatility_filter import VolatilityFilter
 from app.filters.spread_filter import SpreadFilter
 from app.filters.quant_filter import QuantFilter
-from app.filters.liquidity_filter import LiquidityFilter
 from app.filters.liquidity_filter import LiquidityFilter
 from app.risk.risk_limits import RiskLimitsAgent
 from app.services.cache_service import execution_cache
@@ -197,20 +193,59 @@ class OrderService:
                 await OrderService._log_trace(trace_id, "price_cache_hit", price_start)
                 
             entry_ref = req_data.get("entry_price") or current_price
-            dist = abs(entry_ref - stop_loss)
+            # 5. Position Sizing (Risk Parity vs Standard)
+            sizing_start = time.time()
             
-            if dist <= 0:
-                raise ValueError("Stop Loss cannot be equal to Entry/Current Price")
+            # Default to standard risk calculation
+            units = req_data.get("units")
+            target_risk = None
+            
+            if getattr(fund, "risk_parity_enabled", False):
+                # [INSTITUTIONAL] Try Risk Parity Sizing
+                weights_json = await execution_cache.redis.get(f"fund:{fund_id}:risk_parity_weights")
+                if weights_json:
+                    weights = json.loads(weights_json)
+                    target_weight = weights.get(req_data["symbol"], 0.0)
+                    if target_weight > 0:
+                        # Fetch current price for sizing
+                        current_price = await adapter.get_current_price(req_data["symbol"])
+                        # We need account equity. Use balance_snapshot from DB as proxy in hot path
+                        # or NAV from account cache if fresh.
+                        equity = float(account.balance_snapshot or (await adapter.get_account_summary()).get("NAV", 0))
+                        
+                        risk_capital = equity * target_weight
+                        units = risk_capital / current_price
+                        logger.info(f"⚖️ [RiskParity] Sizing: weight={target_weight}, equity=${equity}, units={units}")
+                        # Calculate implied risk for the safety cap check below
+                        if stop_loss:
+                            target_risk = abs(current_price - stop_loss) * units * 100 # Adjusted for XAU/USD pip value
+            
+            if not units:
+                # Fallback: Standard Risk-Based Sizing (1% of NAV)
+                target_risk = min(fund_limit, 10.0) # Hard cap at $10 for now
+                current_price = await adapter.get_current_price(req_data["symbol"])
+                sl_distance = abs(current_price - stop_loss)
+                if sl_distance == 0:
+                    raise ValueError("Stop loss cannot be equal to entry price")
                 
-            raw_units = target_risk / dist
+                # units = (risk_usd / (distance * 100)) * 100,000
+                units = (target_risk / (sl_distance * 100)) * 100000
+                logger.info(f"🛡️ [StandardRisk] Sizing: risk=${target_risk}, dist={sl_distance}, units={units}")
+
+            # 6. Safety Guardrails (Cap Risk)
+            if target_risk and target_risk > fund_limit:
+                 logger.warning(f"⚠️ [Guardrail] Risk ${target_risk} exceeds fund limit ${fund_limit}. Capping.")
+                 units = (fund_limit / target_risk) * units
+                 target_risk = fund_limit
+
+            await OrderService._log_trace(trace_id, "sizing_calc", sizing_start)
             direction = req_data.get("direction")
-            
             if direction == "BULLISH":
-                units = raw_units
+                units = abs(units)
                 if stop_loss >= entry_ref:
                     raise ValueError("Long SL must be below Entry Price")
             elif direction == "BEARISH":
-                units = -raw_units
+                units = -abs(units)
                 if stop_loss <= entry_ref:
                     raise ValueError("Short SL must be above Entry Price")
             else:
@@ -326,7 +361,8 @@ class OrderService:
                     "latency_ms": round(total_duration, 2),
                     "trace_id": trace_id
                 }))
-            except: pass
+            except Exception:
+                pass
 
             logger.info(f"✨ HFT-lite Order Complete: {req_data['symbol']} in {total_duration:.2f}ms")
             return res
@@ -414,7 +450,8 @@ class OrderService:
             logger.error(f"Rule 7 Violation Prevented: Risk filters not in cache for fund {fund_id}. Rejecting.")
             raise ValueError("Risk safety metadata not available. Please retry in 5s.")
         
-        if trace_id: await OrderService._log_trace(trace_id, "filters_cache_hit", filter_start)
+        if trace_id:
+            await OrderService._log_trace(trace_id, "filters_cache_hit", filter_start)
 
         # 2. Sequential Validation for Phase 1 (Synchronous logic, very fast)
         # OrderValidator currently expects objects, let's convert or mock
@@ -469,6 +506,7 @@ class OrderService:
 
         if tasks:
             await asyncio.gather(*tasks)
-            if trace_id: await OrderService._log_trace(trace_id, "parallel_filters_complete", time.time())
+            if trace_id:
+                await OrderService._log_trace(trace_id, "parallel_filters_complete", time.time())
 
         return True

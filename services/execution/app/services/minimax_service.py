@@ -1,5 +1,4 @@
-from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Tuple
 import logging
 
 logger = logging.getLogger(__name__)

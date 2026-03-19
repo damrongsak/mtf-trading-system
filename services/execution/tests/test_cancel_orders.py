@@ -1,4 +1,3 @@
-import pytest
 import uuid
 from unittest.mock import MagicMock, AsyncMock, patch
 from app.models import BrokerAccount
