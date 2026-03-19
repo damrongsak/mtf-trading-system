@@ -60,6 +60,9 @@ entities:
       - name: description
         type: text
         nullable: true
+      - name: is_active
+        type: boolean
+        default: true
       - name: created_at
         type: datetime
         default: "now()"
@@ -2485,6 +2488,51 @@ redis_streams:
       - name: is_active
         type: boolean
         default: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+
+  # --- Phase 58: AI Risk Rebalance Audit ---
+  RebalanceHistory:
+    description: "Audit trail of AI-driven risk rebalancing events"
+    table_name: "rebalance_history"
+    indexes:
+      - fields: ["fund_id"]
+      - fields: ["created_at"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        required: true
+      - name: trigger_type
+        type: string
+        required: true
+        max_length: 30
+        description: "MANUAL | AUTONOMOUS | SENTIMENT_DRIFT"
+      - name: drift_score
+        type: float
+        nullable: true
+        description: "Sentiment drift magnitude that triggered the rebalance"
+      - name: previous_config
+        type: jsonb
+        required: true
+        description: "Snapshot of risk config before rebalance"
+      - name: applied_config
+        type: jsonb
+        required: true
+        description: "Snapshot of risk config after rebalance"
+      - name: reasoning
+        type: text
+        required: true
+        description: "AI reasoning for the recommendation"
+      - name: applied_by
+        type: string
+        required: true
+        max_length: 100
+        description: "User ID or SYSTEM for autonomous applies"
       - name: created_at
         type: datetime
         default: "now()"

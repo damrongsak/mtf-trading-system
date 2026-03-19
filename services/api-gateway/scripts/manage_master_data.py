@@ -20,9 +20,13 @@ from app.models.data_source import DataSource
 from app.models.broker_account import BrokerAccount
 from app.models.system_config import SystemConfig
 from app.models.risk_rule import RiskRule
+from app.models.risk_filter import RiskFilter
 from app.models.plugins import Plugin, UserPlugin
 from app.models.telegram_chat_mapping import TelegramChatMapping
 from app.models.strategy import Strategy
+from app.models.strategy_config import StrategyConfig
+from app.models.prompt import SystemPrompt
+from app.models.rag import LibraryBook
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MDMS")
@@ -32,7 +36,9 @@ MASTER_DATA_DIR = "/master_data"
 # Order matters for dependencies during import
 TABLE_MODELS = [
     (SystemConfig, "system_configs.json"),
+    (SystemPrompt, "system_prompts.json"),
     (RiskRule, "risk_rules.json"),
+    (RiskFilter, "risk_filters.json"),
     (MarketCategory, "market_categories.json"),
     (DataSource, "data_sources.json"),
     (User, "users.json"),
@@ -43,7 +49,9 @@ TABLE_MODELS = [
     (Plugin, "plugins.json"),
     (UserPlugin, "user_plugins.json"),
     (TelegramChatMapping, "telegram_chat_mappings.json"),
-    (Strategy, "strategies.json")
+    (StrategyConfig, "strategy_configs.json"),
+    (Strategy, "strategies.json"),
+    (LibraryBook, "library_books.json")
 ]
 
 from enum import Enum

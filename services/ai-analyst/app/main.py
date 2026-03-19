@@ -15,6 +15,7 @@ from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.episodic_memory import EpisodicMemoryAgent
 from app.agents.post_mortem import PostMortemAgent
 from app.agents.trade_manager import TradeManagementAgent
+from app.agents.risk_rebalancer import RiskRebalancerAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents, admin, external, orchestration
@@ -148,7 +149,8 @@ async def lifespan(app: FastAPI):
                     checkpointer=services["checkpointer"],
                     memory_service=services.get("memory"),
                     post_mortem_agent=services.get("post_mortem"),
-                    trade_manager_agent=services.get("trade_manager")
+                    trade_manager_agent=services.get("trade_manager"),
+                    risk_rebalancer_agent=services.get("risk_rebalancer")
                 )
                 logger.info("✅ Strategy Advisor Agent Ready")
         except Exception as e:
@@ -171,6 +173,9 @@ async def lifespan(app: FastAPI):
 
                 services["trade_manager"] = TradeManagementAgent(services["gemini"])
                 logger.info("✅ Trade Management Agent Ready")
+
+                services["risk_rebalancer"] = RiskRebalancerAgent(services["gemini"])
+                logger.info("✅ Risk Rebalancer Agent Ready")
         except Exception as e:
             logger.error(f"❌ Skill Creator or Post-Mortem Agent Failed: {e}")
             logger.error(traceback.format_exc())
@@ -274,7 +279,8 @@ def health_check():
         "rag": "active" if services["rag"] else "inactive",
         "agents": {
             "strategy_advisor": "active" if services["strategy_advisor"] else "inactive",
-            "sentiment_service": "active" if services["sentiment"] else "inactive"
+            "sentiment_service": "active" if services["sentiment"] else "inactive",
+            "risk_rebalancer": "active" if services["risk_rebalancer"] else "inactive"
         }
     }
     return success_response(data=data)

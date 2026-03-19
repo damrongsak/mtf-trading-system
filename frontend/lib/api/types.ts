@@ -737,7 +737,7 @@ export interface StrategyLog {
     id: string;
     deployment_id: string;
     timestamp: string;
-    essential_output: Record<string, any>;
+    essential_output: Record<string, unknown>;
 }
 
 // ========================================
@@ -901,4 +901,105 @@ export interface RejectionReasonSummary {
 export interface ExecutionRejectionResponse {
   rejections: RejectionReasonSummary[];
   total_rejections: number;
+}
+
+export interface AccountHistoryItem {
+  id: string;
+  broker_account_id: string;
+  balance: number;
+  equity: number;
+  used_margin: number;
+  free_margin: number;
+  margin_level?: number;
+  unrealized_gross?: number;
+  unrealized_net?: number;
+  timestamp: string;
+}
+
+export interface AccountHistoryResponse {
+  history: AccountHistoryItem[];
+}
+
+export interface HRPWeightsResponse {
+  fund_id: string;
+  weights: Record<string, number>;
+  updated_at: string;
+}
+
+export interface DriftAlert {
+  type: string;
+  severity: 'WARNING' | 'CRITICAL';
+  fund_id?: string;
+  account_id?: string;
+  broker?: string;
+  symbol?: string;
+  drift_units?: number;
+  relative_drift?: number;
+  details?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface DriftAlertsResponse {
+  alerts: DriftAlert[];
+}
+
+export interface QueueHealth {
+  priority_queue: number;
+  default_queue: number;
+  dead_letter_queue: number;
+  system_halted: boolean;
+  recently_processed: number;
+}
+
+export interface PipelineStage {
+  name: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'IDLE';
+  last_run?: string;
+  duration_ms?: number;
+  error?: string;
+}
+
+export interface PipelineStatus {
+  overall_status: string;
+  stages: PipelineStage[];
+  last_updated: string;
+}
+
+export interface FundRiskConfig {
+    fund_id: string;
+    max_drawdown_threshold: number | null;
+    gross_exposure_limit: number | null;
+    net_exposure_limit: number | null;
+    kill_switch_active: boolean;
+}
+
+export interface RiskAdjustmentRequest {
+    max_drawdown_threshold?: number;
+    gross_exposure_limit?: number;
+    net_exposure_limit?: number;
+}
+
+export interface KillSwitchRequest {
+    active: boolean;
+    reason?: string;
+}
+
+// Phase 57: AI Risk Rebalancer Types
+export interface RiskRecommendation {
+    risk_percentage: number;
+    max_drawdown_threshold: number;
+    reasoning: string;
+}
+
+// Phase 58: Rebalance History Types
+export interface RebalanceHistoryItem {
+    id: string;
+    fund_id: string;
+    trigger_type: 'MANUAL' | 'AUTONOMOUS' | 'SENTIMENT_DRIFT';
+    drift_score: number | null;
+    previous_config: Record<string, number>;
+    applied_config: Record<string, number>;
+    reasoning: string;
+    applied_by: string;
+    created_at: string;
 }

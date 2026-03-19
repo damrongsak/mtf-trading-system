@@ -613,6 +613,155 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse'
 
+  # --- Institutional Risk Management (Phase 56) ---
+  /api/v1/risk/fund/{fund_id}/config:
+    get:
+      tags: [Risk]
+      summary: Get fund-specific risk configuration
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fund risk configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FundRiskConfig'
+    patch:
+      tags: [Risk]
+      summary: Update fund risk configuration
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskAdjustmentRequest'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FundRiskConfig'
+
+  /api/v1/risk/fund/{fund_id}/kill-switch:
+    post:
+      tags: [Risk]
+      summary: Toggle fund-specific kill switch
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KillSwitchRequest'
+      responses:
+        '200':
+          description: Kill switch toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  # --- Phase 57: AI Risk Rebalancer ---
+  /api/v1/risk/ai-review:
+    post:
+      tags: [Risk]
+      summary: Trigger AI-driven risk analysis for a fund
+      description: |
+        Sends the fund's current risk configuration and market context to the
+        AI Analyst's RiskRebalancerAgent (Gemini) for analysis. Returns a
+        recommendation with suggested parameter adjustments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fund_id]
+              properties:
+                fund_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: AI risk recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_RiskRecommendation'
+
+  /api/v1/risk/fund/{fund_id}/apply-recommendation:
+    post:
+      tags: [Risk]
+      summary: Apply AI risk recommendation to fund config
+      description: |
+        Applies AI-suggested risk parameters (risk_percentage, max_drawdown_threshold)
+        to the fund configuration and broadcasts a RISK_REBALANCE_APPLIED event
+        to the Execution Service via Redis.
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskRecommendation'
+      responses:
+        '200':
+          description: Updated fund risk configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_FundRiskConfig'
+
+  /api/v1/risk/rebalance-history:
+    get:
+      tags: [Risk]
+      summary: Get rebalance history audit trail
+      description: Returns paginated list of AI risk rebalancing events for audit.
+      parameters:
+        - name: fund_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Rebalance history list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   # --- Quant Analytics ---
   /api/v1/analytics/volatility:
     get:
@@ -3157,6 +3306,35 @@ paths:
 
 components:
   schemas:
+    # --- Phase 57: AI Risk Rebalancer ---
+    RiskRecommendation:
+      type: object
+      properties:
+        risk_percentage:
+          type: number
+          description: Suggested risk percentage per trade
+        max_drawdown_threshold:
+          type: number
+          description: Suggested maximum drawdown threshold
+        reasoning:
+          type: string
+          description: AI rationale for the recommendation
+      required:
+        - risk_percentage
+        - max_drawdown_threshold
+        - reasoning
+
+    APIResponse_RiskRecommendation:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          type: object
+          properties:
+            recommendation:
+              $ref: '#/components/schemas/RiskRecommendation'
+
     # --- Quant Analytics ---
     VolatilityMetrics:
       type: object

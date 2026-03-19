@@ -53,7 +53,7 @@ graph TD
     - **Phase 1 (Core)**: Mandatory SL/TP, distance, and RRR validation.
     - **Phase 2 (Market)**: Real-time News, Session, Volatility, Quant, and Liquidity filters synced via Redis for HFT speeds.
     - **Phase 3 (Account)**: Daily Drawdown, Max Trades, and Consecutive Loss limits.
-- **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers.
+- **Equity Guardian**: Real-time monitoring of account equity and margin availability to enforce hard system-wide circuit breakers. Dynamically refreshes thresholds on AI-driven risk rebalancing events.
 - **Institutional Resilience**: Professional-grade **Circuit Breakers** for broker connections, request **Timeouts** (15-30s), and a **Global Kill Switch** for emergency halts.
 - **HFT-Lite Latency Suite**:
     - **TCP_NODELAY**: Immediate packet transmission (disabled Nagle's).
@@ -82,6 +82,12 @@ graph TD
     - **DB-Free Execution**: Eliminated all blocking database writes from the order placement and confirmation path.
     - **Async Fill Persistence**: Implemented Redis Streams for decoupled trade journaling.
     - **Passive Latency Auditing**: Integrated `baseline_latency_analyzer.py` for continuous compliance verification.
+- **✅ Phase 56 — Automated Drawdown Enforcement** (Complete 2026-03-19):
+    - **[P56-1] Hard Stop Monitoring**: Integrated real-time drawdown tracking in `EquityGuardian` with automated trade closure.
+    - **[P56-2] Granular Halt Enforcement**: `OrderService` now blocks orders based on fund-specific Redis kill-switches.
+- **✅ Phase 57 — AI-Driven Risk Rebalancer** (Complete 2026-03-19):
+    - **[P57-1] Internal Risk Config Endpoint**: `GET /funds/{fund_id}/risk-config` — provides direct DB access for AI Analyst (bypasses Gateway to avoid reentrant deadlocks).
+    - **[P57-2] Dynamic Threshold Refresh**: `EquityGuardian` now listens for `RISK_REBALANCE_APPLIED` events on Redis `system:events` channel and invalidates its threshold cache, forcing a fresh DB read on the next analysis cycle.
 
 ## 🤖 AI-Agent Operational Guide
 

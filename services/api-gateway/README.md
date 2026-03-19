@@ -73,6 +73,12 @@ graph TD
     - **[K1] Live Credential Validation**: Integrated mandatory broker-side verification for `CTRADER`, `ICMARKETS`, and `ICMARKETSSC` during account creation via `data-pipeline`.
     - **[K2] Demo Activation Fix**: Resolved issue where demo accounts failed to activate by ensuring all required credentials (`client_id`, `client_secret`, `token`, `account_id`) are validated.
     - **[K3] Automatic Account Sync**: Added logic to automatically map `account_number` to `account_id` if missing, improving UX for cTrader-based brokers.
+- **✅ Phase 56 — Institutional Risk Control** (Complete 2026-03-19):
+    - **[P56-1] Risk Config API**: `GET/PATCH /api/v1/risk/fund/{fund_id}/config` for fund-level risk parameter management.
+    - **[P56-2] Kill Switch**: `POST /api/v1/risk/fund/{fund_id}/kill-switch` for emergency fund halting.
+- **✅ Phase 57 — AI-Driven Risk Rebalancer** (Complete 2026-03-19):
+    - **[P57-1] AI Review Trigger**: `POST /api/v1/risk/ai-review` — triggers Gemini-based risk analysis via AI Analyst service.
+    - **[P57-2] Apply Recommendation**: `POST /api/v1/risk/fund/{fund_id}/apply-recommendation` — applies AI-suggested risk parameters and broadcasts `RISK_REBALANCE_APPLIED` event to Execution Service.
 
 ## ⚡ Performance & Concurrency Guardrails (Critical)
 

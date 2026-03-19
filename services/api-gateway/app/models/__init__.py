@@ -1,6 +1,7 @@
 from .api_key import ApiKey
 from .user import User
-from .user_fund import UserFund
+from .user_fund import UserFund, Fund
+from .account_history import AccountHistory
 from .transaction import Transaction
 from .journal import JournalEntry
 from .strategy import Strategy
@@ -12,6 +13,7 @@ from .saved_strategy import SavedStrategy
 from .broker_account import BrokerAccount
 from .risk_rule import RiskRule
 from .risk_filter import RiskFilter
+from .rebalance_history import RebalanceHistory
 from .trade import Trade
 from .data_source import DataSource
 from .decision_log import DecisionLog

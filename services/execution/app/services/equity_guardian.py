@@ -9,6 +9,9 @@ from redis.asyncio import Redis
 import aiohttp
 from scipy import stats
 from app.core.config import settings
+from app.database import AsyncSessionLocal
+from app.models import Fund, BrokerAccount, Trade, TradeStatus
+from sqlalchemy.future import select
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +106,28 @@ class EquityGuardian:
     def __init__(self, redis_client: Redis):
         self.redis = redis_client
         self.projections = EquityCurveProjections(redis_client)
+        self._threshold_cache = {} # fund_id -> float
+
+    async def _listen_for_rebalance(self):
+        """[Phase 57] Listen for manual or AI risk rebalancing events."""
+        pubsub = self.redis.pubsub()
+        await pubsub.subscribe("system:events")
+        logger.info("Equity Guardian: Listening for RISK_REBALANCE_APPLIED...")
+        
+        while True:
+            try:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message:
+                    data = json.loads(message['data'])
+                    if data.get('event') == 'RISK_REBALANCE_APPLIED':
+                        fund_id = data.get('fund_id')
+                        logger.info(f"Equity Guardian: Refreshing thresholds for fund {fund_id}")
+                        # Next analyze() will fetch fresh from DB
+                        if fund_id in self._threshold_cache:
+                            del self._threshold_cache[fund_id]
+            except Exception as e:
+                logger.error(f"Equity Guardian Listener Error: {e}")
+            await asyncio.sleep(0.5)
 
     async def _get_token(self) -> str:
         """Fetch JWT token from API Gateway."""
@@ -160,6 +185,10 @@ class EquityGuardian:
         except Exception as e:
             logger.error(f"Health check failed: {e}")
 
+    async def start_listener(self):
+        """Starts the background event listener."""
+        asyncio.create_task(self._listen_for_rebalance())
+
     def _calculate_metrics(self, df: pd.DataFrame) -> dict:
         """
         Synchronous, CPU-bound calculation of equity metrics.
@@ -216,3 +245,74 @@ class EquityGuardian:
             key = f"{self.projections.metrics_key_prefix}{account_id}"
             await self.redis.set(key, json.dumps(metrics))
             logger.info(f"Analyzed {account_id}: K-Ratio={metrics['k_ratio']:.2f}, R2={metrics['r_squared']:.2f}, DD={metrics['max_drawdown']:.2f}")
+
+            # 3. Automated Drawdown Enforcement (Institutional Phase 56)
+            await self._check_risk_breach(account_id, metrics)
+
+    async def _check_risk_breach(self, account_id: str, metrics: dict):
+        """Check if drawdown exceeds institutional limits."""
+        async with AsyncSessionLocal() as db:
+            # Fetch fund threshold
+            stmt = select(Fund).join(BrokerAccount, Fund.id == BrokerAccount.fund_id).where(BrokerAccount.id == account_id)
+            result = await db.execute(stmt)
+            fund = result.scalar_one_or_none()
+            
+            if not fund or not fund.max_drawdown_threshold:
+                return
+
+            threshold = float(fund.max_drawdown_threshold)
+            current_drawdown = abs(metrics.get("max_drawdown", 0.0))
+            
+            # If current_drawdown is > threshold (e.g. 5.0% threshold, 6.2% drawdown)
+            # Note: metrics['max_drawdown'] is negative, so we use abs()
+            if current_drawdown >= threshold:
+                logger.critical(f"🚨 [RISK BREACH] Account {account_id} drawdown ({current_drawdown:.2f}) exceeded threshold ({threshold:.2f})!")
+                await self._trigger_hard_stop(fund.id, account_id, f"Drawdown breach: {current_drawdown:.2f} >= {threshold:.2f}")
+
+    async def _trigger_hard_stop(self, fund_id: str, account_id: str, reason: str):
+        """Halt all trading for the fund and close all positions."""
+        logger.warning(f"🛑 [HARD STOP] Triggering emergency halt for Fund {fund_id} due to Account {account_id} breach.")
+        
+        # 1. Activate Kill Switch in Redis
+        halt_key = f"fund:{fund_id}:halted"
+        await self.redis.set(halt_key, "1")
+        await self.redis.publish("system:events", json.dumps({
+            "event": "FUND_HALTED",
+            "fund_id": str(fund_id),
+            "reason": f"AUTOMATED_HARD_STOP: {reason}"
+        }))
+
+        # 2. Urgent: Close all trades for this fund across ALL accounts
+        async with AsyncSessionLocal() as db:
+            # We need to find all accounts in this fund and close their trades
+            acc_stmt = select(BrokerAccount).where(BrokerAccount.fund_id == fund_id)
+            acc_result = await db.execute(acc_stmt)
+            accounts = acc_result.scalars().all()
+            
+            from app.adapters.factory import BrokerFactory
+            from app.utils.crypto import decrypt_data
+            
+            for acc in accounts:
+                try:
+                    credentials = decrypt_data(acc.credentials_encrypted)
+                    credentials["environment"] = acc.environment
+                    adapter = BrokerFactory.get_adapter(acc.broker_name, credentials)
+                    
+                    open_trades = await adapter.get_open_trades()
+                    for t in open_trades:
+                        btid = t.get('id')
+                        if btid:
+                            logger.info(f"Closing trade {btid} on {acc.broker_name} due to hard stop.")
+                            await adapter.close_trade(btid)
+                            
+                    # Update Olympus DB for closed trades (or let Janitor reconcile later, but better to be proactive)
+                    db_stmt = select(Trade).where(Trade.broker_account_id == acc.id, Trade.status == TradeStatus.OPEN)
+                    db_result = await db.execute(db_stmt)
+                    olympus_trades = db_result.scalars().all()
+                    for o_trade in olympus_trades:
+                        o_trade.status = TradeStatus.CLOSED
+                        o_trade.exit_timestamp = datetime.utcnow()
+                except Exception as e:
+                    logger.error(f"Failed to close trades for account {acc.id} during hard stop: {e}")
+            
+            await db.commit()

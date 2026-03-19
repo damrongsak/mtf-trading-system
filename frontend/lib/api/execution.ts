@@ -115,6 +115,7 @@ export interface ExecutionBrokerAccount {
     broker_name: string;
     account_id: string; // The external broker ID (e.g., "101-001-...")
     environment: string;
+    fund_id: string;
 }
 
 export interface SmartOrderRequest {

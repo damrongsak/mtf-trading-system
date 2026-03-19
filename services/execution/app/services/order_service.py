@@ -65,12 +65,28 @@ class OrderService:
             try:
                 from app.utils.redis_client import get_redis_client
                 rc = get_redis_client()
+                
+                # Global Kill Switch Check (System Wide)
                 if await rc.get("system:kill_switch") == "1":
                     logger.warning("🛑 SYSTEM HALTED: Smart Order rejected via Global Kill Switch.")
                     raise HTTPException(status_code=503, detail="System is currently halted for emergency maintenance.")
-            except (RuntimeError, Exception):
-                # Fallback: if Redis is closed or fails, we might still want to proceed if safe, 
-                # but for unit tests this happens because of loop closure.
+                
+                # Fund-level Kill Switch Check (Institutional Phase 56)
+                account_id = req_data.get("broker_account_id")
+                if account_id:
+                    # We need to know the fund_id. In the hot path, we fetch from cache.
+                    from app.services.cache_service import execution_cache
+                    account_data = await execution_cache.get_account(account_id)
+                    if account_data and account_data.get("fund_id"):
+                        fund_id = str(account_data["fund_id"])
+                        if await rc.get(f"fund:{fund_id}:halted") == "1":
+                            logger.warning(f"🛑 FUND HALTED: Smart Order for {req_data.get('symbol')} rejected due to Fund-level ({fund_id}) kill switch.")
+                            raise HTTPException(status_code=503, detail="Trading is currently halted for this fund due to risk limits.")
+
+            except HTTPException:
+                raise
+            except (RuntimeError, Exception) as e:
+                logger.debug(f"Redis check fallback: {e}")
                 pass
 
             # 1. Resolve Account (Tiered Cache Only)

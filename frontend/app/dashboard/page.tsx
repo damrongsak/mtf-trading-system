@@ -8,6 +8,7 @@ import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { RecentSignalsCard } from '@/components/dashboard/RecentSignalsCard';
 import { MarketStatusBadge } from '@/components/dashboard/MarketStatusBadge';
 import { EquityChart } from '@/components/dashboard/EquityChart';
+import { AccountPerformanceChart } from '@/components/dashboard/AccountPerformanceChart';
 import { AIAnalystCard } from '@/components/ai/AIAnalystCard';
 import { DailyBriefingWidget } from '@/components/ai/DailyBriefingWidget';
 import { OrdersCard } from '@/components/dashboard/OrdersCard';
@@ -18,6 +19,7 @@ import { KellyRiskWidget } from '@/components/risk/KellyRiskWidget';
 import { DashboardLatencyWidget } from '@/components/dashboard/DashboardLatencyWidget';
 import { getEquityCurve, getStrategyPerformance, StrategyPerformance, EquityPoint } from '@/lib/api/dashboard';
 import { getAccountSummary, AccountSummary, getBrokerAccounts, ExecutionBrokerAccount } from '@/lib/api/execution';
+import { analyticsApi } from '@/lib/api/analytics';
 import { useState, useEffect, useMemo } from 'react';
 import { useLivePrices } from '@/lib/hooks/useLivePrices';
 import { logger } from '@/lib/api/app-logger';
@@ -34,7 +36,7 @@ export default function DashboardPage() {
   
   // Pass selectedStrategyId to stats hook
   const { stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useDashboardStats(selectedStrategyId);
-  const [equityData, setEquityData] = useState<EquityPoint[]>([]);
+  const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [equityLoading, setEquityLoading] = useState(true);
   const [accountSummary, setAccountSummary] = useState<AccountSummary | null>(null);
   const [accounts, setAccounts] = useState<ExecutionBrokerAccount[]>([]);
@@ -76,11 +78,8 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setEquityLoading(true); // Set loading when strategy changes
       try {
-        // ... (existing preferences logic) ...
         // Initial data fetch
-
-        const [eqData, accData, perfData, accsData] = await Promise.all([
-            getEquityCurve(30, selectedStrategyId), // Pass ID
+        const [accData, perfData, accsData] = await Promise.all([
             getAccountSummary().catch(e => {
                 logger.warn("Failed to fetch account summary:", e);
                 return null;
@@ -94,10 +93,33 @@ export default function DashboardPage() {
                 return [];
             })
         ]);
-        setEquityData(eqData);
+
         setAccountSummary(accData);
         setPerformance(perfData);
         setAccounts(accsData);
+
+        // Fetch Performance Data based on selection
+        if (selectedStrategyId === 'all' && accsData.length > 0) {
+            // Fetch real account history for 'All' view if we have an account
+            try {
+                const historyRes = await analyticsApi.getAccountHistory(accsData[0].id, 100);
+                const mappedHistory = historyRes.history.map(h => ({
+                    time: h.timestamp,
+                    equity: h.equity,
+                    balance: h.balance
+                }));
+                setPerformanceData(mappedHistory);
+            } catch (e) {
+                logger.warn("Failed to fetch account history, falling back to relative equity curve", e);
+                const eqData = await getEquityCurve(30, 'all');
+                setPerformanceData(eqData.map(d => ({ time: d.date, equity: d.equity })));
+            }
+        } else {
+            // Fetch strategy-specific relative equity curve
+            const eqData = await getEquityCurve(30, selectedStrategyId);
+            setPerformanceData(eqData.map(d => ({ time: d.date, equity: d.equity })));
+        }
+        
       } catch (error) {
         logger.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -206,7 +228,17 @@ export default function DashboardPage() {
       )}
 
       {/* Trading Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <DashboardCard
+          title="Account Balance"
+          value={formatCurrency(parseFloat(accountSummary?.balance || '0'))}
+          icon={
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          }
+        />
+
         <DashboardCard
           title="Total P&L"
           value={formatCurrency(stats?.total_pnl || 0)}
@@ -265,10 +297,14 @@ export default function DashboardPage() {
           <DailyBriefingWidget />
       </div>
 
-      {/* Main Content Area: Equity + Detail Panels */}
+      {/* Main Content Area: Performance + Detail Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-            <EquityChart data={equityData} loading={equityLoading} />
+            <AccountPerformanceChart 
+                data={performanceData} 
+                loading={equityLoading} 
+                title={selectedStrategyId === 'all' ? "Account Performance (Absolute)" : "Strategy Equity Curve (Relative)"}
+            />
             <OpenPositionsCard onRefresh={handleRefresh} prices={prices} connected={connected} accountId={primaryAccountId} />
             <OrdersCard accountId={primaryAccountId} onRefresh={handleRefresh} />
             <RecentSignalsCard />

@@ -1,27 +1,5 @@
 [
   {
-    "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "data_source_id": null,
-    "broker_name": "OANDA",
-    "account_name": "OANDA Live Main",
-    "account_number": "001-011-437083-005",
-    "credentials_encrypted": "Z0FBQUFBQnBxLUg4X1hXb0UwMjBwN2h0MEViZHd5c25wVHpDdmN4TjVQWnV4em5hOHM3Vk9WZW95bDNLOGMxZTZ0T2JNMFVjMXNkT1kycHRsbWl0VHZCQUVBR0NOQnlfV09VUHB1Z0NlYlZtaF9oZXRUTC1KLUVjelNUZzUwWU5ZeGFIeXhmRWhMU3liVkNoaURxMWlORExuUEtjYXJXZnpBcmRLWXgtRS1tSTFyVU1hWWdrQUZlY2N5SjBWeC1PNTBCQXczYkVuaXB1SUlSNHBKMVNwU3dfa3ZKX0pfOVREbHFRTDQ3TkpveU1Wb0M2bm5tb1IyMVRqZVBWeUZxQ1NjZV81R1VfTXY5Tw==",
-    "is_active": true,
-    "is_live": true,
-    "environment": "live",
-    "supported_symbols": [
-      "XAU_USD",
-      "EUR_USD"
-    ],
-    "risk_settings": null,
-    "leverage": null,
-    "currency": null,
-    "balance_snapshot": null,
-    "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-07T08:29:48.122462+00:00"
-  },
-  {
     "id": "c414fe39-de58-412f-a87c-f14fdc6cdbb6",
     "fund_id": "420fb273-8ed3-4b90-be1a-76f9c1248467",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -38,30 +16,6 @@
     "currency": "USD",
     "balance_snapshot": "0.00",
     "created_at": "2026-03-17T01:12:55.136117+00:00",
-    "updated_at": "2026-03-17T02:58:37.460327+00:00"
-  },
-  {
-    "id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "broker_name": "icmarketssc",
-    "account_name": "ICMarkets Demo 9919680",
-    "account_number": "9919680",
-    "credentials_encrypted": "Z0FBQUFBQnB1TU5kQk1CWTBDNk9yc2pYWlBRbVRuaksxVGhhYmEzRHpVQ3MwSzFlNnAwZ1ZLeUtXTFUtRHlTTGtrSTRFeHF0NXZJZ2NDYW1Sd1Y4MkkxZXdOM19iQWEzYkZhc2JYU2c3a3ZHY2pHWHJaUUE3dWVvdVlDSmRUMlc4THNqTGRCdks0RXZMcUFQRDBYZ2pVSDhrMk5aVjcxV1FTazlLMG56SzI0MU4yMlRvejRoM2pqR1B1ZE1GTFBoemNHd3BPZlpRVGdHM1N4NTNwLW05S0puUkRiNHZ4alNWYzVlRGkxaUw3ejZ2NDlwb213WnozdlgtQ0VhOGxwdlJxVXVpenJESlk1OXhodnBaempOQnczQm5PcnJucnlHblBLNW0yUmlVb2YwWjE0d2RZNTBlRDJPaHJ3eUxUSkRvNmFhLVhCQTM5Q2QydUhFMkNkQ2JoZDR0M185bFpxcGhaSFhoVVJyUDAxNXUtWW5MUHdlTW05Y1h0em5HOWdzQm4zc1lJX0FJWnJBOTJ3eHN0TEdjLXdIVGNiQ0NEdVd1b3BFc2FjNVNKLUloS0J4NVQ4R19tUS1haVFaQk4wOFVHMWt4RWhlVGwzb2U2b21NMnpZMGszdVVQd0p6Z3c3ZkZ0ZTZSMEpXNXlaQUxRM0ZQYlRzaGJhaWtsSENxOFdTbVpBOXZMd0ExQlB0anZZQ2FmS3RIWTR2ellnc005NzBYdHRzTC1hZ1RNOHFCNGRXNFI1SFlVPQ==",
-    "is_active": true,
-    "is_live": false,
-    "environment": "demo",
-    "supported_symbols": [
-      "XAUUSD",
-      "EURUSD",
-      "GBPUSD",
-      "USDJPY"
-    ],
-    "risk_settings": null,
-    "leverage": 1000,
-    "currency": "USD",
-    "balance_snapshot": "2000.00",
-    "created_at": "2026-03-14T10:11:51.015390+00:00",
     "updated_at": "2026-03-17T02:58:37.460327+00:00"
   },
   {
@@ -84,6 +38,28 @@
     "updated_at": "2026-03-17T02:58:37.460327+00:00"
   },
   {
+    "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "data_source_id": null,
+    "broker_name": "OANDA",
+    "account_name": "OANDA Live Main",
+    "account_number": "001-011-437083-005",
+    "credentials_encrypted": "Z0FBQUFBQnBxLUg4X1hXb0UwMjBwN2h0MEViZHd5c25wVHpDdmN4TjVQWnV4em5hOHM3Vk9WZW95bDNLOGMxZTZ0T2JNMFVjMXNkT1kycHRsbWl0VHZCQUVBR0NOQnlfV09VUHB1Z0NlYlZtaF9oZXRUTC1KLUVjelNUZzUwWU5ZeGFIeXhmRWhMU3liVkNoaURxMWlORExuUEtjYXJXZnpBcmRLWXgtRS1tSTFyVU1hWWdrQUZlY2N5SjBWeC1PNTBCQXczYkVuaXB1SUlSNHBKMVNwU3dfa3ZKX0pfOVREbHFRTDQ3TkpveU1Wb0M2bm5tb1IyMVRqZVBWeUZxQ1NjZV81R1VfTXY5Tw==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "live",
+    "supported_symbols": [
+      "XAU_USD",
+      "EUR_USD"
+    ],
+    "risk_settings": null,
+    "leverage": 30,
+    "currency": "USD",
+    "balance_snapshot": "177.40",
+    "created_at": "2026-03-07T07:31:48.641343+00:00",
+    "updated_at": "2026-03-07T08:29:48.122462+00:00"
+  },
+  {
     "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
     "fund_id": "7c51f211-4ffe-4ff1-b0a6-d3227d90d4eb",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -101,8 +77,32 @@
     "risk_settings": null,
     "leverage": 1000,
     "currency": "USD",
-    "balance_snapshot": "104285.00",
+    "balance_snapshot": "1024.97",
     "created_at": "2026-03-07T07:31:48.641343+00:00",
+    "updated_at": "2026-03-17T02:58:37.460327+00:00"
+  },
+  {
+    "id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "broker_name": "icmarketssc",
+    "account_name": "ICMarkets Demo 9919680",
+    "account_number": "9919680",
+    "credentials_encrypted": "Z0FBQUFBQnB1TU5kQk1CWTBDNk9yc2pYWlBRbVRuaksxVGhhYmEzRHpVQ3MwSzFlNnAwZ1ZLeUtXTFUtRHlTTGtrSTRFeHF0NXZJZ2NDYW1Sd1Y4MkkxZXdOM19iQWEzYkZhc2JYU2c3a3ZHY2pHWHJaUUE3dWVvdVlDSmRUMlc4THNqTGRCdks0RXZMcUFQRDBYZ2pVSDhrMk5aVjcxV1FTazlLMG56SzI0MU4yMlRvejRoM2pqR1B1ZE1GTFBoemNHd3BPZlpRVGdHM1N4NTNwLW05S0puUkRiNHZ4alNWYzVlRGkxaUw3ejZ2NDlwb213WnozdlgtQ0VhOGxwdlJxVXVpenJESlk1OXhodnBaempOQnczQm5PcnJucnlHblBLNW0yUmlVb2YwWjE0d2RZNTBlRDJPaHJ3eUxUSkRvNmFhLVhCQTM5Q2QydUhFMkNkQ2JoZDR0M185bFpxcGhaSFhoVVJyUDAxNXUtWW5MUHdlTW05Y1h0em5HOWdzQm4zc1lJX0FJWnJBOTJ3eHN0TEdjLXdIVGNiQ0NEdVd1b3BFc2FjNVNKLUloS0J4NVQ4R19tUS1haVFaQk4wOFVHMWt4RWhlVGwzb2U2b21NMnpZMGszdVVQd0p6Z3c3ZkZ0ZTZSMEpXNXlaQUxRM0ZQYlRzaGJhaWtsSENxOFdTbVpBOXZMd0ExQlB0anZZQ2FmS3RIWTR2ellnc005NzBYdHRzTC1hZ1RNOHFCNGRXNFI1SFlVPQ==",
+    "is_active": true,
+    "is_live": false,
+    "environment": "demo",
+    "supported_symbols": [
+      "XAUUSD",
+      "EURUSD",
+      "GBPUSD",
+      "USDJPY"
+    ],
+    "risk_settings": null,
+    "leverage": 1000,
+    "currency": "USD",
+    "balance_snapshot": "1894.99",
+    "created_at": "2026-03-14T10:11:51.015390+00:00",
     "updated_at": "2026-03-17T02:58:37.460327+00:00"
   },
   {
@@ -120,7 +120,7 @@
     "risk_settings": null,
     "leverage": 30,
     "currency": "USD",
-    "balance_snapshot": "106.00",
+    "balance_snapshot": "1.06",
     "created_at": "2026-03-17T01:12:55.136117+00:00",
     "updated_at": "2026-03-17T02:58:37.460327+00:00"
   }

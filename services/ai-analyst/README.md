@@ -1,4 +1,4 @@
-# MTF Olympus: AI Analyst (v2.9)
+# MTF Olympus: AI Analyst (v3.0)
 
 The **AI Analyst** is the institutional-grade "Market Brain" of the MTF Olympus system. It utilizes **Google Gemini 2.5 (Pro/Flash)** and **OpenRouter (Claude 3.5)** within an **Agentic RAG (LangGraph)** architecture to provide structural market mapping, cross-service stability observation, and automated strategy planning with institutional safety guards.
 
@@ -58,7 +58,7 @@ graph TD
     end
 ```
 
-## 🎯 Core Capabilities (v2.9+)
+## 🎯 Core Capabilities (v3.0+)
 
 - **Autonomous Orchestration Monitor**: Real-time auditing of agent handoffs and pipeline triggers via the `orchestration.audit.stream`.
 - **Specialist Handoff Flow**: Dynamic escalation to domain specialists (Strategy Advisor, Market Observer) via the `consult_specialist` mechanism.
@@ -68,6 +68,7 @@ graph TD
 - **Zero-Cost Autonomous Search**: High-fidelity browser-based research via OpenClaw (DuckDuckGo scraping) that avoids paid Search API costs.
 - **Direct Service Connectivity (v3.2)**: Orchestrates internal data gathering (Strategy, Execution, Data) by calling services directly to eliminate reentrant deadlocks and Gateway latency.
 - **Automated Daily Post-Mortem**: (01:00 UTC) Self-correcting learning loop that transforms past trades into persistent RAG memory.
+- **AI Risk Rebalancer (v3.0)**: `RiskRebalancerAgent` + `RiskReviewTool` — analyzes market regime, news sentiment, and current fund parameters via Gemini to recommend dynamic risk adjustments (drawdown thresholds, risk percentages). Integrated as a specialist node in the LangGraph with `rebalance` intent routing.
 
 ## 🤖 AI-Agent Operational Guide
 
@@ -76,7 +77,8 @@ To understand or extend the AI Analyst, follow this discovery path:
 1.  **Persona & Prompts**: Core behavior in `app/core/prompts.py`.
 2.  **Graph Structure**: Node wiring and dynamic routing in `app/agents/strategy_advisor.py`.
 3.  **Safety Guards**: Risk logic in `app/agents/sentinel/economic_sanity_gate.py` and `app/agents/sentinel/consensus_layer.py`.
-4.  **Learning Tasks**: Background jobs and post-mortem logic in `app/core/scheduler_tasks.py` and `app/agents/post_mortem.py`.
+4.  **Risk Rebalancer**: AI-driven risk adjustment in `app/agents/risk_rebalancer.py` with data from `app/tools/risk.py`.
+5.  **Learning Tasks**: Background jobs and post-mortem logic in `app/core/scheduler_tasks.py` and `app/agents/post_mortem.py`.
 
 ## 🔧 Operational Guide
 
@@ -131,6 +133,7 @@ app/
 ├── core/              # Persona prompts, Pydantic schemas, & Scheduler
 ├── services/          # Model clients (Gemini/OpenRouter), RAG, & Memory
 ├── tools/             # Resilient Institutional Tools (BaseTool standardized)
+│   ├── risk.py        # RiskReviewTool (Phase 57)
 │   ├── open_claw.py   # Agentic Browser & Autonomous Search
 │   └── ...
 ├── skills/            # Internal persistent skills (SKILL.md Physical Skeleton)

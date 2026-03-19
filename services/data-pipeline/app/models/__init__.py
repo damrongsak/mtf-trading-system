@@ -20,6 +20,7 @@ from .portfolio_allocation import PortfolioAllocation
 from .prompt import SystemPrompt, PromptAuditLog
 from .rag import LibraryBook
 from .risk_filter import RiskFilter
+from .rebalance_history import RebalanceHistory
 from .risk_rule import RiskRule
 from .saved_strategy import SavedStrategy
 from .sentiment_score import SentimentScore

@@ -89,6 +89,11 @@ The system utilizes four primary patterns for high resilience and low coupling:
     - **🔐 NO HARDCODED CREDENTIALS**: You MUST NOT hardcode API keys, tokens, secrets, or JWTs in any Python, TypeScript, or Shell scripts.
         - **MANDATORY**: Use `.env` files for local development and `os.getenv()` or `app.core.config` for access.
         - **Sanitization**: Before committing code or finalizing a task, audit all newly created scripts for sensitive data leaks.
+    - **🛡️ Mandatory RBAC Audit (CRITICAL)**: Every API endpoint and database query MUST be audited against the RBAC/ABAC standards defined in `docs/RBAC_SYSTEM.md`.
+        - **Isolation**: Users MUST NOT see data (funds, trades, history) belonging to other users unless explicitly granted access via the `user_funds` table.
+        - **Join Enforcement**: SQL queries for Fund-related entities MUST join with `user_funds` and filter by `current_user.id` by default.
+        - **Role Check**: Destructive or configuration actions (POST/PATCH/DELETE) MUST explicitly verify the user's role (OWNER/MANAGER) within the target fund.
+        - **Zero Trust**: Do not assume `fund_id` provided in a request is authorized. Always validate ownership/access at the service layer.
 
 #### 🛡️ World-Class Quality Gates (Zero-Defect Standard)
 Before finalizing any task or proposing a commit, the agent MUST pass these four gates:

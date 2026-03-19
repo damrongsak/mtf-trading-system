@@ -12,8 +12,18 @@ from app.schemas.analytics import (
     ExecutionRejectionResponse,
     LatencyBucket,
     PerformanceComparisonItem,
-    RejectionReasonSummary
+    RejectionReasonSummary,
+    AccountHistoryResponse,
+    AccountHistoryItem,
+    HRPWeightsResponse,
+    DriftAlert,
+    DriftAlertsResponse
 )
+from app.models.account_history import AccountHistory
+from uuid import UUID
+from datetime import datetime
+from app.utils.cache import execution_cache
+import json
 from app.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, select
@@ -181,3 +191,100 @@ async def get_execution_rejections(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Execution Rejections Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch execution rejections: {str(e)}")
+
+@router.get("/accounts/{account_id}/history", response_model=AccountHistoryResponse)
+async def get_account_history(
+    account_id: UUID,
+    limit: int = Query(100, description="Number of snapshots to return"),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns time-series history for a specific broker account.
+    """
+    try:
+        history = db.query(AccountHistory)\
+            .filter(AccountHistory.broker_account_id == account_id)\
+            .order_by(AccountHistory.timestamp.desc())\
+            .limit(limit).all()
+        
+        items = [
+            AccountHistoryItem(
+                id=h.id,
+                broker_account_id=h.broker_account_id,
+                balance=float(h.balance),
+                equity=float(h.equity),
+                used_margin=float(h.used_margin),
+                free_margin=float(h.free_margin),
+                margin_level=float(h.margin_level) if h.margin_level is not None else None,
+                unrealized_gross=float(h.unrealized_gross) if h.unrealized_gross is not None else None,
+                unrealized_net=float(h.unrealized_net) if h.unrealized_net is not None else None,
+                timestamp=h.timestamp
+            ) for h in history
+        ]
+        
+        return AccountHistoryResponse(history=items)
+    except Exception as e:
+        logger.error(f"Account History Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch account history: {str(e)}")
+
+@router.get("/funds/{fund_id}/hrp-weights", response_model=HRPWeightsResponse)
+async def get_hrp_weights(fund_id: UUID):
+    """
+    Returns current HRP/Risk Parity weights for a fund from Redis.
+    """
+    try:
+        cache_key = f"fund:{fund_id}:risk_parity_weights"
+        raw_weights = await execution_cache.redis.get(cache_key)
+        
+        if not raw_weights:
+            # Fallback or empty response
+            return HRPWeightsResponse(
+                fund_id=fund_id,
+                weights={},
+                updated_at=datetime.utcnow()
+            )
+            
+        weights = json.loads(raw_weights)
+        return HRPWeightsResponse(
+            fund_id=fund_id,
+            weights=weights,
+            updated_at=datetime.utcnow() # Redis doesn't store TTL as precise updated_at easily without extra metadata
+        )
+    except Exception as e:
+        logger.error(f"HRP Weights Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch HRP weights: {str(e)}")
+
+@router.get("/alerts/drift", response_model=DriftAlertsResponse)
+async def get_drift_alerts():
+    """
+    Returns recent broker drift alerts from Redis Stream.
+    """
+    try:
+        # Read last 20 messages from the drift stream
+        stream_key = "system.alerts.drift"
+        messages = await execution_cache.redis.xrevrange(stream_key, count=20)
+        
+        alerts = []
+        for msg_id, payload in messages:
+            try:
+                data = json.loads(payload.get("payload", "{}"))
+                alerts.append(DriftAlert(
+                    type=data.get("type", "UNKNOWN"),
+                    severity=data.get("severity", "WARNING"),
+                    fund_id=data.get("fund_id"),
+                    account_id=data.get("account_id"),
+                    broker=data.get("broker"),
+                    symbol=data.get("symbol"),
+                    drift_units=data.get("drift_units"),
+                    relative_drift=data.get("relative_drift"),
+                    details=data.get("details"),
+                    timestamp=data.get("timestamp", datetime.utcnow().isoformat())
+                ))
+            except Exception as ex:
+                logger.error(f"Failed to parse drift alert {msg_id}: {ex}")
+                
+        return DriftAlertsResponse(alerts=alerts)
+    except Exception as e:
+        logger.error(f"Drift Alerts Error: {e}")
+        # Return empty list instead of 500 if stream doesn't exist yet
+        return DriftAlertsResponse(alerts=[])

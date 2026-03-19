@@ -12,18 +12,20 @@ class SupervisorAgent:
         Available Specialists:
         1. **StrategyAdvisor**: For coding, backtesting, strategy optimization, and DAILY BRIEFINGS.
         2. **MarketObserver**: For real-time market analysis, news sentiment, and "what is happening" queries.
-        3. **General**: For greetings, system status, or non-trading questions.
+        3. **RiskRebalancer**: For dynamic drawdown adjustments, risk rebalancing, and portfolio safety reviews.
+        4. **General**: For greetings, system status, or non-trading questions.
         
         Intents to recognize:
         - `briefing`: Morning/Daily briefings.
         - `analysis`: Technical/SMC market analysis.
         - `optimization`: Strategy parameter tuning.
+        - `rebalance`: Risk rebalancing or drawdown threshold adjustments.
         - `chat`: General trading discussion.
 
         Output JSON ONLY:
         {
-            "next_node": "StrategyAdvisor" | "MarketObserver" | "General",
-            "intent": "briefing" | "analysis" | "optimization" | "chat" | "general",
+            "next_node": "StrategyAdvisor" | "MarketObserver" | "RiskRebalancer" | "General",
+            "intent": "briefing" | "analysis" | "optimization" | "rebalance" | "chat" | "general",
             "severity": "ROUTINE" | "VOLATILITY" | "CRISIS",
             "reasoning": "User is asking about..."
         }

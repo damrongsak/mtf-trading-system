@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from uuid import UUID
 from datetime import datetime
 
@@ -33,3 +33,38 @@ class RejectionReasonSummary(BaseModel):
 class ExecutionRejectionResponse(BaseModel):
     rejections: List[RejectionReasonSummary]
     total_rejections: int
+
+class AccountHistoryItem(BaseModel):
+    id: UUID
+    broker_account_id: UUID
+    balance: float
+    equity: float
+    used_margin: float
+    free_margin: float
+    margin_level: Optional[float] = None
+    unrealized_gross: Optional[float] = None
+    unrealized_net: Optional[float] = None
+    timestamp: datetime
+
+class AccountHistoryResponse(BaseModel):
+    history: List[AccountHistoryItem]
+
+class HRPWeightsResponse(BaseModel):
+    fund_id: UUID
+    weights: Dict[str, float]
+    updated_at: datetime
+
+class DriftAlert(BaseModel):
+    type: str
+    severity: str = "WARNING"
+    fund_id: Optional[str] = None
+    account_id: Optional[str] = None
+    broker: Optional[str] = None
+    symbol: Optional[str] = None
+    drift_units: Optional[float] = None
+    relative_drift: Optional[float] = None
+    details: Optional[Dict[str, Any]] = None
+    timestamp: datetime
+
+class DriftAlertsResponse(BaseModel):
+    alerts: List[DriftAlert]

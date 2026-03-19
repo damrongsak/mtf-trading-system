@@ -21,6 +21,7 @@ class Fund(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Risk Settings (Advanced Risk Parameters)
@@ -46,6 +47,7 @@ class Fund(Base):
     strategies = relationship("Strategy", back_populates="fund", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="fund", cascade="all, delete-orphan")
     allocations = relationship("PortfolioAllocation", back_populates="fund", cascade="all, delete-orphan")
+    rebalance_history = relationship("RebalanceHistory", back_populates="fund", cascade="all, delete-orphan")
 
 class UserFund(Base):
     __tablename__ = "user_funds"

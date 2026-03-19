@@ -80,3 +80,29 @@ def cached_response(ttl: int = 300, key_prefix: str = "api_cache"):
                 
         return wrapper
     return decorator
+from app.utils.redis_client import redis_client
+
+class ExecutionCache:
+    """
+    Lightweight bridge for api-gateway to access Redis data 
+    that is populated by the execution service (Events, NAV, etc).
+    """
+    @property
+    def redis(self):
+        # This is a bit of a hack to support the .redis.get() pattern in existing routers
+        # In a real async context, we'd need to await get_client() first, but
+        # decorators/routers might not be ready for that.
+        # However, redis_client.client is set after the first get_client call.
+        return MockRedisProxy()
+
+class MockRedisProxy:
+    """Helper to allow execution_cache.redis.xxx calls in a non-awaited way if needed, 
+    but analytics.py uses 'await execution_cache.redis.get', so we just need to return the client."""
+    def __getattr__(self, name):
+        async def async_call(*args, **kwargs):
+            client = await redis_client.get_client()
+            method = getattr(client, name)
+            return await method(*args, **kwargs)
+        return async_call
+
+execution_cache = ExecutionCache()

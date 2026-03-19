@@ -83,6 +83,7 @@ class AgentState(TypedDict):
     consensus_result: dict # Results from consensus_layer
     proposed_trade: dict # Captured trade proposal for sanity checking
     specialist_response: Optional[Dict[str, Any]] # Response from a specialist node
+    active_fund_id: Optional[str] # Phase 57: Fund ID for risk analysis
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -91,7 +92,8 @@ class StrategyAdvisorAgent:
                  checkpointer: BaseCheckpointSaver = None,
                  memory_service: MemoryService = None,
                  post_mortem_agent: Any = None,
-                 trade_manager_agent: Any = None):
+                 trade_manager_agent: Any = None,
+                 risk_rebalancer_agent: Any = None):
         
         self.rag = rag_service
         self.gemini = gemini_client
@@ -101,6 +103,7 @@ class StrategyAdvisorAgent:
         self.checkpointer = checkpointer
         self.post_mortem = post_mortem_agent
         self.trade_manager = trade_manager_agent
+        self.risk_rebalancer = risk_rebalancer_agent
         
         # Initialize Tools
         self.tool_registry = ToolRegistry(rag_service)
@@ -143,6 +146,7 @@ class StrategyAdvisorAgent:
         # Specialist Scaling v2.5
         workflow.add_node("journal_analysis", self.node_journal_analysis)
         workflow.add_node("portfolio_management", self.node_portfolio_management)
+        workflow.add_node("risk_rebalancing", self.node_risk_rebalancing)
         
         # Recursive Synergy v2.8 (External Auditor)
         workflow.add_node("external_critic", self.node_external_critic)
@@ -176,7 +180,8 @@ class StrategyAdvisorAgent:
                 "market_scan": "market_scan",
                 "generate_briefing": "generate_briefing",
                 "journal_analysis": "journal_analysis",
-                "portfolio_management": "portfolio_management"
+                "portfolio_management": "portfolio_management",
+                "risk_rebalancing": "risk_rebalancing"
             }
         )
         
@@ -226,6 +231,7 @@ class StrategyAdvisorAgent:
         workflow.add_edge("generate_briefing", "generate")
         workflow.add_edge("journal_analysis", "generate")
         workflow.add_edge("portfolio_management", "generate")
+        workflow.add_edge("risk_rebalancing", "generate")
         
         workflow.add_edge("generate", "evaluator")
         
@@ -382,6 +388,23 @@ class StrategyAdvisorAgent:
         except Exception as e:
             logger.error(f"Portfolio management failed: {e}")
             return {"final_response": f"Error during portfolio management: {e}", "intent": "CHAT"}
+
+    async def node_risk_rebalancing(self, state: AgentState):
+        """
+        Orchestrates the RiskRebalancerAgent to analyze and suggest risk adjustments.
+        """
+        logger.info("Executing Risk Rebalancing Specialist...")
+        if not self.risk_rebalancer:
+            return {"final_response": "Risk Rebalancer Agent not initialized.", "intent": "CHAT"}
+        
+        try:
+            # The agent implementation itself handles the tool calls and analysis
+            # We just need to call its analyze_risk method
+            new_state = await self.risk_rebalancer.analyze_risk(state)
+            return new_state
+        except Exception as e:
+            logger.error(f"Risk rebalancing failed: {e}")
+            return {"final_response": f"Error during risk rebalancing: {e}", "intent": "CHAT"}
 
     async def node_query_optimizer(self, state: AgentState):
         """
