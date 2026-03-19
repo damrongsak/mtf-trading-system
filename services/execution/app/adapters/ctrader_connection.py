@@ -1,6 +1,19 @@
-from typing import Dict
+from typing import Dict, Any
 from app.adapters.ctrader_client import AsyncCTraderClient
 import logging
+
+def _global_ctrader_handler(msg):
+    """
+    [HFT-lite] Global message handler for all cTrader connections.
+    Routes unsolicited events (fills, spots) to the appropriate processors.
+    """
+    logger.debug(f"Global cTrader Handler: Received message type {msg.payloadType}")
+    try:
+        from app.adapters.ctrader import CTraderMessageRouter
+        CTraderMessageRouter.handle_unsolicited_message(msg)
+    except Exception as e:
+        # Avoid circular import or missing router issues during startup
+        logging.getLogger(__name__).error(f"Global cTrader handler error: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +38,9 @@ class CTraderConnectionManager:
         key = str(account_id)
         if key not in cls._clients:
             logger.info(f"Creating new persistent cTrader client for account {account_id}")
-            cls._clients[key] = AsyncCTraderClient(host, port)
+            client = AsyncCTraderClient(host, port)
+            client.set_message_handler(_global_ctrader_handler)
+            cls._clients[key] = client
         return cls._clients[key]
 
     @classmethod

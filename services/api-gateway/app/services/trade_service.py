@@ -15,7 +15,8 @@ class TradeService:
         db: Session, 
         user: User, 
         execution_data: Dict[str, Any],
-        request_data: Dict[str, Any]
+        request_data: Dict[str, Any],
+        broker_account_id: Optional[Any] = None
     ) -> Trade:
         """
         Creates a Trade record and a linked JournalEntry stub from an execution result.
@@ -30,9 +31,19 @@ class TradeService:
         order_type = request_data.get("order_type", "MARKET")
         status = TradeStatus.OPEN if order_type == "MARKET" else TradeStatus.PENDING
         
+        # Deterministic UUID — prevents duplicates across services (Sync/Async paths)
+        broker_trade_id = str(execution_data.get("id"))
+        
+        # Use the passed broker_account_id or fallback to request_data
+        acc_id_str = str(broker_account_id) if broker_account_id else str(request_data.get("broker_account_id", "unknown"))
+        
+        trade_id = uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"{acc_id_str}_{broker_trade_id}"
+        )
+        
         # Create Trade Record
         trade = Trade(
-            trade_id=uuid.uuid4(),
+            trade_id=trade_id,
             symbol=request_data.get("symbol"),
             strategy_name="Manual Execution", # Default for manual trades
             signal_timestamp=datetime.now(timezone.utc),

@@ -12,7 +12,7 @@ class TracingFilter(logging.Filter):
         record.request_id = get_request_id()
         return True
 
-def setup_logging(level=logging.INFO):
+def setup_logging(level=logging.DEBUG):
     """
     Configures structured JSON logging for Execution Service.
     """

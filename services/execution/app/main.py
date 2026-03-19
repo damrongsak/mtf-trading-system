@@ -249,8 +249,8 @@ class OrderRequest(BaseModel):
     order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
     price: Optional[float] = None # For Limit/Stop
-    sl_price: Optional[float] = None
-    tp_price: Optional[float] = None
+    sl_price: float = Field(..., description="Stop Loss price (Required for Institutional Risk)")
+    tp_price: float = Field(..., description="Take Profit price (Required for Institutional Risk)")
     trade_id: Optional[str] = None
     comment: Optional[str] = None
     tag: Optional[str] = None

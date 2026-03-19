@@ -145,15 +145,13 @@ class AsyncCTraderClient:
                     fut.set_result(msg)
             else:
                 # Handle unsolicited messages
+                print(f"DEBUG: cTrader Client: Received Unsolicited Message Type: {msg.payloadType}")
                 if self._message_handler:
                     try:
                         self._message_handler(msg)
                     except Exception as he:
-                        logger.error(f"Message handler error: {he}")
+                        logger.error(f"cTrader Client: Message handler error: {he}")
                         # If handler is async, we should await it?
-                        # Since we are in an async function _process_message, we can.
-                        # But self._message_handler might be sync or async.
-                        # Let's support async check.
                         if asyncio.iscoroutinefunction(self._message_handler):
                             asyncio.create_task(self._message_handler(msg)) # Fire and forget
 

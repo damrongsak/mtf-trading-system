@@ -6,6 +6,9 @@ from app.adapters.base import BrokerAdapter
 from app.adapters.ctrader_connection import CTraderConnectionManager
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAExecutionType
+from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAExecutionEvent
+from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
 
 logger = logging.getLogger(__name__)
@@ -315,32 +318,33 @@ class CTraderOrderAdapter(BrokerAdapter):
                       except Exception as am_err:
                            logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
 
-            # [H2] FILLED — publish fill event → Redis List (WS push) + Stream (FillTradeConsumer → DB)
-            # [PHASE 15] Only publish FILLED if it's actually filled.
+            # [HFT-lite] Save context for Async Fill Router
+            # This allows the global ExecutionEvent handler to find the original trace_id and metadata
+            try:
+                from app.services.cache_service import execution_cache
+                context = {
+                    "trace_id": trade_id or "",
+                    "signal_timestamp_ns": signal_timestamp_ns,
+                    "sl_price": sl_price or 0.0,
+                    "tp_price": tp_price or 0.0,
+                    "comment": comment or "",
+                    "is_shadow": is_shadow,
+                    "symbol": symbol
+                }
+                # Expire after 1 hour — should be filled or manually dealt with by then
+                await execution_cache.set_order_context(broker_order_id, context, expire=3600)
+                logger.debug(f"cTrader: Saved order context for {broker_order_id}")
+            except Exception as ctx_err:
+                logger.warning(f"cTrader: Failed to save order context for {broker_order_id}: {ctx_err}")
+
             if is_filled:
-                try:
-                    from app.services.fill_publisher import publish_fill
-                    # Rule 7: publish_fill now primarily pushes to Redis Stream
-                    asyncio.create_task(publish_fill(
-                        account_id=str(self.account_id),
-                        trace_id=trade_id or "",
-                        order_id=broker_order_id,
-                        status="FILLED",
-                        instrument=symbol,
-                        fill_price=fill_price,
-                        fill_volume=units,
-                        sl_price=sl_price or 0.0,
-                        tp_price=tp_price or 0.0,
-                         direction="LONG" if units > 0 else "SHORT",
-                         comment=comment or "",
-                         deal_id=str(res.deal.dealId) if res.HasField("deal") else None,
-                         signal_timestamp_ns=signal_timestamp_ns,
-                         is_shadow=is_shadow,
-                     ))
-                except Exception as pub_err:
-                    logger.warning(f"[H2] Failed to publish FILLED fill event: {pub_err}")
+                logger.info(f"cTrader: Order {broker_order_id} filled immediately (Sync Path).")
+                # We still publish but the router might also see it. 
+                # To prevent duplicates, publish_fill or the router should check if already processed.
+                # However, usually cTrader sends FILLED as a separate unsolicited message.
+                pass 
             else:
-                logger.info(f"cTrader: Order {order_id} {res.executionType} - waiting for fill event.")
+                logger.info(f"cTrader: Order {broker_order_id} {res.executionType} - waiting for async fill event.")
 
             return {
                 "orderFillTransaction": {
@@ -512,13 +516,28 @@ class CTraderOrderAdapter(BrokerAdapter):
              # ProtoOAClosePositionReq requires volume.
              # If we don't know, we must fetch position first.
              
-             if not volume_cents:
-                 # Fetch position to get volume
+             if units is None:
+                 # Fetch position to get volume and symbol
                  recon = await self.client.get_reconcile(self.account_id)
                  target = next((p for p in recon.position if str(p.positionId) == str(broker_trade_id)), None)
                  if not target:
-                     raise ValueError("Position not found")
-                 volume_cents = target.volume
+                     raise ValueError(f"Position {broker_trade_id} not found")
+                 volume_cents = target.tradeData.volume
+             else:
+                 # Need to know which symbol to resolve lot size for
+                 recon = await self.client.get_reconcile(self.account_id)
+                 target = next((p for p in recon.position if str(p.positionId) == str(broker_trade_id)), None)
+                 if not target:
+                      raise ValueError(f"Position {broker_trade_id} not found")
+                 
+                 s_name = await self._resolve_symbol_name(target.tradeData.symbolId)
+                 _, _, step_cents = await self._resolve_symbol_id_and_lot_size(s_name)
+                 
+                 # Convert units to volume_cents
+                 multiple = units * 100  # 0.01 lot = 1 unit = 100 cents
+                 volume_cents = int(multiple * step_cents)
+                 if volume_cents < step_cents:
+                     volume_cents = int(step_cents)
              
              res = await self.client.close_position(self.account_id, int(broker_trade_id), volume=volume_cents)
              return {"status": "closed", "trade_id": broker_trade_id}
@@ -870,3 +889,89 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"cTrader Get Pending Orders Error: {e}")
             raise e
+
+class CTraderMessageRouter:
+    """
+    [HFT-lite] Global Router for unsolicited cTrader messages.
+    Handles ExecutionEvents (Fills) across all active connections.
+    """
+    @staticmethod
+    def handle_unsolicited_message(msg: ProtoMessage):
+        """Main entry point from AsyncCTraderClient"""
+        # 2126 = ProtoOAExecutionEvent
+        if msg.payloadType == 2126:
+            asyncio.create_task(CTraderMessageRouter._process_execution_event(msg))
+        elif msg.payloadType == 2121: # ProtoOASpotEvent (Example)
+             # Route to price stream or indicator engines if needed
+             pass
+
+    @staticmethod
+    async def _process_execution_event(msg: ProtoMessage):
+        try:
+            from app.services.fill_publisher import publish_fill
+            from app.services.cache_service import execution_cache
+            
+            event = ProtoOAExecutionEvent()
+            event.ParseFromString(msg.payload)
+            
+            account_id = str(event.ctidTraderAccountId)
+            exec_type = event.executionType
+            
+            # We only care about fills for now
+            if exec_type != ProtoOAExecutionType.ORDER_FILLED:
+                # logger.debug(f"cTrader: Async ExecutionEvent {exec_type} for acc {account_id} - ignoring.")
+                return
+
+            broker_order_id = str(event.order.orderId)
+            logger.info(f"cTrader: Async Fill received for Order {broker_order_id} (Acc: {account_id})")
+            
+            # 1. Fetch Context from Redis
+            context = await execution_cache.get_order_context(broker_order_id)
+            if not context:
+                logger.warning(f"cTrader: No context found for filled order {broker_order_id}. Manual or external order?")
+                # We should still try to find symbol from symbol_id
+                # but we'll miss trace_id/metadata
+                return
+
+            # 2. Extract Data
+            trace_id = context.get("trace_id", "")
+            symbol = context.get("symbol", "UNKNOWN")
+            units = float(event.order.volume) / 100.0 # cTrader units to standard
+            
+            # Prices
+            # Deal has the actual execution price
+            fill_price = 0.0
+            deal_id = None
+            if event.HasField("deal"):
+                 fill_price = float(event.deal.executionPrice)
+                 deal_id = str(event.deal.dealId)
+            
+            sl_price = context.get("sl_price", 0.0)
+            tp_price = context.get("tp_price", 0.0)
+            
+            # Logic: If SL/TP were hit, we might need to handle them differently
+            # but usually this flow is for Entry Fills.
+            
+            # 3. Publish Fill
+            await publish_fill(
+                account_id=account_id,
+                trace_id=trace_id,
+                order_id=broker_order_id,
+                status="FILLED",
+                instrument=symbol,
+                fill_price=fill_price,
+                fill_volume=units,
+                sl_price=sl_price,
+                tp_price=tp_price,
+                direction=context.get("direction", "LONG" if units > 0 else "SHORT"),
+                comment=context.get("comment", ""),
+                deal_id=deal_id,
+                signal_timestamp_ns=context.get("signal_timestamp_ns"),
+                is_shadow=context.get("is_shadow", False)
+            )
+            
+            # 4. Cleanup context
+            await execution_cache.delete_order_context(broker_order_id)
+            
+        except Exception as e:
+            logger.error(f"cTrader Router Error: {e}", exc_info=True)

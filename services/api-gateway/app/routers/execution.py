@@ -115,13 +115,17 @@ async def sync_account_trades(
         logger.error(f"Error syncing trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+from app.schemas.execution import OrderRequest
+
 @router.post("/orders")
 async def place_order(
-    order_data: Dict[str, Any],
+    order_req: OrderRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
+        # Convert Pydantic to Dict for internal processing
+        order_data = order_req.model_dump(exclude_none=True)
         logger.info(f"Received order request: {order_data}")
         
         # Resolve Broker Account
@@ -164,7 +168,8 @@ async def place_order(
                     db=db,
                     user=current_user,
                     execution_data=execution_result,
-                    request_data=order_data
+                    request_data=order_data,
+                    broker_account_id=account.id
                 )
                 # Link trade to account
                 trade.broker_account_id = account.id

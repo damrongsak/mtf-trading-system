@@ -213,4 +213,34 @@ class ExecutionCache:
             
         return None
 
+    async def set_order_context(self, broker_order_id: str, context: Dict, expire: int = 3600):
+        """[HFT-lite] Store trade context for async fill enrichment."""
+        key = f"exec:order_ctx:{broker_order_id}"
+        try:
+            r = await self._get_redis()
+            await r.set(key, json.dumps(context), ex=expire)
+        except Exception as e:
+            logger.error(f"Redis Cache Error (set_order_context): {e}")
+
+    async def get_order_context(self, broker_order_id: str) -> Optional[Dict]:
+        """[HFT-lite] Retrieve trade context for async fill enrichment."""
+        key = f"exec:order_ctx:{broker_order_id}"
+        try:
+            r = await self._get_redis()
+            data_json = await r.get(key)
+            if data_json:
+                return json.loads(data_json)
+        except Exception as e:
+            logger.error(f"Redis Cache Error (get_order_context): {e}")
+        return None
+
+    async def delete_order_context(self, broker_order_id: str):
+        """[HFT-lite] Cleanup order context after fill processing."""
+        key = f"exec:order_ctx:{broker_order_id}"
+        try:
+            r = await self._get_redis()
+            await r.delete(key)
+        except Exception as e:
+            logger.error(f"Redis Cache Error (delete_order_context): {e}")
+
 execution_cache = ExecutionCache()
