@@ -73,6 +73,7 @@ The system utilizes four primary patterns for high resilience and low coupling:
     - `specs/04_api_spec.yaml` — API contract (source of truth for endpoints).
     - `specs/03_data_model.yaml` — Data model (source of truth for schemas).
     - Do NOT assume knowledge of the system. Always verify against these docs before proposing changes.
+    - **📚 cTrader Guardrails**: Before editing any code related to cTrader, you MUST read `docs/CTRADER_DEVELOPMENT_GUIDE.md`. Specifically, never access `grossProfit` directly on position objects; always use `getattr(p, "grossProfit", 0.0)`.
 9.  **🛠️ Infrastructure Guardrails (CRITICAL)**:
     - **NO `command` OVERRIDE**: Do NOT use the `command` field in `docker-compose.yml` for infrastructure services like `redis` or `mtf-postgres`. Overriding the command can prevent critical modules (e.g., RediSearch, RedisJSON) from loading.
     - **Use `REDIS_ARGS` / `POSTGRES_INITDB_ARGS`**: If you need to tune parameters like `--maxmemory`, use the designated environment variables supported by the official images. This ensures the default entrypoint can still initialize required extensions.

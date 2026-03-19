@@ -224,14 +224,14 @@ app.add_middleware(
 @app.exception_handler(ConnectionResetError)
 async def connection_reset_handler(request, exc):
     logger.error(f"Global ConnectionResetError caught: {exc}")
-    return error_response(message="Internal Connection Reset by Peer. Please retry.", code=503)
+    return error_response(message="Internal Connection Reset by Peer. Please retry.", status_code=503)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     if isinstance(exc, HTTPException):
         raise exc
     logger.error(f"Unhandled Exception: {exc}", exc_info=True)
-    return error_response(message=f"Internal Server Error: {str(exc)}", code=500)
+    return error_response(message=f"Internal Server Error: {str(exc)}", status_code=500)
 
 
 # --- Request Models ---
@@ -266,9 +266,9 @@ class CloseTradeRequest(BaseModel):
 # ...
 
 class AccountSummaryResponse(BaseModel):
-    balance: str
-    NAV: str
-    marginAvailable: str
+    balance: float
+    NAV: float
+    marginAvailable: float
     openTradeCount: int
     openPositionCount: int
     leverage: int = 30

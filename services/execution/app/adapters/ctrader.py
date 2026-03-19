@@ -58,9 +58,9 @@ class CTraderOrderAdapter(BrokerAdapter):
              
              # Calculate unrealized from positions
              positions = reconcile.position if hasattr(reconcile, 'position') else []
-             unrealized_gross = sum(float(p.grossProfit) / 100.0 for p in positions)
-             unrealized_net = sum((float(p.grossProfit) + float(p.swap) + (float(p.commission) if hasattr(p, 'commission') else 0)) / 100.0 for p in positions)
-             used_margin = sum(float(p.usedMargin) / 100.0 for p in positions)
+             unrealized_gross = sum(float(getattr(p, 'grossProfit', 0.0)) / 100.0 for p in positions)
+             unrealized_net = sum((float(getattr(p, 'grossProfit', 0.0)) + float(getattr(p, 'swap', 0.0)) + float(getattr(p, 'commission', 0.0))) / 100.0 for p in positions)
+             used_margin = sum(float(getattr(p, 'usedMargin', 0.0)) / 100.0 for p in positions)
              
              equity = balance + unrealized_net
              free_margin = equity - used_margin
@@ -395,7 +395,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "trailing_sl": tsl_status,
                     "trailing_stop": tsl_status,
                     "current_price": 0.0,
-                    "pnl": p.swap / 100.0 + (p.commission / 100.0 if hasattr(p, 'commission') else 0),
+                    "pnl": (float(getattr(p, 'swap', 0.0)) + float(getattr(p, 'commission', 0.0))) / 100.0,
                     "type": "POSITION"
                 })
 
@@ -572,7 +572,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     exit_p = d.executionPrice
                     
                     # ROI/PnL
-                    pnl_raw = d.closePositionDetail.grossProfit / 100.0 if hasattr(d.closePositionDetail, 'grossProfit') and d.closePositionDetail.grossProfit else 0.0
+                    pnl_raw = float(getattr(d.closePositionDetail, 'grossProfit', 0.0)) / 100.0
                     
                     from app.models import TradeStatus, TradeDirection
 
@@ -811,8 +811,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "tp": float(p.takeProfit) if p.HasField("takeProfit") else None,
                     "currentUnits": units,
                     "side": "BUY" if p.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
-                    "pnl": float(p.grossProfit) / 100.0 if hasattr(p, 'grossProfit') and p.grossProfit else 0.0,
-                    "unrealizedPL": float(p.grossProfit) / 100.0 if hasattr(p, 'grossProfit') and p.grossProfit else 0.0,
+                    "pnl": float(getattr(p, 'grossProfit', 0.0)) / 100.0,
+                    "unrealizedPL": float(getattr(p, 'grossProfit', 0.0)) / 100.0,
                 })
                 
             pending = await self.get_pending_orders()
