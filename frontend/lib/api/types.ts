@@ -862,3 +862,43 @@ export interface DataSourceUpdate {
     config_json?: Record<string, unknown>;
     is_active?: boolean;
 }
+// ========================================
+// Analytics Types
+// ========================================
+
+export interface LatencyBucket {
+  hour: number;
+  symbol: string;
+  avg_latency_ms: number;
+  min_latency_ms: number;
+  max_latency_ms: number;
+  count: number;
+}
+
+export interface LatencyHeatmapResponse {
+  buckets: LatencyBucket[];
+}
+
+export interface PerformanceComparisonItem {
+  signal_id: string;
+  symbol: string;
+  live_pnl?: number;
+  shadow_pnl?: number;
+  slippage_usd?: number;
+  latency_gap_ms?: number;
+}
+
+export interface PerformanceComparisonResponse {
+  comparisons: PerformanceComparisonItem[];
+}
+
+export interface RejectionReasonSummary {
+  reason: string;
+  count: number;
+  latest_at: string;
+}
+
+export interface ExecutionRejectionResponse {
+  rejections: RejectionReasonSummary[];
+  total_rejections: number;
+}

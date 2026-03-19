@@ -3,7 +3,7 @@ Trade SQLAlchemy model.
 Source of truth: specs/03_data_model.yaml -> Trade entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text, Boolean
+from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text, Boolean, BigInteger
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
@@ -42,7 +42,7 @@ class Trade(Base):
                              comment="Timestamp when the signal was generated")
     signal_id = Column(UUID(as_uuid=True), nullable=True, index=True,
                         comment="Link to the specific signal that triggered this trade")
-    signal_timestamp_ns = Column(Numeric(20, 0), nullable=True,
+    signal_timestamp_ns = Column(BigInteger, nullable=True,
                                  comment="Nanosecond precision timestamp for latency tracking")
     latency_ms = Column(Numeric(10, 4), nullable=True,
                         comment="Execution latency in milliseconds (Fill - Signal)")

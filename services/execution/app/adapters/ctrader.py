@@ -557,7 +557,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     exit_p = d.executionPrice
                     
                     # ROI/PnL
-                    pnl_raw = d.closePositionDetail.grossProfit / 100.0 # cents to units
+                    pnl_raw = d.closePositionDetail.grossProfit / 100.0 if hasattr(d.closePositionDetail, 'grossProfit') and d.closePositionDetail.grossProfit else 0.0
                     
                     from app.models import TradeStatus, TradeDirection
 
@@ -796,8 +796,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "tp": float(p.takeProfit) if p.HasField("takeProfit") else None,
                     "currentUnits": units,
                     "side": "BUY" if p.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
-                    "pnl": float(p.grossProfit) / 100.0 if p.HasField("grossProfit") else 0.0,
-                    "unrealizedPL": float(p.grossProfit) / 100.0 if p.HasField("grossProfit") else 0.0,
+                    "pnl": float(p.grossProfit) / 100.0 if hasattr(p, 'grossProfit') and p.grossProfit else 0.0,
+                    "unrealizedPL": float(p.grossProfit) / 100.0 if hasattr(p, 'grossProfit') and p.grossProfit else 0.0,
                 })
                 
             pending = await self.get_pending_orders()

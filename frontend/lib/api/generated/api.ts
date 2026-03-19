@@ -323,6 +323,18 @@ export interface APIResponseDrawdownMetrics {
 }
 
 
+export interface APIResponseExecutionRejection {
+    'status': ResponseStatus;
+    'data'?: ExecutionRejectionResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseFactorExposures {
     'status': ResponseStatus;
     'data'?: FactorExposures;
@@ -406,6 +418,18 @@ export type APIResponseIngestionResultAllOfDataStatusEnum = typeof APIResponseIn
 export interface APIResponseJournalEntryResponse {
     'status': ResponseStatus;
     'data'?: JournalEntryResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
+export interface APIResponseLatencyHeatmap {
+    'status': ResponseStatus;
+    'data'?: LatencyHeatmapResponse;
     'message'?: string | null;
     'errors'?: Array<ErrorDetail>;
     'meta'?: Meta;
@@ -520,6 +544,18 @@ export interface APIResponseOrchestrationLogsAllOfData {
     'status'?: string;
     'timestamp'?: string;
 }
+export interface APIResponsePerformanceComparison {
+    'status': ResponseStatus;
+    'data'?: PerformanceComparisonResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponsePipelineStatus {
     'status': ResponseStatus;
     'data'?: { [key: string]: APIResponsePipelineStatusAllOfData; };
@@ -1227,6 +1263,10 @@ export interface Deployment {
     'status'?: DeploymentStatusEnum;
     'is_live'?: boolean;
     'config_snapshot'?: object;
+    /**
+     * If true, signals are not sent to the broker
+     */
+    'is_shadow'?: boolean;
     'last_error'?: string | null;
     'started_at'?: string;
     'stopped_at'?: string | null;
@@ -1248,6 +1288,7 @@ export interface DeploymentCreate {
     'timeframe': string;
     'is_live'?: boolean;
     'config_snapshot': object;
+    'is_shadow'?: boolean;
 }
 export interface DrawdownMetrics {
     'max_drawdown'?: number;
@@ -1306,6 +1347,10 @@ export interface ErrorDetail {
 }
 
 
+export interface ExecutionRejectionResponse {
+    'rejections'?: Array<RejectionReasonSummary>;
+    'total_rejections'?: number;
+}
 export interface ExternalSearchRequest {
     'query': string;
     'limit'?: number;
@@ -1517,6 +1562,17 @@ export const JournalEntryResponseGameLevelEnum = {
 
 export type JournalEntryResponseGameLevelEnum = typeof JournalEntryResponseGameLevelEnum[keyof typeof JournalEntryResponseGameLevelEnum];
 
+export interface LatencyBucket {
+    'hour'?: number;
+    'symbol'?: string;
+    'avg_latency_ms'?: number;
+    'min_latency_ms'?: number;
+    'max_latency_ms'?: number;
+    'count'?: number;
+}
+export interface LatencyHeatmapResponse {
+    'buckets'?: Array<LatencyBucket>;
+}
 export interface LibraryHit {
     'content'?: string;
     'score'?: number;
@@ -1696,6 +1752,17 @@ export interface PaginatedResponseTransactionResponse {
 }
 
 
+export interface PerformanceComparisonItem {
+    'signal_id'?: string;
+    'symbol'?: string;
+    'live_pnl'?: number | null;
+    'shadow_pnl'?: number | null;
+    'slippage_usd'?: number | null;
+    'latency_gap_ms'?: number | null;
+}
+export interface PerformanceComparisonResponse {
+    'comparisons'?: Array<PerformanceComparisonItem>;
+}
 export interface PluginConfigUpdate {
     'config_overrides': object;
 }
@@ -1721,6 +1788,11 @@ export interface RateLimitInfo {
     'remaining': number;
     'reset': string;
     'reset_in_seconds': number;
+}
+export interface RejectionReasonSummary {
+    'reason'?: string;
+    'count'?: number;
+    'latest_at'?: string;
 }
 
 export const ResponseStatus = {
@@ -1924,7 +1996,24 @@ export interface SignalBatchRequest {
 export interface SignalRequest {
     'symbol'?: string;
     'timeframe'?: string;
+    'user_id'?: string;
+    'fund_id'?: string;
+    'broker_account_id'?: string;
+    'status'?: SignalRequestStatusEnum;
 }
+
+export const SignalRequestStatusEnum = {
+    Created: 'CREATED',
+    PendingApproval: 'PENDING_APPROVAL',
+    Executed: 'EXECUTED',
+    Filled: 'FILLED',
+    Rejected: 'REJECTED',
+    Expired: 'EXPIRED',
+    Failed: 'FAILED'
+} as const;
+
+export type SignalRequestStatusEnum = typeof SignalRequestStatusEnum[keyof typeof SignalRequestStatusEnum];
+
 export interface SignalResponse {
     'symbol'?: string;
     'timeframe'?: string;
@@ -1942,6 +2031,13 @@ export interface SignalResponse {
      */
     'sentiment_score'?: number | null;
     'sentiment_reason'?: string | null;
+    'user_id'?: string | null;
+    'fund_id'?: string | null;
+    'broker_account_id'?: string | null;
+    'status'?: SignalResponseStatusEnum;
+    'filled_price'?: number | null;
+    'filled_time'?: string | null;
+    'commission'?: number | null;
 }
 
 export const SignalResponseDirectionEnum = {
@@ -1951,6 +2047,17 @@ export const SignalResponseDirectionEnum = {
 } as const;
 
 export type SignalResponseDirectionEnum = typeof SignalResponseDirectionEnum[keyof typeof SignalResponseDirectionEnum];
+export const SignalResponseStatusEnum = {
+    Created: 'CREATED',
+    PendingApproval: 'PENDING_APPROVAL',
+    Executed: 'EXECUTED',
+    Filled: 'FILLED',
+    Rejected: 'REJECTED',
+    Expired: 'EXPIRED',
+    Failed: 'FAILED'
+} as const;
+
+export type SignalResponseStatusEnum = typeof SignalResponseStatusEnum[keyof typeof SignalResponseStatusEnum];
 
 export interface SmartOrderRequest {
     'broker_account_id': string;
@@ -3805,6 +3912,36 @@ export const AnalyticsApiAxiosParamCreator = function (configuration?: Configura
             };
         },
         /**
+         * Summarizes signal rejections by reason and count.
+         * @summary Get execution rejection audit
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsExecutionRejectionsGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analytics/execution/rejections`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Get factor exposures for a symbol
          * @param {string} symbol 
@@ -3839,6 +3976,66 @@ export const AnalyticsApiAxiosParamCreator = function (configuration?: Configura
             if (limit !== undefined) {
                 localVarQueryParameter['limit'] = limit;
             }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns aggregated latency data grouped by hour and symbol.
+         * @summary Get execution latency heatmap
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsLatencyHeatmapGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analytics/latency/heatmap`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Compares P&L and latency for the same signal IDs across live and shadow trades.
+         * @summary Compare Live vs Shadow performance
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsPerformanceComparisonGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analytics/performance/comparison`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
 
     
@@ -3970,6 +4167,18 @@ export const AnalyticsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Summarizes signal rejections by reason and count.
+         * @summary Get execution rejection audit
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsExecutionRejectionsGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseExecutionRejection>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsExecutionRejectionsGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsExecutionRejectionsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Get factor exposures for a symbol
          * @param {string} symbol 
@@ -3982,6 +4191,30 @@ export const AnalyticsApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsFactorsGet(symbol, timeframe, limit, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsFactorsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns aggregated latency data grouped by hour and symbol.
+         * @summary Get execution latency heatmap
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsLatencyHeatmapGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseLatencyHeatmap>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsLatencyHeatmapGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsLatencyHeatmapGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Compares P&L and latency for the same signal IDs across live and shadow trades.
+         * @summary Compare Live vs Shadow performance
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalyticsPerformanceComparisonGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponsePerformanceComparison>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalyticsPerformanceComparisonGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalyticsApi.apiV1AnalyticsPerformanceComparisonGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -4034,6 +4267,15 @@ export const AnalyticsApiFactory = function (configuration?: Configuration, base
             return localVarFp.apiV1AnalyticsDrawdownGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
         },
         /**
+         * Summarizes signal rejections by reason and count.
+         * @summary Get execution rejection audit
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsExecutionRejectionsGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseExecutionRejection> {
+            return localVarFp.apiV1AnalyticsExecutionRejectionsGet(options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Get factor exposures for a symbol
          * @param {AnalyticsApiApiV1AnalyticsFactorsGetRequest} requestParameters Request parameters.
@@ -4042,6 +4284,24 @@ export const AnalyticsApiFactory = function (configuration?: Configuration, base
          */
         apiV1AnalyticsFactorsGet(requestParameters: AnalyticsApiApiV1AnalyticsFactorsGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFactorExposures> {
             return localVarFp.apiV1AnalyticsFactorsGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns aggregated latency data grouped by hour and symbol.
+         * @summary Get execution latency heatmap
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsLatencyHeatmapGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseLatencyHeatmap> {
+            return localVarFp.apiV1AnalyticsLatencyHeatmapGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Compares P&L and latency for the same signal IDs across live and shadow trades.
+         * @summary Compare Live vs Shadow performance
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalyticsPerformanceComparisonGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponsePerformanceComparison> {
+            return localVarFp.apiV1AnalyticsPerformanceComparisonGet(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -4126,6 +4386,16 @@ export class AnalyticsApi extends BaseAPI {
     }
 
     /**
+     * Summarizes signal rejections by reason and count.
+     * @summary Get execution rejection audit
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsExecutionRejectionsGet(options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsExecutionRejectionsGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Get factor exposures for a symbol
      * @param {AnalyticsApiApiV1AnalyticsFactorsGetRequest} requestParameters Request parameters.
@@ -4134,6 +4404,26 @@ export class AnalyticsApi extends BaseAPI {
      */
     public apiV1AnalyticsFactorsGet(requestParameters: AnalyticsApiApiV1AnalyticsFactorsGetRequest, options?: RawAxiosRequestConfig) {
         return AnalyticsApiFp(this.configuration).apiV1AnalyticsFactorsGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns aggregated latency data grouped by hour and symbol.
+     * @summary Get execution latency heatmap
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsLatencyHeatmapGet(options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsLatencyHeatmapGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Compares P&L and latency for the same signal IDs across live and shadow trades.
+     * @summary Compare Live vs Shadow performance
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalyticsPerformanceComparisonGet(options?: RawAxiosRequestConfig) {
+        return AnalyticsApiFp(this.configuration).apiV1AnalyticsPerformanceComparisonGet(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

@@ -726,6 +726,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_DrawdownMetrics'
 
+  /api/v1/analytics/latency/heatmap:
+    get:
+      tags: [Analytics]
+      summary: Get execution latency heatmap
+      description: Returns aggregated latency data grouped by hour and symbol.
+      responses:
+        '200':
+          description: Latency heatmap data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_LatencyHeatmap'
+
+  /api/v1/analytics/performance/comparison:
+    get:
+      tags: [Analytics]
+      summary: Compare Live vs Shadow performance
+      description: Compares P&L and latency for the same signal IDs across live and shadow trades.
+      responses:
+        '200':
+          description: Performance comparison data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_PerformanceComparison'
+
+  /api/v1/analytics/execution/rejections:
+    get:
+      tags: [Analytics]
+      summary: Get execution rejection audit
+      description: Summarizes signal rejections by reason and count.
+      responses:
+        '200':
+          description: Rejection audit data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_ExecutionRejection'
+
   /api/v1/ai/agent/observer/run:
     post:
       summary: Run Market Observer Agent
@@ -3168,6 +3207,104 @@ components:
           type: integer
         recovery_factor:
           type: number
+
+    LatencyBucket:
+      type: object
+      properties:
+        hour:
+          type: integer
+        symbol:
+          type: string
+        avg_latency_ms:
+          type: number
+        min_latency_ms:
+          type: number
+        max_latency_ms:
+          type: number
+        count:
+          type: integer
+
+    LatencyHeatmapResponse:
+      type: object
+      properties:
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/LatencyBucket'
+
+    PerformanceComparisonItem:
+      type: object
+      properties:
+        signal_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        live_pnl:
+          type: number
+          nullable: true
+        shadow_pnl:
+          type: number
+          nullable: true
+        slippage_usd:
+          type: number
+          nullable: true
+        latency_gap_ms:
+          type: number
+          nullable: true
+
+    PerformanceComparisonResponse:
+      type: object
+      properties:
+        comparisons:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceComparisonItem'
+
+    RejectionReasonSummary:
+      type: object
+      properties:
+        reason:
+          type: string
+        count:
+          type: integer
+        latest_at:
+          type: string
+          format: date-time
+
+    ExecutionRejectionResponse:
+      type: object
+      properties:
+        rejections:
+          type: array
+          items:
+            $ref: '#/components/schemas/RejectionReasonSummary'
+        total_rejections:
+          type: integer
+
+    APIResponse_LatencyHeatmap:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LatencyHeatmapResponse'
+
+    APIResponse_PerformanceComparison:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PerformanceComparisonResponse'
+
+    APIResponse_ExecutionRejection:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ExecutionRejectionResponse'
 
     APIResponse_VolatilityMetrics:
       allOf:

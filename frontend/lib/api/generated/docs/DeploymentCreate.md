@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **timeframe** | **string** |  | [default to undefined]
 **is_live** | **boolean** |  | [optional] [default to undefined]
 **config_snapshot** | **object** |  | [default to undefined]
+**is_shadow** | **boolean** |  | [optional] [default to false]
 
 ## Example
 
@@ -22,6 +23,7 @@ const instance: DeploymentCreate = {
     timeframe,
     is_live,
     config_snapshot,
+    is_shadow,
 };
 ```
 

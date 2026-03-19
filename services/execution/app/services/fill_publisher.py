@@ -72,6 +72,7 @@ async def publish_fill(
 
     redis_key = f"{FILL_KEY_PREFIX}:{account_id}"
 
+    fill_time_ns = time.time_ns()
     payload = {
         "trace_id":    trace_id,
         "order_id":    str(order_id),
@@ -81,6 +82,7 @@ async def publish_fill(
         "fill_volume": fill_volume,
         "instrument":  instrument,
         "fill_time":   time.time(),
+        "fill_time_ns": fill_time_ns,
         "reason":      reason or "",
         "sl_price":    sl_price,
         "tp_price":    tp_price,
@@ -90,6 +92,10 @@ async def publish_fill(
         "signal_timestamp_ns": signal_timestamp_ns,
         "is_shadow":   is_shadow,
     }
+    
+    # [Latency] Phase 55: Calculate high-precision latency
+    if signal_timestamp_ns:
+        payload["latency_ms"] = round((fill_time_ns - signal_timestamp_ns) / 1e6, 2)
     payload_json = json.dumps(payload)
 
     try:

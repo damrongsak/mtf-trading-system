@@ -302,9 +302,19 @@ class OrderService:
                 "time": fill.get("time", ""),
                 "trace_id": trace_id
             }
-            # Log total time
-            total_duration = (time.time() - start_t) * 1000
-            res["latency_ms"] = round(total_duration, 2)
+            # [Latency] Phase 55: Use nanosecond-precision if signal_timestamp_ns is provided
+            fill_time_ns = time.time_ns()
+            signal_ts_ns = req_data.get("signal_timestamp_ns")
+            
+            if signal_ts_ns:
+                # End-to-End Latency (from signal generation to broker confirmation)
+                total_duration_ms = (fill_time_ns - signal_ts_ns) / 1e6
+                res["latency_ms"] = round(total_duration_ms, 2)
+                res["signal_timestamp_ns"] = signal_ts_ns
+            else:
+                # Fallback to internal latency (broker request duration)
+                total_duration = (time.time() - start_t) * 1000
+                res["latency_ms"] = round(total_duration, 2)
             
             # [Latency] Publish internal latency metric
             try:

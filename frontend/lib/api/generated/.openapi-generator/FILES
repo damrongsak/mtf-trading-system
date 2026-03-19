@@ -30,6 +30,7 @@ docs/APIResponseDataSourceList.md
 docs/APIResponseDeployment.md
 docs/APIResponseDeploymentList.md
 docs/APIResponseDrawdownMetrics.md
+docs/APIResponseExecutionRejection.md
 docs/APIResponseFactorExposures.md
 docs/APIResponseFoundryAssembleResponse.md
 docs/APIResponseFoundryValidateResponse.md
@@ -38,6 +39,7 @@ docs/APIResponseFund.md
 docs/APIResponseIngestionResult.md
 docs/APIResponseIngestionResultAllOfData.md
 docs/APIResponseJournalEntryResponse.md
+docs/APIResponseLatencyHeatmap.md
 docs/APIResponseLibraryBookList.md
 docs/APIResponseLibraryBookListAllOfData.md
 docs/APIResponseLibraryResults.md
@@ -46,6 +48,7 @@ docs/APIResponseLibraryStatusAllOfData.md
 docs/APIResponseOpenInterestAnalytics.md
 docs/APIResponseOrchestrationLogs.md
 docs/APIResponseOrchestrationLogsAllOfData.md
+docs/APIResponsePerformanceComparison.md
 docs/APIResponsePipelineStatus.md
 docs/APIResponsePipelineStatusAllOfData.md
 docs/APIResponseRiskCheckResponse.md
@@ -146,6 +149,7 @@ docs/EmaRequest.md
 docs/ErrorCode.md
 docs/ErrorDetail.md
 docs/ExecutionApi.md
+docs/ExecutionRejectionResponse.md
 docs/ExternalApi.md
 docs/ExternalSearchRequest.md
 docs/FactorExposures.md
@@ -166,6 +170,8 @@ docs/JournalEntryCreateRootCause.md
 docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
 docs/KnowledgeApi.md
+docs/LatencyBucket.md
+docs/LatencyHeatmapResponse.md
 docs/LibraryHit.md
 docs/LinkTelegramRequest.md
 docs/LinkTelegramResponse.md
@@ -192,11 +198,14 @@ docs/PaginatedResponseJournalEntryResponse.md
 docs/PaginatedResponseStrategyResponse.md
 docs/PaginatedResponseTradeResponse.md
 docs/PaginatedResponseTransactionResponse.md
+docs/PerformanceComparisonItem.md
+docs/PerformanceComparisonResponse.md
 docs/PluginConfigUpdate.md
 docs/PluginResponse.md
 docs/PortfolioAllocationUpdate.md
 docs/PortfolioAllocationUpdateAllocationsInner.md
 docs/RateLimitInfo.md
+docs/RejectionReasonSummary.md
 docs/ResponseStatus.md
 docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md

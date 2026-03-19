@@ -7,6 +7,10 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **symbol** | **string** |  | [optional] [default to undefined]
 **timeframe** | **string** |  | [optional] [default to undefined]
+**user_id** | **string** |  | [optional] [default to undefined]
+**fund_id** | **string** |  | [optional] [default to undefined]
+**broker_account_id** | **string** |  | [optional] [default to undefined]
+**status** | **string** |  | [optional] [default to StatusEnum_Created]
 
 ## Example
 
@@ -16,6 +20,10 @@ import { SignalRequest } from './api';
 const instance: SignalRequest = {
     symbol,
     timeframe,
+    user_id,
+    fund_id,
+    broker_account_id,
+    status,
 };
 ```
 

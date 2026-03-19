@@ -18,6 +18,13 @@ Name | Type | Description | Notes
 **confidence** | **number** |  | [optional] [default to 0.0]
 **sentiment_score** | **number** | Market sentiment (-1.0 to 1.0) | [optional] [default to undefined]
 **sentiment_reason** | **string** |  | [optional] [default to undefined]
+**user_id** | **string** |  | [optional] [default to undefined]
+**fund_id** | **string** |  | [optional] [default to undefined]
+**broker_account_id** | **string** |  | [optional] [default to undefined]
+**status** | **string** |  | [optional] [default to undefined]
+**filled_price** | **number** |  | [optional] [default to undefined]
+**filled_time** | **string** |  | [optional] [default to undefined]
+**commission** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -38,6 +45,13 @@ const instance: SignalResponse = {
     confidence,
     sentiment_score,
     sentiment_reason,
+    user_id,
+    fund_id,
+    broker_account_id,
+    status,
+    filled_price,
+    filled_time,
+    commission,
 };
 ```
 

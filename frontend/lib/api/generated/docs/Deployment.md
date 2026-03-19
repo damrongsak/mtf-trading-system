@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **status** | **string** |  | [optional] [default to undefined]
 **is_live** | **boolean** |  | [optional] [default to undefined]
 **config_snapshot** | **object** |  | [optional] [default to undefined]
+**is_shadow** | **boolean** | If true, signals are not sent to the broker | [optional] [default to false]
 **last_error** | **string** |  | [optional] [default to undefined]
 **started_at** | **string** |  | [optional] [default to undefined]
 **stopped_at** | **string** |  | [optional] [default to undefined]
@@ -29,6 +30,7 @@ const instance: Deployment = {
     status,
     is_live,
     config_snapshot,
+    is_shadow,
     last_error,
     started_at,
     stopped_at,

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime, Enum as SQLEnum, func
+from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime, Enum as SQLEnum, func, BigInteger
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
@@ -144,7 +144,7 @@ class Trade(Base):
     signal_timestamp = Column(DateTime(timezone=True), nullable=False)
     signal_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     is_shadow = Column(Boolean, default=False, nullable=True)
-    signal_timestamp_ns = Column(Numeric(20, 0), nullable=True)
+    signal_timestamp_ns = Column(BigInteger, nullable=True)
     latency_ms = Column(Numeric(10, 4), nullable=True)
     
     status = Column(SQLEnum(TradeStatus, name="tradestatus"), nullable=False) # OPEN, CLOSED, REJECTED
