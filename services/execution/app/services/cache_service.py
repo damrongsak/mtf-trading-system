@@ -167,39 +167,49 @@ class ExecutionCache:
         except Exception as e:
             logger.error(f"Redis Cache Error (get_symbols) for {provider}: {e}")
             
-        # Fallback to API Gateway if not in Redis
-        try:
-            logger.info(f"ECST Symbol Cache miss for {provider}, fetching via HTTP fallback...")
-            # We expect the /api/v1/data/symbols endpoint to exist, but since data-pipeline handles it,
-            # let's try the data pipeline directly if possible.
-            # UPDATE: The API Gateway serves /api/v1/data/symbols. We should hit api-gateway.
-            api_url = os.getenv("API_GATEWAY_URL", "http://api-gateway:8000")
-            
-            # Use httpx client (create minimal wrapper)
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{api_url}/api/v1/data/symbols", params={"broker": provider}, timeout=5.0)
+        # Fallback to Data Pipeline if not in Redis
+        max_retries = 3
+        retry_delay = 5
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"ECST Symbol Cache miss for {provider} (Attempt {attempt+1}/{max_retries}), fetching via HTTP fallback...")
+                # Use Data Pipeline directly to avoid circular dependency with API Gateway
+                api_url = os.getenv("DATA_PIPELINE_URL", "http://data-pipeline:8000")
                 
-                if resp.status_code == 200:
-                    raw_data = resp.json()
-                    # Unified Handling: The API Gateway returns {status: "success", data: [...]}
-                    if isinstance(raw_data, dict) and "data" in raw_data:
-                        data = raw_data["data"]
+                # Use httpx client (create minimal wrapper)
+                async with httpx.AsyncClient() as client:
+                    # Direct call to data-pipeline /api/v1/symbols
+                    resp = await client.get(f"{api_url}/api/v1/symbols", params={"broker": provider}, timeout=15.0)
+                    
+                    if resp.status_code == 200:
+                        raw_data = resp.json()
+                        # The Data Pipeline returns List[dict] directly
+                        if isinstance(raw_data, list):
+                            data = raw_data
+                        elif isinstance(raw_data, dict) and "data" in raw_data:
+                            data = raw_data["data"]
+                        else:
+                            data = raw_data
+                            
+                        # data is assumed to be List[Dict] matching MarketSymbol DB schema
+                        # Store in Redis and L1
+                        self._set_l1(key, data, ttl=300)
+                        try:
+                            r = await self._get_redis()
+                            await r.set(key, json.dumps(data), ex=300)
+                        except Exception:
+                            pass
+                        return data
                     else:
-                        data = raw_data
-                        
-                    # data is assumed to be List[Dict] matching MarketSymbol DB schema
-                    # Store in Redis and L1
-                    self._set_l1(key, data, ttl=300)
-                    try:
-                        r = await self._get_redis()
-                        await r.set(key, json.dumps(data), ex=300)
-                    except Exception:
-                        pass
-                    return data
-                else:
-                    logger.error(f"HTTP fallback get_symbols failed: {resp.status_code}")
-        except Exception as e:
-            logger.error(f"HTTP fallback get_symbols Exception: {e}")
+                        logger.error(f"HTTP fallback get_symbols failed: {resp.status_code} - {resp.text}")
+            except Exception as e:
+                logger.error(f"HTTP fallback get_symbols Exception (Attempt {attempt+1}): {repr(e)}")
+            
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying symbol hydration in {retry_delay}s...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
             
         return None
 

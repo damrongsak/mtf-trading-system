@@ -140,6 +140,13 @@ All sensitive 3rd-party credentials (API Keys, Tokens, Secret Keys) are protecte
 - **Zero-Exposure Backups**: Exported `master_data/` files contain encrypted Base64 blobs. Decryption keys are managed strictly via environment variables (`SETTINGS_ENCRYPTION_KEY`).
 - **Runtime Decryption**: Decryption occurs only at the point of use (e.g., within the `api-gateway` or during `data-pipeline` discovery) and is never persisted in logs.
 
+### 4.12. Symbol Metadata Communication Path (Circular Dependency Prevention)
+To maintain system resilience and ensure sub-second startup, the **Execution Service** follows a strict data resolution hierarchy for symbol metadata:
+1.  **L1 (In-Memory)**: Local dictionary cache within the adapter (e.g., `ctrader.py`).
+2.  **L2 (Redis ECST)**: Shared metadata broadcast by the `Data Pipeline` to Redis hashes (`exec:symbols:{provider}`).
+3.  **L3 (Direct Service Fallback)**: If L1/L2 miss, the `Execution Service` MUST call the `Data Pipeline` directly (`http://data-pipeline:8000/api/v1/symbols`).
+4.  **REENTRANT FORBIDDEN**: Calling the `API Gateway` from the `Execution Service` for internal metadata is strictly forbidden to prevent startup deadlocks.
+
 
 
 ### 4.6. Plugin Architecture (OPA)

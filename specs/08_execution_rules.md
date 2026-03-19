@@ -152,6 +152,13 @@ To prevent "dead" accounts and ensure immediate demo activation, the system enfo
 3.  **Automatic Sync**: `account_number` is automatically synced to `credentials["account_id"]` if missing.
 4.  **Enforcement**: Accounts with invalid credentials will be rejected with `HTTP 400 Bad Request` and a descriptive error from the broker.
 
+### 3.7 HFT-lite Startup & Warm-up Protocols
+To ensure the "Execution Edge" is ready for sub-50ms processing from the first signal, the `Execution Service` implements a graduated startup sequence:
+1.  **Dependency Verification**: MUST verify Redis and PostgreSQL connectivity before binding the API port.
+2.  **L3 Cache Warm-up**: Background task (`_warmup_execution_cache`) MUST pre-hydrate active accounts, credentials, and funds into L1 (Memory) and L2 (Redis).
+3.  **Symbol Hydration**: Adapters MUST pre-populate symbol/contract ID maps. If a cache miss occurs, the service MUST call the `Data Pipeline` directly (Direct Service Call) to avoid circular dependencies with the `API Gateway`.
+4.  **Health Resilience**: Infrastructure (`docker-compose.yml`) MUST allow at least 60s for the warm-up sequence via extended health check retries (10x 10s) and a `start_period` of 30s.
+
 ---
 
 ## 4. Layer 5: AI Coach Intervention

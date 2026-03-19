@@ -71,6 +71,9 @@ async def startup_event():
         # Schedule Health Check
         scheduler.add_job(guardian.check_health, 'interval', minutes=5, misfire_grace_time=60)
         
+        # [Phase 57] Start Event Listener
+        await guardian.start_listener()
+        
         # [THE JANITOR] Schedule State Reconciliation every 1 minute
         scheduler.add_job(JanitorService.reconcile_all_accounts, 'interval', minutes=1, misfire_grace_time=60)
         
@@ -189,7 +192,8 @@ async def _warmup_execution_cache():
                         warmed_funds.add(fund_id)
 
                 # Special: cTrader Symbol Cache (once per provider)
-                if account.broker_name == "CTRADER" and not ctrader_hydrated:
+                CTR_BROKERS = ["CTRADER", "ICMARKETS", "ICMARKETSSC", "FXPRO", "PEPPERSTONE", "BLACKBULLMARKETS"]
+                if account.broker_name.upper() in CTR_BROKERS and not ctrader_hydrated:
                     try:
                         adapter = BrokerFactory.get_adapter("CTRADER", creds)
                         await adapter._populate_symbol_cache()
@@ -897,4 +901,30 @@ async def close_all_trades(req: CloseAllTradesRequest, db: AsyncSession = Depend
 
     except Exception as e:
         logger.error(f"Close All Trades Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/funds/{fund_id}/risk-config")
+async def get_fund_risk_config(fund_id: str, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
+    """
+    [Internal] Fetches fund risk configuration directly from the DB.
+    Used by AI Analyst to avoid reentrant gateway calls.
+    """
+    try:
+        from app.models import Fund
+        fund_uuid = uuid.UUID(fund_id)
+        result = await db.execute(select(Fund).where(Fund.id == fund_uuid))
+        fund = result.scalars().first()
+        
+        if not fund:
+            raise HTTPException(status_code=404, detail="Fund not found")
+            
+        return success_response(data={
+            "id": str(fund.id),
+            "max_risk_per_trade": float(fund.max_risk_per_trade),
+            "risk_percentage": float(fund.risk_percentage or 0),
+            "max_drawdown_threshold": float(fund.max_drawdown_threshold or 0)
+        })
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid fund ID format")
+    except Exception as e:
+        logger.error(f"Error fetching fund risk config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
