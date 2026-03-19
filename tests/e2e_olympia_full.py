@@ -60,7 +60,7 @@ class OlympiaFullE2E:
         if resp.status_code == 200:
             self.db_trades = resp.json().get("data", [])
 
-    def test_order_placement(self, type="MARKET", side="BUY", symbol="XAUUSD", price=None, no_sltp=False, slippage=None):
+    def test_order_placement(self, type="MARKET", side="BUY", symbol="XAU_USD", price=None, no_sltp=False, slippage=None):
         url = f"{BASE_URL}/execution/orders"
         units = 0.01 if side == "BUY" else -0.01
         
@@ -76,7 +76,7 @@ class OlympiaFullE2E:
             # Get current price for relative SL/TP if not provided
             ref_price = price
             if not ref_price:
-                ref_price = 2650.0 # Fallback
+                ref_price = 4650.0 # Fallback
             
             sl = ref_price - 100.0 if side == "BUY" else ref_price + 100.0
             tp = ref_price + 100.0 if side == "BUY" else ref_price - 100.0
@@ -86,7 +86,7 @@ class OlympiaFullE2E:
         if price: payload["price"] = price
         if slippage:
             payload["slippage_pips"] = slippage
-            payload["base_price"] = price or 2650.0
+            payload["base_price"] = price or 4650.0
 
         response = requests.post(url, json=payload, headers=self.headers)
         return response.status_code in [200, 201], f"Status: {response.status_code}, Body: {response.text}"
@@ -98,11 +98,10 @@ class OlympiaFullE2E:
         if not self.db_trades: return False, "No trades"
         trade = self.db_trades[0]
         tid = trade["trade_id"]
-        # Use a fixed mid-point for Gold to be safe from proximity rules
-        entry = 2650.0
+        entry = float(trade.get("entry_price", 0.0))
         symbol = trade["symbol"]
         direction = trade["direction"]
-        print(f" (Amending {symbol} {direction} @ {entry}) ", end="")
+        print(f" (Amending {symbol} {direction} @ {entry:.2f}) ", end="")
         
         # Massive distances to pass any risk check
         sl = 10000.0 if direction == "SHORT" else 10.0
@@ -128,7 +127,7 @@ class OlympiaFullE2E:
     # --- 3. Risk Management ---
     def test_risk_check(self):
         url = f"{BASE_URL}/risk/check"
-        payload = {"symbol": "XAUUSD", "entry_price": 2000.0, "stop_loss": 1950.0, "risk_percentage": 1.0}
+        payload = {"symbol": "XAU_USD", "entry_price": 2000.0, "stop_loss": 1950.0, "risk_percentage": 1.0}
         resp = requests.post(url, json=payload, headers=self.headers)
         if resp.status_code not in [200, 201]:
             return False, f"Status: {resp.status_code}, Body: {resp.text}"
@@ -146,7 +145,7 @@ class OlympiaFullE2E:
         url = f"{BASE_URL}/execution/orders"
         payload = {
             "broker_account_id": self.account_id,
-            "symbol": "XAUUSD",
+            "symbol": "XAU_USD",
             "order_type": "LIMIT",
             "units": 0.01,
             "price": 1500.0, # Far away
@@ -188,6 +187,16 @@ class OlympiaFullE2E:
         lat = (time.time() - start) * 1000
         return lat < 1500, f"{lat:.2f}ms"
 
+    def cancel_all_pending(self):
+        """Cleanup: Cancel all pending orders to prevent leakage."""
+        url = f"{BASE_URL}/execution/orders"
+        resp = requests.delete(url, params={"broker_account_id": self.account_id}, headers=self.headers)
+        if resp.status_code == 200:
+            count = resp.json().get("data", {}).get("cancelled", 0)
+            if count > 0:
+                print(f" (Cleaned up {count} pending orders) ", end="")
+        return True
+
     def run_all(self):
         if not self.login() or not self.setup_account(): 
             print("Setup failed")
@@ -199,10 +208,10 @@ class OlympiaFullE2E:
         # Category 1: Order Placement (7 tests requested, doing 4 distinct types)
         results.append(self.run_test("Orders", "Market Buy", self.test_order_placement, "MARKET", "BUY"))
         results.append(self.run_test("Orders", "Market Sell", self.test_order_placement, "MARKET", "SELL"))
-        results.append(self.run_test("Orders", "Limit Buy", self.test_order_placement, "LIMIT", "BUY", "XAUUSD", 1800.0))
-        results.append(self.run_test("Orders", "Stop Buy", self.test_order_placement, "STOP", "BUY", "XAUUSD", 2200.0))
-        results.append(self.run_test("Orders", "Limit Buy No SL/TP", self.test_order_placement, "LIMIT", "BUY", "XAUUSD", 1800.0, True))
-        results.append(self.run_test("Orders", "Limit Buy Near Price", self.test_order_placement, "LIMIT", "BUY", "XAUUSD", 1800.0, False, 10))
+        results.append(self.run_test("Orders", "Limit Buy", self.test_order_placement, "LIMIT", "BUY", "XAU_USD", 4590.0))
+        results.append(self.run_test("Orders", "Stop Buy", self.test_order_placement, "STOP", "BUY", "XAU_USD", 4560.0))
+        results.append(self.run_test("Orders", "Limit Buy No SL/TP", self.test_order_placement, "LIMIT", "BUY", "XAU_USD", 4590.0, True))
+        results.append(self.run_test("Orders", "Limit Buy Near Price", self.test_order_placement, "LIMIT", "BUY", "XAU_USD", 4590.0, False, 10))
         
         # Category 2: Position Management
         results.append(self.run_test("Position", "Amend SL/TP", self.test_amend_sl_tp))
@@ -221,9 +230,10 @@ class OlympiaFullE2E:
         results.append(self.run_test("Perf", "Account Summary Latency", self.test_latency))
 
         # Cleanup
+        self.cancel_all_pending()
         requests.post(f"{BASE_URL}/execution/trades/close-all", json={"broker_account_id": self.account_id}, headers=self.headers)
         
-        passed = sum(1 for r in results if r)
+        passed = sum(1 for r in results if r[2])
         print("="*50 + f"\nSummary: {passed}/{len(results)} Tests Passed")
 
 if __name__ == "__main__":

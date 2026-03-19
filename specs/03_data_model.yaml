@@ -91,6 +91,7 @@ entities:
         scale: 2
         default: 0.01
         required: true
+        description: "Default lot size (e.g. 0.01). Broker units are standardized using a 100,000 divisor (100,000 units = 1.0 lot)."
       - name: max_drawdown_threshold
         type: decimal
         precision: 10
@@ -840,7 +841,7 @@ entities:
         precision: 10
         scale: 2
         required: true
-        description: "Calculated lot size (must be >= 0.01)"
+        description: "Calculated lot size (e.g. 0.01). Broker units must be divided by 100,000.0 for consistent persistence (100,000 units = 1.0 lot)."
       - name: risk_usd
         type: decimal
         precision: 10

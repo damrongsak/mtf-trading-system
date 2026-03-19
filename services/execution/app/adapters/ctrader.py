@@ -19,7 +19,7 @@ class RiskValidationError(Exception):
     [SAFETY] Raised when a pre-trade risk check fails.
     Distinct from ValueError (which maps to HTTP 404 - Not Found).
     This exception maps to HTTP 422 Unprocessable Entity.
-    
+
     Examples:
     - SL price is on the wrong side of the entry price
     - TP price is on the wrong side of the entry price
@@ -29,10 +29,11 @@ class RiskValidationError(Exception):
 
 
 class CTraderOrderAdapter(BrokerAdapter):
+    _symbol_cache = {} # Class-level L3 cache for static router access
     def __init__(self, client_id: str, client_secret: str, account_id: str, token: str, host: str = "demo.ctraderapi.com"):
         self.host = host
         self.port = 5035
-        
+
         if not client_id or not client_secret:
             raise ValueError("CTrader Adapter requires client_id (app_id) and client_secret")
         if not account_id or not token:
@@ -42,8 +43,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         self.client_secret = client_secret
         self.account_id = int(account_id)
         self.token = token
-        # Symbol cache for fast lookup
-        self._symbol_cache: Dict[str, tuple] = {}
+        # Symbol cache is now shared at class level for static router access
         # Use Connection Manager to get a persistent client
         self.client = CTraderConnectionManager.get_client(self.host, self.port, str(self.account_id))
 
@@ -52,28 +52,28 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
              await self.client.authorize_app(self.client_id, self.client_secret)
              await self.client.authorize_account(self.account_id, self.token)
-             
+
              trader = await self.client.get_trader(self.account_id)
              reconcile = await self.client.get_reconcile(self.account_id)
-             
+
              # cTrader sends monetary values in 'cents' (e.g. 10000 = 100.00)
              balance = trader.balance / 100.0
-             
+
              # Calculate unrealized from positions
              positions = reconcile.position if hasattr(reconcile, 'position') else []
              unrealized_gross = sum(float(getattr(p, 'grossProfit', 0.0)) / 100.0 for p in positions)
              unrealized_net = sum((float(getattr(p, 'grossProfit', 0.0)) + float(getattr(p, 'swap', 0.0)) + float(getattr(p, 'commission', 0.0))) / 100.0 for p in positions)
              used_margin = sum(float(getattr(p, 'usedMargin', 0.0)) / 100.0 for p in positions)
-             
+
              equity = balance + unrealized_net
              free_margin = equity - used_margin
              margin_level = (equity / used_margin * 100) if used_margin > 0 else None
-             
+
              # openTradeCount is usually number of positions for cTrader
              open_count = len(positions)
-             
+
              return {
-                 "balance": balance, 
+                 "balance": balance,
                  "equity": equity,
                  "NAV": equity,
                  "used_margin": used_margin,
@@ -84,7 +84,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                  "unrealized_gross": unrealized_gross,
                  "unrealized_net": unrealized_net,
                  "unrealizedPL": unrealized_net,
-                 "openTradeCount": open_count, 
+                 "openTradeCount": open_count,
                  "openPositionCount": open_count
              }
         except Exception as e:
@@ -99,7 +99,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             if not symbols:
                  logger.error("cTrader: Failed to fetch symbols from cache/HTTP.")
                  return
-                 
+
             # API Gateway JSON is typically {"status": "success", "data": [...]}
             if isinstance(symbols, dict) and "data" in symbols:
                 symbols_list = symbols["data"]
@@ -112,7 +112,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             for ms in symbols_list:
                 details = ms.get("details") or {}
                 symbol = ms.get("symbol", "").upper()
-                
+
                 # [DIAGNOSTIC] Log symbol being processed
                 logger.debug(f"cTrader Hydrating: {symbol} with details {details}")
 
@@ -120,53 +120,57 @@ class CTraderOrderAdapter(BrokerAdapter):
                 symbol_id = None
                 if isinstance(details, dict):
                     symbol_id = details.get("symbol_id") or details.get("symbolId") or details.get("ctrader_symbol_id")
-                
+
                 if symbol_id is not None:
                     try:
                         symbol_id = int(symbol_id)
                         lot_size = int(details.get("lotSize") or details.get("lot_size") or 10000000)
-                        
-                        # Step volume is usually in 'cents' in the API, or 'units'. 
+
+                        # Step volume is usually in 'cents' in the API, or 'units'.
                         # We prefer cents for math. Default to 100 cents (1 unit).
                         step_cents = int(details.get("step_volume_cents") or (float(details.get("step_volume", 0.01)) * 100) or 100)
 
                         # Cache forward mapping (Name -> ID, LotSize, StepSize)
-                        self._symbol_cache[symbol] = (symbol_id, lot_size, step_cents)
+                        self.__class__._symbol_cache[symbol] = (symbol_id, lot_size, step_cents)
                         # Cache reverse mapping (ID -> Name, LotSize, StepSize)
-                        self._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size, step_cents)
-                        
+                        self.__class__._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size, step_cents)
+
                         # Cache normalized names
                         normalized = symbol.replace("_", "").replace("/", "").upper()
-                        self._symbol_cache[normalized] = (symbol_id, lot_size, step_cents)
+                        digits = int(details.get("digits", 2))
+
+                        # Cache by ID and name
+                        self.__class__._symbol_cache[f"ID_{symbol_id}"] = (normalized, lot_size, step_cents, digits)
+                        self.__class__._symbol_cache[normalized] = (symbol_id, lot_size, step_cents, digits)
                     except (ValueError, TypeError) as e:
                         logger.warning(f"cTrader: Invalid symbol metadata for {symbol}: {e}")
                 else:
                     logger.warning(f"cTrader: Symbol {symbol} has no ID in details: {details}")
-            
-            logger.info(f"cTrader: Pre-hydrated {len(self._symbol_cache)//2} symbols into L3 cache.")
-            
-            logger.info(f"cTrader: Pre-hydrated {len(symbols)} symbols into L3 cache.")
+
+            logger.info(f"cTrader: Pre-hydrated {len(self.__class__._symbol_cache)//2} symbols (with digits) into L3 cache.")
         except Exception as e:
             logger.error(f"cTrader: Failed to pre-hydrate symbol cache: {e}", exc_info=True)
 
-    def _resolve_symbol_from_cache(self, symbol_name: str) -> Optional[tuple[int, int]]:
+    @classmethod
+    def _resolve_symbol_from_cache(cls, symbol_name: str) -> Optional[tuple[int, int]]:
         normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
         search_names = {symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name}
         for name in search_names:
-            if name in self._symbol_cache:
-                return self._symbol_cache[name]
+            if name in cls._symbol_cache:
+                return cls._symbol_cache[name]
         return None
 
-    def _resolve_name_from_id_cache(self, symbol_id: int) -> tuple[str, int, int]:
-        """Returns (symbol_name, lot_size_cents, step_cents) from cache."""
-        cached = self._symbol_cache.get(f"ID_{symbol_id}")
+    @classmethod
+    def _resolve_name_from_id_cache(cls, symbol_id: int) -> tuple[str, int, int, int]:
+        """Returns (symbol_name, lot_size_cents, step_cents, digits) from cache."""
+        cached = cls._symbol_cache.get(f"ID_{symbol_id}")
         if cached:
             return cached
-        return (f"Unknown_{symbol_id}", 10000000, 100)
+        return (f"Unknown_{symbol_id}", 10000000, 100, 2)
 
-    async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int, int]:
+    async def _resolve_symbol_id_and_lot_size(self, symbol_name: str) -> tuple[int, int, int, int]:
         """
-        Returns (symbol_id, lot_size_in_cents, step_size_in_cents).
+        Returns (symbol_id, lot_size_in_cents, step_size_in_cents, digits).
         Normalization: 1 Standard Lot = 100,000 'Universal Units'.
         """
         # HFT-Lite: Check cache first
@@ -179,58 +183,71 @@ class CTraderOrderAdapter(BrokerAdapter):
         cached = self._resolve_symbol_from_cache(symbol_name)
         if cached:
             return cached
-            
+
         raise ValueError(f"Symbol {symbol_name} not found or missing ID for cTrader.")
 
-    async def place_market_order(self, symbol: str, units: float, 
-                           sl_price: Optional[float] = None, 
-                           tp_price: Optional[float] = None, 
+    async def place_market_order(self, symbol: str, units: float,
+                           sl_price: Optional[float] = None,
+                           tp_price: Optional[float] = None,
                            trade_id: Optional[str] = None,
                            comment: Optional[str] = None,
                            tag: Optional[str] = None,
                            signal_timestamp_ns: Optional[float] = None,
                            is_shadow: bool = False) -> Dict[str, Any]:
 
-        
+
         # Diagnostic logging for Unit Sign issue
         logger.info(f"cTrader: Placing market order for {symbol}, units={units}")
-        
+
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
-            symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(symbol)
-            
-            # [VOL-Normalization] Universal units to cTrader cents
-            # units: 100,000 = 1 Standard Lot
-            # formula: (units / 100,000) * lot_size_cents
-            raw_volume = (abs(units) / 100000.0) * lot_size_cents
-            
-            # Step size validation & rounding to nearest step
-            multiple = round(raw_volume / step_cents)
-            volume_cents = int(multiple * step_cents)
-            
-            # Absolute minimum check (broker usually enforces 100,000 cents for FX)
+
+            symbol_id, lot_size_cents, step_cents, digits = await self._resolve_symbol_id_and_lot_size(symbol)
+
+            # [VOL-Normalization] cTrader volume is in 1/100th of units (cents).
+            # Research confirms 1 lot = lot_size_cents (e.g. 10M for gold).
+            # BUT: our "units" are already in 1/10000 of a lot (e.g., 1000 = 0.1 lot)
+            # cTrader volume is in cents of a lot (minVolume=100 = 1 oz = 0.01 lot)
+            # So: volume_cents = units * lot_size_cents / 100
+            volume_cents = int(abs(units) * lot_size_cents / 100)
+
             if volume_cents < step_cents:
                 volume_cents = int(step_cents)
-                
+
             logger.info(f"cTrader Normalized: units={units} -> volume_cents={volume_cents} (lot_size={lot_size_cents}, step={step_cents})")
-                
-                
+
+            # [RACE CONDITION FIX] Save context BEFORE create_order to prevent async fill arriving before context
+            # Use symbol + direction as a temporary key since we don't know order_id yet
+            from app.services.cache_service import execution_cache
+            pre_context = {
+                "trace_id": trade_id or "",
+                "signal_timestamp_ns": signal_timestamp_ns,
+                "sl_price": sl_price or 0.0,
+                "tp_price": tp_price or 0.0,
+                "comment": comment or "",
+                "is_shadow": is_shadow,
+                "symbol": symbol,
+                "direction": "BUY" if units > 0 else "SELL",
+                "pre_order": True  # Mark as pre-order context
+            }
+            pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
+            await execution_cache.set_order_context(pre_key, pre_context, expire=30)
+
             res = await self.client.create_order(
                 account_id=self.account_id,
                 symbol_id=symbol_id,
                 order_type=ProtoOAOrderType.MARKET,
                 trade_side=ProtoOATradeSide.BUY if units > 0 else ProtoOATradeSide.SELL,
                 volume=abs(volume_cents),
-                # SL/TP for Market orders often must be set after fill in Open API
+                # SL/TP must be set AFTER fill for market orders (cTrader requirement)
                 sl=None,
                 tp=None,
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
             )
-            
-            # [H2] REJECTED — publish fill event so WS client gets callback
+
+            # [H2] REJECTED - publish fill event so WS client gets callback
             if getattr(res, "payloadType", None) == 2186:
                  if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
                       error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
@@ -256,10 +273,29 @@ class CTraderOrderAdapter(BrokerAdapter):
                           logger.warning(f"[H2] Failed to publish REJECTED fill: {pub_err}")
                       raise Exception(f"cTrader Order REJECTED: {error_code}")
             logger.info(f"cTrader ExecutionEvent: type={res.executionType}")
-            
+
             # Extract IDs promptly so they are available for logic below
             order_id = str(res.order.orderId) if res.HasField("order") else None
-            
+
+            # [HFT-lite] Save context for Async Fill Router IMMEDIATELY (Race Condition Fix)
+            if order_id:
+                try:
+                    from app.services.cache_service import execution_cache
+                    context = {
+                        "trace_id": trade_id or "",
+                        "signal_timestamp_ns": signal_timestamp_ns,
+                        "sl_price": sl_price or 0.0,
+                        "tp_price": tp_price or 0.0,
+                        "comment": comment or "",
+                        "is_shadow": is_shadow,
+                        "symbol": symbol,
+                        "direction": "BUY" if units > 0 else "SELL"
+                    }
+                    await execution_cache.set_order_context(order_id, context, expire=3600)
+                    logger.debug(f"cTrader: Early context saved for {order_id}")
+                except Exception as ctx_err:
+                    logger.warning(f"cTrader: Failed early context save: {ctx_err}")
+
             # Robust Position ID extraction across different ExecutionEvent structures
             position_id = None
             if res.HasField("position"):
@@ -268,45 +304,61 @@ class CTraderOrderAdapter(BrokerAdapter):
                 position_id = str(res.deal.positionId)
             elif res.HasField("order") and res.order.HasField("positionId"):
                 position_id = str(res.order.positionId)
-            
+
             # [PHASE 15] Stable ID Mapping: Prioritize position_id for MARKET fills
             is_filled = res.executionType in [
-                ProtoOAExecutionType.ORDER_FILLED, 
+                ProtoOAExecutionType.ORDER_FILLED,
                 ProtoOAExecutionType.ORDER_PARTIAL_FILL
             ]
-            
+
             broker_order_id = position_id or order_id
-            
+
             # If we finally found a position_id, ensure it's used for the local SL/TP logic below
             if not position_id:
                 if is_filled:
                     logger.warning(f"cTrader: Order {order_id} FILLED but no position_id found yet.")
                 position_id = order_id
 
-            fill_price = float(res.deal.executionPrice) if res.HasField("deal") else 0.0
-                  
+            # DEBUG: Print raw execution event details
+            logger.info(f"!!! DEBUG !!! ExecEvent type={res.executionType} has_deal={res.HasField('deal')} has_order={res.HasField('order')}")
+            if res.HasField('deal'):
+                logger.info(f"!!! DEBUG !!! Deal: id={res.deal.dealId} price={res.deal.executionPrice} vol={res.deal.volume}")
+            if res.HasField('order'):
+                logger.info(f"!!! DEBUG !!! Order: id={res.order.orderId} status={res.order.orderStatus} price={getattr(res.order, 'executionPrice', 'N/A')}")
+
+            # Get price from deal, or order fallback. Divide by 10^digits.
+            raw_fill_price = 0.0
+            if res.HasField("deal"):
+                raw_fill_price = float(res.deal.executionPrice)
+            elif res.HasField("order") and res.order.executionPrice:
+                raw_fill_price = float(res.order.executionPrice)
+
+            # ProtoOADeal.executionPrice is already absolute double
+            fill_price = raw_fill_price
+            broker_order_id = position_id or order_id
+
             # If SL/TP provided, validate against fill_price before amending
             if position_id and (sl_price or tp_price) and is_filled:
                  is_buy = units > 0
                  valid_sl = sl_price
                  valid_tp = tp_price
-                 
+
                  if fill_price > 0:
                       if is_buy:
                            if tp_price and tp_price <= fill_price:
-                                logger.warning(f"cTrader: TP {tp_price} <= fill_price {fill_price} for BUY — skipping TP")
+                                logger.warning(f"cTrader: TP {tp_price} <= fill_price {fill_price} for BUY - skipping TP")
                                 valid_tp = None
                            if sl_price and sl_price >= fill_price:
-                                logger.warning(f"cTrader: SL {sl_price} >= fill_price {fill_price} for BUY — skipping SL")
+                                logger.warning(f"cTrader: SL {sl_price} >= fill_price {fill_price} for BUY - skipping SL")
                                 valid_sl = None
                       else:
                            if tp_price and tp_price >= fill_price:
-                                logger.warning(f"cTrader: TP {tp_price} >= fill_price {fill_price} for SELL — skipping TP")
+                                logger.warning(f"cTrader: TP {tp_price} >= fill_price {fill_price} for SELL - skipping TP")
                                 valid_tp = None
                            if sl_price and sl_price <= fill_price:
-                                logger.warning(f"cTrader: SL {sl_price} <= fill_price {fill_price} for SELL — skipping SL")
+                                logger.warning(f"cTrader: SL {sl_price} <= fill_price {fill_price} for SELL - skipping SL")
                                 valid_sl = None
-                 
+
                  if valid_sl or valid_tp:
                       try:
                            logger.info(f"cTrader: Amending SL={valid_sl}, TP={valid_tp} for Position {position_id}")
@@ -319,31 +371,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                       except Exception as am_err:
                            logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
 
-            # [HFT-lite] Save context for Async Fill Router
-            # This allows the global ExecutionEvent handler to find the original trace_id and metadata
-            try:
-                from app.services.cache_service import execution_cache
-                context = {
-                    "trace_id": trade_id or "",
-                    "signal_timestamp_ns": signal_timestamp_ns,
-                    "sl_price": sl_price or 0.0,
-                    "tp_price": tp_price or 0.0,
-                    "comment": comment or "",
-                    "is_shadow": is_shadow,
-                    "symbol": symbol
-                }
-                # Expire after 1 hour — should be filled or manually dealt with by then
-                await execution_cache.set_order_context(broker_order_id, context, expire=3600)
-                logger.debug(f"cTrader: Saved order context for {broker_order_id}")
-            except Exception as ctx_err:
-                logger.warning(f"cTrader: Failed to save order context for {broker_order_id}: {ctx_err}")
 
             if is_filled:
                 logger.info(f"cTrader: Order {broker_order_id} filled immediately (Sync Path).")
-                # We still publish but the router might also see it. 
+                # We still publish but the router might also see it.
                 # To prevent duplicates, publish_fill or the router should check if already processed.
                 # However, usually cTrader sends FILLED as a separate unsolicited message.
-                pass 
+                pass
             else:
                 logger.info(f"cTrader: Order {broker_order_id} {res.executionType} - waiting for async fill event.")
 
@@ -361,109 +395,60 @@ class CTraderOrderAdapter(BrokerAdapter):
              raise e
 
 
-    async def get_open_trades(self) -> List[Dict[str, Any]]:
-        await self.client.connect()
-        try:
-            await self.client.authorize_app(self.client_id, self.client_secret)
-            await self.client.authorize_account(self.account_id, self.token)
-            
-            reconcile = await self.client.get_reconcile(self.account_id)
-            trades = []
-            
-            # Ensure cache is hydrated
-            if not self._symbol_cache:
-                await self._populate_symbol_cache()
-
-            for p in reconcile.position:
-                # symbolId, volume, tradeSide are in p.tradeData
-                symbol_id = p.tradeData.symbolId
-                volume = p.tradeData.volume
-                trade_side = p.tradeData.tradeSide
-                
-                s_name = await self._resolve_symbol_name(p.tradeData.symbolId)
-                
-                # Convert units from cents
-                norm_units = p.tradeData.volume / 100.0
-                tsl_status = p.trailingStopLoss if p.HasField("trailingStopLoss") else False
-                
-                # Force print to stdout for docker compose logs visibility
-                print(f"!!! JANITOR_DEBUG !!! Position {p.positionId} trailingStopLoss={tsl_status}", flush=True)
-
-                trades.append({
-                    "id": str(p.positionId),
-                    "symbol": s_name,
-                    "units": norm_units,
-                    "side": "BUY" if trade_side == ProtoOATradeSide.BUY else "SELL",
-                    "entry_price": p.price,
-                    "sl": p.stopLoss if p.HasField("stopLoss") else None,
-                    "tp": p.takeProfit if p.HasField("takeProfit") else None,
-                    "trailing_sl": tsl_status,
-                    "trailing_stop": tsl_status,
-                    "current_price": 0.0,
-                    "pnl": (float(getattr(p, 'swap', 0.0)) + float(getattr(p, 'commission', 0.0))) / 100.0,
-                    "type": "POSITION"
-                })
-
-            # [PHASE 15] Include Pending Orders in reconciliation to prevent Janitor from pruning them
-            for o in reconcile.order:
-                # status 1=ACCEPTED (Pending), 2=FILLED (but maybe waiting?), etc.
-                # We only want those that are effectively "working"
-                if o.orderStatus == ProtoOAOrderStatus.ORDER_STATUS_ACCEPTED:
-                    s_name = await self._resolve_symbol_name(o.tradeData.symbolId)
-                    norm_units = o.tradeData.volume / 100.0
-                    
-                    trades.append({
-                        "id": str(o.orderId),
-                        "symbol": s_name,
-                        "units": norm_units,
-                        "side": "BUY" if o.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
-                        "entry_price": o.limitPrice if o.HasField("limitPrice") else (o.stopPrice if o.HasField("stopPrice") else 0.0),
-                        "sl": o.stopLoss if o.HasField("stopLoss") else None,
-                        "tp": o.takeProfit if o.HasField("takeProfit") else None,
-                        "status": "PENDING",
-                        "type": "ORDER"
-                    })
-            
-            return trades
-            
-        except Exception as e:
-            logger.error(f"cTrader Get Open Trades Error: {e}")
-            return []
 
     async def place_limit_order(self, symbol: str, units: float, entry_price: float,
-                          sl_price: Optional[float] = None, 
-                          tp_price: Optional[float] = None, 
+                          sl_price: Optional[float] = None,
+                          tp_price: Optional[float] = None,
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
                           tag: Optional[str] = None,
                           slippage_pips: Optional[int] = None,
-                          base_price: Optional[float] = None) -> Dict[str, Any]:
+                          base_price: Optional[float] = None,
+                          order_type: int = ProtoOAOrderType.LIMIT) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
-            symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(symbol)
-            
-            # [VOL-Normalization] Universal units to cTrader cents
-            raw_volume = (abs(units) / 100000.0) * lot_size_cents
-            
-            # Step size validation & rounding to nearest step
-            multiple = round(raw_volume / step_cents)
-            volume_cents = int(multiple * step_cents)
-            
+
+            symbol_id, lot_size_cents, step_cents, digits = await self._resolve_symbol_id_and_lot_size(symbol)
+
+            # [PRICE-Normalization] cTrader ProtoOANewOrderReq fields (limitPrice, stopLoss, takeProfit) are DOUBLE.
+            # Research confirms they expect ABSOLUTE prices, not pipette-scaled integers.
+            # Reverting pipette scaling: use entry_price, sl_price, tp_price as-is.
+
+            # [VOL-Normalization] cTrader volume is in 1/100th of units (cents).
+            # Research confirms 1 lot = lot_size_cents (e.g. 10M for gold).
+            # BUT: our "units" are already in 1/10000 of a lot (e.g., 1000 = 0.1 lot)
+            # cTrader volume is in cents of a lot (minVolume=100 = 1 oz = 0.01 lot)
+            # So: volume_cents = units * lot_size_cents / 100
+            volume_cents = int(abs(units) * lot_size_cents / 100)
+
             if volume_cents < step_cents:
                 volume_cents = int(step_cents)
-            
-            # Determine Limit vs Stop? 
+
+            # Determine Limit vs Stop?
             # place_limit_order implies LIMIT.
             # OrderType: LIMIT
-            
+
+            # [RACE CONDITION FIX] Save context BEFORE create_order
+            from app.services.cache_service import execution_cache
+            pre_context = {
+                "trace_id": trade_id or "",
+                "sl_price": sl_price or 0.0,
+                "tp_price": tp_price or 0.0,
+                "comment": comment or "",
+                "symbol": symbol,
+                "direction": "BUY" if units > 0 else "SELL",
+                "pre_order": True
+            }
+            pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
+            await execution_cache.set_order_context(pre_key, pre_context, expire=30)
+
             res = await self.client.create_order(
                 account_id=self.account_id,
                 symbol_id=symbol_id,
-                order_type=ProtoOAOrderType.LIMIT,
+                order_type=order_type,
                 trade_side=ProtoOATradeSide.BUY if units > 0 else ProtoOATradeSide.SELL,
                 volume=abs(volume_cents),
                 price=entry_price,
@@ -476,26 +461,45 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             # Check for Rejection in ExecutionEvent
             if res.payloadType == ProtoOAExecutionEvent().payloadType:
-                 if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
-                      error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
-                      logger.error(f"cTrader Limit Order REJECTED: {error_code} for {symbol}")
-                      raise Exception(f"cTrader Order REJECTED: {error_code}")
-                 logger.info(f"cTrader ExecutionEvent (Limit): type={res.executionType}")
-            
+                if res.executionType == ProtoOAExecutionType.ORDER_REJECTED:
+                    error_code = res.errorCode if res.HasField("errorCode") else "UNKNOWN"
+                    logger.error(f"cTrader Limit Order REJECTED: {error_code} for {symbol}")
+                    raise Exception(f"cTrader Order REJECTED: {error_code}")
+                logger.info(f"cTrader ExecutionEvent (Limit): type={res.executionType}")
+
+            # [HFT-lite] Save context for Async Fill Router IMMEDIATELY (Race Condition Fix)
+            order_id = str(res.order.orderId) if res.HasField("order") else None
+            if order_id:
+                try:
+                    from app.services.cache_service import execution_cache
+                    context = {
+                        "trace_id": trade_id or "",
+                        "sl_price": sl_price or 0.0,
+                        "tp_price": tp_price or 0.0,
+                        "comment": comment or "",
+                        "symbol": symbol,
+                        "direction": "BUY" if units > 0 else "SELL"
+                    }
+                    await execution_cache.set_order_context(order_id, context, expire=3600)
+                    logger.debug(f"cTrader: Early limit-context saved for {order_id}")
+                except Exception as ctx_err:
+                    logger.warning(f"cTrader: Failed early limit-context save: {ctx_err}")
+
             # Return structure compatible with main.py expectation (Oanda style)
+            # Convert back to standard price format for response
             return {
                 "orderCreateTransaction": {
                     "id": str(res.order.orderId) if res.HasField("order") else (str(res.position.positionId) if res.HasField("position") else "0"),
                     "instrument": symbol,
                     "units": str(units),
-                    "price": str(entry_price),
+                    "price": str(entry_price),  # Return original price (not pipette)
                     "time": datetime.utcnow().isoformat()
                 }
             }
         except Exception as e:
             logger.error(f"cTrader Limit Order Error: {e}")
             raise e
-        
+
     async def get_order_book(self, symbol: str) -> Dict[str, Any]:
         """
         Fetch Depth of Market (Order Book) for a symbol.
@@ -504,7 +508,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         await self.client.authorize_app(self.client_id, self.client_secret)
         await self.client.authorize_account(self.account_id, self.token)
 
-        symbol_id, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+        symbol_id, _, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
         return await self.client.get_order_book(self.account_id, symbol_id)
 
     async def close_trade(self, broker_trade_id: str, units: Optional[float] = None) -> Dict[str, Any]:
@@ -512,15 +516,15 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
              await self.client.authorize_app(self.client_id, self.client_secret)
              await self.client.authorize_account(self.account_id, self.token)
-             
+
              # Convert units to cents if partial close
              # We need to resolve lot details for symbol
-             symbol_id, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size("XAUUSD") # Fallback, but closer logic needs resolving
+             symbol_id, lot_size_cents, step_cents, digits = await self._resolve_symbol_id_and_lot_size("XAU_USD")
              # Better: fetch position first to get symbol
              # If units is None, we need to know full volume to close?
              # ProtoOAClosePositionReq requires volume.
              # If we don't know, we must fetch position first.
-             
+
              if units is None:
                  # Fetch position to get volume and symbol
                  recon = await self.client.get_reconcile(self.account_id)
@@ -534,19 +538,19 @@ class CTraderOrderAdapter(BrokerAdapter):
                  target = next((p for p in recon.position if str(p.positionId) == str(broker_trade_id)), None)
                  if not target:
                       raise ValueError(f"Position {broker_trade_id} not found")
-                 
+
                  s_name = await self._resolve_symbol_name(target.tradeData.symbolId)
-                 _, _, step_cents = await self._resolve_symbol_id_and_lot_size(s_name)
-                 
+                 _, _, step_cents, _ = await self._resolve_symbol_id_and_lot_size(s_name)
+
                  # Convert units to volume_cents
                  multiple = units * 100  # 0.01 lot = 1 unit = 100 cents
                  volume_cents = int(multiple * step_cents)
                  if volume_cents < step_cents:
                      volume_cents = int(step_cents)
-             
+
              res = await self.client.close_position(self.account_id, int(broker_trade_id), volume=volume_cents)
              return {"status": "closed", "trade_id": broker_trade_id}
-             
+
         except Exception as e:
              logger.error(f"cTrader Close Trade Error: {e}")
              raise e
@@ -563,7 +567,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         await self.client.authorize_account(self.account_id, self.token)
 
         # Resolve symbol to cTrader ID using L3 cache
-        symbol_id, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
+        symbol_id, _, _, _ = await self._resolve_symbol_id_and_lot_size(symbol)
 
         bid, ask = await self.client.get_spot_price(self.account_id, symbol_id)
         if bid == 0.0 and ask == 0.0:
@@ -576,36 +580,36 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
             # Convert dates to milliseconds
             from_ts = int(start_date.timestamp() * 1000)
             to_ts = int(end_date.timestamp() * 1000)
-            
+
             deals = await self.client.get_deal_list(self.account_id, from_ts, to_ts)
-            
+
             # Ensure cache is hydrated
-            if not self._symbol_cache:
+            if not self.__class__._symbol_cache:
                 await self._populate_symbol_cache()
 
             results = []
             for d in deals:
                 if d.closePositionDetail: # This deal closed a position
                     s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(d.symbolId)
-                    
+
                     entry_p = d.closePositionDetail.entryPrice
                     exit_p = d.executionPrice
-                    
+
                     # ROI/PnL
                     pnl_raw = float(getattr(d.closePositionDetail, 'grossProfit', 0.0)) / 100.0
-                    
+
                     from app.models import TradeStatus, TradeDirection
 
                     direction = TradeDirection.LONG if d.tradeSide == ProtoOATradeSide.SELL else TradeDirection.SHORT
-                    
+
                     # Normalization
                     close_dt = parse_iso_timestamp(d.executionTimestamp)
                     open_dt = parse_iso_timestamp(d.createTimestamp)
-                    
+
                     # volume is in cents in cTrader Protobuf
                     units = (d.volume / float(lot_size_cents)) * 100000.0
                     std_lots = units_to_standard_lots(units)
@@ -616,7 +620,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                         "strategy_name": "Imported",
                         "signal_timestamp": open_dt,
                         "status": TradeStatus.CLOSED,
-                        "direction": direction, 
+                        "direction": direction,
                         "entry_price": entry_p,
                         "exit_price": exit_p,
                         "sl_price": 0.0,
@@ -627,7 +631,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                         "exit_timestamp": close_dt,
                         "metadata_json": {"deal_id": str(d.dealId), "raw": "cTrader Deal"}
                     })
-            
+
             return results
 
         except Exception as e:
@@ -639,7 +643,7 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
             res = await self.client.cancel_order(self.account_id, int(order_id))
             return {"status": "cancelled", "order_id": order_id}
         except Exception as e:
@@ -649,26 +653,26 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader Cancel Order Error: {e}")
             raise e
 
-    async def amend_order(self, order_id: str, units: Optional[float] = None, 
-                    price: Optional[float] = None, 
-                    sl_price: Optional[float] = None, 
+    async def amend_order(self, order_id: str, units: Optional[float] = None,
+                    price: Optional[float] = None,
+                    sl_price: Optional[float] = None,
                     tp_price: Optional[float] = None,
                     trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
             # Fetch order details to get current volume and instrument
             orders = await self.get_pending_orders()
             target_order = next((o for o in orders if o["id"] == str(order_id)), None)
             if not target_order:
                 raise ValueError(f"Order {order_id} not found to amend")
-            
+
             # [SAFETY - Layer 3] Pre-trade Risk Validation: SL/TP direction check
             entry_price = float(target_order.get("price", 0))
             side = target_order.get("side", "BUY").upper()
-            
+
             if sl_price is not None and entry_price > 0:
                 if side == "BUY" and sl_price >= entry_price:
                     raise RiskValidationError(
@@ -678,7 +682,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     raise RiskValidationError(
                         f"Invalid SL for SHORT: sl_price={sl_price} must be ABOVE entry_price={entry_price}"
                     )
-            
+
             if tp_price is not None and entry_price > 0:
                 if side == "BUY" and tp_price <= entry_price:
                     raise RiskValidationError(
@@ -688,24 +692,25 @@ class CTraderOrderAdapter(BrokerAdapter):
                     raise RiskValidationError(
                         f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
                     )
-            
+
             # Resolve lot details for this symbol
-            _, lot_size_cents, step_cents = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
-            
+            _, lot_size_cents, step_cents, _ = await self._resolve_symbol_id_and_lot_size(target_order["instrument"])
+
             if units is not None:
                 # [VOL-Normalization] Universal units to cTrader cents
-                raw_volume = (abs(units) / 100000.0) * lot_size_cents
-                
+                # Standard lots to broker volume units
+                raw_volume = abs(units) * lot_size_cents
+
                 # Step size validation & rounding to nearest step
                 multiple = round(raw_volume / step_cents)
                 volume_cents = int(multiple * step_cents)
-                
+
                 if volume_cents < step_cents:
                     volume_cents = int(step_cents)
             else:
                 # Use current raw volume from the order
                 volume_cents = target_order.get("raw_volume")
-            
+
             if price is None:
                 # Use current price from the order
                 price = target_order.get("price")
@@ -735,8 +740,8 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader Amend Order Error: {e}")
             raise e
 
-    async def amend_position(self, broker_trade_id: str, 
-                        sl_price: Optional[float] = None, 
+    async def amend_position(self, broker_trade_id: str,
+                        sl_price: Optional[float] = None,
                         tp_price: Optional[float] = None,
                         trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         await self.client.connect()
@@ -746,7 +751,7 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             # [SAFETY - Layer 3] Fetch position to validate SL/TP direction before amending
             reconcile = await self.client.get_reconcile(self.account_id)
-            
+
             target = next(
                 (p for p in reconcile.position if str(p.positionId) == str(broker_trade_id)),
                 None
@@ -807,46 +812,46 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
             reconcile = await self.client.get_reconcile(self.account_id)
             positions = []
-            
+
             if not hasattr(reconcile, 'position') or not reconcile.position:
                 return []
-                
+
             # Ensure cache is hydrated
-            if not self._symbol_cache:
+            if not self.__class__._symbol_cache:
                 await self._populate_symbol_cache()
-                            
+
             for p in reconcile.position:
-                s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(p.tradeData.symbolId)
-                
+                s_name, lot_size_cents, step_cents, digits = self._resolve_name_from_id_cache(p.tradeData.symbolId)
+
                 # [VOL-Reverse-Normalization] cTrader cents to Universal units
                 units = (p.tradeData.volume / float(lot_size_cents)) * 100000.0
-                
+
                 positions.append({
                     "id": str(p.positionId),
                     "broker_trade_id": str(p.positionId),
                     "symbol": s_name,
                     "instrument": s_name,
                     "units": units if p.tradeData.tradeSide == ProtoOATradeSide.BUY else -units,
-                    "price": float(p.price) if hasattr(p, 'price') else 0.0,
+                    "price": float(p.price) if hasattr(p, 'price') and p.price else 0.0,
                     "sl": float(p.stopLoss) if p.HasField("stopLoss") else None,
                     "tp": float(p.takeProfit) if p.HasField("takeProfit") else None,
                     "currentUnits": units,
                     "side": "BUY" if p.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
-                    "pnl": float(getattr(p, 'grossProfit', 0.0)) / 100.0,
-                    "unrealizedPL": float(getattr(p, 'grossProfit', 0.0)) / 100.0,
+                    "pnl": float(getattr(p, 'grossProfit', 0.0)) / (10 ** p.moneyDigits) if p.HasField("moneyDigits") else float(getattr(p, 'grossProfit', 0.0)) / 100.0,
+                    "unrealizedPL": float(getattr(p, 'grossProfit', 0.0)) / (10 ** p.moneyDigits) if p.HasField("moneyDigits") else float(getattr(p, 'grossProfit', 0.0)) / 100.0,
                 })
-                
+
             pending = await self.get_pending_orders()
-            
+
             # Label types for consistent frontend/logic handling
             for p in positions:
                 p["type"] = "POSITION"
             for o in pending:
                 o["type"] = "ORDER"
-                
+
             return positions + pending
         except Exception as e:
             logger.error(f"cTrader Get Open Trades Error: {e}")
@@ -858,19 +863,19 @@ class CTraderOrderAdapter(BrokerAdapter):
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
             await self.client.authorize_account(self.account_id, self.token)
-            
+
             reconcile = await self.client.get_reconcile(self.account_id)
             orders = []
-            
+
             if not reconcile.order:
                 return []
-                
+
             # Ensure cache is hydrated
-            if not self._symbol_cache:
+            if not self.__class__._symbol_cache:
                 await self._populate_symbol_cache()
-                            
+
             for o in reconcile.order:
-                s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(o.tradeData.symbolId)
+                s_name, lot_size_cents, step_cents, digits = self._resolve_name_from_id_cache(o.tradeData.symbolId)
                 norm_units = (o.tradeData.volume / float(lot_size_cents)) * 100000.0
 
                 orders.append({
@@ -880,7 +885,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "raw_volume": o.tradeData.volume,
                     "side": "BUY" if o.tradeData.tradeSide == ProtoOATradeSide.BUY else "SELL",
                     "type": str(o.orderType),
-                    "price": o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0),
+                    "price": float(o.limitPrice if o.limitPrice else (o.stopPrice if o.stopPrice else 0.0)),
                     "sl": o.stopLoss if o.HasField("stopLoss") else None,
                     "tp": o.takeProfit if o.HasField("takeProfit") else None,
                     "trailing_sl": o.trailingStopLoss if o.HasField("trailingStopLoss") else False,
@@ -888,7 +893,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "time": datetime.fromtimestamp(o.tradeData.openTimestamp / 1000.0).isoformat() if o.tradeData.openTimestamp else None,
                     "status": "PENDING"
                 })
-                
+
             return orders
 
         except Exception as e:
@@ -903,6 +908,8 @@ class CTraderMessageRouter:
     @staticmethod
     def handle_unsolicited_message(msg: ProtoMessage):
         """Main entry point from AsyncCTraderClient"""
+        logger.info(f"cTrader Router: Received message payloadType={msg.payloadType}")
+
         # 2126 = ProtoOAExecutionEvent
         if msg.payloadType == 2126:
             asyncio.create_task(CTraderMessageRouter._process_execution_event(msg))
@@ -910,18 +917,18 @@ class CTraderMessageRouter:
              # Route to price stream or indicator engines if needed
              pass
 
-    @staticmethod
-    async def _process_execution_event(msg: ProtoMessage):
+    @classmethod
+    async def _process_execution_event(cls, msg: ProtoMessage):
         try:
             from app.services.fill_publisher import publish_fill
             from app.services.cache_service import execution_cache
-            
+
             event = ProtoOAExecutionEvent()
             event.ParseFromString(msg.payload)
-            
+
             account_id = str(event.ctidTraderAccountId)
             exec_type = event.executionType
-            
+
             # We only care about fills for now
             if exec_type != ProtoOAExecutionType.ORDER_FILLED:
                 # logger.debug(f"cTrader: Async ExecutionEvent {exec_type} for acc {account_id} - ignoring.")
@@ -929,9 +936,23 @@ class CTraderMessageRouter:
 
             broker_order_id = str(event.order.orderId)
             logger.info(f"cTrader: Async Fill received for Order {broker_order_id} (Acc: {account_id})")
-            
+
             # 1. Fetch Context from Redis
             context = await execution_cache.get_order_context(broker_order_id)
+
+            # If not found, try pre-order context (race condition fix)
+            if not context:
+                # Try to get symbol from order event
+                symbol = "UNKNOWN"
+                direction = "LONG"
+                if event.HasField("order") and event.order.tradeSide:
+                    direction = "BUY" if event.order.tradeSide == ProtoOATradeSide.BUY else "SELL"
+
+                pre_key = f"pre:{symbol}:{direction}"
+                context = await execution_cache.get_order_context(pre_key)
+                if context:
+                    logger.info(f"cTrader: Found pre-order context for {broker_order_id}")
+
             if not context:
                 logger.warning(f"cTrader: No context found for filled order {broker_order_id}. Manual or external order?")
                 # We should still try to find symbol from symbol_id
@@ -941,22 +962,41 @@ class CTraderMessageRouter:
             # 2. Extract Data
             trace_id = context.get("trace_id", "")
             symbol = context.get("symbol", "UNKNOWN")
-            units = float(event.order.volume) / 100.0 # cTrader units to standard
-            
+
+            # Need digits for scaling
+            # Default to 2 for XAUUSD (most common metal)
+            digits = 2
+
+            # Get volume - from deal if available, otherwise from order.tradeData
+            raw_volume = 0
+            if event.HasField("deal"):
+                raw_volume = event.deal.volume
+            elif event.HasField("order") and event.order.HasField("tradeData"):
+                raw_volume = event.order.tradeData.volume
+
+            # Publish raw broker units (e.g. 100,000 for 1 lot, 1,000 for 0.01 lot)
+            units = float(raw_volume)
+
             # Prices
             # Deal has the actual execution price
-            fill_price = 0.0
+
+            raw_fill_price = 0.0
             deal_id = None
             if event.HasField("deal"):
-                 fill_price = float(event.deal.executionPrice)
+                 raw_fill_price = float(event.deal.executionPrice)
                  deal_id = str(event.deal.dealId)
-            
+            elif event.HasField("order") and event.order.executionPrice:
+                 raw_fill_price = float(event.order.executionPrice)
+
+            # ProtoOADeal.executionPrice is already absolute double
+            fill_price = raw_fill_price
+
             sl_price = context.get("sl_price", 0.0)
             tp_price = context.get("tp_price", 0.0)
-            
+
             # Logic: If SL/TP were hit, we might need to handle them differently
             # but usually this flow is for Entry Fills.
-            
+
             # 3. Publish Fill
             await publish_fill(
                 account_id=account_id,
@@ -974,9 +1014,81 @@ class CTraderMessageRouter:
                 signal_timestamp_ns=context.get("signal_timestamp_ns"),
                 is_shadow=context.get("is_shadow", False)
             )
-            
-            # 4. Cleanup context
+
+            # 4. Amend Position with SL/TP if provided
+            # Add small delay to allow cTrader to create position
+            if (sl_price or tp_price) and deal_id:
+                try:
+                    # Wait 500ms for position to be ready
+                    await asyncio.sleep(0.5)
+
+                    from app.services.cache_service import execution_cache
+
+                    # Get broker_account_id (UUID) from cTrader account ID
+                    broker_account_id = await execution_cache.get_broker_account_id_by_ctid(account_id)
+
+                    if broker_account_id:
+                        # Get credentials
+                        credentials = await execution_cache.get_credentials(broker_account_id)
+                        if credentials:
+                            # Create adapter and amend
+                            from app.adapters.ctrader import CTraderOrderAdapter
+
+                            adapter = CTraderOrderAdapter(
+                                client_id=credentials.get("client_id"),
+                                client_secret=credentials.get("client_secret"),
+                                account_id=credentials.get("account_id"),
+                                token=credentials.get("token"),
+                                host="live.ctraderapi.com" if credentials.get("environment") == "live" else "demo.ctraderapi.com"
+                            )
+
+                            # Research confirms these fields are DOUBLE and expect ABSOLUTE prices
+                            # Round to digits (2 for XAUUSD) to avoid "more digits than symbol allows" error
+                            sl_val = round(float(sl_price), digits) if sl_price else None
+                            tp_val = round(float(tp_price), digits) if tp_price else None
+
+                            logger.info(f"cTrader Router: Amending position {deal_id} with SL={sl_val}, TP={tp_val}")
+
+                            await adapter.client.connect()
+                            await adapter.client.authorize_app(adapter.client_id, adapter.client_secret)
+                            await adapter.client.authorize_account(adapter.account_id, adapter.token)
+
+                            # Try to get position list using get_reconcile and find correct position ID
+                            target_position_id = None
+                            try:
+                                # Get current symbolId from event
+                                fill_symbol_id = event.deal.symbolId if event.HasField("deal") else (event.order.symbolId if event.HasField("order") else None)
+
+                                reconcile = await adapter.client.get_reconcile(adapter.account_id)
+                                if reconcile and reconcile.position:
+                                    # Find the position with matching symbolId
+                                    for pos in reconcile.position:
+                                        if pos.tradeData.volume > 0 and (fill_symbol_id is None or pos.tradeData.symbolId == fill_symbol_id):
+                                            target_position_id = pos.positionId
+                                            logger.info(f"cTrader Router: Found matching position {pos.positionId} for symbolId {pos.tradeData.symbolId}")
+                                            break
+                            except Exception as pos_err:
+                                logger.warning(f"cTrader Router: Could not get positions via reconcile: {pos_err}")
+
+                            # Use the position ID from the list if found
+                            amend_position_id = target_position_id if target_position_id else int(deal_id)
+
+                            result = await adapter.client.amend_position_sltp(
+                                account_id=adapter.account_id,
+                                position_id=amend_position_id,
+                                sl=sl_val,
+                                tp=tp_val
+                            )
+
+                            logger.info(f"cTrader Router: SL/TP amended successfully for position {deal_id}")
+                    else:
+                        logger.warning(f"cTrader Router: No broker_account_id mapping for cTrader account {account_id}")
+
+                except Exception as amend_err:
+                    logger.error(f"cTrader Router: Failed to amend SL/TP: {amend_err}")
+
+            # 5. Cleanup context
             await execution_cache.delete_order_context(broker_order_id)
-            
+
         except Exception as e:
             logger.error(f"cTrader Router Error: {e}", exc_info=True)

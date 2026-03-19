@@ -112,10 +112,39 @@ class ExecutionCache:
         key = f"exec:creds:{account_id}"
         return self._get_l1(key)
 
-    def set_credentials(self, account_id: str, creds: Dict, ttl: int = 3600):
-        """Caches decrypted credentials in L1 (memory) only for safety."""
+    async def set_credentials(self, account_id: str, creds: Dict, ttl: int = 3600):
+        """Caches decrypted credentials in L1 (memory) and persists cTrader mapping in Redis."""
         key = f"exec:creds:{account_id}"
         self._set_l1(key, creds, ttl)
+        
+        # Also store cTrader account ID mapping if this is a cTrader account
+        if creds and "account_id" in creds:
+             ctid_key = f"exec:ctid:{creds['account_id']}"
+             self._set_l1(ctid_key, account_id, ttl)  # L1 for fast local read
+             
+             # Also store in Redis for cross-process access (e.g. Worker)
+             try:
+                 r = await self._get_redis()
+                 await r.set(ctid_key, account_id, ex=ttl)
+             except Exception as e:
+                 logger.error(f"Failed to persist ctid mapping in Redis: {e}")
+
+    async def get_broker_account_id_by_ctid(self, ctid_account_id: str) -> Optional[str]:
+        """Get broker_account_id (UUID) from cTrader account ID."""
+        key = f"exec:ctid:{ctid_account_id}"
+        cached = self._get_l1(key)
+        if cached:
+            return cached
+            
+        try:
+            r = await self._get_redis()
+            data = await r.get(key)
+            if data:
+                self._set_l1(key, data)
+                return data
+        except Exception as e:
+            logger.error(f"Redis Cache Error (get_broker_account_id_by_ctid): {e}")
+        return None
 
     async def get_risk_filters(self, fund_id: str, account_id: str = None) -> Optional[List[Dict]]:
         key = f"exec:filters:{fund_id}:{account_id or 'none'}"

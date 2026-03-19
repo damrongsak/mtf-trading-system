@@ -145,10 +145,12 @@ class AsyncCTraderClient:
                     fut.set_result(msg)
             else:
                 # Handle unsolicited messages
-                print(f"DEBUG: cTrader Client: Received Unsolicited Message Type: {msg.payloadType}")
+                print(f"DEBUG: cTrader Client: Received Unsolicited Message Type: {msg.payloadType}", flush=True)
+                print(f"DEBUG: client._message_handler={self._message_handler}", flush=True)
                 if self._message_handler:
                     try:
-                        self._message_handler(msg)
+                         print(f"DEBUG: Calling handler for {msg.payloadType}", flush=True)
+                         self._message_handler(msg)
                     except Exception as he:
                         logger.error(f"cTrader Client: Message handler error: {he}")
                         # If handler is async, we should await it?
@@ -437,13 +439,23 @@ class AsyncCTraderClient:
         req.tradeSide = trade_side
         req.volume = int(volume)
         
-        if price is not None: req.limitPrice = float(price)
+        if price is not None:
+             if order_type in [ProtoOAOrderType.LIMIT, ProtoOAOrderType.STOP_LIMIT]:
+                 req.limitPrice = float(price)
+             elif order_type == ProtoOAOrderType.STOP:
+                 req.stopPrice = float(price)
+             elif order_type == ProtoOAOrderType.MARKET_RANGE:
+                 req.baseSlippagePrice = float(price)
+        
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
-        if comment: req.comment = comment
-        if slippage_pips is not None: req.slippageInPoints = int(slippage_pips)
-        if base_price is not None: req.baseSlippagePrice = float(base_price)
+        if comment: req.comment = str(comment)
         
+        if order_type in [ProtoOAOrderType.MARKET, ProtoOAOrderType.MARKET_RANGE]:
+             if slippage_pips is not None: req.slippageInPoints = int(slippage_pips)
+             if base_price is not None: req.baseSlippagePrice = float(base_price)
+        
+        print(f"cTrader Client final req: {req}", flush=True)
         resp_msg = await self.send(req)
         
         if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:

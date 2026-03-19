@@ -123,7 +123,7 @@ class OrderService:
                 try:
                     credentials = decrypt_data(account.credentials_encrypted)
                     credentials["environment"] = account.environment
-                    execution_cache.set_credentials(account_id, credentials)
+                    await execution_cache.set_credentials(account_id, credentials)
                     await OrderService._log_trace(trace_id, "creds_decrypt", creds_start)
                 except Exception:
                     raise Exception("Failed to retrieve broker credentials")
@@ -413,7 +413,7 @@ class OrderService:
              # decrypt if not in L1
              credentials = decrypt_data(account.credentials_encrypted)
              credentials["environment"] = account.environment
-             execution_cache.set_credentials(account_id, credentials)
+             await execution_cache.set_credentials(account_id, credentials)
              
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         

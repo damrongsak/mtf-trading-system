@@ -96,7 +96,11 @@ Monitor the `execution_trace:{trace_id}` Redis key to get millisecond-level feed
 Subscribe to these for event-driven logic:
 - **Market Data**: `market.trade.stream`
 - **System Events**: `system.log.stream`
-- **Order Fills**: `execution.filled.stream`
+### 3. Order Fills & Persistence (HFT-Lite)
+Monitor the `execution.filled.stream` for real-time trade updates.
+- **DECOUPLED PERSISTENCE**: The API Gateway MUST NOT create any `Trade` records. Persistence is handled exclusively by the Execution Service background worker to prevent zero-price placeholders.
+- **LOT SCALING STANDARD**: Raw broker units must be scaled to standard lot sizes using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots). This standard is universal across all persistence and sync logic.
+- **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification to enable cross-service reconciliation.
 
 ## 🏁 Summary Checklist
 - [ ] Parse `04_api_spec.yaml`.

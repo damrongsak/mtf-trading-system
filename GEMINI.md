@@ -63,7 +63,8 @@ The system utilizes four primary patterns for high resilience and low coupling:
     - **NO PostgreSQL writes** inside the hot path. Any DB persistence (e.g., `_save_filled_trade_to_db`) MUST be:
       - Decoupled via **Redis Stream** (`execution.filled.stream`) consumed by a separate worker.
       - Or explicitly delayed as a truly detached background task that cannot block `await` on the fill path.
-    - Violating this rule adds **10–100ms DB latency per trade** — unacceptable for live execution.
+    - **NO GATEWAY PERSISTENCE**: The API Gateway MUST NOT create any `Trade` records synchronously. Persistence is the sole responsibility of the Execution Service background worker.
+    - Violating this rule adds **10–100ms DB latency per trade** and creates zero-price placeholder records — unacceptable.
     - ⚠️ **Current known issue**: `_save_filled_trade_to_db()` in `ctrader.py` uses `asyncio.create_task()` (non-blocking at call site) but the task itself performs an async PostgreSQL write (`AsyncSessionLocal`). Under high DB load this can steal event loop time. The correct fix is to publish the fill to `execution.filled.stream` and let the worker process DB writes asynchronously. Refactor is pending.
 8.  **📚 READ PROJECT DOCS FIRST**: Before starting any task, read the relevant quick-reference docs:
     - `docs/AI_AGENT_GUIDE.md` — HFT-lite hot path, tool definitions, Redis key conventions.
@@ -223,6 +224,8 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
         - `digits`: Price decimal places.
         - `minLot`, `maxLot`, `step_volume`: Order volume constraints.
     - These fields are cached in-memory by the `execution` service (HFT-lite path). Missing fields will cause trade calculation failures.
+    - **Standardized Lot Scaling**: Broker units MUST be divided by **100,000.0** to get standard lot sizes (e.g., 1000 units = 0.01 lots).
+    - **Deterministic UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification to enable cross-service reconciliation (Worker <-> Sync).
 *   **Seeding & Environment Standards:**
     *   **Timeframes:** `["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]` (M1 is required for execution confirm).
     *   **Symbols:** `EUR_USD`, `USD_JPY`, `BTC_USD`, `XAU_USD`, `WTI_USD`.

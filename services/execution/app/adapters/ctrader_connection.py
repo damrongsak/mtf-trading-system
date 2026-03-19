@@ -7,6 +7,7 @@ def _global_ctrader_handler(msg):
     [HFT-lite] Global message handler for all cTrader connections.
     Routes unsolicited events (fills, spots) to the appropriate processors.
     """
+    print(f"DEBUG: GLOBAL HANDLER RECEIVED payloadType={msg.payloadType}", flush=True)
     logger.debug(f"Global cTrader Handler: Received message type {msg.payloadType}")
     try:
         from app.adapters.ctrader import CTraderMessageRouter
@@ -46,7 +47,8 @@ class CTraderConnectionManager:
     @classmethod
     async def shutdown_all(cls):
         logger.info("Shutting down all cTrader connections...")
-        for key, client in cls._clients.items():
+        # Use list() to avoid RuntimeError if disconnect removes client from dict
+        for key, client in list(cls._clients.items()):
             try:
                 await client.disconnect()
             except Exception as e:

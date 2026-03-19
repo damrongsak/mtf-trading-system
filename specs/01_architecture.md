@@ -168,6 +168,7 @@ To achieve sub-50ms round-trip latency for external clients, the system utilizes
 5.  **Rule 7 Hot-Path Protection (DB-Free)**:
     - **Logic**: Removal of ALL proactive `await db.execute()` calls from the critical path (Order placement -> Broker send -> Fill confirmation).
     - **Persistence**: Decoupled via Redis Streams (`execution.filled.stream`) consumed by background workers for eventual consistency.
+    - **NO GATEWAY WRITES**: The API Gateway MUST NOT create any `Trade` records synchronously. Persistence is the sole responsibility of the Execution Service worker to prevent zero-price ($0.0$) placeholder records.
     - **Resolution**: Use Tiered Caching (L3) for symbol metadata and risk limits.
 6.  **No Reentrant Gateway Calls (Deadlock Prevention)**:
     - **Logic**: AI Agents and Tools MUST NOT call the `api-gateway` internally to fetch data already managed by other services.

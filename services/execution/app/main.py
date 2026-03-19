@@ -29,6 +29,7 @@ from app.services.oanda_streamer import MultiStreamManager
 from app.core.config import settings
 import redis.asyncio as redis
 from fastapi.security import APIKeyHeader
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
 
 # Security
 API_KEY_NAME = "X-Internal-API-Key"
@@ -156,7 +157,7 @@ async def _warmup_execution_cache():
                 try:
                     creds = decrypt_data(account.credentials_encrypted)
                     creds["environment"] = account.environment
-                    execution_cache.set_credentials(acc_id, creds)
+                    await execution_cache.set_credentials(acc_id, creds)
                 except Exception as ce:
                     logger.warning(f"[HFT-lite] Failed to decrypt credentials for {account.broker_name}:{acc_id}: {ce}")
                     continue
@@ -316,7 +317,7 @@ async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
 # Credentials resolved from cache or decrypted
             credentials = decrypt_data(account.credentials_encrypted)
             credentials["environment"] = account.environment
-            execution_cache.set_credentials(account_id_str, credentials)
+            await execution_cache.set_credentials(account_id_str, credentials)
         
         if not account_data:
             account_data = {
@@ -360,6 +361,7 @@ async def get_account_summary(authenticated: str = Depends(verify_internal_api_k
 @app.post("/orders", response_model=APIResponse[OrderResponse], status_code=201)
 async def place_order(authenticated: str = Depends(verify_internal_api_key), req: OrderRequest = Body(...), db: AsyncSession = Depends(get_db)):
     try:
+        logger.info(f"Incoming Order Request: {req.dict()}")
         account, credentials = await get_account_and_credentials(req.broker_account_id, db)
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
@@ -395,7 +397,7 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         elif req.order_type == "STOP":
              if not req.price:
                  raise HTTPException(status_code=400, detail="Price required for STOP order")
-             response = await adapter.place_limit_order( # Reuse limit logic for now
+             response = await adapter.place_limit_order(
                 symbol=req.symbol,
                 units=req.units,
                 entry_price=req.price,
@@ -404,7 +406,8 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 comment=req.comment,
                 tag=req.tag,
                 slippage_pips=req.slippage_pips,
-                base_price=req.base_price
+                base_price=req.base_price,
+                order_type=ProtoOAOrderType.STOP
             )
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")

@@ -282,14 +282,16 @@ class FillTradeConsumer:
         """
         try:
             data = json.loads(fields.get("data", "{}"))
+            logger.info(f"[FillConsumer] Processing fill data: {data}")
 
             account_id_str = data.get("account_id", "")
             broker_order_id = data.get("order_id", "")
             symbol = data.get("instrument", "")
-            fill_price = float(data.get("fill_price", 0.0))
-            fill_volume = float(data.get("fill_volume", 0.0))
-            sl_price = float(data.get("sl_price", 0.0))
-            tp_price = float(data.get("tp_price", 0.0))
+            fill_price = float(data.get("fill_price") or data.get("price") or 0.0)
+            fill_volume = float(data.get("fill_volume") or data.get("units") or 0.0)
+            sl_price = float(data.get("sl_price") or 0.0)
+            tp_price = float(data.get("tp_price") or 0.0)
+
             direction_str = data.get("direction", "LONG")
             comment = data.get("comment", "Manual")
 
@@ -301,6 +303,8 @@ class FillTradeConsumer:
             # Compute derived fields
             risk_usd = 0.0
             rr_ratio = None
+            # Standard lots = abs(fill_volume) / 100000
+            # Our internal "units" need to be converted to standard lots (1 lot = 100000 units)
             lot_size = abs(fill_volume) / 100000.0
 
             if sl_price and fill_price:
@@ -316,13 +320,23 @@ class FillTradeConsumer:
             from sqlalchemy import select as _select
             from datetime import datetime
 
+            from app.services.cache_service import execution_cache
+            
             async with AsyncSessionLocal() as db:
-                # Resolve BrokerAccount by numeric cTrader account_id
-                result = await db.execute(
-                    _select(BrokerAccount).where(
-                        BrokerAccount.account_number == account_id_str
+                # Resolve BrokerAccount by numeric cTrader account_id (ctid) or account_number
+                broker_account_uuid = await execution_cache.get_broker_account_id_by_ctid(account_id_str)
+                
+                if broker_account_uuid:
+                    result = await db.execute(
+                        _select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(broker_account_uuid))
                     )
-                )
+                else:
+                    # Fallback to account_number (for Oanda/others)
+                    result = await db.execute(
+                        _select(BrokerAccount).where(
+                            BrokerAccount.account_number == account_id_str
+                        )
+                    )
                 broker_account = result.scalars().first()
 
                 if not broker_account:
@@ -340,35 +354,55 @@ class FillTradeConsumer:
 
                 direction = TradeDirection.LONG if direction_str == "LONG" else TradeDirection.SHORT
 
-                new_trade = Trade(
-                    trade_id=trade_uuid,
-                    broker_account_id=broker_account.id,
-                    broker_trade_id=str(broker_order_id),
-                    symbol=symbol,
-                    strategy_name=comment,
-                    signal_timestamp=datetime.utcnow(),
-                    signal_id=uuid.UUID(data.get("trace_id")) if data.get("trace_id") else None,
-                    signal_timestamp_ns=data.get("signal_timestamp_ns"),
-                    latency_ms=data.get("latency_ms"),
-                    is_shadow=data.get("is_shadow", False),
-                    status=TradeStatus.OPEN,
-                    direction=direction,
-                    entry_price=fill_price,
-                    exit_price=None,
-                    sl_price=sl_price or 0.0,
-                    tp_price=tp_price or 0.0,
-                    lot_size=lot_size,
-                    risk_usd=risk_usd,
-                    rr_ratio=rr_ratio,
-                    pnl_usd=0.0,
-                    exit_timestamp=None,
-                    metadata_json={
-                        "broker_position_id": broker_order_id,
+                # Check if trade already exists (SyncService might have created it)
+                existing_trade = await db.get(Trade, trade_uuid)
+                if existing_trade:
+                    logger.info(f"[FillConsumer] Reconciling existing ghost trade {trade_uuid} with fill data")
+                    existing_trade.status = TradeStatus.OPEN
+                    existing_trade.entry_price = fill_price
+                    existing_trade.sl_price = sl_price or 0.0
+                    existing_trade.tp_price = tp_price or 0.0
+                    existing_trade.lot_size = lot_size
+                    existing_trade.strategy_name = comment
+                    if not existing_trade.metadata_json:
+                         existing_trade.metadata_json = {}
+                    existing_trade.metadata_json.update({
+                        "reconciled": True,
                         "deal_id": data.get("deal_id"),
-                        "stream_msg_id": msg_id,
-                    },
-                )
-                await db.merge(new_trade)
+                        "stream_id": msg_id
+                    })
+                    new_trade = existing_trade
+                else:
+                    new_trade = Trade(
+                        trade_id=trade_uuid,
+                        broker_account_id=broker_account.id,
+                        broker_trade_id=str(broker_order_id),
+                        broker_deal_id=str(data.get("deal_id")),
+                        symbol=symbol,
+                        strategy_name=comment,
+                        signal_timestamp=datetime.utcnow(),
+                        signal_id=uuid.UUID(data.get("trace_id")) if data.get("trace_id") else None,
+                        signal_timestamp_ns=data.get("signal_timestamp_ns"),
+                        latency_ms=data.get("latency_ms"),
+                        is_shadow=data.get("is_shadow", False),
+                        status=TradeStatus.OPEN,
+                        direction=direction,
+                        entry_price=fill_price,
+                        exit_price=None,
+                        sl_price=sl_price or 0.0,
+                        tp_price=tp_price or 0.0,
+                        lot_size=lot_size,
+                        risk_usd=risk_usd,
+                        rr_ratio=rr_ratio,
+                        pnl_usd=0.0,
+                        exit_timestamp=None,
+                        metadata_json={
+                            "broker_position_id": broker_order_id,
+                            "deal_id": data.get("deal_id"),
+                            "stream_msg_id": msg_id,
+                        },
+                    )
+                    await db.merge(new_trade)
 
                 # [SIGNAL-BRIDGE] Synchronize SignalLog status
                 if new_trade.signal_id:

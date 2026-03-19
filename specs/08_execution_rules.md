@@ -161,6 +161,21 @@ To ensure the "Execution Edge" is ready for sub-50ms processing from the first s
 
 ---
 
+### 3.8 Persistence & Data Integrity (v3.3)
+To ensure 100% data fidelity between the Execution Service worker, the Sync Service, and the API Gateway, the following persistence rules are mandatory:
+
+1.  **Rule: Absolute Pricing**: 
+    - **Logic**: All commodity (e.g., XAU/USD) and Forex prices MUST be stored as **absolute prices** (e.g., 4654.17) in the trades table. 
+    - **Constraint**: Relative pips, pipettes, or cent-scaled values are forbidden for database persistence as they lead to cross-broker scaling errors.
+2.  **Rule: Deterministic UUID Reconciliation**:
+    - **Logic**: Cross-service trade_id generation MUST use uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}").
+    - **Benefit**: This allows the background worker to perform a db.merge() on "Ghost trades" created by the Sync Service, seamlessly updating them with SL/TP and strategy metadata without unique constraint violations.
+3.  **Rule: Standardized Lot Scaling**:
+    - **Logic**: Broker-provided raw units MUST be scaled to standard lots using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots).
+    - **Enforcement**: This divisor is consistent across the adapter (ctrader.py), the background worker (worker.py), and the sync service (sync_service.py).
+
+---
+
 ## 4. Layer 5: AI Coach Intervention
 The AI Coach monitors the *execution behavior*, not the price.
 

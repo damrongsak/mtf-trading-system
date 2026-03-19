@@ -15,7 +15,7 @@ if DATABASE_URL.startswith("postgresql://"):
 engine = create_async_engine(
     DATABASE_URL,
     poolclass=NullPool,
-    echo=False
+    echo=True
 )
 
 AsyncSessionLocal = sessionmaker(

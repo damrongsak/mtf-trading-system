@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any
 from sqlalchemy.future import select
-from app.models import BrokerAccount, Trade, TradeStatus
+from app.models import BrokerAccount, Trade, TradeStatus, TradeDirection
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.database import AsyncSessionLocal
@@ -95,6 +95,13 @@ class SyncService:
                     msg = f"‼️ [GHOST TRADE] {account.broker_name} {account.account_name}: Trade {btid} ({lt.get('symbol')}, {lt.get('units')} units) exists in broker but MISSING in DB."
                     logger.warning(msg)
                     
+                    # [AUTO-SYNC] Create DB record for ghost trade
+                    try:
+                        await cls._create_ghost_trade_record(lt, account, db)
+                        logger.info(f"✅ [AUTO-SYNC] Created DB record for ghost trade {btid}")
+                    except Exception as e:
+                        logger.error(f"❌ [AUTO-SYNC] Failed to create ghost trade record: {e}")
+                    
                     # Publish Critical Drift to Redis for UI/Alerting
                     alert = {
                         "type": "GHOST_TRADE",
@@ -157,5 +164,65 @@ class SyncService:
                         await redis_client.xadd("system.alerts.drift", {"payload": json.dumps(drift_alert)})
                     elif max_drift > 0.0001:
                         logger.warning(f"⚖️ [EXPOSURE DRIFT] Fund {fund_id} | {symbol}: Minor Drift {max_drift:.4f} units.")
+
+    @classmethod
+    async def _create_ghost_trade_record(cls, live_trade: Dict[str, Any], account: BrokerAccount, db):
+        """
+        Create a DB record for a ghost trade detected from broker but missing in Olympus DB.
+        This auto-syncs positions created outside of Olympus.
+        """
+        import uuid
+        
+        # Determine direction from broker side
+        side = live_trade.get("side", "BUY")
+        direction = TradeDirection.LONG if side.upper() == "BUY" else TradeDirection.SHORT
+        
+        # Standardized lots = units / 100,000.0 (e.g. 1000 -> 0.01)
+        units = float(live_trade.get("units", 0))
+        lot_size = abs(units) / 100000.0
+        
+        # Get price (entry price from broker)
+        entry_price = float(live_trade.get("price", 0))
+        
+        # Convert sl/tp if present
+        sl_price = None
+        if live_trade.get("sl"):
+            sl_price = float(live_trade.get("sl"))
+        
+        tp_price = None
+        if live_trade.get("tp"):
+            tp_price = float(live_trade.get("tp"))
+        
+        # Deterministic UUID — matches worker.py for cross-service merge
+        trade_uuid = uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"{str(account.id)}_{str(live_trade.get('id'))}"
+        )
+        
+        # Create the trade record
+        trade = Trade(
+            trade_id=trade_uuid,
+            broker_account_id=account.id,
+            broker_trade_id=str(live_trade.get("id")),
+            symbol=live_trade.get("symbol", "UNKNOWN"),
+            strategy_name="GHOST_SYNC",  # Placeholder for auto-synced trades
+            signal_timestamp=datetime.utcnow(),
+            is_shadow=True,  # Mark as broker-synced (not created by Olympus)
+            status=TradeStatus.OPEN,
+            direction=direction,
+            entry_price=entry_price,
+            sl_price=sl_price,
+            tp_price=tp_price,
+            lot_size=lot_size,
+            risk_usd=0,  # Unknown risk for ghost trades
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        db.add(trade)
+        await db.commit()
+        await db.refresh(trade)
+        
+        logger.info(f"📝 [AUTO-SYNC] Ghost trade created: {trade.trade_id} | {trade.symbol} {trade.direction} {lot_size} lots @ {entry_price}")
+        return trade
 
 sync_service = SyncService()

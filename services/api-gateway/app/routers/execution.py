@@ -171,21 +171,8 @@ async def place_order(
         # Pass ID directly
         execution_result = await execution_client.place_order(order_data, str(account.id))
         
-        # 3. Persist Trade & Create Journal Entry
-        if execution_result and "id" in execution_result:
-            try:
-                # Ensure broker_account_id is passed to prevent DB constraint failure
-                trade = TradeService.create_trade_from_execution(
-                    db=db,
-                    user=current_user,
-                    execution_data=execution_result,
-                    request_data=order_data,
-                    broker_account_id=account.id
-                )
-                db.commit()
-            except Exception as persist_error:
-                # Log error but don't fail the request since order was placed
-                logger.error(f"Failed to persist trade: {persist_error}", exc_info=True)
+        # 3. Persistence: Handled by Execution Service background worker (HFT-Lite)
+        # Placeholder trade creation removed to prevent 0-price/mis-scaled records.
                 
         return success_response(data=execution_result, message="Order placed successfully")
     except HTTPException:
@@ -543,41 +530,7 @@ async def place_smart_order(
         # Proxy to Execution Service
         result = await execution_client.place_smart_order(payload)
         
-        # Persist Trade (Smart Order returns OrderResponse, needs manual trade creation if we want Journaling)
-        # Ideally Execution Service emits event, but for MVP we do it here or let Execution Service do it?
-        # The previous 'place_order' did it manually. Let's replicate that pattern.
-        
-        # BUT result is 'OrderResponse' shape (id, instrument, units...). 
-        # We need mapping.
-        
-        if result and "id" in result:
-            # Construct data for TradeService
-             # We need to reconstruct 'execution_result' format that TradeService expects?
-             # TradeService.create_trade_from_execution expects:
-             # execution_data = { "id":..., "instrument":..., "price":..., "units":... } matches OrderResponse.
-             
-             # payload has { symbol, direction, ... } which matches request_data logic partially.
-             
-             # Let's try to persist.
-             try:
-                trade = TradeService.create_trade_from_execution(
-                    db=db,
-                    user=current_user,
-                    execution_data=result,
-                    request_data={
-                        "symbol": payload.get("symbol"),
-                        "direction": payload.get("direction"), # 'BULLISH'/'BEARISH' -> TradeService might expect 'LONG'/'SHORT'?
-                        # TradeService logic handles direction mapping? 
-                        # Let's check TradeService if needed. For now, try passing it.
-                    }
-                )
-                trade.broker_account_id = account.id
-                trade.strategy_name = payload.get("generated_by", "Manual")
-                trade.risk_usd = payload.get("risk_usd")
-                trade.sl_price = payload.get("stop_loss")
-                db.commit()
-             except Exception as pe:
-                 logger.error(f"Failed to persist smart trade: {pe}")
+        # 3. Persistence: Handled by Execution Service background worker (HFT-Lite)
                  
         return success_response(data=result, message="Smart order placed successfully")
         
