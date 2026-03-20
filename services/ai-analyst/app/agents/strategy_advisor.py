@@ -213,9 +213,10 @@ class StrategyAdvisorAgent:
         
         workflow.add_conditional_edges(
             "sentinel",
-            lambda x: "consensus" if x.get("severity") == "CRISIS" and x.get("sentinel_result", {}).get("approved") else "tool_use",
+            lambda x: "consensus" if x.get("severity") == "CRISIS" and x.get("sentinel_result", {}).get("approved") else ("reasoning" if not x.get("sentinel_result", {}).get("approved") and x.get("intent") in ["STRATEGY_EXPLAIN", "RESEARCH", "MARKET_ANALYSIS"] else "tool_use"),
             {
                 "consensus": "consensus_layer",
+                "reasoning": "reasoning",
                 "tool_use": "tool_selection"
             }
         )
@@ -459,7 +460,9 @@ class StrategyAdvisorAgent:
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
         - **JOURNAL_ANALYSIS**: User asks to analyze, review, or "post-mortem" their recent closed trades to extract lessons or psychological patterns.
         - **PORTFOLIO_MANAGEMENT**: User asks to manage, move SL to breakeven, trail stops, or actively adjust open positions/portfolio risk.
+        - **STRATEGY_EXPLAIN**: User asks for a DEEP explanation, logic check, or narrative walkthrough of a specific strategy signal, level, or institutional setup (e.g., "Explain why we long here", "What is the logic behind this OB?").
         - **ABOUT_SYSTEM**: User asks about MTF Olympus proprietary architecture, tools, API endpoints, or mentions "EA", "Legend EA", "Project Olympus", or "Microsoft".
+
         - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
 
         
@@ -477,7 +480,8 @@ class StrategyAdvisorAgent:
         **Output JSON only:**
         {{
             "optimized_query": "...",
-            "intent": "..."
+            "intent": "...",
+            "target_language": "Thai" or "English"
         }}
         """
         
@@ -688,13 +692,23 @@ class StrategyAdvisorAgent:
         # 2. Adversarial LLM Review (Logic/Hallucination)
         # Only run full LLM sentinel for VOLATILITY and CRISIS
         if severity in ["VOLATILITY", "CRISIS"]:
-            reasoning = state.get("reasoning_trace", [""])[0]
+            intent = state.get("intent", "CHAT")
+            reasoning = state.get("reasoning_trace", [""])[-1] # Take the latest reasoning
             scratchpad = "\n".join(state.get("scratchpad", []))
-            proposal_str = json.dumps(proposed, indent=2) if proposed else "No trade proposed."
+            
+            # Context-aware proposal string
+            if proposed:
+                proposal_str = json.dumps(proposed, indent=2)
+            elif intent in ["STRATEGY_EXPLAIN", "RESEARCH"]:
+                proposal_str = "Informational/Analysis only. No trade execution proposed."
+            else:
+                proposal_str = "No trade proposed."
             
             sentinel_prompt = f"""
             You are the Sentinel Node in a Trading AI system. 
             Your job is to be ADVERSARIAL and find faults in the primary agent's logic.
+            
+            **User Intent:** {intent}
             
             **Primary Agent Thinking/Reasoning:**
             {reasoning}
@@ -709,6 +723,8 @@ class StrategyAdvisorAgent:
             1. **Hallucination**: Is the agent using price levels not found in the market data?
             2. **Logic Conflict**: Does the reasoning say 'Bearish' but the proposal is 'BUY'?
             3. **Strategy Adherence**: Is there a Clear SMC structure (FVG, OB) mentioned and present in data?
+            4. **Fulfillment (CRITICAL)**: If intent is '{intent}', does the Reasoning/Proposal actually address the core request? 
+               (e.g., If user asked for an explanation, did the agent provide a walkthrough in the reasoning?)
             
             **Output JSON only:**
             {{
@@ -731,6 +747,7 @@ class StrategyAdvisorAgent:
                     return {"sentinel_result": sentinel_data}
                 
                 return {"sentinel_result": {**sentinel_data, "approved": True}}
+
             except Exception as e:
                 logger.error(f"Sentinel LLM review failed: {e}")
                 return {"sentinel_result": {"approved": True, "note": "LLM review skipped due to error"}}
@@ -881,8 +898,9 @@ class StrategyAdvisorAgent:
             return "tool_use"
         elif intent == "RESEARCH":
             return "research"
-        elif intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS"]:
+        elif intent in ["STRATEGY_DESIGN", "MARKET_ANALYSIS", "STRATEGY_EXPLAIN"]:
             return "complex"
+
         elif intent == "MARKET_REPORT":
             return "market_scan"
         elif intent == "DAILY_BRIEFING":
@@ -1070,7 +1088,14 @@ class StrategyAdvisorAgent:
         CoT Reasoning Step: Synthesize ALL retrieved info.
         """
         steps = state.get("plan_steps", [])
-        context = "\n\n".join(state.get("retrieved_docs", []))
+        context_docs = "\n\n".join(state.get("retrieved_docs", []))
+        
+        # v3.0: Include Scratchpad (Live Data) in Reasoning to allow iterative self-correction
+        scratchpad_text = ""
+        if state.get("scratchpad"):
+            scratchpad_text = "\n\n**Live Technical Data (from tools):**\n" + "\n".join(state["scratchpad"][-3:]) # Last 3 results
+
+        context = f"{context_docs}\n{scratchpad_text}"
         user_facts = "\n".join(state.get("user_facts", []))
         
         trace = []
@@ -1140,6 +1165,12 @@ class StrategyAdvisorAgent:
         from datetime import datetime
         current_date = datetime.utcnow().strftime("%Y-%m-%d")
         
+        # Include Recent Sentinel Feedback if any
+        sentinel_feedback = ""
+        sentinel_res = state.get("sentinel_result", {})
+        if sentinel_res and not sentinel_res.get("approved"):
+            sentinel_feedback = f"\n\n**🛡️ SENTINEL REJECTION FEEDBACK:**\n{sentinel_res.get('reason')}\nPLEASE ADDRESS THIS IN YOUR NEXT ACTION."
+
         # Include Reasoning Trace if available (The Plan)
         reasoning_context = ""
         if state.get("reasoning_trace"):
@@ -1169,7 +1200,7 @@ class StrategyAdvisorAgent:
 
         prompt = TOOL_ROUTER_SYSTEM_PROMPT.format(
             tool_descriptions=tool_descriptions,
-            query=f"{query}\n(Current Date: {current_date}){reasoning_context}{tool_results}"
+            query=f"{query}\n(Current Date: {current_date}){sentinel_feedback}{reasoning_context}{tool_results}"
         )
         
         logger.info(f"Tool Selection - Query: {query} | Context/Trace: {len(reasoning_context)} chars | Scratchpad: {len(tool_results)} chars")
@@ -1327,8 +1358,11 @@ class StrategyAdvisorAgent:
         prompt = f"""
         You are a Data Compression Assistant for a Trading AI.
         The following tool outputs are too long for the context window.
-        Summarize the key quantitative findings (prices, OBs, FVGs, sentiment, balance) into a concise report.
-        Keep ALL critical numbers/prices. Discard formatting and redundant metadata.
+        
+        **Instructions:**
+        1. Summarize key quantitative findings (prices, OBs, FVGs, sentiment, balance).
+        2. **STRATEGY SYNTHESIS (IMPORTANT)**: If there is institutional analysis (SMC), preserve the narrative of market structure (e.g., 'Bullish bias, Mitigation of H1 OB at 2400, displacement into FVG'). Do NOT just list numbers.
+        3. Keep ALL critical numbers/prices. Discard formatting and redundant metadata.
         
         Tool Outputs:
         {total_text}

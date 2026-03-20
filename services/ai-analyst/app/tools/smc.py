@@ -12,6 +12,8 @@ class SMCInput(BaseModel):
     symbol: str = Field(default="XAUUSD", description="Symbol to analyze (e.g. XAU/USD, EUR/USD)")
     timeframe: str = Field(default="H1", description="Timeframe for analysis (e.g. H1, 15m, 4H)")
     include_distant_zones: bool = Field(default=False, description="Set to True ONLY if macro/long-term zones are explicitly needed. False by default to save tokens.")
+    return_raw_data: bool = Field(default=False, description="Set to True to receive raw JSON analysis data for narrative synthesis. Use for Deep Explanation.")
+
 
 class SMCAnalystTool(BaseTool):
     name: str = "smc_technical_analysis"
@@ -22,15 +24,41 @@ class SMCAnalystTool(BaseTool):
         symbol = "XAUUSD"
         timeframe = "H1"
         include_distant_zones = False
+        return_raw_data = False
         
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", symbol)
             timeframe = input_data.get("timeframe", timeframe)
             include_distant_zones = input_data.get("include_distant_zones", False)
+            return_raw_data = input_data.get("return_raw_data", False)
         elif isinstance(input_data, str):
-            symbol = input_data
+            # Defensive check: Is it a JSON blob passed as a string?
+            if input_data.strip().startswith("{") and input_data.strip().endswith("}"):
+                try:
+                    parsed = json.loads(input_data)
+                    symbol = parsed.get("symbol") or parsed.get("SYMBOL") or parsed.get("text", symbol)
+                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME") or timeframe
+                    return_raw_data = parsed.get("return_raw_data") or parsed.get("RETURNRAWDATA") or False
+                except:
+                    symbol = input_data
+            else:
+                symbol = input_data
 
-        # Normalize symbol
+        # Second level check: Did the LLM pass {symbol: "{...}"}?
+        if isinstance(symbol, str) and symbol.strip().startswith("{") and symbol.strip().endswith("}"):
+            try:
+                parsed = json.loads(symbol)
+                # If it's a nested JSON, extract fields
+                if "symbol" in parsed or "SYMBOL" in parsed:
+                    symbol = parsed.get("symbol") or parsed.get("SYMBOL")
+                if "timeframe" in parsed or "TIMEFRAME" in parsed:
+                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME")
+                if "return_raw_data" in parsed or "RETURNRAWDATA" in parsed:
+                    return_raw_data = parsed.get("return_raw_data") or parsed.get("RETURNRAWDATA")
+            except:
+                pass
+
+
         # Normalize symbol
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         
@@ -81,6 +109,11 @@ class SMCAnalystTool(BaseTool):
                 if smc_resp.status_code == 200:
                     # Enrich with market status metadata (Simplified version for AI)
                     analysis_data = smc_resp.json()
+                    
+                    # If raw requested, return early
+                    if return_raw_data:
+                        return json.dumps(analysis_data)
+                        
                     data = {
                         "analysis": analysis_data,
                         "direction": analysis_data.get("institutional_bias", "NEUTRAL"),
@@ -160,6 +193,7 @@ class SMCAnalystTool(BaseTool):
                 report.append(f"- **{fvg.get('type').capitalize()}**: {float(fvg.get('bottom')):.2f} - {float(fvg.get('top')):.2f}")
 
         return "\n".join(report)
+
 
     def _format_age(self, seconds: int) -> str:
         if seconds < 60: return f"{seconds}s"

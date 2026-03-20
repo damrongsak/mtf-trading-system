@@ -41,6 +41,10 @@ class Fund(Base):
     risk_parity_enabled = Column(Boolean, default=False)
     risk_parity_model = Column(Enum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")
 
+    # [NEW] Auto-Protect (Emergency SL)
+    auto_protect_enabled = Column(Boolean, default=False, nullable=False)
+    emergency_sl_pips = Column(Numeric(10, 2), default=500.0, nullable=False)
+
     # Relationships
     users = relationship("UserFund", back_populates="fund", cascade="all, delete-orphan")
     broker_accounts = relationship("BrokerAccount", back_populates="fund", cascade="all, delete-orphan")

@@ -23,8 +23,20 @@ class MarketStateTool(BaseTool):
             symbol = input_data.get("symbol", symbol)
             timeframe = input_data.get("timeframe", timeframe)
         elif isinstance(input_data, str):
-            symbol = input_data
+            # Defensive JSON check
+            if input_data.strip().startswith("{") and input_data.strip().endswith("}"):
+                try:
+                    parsed = json.loads(input_data)
+                    symbol = parsed.get("symbol") or parsed.get("SYMBOL") or symbol
+                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME") or timeframe
+                except:
+                    symbol = input_data
+            else:
+                symbol = input_data
 
+        # Normalize symbol
+        normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
+        
         async with aiohttp.ClientSession() as session:
             try:
                 # We use direct service URLs instead of API Gateway
@@ -38,11 +50,11 @@ class MarketStateTool(BaseTool):
                         headers["Authorization"] = auth_token
                 
                 # 1 & 2. Fetch Regime and Gamma in parallel with strict 3s target
-                logger.info(f"MarketState: Fetching parallel data for {symbol}")
+                logger.info(f"MarketState: Fetching parallel data for {normalized_symbol}")
                 regime_url = f"{strategy_core_url}/market/regime"
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
                 
-                regime_payload = {"symbol": symbol, "timeframe": timeframe, "bias": "NEUTRAL"}
+                regime_payload = {"symbol": normalized_symbol, "timeframe": timeframe, "bias": "NEUTRAL"}
                 
                 import asyncio
                 
@@ -52,9 +64,10 @@ class MarketStateTool(BaseTool):
                         return {}
 
                 async def fetch_gamma():
-                    async with session.get(gamma_url, params={"symbol": symbol}, headers=headers, timeout=2.5) as resp:
+                    async with session.get(gamma_url, params={"symbol": normalized_symbol}, headers=headers, timeout=2.5) as resp:
                         if resp.status == 200: return await resp.json()
                         return {}
+
                 
                 try:
                     regime_task = fetch_regime()

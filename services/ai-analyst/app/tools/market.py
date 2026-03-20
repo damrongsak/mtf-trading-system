@@ -25,13 +25,26 @@ class GetMarketContextTool(BaseTool):
             timeframe = input_data.get("timeframe", timeframe)
             count = input_data.get("count", count)
         elif isinstance(input_data, str):
-            symbol = input_data
+            # Defensive JSON check
+            if input_data.strip().startswith("{") and input_data.strip().endswith("}"):
+                try:
+                    parsed = json.loads(input_data)
+                    symbol = parsed.get("symbol") or parsed.get("SYMBOL") or symbol
+                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME") or timeframe
+                except:
+                    symbol = input_data
+            else:
+                symbol = input_data
+
+        # Normalize symbol
+        normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
+
 
         async with aiohttp.ClientSession() as session:
             try:
                 # Use strategy-core market/candles endpoint
                 url = f"{settings.STRATEGY_CORE_URL}/api/v1/market/candles"
-                params = {"symbol": symbol, "timeframe": timeframe, "count": min(count, 50)} # Hard cap to prevent massive dumps
+                params = {"symbol": normalized_symbol, "timeframe": timeframe, "count": min(count, 50)} # Hard cap to prevent massive dumps
                 
                 async with session.get(url, params=params, timeout=3.0) as resp:
                     if resp.status == 200:

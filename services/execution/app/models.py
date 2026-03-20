@@ -95,6 +95,10 @@ class Fund(Base):
     risk_parity_enabled = Column(Boolean, default=False)
     risk_parity_model = Column(SQLEnum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")
 
+    # [NEW] Auto-Protect (Emergency SL)
+    auto_protect_enabled = Column(Boolean, default=False, nullable=False)
+    emergency_sl_pips = Column(Numeric(10, 2), default=500.0, nullable=False)
+
 class MarketCategory(Base):
     __tablename__ = "market_categories"
     __table_args__ = {"extend_existing": True}

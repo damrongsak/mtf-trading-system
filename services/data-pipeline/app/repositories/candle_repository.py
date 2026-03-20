@@ -17,7 +17,7 @@ class CandleRepository:
     def get_market_symbol(self, symbol: str, broker: str) -> Optional[MarketSymbol]:
         """
         Resolve MarketSymbol by symbol name and broker.
-        Handles OANDA v20 format (underscore) vs Standard (slash).
+        Handles OANDA v20 format (underscore) vs Standard (slash) vs Stripped (XAUUSD).
         """
         # 1. Direct match
         ms = self.db.query(MarketSymbol).join(DataSource).filter(
@@ -28,17 +28,38 @@ class CandleRepository:
         if ms:
             return ms
 
-        # 2. Try normalized (slash -> underscore)
+        # 2. Try common variants (slash -> underscore, underscore -> none, etc.)
+        normalized_variants = []
         if "/" in symbol:
-            normalized_symbol = symbol.replace("/", "_")
+            normalized_variants.append(symbol.replace("/", "_"))
+            normalized_variants.append(symbol.replace("/", ""))
+        if "_" in symbol:
+            normalized_variants.append(symbol.replace("_", ""))
+        
+        # Also try the reverse: if input is XAUUSD, try XAU_USD or XAU/USD
+        # This is harder without knowing the split point, but we can check all active symbols
+        # and do a stripped comparison.
+        
+        for variant in normalized_variants:
             ms = self.db.query(MarketSymbol).join(DataSource).filter(
-                MarketSymbol.symbol == normalized_symbol,
+                MarketSymbol.symbol == variant,
                 DataSource.name == broker
             ).first()
             if ms:
                 return ms
+
+        # 3. Fallback: Stripped comparison (expensive but reliable for small symbol sets)
+        stripped_input = symbol.replace("_", "").replace("/", "").upper()
+        symbols = self.db.query(MarketSymbol).join(DataSource).filter(
+            DataSource.name == broker
+        ).all()
+        
+        for s in symbols:
+            if s.symbol.replace("_", "").replace("/", "").upper() == stripped_input:
+                return s
         
         return None
+
 
     def count_candles(self, market_symbol_id: Any, timeframe: str) -> int:
         return self.db.query(Candle).filter(

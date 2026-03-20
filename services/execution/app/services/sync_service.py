@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any
 from sqlalchemy.future import select
-from app.models import BrokerAccount, Trade, TradeStatus, TradeDirection
+from app.models import BrokerAccount, Trade, TradeStatus, TradeDirection, Fund
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.database import AsyncSessionLocal
@@ -80,15 +80,52 @@ class SyncService:
         db_result = await db.execute(db_stmt)
         db_trade_ids = {str(row[0]) for row in db_result.all() if row[0]}
 
-        # 3. Drift Detection Logic
+        # 3. Fetch Fund for settings
+        fund = await db.get(Fund, fund_id)
+        auto_protect = getattr(fund, "auto_protect_enabled", False)
+        emergency_pips = float(getattr(fund, "emergency_sl_pips", 500.0))
+
+        # 4. Drift Detection & Auto-Protect Logic
         redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
         
         for acc_id, live_trades in broker_states.items():
             account = next(a for a in accounts if str(a.id) == acc_id)
+            creds = decrypt_data(account.credentials_encrypted)
+            creds["environment"] = account.environment
+            adapter = BrokerFactory.get_adapter(account.broker_name, creds)
             
             for lt in live_trades:
                 btid = str(lt.get("id") or lt.get("broker_trade_id"))
                 
+                # [AUTO-PROTECT] Check if trade needs emergency SL
+                if auto_protect and not lt.get("sl"):
+                    try:
+                        # Fetch current price or entry to calculate SL
+                        entry_p = float(lt.get("price", 0))
+                        symbol = lt.get("symbol")
+                        side = lt.get("side", "BUY")
+                        
+                        if entry_p > 0:
+                            # Resolution: Need pip value for this symbol
+                            # cTrader adapter knows this via its internal cache
+                            _, _, _, digits = await adapter._resolve_symbol_id_and_lot_size(symbol)
+                            # Simple pip calc: 10^-digits * 10 (pip is usually 10 points)
+                            # For Gold (2 digits), point is 0.01. 500 pips = 50.0 points.
+                            # For FX (5 digits), point is 0.00001. 500 pips = 0.00500.
+                            # Standard MTF rule: 1.0 point = 10 pips.
+                            point_value = 10 ** -digits
+                            sl_dist = emergency_pips * point_value * 10
+                            
+                            new_sl = entry_p - sl_dist if side.upper() == "BUY" else entry_p + sl_dist
+                            new_sl = round(new_sl, digits)
+                            
+                            logger.info(f"🛡️ [Auto-Protect] Applying emergency SL {new_sl} to {symbol} trade {btid}")
+                            await adapter.amend_position(btid, sl_price=new_sl)
+                            # Update lt so consistency check below sees it
+                            lt["sl"] = new_sl
+                    except Exception as protect_err:
+                        logger.error(f"🛡️ [Auto-Protect] Failed to protect trade {btid}: {protect_err}")
+
                 # A. Ghost Trade Detection: In Broker but NOT in DB
                 if btid not in db_trade_ids:
                     msg = f"‼️ [GHOST TRADE] {account.broker_name} {account.account_name}: Trade {btid} ({lt.get('symbol')}, {lt.get('units')} units) exists in broker but MISSING in DB."
