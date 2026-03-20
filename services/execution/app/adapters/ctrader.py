@@ -10,6 +10,8 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAExecutionT
 from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAExecutionEvent
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 from app.utils.normalization import parse_iso_timestamp, units_to_standard_lots
+from app.core.units import UnitConverter
+from app.services.cache_service import execution_cache
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,6 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def _populate_symbol_cache(self):
         """Pre-hydrate symbol cache from execution cache / HTTP fallback for HFT-lite performance."""
         try:
-            from app.services.cache_service import execution_cache
             symbols = await execution_cache.get_symbols("CTRADER")
             if not symbols:
                  logger.error("cTrader: Failed to fetch symbols from cache/HTTP.")
@@ -129,18 +130,16 @@ class CTraderOrderAdapter(BrokerAdapter):
                         # Step volume is usually in 'cents' in the API, or 'units'.
                         # We prefer cents for math. Default to 100 cents (1 unit).
                         step_cents = int(details.get("step_volume_cents") or (float(details.get("step_volume", 0.01)) * 100) or 100)
-
-                        # Cache forward mapping (Name -> ID, LotSize, StepSize)
-                        self.__class__._symbol_cache[symbol] = (symbol_id, lot_size, step_cents)
-                        # Cache reverse mapping (ID -> Name, LotSize, StepSize)
-                        self.__class__._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size, step_cents)
-
-                        # Cache normalized names
-                        normalized = symbol.replace("_", "").replace("/", "").upper()
                         digits = int(details.get("digits", 2))
 
-                        # Cache by ID and name
-                        self.__class__._symbol_cache[f"ID_{symbol_id}"] = (normalized, lot_size, step_cents, digits)
+                        # Cache forward mapping (Original Name)
+                        self.__class__._symbol_cache[symbol] = (symbol_id, lot_size, step_cents, digits)
+                        
+                        # Cache reverse mapping (ID -> Name)
+                        self.__class__._symbol_cache[f"ID_{symbol_id}"] = (symbol, lot_size, step_cents, digits)
+
+                        # Cache normalized names for fuzzy matching
+                        normalized = symbol.replace("_", "").replace("/", "").upper()
                         self.__class__._symbol_cache[normalized] = (symbol_id, lot_size, step_cents, digits)
                     except (ValueError, TypeError) as e:
                         logger.warning(f"cTrader: Invalid symbol metadata for {symbol}: {e}")
@@ -152,7 +151,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             logger.error(f"cTrader: Failed to pre-hydrate symbol cache: {e}", exc_info=True)
 
     @classmethod
-    def _resolve_symbol_from_cache(cls, symbol_name: str) -> Optional[tuple[int, int]]:
+    def _resolve_symbol_from_cache(cls, symbol_name: str) -> Optional[tuple[int, int, int, int]]:
         normalized_name = symbol_name.replace("_", "").replace("/", "").upper()
         search_names = {symbol_name, symbol_name.replace("_", "/"), symbol_name.replace("/", "_"), normalized_name}
         for name in search_names:
@@ -206,21 +205,13 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             symbol_id, lot_size_cents, step_cents, digits = await self._resolve_symbol_id_and_lot_size(symbol)
 
-            # [VOL-Normalization] cTrader volume is in 1/100th of units (cents).
-            # Research confirms 1 lot = lot_size_cents (e.g. 10M for gold).
-            # BUT: our "units" are already in 1/10000 of a lot (e.g., 1000 = 0.1 lot)
-            # cTrader volume is in cents of a lot (minVolume=100 = 1 oz = 0.01 lot)
-            # So: volume_cents = units * lot_size_cents / 100
-            volume_cents = int(abs(units) * lot_size_cents / 100)
-
-            if volume_cents < step_cents:
-                volume_cents = int(step_cents)
-
+            # [VOL-Normalization] Case-Pro: Use Centralized UnitConverter
+            volume_cents = UnitConverter.internal_to_ctrader_volume(units, lot_size_cents, step_cents)
+            
             logger.info(f"cTrader Normalized: units={units} -> volume_cents={volume_cents} (lot_size={lot_size_cents}, step={step_cents})")
 
             # [RACE CONDITION FIX] Save context BEFORE create_order to prevent async fill arriving before context
             # Use symbol + direction as a temporary key since we don't know order_id yet
-            from app.services.cache_service import execution_cache
             pre_context = {
                 "trace_id": trade_id or "",
                 "signal_timestamp_ns": signal_timestamp_ns,
@@ -280,7 +271,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             # [HFT-lite] Save context for Async Fill Router IMMEDIATELY (Race Condition Fix)
             if order_id:
                 try:
-                    from app.services.cache_service import execution_cache
+                    # Context was already saved in pre-order step
                     context = {
                         "trace_id": trade_id or "",
                         "signal_timestamp_ns": signal_timestamp_ns,
@@ -413,16 +404,9 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             symbol_id, lot_size_cents, step_cents, digits = await self._resolve_symbol_id_and_lot_size(symbol)
 
-            # [PRICE-Normalization] cTrader ProtoOANewOrderReq fields (limitPrice, stopLoss, takeProfit) are DOUBLE.
-            # Research confirms they expect ABSOLUTE prices, not pipette-scaled integers.
-            # Reverting pipette scaling: use entry_price, sl_price, tp_price as-is.
-
-            # [VOL-Normalization] cTrader volume is in 1/100th of units (cents).
-            # Research confirms 1 lot = lot_size_cents (e.g. 10M for gold).
-            # BUT: our "units" are already in 1/10000 of a lot (e.g., 1000 = 0.1 lot)
-            # cTrader volume is in cents of a lot (minVolume=100 = 1 oz = 0.01 lot)
-            # So: volume_cents = units * lot_size_cents / 100
-            volume_cents = int(abs(units) * lot_size_cents / 100)
+            # [PRICE-Normalization] cTrader ProtoOANewOrderReq fields (limitPrice, stopLoss, takeProfit) are DOUBLE
+            # [VOL-Normalization] Case-Pro: Use Centralized UnitConverter
+            volume_cents = UnitConverter.internal_to_ctrader_volume(units, lot_size_cents, step_cents)
 
             if volume_cents < step_cents:
                 volume_cents = int(step_cents)
@@ -432,7 +416,6 @@ class CTraderOrderAdapter(BrokerAdapter):
             # OrderType: LIMIT
 
             # [RACE CONDITION FIX] Save context BEFORE create_order
-            from app.services.cache_service import execution_cache
             pre_context = {
                 "trace_id": trade_id or "",
                 "sl_price": sl_price or 0.0,
@@ -471,7 +454,6 @@ class CTraderOrderAdapter(BrokerAdapter):
             order_id = str(res.order.orderId) if res.HasField("order") else None
             if order_id:
                 try:
-                    from app.services.cache_service import execution_cache
                     context = {
                         "trace_id": trade_id or "",
                         "sl_price": sl_price or 0.0,
@@ -594,7 +576,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             results = []
             for d in deals:
                 if d.closePositionDetail: # This deal closed a position
-                    s_name, lot_size_cents, step_cents = self._resolve_name_from_id_cache(d.symbolId)
+                    s_name, lot_size_cents, step_cents, _ = self._resolve_name_from_id_cache(d.symbolId)
 
                     entry_p = d.closePositionDetail.entryPrice
                     exit_p = d.executionPrice
@@ -604,15 +586,15 @@ class CTraderOrderAdapter(BrokerAdapter):
 
                     from app.models import TradeStatus, TradeDirection
 
-                    direction = TradeDirection.LONG if d.tradeSide == ProtoOATradeSide.SELL else TradeDirection.SHORT
+                    direction = TradeDirection.LONG if d.tradeSide == ProtoOATradeSide.BUY else TradeDirection.SHORT
 
                     # Normalization
                     close_dt = parse_iso_timestamp(d.executionTimestamp)
                     open_dt = parse_iso_timestamp(d.createTimestamp)
 
-                    # volume is in cents in cTrader Protobuf
-                    units = (d.volume / float(lot_size_cents)) * 100000.0
-                    std_lots = units_to_standard_lots(units)
+                    # [VOL-Normalization] Use Pro UnitConverter
+                    units = UnitConverter.ctrader_volume_to_internal_units(d.volume, lot_size_cents)
+                    std_lots = UnitConverter.internal_to_standard_lots(units)
 
                     results.append({
                         "trade_id": str(d.dealId),
@@ -827,7 +809,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 s_name, lot_size_cents, step_cents, digits = self._resolve_name_from_id_cache(p.tradeData.symbolId)
 
                 # [VOL-Reverse-Normalization] cTrader cents to Universal units
-                units = (p.tradeData.volume / float(lot_size_cents)) * 100000.0
+                units = UnitConverter.ctrader_volume_to_internal_units(p.tradeData.volume, lot_size_cents)
 
                 positions.append({
                     "id": str(p.positionId),
@@ -876,7 +858,8 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             for o in reconcile.order:
                 s_name, lot_size_cents, step_cents, digits = self._resolve_name_from_id_cache(o.tradeData.symbolId)
-                norm_units = (o.tradeData.volume / float(lot_size_cents)) * 100000.0
+                # [VOL-Normalization] Use Pro UnitConverter
+                norm_units = UnitConverter.ctrader_volume_to_internal_units(o.tradeData.volume, lot_size_cents)
 
                 orders.append({
                     "id": str(o.orderId),
@@ -921,7 +904,8 @@ class CTraderMessageRouter:
     async def _process_execution_event(cls, msg: ProtoMessage):
         try:
             from app.services.fill_publisher import publish_fill
-            from app.services.cache_service import execution_cache
+            # Import here to avoid circular dependency
+            from app.adapters.ctrader import CTraderOrderAdapter
 
             event = ProtoOAExecutionEvent()
             event.ParseFromString(msg.payload)
@@ -942,16 +926,42 @@ class CTraderMessageRouter:
 
             # If not found, try pre-order context (race condition fix)
             if not context:
-                # Try to get symbol from order event
+                # Protobuf 3: scalar fields don't work with HasField if not marked optional
+                # tradeSide is an enum (scalar)
+                order_data = getattr(event, "order", None)
+                deal_data = getattr(event, "deal", None)
+                
+                symbol_id = None
+                if order_data and order_data.HasField("symbolId"):
+                    symbol_id = order_data.symbolId
+                elif deal_data and deal_data.HasField("symbolId"):
+                    symbol_id = deal_data.symbolId
+
                 symbol = "UNKNOWN"
-                direction = "LONG"
-                if event.HasField("order") and event.order.tradeSide:
-                    direction = "BUY" if event.order.tradeSide == ProtoOATradeSide.BUY else "SELL"
+                if symbol_id:
+                    # Need an instance of CTraderOrderAdapter to call _resolve_name_from_id_cache
+                    # This is a bit hacky, but avoids passing adapter instance around
+                    # Or, make _resolve_name_from_id_cache a static method if it doesn't need self
+                    # For now, we'll use the class method directly.
+                    symbol, _, _, _ = CTraderOrderAdapter._resolve_name_from_id_cache(symbol_id)
+                
+                direction = "UNKNOWN"
+                if order_data:
+                    ts = getattr(order_data, "tradeSide", None)
+                    if ts is not None:
+                        direction = "BUY" if ts == ProtoOATradeSide.BUY else "SELL"
+                elif deal_data:
+                    ts = getattr(deal_data, "tradeSide", None)
+                    if ts is not None:
+                        direction = "BUY" if ts == ProtoOATradeSide.BUY else "SELL"
 
                 pre_key = f"pre:{symbol}:{direction}"
                 context = await execution_cache.get_order_context(pre_key)
                 if context:
-                    logger.info(f"cTrader: Found pre-order context for {broker_order_id}")
+                    logger.info(f"cTrader: Found pre-order context for {broker_order_id} using pre_key {pre_key}")
+                else:
+                    logger.warning(f"cTrader: No pre-order context found for {broker_order_id} using pre_key {pre_key}")
+
 
             if not context:
                 logger.warning(f"cTrader: No context found for filled order {broker_order_id}. Manual or external order?")
@@ -963,57 +973,72 @@ class CTraderMessageRouter:
             trace_id = context.get("trace_id", "")
             symbol = context.get("symbol", "UNKNOWN")
 
-            # Need digits for scaling
-            # Default to 2 for XAUUSD (most common metal)
+            # Need digits for scaling (Default to 2 for XAUUSD)
             digits = 2
 
             # Get volume - from deal if available, otherwise from order.tradeData
             raw_volume = 0
+            close_volume = 0
+            gross_profit = 0.0
+            deal_id = None
+            
             if event.HasField("deal"):
                 raw_volume = event.deal.volume
+                deal_id = str(event.deal.dealId)
+                if hasattr(event.deal, "closePositionDetail") and event.deal.HasField("closePositionDetail"):
+                    close_volume = event.deal.volume
+                
+                # grossProfit is a scalar in Proto3, HasField will fail if not marked optional
+                # We use getattr with default 0.0
+                raw_gross = getattr(event.deal, "grossProfit", 0)
+                if raw_gross != 0:
+                    money_digits = getattr(event.deal, "moneyDigits", 2)
+                    gross_profit = float(raw_gross) / (10 ** money_digits)
             elif event.HasField("order") and event.order.HasField("tradeData"):
                 raw_volume = event.order.tradeData.volume
 
-            # Publish raw broker units (e.g. 100,000 for 1 lot, 1,000 for 0.01 lot)
-            units = float(raw_volume)
+            # 3. Handle Closure vs Fill
+            from app.services.fill_publisher import publish_fill, publish_close
 
-            # Prices
-            # Deal has the actual execution price
+            if close_volume > 0:
+                logger.info(f"cTrader: Async CLOSE received for Deal {deal_id} (Acc: {account_id}, PnL: {gross_profit})")
+                await publish_close(
+                    account_id=account_id,
+                    deal_id=deal_id,
+                    status="CLOSED",
+                    instrument=symbol,
+                    exit_price=float(getattr(event.deal, "executionPrice", 0.0)) if event.HasField("deal") else 0.0,
+                    exit_volume=float(close_volume),
+                    pnl=gross_profit,
+                    direction=context.get("direction", "LONG"),
+                    comment=context.get("comment", ""),
+                    trace_id=trace_id
+                )
+            else:
+                # Normal Fill (Entry)
+                fill_price = float(event.deal.executionPrice) if event.HasField("deal") else (
+                    float(event.order.executionPrice) if event.HasField("order") and event.order.executionPrice else 0.0
+                )
+                
+                sl_price = context.get("sl_price", 0.0)
+                tp_price = context.get("tp_price", 0.0)
 
-            raw_fill_price = 0.0
-            deal_id = None
-            if event.HasField("deal"):
-                 raw_fill_price = float(event.deal.executionPrice)
-                 deal_id = str(event.deal.dealId)
-            elif event.HasField("order") and event.order.executionPrice:
-                 raw_fill_price = float(event.order.executionPrice)
-
-            # ProtoOADeal.executionPrice is already absolute double
-            fill_price = raw_fill_price
-
-            sl_price = context.get("sl_price", 0.0)
-            tp_price = context.get("tp_price", 0.0)
-
-            # Logic: If SL/TP were hit, we might need to handle them differently
-            # but usually this flow is for Entry Fills.
-
-            # 3. Publish Fill
-            await publish_fill(
-                account_id=account_id,
-                trace_id=trace_id,
-                order_id=broker_order_id,
-                status="FILLED",
-                instrument=symbol,
-                fill_price=fill_price,
-                fill_volume=units,
-                sl_price=sl_price,
-                tp_price=tp_price,
-                direction=context.get("direction", "LONG" if units > 0 else "SHORT"),
-                comment=context.get("comment", ""),
-                deal_id=deal_id,
-                signal_timestamp_ns=context.get("signal_timestamp_ns"),
-                is_shadow=context.get("is_shadow", False)
-            )
+                await publish_fill(
+                    account_id=account_id,
+                    trace_id=trace_id,
+                    order_id=broker_order_id,
+                    status="FILLED",
+                    instrument=symbol,
+                    fill_price=fill_price,
+                    fill_volume=float(raw_volume),
+                    sl_price=sl_price,
+                    tp_price=tp_price,
+                    direction=context.get("direction", "LONG"),
+                    comment=context.get("comment", ""),
+                    deal_id=deal_id,
+                    signal_timestamp_ns=context.get("signal_timestamp_ns"),
+                    is_shadow=context.get("is_shadow", False)
+                )
 
             # 4. Amend Position with SL/TP if provided
             # Add small delay to allow cTrader to create position
@@ -1021,8 +1046,6 @@ class CTraderMessageRouter:
                 try:
                     # Wait 500ms for position to be ready
                     await asyncio.sleep(0.5)
-
-                    from app.services.cache_service import execution_cache
 
                     # Get broker_account_id (UUID) from cTrader account ID
                     broker_account_id = await execution_cache.get_broker_account_id_by_ctid(account_id)

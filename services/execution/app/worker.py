@@ -5,7 +5,8 @@ import os
 import uuid
 import redis.asyncio as redis
 import time
-from app.database import AsyncSessionLocal
+from app.core.config import settings
+from app.core.units import UnitConverter
 from app.services.order_service import OrderService
 from app.logging_config import setup_logging, set_correlation_id, reset_correlation_id
 
@@ -300,21 +301,21 @@ class FillTradeConsumer:
                 await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
                 return
 
-            # Compute derived fields
+            # [RISK-Calculation] Case-Pro: Use Centralized UnitConverter
+            # Standard units = volume_cents / 100.0 (e.g. 10000 -> 100 oz)
             risk_usd = 0.0
             rr_ratio = None
-            # Standard lots = abs(fill_volume) / 100000
-            # Our internal "units" need to be converted to standard lots (1 lot = 100000 units)
-            lot_size = abs(fill_volume) / 100000.0
-
+            
             if sl_price and fill_price:
-                sl_distance = abs(fill_price - sl_price)
-                # Simplified: risk per pip × distance (xauusd: 1 pip ≈ $1 per 0.01 lot)
-                risk_usd = round(sl_distance * lot_size * 100, 2)
-
-                if tp_price and sl_distance > 0:
+                price_diff = abs(fill_price - sl_price)
+                risk_usd = UnitConverter.calculate_risk_usd(price_diff, fill_volume)
+                
+                if tp_price and price_diff > 0:
                     tp_distance = abs(tp_price - fill_price)
-                    rr_ratio = round(tp_distance / sl_distance, 2)
+                    rr_ratio = round(tp_distance / price_diff, 2)
+
+            # lot_size for DB (Unified: 1 lot = 100,000 units)
+            lot_size = UnitConverter.internal_to_standard_lots(fill_volume)
 
             from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount
             from sqlalchemy import select as _select
@@ -352,7 +353,11 @@ class FillTradeConsumer:
                     uuid.NAMESPACE_DNS, f"{str(broker_account.id)}_{broker_order_id}"
                 )
 
-                direction = TradeDirection.LONG if direction_str == "LONG" else TradeDirection.SHORT
+                direction_str = direction_str.upper()
+                if direction_str in ["LONG", "BUY"]:
+                    direction = TradeDirection.LONG
+                else:
+                    direction = TradeDirection.SHORT
 
                 # Check if trade already exists (SyncService might have created it)
                 existing_trade = await db.get(Trade, trade_uuid)
@@ -423,6 +428,15 @@ class FillTradeConsumer:
                 
                 await db.commit()
             
+            # [STATISTICS] Phase 3: Update daily trade count in Redis
+            try:
+                stats_key = f"account_stats:trades_today:{broker_account.id}"
+                await self.redis.incr(stats_key)
+                # Set expiry to end of day (approximate)
+                await self.redis.expire(stats_key, 86400)
+            except Exception as stats_err:
+                logger.warning(f"[FillConsumer] Failed to update trades_today stat: {stats_err}")
+
             # XACK only after successful commit — ensures retry on failure
             await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
             logger.info(
@@ -435,6 +449,131 @@ class FillTradeConsumer:
             # Do NOT XACK — message stays in PEL for retry
 
 
+class CloseTradeConsumer:
+    """
+    [HFT-Lite] Reads closed trades from Redis Stream `execution.closed.stream`
+    Updates real-time statistics in Redis and persists closure to DB.
+    """
+
+    STREAM_KEY = "execution.closed.stream"
+    GROUP_NAME = "close-trade-writer"
+    CONSUMER_NAME = "close-trade-consumer-1"
+    BLOCK_MS = 5000
+
+    def __init__(self):
+        self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        self.redis = None
+        self._running = False
+
+    async def start(self):
+        logger.info(f"[CloseConsumer] Starting, listening on stream '{self.STREAM_KEY}'...")
+        self._running = True
+
+        while self._running:
+            try:
+                if not self.redis:
+                    self.redis = redis.from_url(self.redis_url, decode_responses=True)
+                    await self._ensure_consumer_group()
+
+                results = await self.redis.xreadgroup(
+                    groupname=self.GROUP_NAME,
+                    consumername=self.CONSUMER_NAME,
+                    streams={self.STREAM_KEY: ">"},
+                    count=10,
+                    block=self.BLOCK_MS,
+                )
+
+                if results:
+                    for _stream_name, messages in results:
+                        for msg_id, fields in messages:
+                            asyncio.create_task(self._process_close(msg_id, fields))
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"[CloseConsumer] Loop Error: {e}")
+                await asyncio.sleep(2)
+
+    async def stop(self):
+        self._running = False
+        if self.redis:
+            await self.redis.close()
+
+    async def _ensure_consumer_group(self):
+        try:
+            await self.redis.xgroup_create(self.STREAM_KEY, self.GROUP_NAME, id="0", mkstream=True)
+        except redis.ResponseError as e:
+            if "BUSYGROUP" not in str(e): raise
+
+    async def _process_close(self, msg_id: str, fields: dict):
+        try:
+            data = json.loads(fields.get("data", "{}"))
+            account_id_str = data.get("account_id")
+            deal_id = data.get("deal_id")
+            pnl = float(data.get("pnl", 0.0))
+            
+            from app.services.cache_service import execution_cache
+            broker_account_uuid = await execution_cache.get_broker_account_id_by_ctid(account_id_str)
+            
+            if not broker_account_uuid:
+                logger.warning(f"[CloseConsumer] Account mapping not found for {account_id_str}")
+                await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
+                return
+
+            # 1. Update Real-time Statistics in Redis (Phase 3)
+            # Daily PnL
+            pnl_key = f"account_stats:daily_pnl:{broker_account_uuid}"
+            await self.redis.incrbyfloat(pnl_key, pnl)
+            await self.redis.expire(pnl_key, 86400)
+
+            # Consecutive Losses
+            loss_key = f"account_stats:consecutive_losses:{broker_account_uuid}"
+            if pnl < 0:
+                await self.redis.incr(loss_key)
+            else:
+                await self.redis.set(loss_key, "0")
+            await self.redis.expire(loss_key, 86400)
+
+            # 2. Persist to DB
+            from app.models import Trade, TradeStatus
+            from sqlalchemy import select as _select
+            from datetime import datetime
+
+            async with AsyncSessionLocal() as db:
+                # Find the trade by broker_deal_id (cTrader uses dealId for the closure deal)
+                # or find by broker_trade_id (positionId)
+                # In cTraderAdapter, we use uuid.uuid5(account_id, order_id) where order_id is initial positionId
+                # Closures might need reconciliation.
+                
+                # For now, let's update all OPEN trades for this account and symbol that match the direction?
+                # Better: Use a dedicated reconciliation service or look up by broker_trade_id if stored.
+                stmt = _select(Trade).where(
+                    Trade.broker_account_id == uuid.UUID(broker_account_uuid),
+                    Trade.status == TradeStatus.OPEN,
+                    Trade.symbol == data.get("instrument")
+                )
+                result = await db.execute(stmt)
+                trades = result.scalars().all()
+                
+                for t in trades:
+                    # Simple heuristic: update the first matching open trade
+                    # (In production, dealId/positionId mapping is strict)
+                    t.status = TradeStatus.CLOSED
+                    t.exit_price = float(data.get("exit_price", 0.0))
+                    t.exit_timestamp = datetime.utcnow()
+                    t.pnl_usd = pnl
+                    break
+                
+                await db.commit()
+
+            await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
+            logger.info(f"[CloseConsumer] ✅ Account {broker_account_uuid} stats updated. PnL: {pnl}")
+
+        except Exception as e:
+            logger.error(f"[CloseConsumer] Error: {e}", exc_info=True)
+
+
 # Global instances
 worker = ExecutionWorker()
 fill_trade_consumer = FillTradeConsumer()
+close_trade_consumer = CloseTradeConsumer()

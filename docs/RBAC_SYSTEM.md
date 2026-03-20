@@ -29,8 +29,8 @@ Broker API keys and secrets are **never stored in plaintext**.
 
 ### 2.3. Internal Service Communication
 Microservices communicate over an internal network using **Internal API Keys**.
-- Header: `X-Internal-Key`
-- Verified by: `app.routers.internal.verify_internal_key`
+- Header: `X-Internal-API-Key`
+- Verified by: `app.routers.internal.verify_internal_api_key`
 
 ## 3. RBAC Enforcement Examples
 

@@ -9,6 +9,7 @@ from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
 from app.database import AsyncSessionLocal
 from app.core.config import settings
+from app.core.units import UnitConverter
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
@@ -177,9 +178,9 @@ class SyncService:
         side = live_trade.get("side", "BUY")
         direction = TradeDirection.LONG if side.upper() == "BUY" else TradeDirection.SHORT
         
-        # Standardized lots = units / 100,000.0 (e.g. 1000 -> 0.01)
+        # [VOL-Normalization] Use Centralized Pro UnitConverter
         units = float(live_trade.get("units", 0))
-        lot_size = abs(units) / 100000.0
+        lot_size = UnitConverter.internal_to_standard_lots(units)
         
         # Get price (entry price from broker)
         entry_price = float(live_trade.get("price", 0))

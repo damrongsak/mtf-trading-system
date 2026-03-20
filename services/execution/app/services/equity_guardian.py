@@ -10,7 +10,9 @@ import aiohttp
 from scipy import stats
 from app.core.config import settings
 from app.database import AsyncSessionLocal
-from app.models import Fund, BrokerAccount, Trade, TradeStatus
+from app.models import Fund, BrokerAccount, Trade, TradeStatus, DataSource
+from app.adapters.factory import BrokerFactory
+from app.utils.crypto import decrypt_data
 from sqlalchemy.future import select
 
 logger = logging.getLogger(__name__)
@@ -212,17 +214,30 @@ class EquityGuardian:
         else:
             k_ratio = slope / std_err
             
-        # Drawdown
+        # Drawdown (Relative to start of window)
         rolling_max = df['equity'].cummax()
         drawdown = df['equity'] - rolling_max
-        max_drawdown = drawdown.min()
+        max_drawdown = drawdown.min() # Largest negative dip
+        
+        # Capture the relative peak where the max drawdown occurred (for % calculation later)
+        # We find the index of the min drawdown
+        min_dd_idx = drawdown.idxmin()
+        peak_at_dd = rolling_max.loc[min_dd_idx]
+        
+        # Current Drawdown (Relative to current HWM)
+        current_equity = df['equity'].iloc[-1]
+        current_hwm = rolling_max.iloc[-1]
+        current_drawdown_usd = float(current_equity - current_hwm) # Negative or zero
         
         return {
             "updated_at": datetime.utcnow().isoformat(),
             "k_ratio": k_ratio,
             "r_squared": r_squared,
-            "max_drawdown": max_drawdown,
-            "total_pnl": float(df['equity'].iloc[-1]),
+            "max_drawdown_usd": float(max_drawdown),
+            "current_drawdown_usd": current_drawdown_usd,
+            "peak_relative_usd": float(peak_at_dd),
+            "current_hwm_usd": float(current_hwm),
+            "total_pnl": float(current_equity),
             "trade_count": len(df)
         }
 
@@ -238,36 +253,96 @@ class EquityGuardian:
         if df.empty or len(df) < 5:
             return
 
-        # 2. Offload heavy calculations to thread pool
+        # 2. Fetch Real-time Floating PnL from Broker
+        floating_pnl = 0.0
+        try:
+            async with AsyncSessionLocal() as db:
+                stmt = select(BrokerAccount).where(BrokerAccount.id == account_id)
+                res = await db.execute(stmt)
+                acc = res.scalar_one_or_none()
+                if acc:
+                    # [HFT-lite] Get credentials and fetch summary
+                    credentials = decrypt_data(acc.credentials_encrypted)
+                    credentials["environment"] = acc.environment
+                    adapter = BrokerFactory.get_adapter(acc.broker_name, credentials)
+                    
+                    summary = await adapter.get_account_summary()
+                    floating_pnl = float(summary.get("unrealized_net", 0.0))
+                    
+                    # Update balance_snapshot in DB for reconstruction accuracy
+                    acc.balance_snapshot = float(summary.get("balance", acc.balance_snapshot))
+                    await db.commit()
+                    logger.info(f"EquityGuardian: {account_id} Floating PnL=${floating_pnl:.2f}")
+        except Exception as e:
+            logger.error(f"EquityGuardian: Failed to fetch floating PnL for {account_id}: {e}")
+
+        # 3. Integrate Floating PnL into Curve
+        if floating_pnl != 0:
+            last_pnl = df['pnl'].iloc[-1]
+            # Create a synthetic "floating" record at the end
+            floating_row = pd.DataFrame([{
+                "timestamp": datetime.utcnow(),
+                "pnl": last_pnl + floating_pnl, # Total relative PnL if closed now
+                "id": "FLOATING"
+            }])
+            df = pd.concat([df, floating_row], ignore_index=True)
+
+        # 4. Offload heavy calculations to thread pool
         metrics = await asyncio.to_thread(self._calculate_metrics, df)
         
         if metrics:
             key = f"{self.projections.metrics_key_prefix}{account_id}"
             await self.redis.set(key, json.dumps(metrics))
-            logger.info(f"Analyzed {account_id}: K-Ratio={metrics['k_ratio']:.2f}, R2={metrics['r_squared']:.2f}, DD={metrics['max_drawdown']:.2f}")
+            logger.info(f"Analyzed {account_id}: K-Ratio={metrics['k_ratio']:.2f}, R2={metrics['r_squared']:.2f}, Current DD={metrics['current_drawdown_usd']:.2f}")
 
-            # 3. Automated Drawdown Enforcement (Institutional Phase 56)
+            # 5. Automated Drawdown Enforcement (Institutional Phase 56)
             await self._check_risk_breach(account_id, metrics)
 
     async def _check_risk_breach(self, account_id: str, metrics: dict):
-        """Check if drawdown exceeds institutional limits."""
+        """Check if drawdown exceeds institutional limits (Phase 3/Phase 56)."""
         async with AsyncSessionLocal() as db:
-            # Fetch fund threshold
-            stmt = select(Fund).join(BrokerAccount, Fund.id == BrokerAccount.fund_id).where(BrokerAccount.id == account_id)
+            # Fetch fund threshold AND current account snapshot
+            stmt = select(Fund, BrokerAccount).join(
+                BrokerAccount, Fund.id == BrokerAccount.fund_id
+            ).where(BrokerAccount.id == account_id)
             result = await db.execute(stmt)
-            fund = result.scalar_one_or_none()
+            res = result.first()
+            
+            if not res:
+                return
+            
+            fund, account = res
             
             if not fund or not fund.max_drawdown_threshold:
                 return
 
-            threshold = float(fund.max_drawdown_threshold)
-            current_drawdown = abs(metrics.get("max_drawdown", 0.0))
+            # Institutional Logic: Threshold is a percentage (e.g. 3.0 means 3%)
+            threshold_pct = float(fund.max_drawdown_threshold)
             
-            # If current_drawdown is > threshold (e.g. 5.0% threshold, 6.2% drawdown)
-            # Note: metrics['max_drawdown'] is negative, so we use abs()
-            if current_drawdown >= threshold:
-                logger.critical(f"🚨 [RISK BREACH] Account {account_id} drawdown ({current_drawdown:.2f}) exceeded threshold ({threshold:.2f})!")
-                await self._trigger_hard_stop(fund.id, account_id, f"Drawdown breach: {current_drawdown:.2f} >= {threshold:.2f}")
+            # Use current balance and unrealized PnL to reconstruct the absolute HWM
+            current_balance = float(account.balance_snapshot or 0.0)
+            total_pnl = float(metrics.get("total_pnl", 0.0))
+            current_hwm_rel = float(metrics.get("current_hwm_usd", 0.0))
+            current_drawdown_usd = abs(float(metrics.get("current_drawdown_usd", 0.0)))
+            
+            # Reconstruction:
+            # start_balance = current_balance - total_pnl (closed)
+            # current_hwm_abs = start_balance + current_hwm_rel
+            
+            start_balance = current_balance - total_pnl
+            current_hwm_abs = start_balance + current_hwm_rel
+            
+            if current_hwm_abs <= 0:
+                logger.warning(f"EquityGuardian: Cannot calculate drawdown for {account_id} (HWM Absolute <= 0)")
+                return
+                
+            current_drawdown_pct = (current_drawdown_usd / current_hwm_abs) * 100
+            
+            logger.info(f"Risk Check {account_id}: Current DD={current_drawdown_pct:.2f}%, HWM=${current_hwm_abs:.2f}, Threshold={threshold_pct:.2f}%")
+            
+            if current_drawdown_pct >= threshold_pct:
+                logger.critical(f"🚨 [RISK BREACH] Account {account_id} current drawdown ({current_drawdown_pct:.2f}%) exceeded threshold ({threshold_pct:.2f}%)!")
+                await self._trigger_hard_stop(fund.id, account_id, f"Current Drawdown % breach: {current_drawdown_pct:.2f}% >= {threshold_pct:.2f}%")
 
     async def _trigger_hard_stop(self, fund_id: str, account_id: str, reason: str):
         """Halt all trading for the fund and close all positions."""

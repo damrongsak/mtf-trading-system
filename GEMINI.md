@@ -212,10 +212,15 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
     ```
 
 ## 🔑 Key Logic & Constraints (Phases 1-28)
-*   **Symbol Naming Standard (CRITICAL)**:
-    - All symbols in the database MUST use the **underscore separator** (e.g., `XAU_USD`, `EUR_USD`, `BTC_USD`).
-    - **NEVER** use slashes (e.g., `XAU/USD`) or raw strings (e.g., `XAUUSD`) in the `market_symbols` table. 
-    - The `execution` adapters (e.g., cTrader) handle internal normalization automatically.
+*   **Unit & Lot Standardization Rules (CRITICAL)**:
+    - **Internal Standard**: All services MUST use the **100,000 units = 1.0 Standard Lot** convention internally.
+    - **Zero-Math Adapter Rule**: Adapters MUST use `app.core.units.UnitConverter` for all volume normalization. No ad-hoc math allowed.
+    - **Broker Conversion**:
+        - `broker_volume_cents = internal_units * (broker_lot_size_cents / 100,000)`
+        - `standard_broker_units = broker_volume_cents / 100.0`
+    - **Risk Calculation**:
+        - `risk_usd = abs(price_diff) * standard_broker_units`
+    - **Metadata Reliance**: Always fetch `lot_size` from symbol `details` or the centralized cache. Never hardcode divisors for non-Forex symbols.
 *   **cTrader Symbol Metadata (details field)**:
     - For cTrader-linked symbols, the `details` JSONB field MUST contain:
         - `symbol_id`: The numeric ID from cTrader (e.g., `"1"` for Gold).

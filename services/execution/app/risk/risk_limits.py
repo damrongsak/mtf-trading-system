@@ -86,21 +86,15 @@ class RiskLimitsAgent:
         """
         abs_units = abs(units)
         
-        # cTrader/IC Markets Standard:
-        # 1.00 Lot Gold = 100 units
-        # 0.01 Lot Gold = 1 unit
-        # 1.00 Lot Forex = 100,000 units
-        # 0.01 Lot Forex = 1,000 units
-        
+        # [INSTITUTIONAL] Guardrail: 
+        # Instead of hardcoded 0.01 lot, we log a warning for large sizes 
+        # but allow the Risk Citadel (Layer 4) filters to perform the actual rejection.
         is_gold = "XAU" in symbol.upper() or "GOLD" in symbol.upper()
-        max_allowed_units = 1.0 if is_gold else 1000.0
         
-        if abs_units > max_allowed_units:
-            lot_equivalent = abs_units / (100.0 if is_gold else 100000.0)
-            raise ValueError(
-                f"Risk Violation: Order size {lot_equivalent:.4f} Lots exceeds "
-                f"maximum allowed (0.01 Lot) for IC Markets safety guardrail."
-            )
+        # Log warning if size exceeds 0.1 Lot (10 units Gold, 10k Forex)
+        warning_threshold = 10.0 if is_gold else 10000.0
+        if abs_units > warning_threshold:
+            logger.warning(f"Large Order Warning: {symbol} {units} units. Proceeding to Risk Citadel filters.")
         
         return True
 

@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 FILL_KEY_PREFIX = "execution:fills"
 FILL_STREAM_KEY = "execution.filled.stream"
+CLOSED_STREAM_KEY = "execution.closed.stream"
 FILL_TTL = 300  # 5 minutes — fills are important, must not expire too fast
 STREAM_MAXLEN = 10000  # Cap stream length to prevent unbounded growth
 
@@ -143,4 +144,68 @@ async def publish_fill(
             f"[H2] Failed to publish fill event: trace_id={trace_id} error={e}. "
             f"Order still executed — client will not receive fill callback."
         )
+        return False
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=False
+)
+async def publish_close(
+    account_id: str,
+    deal_id: str,
+    status: str,
+    instrument: str,
+    exit_price: float,
+    exit_volume: float,
+    pnl: float,
+    direction: str,
+    comment: str = "",
+    trace_id: Optional[str] = None,
+) -> bool:
+    """
+    [H2] Publish a broker close event to:
+      - Redis Stream (CloseTradeConsumer → Stats/DB)
+    """
+    import redis.asyncio as aioredis
+    import os
+
+    payload = {
+        "account_id":  str(account_id),
+        "deal_id":     str(deal_id),
+        "status":      status,
+        "exit_price":  exit_price,
+        "exit_volume": exit_volume,
+        "pnl":         pnl,
+        "instrument":  instrument,
+        "close_time":  time.time(),
+        "direction":   direction,
+        "comment":     comment,
+        "trace_id":    trace_id or "",
+    }
+    payload_json = json.dumps(payload)
+
+    try:
+        rc = aioredis.from_url(os.environ.get("REDIS_URL", "redis://redis:6379/0"))
+        async with rc:
+            await rc.xadd(
+                CLOSED_STREAM_KEY,
+                {"data": payload_json},
+                maxlen=STREAM_MAXLEN,
+                approximate=True,
+            )
+            
+            # Also publish to WS channel for frontend
+            ws_key = f"{FILL_KEY_PREFIX}:{account_id}"
+            await rc.lpush(ws_key, payload_json)
+            await rc.expire(ws_key, FILL_TTL)
+
+        logger.info(
+            f"[H2] Close published: account={account_id} deal={deal_id} "
+            f"pnl={pnl} instrument={instrument}"
+        )
+        return True
+    except Exception as e:
+        logger.error(f"[H2] Failed to publish close event: {e}")
         return False

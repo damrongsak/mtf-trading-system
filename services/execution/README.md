@@ -38,6 +38,19 @@ graph TD
     ADAPT -->|WebSocket| CT
 ```
 
+### 🛡️ Institutional Normalization Algorithm (cTrader/IC Markets)
+
+To ensure zero-math drift across disparate asset classes (Gold vs. Forex), the service enforces a strict normalization pipeline:
+
+1. **Signal Ingest**: Receives `units` from Strategy Core (e.g., 5000 units).
+2. **Metadata Lookup**: Fetches `(symbol_id, lot_size_cents, step_cents, digits)` from L3 Cache.
+   - *Example (IC Markets Gold)*: `lot_size_cents=10000000`, `digits=2`, `step_cents=100`.
+3. **Volume Conversion**: `volume_cents = internal_units * (broker_lot_size_cents / 100,000)`.
+   - *Result*: 5000 units → 500,000 cTrader volume cents (rounded to 1 unit step).
+4. **Price Rounding**: All SL/TP prices are rounded to `digits` (e.g., `round(2150.1234, 2)` → `2150.12`).
+5. **Execution**: Sends Protobuf `ProtoOANewOrderReq` with absolute rounded prices and normalized volume.
+6. **Fill Routing**: Receives `volume` from `ExecutionEvent`, converts back via `UnitConverter.ctrader_volume_to_internal_units` for DB persistence.
+
 ## 🎯 Core Responsibilities
 
 - **HFT-lite Execution Core**: Non-blocking, parallel risk validation with <100ms latency targets.
@@ -59,6 +72,7 @@ graph TD
     - **TCP_NODELAY**: Immediate packet transmission (disabled Nagle's).
     - **Latency Tracing**: Automatic timestamping of `Signal -> Fill` round-trips.
     - **Comprehensive L3 Adapter Cache**: DB-hydrated in-memory symbol and contract mapping for sub-millisecond execution resolution.
+    - **[P58] Institutional "Zero-Math" Normalization**: Centralized all unit, lot, and risk math into `UnitConverter`. Services no longer perform ad-hoc math; they consume standardized units (100,000 internal units = 1.0 Standard Lot).
     - **Connection Warm-up**: Proactive broker session initialization.
 - **🛡️ Shadow Trading Support**:
     - **Status**: (Planned) `is_shadow` flag in deployment config.
@@ -88,6 +102,11 @@ graph TD
 - **✅ Phase 57 — AI-Driven Risk Rebalancer** (Complete 2026-03-19):
     - **[P57-1] Internal Risk Config Endpoint**: `GET /funds/{fund_id}/risk-config` — provides direct DB access for AI Analyst (bypasses Gateway to avoid reentrant deadlocks).
     - **[P57-2] Dynamic Threshold Refresh**: `EquityGuardian` now listens for `RISK_REBALANCE_APPLIED` events on Redis `system:events` channel and invalidates its threshold cache, forcing a fresh DB read on the next analysis cycle.
+- **✅ Phase 58 — Institutional "Zero-Math" & cTrader Metadata** (Complete 2026-03-20):
+    - **[P58-1] Universal Unit Standard**: Enforced **100,000 units = 1.0 Standard Lot** system-wide. All adapters (cTrader, OANDA) must normalize volume via `UnitConverter`.
+    - **[P58-2] 4-Tuple Symbol Cache**: Upgraded cTrader L3 cache to `(symbol_id, lot_size_cents, step_cents, digits)`. This enables precise risk calculation and price rounding for complex assets like **Gold (XAU/USD)** and **Crypto**, specifically optimized for brokers like **IC Markets**.
+    - **[P58-3] Resilient Sync & Fill**: Refactored `SyncService` and `FillTradeConsumer` to use standardized lot scaling, ensuring DB-Broker parity.
+    - **[P58-4] Shadowing Fixes**: Resolved Python scoping (UnboundLocalError) and shadowing issues in `ctrader.py` to ensure high-concurrency event processing.
 
 ## 🤖 AI-Agent Operational Guide
 

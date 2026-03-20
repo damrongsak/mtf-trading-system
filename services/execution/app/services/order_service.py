@@ -19,6 +19,7 @@ from app.filters.liquidity_filter import LiquidityFilter
 from app.risk.risk_limits import RiskLimitsAgent
 from app.services.cache_service import execution_cache
 from app.services.price_service import price_service
+from app.core.units import UnitConverter
 import asyncio
 import time
 
@@ -212,9 +213,11 @@ class OrderService:
             # 5. Position Sizing (Risk Parity vs Standard)
             sizing_start = time.time()
             
+            # Resolve Symbol Metadata for accurate sizing
+            _, lot_size_cents, _, _ = await adapter._resolve_symbol_id_and_lot_size(req_data["symbol"])
+            
             # Default to standard risk calculation
             units = req_data.get("units")
-            target_risk = None
             
             if getattr(fund, "risk_parity_enabled", False):
                 # [INSTITUTIONAL] Try Risk Parity Sizing
@@ -225,8 +228,6 @@ class OrderService:
                     if target_weight > 0:
                         # Fetch current price for sizing
                         current_price = await adapter.get_current_price(req_data["symbol"])
-                        # We need account equity. Use balance_snapshot from DB as proxy in hot path
-                        # or NAV from account cache if fresh.
                         equity = float(account.balance_snapshot or (await adapter.get_account_summary()).get("NAV", 0))
                         
                         risk_capital = equity * target_weight
@@ -234,29 +235,42 @@ class OrderService:
                         logger.info(f"⚖️ [RiskParity] Sizing: weight={target_weight}, equity=${equity}, units={units}")
                         # Calculate implied risk for the safety cap check below
                         if stop_loss:
-                            target_risk = abs(current_price - stop_loss) * units * 100 # Adjusted for XAU/USD pip value
+                            # Use Pro UnitConverter for Risk calculation
+                            # units here are standard units (oz/base), we need to convert to volume_cents
+                            vol_cents = units * 100 # standard units to cents
+                            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - stop_loss), vol_cents)
             
-            if not units:
-                # Fallback: Standard Risk-Based Sizing (1% of NAV)
-                target_risk = min(fund_limit, 10.0) # Hard cap at $10 for now
+            # Fallback to Standard Risk-Based Sizing if units not yet set
+            if units is None:
+                # Use requested risk or the calculated effective limit
+                sizing_risk = target_risk if target_risk is not None else effective_limit
+                
                 current_price = await adapter.get_current_price(req_data["symbol"])
                 sl_distance = abs(current_price - stop_loss)
                 if sl_distance == 0:
                     raise ValueError("Stop loss cannot be equal to entry price")
                 
-                # units = (risk_usd / (distance * 100)) * 100,000
-                units = (target_risk / (sl_distance * 100)) * 100000
-                logger.info(f"🛡️ [StandardRisk] Sizing: risk=${target_risk}, dist={sl_distance}, units={units}")
+                # [VOL-Normalization] Use Pro UnitConverter to calculate size
+                units = UnitConverter.calculate_size_from_risk(sizing_risk, sl_distance, lot_size_cents)
+                logger.info(f"🛡️ [StandardRisk] Sizing: risk=${sizing_risk}, dist={sl_distance}, units={units}")
 
             # 6. Safety Guardrails (Cap Risk)
-            if target_risk and target_risk > fund_limit:
-                 logger.warning(f"⚠️ [Guardrail] Risk ${target_risk} exceeds fund limit ${fund_limit}. Capping.")
-                 units = (fund_limit / target_risk) * units
-                 target_risk = fund_limit
+            # Recalculate risk for final verification using official converter
+            # Convert units (internal) to volume_cents (broker) first
+            final_vol_cents = units * (lot_size_cents / 100000.0)
+            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - stop_loss), final_vol_cents)
 
+            if target_risk > effective_limit:
+                 logger.warning(f"⚠️ [Guardrail] Risk ${target_risk} exceeds fund limit ${fund_limit}. Capping.")
+                 if units is not None:
+                     units = (fund_limit / target_risk) * units
+                 target_risk = fund_limit
+            
             await OrderService._log_trace(trace_id, "sizing_calc", sizing_start)
             direction = req_data.get("direction")
             if direction == "BULLISH":
+                if units is None:
+                    logger.error(f"[ERROR] units is None for BULLISH order. req_data={req_data}")
                 units = abs(units)
                 if stop_loss >= entry_ref:
                     raise ValueError("Long SL must be below Entry Price")
