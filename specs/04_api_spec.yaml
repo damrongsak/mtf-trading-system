@@ -2628,6 +2628,44 @@ paths:
                     type: string
                   rows_processed:
                     type: integer
+  /api/v1/execution/inspect/account/{account_id}/symbol/{symbol}:
+    get:
+      summary: Diagnostic endpoint for hierarchical execution normalization
+      description: Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+      tags: [Execution, Diagnostic]
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hierarchical diagnostic output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      context:
+                        type: object
+                      normalization:
+                        type: object
+                      dry_run:
+                        type: object
+                      formula:
+                        type: string
   /api/v1/execution/trades/open:
     post:
       summary: Get open trades directly from broker

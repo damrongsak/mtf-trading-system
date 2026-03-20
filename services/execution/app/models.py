@@ -41,7 +41,7 @@ class BrokerAccount(Base):
     fund_id = Column(UUID(as_uuid=True), nullable=False) # ForeignKey not enforced in execution app models usually unless imported, but field MUST exist
     
     broker_name = Column(String, nullable=False)
-    account_name = Column(String, nullable=False)
+    account_name = Column(String, nullable=True) # Renamed or added to match DB
     account_number = Column(String, nullable=True)
     
     credentials_encrypted = Column(JSONB, nullable=False) # Maps to jsonb in DB
@@ -77,12 +77,15 @@ class Fund(Base):
     __tablename__ = "funds"
     
     id = Column(UUID(as_uuid=True), primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String, nullable=True)
     strategy_type = Column(String, nullable=False) 
     max_risk_per_trade = Column(Numeric(10, 2), nullable=False)
     risk_percentage = Column(Numeric(5, 4), default=0.01) 
-    asset_classes = Column(JSON, nullable=False) # execution app uses JSON for this
+    asset_classes = Column(JSON, nullable=False) 
     default_lot_size = Column(Numeric(10, 2), nullable=False)
     max_drawdown_threshold = Column(Numeric(10, 2), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     risk_parity_enabled = Column(Boolean, default=False)
     risk_parity_model = Column(SQLEnum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")

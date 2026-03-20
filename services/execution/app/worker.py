@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.units import UnitConverter
 from app.services.order_service import OrderService
 from app.logging_config import setup_logging, set_correlation_id, reset_correlation_id
+from app.database import AsyncSessionLocal
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -285,13 +286,20 @@ class FillTradeConsumer:
             data = json.loads(fields.get("data", "{}"))
             logger.info(f"[FillConsumer] Processing fill data: {data}")
 
+            # Initialize variables to avoid UnboundLocalError
+            sl_price = 0.0
+            tp_price = 0.0
+            
             account_id_str = data.get("account_id", "")
             broker_order_id = data.get("order_id", "")
             symbol = data.get("instrument", "")
             fill_price = float(data.get("fill_price") or data.get("price") or 0.0)
             fill_volume = float(data.get("fill_volume") or data.get("units") or 0.0)
-            sl_price = float(data.get("sl_price") or 0.0)
-            tp_price = float(data.get("tp_price") or 0.0)
+            
+            if data.get("sl_price"):
+                sl_price = float(data.get("sl_price"))
+            if data.get("tp_price"):
+                tp_price = float(data.get("tp_price"))
 
             direction_str = data.get("direction", "LONG")
             comment = data.get("comment", "Manual")

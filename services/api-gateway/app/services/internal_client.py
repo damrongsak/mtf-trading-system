@@ -277,6 +277,18 @@ class ExecutionClient(BaseInternalClient):
             logger.error(f"Failed to fetch open trades: {e}")
             raise
 
+    async def inspect_execution(self, broker_account_id: str, symbol: str) -> Dict[str, Any]:
+        """Diagnostic endpoint to explain normalization logic"""
+        try:
+            resp = await self._request(
+                "GET", f"/inspect/account/{broker_account_id}/symbol/{symbol}",
+                timeout=30.0
+            )
+            return resp.json().get("data", {})
+        except Exception as e:
+            logger.error(f"Failed to inspect execution: {e}")
+            raise
+
 # Singleton instances for use across the application
 strategy_client = StrategyClient()
 execution_client = ExecutionClient()

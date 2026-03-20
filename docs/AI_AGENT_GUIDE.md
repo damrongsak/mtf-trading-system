@@ -99,8 +99,9 @@ Subscribe to these for event-driven logic:
 ### 3. Order Fills & Persistence (HFT-Lite)
 Monitor the `execution.filled.stream` for real-time trade updates.
 - **DECOUPLED PERSISTENCE**: The API Gateway MUST NOT create any `Trade` records. Persistence is handled exclusively by the Execution Service background worker to prevent zero-price placeholders.
-- **LOT SCALING STANDARD**: Raw broker units must be scaled to standard lot sizes using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots). This standard is universal across all persistence and sync logic.
-- **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification to enable cross-service reconciliation.
+- **LOT SCALING STANDARD**: Raw broker units must be scaled to standard lot sizes using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots). This standard is universal.
+- **HIERARCHICAL CONTEXT**: AI agents MUST resolve the `User -> Fund -> Account -> Symbol` hierarchy before execution. Refer to [Institutional Execution Standard](file:///home/dan/workspace/mtf-trading-system/docs/INSTITUTIONAL_EXECUTION_STANDARD.md) for formulas.
+- **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification.
 
 ## 🏁 Summary Checklist
 - [ ] Parse `04_api_spec.yaml`.

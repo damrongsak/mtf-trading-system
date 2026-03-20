@@ -215,12 +215,8 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 *   **Unit & Lot Standardization Rules (CRITICAL)**:
     - **Internal Standard**: All services MUST use the **100,000 units = 1.0 Standard Lot** convention internally.
     - **Zero-Math Adapter Rule**: Adapters MUST use `app.core.units.UnitConverter` for all volume normalization. No ad-hoc math allowed.
-    - **Broker Conversion**:
-        - `broker_volume_cents = internal_units * (broker_lot_size_cents / 100,000)`
-        - `standard_broker_units = broker_volume_cents / 100.0`
-    - **Risk Calculation**:
-        - `risk_usd = abs(price_diff) * standard_broker_units`
-    - **Metadata Reliance**: Always fetch `lot_size` from symbol `details` or the centralized cache. Never hardcode divisors for non-Forex symbols.
+    - **Hierarchical Logic**: Every trade follows the `User -> Fund -> BrokerAccount -> Symbol` chain. Agents MUST resolve this hierarchy before execution.
+    - **Official Spec**: Refer to [INSTITUTIONAL_EXECUTION_STANDARD.md](file:///home/dan/workspace/mtf-trading-system/docs/INSTITUTIONAL_EXECUTION_STANDARD.md) for detailed formulas and data flow.
 *   **cTrader Symbol Metadata (details field)**:
     - For cTrader-linked symbols, the `details` JSONB field MUST contain:
         - `symbol_id`: The numeric ID from cTrader (e.g., `"1"` for Gold).
@@ -229,8 +225,10 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
         - `digits`: Price decimal places.
         - `minLot`, `maxLot`, `step_volume`: Order volume constraints.
     - These fields are cached in-memory by the `execution` service (HFT-lite path). Missing fields will cause trade calculation failures.
-    - **Standardized Lot Scaling**: Broker units MUST be divided by **100,000.0** to get standard lot sizes (e.g., 1000 units = 0.01 lots).
-    - **Deterministic UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification to enable cross-service reconciliation (Worker <-> Sync).
+    - **LOT SCALING STANDARD**: Raw broker units must be scaled to standard lot sizes using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots). This standard is universal across all persistence and sync logic.
+- **HIERARCHICAL CONTEXT**: AI agents MUST resolve the `User -> Fund -> Account -> Symbol` hierarchy before execution. Refer to the [INSTITUTIONAL_EXECUTION_STANDARD.md](file:///home/dan/workspace/mtf-trading-system/docs/INSTITUTIONAL_EXECUTION_STANDARD.md) for technical formulas.
+- **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification to enable cross-service reconciliation.
+ (Worker <-> Sync).
 *   **Seeding & Environment Standards:**
     *   **Timeframes:** `["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]` (M1 is required for execution confirm).
     *   **Symbols:** `EUR_USD`, `USD_JPY`, `BTC_USD`, `XAU_USD`, `WTI_USD`.

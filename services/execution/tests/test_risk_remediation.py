@@ -25,7 +25,9 @@ async def test_equity_guardian_percentage_drawdown():
     metrics = {
         "total_pnl": 1000.0,
         "max_drawdown_usd": -300.0,
-        "peak_relative_usd": 1500.0
+        "current_drawdown_usd": -300.0,
+        "peak_relative_usd": 1500.0,
+        "current_hwm_usd": 1500.0
     }
     
     mock_fund = Fund(
@@ -54,6 +56,7 @@ async def test_equity_guardian_percentage_drawdown():
             
             # Now trigger a breach: DD -500 -> (500 / 10,500) * 100 = 4.76%
             metrics["max_drawdown_usd"] = -500.0
+            metrics["current_drawdown_usd"] = -500.0
             await guardian._check_risk_breach(account_id, metrics)
             mock_stop.assert_called_once()
 
@@ -77,11 +80,12 @@ async def test_redis_stats_updates_fill():
         mock_session_factory.return_value.__aenter__.return_value = mock_session
         
         mock_res = MagicMock()
-        mock_res.scalar_one_or_none.return_value = mock_account
+        mock_res.scalars.return_value.first.return_value = mock_account
         mock_session.execute.return_value = mock_res
         
-        # Mock scalar to return account first, then None for existing trade
+        # Mock scalar to return account first, then None for existing trade (Legacy/Safety)
         mock_session.scalar.side_effect = [mock_account, None]
+        mock_session.get.return_value = None # Ensure new trade creation
         
         fields = {"data": json.dumps({
             "account_id": "123", 

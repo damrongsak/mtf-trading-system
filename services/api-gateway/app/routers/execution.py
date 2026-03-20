@@ -504,6 +504,35 @@ async def get_accounts(
         logger.error(f"Failed to get accounts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/inspect/account/{account_id}/symbol/{symbol}")
+async def inspect_execution(
+    account_id: str,
+    symbol: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Diagnostic endpoint to explain unit-to-volume normalization and risk context.
+    Proxies to the Execution Service.
+    """
+    try:
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+            
+        data = await execution_client.inspect_execution(str(account.id), symbol)
+        return success_response(data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error inspecting execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/smart-orders")
 async def place_smart_order(
     payload: Dict[str, Any],

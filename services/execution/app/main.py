@@ -1,23 +1,28 @@
+import logging
+import asyncio
+import math
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, List
+
 from fastapi import FastAPI, HTTPException, Depends, Body, Path
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import desc, func
+from oandapyV20.exceptions import V20Error
+import redis.asyncio as redis
+
+from app.logging_config import setup_logging
+from app.database import get_db
+from app.models import BrokerAccount, Trade, TradeStatus
+from app.utils.crypto import decrypt_data
 from app.utils.response import success_response, error_response
 from app.schemas.response import APIResponse
 from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
-import logging
-import asyncio
-from app.database import get_db
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
-from app.models import BrokerAccount, Trade, TradeStatus
-from app.utils.crypto import decrypt_data
-from sqlalchemy import desc, func
-import uuid
-import math
-from oandapyV20.exceptions import V20Error
 from app.services.order_service import OrderService
 from app.services.cache_service import execution_cache
 from app.worker import worker, fill_trade_consumer, close_trade_consumer
@@ -27,9 +32,11 @@ from app.services.equity_guardian import EquityGuardian
 from app.services.janitor_service import JanitorService
 from app.services.oanda_streamer import MultiStreamManager
 from app.core.config import settings
-import redis.asyncio as redis
-from fastapi.security import APIKeyHeader
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
+
+# Setup Logger
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Security
 API_KEY_NAME = "X-Internal-API-Key"
@@ -42,11 +49,6 @@ async def verify_internal_api_key(api_key: str = Depends(api_key_header)):
             detail="Could not validate credentials for internal service access",
         )
     return api_key
-
-# Setup Logger
-from app.logging_config import setup_logging
-setup_logging()
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Execution Service")
 
@@ -124,7 +126,7 @@ async def _warmup_execution_cache():
         
         async with AsyncSessionLocal() as db:
             # 1. Fetch all active accounts
-            result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active == True))
+            result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active))
             accounts = result.scalars().all()
             
             if not accounts:
@@ -183,7 +185,7 @@ async def _warmup_execution_cache():
                             RiskFilter.target_id == fund.id
                         ]
                         filter_res = await db.execute(
-                            select(RiskFilter).where(RiskFilter.is_enabled == True).where(or_(*conditions))
+                            select(RiskFilter).where(RiskFilter.is_enabled).where(or_(*conditions))
                         )
                         filters = filter_res.scalars().all()
                         filters_raw = [
@@ -445,6 +447,101 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         # Expose error detail for debugging (in dev/test envs this is acceptable)
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
+@app.get("/inspect/account/{account_id}/symbol/{symbol}", response_model=APIResponse[Dict[str, Any]])
+async def inspect_hierarchical_normalization(
+    account_id: str, 
+    symbol: str, 
+    authenticated: str = Depends(verify_internal_api_key),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Diagnostic endpoint to explain unit-to-volume normalization and risk context.
+    Provides transparency for the "Zero-Math" Institutional Standard.
+    """
+    try:
+        from app.core.units import UnitConverter
+        from app.models import Fund
+        import uuid
+
+        # 1. Resolve Account & Credentials
+        account, credentials = await get_account_and_credentials(account_id, db)
+        
+        # 2. Resolve Fund Risk Context
+        fund_data = None
+        if hasattr(account, 'fund_id') and account.fund_id:
+            fund_res = await db.execute(select(Fund).where(Fund.id == uuid.UUID(str(account.fund_id))))
+            fund = fund_res.scalars().first()
+            if fund:
+                fund_data = {
+                    "fund_name": fund.name,
+                    "risk_percentage": float(fund.risk_percentage) if fund.risk_percentage else 0.0,
+                    "max_drawdown": float(fund.max_drawdown_threshold) if fund.max_drawdown_threshold else None,
+                    "max_risk_usd": float(fund.max_risk_per_trade) if fund.max_risk_per_trade else 0.0
+                }
+
+        # 3. Get Broker Adapter and Symbol Metadata
+        adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
+        
+        # Metadata Resolution
+        lot_size_cents = 0
+        step_cents = 0
+        digits = 0
+        broker_type = account.broker_name.upper()
+        
+        # Centralized list of cTrader-like brokers
+        CTR_BROKERS = ["CTRADER", "ICMARKETS", "ICMARKETSSC", "FXPRO", "PEPPERSTONE", "BLACKBULLMARKETS"]
+        
+        if any(b in broker_type for b in CTR_BROKERS):
+            # Populate cache if empty
+            if not getattr(adapter, '_symbol_cache', None):
+                await adapter._populate_symbol_cache()
+                
+            symbol_meta = adapter._resolve_symbol_from_cache(symbol)
+            if not symbol_meta:
+                 return error_response(message=f"Symbol {symbol} not found in broker cache", status_code=404)
+            
+            _, lot_size_cents, step_cents, digits = symbol_meta
+        else:
+            # OANDA or others - might need different logic
+            lot_size_cents = 100000.0 # Standard 1:1 units
+            step_cents = 1.0
+            digits = 5 # Default FX
+            
+        # 4. Dry-Run Conversions (Proof of Work)
+        dry_run = {
+            "0.01_lot": {
+                "internal_units": 1000,
+                "broker_volume": UnitConverter.internal_to_ctrader_volume(1000, lot_size_cents, step_cents) if any(b in broker_type for b in CTR_BROKERS) else 1000,
+                "theory": "1,000 internal units"
+            },
+            "1.00_lot": {
+                "internal_units": 100000,
+                "broker_volume": UnitConverter.internal_to_ctrader_volume(100000, lot_size_cents, step_cents) if any(b in broker_type for b in CTR_BROKERS) else 100000,
+                "theory": "100,000 internal units"
+            }
+        }
+        
+        return success_response(data={
+            "context": {
+                "account_id": account_id,
+                "broker": account.broker_name,
+                "environment": account.environment,
+                "fund": fund_data
+            },
+            "normalization": {
+                "internal_standard": "100,000 units = 1.0 Lot",
+                "broker_lot_size_primitive": lot_size_cents,
+                "broker_step": step_cents,
+                "price_digits": digits
+            },
+            "dry_run": dry_run,
+            "formula": "broker_volume = internal_units * (lot_size / 100,000)"
+        })
+        
+    except Exception as e:
+        logger.error(f"Inspection Error: {e}", exc_info=True)
+        return error_response(message=str(e), status_code=500)
+
 
 @app.get("/orders", response_model=APIResponse[List[OrderResponse]])
 async def get_pending_orders_list(
@@ -484,6 +581,7 @@ async def get_pending_orders_list(
         logger.error(f"Get Pending Orders Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+# CancelOrderRequest (Moved to shared scope or kept here)
 class CancelOrderRequest(BaseModel):
     broker_account_id: str
     order_id: Optional[str] = None # Optional if cancelling all
@@ -648,7 +746,8 @@ async def sync_trades(authenticated: str = Depends(verify_internal_api_key), req
         
         for t_data in history:
             ext_id = str(t_data.get("trade_id"))
-            if not ext_id: continue
+            if not ext_id:
+                continue
             
             # If trade_id is missing from the adapter response, generate a deterministic one
             # This is a fallback for adapters that might not provide a unique trade_id for historical trades
@@ -717,7 +816,7 @@ class SmartOrderRequest(BaseModel):
 
 @app.get("/accounts")
 async def get_accounts(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active == True))
+    result = await db.execute(select(BrokerAccount).where(BrokerAccount.is_active))
     accounts = result.scalars().all()
     data = [
         {
@@ -742,11 +841,7 @@ async def place_smart_order(authenticated: str = Depends(verify_internal_api_key
         logger.error(f"Smart Order Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Order Management ---
-
-class CancelOrderRequest(BaseModel):
-    broker_account_id: str
-    order_id: str
+# Redundant CancelOrderRequest removed (already defined above)
 
 class AmendOrderRequest(BaseModel):
     broker_account_id: str
@@ -815,9 +910,12 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
                 result = await db.execute(stmt)
                 trade = result.scalar_one_or_none()
                 if trade:
-                    if req.stop_loss is not None: trade.sl_price = req.stop_loss
-                    if req.take_profit is not None: trade.tp_price = req.take_profit
-                    if req.trailing_stop is not None: trade.trailing_stop = req.trailing_stop
+                    if req.stop_loss is not None:
+                        trade.sl_price = req.stop_loss
+                    if req.take_profit is not None:
+                        trade.tp_price = req.take_profit
+                    if req.trailing_stop is not None:
+                        trade.trailing_stop = req.trailing_stop
                     await db.commit()
             except Exception as db_err:
                 logger.error(f"Failed to sync order amendment to DB: {db_err}")
@@ -862,9 +960,12 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
                 result = await db.execute(stmt)
                 trade = result.scalar_one_or_none()
                 if trade:
-                    if req.stop_loss is not None: trade.sl_price = req.stop_loss
-                    if req.take_profit is not None: trade.tp_price = req.take_profit
-                    if req.trailing_stop is not None: trade.trailing_stop = req.trailing_stop
+                    if req.stop_loss is not None:
+                        trade.sl_price = req.stop_loss
+                    if req.take_profit is not None:
+                        trade.tp_price = req.take_profit
+                    if req.trailing_stop is not None:
+                        trade.trailing_stop = req.trailing_stop
                     await db.commit()
             except Exception as db_err:
                 logger.error(f"Failed to sync position amendment to DB: {db_err}")
