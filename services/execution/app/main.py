@@ -4,6 +4,7 @@ import math
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+from decimal import Decimal
 
 from fastapi import FastAPI, HTTPException, Depends, Body, Path
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,7 @@ import redis.asyncio as redis
 
 from app.logging_config import setup_logging
 from app.database import get_db
-from app.models import BrokerAccount, Trade, TradeStatus
+from app.models import BrokerAccount, Trade, TradeStatus, TradeDirection
 from app.utils.crypto import decrypt_data
 from app.utils.response import success_response, error_response
 from app.schemas.response import APIResponse
@@ -661,6 +662,45 @@ async def close_trade(authenticated: str = Depends(verify_internal_api_key), req
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class TradeResponse(BaseModel):
+    trade_id: uuid.UUID
+    strategy_run_id: Optional[uuid.UUID] = None
+    broker_account_id: Optional[uuid.UUID] = None
+    symbol: str
+    strategy_name: str
+    signal_timestamp: datetime
+    signal_id: Optional[uuid.UUID] = None
+    signal_timestamp_ns: Optional[int] = None
+    latency_ms: Optional[Decimal] = None
+    is_live: Optional[bool] = False
+    is_shadow: Optional[bool] = False
+    status: TradeStatus
+    rejection_reason: Optional[str] = None
+    direction: TradeDirection
+    entry_price: Optional[Decimal] = None
+    sl_price: Optional[Decimal] = None
+    tp_price: Optional[Decimal] = None
+    trailing_stop: Optional[bool] = False
+    lot_size: Optional[Decimal] = None
+    risk_usd: Optional[Decimal] = None
+    atr_pips: Optional[Decimal] = None
+    rr_ratio: Optional[Decimal] = None
+    pnl_usd: Optional[Decimal] = None
+    mae_usd: Optional[Decimal] = None
+    mfe_usd: Optional[Decimal] = None
+    exit_price: Optional[Decimal] = None
+    exit_timestamp: Optional[datetime] = None
+    broker_trade_id: Optional[str] = None
+    broker_deal_id: Optional[str] = None
+    commission: Optional[Decimal] = None
+    swap: Optional[Decimal] = None
+    gross_pnl: Optional[Decimal] = None
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
 @app.get("/trades")
 async def get_trades(
     broker_account_id: Optional[str] = None,
@@ -702,8 +742,11 @@ async def get_trades(
         result = await db.execute(query)
         trades = result.scalars().all()
         
+        # Serialize trades using TradeResponse Pydantic model
+        serialized_trades = [TradeResponse.model_validate(t) for t in trades]
+        
         return success_response(
-            data=trades,
+            data=serialized_trades,
             meta={
                 "total": total,
                 "page": page,

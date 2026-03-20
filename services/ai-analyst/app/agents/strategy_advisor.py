@@ -47,7 +47,8 @@ class AgentState(TypedDict):
     
     # Internal State
     optimized_query: str
-    intent: str # 'chat', 'strategy_design', 'market_analysis', 'research', 'tool_use'
+    intent: str # 'chat', 'strategy_design', 'market_analysis', 'research', 'tool_use', 'briefing'
+    block_web_search: Optional[bool] # Phase 2: Search Guard flag
     plan_steps: List[str]
     tool_calls: List[dict] # Selected tools to run
     
@@ -76,7 +77,6 @@ class AgentState(TypedDict):
     
     # AI Analyst v2.2 - Dynamic Topology & Sentinel
     severity: str # 'ROUTINE' | 'VOLATILITY' | 'CRISIS'
-    intent: str # 'chat', 'strategy_design', 'market_analysis', 'research', 'tool_use', 'briefing'
     market_severity: str
     market_context_data: dict # Renamed to avoid collision with 'market_context' string field
     sentinel_result: dict # Results from node_sentinel
@@ -459,7 +459,9 @@ class StrategyAdvisorAgent:
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
         - **JOURNAL_ANALYSIS**: User asks to analyze, review, or "post-mortem" their recent closed trades to extract lessons or psychological patterns.
         - **PORTFOLIO_MANAGEMENT**: User asks to manage, move SL to breakeven, trail stops, or actively adjust open positions/portfolio risk.
+        - **ABOUT_SYSTEM**: User asks about MTF Olympus proprietary architecture, tools, API endpoints, or mentions "EA", "Legend EA", "Project Olympus", or "Microsoft".
         - **CHAT**: General conversation or simple questions not requiring real-time data or tools.
+
         
         **Previous Chat History for Context:**
         {history_str}
@@ -468,8 +470,9 @@ class StrategyAdvisorAgent:
         1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
         2. If the user says "generate a trading plan", "give me a plan", "buy/sell setup", or "what should I trade", ALWAYS classify as **TOOL_USE** (not MARKET_ANALYSIS).
         3. If the user says "send to telegram", "notify me", "alert me", or "send it", ALWAYS classify as **TOOL_USE**.
-        4. If the user asks for a trading plan AND wants it sent to Telegram, keep it **TOOL_USE** — the agent will call both tools in sequence.
+        4. If the user says "EA", "Project Olympus", "Microsoft", or asks about "API", ALWAYS classify as **ABOUT_SYSTEM**.
         5. Only use **MARKET_ANALYSIS** for open-ended commentary or institutional analysis WITHOUT a specific plan output requested.
+
         
         **Output JSON only:**
         {{
@@ -496,11 +499,25 @@ class StrategyAdvisorAgent:
             
             logger.info(f"Optimization Result - Intent: {data.intent}, Lang: {data.target_language}, Query: {data.optimized_query}")
             
+            # Phase 2: Search Guard logic
+            is_blocked = data.block_web_search or data.intent == "ABOUT_SYSTEM"
+            state["block_web_search"] = is_blocked
+            if is_blocked:
+                 state["scratchpad"].append("Search Guard Active: Web search tools excluded (Intent: ABOUT_SYSTEM).")
+            
+            # v2.9: Language Protocol (Manual Override)
+            import re
+            thai_pattern = re.compile(r'[\u0E00-\u0E7F]')
+            if thai_pattern.search(query):
+                data.target_language = "Thai"
+
             return {
                 "optimized_query": data.optimized_query,
                 "intent": data.intent,
-                "target_language": data.target_language
+                "target_language": data.target_language,
+                "block_web_search": is_blocked
             }
+
         except Exception as e:
             logger.error(f"Optimizer failed: {e}")
             return {
@@ -529,12 +546,13 @@ class StrategyAdvisorAgent:
                 # Simplify context for LLM
                 summaries = []
                 for sym, data in state["market_context_data"].items():
-                    if not isinstance(data, dict):
-                         logger.warning(f"Market context for {sym} is not a dict: {type(data)}")
-                         continue
-                    vol = data.get("volatility", "unknown")
-                    trend = data.get("trend_bias", "neutral")
-                    summaries.append(f"{sym}: Volatility={vol}, Trend={trend}")
+                    if isinstance(data, dict):
+                        # Use distilled summary if available, otherwise build from fields
+                        summary = data.get("distilled", f"{sym}: Volatility={data.get('volatility', 'unknown')}, Trend={data.get('trend_bias', 'neutral')}")
+                        summaries.append(summary)
+                    else:
+                        # Fallback for string outputs from tools
+                        summaries.append(f"{sym}: {str(data)}")
                 context_summary = " | ".join(summaries)
 
             prompt = f"""
@@ -812,8 +830,8 @@ class StrategyAdvisorAgent:
         query = state["optimized_query"]
         intent = state.get("intent", "CHAT")
         
-        # Cache RESEARCH, STRATEGY_DESIGN, MARKET_ANALYSIS, and CHAT
-        if intent in ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "CHAT"]:
+        # Cache RESEARCH, STRATEGY_DESIGN, MARKET_ANALYSIS, ABOUT_SYSTEM, and CHAT
+        if intent in ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "ABOUT_SYSTEM", "CHAT"]:
             if self.cache:
                 cached_response = await self.cache.check(query)
                 if cached_response:
@@ -1101,6 +1119,22 @@ class StrategyAdvisorAgent:
         # 2. Normal Selection
         query = state["optimized_query"]
         tool_descriptions = self.tool_registry.get_tool_descriptions()
+        
+        # 3. Filter Tools (Search Guard Phase 2)
+        if state.get("block_web_search"):
+             # Filter out search tools manually from the descriptions
+             filtered = []
+             excluded_tools = ["google_search", "open_claw_research"]
+             for t in tool_descriptions:
+                 if any(ex in t for ex in excluded_tools): # Check names in description strings or registry
+                     continue
+                 filtered.append(t)
+             
+             # Fallback: If registry doesn't provide structured access, we might need a better filter.
+             # Assuming tool_descriptions is a list of strings for the prompt.
+             tool_descriptions = [t for t in tool_descriptions if not any(ex in t for ex in excluded_tools)]
+             state["scratchpad"].append("Search Guard Active: Web search tools excluded for system-specific query.")
+
         
         # Inject Current Date for relative time reasoning
         from datetime import datetime
@@ -1795,7 +1829,7 @@ class StrategyAdvisorAgent:
         
         # Store in Semantic Cache if high quality response and NOT from cache
         intent = state.get("intent")
-        cacheable_intents = ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "CHAT"]
+        cacheable_intents = ["RESEARCH", "STRATEGY_DESIGN", "MARKET_ANALYSIS", "ABOUT_SYSTEM", "CHAT"]
         if self.cache and intent in cacheable_intents and state.get("is_satisfactory") and not state.get("from_cache"):
              await self.cache.store(state["optimized_query"], state["final_response"])
         
@@ -1942,10 +1976,15 @@ class StrategyAdvisorAgent:
         }
         result = await self.graph.ainvoke(initial_state, config=config)
         
+        # Map internal flags to metadata for client-side verification
+        metadata = result.get("metadata", {})
+        metadata["block_web_search"] = result.get("block_web_search", False)
+        
         return {
             "response": result.get("final_response"),
             "thoughts": result.get("thoughts"),
             "intent": result.get("intent"),
             "market_severity": result.get("market_severity"),
-            "metadata": result.get("metadata", {})
+            "metadata": metadata
         }
+

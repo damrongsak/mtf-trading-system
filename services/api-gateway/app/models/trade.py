@@ -115,7 +115,7 @@ class Trade(Base):
 
     # Table constraints (from specs/03_data_model.yaml validation_rules)
     __table_args__ = (
-        CheckConstraint('risk_usd <= 10.00', name='check_risk_cap'),
+        CheckConstraint('risk_usd <= 100.00', name='check_risk_cap'),
         CheckConstraint('lot_size > 0', name='check_min_lot_size'),
         CheckConstraint('atr_pips <= 100.0 OR atr_pips IS NULL', name='check_max_atr_pips'),
         CheckConstraint('rr_ratio >= 2.0 OR rr_ratio IS NULL', name='check_min_rr_ratio'),

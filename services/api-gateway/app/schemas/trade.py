@@ -31,15 +31,15 @@ class TradeBase(BaseModel):
     signal_timestamp: datetime = Field(..., description="Timestamp when signal was generated")
     direction: TradeDirection = Field(..., description="Trade direction (LONG/SHORT)")
     entry_price: Decimal = Field(..., description="Entry price")
-    sl_price: Decimal = Field(..., description="Stop loss price")
-    tp_price: Decimal = Field(..., description="Take profit price")
+    sl_price: Optional[Decimal] = Field(None, description="Stop loss price")
+    tp_price: Optional[Decimal] = Field(None, description="Take profit price")
 
 
 class TradeCreate(TradeBase):
     """Schema for creating a new trade (signal proposal)."""
     strategy_run_id: Optional[UUID] = Field(None, description="Link to strategy run")
     lot_size: Decimal = Field(..., description="Calculated lot size", ge=0.01)
-    risk_usd: Decimal = Field(..., description="Calculated risk in USD", le=10.00)
+    risk_usd: Decimal = Field(..., description="Calculated risk in USD", le=100.00)
     atr_pips: Optional[Decimal] = Field(None, description="ATR-based SL distance in pips", le=100.0)
     rr_ratio: Optional[Decimal] = Field(None, description="Risk-to-reward ratio", ge=2.0)
     metadata_json: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
@@ -47,9 +47,9 @@ class TradeCreate(TradeBase):
     @field_validator('risk_usd')
     @classmethod
     def validate_risk_cap(cls, v: Decimal) -> Decimal:
-        """Enforce F2.2: $10 risk cap."""
-        if v > Decimal("10.00"):
-            raise ValueError("Risk per trade must not exceed $10 (F2.2)")
+        """Enforce risk cap."""
+        if v > Decimal("100.00"):
+            raise ValueError("Risk per trade must not exceed $100")
         return v
 
     @field_validator('lot_size')

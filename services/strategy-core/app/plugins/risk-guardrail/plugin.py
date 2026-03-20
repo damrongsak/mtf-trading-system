@@ -46,7 +46,7 @@ class RiskGuardrailPlugin(BasePlugin):
         # For a Kernel plugin, we might default to strict rules even without user config
         user_config = context.get('config', {}) if context else {}
         
-        # 1. Check Max Risk Per Trade (Default $10.00)
+        # 1. Check Max Risk Per Trade (Default $100.00)
         # Assuming signal has 'stop_loss_amount' or we estimate it.
         # For simplicity in this demo, we check generic 'risk' field if present, or just pass.
         # In a real scenario, we'd calculate Entry - SL * Position Size
@@ -55,7 +55,7 @@ class RiskGuardrailPlugin(BasePlugin):
         meta = signal.get('metadata', {})
         risk_amount = meta.get('estimated_risk', 0.0)
         
-        max_allowed_risk = float(user_config.get('max_risk_per_trade', 10.0))
+        max_allowed_risk = float(user_config.get('max_risk_per_trade', 100.0))
         
         if risk_amount > max_allowed_risk:
             logger.warning(f" [RiskGuardrail] BLOCKED trade {signal.get('symbol')}. Risk ${risk_amount} > Limit ${max_allowed_risk}")

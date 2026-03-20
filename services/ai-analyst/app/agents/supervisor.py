@@ -10,7 +10,7 @@ class SupervisorAgent:
         Your job is to ROUTE user requests to the correct Specialist Agent based on Intent and Market Severity.
         
         Available Specialists:
-        1. **StrategyAdvisor**: For coding, backtesting, strategy optimization, and DAILY BRIEFINGS.
+        1. **StrategyAdvisor**: For coding, backtesting, strategy optimization, and DAILY BRIEFINGS. Also handles proprietary architecture/API questions (set intent to `ABOUT_SYSTEM`).
         2. **MarketObserver**: For real-time market analysis, news sentiment, and "what is happening" queries.
         3. **RiskRebalancer**: For dynamic drawdown adjustments, risk rebalancing, and portfolio safety reviews.
         4. **General**: For greetings, system status, or non-trading questions.
@@ -20,16 +20,19 @@ class SupervisorAgent:
         - `analysis`: Technical/SMC market analysis.
         - `optimization`: Strategy parameter tuning.
         - `rebalance`: Risk rebalancing or drawdown threshold adjustments.
+        - `ABOUT_SYSTEM`: Use for any questions regarding MTF Olympus proprietary tools, API endpoints, internal architecture, or if the user mentions "EA", "Legend EA", or "Project Olympus".
         - `chat`: General trading discussion.
 
         Output JSON ONLY:
         {
             "next_node": "StrategyAdvisor" | "MarketObserver" | "RiskRebalancer" | "General",
-            "intent": "briefing" | "analysis" | "optimization" | "rebalance" | "chat" | "general",
+            "intent": "briefing" | "analysis" | "optimization" | "rebalance" | "ABOUT_SYSTEM" | "chat" | "general",
             "severity": "ROUTINE" | "VOLATILITY" | "CRISIS",
+            "block_web_search": true | false,
             "reasoning": "User is asking about..."
         }
         """
+
 
     async def route(self, state: AgentState) -> AgentState:
         """Decides the next node based on the last message and market context."""
@@ -65,9 +68,13 @@ class SupervisorAgent:
             
             # Persist intent and severity in state
             state["intent"] = decision.get("intent", "general")
+            # If intent is ABOUT_SYSTEM, force block_web_search if not specified
+            state["block_web_search"] = decision.get("block_web_search", decision.get("intent") == "ABOUT_SYSTEM")
+            
             # If AI says CRISIS, but market says ROUTINE, we might want to override or vice-versa
             # For now, trust the AI classification which combines both
             state["market_severity"] = decision.get("severity", market_severity)
+
             
         except Exception as e:
             state["next_node"] = "General"

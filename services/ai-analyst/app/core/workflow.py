@@ -42,6 +42,8 @@ class AgentState(TypedDict):
     market_severity: Optional[str]
     market_context: Optional[Dict[str, Any]]
     final_response: Optional[str]
+    block_web_search: Optional[bool]
+
 
 # --- Tool Registry (The "Node" Library) ---
 class ToolRegistry:

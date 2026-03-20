@@ -15,7 +15,7 @@ class GetMarketContextTool(BaseTool):
     description: str = "Fetches current market price, trends, and limited technical historical candles for a symbol on a specific timeframe."
     args_schema: Type[BaseModel] = MarketContextInput
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, **kwargs) -> Any:
         symbol = "XAUUSD"
         timeframe = "H1"
         count = 15
@@ -34,14 +34,23 @@ class GetMarketContextTool(BaseTool):
                 params = {"symbol": symbol, "timeframe": timeframe, "count": min(count, 50)} # Hard cap to prevent massive dumps
                 
                 async with session.get(url, params=params, timeout=3.0) as resp:
-                     if resp.status == 200:
-                          data = await resp.json()
-                          candles = data.get("data", [])
-                          
-                          from app.utils.distiller import DataDistiller
-                          distilled = DataDistiller.distill_candles(candles, count=10)
-                          return f"Distilled Market Context for {symbol}: {distilled}"
-                     else:
-                         return f"Error fetching market data: {resp.status}"
+                    if resp.status == 200:
+                        data = await resp.json()
+                        candles = data.get("data", [])
+                        
+                        from app.utils.distiller import DataDistiller
+                        distilled = DataDistiller.distill_candles(candles, count=10)
+                        
+                        # Return structured data for the graph + string for the LLM
+                        return {
+                            "distilled": distilled,
+                            "symbol": symbol,
+                            "timeframe": timeframe,
+                            "volatility": "unknown", # Heuristic if not provided by strategy-core
+                            "trend_bias": "neutral",
+                            "raw_count": len(candles)
+                        }
+                    else:
+                        return {"error": f"Error fetching market data: {resp.status}"}
             except Exception as e:
-                return f"Failed to connect to Strategy Core: {e}"
+                return {"error": f"Failed to connect to Strategy Core: {e}"}
