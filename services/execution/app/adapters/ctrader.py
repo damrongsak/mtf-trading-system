@@ -351,16 +351,17 @@ class CTraderOrderAdapter(BrokerAdapter):
                                 valid_sl = None
 
                  if valid_sl or valid_tp:
-                      try:
-                           logger.info(f"cTrader: Amending SL={valid_sl}, TP={valid_tp} for Position {position_id}")
-                           await self.client.amend_position_sltp(
-                               account_id=self.account_id,
-                               position_id=int(position_id),
-                               sl=valid_sl,
-                               tp=valid_tp
-                           )
-                      except Exception as am_err:
-                           logger.warning(f"cTrader: Failed to set SL/TP after market fill: {am_err}")
+                      # [RESILIENCY] Phase 5: Delayed Amendment
+                      # cTrader often rejects SL/TP amendment immediately after market fill
+                      # We fire-and-forget a retry task to ensure SL/TP is set.
+                      logger.info(f"cTrader: Scheduling retry SL/TP for Position {position_id} (SL={valid_sl}, TP={valid_tp})")
+                      asyncio.create_task(self._retry_amend_sltp(
+                          symbol=symbol,
+                          sl_price=valid_sl,
+                          tp_price=valid_tp,
+                          position_id=position_id,
+                          label=comment
+                      ))
 
 
             if is_filled:
@@ -882,6 +883,47 @@ class CTraderOrderAdapter(BrokerAdapter):
         except Exception as e:
             logger.error(f"cTrader Get Pending Orders Error: {e}")
             raise e
+    async def _retry_amend_sltp(self, symbol: str, sl_price: Optional[float], tp_price: Optional[float], position_id: Optional[str] = None, label: Optional[str] = None, attempts: int = 5):
+        """
+        Background task to retry SL/TP amendment with exponential backoff.
+        Useful when positions aren't immediately visible after market fill.
+        """
+        backoff = [2, 5, 10, 30, 60]
+        for i in range(attempts):
+            try:
+                # Resolve digits for rounding (XAUUSD=2)
+                digits = 2 if "XAU" in symbol else 5
+                
+                await asyncio.sleep(backoff[i] if i < len(backoff) else 60)
+                logger.info(f"Retrying SL/TP amend for {symbol} (Attempt {i+1}/{attempts})...")
+                
+                # If position_id not provided, try to find it by label/symbol
+                target_id = position_id
+                if not target_id:
+                    positions = await self.get_open_trades()
+                    # Filter for positions only
+                    match = next((p for p in positions if p.get("type") == "POSITION" and (p.get("label") == label or p.get("symbol") == symbol)), None)
+                    if match:
+                        target_id = match.get("id")
+                
+                if target_id:
+                    # Final validation and absolute price check
+                    sl_val = round(float(sl_price), digits) if sl_price else None
+                    tp_val = round(float(tp_price), digits) if tp_price else None
+                    
+                    await self.amend_position(target_id, sl_price=sl_val, tp_price=tp_val)
+                    logger.info(f"Successfully amended SL/TP for {symbol} (ID: {target_id}) on attempt {i+1}")
+                    return
+                else:
+                    logger.warning(f"Position for {symbol} (label: {label}) not found yet on attempt {i+1}")
+            except Exception as e:
+                logger.warning(f"Retry attempt {i+1} failed for {symbol}: {e}")
+                if "RiskValidationError" in str(type(e)) or "Invalid Stop Loss" in str(e):
+                    logger.error(f"Fatal risk error during SL/TP retry for {symbol}. Stopping retries.")
+                    return
+        
+        logger.error(f"Failed to amend SL/TP for {symbol} after {attempts} attempts.")
+
 
 class CTraderMessageRouter:
     """

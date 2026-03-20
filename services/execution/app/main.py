@@ -37,6 +37,8 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
 # Setup Logger
 setup_logging()
 logger = logging.getLogger(__name__)
+logger.info("DEBUG: setup_logging completed in main.py")
+print("DEBUG: setup_logging done")
 
 # Security
 API_KEY_NAME = "X-Internal-API-Key"
@@ -140,6 +142,7 @@ async def _warmup_execution_cache():
 
             for account in accounts:
                 acc_id = str(account.id)
+                logger.info(f"[HFT-lite] Caching account: {acc_id} ({account.broker_name})")
                 # Cache Account
                 await execution_cache.set_account(acc_id, {
                     "id": acc_id,

@@ -14,6 +14,7 @@ from app.schemas.chat import StrategyChatRequest
 from app.agents.strategy_advisor import StrategyAdvisorAgent
 from app.agents.episodic_memory import EpisodicMemoryAgent
 from app.agents.post_mortem import PostMortemAgent
+from app.agents.entry_reason import EntryReasonAgent
 from app.agents.trade_manager import TradeManagementAgent
 from app.agents.risk_rebalancer import RiskRebalancerAgent
 from app.services.sentiment import SentimentService
@@ -170,6 +171,9 @@ async def lifespan(app: FastAPI):
                 
                 services["post_mortem"] = PostMortemAgent(services["gemini"], services["rag"])
                 logger.info("✅ Post-Mortem Agent Ready")
+
+                services["entry_reason"] = EntryReasonAgent(services["gemini"])
+                logger.info("✅ Entry Reason Agent Ready")
 
                 services["trade_manager"] = TradeManagementAgent(services["gemini"])
                 logger.info("✅ Trade Management Agent Ready")

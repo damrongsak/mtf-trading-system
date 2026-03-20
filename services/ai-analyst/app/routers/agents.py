@@ -60,6 +60,14 @@ AGENTS = {
         "description": "Management of open positions (BE moves, trailing stops, risk parity).",
         "status": "active",
         "capabilities": ["trade_management", "risk_mitigation", "dynamic_sl_tp"]
+    },
+    "entry_reason": {
+        "id": "entry_reason",
+        "name": "Entry Reason",
+        "role": "Reviewer",
+        "description": "Analyzes the technical and emotional rationale behind a trade entry.",
+        "status": "active",
+        "capabilities": ["reason_learning", "conviction_assessment"]
     }
 }
 
@@ -379,4 +387,42 @@ async def run_skill_creator(
         return success_response(data=result)
     except Exception as e:
         logger.error(f"Error executing Skill Creator: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/agent/post-mortem/analyze")
+async def analyze_trade_post_mortem(
+    trade_data: Dict[str, Any] = Body(...),
+    user_id: str = "default_user",
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Directly run post-mortem analysis on a closed trade.
+    """
+    if "post_mortem" not in services or not services["post_mortem"]:
+        raise HTTPException(status_code=503, detail="Post-Mortem Agent unavailable")
+    
+    try:
+        result = await services["post_mortem"].analyze_trade(trade_data, user_id=user_id)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"Post-Mortem API Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/entry-reason/analyze")
+async def analyze_trade_entry_reason(
+    trade_data: Dict[str, Any] = Body(...),
+    user_id: str = "default_user",
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Directly run entry-reason analysis on a new trade fill.
+    """
+    if "entry_reason" not in services or not services["entry_reason"]:
+        raise HTTPException(status_code=503, detail="Entry Reason Agent unavailable")
+    
+    try:
+        result = await services["entry_reason"].summarize_reason(trade_data)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"Entry-Reason API Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

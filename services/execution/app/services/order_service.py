@@ -296,7 +296,8 @@ class OrderService:
             take_profit = req_data.get("take_profit")
             if take_profit:
                 reward_dist = abs(take_profit - entry_ref)
-                reward_usd = reward_dist * abs(units)
+                # [FIX] Use official converter for Reward calculation to avoid 100,000x multiplier error
+                reward_usd = UnitConverter.calculate_risk_usd(reward_dist, final_vol_cents)
             else:
                 reward_usd = target_risk * 2.0
             

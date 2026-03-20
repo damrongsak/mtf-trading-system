@@ -5,11 +5,17 @@ import os
 import uuid
 import redis.asyncio as redis
 import time
+from datetime import datetime
+
 from app.core.config import settings
 from app.core.units import UnitConverter
 from app.services.order_service import OrderService
 from app.logging_config import setup_logging, set_correlation_id, reset_correlation_id
 from app.database import AsyncSessionLocal
+from app.services.ai_bridge import AIBridge
+from app.adapters.factory import BrokerFactory
+from sqlalchemy import select, or_, update
+from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount, SignalLog
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -325,10 +331,6 @@ class FillTradeConsumer:
             # lot_size for DB (Unified: 1 lot = 100,000 units)
             lot_size = UnitConverter.internal_to_standard_lots(fill_volume)
 
-            from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount
-            from sqlalchemy import select as _select
-            from datetime import datetime
-
             from app.services.cache_service import execution_cache
             
             async with AsyncSessionLocal() as db:
@@ -337,12 +339,12 @@ class FillTradeConsumer:
                 
                 if broker_account_uuid:
                     result = await db.execute(
-                        _select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(broker_account_uuid))
+                        select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(broker_account_uuid))
                     )
                 else:
                     # Fallback to account_number (for Oanda/others)
                     result = await db.execute(
-                        _select(BrokerAccount).where(
+                        select(BrokerAccount).where(
                             BrokerAccount.account_number == account_id_str
                         )
                     )
@@ -419,9 +421,6 @@ class FillTradeConsumer:
 
                 # [SIGNAL-BRIDGE] Synchronize SignalLog status
                 if new_trade.signal_id:
-                    from sqlalchemy import update as _update
-                    from app.models import SignalLog
-                    
                     # Update SignalLog to FILLED and link the new trade_id
                     await db.execute(
                         _update(SignalLog)
@@ -452,9 +451,40 @@ class FillTradeConsumer:
                 f"Position {broker_order_id} risk_usd={risk_usd} rr_ratio={rr_ratio}"
             )
 
+            # [AI-FEEDBACK] Phase 6: Trigger Entry Reason Learning (Non-blocking)
+            asyncio.create_task(self._trigger_entry_analysis(new_trade))
+
         except Exception as e:
             logger.error(f"[FillConsumer] Failed to process fill {msg_id}: {e}", exc_info=True)
             # Do NOT XACK — message stays in PEL for retry
+
+    async def _trigger_entry_analysis(self, trade: "Trade"):
+        """
+        Calls AI Analyst to record reason for entry and updates trade metadata.
+        """
+        try:
+            trade_data = {
+                "trade_id": str(trade.trade_id),
+                "symbol": trade.symbol,
+                "direction": trade.direction,
+                "strategy_name": trade.strategy_name,
+                "entry_price": trade.entry_price,
+                "signal_timestamp_ns": trade.signal_timestamp_ns,
+            }
+            analysis = await AIBridge.run_entry_analysis(trade_data)
+            if analysis:
+                async with AsyncSessionLocal() as db:
+                    stmt = select(Trade).where(Trade.trade_id == trade.trade_id)
+                    res = await db.execute(stmt)
+                    t = res.scalar_one_or_none()
+                    if t:
+                        if not t.metadata_json:
+                            t.metadata_json = {}
+                        t.metadata_json["entry_analysis"] = analysis
+                        await db.commit()
+                        logger.info(f"[FillConsumer] AI Entry Analysis saved for {trade.trade_id}")
+        except Exception as e:
+            logger.error(f"[FillConsumer] AI Entry Analysis failed: {e}")
 
 
 class CloseTradeConsumer:
@@ -544,7 +574,7 @@ class CloseTradeConsumer:
 
             # 2. Persist to DB
             from app.models import Trade, TradeStatus
-            from sqlalchemy import select as _select
+            # Removed redundant sqlalchemy import alias
             from datetime import datetime
 
             async with AsyncSessionLocal() as db:
@@ -555,7 +585,7 @@ class CloseTradeConsumer:
                 
                 # For now, let's update all OPEN trades for this account and symbol that match the direction?
                 # Better: Use a dedicated reconciliation service or look up by broker_trade_id if stored.
-                stmt = _select(Trade).where(
+                stmt = select(Trade).where(
                     Trade.broker_account_id == uuid.UUID(broker_account_uuid),
                     Trade.status == TradeStatus.OPEN,
                     Trade.symbol == data.get("instrument")
@@ -577,8 +607,42 @@ class CloseTradeConsumer:
             await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
             logger.info(f"[CloseConsumer] ✅ Account {broker_account_uuid} stats updated. PnL: {pnl}")
 
+            # [AI-FEEDBACK] Phase 6: Trigger Post-Mortem Grading (Non-blocking)
+            # We use the LAST updated trade for context
+            if trades:
+                asyncio.create_task(self._trigger_post_mortem(trades[0]))
+
         except Exception as e:
             logger.error(f"[CloseConsumer] Error: {e}", exc_info=True)
+
+    async def _trigger_post_mortem(self, trade: "Trade"):
+        """
+        Calls AI Analyst to grade the closed trade and extract lessons.
+        """
+        try:
+            trade_data = {
+                "trade_id": str(trade.trade_id),
+                "symbol": trade.symbol,
+                "direction": trade.direction,
+                "entry_price": trade.entry_price,
+                "exit_price": trade.exit_price,
+                "result_pnl": trade.pnl_usd,
+                "strategy_name": trade.strategy_name
+            }
+            analysis = await AIBridge.run_post_mortem(trade_data)
+            if analysis:
+                async with AsyncSessionLocal() as db:
+                    stmt = select(Trade).where(Trade.trade_id == trade.trade_id)
+                    res = await db.execute(stmt)
+                    t = res.scalar_one_or_none()
+                    if t:
+                        if not t.metadata_json:
+                            t.metadata_json = {}
+                        t.metadata_json["post_mortem"] = analysis
+                        await db.commit()
+                        logger.info(f"[CloseConsumer] AI Post-Mortem saved for {trade.trade_id}")
+        except Exception as e:
+            logger.error(f"[CloseConsumer] AI Post-Mortem failed: {e}")
 
 
 # Global instances

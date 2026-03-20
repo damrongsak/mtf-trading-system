@@ -30,7 +30,7 @@ class ExecutionCache:
         self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         self.redis = None
         self._l1_cache: Dict[str, Dict[str, Any]] = {}  # key -> {"data": data, "expiry": ts}
-        self.default_ttl = 300  # 5 minutes
+        self.default_ttl = 86400  # 24 hours (HFT-lite hot-path protection)
         self.initialized = True
 
     async def _get_redis(self):
@@ -72,12 +72,15 @@ class ExecutionCache:
             
         return None
 
-    async def set_account(self, account_id: str, data: Dict, ttl: int = 300):
+    async def set_account(self, account_id: str, data: Dict, ttl: Optional[int] = None):
+        if ttl is None:
+            ttl = self.default_ttl
         key = f"exec:account:{account_id}"
         self._set_l1(key, data, ttl)
         try:
             r = await self._get_redis()
-            await r.set(key, json.dumps(data), ex=ttl)
+            res = await r.set(key, json.dumps(data), ex=ttl)
+            logger.info(f"DEBUG: Redis SET {key} (ttl={ttl}) result: {res}")
         except Exception as e:
             logger.error(f"Redis Cache Error (set_account): {e}")
 
@@ -98,7 +101,9 @@ class ExecutionCache:
             logger.error(f"Redis Cache Error (get_fund): {e}")
         return None
 
-    async def set_fund(self, fund_id: str, data: Dict, ttl: int = 300):
+    async def set_fund(self, fund_id: str, data: Dict, ttl: Optional[int] = None):
+        if ttl is None:
+            ttl = self.default_ttl
         key = f"exec:fund:{fund_id}"
         self._set_l1(key, data, ttl)
         try:
@@ -163,7 +168,9 @@ class ExecutionCache:
             logger.error(f"Redis Cache Error (get_risk_filters): {e}")
         return None
 
-    async def set_risk_filters(self, fund_id: str, filters: List[Dict], account_id: str = None, ttl: int = 3600):
+    async def set_risk_filters(self, fund_id: str, filters: List[Dict], account_id: str = None, ttl: Optional[int] = None):
+        if ttl is None:
+            ttl = self.default_ttl  # Default to 24h as per HFT-lite standards
         key = f"exec:filters:{fund_id}:{account_id or 'none'}"
         self._set_l1(key, filters, ttl=ttl)
         try:

@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 METADATA = {
     "name": "BB Stochastic Order Block (SMC)",
-    "description": "Mean Reversion with Order Block Confirmation - Buy when BB oversold + Stoch oversold + near OB zone",
-    "version": "1.0.0",
+    "description": "Mean Reversion with Order Block Confirmation - Buy/Sell at BB extremes + Stoch exhaustion + OB zone confirmation",
+    "version": "1.1.0",
     "author": "Soda (Olympus AI)",
     "defaults": {
         "bb_period": 13,
@@ -91,9 +91,11 @@ def find_order_blocks(open_prices: pd.Series, high: pd.Series, low: pd.Series, c
     return order_blocks
 
 
-def check_near_ob_zone(price: float, order_blocks: list, tolerance: float = 0.008) -> bool:
-    """Check if price is near an Order Block zone"""
+def check_near_ob_zone(price: float, order_blocks: list, ob_type: str = "BULLISH", tolerance: float = 0.008) -> bool:
+    """Check if price is near a specific type of Order Block zone"""
     for ob in order_blocks:
+        if ob['type'] != ob_type:
+            continue
         if abs(price - ob['low']) / price < tolerance or abs(price - ob['high']) / price < tolerance:
             return True
     return False
@@ -129,8 +131,8 @@ def strategy(data: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> Tup
         params: dict with strategy parameters
     
     Returns:
-        entries: pd.Series (boolean)
-        exits: pd.Series (boolean)
+        entries: pd.Series (1 for Long, -1 for Short, 0 for None)
+        exits: pd.Series (1 for Exit Long, -1 for Exit Short, 0 for None)
         signal_dict: dict with signal information
     """
     if params is None:
@@ -173,8 +175,8 @@ def strategy(data: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> Tup
         recent_ob = all_ob[-15:] if len(all_ob) > 15 else all_ob  # Last 15 OBs
         
         # 3. Generate Signals
-        entries = pd.Series(False, index=data.index)
-        exits = pd.Series(False, index=data.index)
+        entries = pd.Series(0, index=data.index)
+        exits = pd.Series(0, index=data.index)
         
         for i in range(bb_period + stoch_k + 5, len(data)):
             current_price = close.iloc[i]
@@ -183,18 +185,29 @@ def strategy(data: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> Tup
             current_bb_lower = bb_lower.iloc[i]
             current_stoch_k = stoch_k_series.iloc[i]
             
-            # Check if near OB zone
-            near_ob = check_near_ob_zone(current_price, recent_ob, ob_tolerance)
+            # Check if near OB zones
+            near_bullish_ob = check_near_ob_zone(current_price, recent_ob, "BULLISH", ob_tolerance)
+            near_bearish_ob = check_near_ob_zone(current_price, recent_ob, "BEARISH", ob_tolerance)
             
-            # LONG Entry: BB oversold + Stoch oversold + near OB
+            # LONG Entry: BB oversold + Stoch oversold + near Bullish OB
             if (current_price < current_bb_lower and 
                 current_stoch_k < stoch_oversold and 
-                near_ob):
-                entries.iloc[i] = True
+                near_bullish_ob):
+                entries.iloc[i] = 1
             
-            # Exit: BB overbought OR Stoch overbought
+            # SHORT Entry: BB overbought + Stoch overbought + near Bearish OB
+            elif (current_price > current_bb_upper and 
+                  current_stoch_k > stoch_overbought and 
+                  near_bearish_ob):
+                entries.iloc[i] = -1
+            
+            # Exit LONG: BB overbought OR Stoch overbought
             if current_price > current_bb_upper or current_stoch_k > stoch_overbought:
-                exits.iloc[i] = True
+                exits.iloc[i] = 1
+            
+            # Exit SHORT: BB oversold OR Stoch oversold
+            elif current_price < current_bb_lower or current_stoch_k < stoch_oversold:
+                exits.iloc[i] = -1
         
         # 4. Current Signal (Live Context)
         current_price = close.iloc[-1]
@@ -205,33 +218,54 @@ def strategy(data: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> Tup
         current_stoch_d = stoch_d_series.iloc[-1]
         current_atr = atr.iloc[-1]
         
-        near_ob = check_near_ob_zone(current_price, recent_ob, ob_tolerance)
+        near_bullish_ob = check_near_ob_zone(current_price, recent_ob, "BULLISH", ob_tolerance)
+        near_bearish_ob = check_near_ob_zone(current_price, recent_ob, "BEARISH", ob_tolerance)
         
         direction = None
         reason = ""
         stop_loss = None
         take_profit = None
         
-        # Check for entry signal
+        # Check for entry signal (LONG)
         if (current_price < current_bb_lower and 
             current_stoch_k < stoch_oversold and 
-            near_ob):
+            near_bullish_ob):
             direction = "BULLISH"
             reason = (f"BB Oversold (Price ${current_price:.2f} < BB Lower ${current_bb_lower:.2f}) + "
-                     f"Stochastic K={current_stoch_k:.1f} (<{stoch_oversold}) + OB Zone Confirmed")
+                     f"Stochastic K={current_stoch_k:.1f} (<{stoch_oversold}) + Bullish OB Zone Confirmed")
             
             # SL: 2 ATR below entry
             stop_loss = current_price - (current_atr * 2)
             # TP: 2:1 risk reward
             take_profit = current_price + (current_atr * 4)
         
-        # Check for exit signal
+        # Check for entry signal (SHORT)
+        elif (current_price > current_bb_upper and 
+              current_stoch_k > stoch_overbought and 
+              near_bearish_ob):
+            direction = "BEARISH"
+            reason = (f"BB Overbought (Price ${current_price:.2f} > BB Upper ${current_bb_upper:.2f}) + "
+                     f"Stochastic K={current_stoch_k:.1f} (>{stoch_overbought}) + Bearish OB Zone Confirmed")
+            
+            # SL: 2 ATR above entry
+            stop_loss = current_price + (current_atr * 2)
+            # TP: 2:1 risk reward
+            take_profit = current_price - (current_atr * 4)
+            
+        # Check for exit signals
         elif current_price > current_bb_upper or current_stoch_k > stoch_overbought:
             direction = "FLAT"
             if current_price > current_bb_upper:
-                reason = f"BB Overbought (Price ${current_price:.2f} > BB Upper ${current_bb_upper:.2f})"
+                reason = f"Exit Long: BB Overbought (Price ${current_price:.2f} > BB Upper ${current_bb_upper:.2f})"
             else:
-                reason = f"Stochastic Overbought (K={current_stoch_k:.1f} >{stoch_overbought})"
+                reason = f"Exit Long: Stochastic Overbought (K={current_stoch_k:.1f} >{stoch_overbought})"
+        
+        elif current_price < current_bb_lower or current_stoch_k < stoch_oversold:
+            direction = "FLAT"
+            if current_price < current_bb_lower:
+                reason = f"Exit Short: BB Oversold (Price ${current_price:.2f} < BB Lower ${current_bb_lower:.2f})"
+            else:
+                reason = f"Exit Short: Stochastic Oversold (K={current_stoch_k:.1f} <{stoch_oversold})"
         
         # Build signal dict
         signal_dict = None
@@ -250,7 +284,8 @@ def strategy(data: pd.DataFrame, params: Optional[Dict[str, Any]] = None) -> Tup
                     "stoch_k": float(current_stoch_k),
                     "stoch_d": float(current_stoch_d),
                     "atr": float(current_atr),
-                    "near_ob": near_ob,
+                    "near_bullish_ob": near_bullish_ob,
+                    "near_bearish_ob": near_bearish_ob,
                     "ob_count": len(recent_ob),
                     "signal_timestamp": str(data.index[-1])
                 }
@@ -299,4 +334,5 @@ if __name__ == "__main__":
         print(f"  Stochastic K: {signal['metadata']['stoch_k']:.1f}")
         print(f"  Stochastic D: {signal['metadata']['stoch_d']:.1f}")
         print(f"  ATR: ${signal['metadata']['atr']:.2f}")
-        print(f"  Near OB Zone: {signal['metadata']['near_ob']}")
+        print(f"  Near Bullish OB: {signal['metadata']['near_bullish_ob']}")
+        print(f"  Near Bearish OB: {signal['metadata']['near_bearish_ob']}")

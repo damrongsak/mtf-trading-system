@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     OANDA_ENV: str = "practice"  # practice or live
     
     API_GATEWAY_URL: str = "http://api-gateway:8000/api/v1"
+    AI_ANALYST_URL: str = "http://ai-analyst:8001/api/v1"
     REDIS_URL: str = "redis://redis:6379/0"
     INTERNAL_API_KEY: str = "dev_secret_key" # Should be set in .env
     

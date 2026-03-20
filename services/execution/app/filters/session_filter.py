@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Fund, RiskFilter
+from typing import Any, TYPE_CHECKING
+from sqlalchemy.ext.asyncio import AsyncSession
+if TYPE_CHECKING:
+    from app.models import Fund, RiskFilter
 from app.filters.base import BaseFilter
 import logging
 
@@ -15,14 +18,15 @@ class SessionFilter(BaseFilter):
         self,
         db: AsyncSession,
         adapter: Any,
-        fund: Fund,
+        fund: "Fund",
         symbol: str,
         direction: str,
         sl_price: float,
         tp_price: float,
         entry_price: float,
-        filter_config: RiskFilter
+        filter_config: "RiskFilter"
     ) -> bool:
+        from app.models import Fund, RiskFilter
         now = datetime.now(timezone.utc)
         
         # Example: Skip 21:55 - 22:05 UTC (Rollover)
