@@ -1043,13 +1043,33 @@ class CTraderMessageRouter:
             from app.services.fill_publisher import publish_fill, publish_close
 
             if close_volume > 0:
-                logger.info(f"cTrader: Async CLOSE received for Deal {deal_id} (Acc: {account_id}, PnL: {gross_profit})")
+                # [Case-Fix] Use closePositionDetail for accurate exit price and PnL
+                cpd = getattr(event.deal, "closePositionDetail", None)
+                
+                # ProtoOADeal.executionPrice is the price at which this deal was executed (the exit price)
+                # It is already an absolute double in cTrader Open API
+                raw_exit_price = float(getattr(event.deal, "executionPrice", 0.0))
+                
+                # [PnL-Citadel-Fix] Fallback to closePositionDetail.entryPrice if executionPrice is 0.
+                # Note: For CLOSING deals, cTrader often populates executionPrice on the deal,
+                # but we can fallback to cpd.entryPrice which represents the fill price of this closing deal.
+                exit_price = raw_exit_price
+                if exit_price == 0.0 and cpd:
+                     exit_price = float(cpd.entryPrice) if cpd.entryPrice else 0.0
+                
+                # gross_profit is already calculated above from raw_gross and moneyDigits
+                # but if it was 0, we can try pulling from cpd
+                if gross_profit == 0 and cpd:
+                    money_digits = getattr(event.deal, "moneyDigits", 2)
+                    gross_profit = float(cpd.grossProfit) / (10 ** money_digits)
+
+                logger.info(f"cTrader: Async CLOSE received for Deal {deal_id} (Acc: {account_id}, Exit: {exit_price}, PnL: {gross_profit})")
                 await publish_close(
                     account_id=account_id,
                     deal_id=deal_id,
                     status="CLOSED",
                     instrument=symbol,
-                    exit_price=float(getattr(event.deal, "executionPrice", 0.0)) if event.HasField("deal") else 0.0,
+                    exit_price=exit_price,
                     exit_volume=float(close_volume),
                     pnl=gross_profit,
                     direction=context.get("direction", "LONG"),

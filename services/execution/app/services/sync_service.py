@@ -72,15 +72,13 @@ class SyncService:
             if trades is not None:
                 broker_states[acc_id] = trades
 
-        # 2. Fetch DB state for this fund
+        # 2. Fetch DB state for this fund (Fetch all to avoid ghost duplicates for closed trades)
         account_ids = [acc.id for acc in accounts]
-        db_stmt = select(Trade).where(
-            Trade.broker_account_id.in_(account_ids),
-            Trade.status == TradeStatus.OPEN
+        db_stmt = select(Trade.broker_trade_id).where(
+            Trade.broker_account_id.in_(account_ids)
         )
         db_result = await db.execute(db_stmt)
-        db_trades = db_result.scalars().all()
-        db_trade_ids = {str(t.broker_trade_id) for t in db_trades if t.broker_trade_id}
+        db_trade_ids = {str(row[0]) for row in db_result.all() if row[0]}
 
         # 3. Drift Detection Logic
         redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -89,7 +87,7 @@ class SyncService:
             account = next(a for a in accounts if str(a.id) == acc_id)
             
             for lt in live_trades:
-                btid = str(lt.get("id"))
+                btid = str(lt.get("id") or lt.get("broker_trade_id"))
                 
                 # A. Ghost Trade Detection: In Broker but NOT in DB
                 if btid not in db_trade_ids:
@@ -98,10 +96,12 @@ class SyncService:
                     
                     # [AUTO-SYNC] Create DB record for ghost trade
                     try:
-                        await cls._create_ghost_trade_record(lt, account, db)
+                        async with db.begin_nested():
+                            await cls._create_ghost_trade_record(lt, account, db)
                         logger.info(f"✅ [AUTO-SYNC] Created DB record for ghost trade {btid}")
+                        db_trade_ids.add(btid) # Prevent multiple attempts in same loop
                     except Exception as e:
-                        logger.error(f"❌ [AUTO-SYNC] Failed to create ghost trade record: {e}")
+                        logger.error(f"❌ [AUTO-SYNC] Failed to create ghost trade record {btid}: {e}")
                     
                     # Publish Critical Drift to Redis for UI/Alerting
                     alert = {
@@ -116,9 +116,60 @@ class SyncService:
                     }
                     await redis_client.xadd("system.alerts.drift", {"payload": json.dumps(alert)})
 
-                # B. SL/TP Consistency (TODO: Future refinement)
+                # B. SL/TP Consistency
+                else:
+                    # Trade exists in DB, check for missing or different SL/TP
+                    # Only check OPEN trades in DB for SL/TP consistency
+                    db_open_stmt = select(Trade).where(
+                        Trade.broker_account_id == account.id,
+                        Trade.broker_trade_id == btid,
+                        Trade.status == TradeStatus.OPEN
+                    )
+                    db_open_res = await db.execute(db_open_stmt)
+                    db_trade = db_open_res.scalars().first()
+                    
+                    if db_trade:
+                        needs_update = False
+                        
+                        # Sync SL
+                        live_sl = float(lt.get("sl")) if lt.get("sl") else None
+                        if live_sl and (not db_trade.sl_price or abs(float(db_trade.sl_price) - live_sl) > 0.00001):
+                            db_trade.sl_price = live_sl
+                            needs_update = True
+                            
+                        # Sync TP
+                        live_tp = float(lt.get("tp")) if lt.get("tp") else None
+                        if live_tp and (not db_trade.tp_price or abs(float(db_trade.tp_price) - live_tp) > 0.00001):
+                            db_trade.tp_price = live_tp
+                            needs_update = True
+                            
+                        # If SL/TP updated, recalculate risk
+                        if needs_update:
+                            if db_trade.sl_price and db_trade.entry_price:
+                                price_diff = abs(float(db_trade.entry_price) - float(db_trade.sl_price))
+                                # In cTrader logic used by UnitConverter.calculate_risk_usd:
+                                # risk = price_diff * (volume_cents / 100.0)
+                                # since 1.0 lot = 100,000 cents, volume_cents = lot_size * 100,000
+                                volume_cents = float(db_trade.lot_size) * 100000.0
+                                db_trade.risk_usd = UnitConverter.calculate_risk_usd(price_diff, volume_cents)
+                                
+                                if db_trade.tp_price and price_diff > 0:
+                                    tp_distance = abs(float(db_trade.tp_price) - float(db_trade.entry_price))
+                                    db_trade.rr_ratio = round(tp_distance / price_diff, 2)
+                            
+                            db_trade.updated_at = datetime.utcnow()
+                            # db.commit() removed - committed once at the end
+                            logger.info(f"🔄 [AUTO-SYNC] Updated SL/TP/Risk for trade {btid} in DB.")
+        
+        # 4. Final Commit for all changes in this fund
+        try:
+            await db.commit()
+            logger.info(f"✅ [SyncService] Fund {fund_id} reconciliation changes committed.")
+        except Exception as commit_err:
+            logger.error(f"❌ [SyncService] Failed to commit changes for Fund {fund_id}: {commit_err}")
+            await db.rollback()
 
-        # 4. Cross-Broker Net Exposure Drift (e.g. OANDA long 1.0, cTrader long 0.5 -> Drift 0.5)
+        # 5. Cross-Broker Net Exposure Drift (e.g. OANDA long 1.0, cTrader long 0.5 -> Drift 0.5)
         # This is for funds that are supposed to be mirrors or hedged.
         # For now, we log the net exposure per asset per fund.
         await cls._calculate_net_exposure_drift(fund_id, broker_states, redis_client)
@@ -132,7 +183,8 @@ class SyncService:
         for acc_id, trades in broker_states.items():
             for t in trades:
                 symbol = t.get("symbol")
-                units = float(t.get("units", 0))
+                # Use lot_size (standardized) for exposure comparison across brokers
+                units = float(t.get("lot_size", 0))
                 if symbol not in net_exposure:
                     net_exposure[symbol] = {}
                 net_exposure[symbol][acc_id] = net_exposure[symbol].get(acc_id, 0.0) + units
@@ -193,6 +245,17 @@ class SyncService:
         tp_price = None
         if live_trade.get("tp"):
             tp_price = float(live_trade.get("tp"))
+
+        # [RISK-Calculation] Calculate risk for ghost trades if SL is present
+        risk_usd = 0.0
+        rr_ratio = None
+        if sl_price and entry_price:
+            price_diff = abs(entry_price - sl_price)
+            risk_usd = UnitConverter.calculate_risk_usd(price_diff, units)
+            
+            if tp_price and price_diff > 0:
+                tp_distance = abs(tp_price - entry_price)
+                rr_ratio = round(tp_distance / price_diff, 2)
         
         # Deterministic UUID — matches worker.py for cross-service merge
         trade_uuid = uuid.uuid5(
@@ -214,14 +277,14 @@ class SyncService:
             sl_price=sl_price,
             tp_price=tp_price,
             lot_size=lot_size,
-            risk_usd=0,  # Unknown risk for ghost trades
+            risk_usd=risk_usd,
+            rr_ratio=rr_ratio,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
         db.add(trade)
-        await db.commit()
-        await db.refresh(trade)
+        # db.commit() and refresh() removed - managed by caller's transaction
         
         logger.info(f"📝 [AUTO-SYNC] Ghost trade created: {trade.trade_id} | {trade.symbol} {trade.direction} {lot_size} lots @ {entry_price}")
         return trade
