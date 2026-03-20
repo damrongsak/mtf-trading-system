@@ -180,6 +180,25 @@ A high-speed filtering node that checks Redis for semantically similar historica
 - **Threshold**: 0.90 similarity.
 - **ECST Integration (v3.1)**: Market context and headlines are pre-hydrated into the `StateCache` via Redis Pub/Sub, allowing `GetMarketContextTool` to resolve in O(1) time without external I/O.
 
+### 3.5. Institutional Flow & Narrative Synthesis (v2.8)
+To bridge the gap between technical quant analysis and hedge fund narratives, the agent MUST synthesize institutional flow data:
+1.  **Flow Data**: Incorporate ETF flows (e.g., GLD inflows/outflows) and COT positioning to identify "Smart Money" vs "Retail" divergence.
+2.  **Rotation vs Abandonment**: Differentiate between money leaving an asset class (Abandonment) vs rotating into correlated assets (Bonds, Equities, Cash).
+3.  **Timing Analysis**: Cross-reference flow shifts with macro events (Fed meetings, Treasury auctions, Quarter-end rebalancing).
+4.  **Style Standard**: 
+    - **Reduced Jargon**: Explain complex terms (e.g., Gamma Flip) in plain English for executive summaries.
+    - **Medium Financial Jargon**: For technical sections, use professional but accessible financial terminology (e.g., "Equity Rotation" instead of "Portfolio Rebalancing across Correlation Matrices").
+    - **Executive Summary**: Every response MUST start with a 1-paragraph summary for rapid decision-making.
+    - **Actionable Bottom Line**: Every response MUST end with a 2-3 sentence "Bottom Line" that is strictly actionable.
+
+### 3.6. Personalized User Q&A & Language Protocol (v2.9)
+The agent is enhanced with personalized awareness and linguistic adaptation:
+1.  **Personalized Q&A**: The agent MUST use the `MemoryService` (Adaptive Context) to answer general questions regarding the user's specific history, preferences, and provided information.
+2.  **Language Adaptation**:
+    - **External Output**: The agent MUST respond in the primary language used by the user in their input (e.g., Thai, English) or as specified in the user's stored preferences.
+    - **Internal Communication**: To maintain technical precision, all internal agent nodes (Reasoner, Router, Tool Execution) MUST communicate in **English**.
+    - **Translation Node**: The `node_generate` node acts as the final translation and jargon-normalization layer.
+
 ## 4. Data Models
 
 ### 4.1. AnalysisResponse (Implemented)

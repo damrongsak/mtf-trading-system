@@ -103,8 +103,11 @@ The system is organized into five decoupled layers of responsibility:
     - **Professional CLI (v2.6)**: Bloomberg-style terminal with institutional autocompletion and rotating pro-tips.
     - **Direct Service Orchestration (v3.2)**: Orchestrates internal tools by calling microservices directly (Ports 8001-8005), bypassing the API Gateway to prevent reentrant deadlocks.
     - **ECST Local Cache**: Maintains zero-latency in-memory state for news and market context via Redis `state_updates` broadcasting.
-    - **Strategic Synthesis**: Multi-source mandatory confluence logic (SMC + COT + Heatmap) for high-net-worth decisions.
+    - **Strategic Synthesis (v2.8)**: Multi-source mandatory confluence logic (SMC + COT + ETF Flows) for high-net-worth decisions, featuring the "Rotation vs Abandonment" thesis.
+    - **Language Protocol (v2.9)**: Automated output language adaptation (user-primary) with English-only internal reasoning.
+    - **Personalized Q&A**: Leverages `MemoryService` for deep awareness of user preferences and session history.
     - **Psychological MRI**: Analyzes execution patterns for "Tilt".
+    - **Jargon Normalization**: Enforces "Medium Financial" jargon levels for executive accessibility.
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.

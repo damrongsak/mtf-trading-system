@@ -4,7 +4,8 @@ from typing import List, Optional, Union
 class QueryOptimization(BaseModel):
     """Schema for query optimization and intent classification."""
     optimized_query: str = Field(description="The technical English version of the user's query.")
-    intent: str = Field(description="The classified intent of the query (e.g., TOOL_USE, MARKET_ANALYSIS, etc.)")
+    intent: str = Field(description="The classified intent of the query (e.g., TOOL_USE, MARKET_ANALYSIS, USER_PROFILE, etc.)")
+    target_language: str = Field(default="English", description="The primary language detect in the user's input (e.g., Thai, English).")
 
 class PlanDecomposition(BaseModel):
     """Schema for breaking down complex requests into steps."""

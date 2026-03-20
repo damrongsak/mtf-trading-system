@@ -68,6 +68,10 @@ graph TD
 - **Zero-Cost Autonomous Search**: High-fidelity browser-based research via OpenClaw (DuckDuckGo scraping) that avoids paid Search API costs.
 - **Direct Service Connectivity (v3.2)**: Orchestrates internal data gathering (Strategy, Execution, Data) by calling services directly to eliminate reentrant deadlocks and Gateway latency.
 - **Automated Daily Post-Mortem**: (01:00 UTC) Self-correcting learning loop that transforms past trades into persistent RAG memory.
+- **Institutional Narrative Synthesis (v2.8)**: Blends technical quant signals (SMC) with institutional flow (COT, ETF) to identify "Rotation vs Abandonment" context.
+- **Language Protocol (v2.9)**: Detects user input language (Thai/English) and responds accordingly, while maintaining English for internal graph nodes.
+- **Personalized User Q&A**: Direct interface with `MemoryService` to answer general questions regarding user history and preferences.
+- **Jargon Normalization**: Standardizes outputs to a "Medium Financial" (professional but accessible) jargon level.
 - **AI Risk Rebalancer (v3.0)**: `RiskRebalancerAgent` + `RiskReviewTool` — analyzes market regime, news sentiment, and current fund parameters via Gemini to recommend dynamic risk adjustments (drawdown thresholds, risk percentages). Integrated as a specialist node in the LangGraph with `rebalance` intent routing.
 
 ## 🤖 AI-Agent Operational Guide

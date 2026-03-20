@@ -84,6 +84,7 @@ class AgentState(TypedDict):
     proposed_trade: dict # Captured trade proposal for sanity checking
     specialist_response: Optional[Dict[str, Any]] # Response from a specialist node
     active_fund_id: Optional[str] # Phase 57: Fund ID for risk analysis
+    target_language: str # v2.9: Target language for final response
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -190,9 +191,10 @@ class StrategyAdvisorAgent:
         # Retrieve Knowledge Logic
         workflow.add_conditional_edges(
             "retrieve_knowledge",
-            lambda x: "synthesize" if x.get("intent") == "RESEARCH" else "reasoning",
+            lambda x: "synthesize" if x.get("intent") == "RESEARCH" else ("generate" if x.get("intent") == "USER_PROFILE" else "reasoning"),
             {
                 "synthesize": "synthesize",
+                "generate": "generate",
                 "reasoning": "reasoning"
             }
         )
@@ -489,19 +491,23 @@ class StrategyAdvisorAgent:
                 response_schema=QueryOptimization
             )
             
-            # The SDK will return a parsed object if response_schema is provided
-            # and our wrapper returns response.text (which should be the JSON string)
-            content = response.get("text", "") if isinstance(response, dict) else str(response)
-            data = QueryOptimization.model_validate_json(content)
+            text = response.get("text", "")
+            data = QueryOptimization.model_validate_json(text)
             
-            logger.info(f"Optimization Result - Intent: {data.intent}, Query: {data.optimized_query}")
+            logger.info(f"Optimization Result - Intent: {data.intent}, Lang: {data.target_language}, Query: {data.optimized_query}")
+            
             return {
                 "optimized_query": data.optimized_query,
-                "intent": data.intent
+                "intent": data.intent,
+                "target_language": data.target_language
             }
         except Exception as e:
             logger.error(f"Optimizer failed: {e}")
-            return {"optimized_query": query, "intent": "CHAT"}
+            return {
+                "optimized_query": state["input_text"],
+                "intent": "CHAT",
+                "target_language": "English"
+            }
 
     async def node_severity_classifier(self, state: AgentState):
         """
@@ -867,6 +873,8 @@ class StrategyAdvisorAgent:
             return "journal_analysis"
         elif intent == "PORTFOLIO_MANAGEMENT":
             return "portfolio_management"
+        elif intent == "USER_PROFILE":
+            return "research"  # This goes to retrieve_knowledge
         
         return "direct"
 
@@ -1560,6 +1568,8 @@ class StrategyAdvisorAgent:
         strategy_standards = ""
         if state.get("intent") == "strategy_design":
             strategy_standards = f"\n{STRATEGY_GENERATION_PROMPT}\n"
+        
+        target_lang = state.get("target_language", "English")
 
         from datetime import datetime
         current_date_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -1569,12 +1579,15 @@ class StrategyAdvisorAgent:
         {SYSTEM_PERSONA}
         {strategy_standards}
         
+        Target Language: {target_lang}
+        Jargon Level: Medium Financial (Professional but accessible)
+        
         Current Date: {current_date_str}
         
         **Retrieved Context (Knowledge Base):**
         {context_docs}
         
-        **Available User Information:**
+        **Available User Information (Memory):**
         {user_facts}
         
         **Agent Planning/Reasoning:**
@@ -1589,12 +1602,14 @@ class StrategyAdvisorAgent:
         {history_str}
         
         **Response Guidelines:**
-        1. If Tool Outputs are present, you MUST use them as the primary source of truth for market data and prices.
-        2. DO NOT use numbers from the 'Agent Planning/Reasoning' section if they conflict with 'Tool Outputs'. The reasoning section is a planning phase and may contain placeholders.
-        3. Formulate a professional, quantitative response. 
-        4. If no tools were used and information is missing, state it clearly.
-        5. Acknowledge the conversation history if the user is asking a follow-up question.
-        6. **STRICT REQUIREMENT**: You have ALREADY executed the necessary tools in a previous step. The results are in the 'CRITICAL Tool Outputs' section. DO NOT under any circumstances attempt to call or mention a tool call again. Provide a PURE TEXT response based on the results provided.
+        1. **MANDATORY**: You MUST respond in {target_lang}. Translate ALL findings and analysis into {target_lang} before outputting.
+        2. Use the 'Medium Financial' jargon level. Explain high-level technical terms if necessary to ensure clarity.
+        3. If Tool Outputs are present, you MUST use them as the primary source of truth for market data and prices.
+        4. DO NOT use numbers from the 'Agent Planning/Reasoning' section if they conflict with 'Tool Outputs'. 
+        5. Formulate a professional, quantitative response. 
+        6. If no tools were used and information is missing, state it clearly.
+        7. Acknowledge the conversation history if the user is asking a follow-up question.
+        8. **STRICT REQUIREMENT**: You have ALREADY executed the necessary tools. Provide a PURE TEXT response based on the results provided.
         """
         
         try:
