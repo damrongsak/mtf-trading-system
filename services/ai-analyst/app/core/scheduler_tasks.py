@@ -164,6 +164,12 @@ async def check_sentiment_risk_drift():
             
             for fund_id in fund_ids:
                 try:
+                    # 5b. Throttle Check: Avoid spamming if alert was sent 15m ago
+                    throttle_key = f"alert_throttle:sentiment_drift:{fund_id}"
+                    if await sentiment_service.redis.get(throttle_key):
+                        logger.info(f"⏭️ Throttling sentiment alert for fund {fund_id} (Cooldown active).")
+                        continue
+
                     # Build a minimal AgentState for the rebalancer
                     from langchain_core.messages import HumanMessage
                     state = {
@@ -379,6 +385,12 @@ async def _notify_fund_owners(fund_id: str, message: str):
             try:
                 await send_telegram_message(chat_id, message)
                 logger.info(f"📱 Telegram alert sent to chat_id={chat_id} for fund {fund_id}")
+                
+                # Set Throttle Key (15 mins TTL)
+                redis = services.get("redis")
+                if redis:
+                    throttle_key = f"alert_throttle:sentiment_drift:{fund_id}"
+                    await redis.setex(throttle_key, 900, "1")
             except Exception as e:
                 logger.error(f"Failed to send Telegram to {chat_id}: {e}")
     finally:
