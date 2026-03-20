@@ -1,5 +1,24 @@
 [
   {
+    "id": "c414fe39-de58-412f-a87c-f14fdc6cdbb6",
+    "fund_id": "420fb273-8ed3-4b90-be1a-76f9c1248467",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "broker_name": "blackbullmarkets",
+    "account_name": "BlackBull Live 8095395",
+    "account_number": "8095395",
+    "credentials_encrypted": "Z0FBQUFBQnB1TU5kMF9tRUs1YkR1UE13eHV1WDVUVjF2NTAwam9VRzRYM0NxMjNkRzlWOXRjT00yNUgwVG8xWXlGaTAyWW5iNTdoYk5PZHZoc3dEalVPVDJxY1ZuNDZWYTBDbkgtTlVqN2pselFVR1Z6cGNHT0JETFNNR1VVLXpPWndNa0xMM1ZleHNQNFdGMDdoSlJPMEs5RF9xM0xJbWkyeEdNVS1mWmdZbF9TeHBnbFppUzJmY2hfUThSYkRQWm52T1k2YTlJZG9nR3RLWl95aXJhZkJjV0pqVUlkZG5DZ3lteXZxQkw0cW9UQ3doSklqb1VuVGE1cFRuQ1d4Q1N0MVg0OENDcE5TZjhDc3BTMmJYOUVLb194YTd5YVZ3QXZNTkhNTnpqYlI3ZlZxb2xQN0tWM2ltRFZ0ZVhlN0ozbUFvaTBHbkY4R1N4NkJQbmlKbndJZk9aeGlVMUZBaC1WdzdLc2Y3akpLMDRhOFJlTEdKamdnU1BIRWV4bVU4QmRxdjRjd2kyVnp5MGExNnhZdTlRZWhmTExpVzNKdXVoVU1UUllJYlZ6UzZQSjBiRVRJenQ0WnJ2eWF5RV9idDRrUUVNcTdBZC12V1ZQSGVMcHBwSUg0SHgyczNzMTJIdG1VSGplaWpUTEtJY0M0S0wyMFZVeGVFdVMwNmd2ekpYUzJlQ1hCSWs1bTA1UEZLeUt2SXpiYUJieG1kQXNRd1I0M2F3WlRUcjdwOEIzb2E3WTZ4MkZZPQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "PRACTICE",
+    "supported_symbols": null,
+    "risk_settings": null,
+    "leverage": 1000,
+    "currency": "USD",
+    "balance_snapshot": "0.00",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-17T02:58:37.460327+00:00"
+  },
+  {
     "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "data_source_id": null,
@@ -19,26 +38,7 @@
     "currency": null,
     "balance_snapshot": "177.40",
     "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-20T07:10:26.659763+00:00"
-  },
-  {
-    "id": "c414fe39-de58-412f-a87c-f14fdc6cdbb6",
-    "fund_id": "420fb273-8ed3-4b90-be1a-76f9c1248467",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "broker_name": "blackbullmarkets",
-    "account_name": "BlackBull Live 8095395",
-    "account_number": "8095395",
-    "credentials_encrypted": "Z0FBQUFBQnB1TU5kMF9tRUs1YkR1UE13eHV1WDVUVjF2NTAwam9VRzRYM0NxMjNkRzlWOXRjT00yNUgwVG8xWXlGaTAyWW5iNTdoYk5PZHZoc3dEalVPVDJxY1ZuNDZWYTBDbkgtTlVqN2pselFVR1Z6cGNHT0JETFNNR1VVLXpPWndNa0xMM1ZleHNQNFdGMDdoSlJPMEs5RF9xM0xJbWkyeEdNVS1mWmdZbF9TeHBnbFppUzJmY2hfUThSYkRQWm52T1k2YTlJZG9nR3RLWl95aXJhZkJjV0pqVUlkZG5DZ3lteXZxQkw0cW9UQ3doSklqb1VuVGE1cFRuQ1d4Q1N0MVg0OENDcE5TZjhDc3BTMmJYOUVLb194YTd5YVZ3QXZNTkhNTnpqYlI3ZlZxb2xQN0tWM2ltRFZ0ZVhlN0ozbUFvaTBHbkY4R1N4NkJQbmlKbndJZk9aeGlVMUZBaC1WdzdLc2Y3akpLMDRhOFJlTEdKamdnU1BIRWV4bVU4QmRxdjRjd2kyVnp5MGExNnhZdTlRZWhmTExpVzNKdXVoVU1UUllJYlZ6UzZQSjBiRVRJenQ0WnJ2eWF5RV9idDRrUUVNcTdBZC12V1ZQSGVMcHBwSUg0SHgyczNzMTJIdG1VSGplaWpUTEtJY0M0S0wyMFZVeGVFdVMwNmd2ekpYUzJlQ1hCSWs1bTA1UEZLeUt2SXpiYUJieG1kQXNRd1I0M2F3WlRUcjdwOEIzb2E3WTZ4MkZZPQ==",
-    "is_active": true,
-    "is_live": true,
-    "environment": "PRACTICE",
-    "supported_symbols": null,
-    "risk_settings": null,
-    "leverage": 1000,
-    "currency": "USD",
-    "balance_snapshot": "0.00",
-    "created_at": "2026-03-17T01:12:55.136117+00:00",
-    "updated_at": "2026-03-17T02:58:37.460327+00:00"
+    "updated_at": "2026-03-20T10:43:40.532649+00:00"
   },
   {
     "id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
@@ -60,7 +60,7 @@
     "currency": "USD",
     "balance_snapshot": "1024.97",
     "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-20T07:10:26.659763+00:00"
+    "updated_at": "2026-03-20T10:43:40.532649+00:00"
   },
   {
     "id": "9015103c-4c88-47f3-a46e-c07173c190df",
@@ -98,7 +98,7 @@
     "currency": "USD",
     "balance_snapshot": "1.06",
     "created_at": "2026-03-17T01:12:55.136117+00:00",
-    "updated_at": "2026-03-20T07:10:26.659763+00:00"
+    "updated_at": "2026-03-20T10:43:40.532649+00:00"
   },
   {
     "id": "066e21a0-0933-4f70-8e35-605f4759f927",
@@ -120,8 +120,8 @@
     "risk_settings": null,
     "leverage": 1000,
     "currency": "USD",
-    "balance_snapshot": "3328.55",
+    "balance_snapshot": "3368.62",
     "created_at": "2026-03-14T10:11:51.015390+00:00",
-    "updated_at": "2026-03-20T07:10:26.659763+00:00"
+    "updated_at": "2026-03-20T10:43:40.532649+00:00"
   }
 ]

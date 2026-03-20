@@ -1,5 +1,27 @@
 [
   {
+    "id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
+    "name": "Pepperstone Live 1010319 Fund",
+    "description": "Dedicated Fund for Pepperstone Live 1010319",
+    "is_active": true,
+    "created_at": "2026-03-17T01:53:05.214445+00:00",
+    "strategy_type": "MTF_SMC_BASIC",
+    "asset_classes": [
+      "FX"
+    ],
+    "max_risk_per_trade": "10.00",
+    "risk_percentage": "0.1200",
+    "default_lot_size": "0.01",
+    "max_drawdown_threshold": "2.50",
+    "max_portfolio_beta": null,
+    "gross_exposure_limit": null,
+    "net_exposure_limit": null,
+    "position_limit_single": null,
+    "position_limit_sector": null,
+    "risk_parity_enabled": null,
+    "risk_parity_model": null
+  },
+  {
     "id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "name": "Olympus Master Fund",
     "description": "Main Production Trading Fund",
@@ -10,9 +32,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0035",
+    "risk_percentage": "0.0015",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -32,9 +54,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0030",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.00",
+    "max_drawdown_threshold": "3.00",
     "max_portfolio_beta": null,
     "gross_exposure_limit": null,
     "net_exposure_limit": null,
@@ -54,9 +76,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0035",
+    "risk_percentage": "0.1500",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": null,
     "gross_exposure_limit": null,
     "net_exposure_limit": null,
@@ -76,9 +98,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0150",
+    "risk_percentage": "0.0050",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "0.10",
+    "max_drawdown_threshold": "4.00",
     "max_portfolio_beta": null,
     "gross_exposure_limit": null,
     "net_exposure_limit": null,
@@ -98,7 +120,7 @@
       "FX"
     ],
     "max_risk_per_trade": "100.00",
-    "risk_percentage": "0.0006",
+    "risk_percentage": "0.0075",
     "default_lot_size": "0.01",
     "max_drawdown_threshold": "0.01",
     "max_portfolio_beta": "0.35",
@@ -120,9 +142,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0025",
+    "risk_percentage": "0.0012",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.50",
+    "max_drawdown_threshold": "2.50",
     "max_portfolio_beta": null,
     "gross_exposure_limit": null,
     "net_exposure_limit": null,
@@ -143,9 +165,9 @@
       "METALS"
     ],
     "max_risk_per_trade": "100.00",
-    "risk_percentage": "0.0030",
+    "risk_percentage": "0.0500",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.00",
+    "max_drawdown_threshold": "1.50",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -166,36 +188,14 @@
       "XAGUSD"
     ],
     "max_risk_per_trade": "2.00",
-    "risk_percentage": "0.0500",
+    "risk_percentage": "0.0020",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "0.75",
+    "max_drawdown_threshold": "0.06",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
     "position_limit_single": "3.00",
     "position_limit_sector": "10.00",
-    "risk_parity_enabled": null,
-    "risk_parity_model": null
-  },
-  {
-    "id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
-    "name": "Pepperstone Live 1010319 Fund",
-    "description": "Dedicated Fund for Pepperstone Live 1010319",
-    "is_active": true,
-    "created_at": "2026-03-17T01:53:05.214445+00:00",
-    "strategy_type": "MTF_SMC_BASIC",
-    "asset_classes": [
-      "FX"
-    ],
-    "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0025",
-    "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.00",
-    "max_portfolio_beta": null,
-    "gross_exposure_limit": null,
-    "net_exposure_limit": null,
-    "position_limit_single": null,
-    "position_limit_sector": null,
     "risk_parity_enabled": null,
     "risk_parity_model": null
   }

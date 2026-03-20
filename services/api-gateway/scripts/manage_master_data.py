@@ -24,6 +24,7 @@ from app.models.risk_filter import RiskFilter
 from app.models.plugins import Plugin, UserPlugin
 from app.models.telegram_chat_mapping import TelegramChatMapping
 from app.models.strategy import Strategy
+from app.models.saved_strategy import SavedStrategy
 from app.models.strategy_config import StrategyConfig
 from app.models.prompt import SystemPrompt
 from app.models.rag import LibraryBook
@@ -49,6 +50,7 @@ TABLE_MODELS = [
     (Plugin, "plugins.json"),
     (UserPlugin, "user_plugins.json"),
     (TelegramChatMapping, "telegram_chat_mappings.json"),
+    (SavedStrategy, "saved_strategies.json"),
     (StrategyConfig, "strategy_configs.json"),
     (Strategy, "strategies.json"),
     (LibraryBook, "library_books.json")

@@ -1,21 +1,11 @@
 import pandas as pd
 from datetime import datetime
-# import vectorbt as vbt
 import numpy as np
 from sqlalchemy import text
 from app.database import engine
 from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, EquityPoint, StrategyBacktestRequest
-from app.schemas import BacktestRequest, BacktestResponse, BacktestMetrics, TradeResult, EquityPoint, StrategyBacktestRequest
 from app.strategy import get_strategy # Keep for built-ins
 from app.registry import StrategyRegistry # Access new registry methods
-
-def get_strategy_sync(name: str):
-    # Adapter to try Registry first, then built-in
-    s = StrategyRegistry.get_strategy_sync(name)
-    if s: return s
-    # Try built-in
-    return get_strategy(name)
-
 from uuid import uuid4
 import ast
 import multiprocessing
@@ -32,10 +22,16 @@ from app.analysis.benchmark import BenchmarkService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_strategy_sync(name: str):
+    # Adapter to try Registry first, then built-in
+    s = StrategyRegistry.get_strategy_sync(name)
+    if s: return s
+    # Try built-in
+    return get_strategy(name)
+
 def check_safety(code: str) -> Tuple[bool, str]:
     """
     Basic static analysis to reject obviously dangerous code.
-    Blocks: import os, sys, subprocess, etc.
     """
     try:
         tree = ast.parse(code)
@@ -43,20 +39,15 @@ def check_safety(code: str) -> Tuple[bool, str]:
         return False, f"Syntax Error: {e}"
 
     for node in ast.walk(tree):
-        # 1. Block imports
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             for alias in node.names:
                 if alias.name.split('.')[0] in ['os', 'sys', 'subprocess', 'shutil', 'pickle', 'importlib', 'builtins']:
                     return False, f"Forbidden import: {alias.name}"
-        
-        # 2. Block __import__ and open/eval/exec
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name):
                 if node.func.id in ['open', 'eval', 'exec', '__import__', 'globals', 'locals']:
                      return False, f"Forbidden function call: {node.func.id}"
-    
     return True, ""
-
 
 def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     query = text("""
@@ -68,7 +59,6 @@ def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: dateti
         AND timestamp <= :end_date
         ORDER BY timestamp ASC
     """)
-    
     try:
         with engine.connect() as conn:
             df = pd.read_sql(query, conn, params={
@@ -88,571 +78,188 @@ def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: dateti
     df.set_index('timestamp', inplace=True)
     return df
 
-
-def _worker_logic(req_dict: Dict[str, Any], df: pd.DataFrame, result_queue: multiprocessing.Queue):
+def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     """
-    Isolated execution logic for the worker process.
+    Run backtest on historical data from DB.
     """
     try:
-        # Re-import libraries in the worker process context if needed (though usually inherited on fork)
-        # On spawn (non-Unix), imports are needed. Docker is Linux (fork), but safe to be explicit or just rely on module level imports.
+        # 1. Fetch Data
+        from app.database import SessionLocal
+        from app.utils.helpers import resolve_market_symbol
         
-        # 2. Execute Custom Code
-        local_scope = {}
-        exec_globals = {
-            'pd': pd,
-            'np': np,
-            'vbt': vbt,
-            'vectorbt': vbt,
-            'PortfolioOptimizer': PortfolioOptimizer,
-            'QuantreoFeatures': QuantreoFeatures
-        }
-        
-        exec(req_dict['code'], exec_globals, local_scope)
-        
-        if 'strategy' not in local_scope:
-            result_queue.put({'status': 'ERROR', 'message': "Function 'strategy' not found in code."})
-            return
+        db = SessionLocal()
+        try:
+            ms = resolve_market_symbol(db, req.symbol)
+            if not ms:
+                print(f"ERROR: MarketSymbol not found for {req.symbol}")
+                return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
+            ms_id = str(ms.id)
+        finally:
+            db.close()
 
-        strategy_func = local_scope['strategy']
+        df = fetch_data_from_db(ms_id, req.timeframe, req.start_date, req.end_date)
         
-        # Check signature to see if it accepts 'params'
-        sig = inspect.signature(strategy_func)
-        if 'params' in sig.parameters:
-             entries, exits = strategy_func(df, params=req_dict.get('params', {}))
-        else:
-             entries, exits = strategy_func(df)
+        if df.empty:
+            logger.warning(f"No data found for {req.symbol} ({req.timeframe})")
+            return _empty_response(status="ERROR_NO_DATA")
         
-        # 3. Running Portfolio
-        freq = None
-        if len(df) > 1:
-            diff = df.index[1] - df.index[0]
-            freq = str(int(diff.total_seconds())) + 'S'
+        # 2. Strategy Logic
+        strategy_name = req.strategy_params.get("name")
+        if not strategy_name:
+            strategy_name = req.strategy_id or "ma_crossover"
+        
+        # Resolve UUID
+        try:
+            import uuid
+            uuid.UUID(str(strategy_name))
+            from app.models.strategy import Strategy
+            db = SessionLocal()
+            try:
+                strat_record = db.query(Strategy).filter(Strategy.id == strategy_name).first()
+                if strat_record:
+                    strategy_name = strat_record.template_id
+                    req.strategy_params = {**(strat_record.config_json or {}), **req.strategy_params}
+            finally:
+                db.close()
+        except:
+            pass
 
+        logger.info(f"Running strategy: {strategy_name}")
+        
+        strategy_func = get_strategy_sync(strategy_name)
+        if not strategy_func:
+            strategy_func = get_strategy(strategy_name)
+        if not strategy_func:
+            strategy_func = get_strategy("ma_crossover")
+
+        # Use Close price for VBT logic
         close_price = df['close'].astype(float)
         
-        # Advanced: Use ECST Details if available
-        symbol_details = req_dict.get('symbol_details', {})
-        # If fees/slippage are default (0.0001) and we have better info in details, use it
-        # Actually, let's just log them for now to show we have them
-        if symbol_details:
-             logger.info(f"Backtest Worker: Using ECST details for {req_dict.get('symbol')}: {symbol_details.keys()}")
+        # Run Strategy
+        sig = inspect.signature(strategy_func)
+        if 'params' in sig.parameters:
+             result = strategy_func(df, params=req.strategy_params)
+        else:
+             try:
+                 result = strategy_func(df, **req.strategy_params)
+             except:
+                 result = strategy_func(df)
 
+        # Unpack
+        if isinstance(result, tuple):
+            entries = result[0]
+            exits = result[1]
+        else:
+            entries = result
+            exits = pd.Series(False, index=df.index)
+
+        if entries is None: entries = pd.Series(0, index=df.index)
+        if exits is None: exits = pd.Series(0, index=df.index)
+
+        # Vectorbt logic
+        long_entries = (entries == 1).astype(bool)
+        long_exits = (exits == 1).astype(bool)
+        short_entries = (entries == -1).astype(bool)
+        short_exits = (exits == -1).astype(bool)
+
+        if long_entries.sum() == 0 and short_entries.sum() == 0:
+            return _empty_response(status="COMPLETED_NO_TRADES")
+
+        # 3. Portfolio
         import vectorbt as vbt
+        freq = None
+        if len(df) > 1:
+            freq = str(int((df.index[1] - df.index[0]).total_seconds())) + 'S'
+
         pf = vbt.Portfolio.from_signals(
             close_price,
-            entries,
-            exits,
-            init_cash=req_dict['initial_capital'],
-            fees=req_dict['fees'],
-            slippage=req_dict['slippage'],
-            size=req_dict.get('size', 1.0),
-            size_type=req_dict.get('size_type', 'amount'),
+            entries=long_entries,
+            exits=long_exits,
+            short_entries=short_entries,
+            short_exits=short_exits,
+            init_cash=req.initial_capital,
+            fees=req.fees,
+            slippage=req.slippage,
             freq=freq
         )
         
         # 4. Metrics
+        logger.info("Calculating portfolio stats...")
         stats = pf.stats()
+        logger.info("Stats calculated successfully.")
         
         def get_val(key, default=0.0):
             val = stats.get(key, default)
-            if pd.isna(val) or np.isinf(val):
-                 return default
-            return float(val)
+            return float(val) if not (pd.isna(val) or np.isinf(val)) else default
 
-        first_close = close_price.iloc[0] if len(close_price) > 0 else 1.0
-        last_close = close_price.iloc[-1] if len(close_price) > 0 else 1.0
-        benchmark_ret = (last_close - first_close) / first_close if first_close != 0 else 0.0
-
-        # Debug: Log available stats keys
-        print(f"DEBUG: VBT Stats Keys: {stats.index.tolist()}")
-
-        total_return = float(pf.total_profit()) if hasattr(pf, 'total_profit') else get_val('Total Profit')
-        # max_drawdown in vbt is usually absolute dollar amount
-        max_dd = float(pf.max_drawdown()) if hasattr(pf, 'max_drawdown') else abs(float(pf.stats().get('Max Drawdown [$]', 0.0)))
-
-        # Advanced Metrics (Olympus Upgrade)
-        # 1. Fetch Benchmark Data
-        # For MVP, we assume a default benchmark like 'XAU/USD' or 'BTC/USD' based on symbol, or just 'XAU/USD'
-        # In a real app, this might be passed in req_dict
-        benchmark_symbol = "XAU/USD" # Default
-        
-        # Determine start/end from df index
-        start_dt = df.index[0]
-        end_dt = df.index[-1]
-        
-        # Fetch Benchmark Returns
-        # Note: Database access inside worker process? usually okay if creating new session/engine
-        # But BenchmarkService uses 'engine'. multiprocessing fork might have issues with shared engine.
-        # Ideally we fetch benchmark OUTSIDE worker. But let's try inside for now, or fallback to mock.
-        bench_returns = BenchmarkService.fetch_benchmark_returns(benchmark_symbol, start_dt, end_dt)
-        
-        # Strategy Returns
-        strat_returns = pf.daily_returns() # Series
-        
-        # Calculate Advanced Metrics
-        sortino = calculate_sortino(strat_returns)
-        alpha_beta = calculate_alpha_beta(strat_returns, bench_returns)
-        info_ratio = calculate_information_ratio(strat_returns, bench_returns)
-
-        # Radar Chart Metrics Implementation
-        # 1. Profit Factor (Gross Gain / Gross Loss)
-        profit_factor = 0.0
-        gross_gain = stats.get('Gross Profit', 0.0) # VBT might use 'Total Profit' sum of positive?
-        # VBT 'Total Profit' is Net. 'Gross Profit' usually exists or we calc.
-        # Let's derive from readable_trades if missing, or trust stats.
-        if 'Gross Profit' not in stats:
-             # Basic fallback calculation if VBT doesn't provide it
-             # readable_trades is a DF
-             if not pf.trades.records_readable.empty:
-                pnls = pf.trades.records_readable['PnL']
-                g_gain = pnls[pnls > 0].sum()
-                g_loss = abs(pnls[pnls < 0].sum())
-                profit_factor = g_gain / g_loss if g_loss != 0 else (100.0 if g_gain > 0 else 0.0)
-             else:
-                profit_factor = 0.0
-        else:
-             profit_factor = float(stats.get('Profit Factor', 0.0))
-             if pd.isna(profit_factor) or np.isinf(profit_factor): profit_factor = 0.0
-
-        # 2. Reward-to-Risk (Avg Win / Avg Loss)
-        reward_to_risk = 0.0
-        avg_win = float(stats.get('Avg Winning Trade [$]', 0.0))
-        avg_loss = abs(float(stats.get('Avg Losing Trade [$]', 0.0)))
-        if avg_loss > 0:
-            reward_to_risk = avg_win / avg_loss
-        
-        # 3. Kurtosis (Tail Risk)
-        # Using Scipy if available, else pandas kurtosis
-        kurtosis_val = 0.0
-        if len(strat_returns) > 10:
-            kurtosis_val = float(strat_returns.kurtosis())
-        
-        # 4. Volatility (Annualized Std Dev)
-        # Assuming Daily Returns for Annualization? OR freq based.
-        # If High Freq, annualization is tricky. Let's use standard VBT 'Volatility (Ann.) [%]' if avail
-        volatility_val = float(stats.get('Volatility (Ann.) [%]', 0.0))
-        if volatility_val == 0.0 and len(strat_returns) > 1:
-            # Simple annualized calc assuming Daily 252
-            volatility_val = float(strat_returns.std() * np.sqrt(252)) * 100
-
-        # 5. K-Ratio
-        # Slope of Equity Curve / Std Err of Slope
-        # Simple Linear Regression on Equity Log? Or just Equity.
-        # K-Ratio = (Slope of Log VAMI) / (Std Err of Slope) * sqrt(periods)
-        # We can implement a simplified version.
-        k_ratio_val = 0.0
-        try:
-            if len(equity_series) > 10:
-                # Use Log Equity
-                log_equity = np.log(equity_series[equity_series > 0])
-                x = np.arange(len(log_equity))
-                y = log_equity.values
-                if len(y) == len(x):
-                    slope, intercept = np.polyfit(x, y, 1)
-                    # Calculate residuals
-                    y_pred = slope * x + intercept
-                    residuals = y - y_pred
-                    std_err = np.std(residuals)
-                    if std_err > 0:
-                        k_ratio_val = slope / std_err * np.sqrt(len(x))
-                    else:
-                        k_ratio_val = 10.0 # Perfect line
-        except Exception as k_err:
-            logger.warning(f"Failed to calc K-Ratio: {k_err}")
-
+        logger.info("Parsing metrics...")
         metrics = BacktestMetrics(
-            total_return=total_return, 
+            total_return=get_val('Total Return [$]', get_val('Total Profit')),
             total_return_percent=get_val('Total Return [%]'),
-            max_drawdown=max_dd, 
+            max_drawdown=get_val('Max Drawdown [$]'),
             max_drawdown_percent=get_val('Max Drawdown [%]'),
             win_rate=get_val('Win Rate [%]'),
-            benchmark_return=float(benchmark_ret * 100),
+            benchmark_return=0.0,
             sharpe_ratio=get_val('Sharpe Ratio'),
             total_trades=int(get_val('Total Trades')),
             winning_trades=int(get_val('Winning Trades')),
             losing_trades=int(get_val('Losing Trades')),
-            candle_count=len(df),
-            # New CFA Metrics
-            sortino_ratio=float(sortino),
-            alpha=float(alpha_beta['alpha']),
-            beta=float(alpha_beta['beta']),
-            information_ratio=float(info_ratio),
-            # Radar Chart Metrics
-            profit_factor=float(profit_factor),
-            k_ratio=float(k_ratio_val),
-            volatility=float(volatility_val),
-            kurtosis=float(kurtosis_val),
-            reward_to_risk_ratio=float(reward_to_risk)
+            candle_count=len(df)
         )
-        
-        if 'Total Return [$]' not in stats and 'Total Profit' in stats:
-             metrics.total_return = get_val('Total Profit')
+        logger.info("Metrics parsed.")
 
         # 5. Trades
+        logger.info("Parsing trades...")
         trades_list = []
-        readable_trades = pf.trades.records_readable
-        if not readable_trades.empty:
-             for idx, row in readable_trades.iterrows():
-                trades_list.append(TradeResult(
-                    entry_time=row['Entry Timestamp'],
-                    exit_time=row['Exit Timestamp'],
-                    direction=row['Direction'],
-                    entry_price=float(row['Avg Entry Price']),
-                    exit_price=float(row['Avg Exit Price']),
-                    pnl=float(row['PnL']),
-                    pnl_percent=float(row['Return'] * 100),
-                    size=float(row.get('Size', 0.0))
-                ))
+        try:
+            rt = pf.trades.records_readable
+            if not rt.empty:
+                for _, row in rt.iterrows():
+                    trades_list.append(TradeResult(
+                        entry_time=str(row['Entry Timestamp']),
+                        exit_time=str(row['Exit Timestamp']),
+                        direction=str(row['Direction']),
+                        entry_price=float(row['Avg Entry Price']),
+                        exit_price=float(row['Avg Exit Price']),
+                        pnl=float(row['PnL']),
+                        pnl_percent=float(row['Return'] * 100),
+                        size=float(row.get('Size', 0))
+                    ))
+        except Exception as e: 
+            logger.error(f"Trade parsing error: {e}")
+        logger.info(f"Trades parsed: {len(trades_list)}")
 
-        # 6. Equity Curve
+        # 6. Equity
+        logger.info("Parsing equity curve...")
         equity_series = pf.value()
         equity_curve = []
-        step = max(1, len(equity_series) // 500)
+        step = max(1, len(equity_series)//500)
         for ts, val in equity_series.iloc[::step].items():
-            equity_curve.append(EquityPoint(
-                timestamp=ts.isoformat(),
-                value=float(val)
-            ))
+            equity_curve.append(EquityPoint(timestamp=str(ts), value=float(val)))
+        logger.info(f"Equity curve parsed: {len(equity_curve)} points")
 
-        # 7. Interactive Plot (Plotly JSON)
-        # pf.plot() returns a Plotly FigureWidget/Figure
-        # We serialize it to JSON for the frontend
-        try:
-            # User requested: Drawdown, Daily Return (period return), Cash, Assets, Value
-            fig = pf.plot(subplots=[
-                'orders', 
-                'trade_pnl', 
-                'cum_returns', 
-                'drawdowns', 
-                'cash', 
-                'assets', 
-                'value'
-            ], make_subplots_kwargs={'row_heights': [0.4, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1]})
-            # Configure layout for full width responsive behavior
-            fig.update_layout(
-                autosize=True, 
-                width=None, 
-                height=None,
-                margin=dict(l=40, r=20, t=30, b=30)
-            )
-            plot_json = fig.to_json()
-        except Exception as plot_err:
-            print(f"Error generating plot: {plot_err}")
-            plot_json = None
-
-        result_queue.put({
-            'status': 'SUCCESS',
-            'metrics': metrics,
-            'trades': trades_list,
-            'equity_curve': equity_curve,
-            'plot_json': plot_json
-        })
-        
+        logger.info("Constructing final response...")
+        response = BacktestResponse(
+            id=str(uuid4()),
+            status="COMPLETED",
+            metrics=metrics,
+            trades=trades_list,
+            equity_curve=equity_curve
+        )
+        logger.info("Response constructed.")
+        return response
     except Exception as e:
-        result_queue.put({'status': 'ERROR', 'message': str(e)})
-
-
-def run_custom_backtest(req: StrategyBacktestRequest) -> BacktestResponse:
-    # 0. Safety Check
-    safe, reason = check_safety(req.code)
-    if not safe:
-        return _empty_response(status=f"SECURITY_VIOLATION: {reason}")
-
-    # 1. Fetch Data
-    from app.database import SessionLocal
-    from app.utils.helpers import resolve_market_symbol
-    
-    db = SessionLocal()
-    try:
-        ms = resolve_market_symbol(db, req.symbol)
-        if not ms:
-            return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
-        ms_id = str(ms.id)
-        ms_details = ms.details or {}
-    finally:
-        db.close()
-
-    logger.info(f"Custom Backtest Request: Symbol={req.symbol}, TF={req.timeframe}, Start={req.start_date}, End={req.end_date}")
-
-    # Normalize Timeframe (Frontend '15m' -> DB 'M15', etc.)
-    tf_map = {
-        '1m': 'M1', '5m': 'M5', '15m': 'M15', '30m': 'M30',
-        '1h': 'H1', '4h': 'H4', 
-        '1d': 'D1', '1w': 'W1'
-    }
-    normalized_tf = tf_map.get(str(req.timeframe).lower(), str(req.timeframe))
-    # Handle implicit casing if not in map (e.g. m1 -> M1)
-    if normalized_tf not in tf_map.values():
-         # Fallback to uppercase if it looks like a standard timeframe
-         normalized_tf = normalized_tf.upper()
-
-    logger.info(f"Normalized Timeframe: {req.timeframe} -> {normalized_tf}")
-
-    df = fetch_data_from_db(ms_id, normalized_tf, req.start_date, req.end_date)
-    
-    logger.info(f"Fetched URL Data Shape: {df.shape}")
-
-    if df.empty:
-        logger.warning("No data found for the specified parameters.")
-        return _empty_response(status="ERROR_NO_DATA")
-
-    # 2. Run in Isolated Process
-    # Prepare serializable request dict
-    req_dict = {
-        'code': req.code,
-        'initial_capital': req.initial_capital,
-        'fees': req.fees,
-        'slippage': req.slippage,
-        'size': req.size,
-        'size_type': req.size_type,
-        'symbol_details': ms_details
-    }
-
-    queue = multiprocessing.Queue()
-    process = multiprocessing.Process(target=_worker_logic, args=(req_dict, df, queue))
-    
-    try:
-        process.start()
-        # 300 second timeout for extreme testing
-        result = queue.get(timeout=300)
-        process.join()
-    except multiprocessing.queues.Empty:
-        process.terminate()
-        process.join()
-        return _empty_response(status="ERROR_TIMEOUT: Strategy execution exceeded 90 seconds")
-    except Exception as e:
-        process.terminate()
-        return _empty_response(status=f"SYSTEM_ERROR: {e}")
-
-    # 3. Process Result
-    if result['status'] == 'ERROR':
-        return _empty_response(status=f"EXECUTION_ERROR: {result['message']}")
-    
-    response = BacktestResponse(
-        id=str(uuid4()),
-        status="COMPLETED",
-        metrics=result['metrics'],
-        trades=result['trades'],
-        equity_curve=result['equity_curve'],
-        plot_json=result.get('plot_json')
-    )
-
-    if req.strategy_id:
-        from app.utils.persistence import save_strategy_result
-        save_strategy_result(req.strategy_id, 'backtest', response)
-
-    return response
-
-
-
-def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
-    # 1. Fetch Data
-    from app.database import SessionLocal
-    from app.utils.helpers import resolve_market_symbol
-    
-    db = SessionLocal()
-    try:
-        ms = resolve_market_symbol(db, req.symbol)
-        if not ms:
-            print(f"ERROR: MarketSymbol not found for {req.symbol}")
-            return _empty_response(status="ERROR_SYMBOL_NOT_FOUND")
-        ms_id = str(ms.id)
-        ms_details = ms.details or {}
-    finally:
-        db.close()
-
-    df = fetch_data_from_db(ms_id, req.timeframe, req.start_date, req.end_date)
-    
-    if df.empty:
-        logger.warning(f"No data found for {req.symbol} ({req.timeframe}) from {req.start_date} to {req.end_date}")
-        return _empty_response(status="ERROR_NO_DATA")
-    
-    # 2. Strategy Logic
-    strategy_name = req.strategy_params.get("name")
-    if not strategy_name:
-        strategy_name = req.strategy_id or "ma_crossover"
-    
-    logger.info(f"Running strategy: {strategy_name}")
-    
-    # --- Special Case: OI Gamma Strategy ---
-    oi_history = None
-    if strategy_name == "oi_gamma_v1":
-        # Dynamic import to avoid circular dependency and keep it clean
-        from app.strategies.oi_gamma_v1.strategy import fetch_historical_oi, strategy_vectorized
-        
-        # 1. Fetch OI Data
-        logger.info(f"Fetching Historical OI for {req.symbol} from {req.start_date} to {req.end_date}")
-        oi_history = fetch_historical_oi(req.start_date, req.end_date)
-        
-        # 2. Use Vectorized Strategy
-        strategy_func = lambda c, params=None: strategy_vectorized(df, oi_history=oi_history, params=params)
-    else:
-        # Try to get Sync Version (Plugin) first
-        strategy_func = get_strategy_sync(strategy_name)
-    if not strategy_func:
-        # Fallback to standard (maybe it's a built-in like ma_crossover in app/strategy.py, which is sync)
-        strategy_func = get_strategy(strategy_name)
-    
-    if not strategy_func:
-        print(f"ERROR: Strategy '{strategy_name}' not found. Defaulting to ma_crossover.")
-        strategy_func = get_strategy("ma_crossover")
-
-    # Use Close price
-    close_price = df['close'].astype(float)
-    
-    # Run Strategy
-    # Check signature for params support
-    import inspect
-    sig = inspect.signature(strategy_func)
-
-    result = None
-    if 'params' in sig.parameters:
-         result = strategy_func(close_price, params=req.strategy_params)
-    else:
-         try:
-             result = strategy_func(close_price, **req.strategy_params)
-         except TypeError:
-             result = strategy_func(close_price)
-
-    # Unpack Result (Handle 2 or 3 return values)
-    if isinstance(result, tuple):
-        if len(result) >= 3:
-            entries, exits, _ = result[0], result[1], result[2]
-        else:
-            entries, exits = result[0], result[1]
-    else:
-        # Fallback if just one return (not expected for VBT)
-        entries, exits = result, pd.Series(False, index=close_price.index)    
-
-    # Ensure entries/exits are not None
-    if entries is None: entries = pd.Series(0, index=close_price.index)
-    if exits is None: exits = pd.Series(0, index=close_price.index)
-
-    # Convert to Boolean for vectorbt
-    long_entries = (entries > 0) if isinstance(entries, (pd.Series, pd.DataFrame)) else entries
-    long_exits = (exits > 0) if isinstance(exits, (pd.Series, pd.DataFrame)) else exits
-    short_entries = (entries < 0) if isinstance(entries, (pd.Series, pd.DataFrame)) else None
-    short_exits = (exits < 0) if isinstance(exits, (pd.Series, pd.DataFrame)) else None
-
-    print(f"INFO: Signals Generated - Long Entries: {long_entries.sum().sum()}, Long Exits: {long_exits.sum().sum()}")
-    if short_entries is not None:
-        print(f"INFO: Signals Generated - Short Entries: {short_entries.sum().sum()}")
-
-    # 3. Running Portfolio
-    # Estimate frequency from data
-    freq = None
-    if len(df) > 1:
-        diff = df.index[1] - df.index[0]
-        freq = str(int(diff.total_seconds())) + 'S'
-
-    import vectorbt as vbt
-    
-    # Portfolio from signals (supporting both long and short if present)
-    pf = vbt.Portfolio.from_signals(
-        close_price,
-        entries=long_entries,
-        exits=long_exits,
-        short_entries=short_entries,
-        short_exits=short_exits,
-        init_cash=req.initial_capital,
-        fees=req.fees,
-        slippage=req.slippage,
-        freq=freq
-    )
-    
-    # 4. Metrics
-    stats = pf.stats()
-    
-    def get_val(key, default=0.0):
-        val = stats.get(key, default)
-        if pd.isna(val) or np.isinf(val):
-            return default
-        return float(val)
-
-    first_close = close_price.iloc[0] if len(close_price) > 0 else 1.0
-    last_close = close_price.iloc[-1] if len(close_price) > 0 else 1.0
-    benchmark_ret = (last_close - first_close) / first_close if first_close != 0 else 0.0
-
-    metrics = BacktestMetrics(
-        total_return=get_val('Total Return [$]'), 
-        total_return_percent=get_val('Total Return [%]'),
-        max_drawdown=get_val('Max Drawdown [$]'), 
-        max_drawdown_percent=get_val('Max Drawdown [%]'),
-        win_rate=get_val('Win Rate [%]'),
-        benchmark_return=float(benchmark_ret * 100), # Return as percentage
-        sharpe_ratio=get_val('Sharpe Ratio'),
-        total_trades=int(get_val('Total Trades')),
-        winning_trades=int(get_val('Winning Trades')),
-        losing_trades=int(get_val('Losing Trades')),
-        candle_count=len(df)
-    )
-
-    # Note: If keys are missing, we might need to adjust. vbt 0.26 keys:
-    # 'Total Return [%]', 'Max Drawdown [%]', 'Win Rate [%]', 'Sharpe Ratio', 'Total Trades', 'Winning Trades', 'Losing Trades'
-    # 'Total Return [$]' might not exist, use 'Total Profit'
-    
-    if 'Total Return [$]' not in stats and 'Total Profit' in stats:
-         metrics.total_return = get_val('Total Profit')
-
-    # 5. Trades
-    trades_list = []
-    # records_readable returns a dataframe
-    try:
-        readable_trades = pf.trades.records_readable
-        # Standard columns: Entry Timestamp, Exit Timestamp, Entry Price, Exit Price, PnL, Return, Direction, Status
-        # VBT 0.26 might differ.
-        if not readable_trades.empty:
-            for idx, row in readable_trades.iterrows():
-                size_val = float(row.get('Size', 0.0))
-                trades_list.append(TradeResult(
-                    entry_time=row['Entry Timestamp'],
-                    exit_time=row['Exit Timestamp'],
-                    direction=row['Direction'],
-                    entry_price=float(row['Avg Entry Price']),
-                    exit_price=float(row['Avg Exit Price']),
-                    pnl=float(row['PnL']),
-                    pnl_percent=float(row['Return'] * 100),
-                    size=size_val
-                ))
-    except Exception as e:
-        print(f"Error parsing trades: {e}", flush=True)
-
-    # 6. Equity Curve
-    equity_series = pf.value()
-    equity_curve = []
-    # Downsample if too large (e.g. max 500 points)
-    step = max(1, len(equity_series) // 500)
-    for ts, val in equity_series.iloc[::step].items():
-        equity_curve.append(EquityPoint(
-            timestamp=ts.isoformat(),
-            value=float(val)
-        ))
-
-    return BacktestResponse(
-        id=str(uuid4()),
-        status="COMPLETED",
-        metrics=metrics,
-        trades=trades_list,
-        equity_curve=equity_curve
-    )
+        logger.error(f"Backtest Error: {e}\n{traceback.format_exc()}")
+        return _empty_response(status=f"ERROR: {str(e)}")
 
 def _empty_response(status="COMPLETED"):
     return BacktestResponse(
-             id=str(uuid4()),
-             status=status,
-             metrics=BacktestMetrics(
-                 total_return=0.0,
-                 total_return_percent=0.0,
-                 max_drawdown=0.0,
-                 max_drawdown_percent=0.0,
-                 win_rate=0.0,
-                 sharpe_ratio=0.0,
-                 total_trades=0,
-                 winning_trades=0,
-                 losing_trades=0,
-                 candle_count=0
-             ),
-             trades=[],
-             equity_curve=[]
-        )
+        id=str(uuid4()),
+        status=status,
+        metrics=BacktestMetrics(total_return=0, total_return_percent=0, max_drawdown=0, 
+                               max_drawdown_percent=0, win_rate=0, benchmark_return=0,
+                               sharpe_ratio=0, total_trades=0, winning_trades=0,
+                               losing_trades=0, candle_count=0),
+        trades=[],
+        equity_curve=[]
+    )

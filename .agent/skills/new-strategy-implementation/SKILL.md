@@ -1,112 +1,99 @@
 ---
 name: new-strategy-implementation
 description: |
-    Use this skill when you need to create, add, or implement a new trading strategy in the `strategy-core` service.
+    Use this skill when you need to create, add, or implement an institutional-grade "World-Class" trading strategy in the `strategy-core` service.
 ---
 
-# New Strategy Implementation
-**Goal:** Create a standardized strategy in `services/strategy-core`.
+# New Strategy Implementation (World-Class Standard v2.8)
+**Goal:** Create a high-performance, learnable, and robust strategy in `services/strategy-core`.
 
-## Prerequisite
-Ensure you have the strategy logic defined (e.g., "RSI < 30 buys").
+## 🛡️ Mandates
+1.  **Vectorization**: All strategies MUST be vectorized using `vectorbt` for O(1) backtesting.
+2.  **Rich Metadata**: Signals MUST include a `logic_path` and `features` for AI learning.
+3.  **Hierarchy**: Strategies MUST be linked to a `Fund` and `BrokerAccount` via the database.
+4.  **Sync**: Local files MUST be synced to the DB using `seed_strategies.py` and `sync_strategy_deployments.py`.
 
 ## Process
-1.  **Create Strategy Directory**
-    *   Create a new directory: `services/strategy-core/app/strategies/<strategy_name>/`.
-    *   Create `__init__.py` inside.
 
-2.  **Implement Strategy Logic & Metadata**
-    *   Create `services/strategy-core/app/strategies/<strategy_name>/strategy.py`.
-    *   **Define `METADATA`** at the module level:
-        ```python
-        METADATA = {
-            "name": "Strategy Name",
-            "description": "Short description",
-            "defaults": { "param": "value" }
-        }
-        ```
-    *   Define the async function `async def strategy(state, params):` (Sync/Vectorized).
-    *   **MUST** return `return entries, exits, signal_dict`.
+### 1. Create Strategy Directory
+*   Create a new directory: `services/strategy-core/app/strategies/<strategy_name>/`.
+*   Create `__init__.py` and `README.md` inside.
 
-3.  **Create Documentation (README.md)**
-    *   Create `services/strategy-core/app/strategies/<strategy_name>/README.md`.
-    *   **Content MUST include:**
-        *   `# Strategy Name`
-        *   `## Description`: High-level logic explanation.
-        *   `## Formula`: Mathematical definition of triggers.
-        *   `## Parameters`: List of config keys and defaults.
-        *   `## AI Metadata`: Schema of the `metadata` field for AI Agents.
+### 2. Implement World-Class Logic
+*   Create `services/strategy-core/app/strategies/<strategy_name>/strategy.py`.
+*   **Inherit from `VectorizedStrategyBase`**:
+    ```python
+    from app.foundry.vector_base import VectorizedStrategyBase
+    
+    class MyStrategy(VectorizedStrategyBase):
+        def run_vector(self, data: pd.DataFrame, params: Dict[str, Any] = None) -> Tuple[pd.Series, pd.Series]:
+            # Vectorized logic here returning boolean series
+            ...
+    ```
+*   **Define Rich Metadata**:
+    Include `logic_path` (list of confluences) and `features` (raw indicator values) in the `signal_dict`.
 
-4.  **Add a Unit Test**
-    *   Create a new test file: `services/strategy-core/tests/test_strategy_<name>.py`.
-    *   Mock `data_manager` and `state`.
-    *   Assert that the strategy returns the expected signal and **valid metadata**.
-    *   **Run Tests via Docker:**
-        ```bash
-        docker compose exec strategy-core uv run pytest services/strategy-core/tests/test_strategy_<name>.py
-        ```
-    *   **(Optional)** Verify discovery by running `test_registry_discovery.py` if available.
+### 3. Database Synchronization (MANDATORY)
+Local changes are not live until synced. Run these commands from the root:
+1.  **Sync Code to Template Store**:
+    ```bash
+    docker compose exec strategy-core python scripts/seed_strategies.py
+    ```
+2.  **Register as Deployment (Sandbox/Live)**:
+    ```bash
+    docker compose exec strategy-core python scripts/sync_strategy_deployments.py
+    ```
 
-5.  **Sync with Database (Frontend Visibility)**
-    To make the strategy appear in the Frontend Editor ("Saved Strategies"), you MUST run the seed script:
-        ```bash
-        docker compose exec strategy-core uv run python scripts/seed_strategies.py
-        ```
-    (Optional) Trigger hot-reload for immediate in-memory update:
-        ```bash
-        curl -X POST http://localhost:8000/api/v1/strategies/reload
-        ```
+### 4. Validation Gates
+The strategy MUST pass these tests before deployment:
+1.  **Monte Carlo**: Ruin Probability < 1% (use `scripts/monte_carlo_smc_atr.py` as reference).
+2.  **Walk-Forward (WFA)**: Robustness Score > 60% via `app.proving_ground.validator`.
+3.  **Minimax Regret**: Check `metadata.minimax_regret_score > 1.5`.
 
-6.  **Verify**:
-    *   **Backtest**: Check Frontend -> Strategy Editor (Select Strategy).
-    *   **Live**: Check Frontend -> Bot.
-
-
-## Code Template
+## Code Template (World-Class)
 ```python
-import vectorbt as vbt
 import pandas as pd
+import numpy as np
+import vectorbt as vbt
+from typing import Tuple, Dict, Any
+from app.foundry.vector_base import VectorizedStrategyBase
 
 METADATA = {
-    "name": "My Strategy",
-    "description": "Description...",
-    "defaults": { "period": 14 }
+    "name": "World Class Strategy",
+    "description": "High-performance learnable strategy",
+    "defaults": { "period": 14, "threshold": 30 }
 }
 
-def strategy(data, params=None):
-    """
-    Unified Strategy Function (Sync/Vectorized)
-    Args:
-        data: pd.DataFrame (ohlcv)
-        params: dict of parameters
-    Returns:
-        entries, exits, signal_dict
-    """
-    if params is None: params = {}
-    period = int(params.get("period", METADATA["defaults"]["period"]))
+class MyWorldClassStrategy(VectorizedStrategyBase):
+    def run_vector(self, data: pd.DataFrame, params: Dict[str, Any] = None) -> Tuple[pd.Series, pd.Series]:
+        p = {**METADATA["defaults"], **(params or {})}
+        close = data['close']
+        
+        # 1. Vectorized Indicators
+        rsi = vbt.RSI.run(close, window=p['period']).rsi
+        
+        # 2. Vectorized Signals
+        entries = rsi < p['threshold']
+        exits = rsi > 70
+        
+        return entries, exits
+
+def strategy(data: pd.DataFrame, params: Dict[str, Any] = None):
+    """Standard Entry Point"""
+    obj = MyWorldClassStrategy("my_strat")
+    entries, exits = obj.run_vector(data, params)
     
-    close = data['close']
-    
-    # 1. Calculate Indicators
-    sma = vbt.MA.run(close, period)
-    
-    # 2. Generate Signals
-    entries = sma.ma_crossed_above(close)
-    exits = sma.ma_crossed_below(close)
-    
-    # 3. Return Protocol
-    latest_signal = {
-        "direction": "BULLISH" if entries.iloc[-1] else "BEARISH",
-        "stop_loss": float(sma.ma.iloc[-1]),
-        "reason": "MA Cross",
+    # Build Rich Metadata for AI Analyst
+    last_idx = -1
+    signal_dict = {
+        "direction": "BULLISH" if entries.iloc[last_idx] else "FLAT",
+        "entry_price": float(data['close'].iloc[last_idx]),
+        "logic_path": ["RSI_OVERSOLD"] if entries.iloc[last_idx] else [],
         "metadata": {
-            "strategy_name": METADATA["name"],
-            "description": METADATA["description"],
-            "signal_timestamp": str(df.index[-1]),
-            "rsi_val": 25.5,
-            "confidence": 0.85
+            "features": {
+                "rsi_val": float(rsi.iloc[last_idx])
+            }
         }
     }
-    
-    return entries, exits, latest_signal
+    return entries, exits, signal_dict
 ```
