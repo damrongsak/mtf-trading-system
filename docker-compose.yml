@@ -319,11 +319,11 @@ services:
       - external
 
   mtf-postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg17-trixie
     container_name: mtf-postgres
     ports:
       - "5432:5432"
-    command: postgres -c shared_buffers=128MB -c max_connections=50
+    # command: postgres -c shared_buffers=128MB -c max_connections=50
     environment:
       POSTGRES_USER: trader
       POSTGRES_PASSWORD: trader
@@ -334,7 +334,10 @@ services:
         limits:
           memory: 512M
     volumes:
-      - ./infra/postgres_data:/var/lib/postgresql/data
+      # - ./infra/postgres_data:/var/lib/postgresql/data
+      - ./infra/pgvector_data:/var/lib/postgresql/data
+      - ./infra/init-vector.sh:/docker-entrypoint-initdb.d/init-vector.sh
+    command: ["postgres", "-c", "shared_preload_libraries=vector", "-c", "shared_buffers=128MB", "-c", "max_connections=50"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U trader -d mtf_db"]
       interval: 10s

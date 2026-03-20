@@ -36,13 +36,13 @@ MASTER_DATA_DIR = "/master_data"
 
 # Order matters for dependencies during import
 TABLE_MODELS = [
+    (User, "users.json"),
     (SystemConfig, "system_configs.json"),
     (SystemPrompt, "system_prompts.json"),
     (RiskRule, "risk_rules.json"),
     (RiskFilter, "risk_filters.json"),
     (MarketCategory, "market_categories.json"),
     (DataSource, "data_sources.json"),
-    (User, "users.json"),
     (Fund, "funds.json"),
     (UserFund, "user_funds.json"),
     (BrokerAccount, "broker_accounts.json"),
