@@ -4,6 +4,7 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
+|[**apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet**](#apiv1executioninspectaccountaccountidsymbolsymbolget) | **GET** /api/v1/execution/inspect/account/{account_id}/symbol/{symbol} | Diagnostic endpoint for hierarchical execution normalization|
 |[**apiV1ExecutionOrdersDelete**](#apiv1executionordersdelete) | **DELETE** /api/v1/execution/orders | Bulk cancel orders|
 |[**apiV1ExecutionOrdersGet**](#apiv1executionordersget) | **GET** /api/v1/execution/orders | List pending orders for a broker account|
 |[**apiV1ExecutionOrdersIdDelete**](#apiv1executionordersiddelete) | **DELETE** /api/v1/execution/orders/{id} | Cancel a pending order on broker|
@@ -17,6 +18,60 @@ All URIs are relative to *http://localhost*
 |[**apiV1ExecutionTradesTradeIdClosePost**](#apiv1executiontradestradeidclosepost) | **POST** /api/v1/execution/trades/{trade_id}/close | Manually close a trade|
 |[**apiV1SignalsIdApprovePost**](#apiv1signalsidapprovepost) | **POST** /api/v1/signals/{id}/approve | Approve a pending signal|
 |[**apiV1SignalsIdRejectPost**](#apiv1signalsidrejectpost) | **POST** /api/v1/signals/{id}/reject | Reject a pending signal|
+
+# **apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet**
+> ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet()
+
+Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+
+### Example
+
+```typescript
+import {
+    ExecutionApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ExecutionApi(configuration);
+
+let accountId: string; // (default to undefined)
+let symbol: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(
+    accountId,
+    symbol
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **accountId** | [**string**] |  | defaults to undefined|
+| **symbol** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Hierarchical diagnostic output |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1ExecutionOrdersDelete**
 > object apiV1ExecutionOrdersDelete()

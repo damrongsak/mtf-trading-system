@@ -14,6 +14,7 @@ import time
 import json
 import redis.asyncio as redis
 from app.repositories.open_interest_repository import OpenInterestRepository
+import traceback
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)

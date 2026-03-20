@@ -1,13 +1,8 @@
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
-# import vectorbt as vbt
-from datetime import timedelta
-from app.foundry.factory import StrategyAssembler
-from app.analysis.optimization import run_grid_search
-import logging
-
-logger = logging.getLogger(__name__)
+import vectorbt as vbt
+from app.analysis.monte_carlo import run_monte_carlo
 
 class WalkForwardValidator:
     def __init__(self, config: Dict[str, Any], data: pd.DataFrame):
@@ -15,39 +10,31 @@ class WalkForwardValidator:
         self.data = data
         self.train_window = self.config.get('train_window_days', 180)
         self.test_window = self.config.get('test_window_days', 30)
-        self.step_size = self.config.get('step_days', 30) # Rolling step
+        self.step_size = self.config.get('step_days', 30)
         
-        # Optimization Params
         self.optimization_params = self.config.get('optimization', {})
         self.param_grid = self.optimization_params.get('param_grid', {})
 
     def run(self) -> Dict[str, Any]:
         """
-        Execute Walk-Forward Analysis.
-        1. Slide window.
-        2. Optimize In-Sample.
-        3. Test Out-Of-Sample.
-        4. Aggregate results.
+        Execute Walk-Forward Analysis with Monte Carlo validation.
         """
         start_date = self.data.index[0]
         end_date = self.data.index[-1]
         
         current_date = start_date + timedelta(days=self.train_window)
-        print(f"WFA: start_date={start_date}, end_date={end_date}, init current_date={current_date}", flush=True)
+        logger.info(f"Starting WFA: {start_date} to {end_date}")
         
         chunk_results = []
-        equity_curve_parts = []
         
         while current_date + timedelta(days=self.test_window) <= end_date:
             train_start = current_date - timedelta(days=self.train_window)
             train_end = current_date
             test_end = current_date + timedelta(days=self.test_window)
-            print(f"WFA: sliding window {train_start} -> {train_end} | OOS -> {test_end}", flush=True)
             
             # Slice Data
             train_data = self.data.loc[train_start:train_end]
-            test_data = self.data.loc[train_end:test_end] # Non-overlapping starts? usually overlap on boundary
-            print(f"WFA: train_data len={len(train_data)}, test_data len={len(test_data)}", flush=True)
+            test_data = self.data.loc[train_end:test_end]
             
             if train_data.empty or test_data.empty:
                 break
@@ -56,48 +43,42 @@ class WalkForwardValidator:
             best_params = self._optimize(train_data)
             
             # 2. VALIDATE (Out-Of-Sample)
-            oos_metrics, oos_equity = self._backtest(test_data, best_params)
+            oos_metrics, portfolio = self._backtest(test_data, best_params)
+            
+            # 3. Monte Carlo on OOS Trades
+            # Extract trades for MC
+            oos_trades = []
+            try:
+                readable_trades = portfolio.trades.records_readable
+                for _, row in readable_trades.iterrows():
+                    oos_trades.append({'pnl_percent': float(row['Return'] * 100)})
+            except:
+                pass
+                
+            mc_results = run_monte_carlo(oos_trades, n_sims=500) if oos_trades else {}
             
             chunk_results.append({
                 'period_start': train_end.isoformat(),
                 'period_end': test_end.isoformat(),
                 'best_params': best_params,
-                'oos_metrics': oos_metrics
+                'oos_metrics': oos_metrics,
+                'mc_robustness': mc_results.get('ruin_probability', 1.0)
             })
-            
-            # Append OOS Equity
-            if not oos_equity.empty:
-                # Normalize? Not needed for chaining usually unless calculating cumulative
-                equity_curve_parts.append(oos_equity)
 
-            # Step Forward
             current_date += timedelta(days=self.step_size)
 
-        # Aggregate metrics
-        # Simplified Robustness Score: Mean Sharpe OOS / Mean Sharpe IS? Or just count positive periods?
-        # Let's count profitable OOS periods / total periods
-        
         if not chunk_results:
-             return {
-                 'robustness_score': 0, 
-                 'avg_sharpe_test': 0.0,
-                 'period_count': 0,
-                 'details': []
-             }
+             return {'robustness_score': 0, 'details': []}
 
-        positive_chunks = sum(1 for c in chunk_results if c['oos_metrics']['total_return'] > 0)
-        robustness_score = (positive_chunks / len(chunk_results)) * 100
+        positive_oos = sum(1 for c in chunk_results if c['oos_metrics']['total_return'] > 0)
+        robust_oos = sum(1 for c in chunk_results if c['mc_robustness'] < 0.1) # Less than 10% ruin prob
         
-        # Calculate consistency metrics
-        sharpes = [c['oos_metrics']['sharpe_ratio'] for c in chunk_results]
-        avg_sharpe = np.mean(sharpes) if sharpes else 0
-        
-        # TODO: Calculate RAR (Regret Adjusted Return) or Minimax metric here
+        robustness_score = (positive_oos * 0.6 + robust_oos * 0.4) / len(chunk_results) * 100
         
         return {
             'robustness_score': int(robustness_score),
-            'avg_sharpe_test': float(avg_sharpe),
             'period_count': len(chunk_results),
+            'avg_oos_return': float(np.mean([c['oos_metrics']['total_return'] for c in chunk_results])),
             'details': chunk_results
         }
         

@@ -657,3 +657,35 @@ async def proxy_run_skill_creator(
             logger.error(f"Skill creator proxy failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/think")
+async def proxy_ai_think(
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Proxy Unified AI Thinking request to AI Analyst service.
+    """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization} if authorization else {}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+    
+    async with await get_internal_client() as client:
+        try:
+            response = await client.post(
+                f"{AI_SERVICE_URL}/api/v1/ai/think", 
+                json=payload,
+                headers=headers,
+                timeout=AI_SERVICE_TIMEOUT
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+

@@ -464,8 +464,16 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
 
     df = fetch_data_from_db(ms_id, req.timeframe, req.start_date, req.end_date)
     
+    if df.empty:
+        logger.warning(f"No data found for {req.symbol} ({req.timeframe}) from {req.start_date} to {req.end_date}")
+        return _empty_response(status="ERROR_NO_DATA")
+    
     # 2. Strategy Logic
-    strategy_name = req.strategy_params.get("name", "ma_crossover")
+    strategy_name = req.strategy_params.get("name")
+    if not strategy_name:
+        strategy_name = req.strategy_id or "ma_crossover"
+    
+    logger.info(f"Running strategy: {strategy_name}")
     
     # --- Special Case: OI Gamma Strategy ---
     oi_history = None
@@ -497,37 +505,56 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
     # Check signature for params support
     import inspect
     sig = inspect.signature(strategy_func)
-    if 'params' in sig.parameters:
-         entries, exits = strategy_func(close_price, params=req.strategy_params)
-    else:
-         # Backward compatibility for functions defined as strategy(data, **kwargs) or just strategy(data) where kwargs ignored
-         # But generic get_strategy might return simple funcs. 
-         # Assuming they might accept **kwargs if standard
-         try:
-             entries, exits = strategy_func(close_price, **req.strategy_params)
-         except TypeError:
-             entries, exits = strategy_func(close_price)
-    
 
-    print(f"INFO: Signals Generated - Entries: {entries.sum().sum()}, Exits: {exits.sum().sum()}")
-    
+    result = None
+    if 'params' in sig.parameters:
+         result = strategy_func(close_price, params=req.strategy_params)
+    else:
+         try:
+             result = strategy_func(close_price, **req.strategy_params)
+         except TypeError:
+             result = strategy_func(close_price)
+
+    # Unpack Result (Handle 2 or 3 return values)
+    if isinstance(result, tuple):
+        if len(result) >= 3:
+            entries, exits, _ = result[0], result[1], result[2]
+        else:
+            entries, exits = result[0], result[1]
+    else:
+        # Fallback if just one return (not expected for VBT)
+        entries, exits = result, pd.Series(False, index=close_price.index)    
+
+    # Ensure entries/exits are not None
+    if entries is None: entries = pd.Series(0, index=close_price.index)
+    if exits is None: exits = pd.Series(0, index=close_price.index)
+
+    # Convert to Boolean for vectorbt
+    long_entries = (entries > 0) if isinstance(entries, (pd.Series, pd.DataFrame)) else entries
+    long_exits = (exits > 0) if isinstance(exits, (pd.Series, pd.DataFrame)) else exits
+    short_entries = (entries < 0) if isinstance(entries, (pd.Series, pd.DataFrame)) else None
+    short_exits = (exits < 0) if isinstance(exits, (pd.Series, pd.DataFrame)) else None
+
+    print(f"INFO: Signals Generated - Long Entries: {long_entries.sum().sum()}, Long Exits: {long_exits.sum().sum()}")
+    if short_entries is not None:
+        print(f"INFO: Signals Generated - Short Entries: {short_entries.sum().sum()}")
+
     # 3. Running Portfolio
-    # Estimate frequency from data
-    freq = None
     # Estimate frequency from data
     freq = None
     if len(df) > 1:
         diff = df.index[1] - df.index[0]
         freq = str(int(diff.total_seconds())) + 'S'
 
-    if ms_details:
-         print(f"INFO: Historical Backtest using ECST details: {ms_details.keys()}")
-
     import vectorbt as vbt
+    
+    # Portfolio from signals (supporting both long and short if present)
     pf = vbt.Portfolio.from_signals(
         close_price,
-        entries,
-        exits,
+        entries=long_entries,
+        exits=long_exits,
+        short_entries=short_entries,
+        short_exits=short_exits,
         init_cash=req.initial_capital,
         fees=req.fees,
         slippage=req.slippage,

@@ -87,7 +87,6 @@ All URIs are relative to *http://localhost*
 |[**apiV1TransactionsImportPost**](#apiv1transactionsimportpost) | **POST** /api/v1/transactions/import | Import transactions from Excel|
 |[**apiV1TransactionsPost**](#apiv1transactionspost) | **POST** /api/v1/transactions | Create a manual transaction|
 |[**backtestCustomPost**](#backtestcustompost) | **POST** /backtest/custom | Run a custom strategy backtest|
-|[**backtestMonteCarloPost**](#backtestmontecarlopost) | **POST** /backtest/monte-carlo | Run a Monte Carlo simulation|
 |[**backtestOptimizePost**](#backtestoptimizepost) | **POST** /backtest/optimize | Run an optimization job|
 |[**backtestResultsBacktestIdGet**](#backtestresultsbacktestidget) | **GET** /backtest/results/{backtest_id} | Get results of a specific backtest|
 |[**backtestRunPost**](#backtestrunpost) | **POST** /backtest/run | Trigger a backtest|
@@ -4309,57 +4308,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Custom backtest results |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **backtestMonteCarloPost**
-> MonteCarloResponse backtestMonteCarloPost(monteCarloRequest)
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration,
-    MonteCarloRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-let monteCarloRequest: MonteCarloRequest; //
-
-const { status, data } = await apiInstance.backtestMonteCarloPost(
-    monteCarloRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **monteCarloRequest** | **MonteCarloRequest**|  | |
-
-
-### Return type
-
-**MonteCarloResponse**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Monte Carlo results |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

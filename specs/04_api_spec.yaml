@@ -2301,6 +2301,7 @@ paths:
   /backtest/monte-carlo:
     post:
       summary: Run a Monte Carlo simulation
+      tags: [backtest]
       requestBody:
         required: true
         content:
@@ -2313,7 +2314,43 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MonteCarloResponse'
+                $ref: '#/components/schemas/APIResponse_MonteCarloResponse'
+
+  /backtest/wfa:
+    post:
+      summary: Run Walk-Forward Analysis
+      tags: [backtest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WFARequest'
+      responses:
+        '200':
+          description: WFA results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_WFAResponse'
+
+  /backtest/optimize/portfolio:
+    post:
+      summary: Multi-strategy Portfolio Optimization
+      tags: [backtest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioOptimizationRequest'
+      responses:
+        '200':
+          description: Optimal weights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_PortfolioWeights'
   /backtest/custom:
     post:
       summary: Run a custom strategy backtest
@@ -3344,7 +3381,153 @@ paths:
 
 components:
   schemas:
+    # --- World-Class Strategy Core Upgrades ---
+    WFARequest:
+      type: object
+      properties:
+        strategy_id:
+          type: string
+        symbol:
+          type: string
+        train_window_days:
+          type: integer
+        test_window_days:
+          type: integer
+        step_days:
+          type: integer
+        optimization:
+          type: object
+      required: [strategy_id, symbol]
+
+    WFAResponse:
+      type: object
+      properties:
+        robustness_score:
+          type: integer
+        period_count:
+          type: integer
+        avg_oos_return:
+          type: number
+        details:
+          type: array
+          items:
+            type: object
+
+    MonteCarloResponse:
+      type: object
+      properties:
+        iterations:
+          type: integer
+        mode:
+          type: string
+        max_drawdown:
+          type: object
+        total_return:
+          type: object
+        sharpe_ratio:
+          type: object
+        ruin_probability:
+          type: number
+        equity_curves:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        confidence_bands:
+          type: object
+
+    PortfolioOptimizationRequest:
+      type: object
+      properties:
+        strategies_data:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: number
+        method:
+          type: string
+          enum: [HRP, MAX_SHARPE, MIN_VOL]
+
+    PortfolioWeights:
+      type: object
+      additionalProperties:
+        type: number
+
+    APIResponse_MonteCarloResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/MonteCarloResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_WFAResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/WFAResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    APIResponse_PortfolioWeights:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/PortfolioWeights'
+        timestamp:
+          type: string
+          format: date-time
+
     # --- Phase 57: AI Risk Rebalancer ---
+    RiskAdjustmentRequest:
+      type: object
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        adjustments:
+          type: object
+    
+    FundRiskConfig:
+      type: object
+      properties:
+        fund_id:
+          type: string
+          format: uuid
+        risk_per_trade:
+          type: number
+        max_drawdown:
+          type: number
+    
+    KillSwitchRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+        reason:
+          type: string
+
+    APIResponse_FundRiskConfig:
+      type: object
+      properties:
+        status:
+          type: string
+        data:
+          $ref: '#/components/schemas/FundRiskConfig'
+        timestamp:
+          type: string
+          format: date-time
+
     RiskRecommendation:
       type: object
       properties:
@@ -4194,16 +4377,6 @@ components:
         iterations:
           type: integer
           default: 1000
-
-    MonteCarloResponse:
-      type: object
-      properties:
-        iterations:
-          type: integer
-        max_drawdown:
-          $ref: '#/components/schemas/SensitivityMetrics'
-        total_return:
-          $ref: '#/components/schemas/SensitivityMetrics'
 
     SensitivityMetrics:
       type: object

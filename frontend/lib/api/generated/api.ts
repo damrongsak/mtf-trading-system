@@ -387,6 +387,11 @@ export interface APIResponseFund {
 }
 
 
+export interface APIResponseFundRiskConfig {
+    'status'?: string;
+    'data'?: FundRiskConfig;
+    'timestamp'?: string;
+}
 export interface APIResponseIngestionResult {
     'status': ResponseStatus;
     'data'?: APIResponseIngestionResultAllOfData;
@@ -512,6 +517,11 @@ export const APIResponseLibraryStatusAllOfDataStatusEnum = {
 
 export type APIResponseLibraryStatusAllOfDataStatusEnum = typeof APIResponseLibraryStatusAllOfDataStatusEnum[keyof typeof APIResponseLibraryStatusAllOfDataStatusEnum];
 
+export interface APIResponseMonteCarloResponse {
+    'status'?: string;
+    'data'?: MonteCarloResponse;
+    'timestamp'?: string;
+}
 export interface APIResponseOpenInterestAnalytics {
     'status': ResponseStatus;
     'data'?: OpenInterestAnalysisResponse;
@@ -574,6 +584,11 @@ export interface APIResponsePipelineStatusAllOfData {
     'monitored_symbol'?: string;
     'current_reference_score'?: number;
 }
+export interface APIResponsePortfolioWeights {
+    'status'?: string;
+    'data'?: { [key: string]: number; };
+    'timestamp'?: string;
+}
 export interface APIResponseRiskCheckResponse {
     'status': ResponseStatus;
     'data'?: RiskCheckResponse;
@@ -586,6 +601,13 @@ export interface APIResponseRiskCheckResponse {
 }
 
 
+export interface APIResponseRiskRecommendation {
+    'status'?: string;
+    'data'?: APIResponseRiskRecommendationData;
+}
+export interface APIResponseRiskRecommendationData {
+    'recommendation'?: RiskRecommendation;
+}
 export interface APIResponseSignalList {
     'status': ResponseStatus;
     'data'?: Array<SignalResponse>;
@@ -759,6 +781,11 @@ export interface APIResponseVolatilityMetrics {
 }
 
 
+export interface APIResponseWFAResponse {
+    'status'?: string;
+    'data'?: WFAResponse;
+    'timestamp'?: string;
+}
 export interface APIResponseWalkForwardResponse {
     'status': ResponseStatus;
     'data'?: WalkForwardResponse;
@@ -887,6 +914,16 @@ export interface ApiV1DataUploadPost200Response {
     'message'?: string;
     'rows_processed'?: number;
 }
+export interface ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response {
+    'status'?: string;
+    'data'?: ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200ResponseData;
+}
+export interface ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200ResponseData {
+    'context'?: object;
+    'normalization'?: object;
+    'dry_run'?: object;
+    'formula'?: string;
+}
 export interface ApiV1ExecutionOrdersGet200Response {
     'status'?: string;
     'data'?: Array<OrderResponse>;
@@ -986,6 +1023,9 @@ export interface ApiV1PromptsIdRenderPost200Response {
 }
 export interface ApiV1PromptsIdRenderPostRequest {
     'variables': object;
+}
+export interface ApiV1RiskAiReviewPostRequest {
+    'fund_id': string;
 }
 export interface ApiV1SignalCheckPostRequest {
     'fund_id'?: string;
@@ -1428,6 +1468,11 @@ export const FundCreateStrategyTypeEnum = {
 
 export type FundCreateStrategyTypeEnum = typeof FundCreateStrategyTypeEnum[keyof typeof FundCreateStrategyTypeEnum];
 
+export interface FundRiskConfig {
+    'fund_id'?: string;
+    'risk_per_trade'?: number;
+    'max_drawdown'?: number;
+}
 export interface FundUpdate {
     'name'?: string;
     'description'?: string;
@@ -1562,6 +1607,10 @@ export const JournalEntryResponseGameLevelEnum = {
 
 export type JournalEntryResponseGameLevelEnum = typeof JournalEntryResponseGameLevelEnum[keyof typeof JournalEntryResponseGameLevelEnum];
 
+export interface KillSwitchRequest {
+    'active'?: boolean;
+    'reason'?: string;
+}
 export interface LatencyBucket {
     'hour'?: number;
     'symbol'?: string;
@@ -1668,8 +1717,13 @@ export interface MonteCarloRequest {
 }
 export interface MonteCarloResponse {
     'iterations'?: number;
-    'max_drawdown'?: SensitivityMetrics;
-    'total_return'?: SensitivityMetrics;
+    'mode'?: string;
+    'max_drawdown'?: object;
+    'total_return'?: object;
+    'sharpe_ratio'?: object;
+    'ruin_probability'?: number;
+    'equity_curves'?: Array<Array<number>>;
+    'confidence_bands'?: object;
 }
 export interface OpenInterestAnalysisResponse {
     'summary'?: AnalysisSummary;
@@ -1783,6 +1837,19 @@ export interface PortfolioAllocationUpdateAllocationsInner {
     'strategy_id'?: string;
     'weight'?: number;
 }
+export interface PortfolioOptimizationRequest {
+    'strategies_data'?: { [key: string]: Array<number>; };
+    'method'?: PortfolioOptimizationRequestMethodEnum;
+}
+
+export const PortfolioOptimizationRequestMethodEnum = {
+    Hrp: 'HRP',
+    MaxSharpe: 'MAX_SHARPE',
+    MinVol: 'MIN_VOL'
+} as const;
+
+export type PortfolioOptimizationRequestMethodEnum = typeof PortfolioOptimizationRequestMethodEnum[keyof typeof PortfolioOptimizationRequestMethodEnum];
+
 export interface RateLimitInfo {
     'limit': number;
     'remaining': number;
@@ -1804,6 +1871,10 @@ export const ResponseStatus = {
 export type ResponseStatus = typeof ResponseStatus[keyof typeof ResponseStatus];
 
 
+export interface RiskAdjustmentRequest {
+    'fund_id'?: string;
+    'adjustments'?: object;
+}
 export interface RiskCheckRequest {
     'symbol': string;
     'entry_price': number;
@@ -1839,6 +1910,20 @@ export interface RiskCheckResponsePositionSize {
     'units'?: number;
     'lots'?: number;
     'standard_lot_size'?: number;
+}
+export interface RiskRecommendation {
+    /**
+     * Suggested risk percentage per trade
+     */
+    'risk_percentage': number;
+    /**
+     * Suggested maximum drawdown threshold
+     */
+    'max_drawdown_threshold': number;
+    /**
+     * AI rationale for the recommendation
+     */
+    'reasoning': string;
 }
 export interface RsiRequest {
     'close': Array<number>;
@@ -2178,8 +2263,8 @@ export interface Trade {
     'rejection_reason'?: string | null;
     'direction': TradeDirectionEnum;
     'entry_price': number;
-    'sl_price': number;
-    'tp_price': number;
+    'sl_price'?: number;
+    'tp_price'?: number;
     'lot_size': number;
     'risk_usd': number;
     'atr_pips'?: number | null;
@@ -2360,6 +2445,20 @@ export interface VolatilityMetrics {
     'parkinson_vol'?: number;
     'yang_zhang_vol'?: number;
     'rolling_vol_series'?: Array<number>;
+}
+export interface WFARequest {
+    'strategy_id': string;
+    'symbol': string;
+    'train_window_days'?: number;
+    'test_window_days'?: number;
+    'step_days'?: number;
+    'optimization'?: object;
+}
+export interface WFAResponse {
+    'robustness_score'?: number;
+    'period_count'?: number;
+    'avg_oos_return'?: number;
+    'details'?: Array<object>;
 }
 export interface WalkForwardRequest {
     'symbol': string;
@@ -4446,6 +4545,270 @@ export class AnalyticsApi extends BaseAPI {
      */
     public apiV1AnalyticsVolatilityGet(requestParameters: AnalyticsApiApiV1AnalyticsVolatilityGetRequest, options?: RawAxiosRequestConfig) {
         return AnalyticsApiFp(this.configuration).apiV1AnalyticsVolatilityGet(requestParameters.symbol, requestParameters.timeframe, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * BacktestApi - axios parameter creator
+ */
+export const BacktestApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Run a Monte Carlo simulation
+         * @param {MonteCarloRequest} monteCarloRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestMonteCarloPost: async (monteCarloRequest: MonteCarloRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'monteCarloRequest' is not null or undefined
+            assertParamExists('backtestMonteCarloPost', 'monteCarloRequest', monteCarloRequest)
+            const localVarPath = `/backtest/monte-carlo`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(monteCarloRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Multi-strategy Portfolio Optimization
+         * @param {PortfolioOptimizationRequest} portfolioOptimizationRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestOptimizePortfolioPost: async (portfolioOptimizationRequest: PortfolioOptimizationRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'portfolioOptimizationRequest' is not null or undefined
+            assertParamExists('backtestOptimizePortfolioPost', 'portfolioOptimizationRequest', portfolioOptimizationRequest)
+            const localVarPath = `/backtest/optimize/portfolio`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(portfolioOptimizationRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Run Walk-Forward Analysis
+         * @param {WFARequest} wFARequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestWfaPost: async (wFARequest: WFARequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'wFARequest' is not null or undefined
+            assertParamExists('backtestWfaPost', 'wFARequest', wFARequest)
+            const localVarPath = `/backtest/wfa`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(wFARequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * BacktestApi - functional programming interface
+ */
+export const BacktestApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = BacktestApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Run a Monte Carlo simulation
+         * @param {MonteCarloRequest} monteCarloRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async backtestMonteCarloPost(monteCarloRequest: MonteCarloRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseMonteCarloResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestMonteCarloPost(monteCarloRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['BacktestApi.backtestMonteCarloPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Multi-strategy Portfolio Optimization
+         * @param {PortfolioOptimizationRequest} portfolioOptimizationRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async backtestOptimizePortfolioPost(portfolioOptimizationRequest: PortfolioOptimizationRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponsePortfolioWeights>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestOptimizePortfolioPost(portfolioOptimizationRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['BacktestApi.backtestOptimizePortfolioPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Run Walk-Forward Analysis
+         * @param {WFARequest} wFARequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async backtestWfaPost(wFARequest: WFARequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseWFAResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestWfaPost(wFARequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['BacktestApi.backtestWfaPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * BacktestApi - factory interface
+ */
+export const BacktestApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = BacktestApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Run a Monte Carlo simulation
+         * @param {BacktestApiBacktestMonteCarloPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestMonteCarloPost(requestParameters: BacktestApiBacktestMonteCarloPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseMonteCarloResponse> {
+            return localVarFp.backtestMonteCarloPost(requestParameters.monteCarloRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Multi-strategy Portfolio Optimization
+         * @param {BacktestApiBacktestOptimizePortfolioPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestOptimizePortfolioPost(requestParameters: BacktestApiBacktestOptimizePortfolioPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponsePortfolioWeights> {
+            return localVarFp.backtestOptimizePortfolioPost(requestParameters.portfolioOptimizationRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Run Walk-Forward Analysis
+         * @param {BacktestApiBacktestWfaPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        backtestWfaPost(requestParameters: BacktestApiBacktestWfaPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseWFAResponse> {
+            return localVarFp.backtestWfaPost(requestParameters.wFARequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for backtestMonteCarloPost operation in BacktestApi.
+ */
+export interface BacktestApiBacktestMonteCarloPostRequest {
+    readonly monteCarloRequest: MonteCarloRequest
+}
+
+/**
+ * Request parameters for backtestOptimizePortfolioPost operation in BacktestApi.
+ */
+export interface BacktestApiBacktestOptimizePortfolioPostRequest {
+    readonly portfolioOptimizationRequest: PortfolioOptimizationRequest
+}
+
+/**
+ * Request parameters for backtestWfaPost operation in BacktestApi.
+ */
+export interface BacktestApiBacktestWfaPostRequest {
+    readonly wFARequest: WFARequest
+}
+
+/**
+ * BacktestApi - object-oriented interface
+ */
+export class BacktestApi extends BaseAPI {
+    /**
+     * 
+     * @summary Run a Monte Carlo simulation
+     * @param {BacktestApiBacktestMonteCarloPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public backtestMonteCarloPost(requestParameters: BacktestApiBacktestMonteCarloPostRequest, options?: RawAxiosRequestConfig) {
+        return BacktestApiFp(this.configuration).backtestMonteCarloPost(requestParameters.monteCarloRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Multi-strategy Portfolio Optimization
+     * @param {BacktestApiBacktestOptimizePortfolioPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public backtestOptimizePortfolioPost(requestParameters: BacktestApiBacktestOptimizePortfolioPostRequest, options?: RawAxiosRequestConfig) {
+        return BacktestApiFp(this.configuration).backtestOptimizePortfolioPost(requestParameters.portfolioOptimizationRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Run Walk-Forward Analysis
+     * @param {BacktestApiBacktestWfaPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public backtestWfaPost(requestParameters: BacktestApiBacktestWfaPostRequest, options?: RawAxiosRequestConfig) {
+        return BacktestApiFp(this.configuration).backtestWfaPost(requestParameters.wFARequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -7646,42 +8009,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
-         * @summary Run a Monte Carlo simulation
-         * @param {MonteCarloRequest} monteCarloRequest 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        backtestMonteCarloPost: async (monteCarloRequest: MonteCarloRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'monteCarloRequest' is not null or undefined
-            assertParamExists('backtestMonteCarloPost', 'monteCarloRequest', monteCarloRequest)
-            const localVarPath = `/backtest/monte-carlo`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(monteCarloRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
          * @summary Run an optimization job
          * @param {BacktestRequest} backtestRequest 
          * @param {*} [options] Override http request option.
@@ -9074,19 +9401,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Run a Monte Carlo simulation
-         * @param {MonteCarloRequest} monteCarloRequest 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async backtestMonteCarloPost(monteCarloRequest: MonteCarloRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<MonteCarloResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.backtestMonteCarloPost(monteCarloRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.backtestMonteCarloPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
          * @summary Run an optimization job
          * @param {BacktestRequest} backtestRequest 
          * @param {*} [options] Override http request option.
@@ -10016,16 +10330,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
-         * @summary Run a Monte Carlo simulation
-         * @param {DefaultApiBacktestMonteCarloPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        backtestMonteCarloPost(requestParameters: DefaultApiBacktestMonteCarloPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<MonteCarloResponse> {
-            return localVarFp.backtestMonteCarloPost(requestParameters.monteCarloRequest, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
          * @summary Run an optimization job
          * @param {DefaultApiBacktestOptimizePostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -10702,13 +11006,6 @@ export interface DefaultApiApiV1TransactionsPostRequest {
  */
 export interface DefaultApiBacktestCustomPostRequest {
     readonly strategyBacktestRequest: StrategyBacktestRequest
-}
-
-/**
- * Request parameters for backtestMonteCarloPost operation in DefaultApi.
- */
-export interface DefaultApiBacktestMonteCarloPostRequest {
-    readonly monteCarloRequest: MonteCarloRequest
 }
 
 /**
@@ -11667,17 +11964,6 @@ export class DefaultApi extends BaseAPI {
 
     /**
      * 
-     * @summary Run a Monte Carlo simulation
-     * @param {DefaultApiBacktestMonteCarloPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public backtestMonteCarloPost(requestParameters: DefaultApiBacktestMonteCarloPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).backtestMonteCarloPost(requestParameters.monteCarloRequest, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
      * @summary Run an optimization job
      * @param {DefaultApiBacktestOptimizePostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -11774,10 +12060,163 @@ export type ApiV1ExecutionTradesSyncGetStatusEnum = typeof ApiV1ExecutionTradesS
 
 
 /**
+ * DiagnosticApi - axios parameter creator
+ */
+export const DiagnosticApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {string} accountId 
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet: async (accountId: string, symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet', 'accountId', accountId)
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/execution/inspect/account/{account_id}/symbol/{symbol}`
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * DiagnosticApi - functional programming interface
+ */
+export const DiagnosticApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = DiagnosticApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {string} accountId 
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(accountId: string, symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(accountId, symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DiagnosticApi.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * DiagnosticApi - factory interface
+ */
+export const DiagnosticApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = DiagnosticApiFp(configuration)
+    return {
+        /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {DiagnosticApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters: DiagnosticApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response> {
+            return localVarFp.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters.accountId, requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet operation in DiagnosticApi.
+ */
+export interface DiagnosticApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest {
+    readonly accountId: string
+
+    readonly symbol: string
+}
+
+/**
+ * DiagnosticApi - object-oriented interface
+ */
+export class DiagnosticApi extends BaseAPI {
+    /**
+     * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+     * @summary Diagnostic endpoint for hierarchical execution normalization
+     * @param {DiagnosticApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters: DiagnosticApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return DiagnosticApiFp(this.configuration).apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters.accountId, requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * ExecutionApi - axios parameter creator
  */
 export const ExecutionApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {string} accountId 
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet: async (accountId: string, symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet', 'accountId', accountId)
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/execution/inspect/account/{account_id}/symbol/{symbol}`
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @summary Bulk cancel orders
@@ -12279,6 +12718,20 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = ExecutionApiAxiosParamCreator(configuration)
     return {
         /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {string} accountId 
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(accountId: string, symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(accountId, symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Bulk cancel orders
          * @param {string} brokerAccountId 
@@ -12463,6 +12916,16 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
     const localVarFp = ExecutionApiFp(configuration)
     return {
         /**
+         * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+         * @summary Diagnostic endpoint for hierarchical execution normalization
+         * @param {ExecutionApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters: ExecutionApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response> {
+            return localVarFp.apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters.accountId, requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Bulk cancel orders
          * @param {ExecutionApiApiV1ExecutionOrdersDeleteRequest} requestParameters Request parameters.
@@ -12596,6 +13059,15 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
 };
 
 /**
+ * Request parameters for apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet operation in ExecutionApi.
+ */
+export interface ExecutionApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest {
+    readonly accountId: string
+
+    readonly symbol: string
+}
+
+/**
  * Request parameters for apiV1ExecutionOrdersDelete operation in ExecutionApi.
  */
 export interface ExecutionApiApiV1ExecutionOrdersDeleteRequest {
@@ -12702,6 +13174,17 @@ export interface ExecutionApiApiV1SignalsIdRejectPostRequest {
  * ExecutionApi - object-oriented interface
  */
 export class ExecutionApi extends BaseAPI {
+    /**
+     * Explains the internal-to-broker volume scaling and risk context (Zero-Math Standard).
+     * @summary Diagnostic endpoint for hierarchical execution normalization
+     * @param {ExecutionApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters: ExecutionApiApiV1ExecutionInspectAccountAccountIdSymbolSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return ExecutionApiFp(this.configuration).apiV1ExecutionInspectAccountAccountIdSymbolSymbolGet(requestParameters.accountId, requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Bulk cancel orders
@@ -13891,6 +14374,527 @@ export class OrchestrationApi extends BaseAPI {
      */
     public apiV1OrchestrationPipelineStatusGet(options?: RawAxiosRequestConfig) {
         return OrchestrationApiFp(this.configuration).apiV1OrchestrationPipelineStatusGet(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * RiskApi - axios parameter creator
+ */
+export const RiskApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
+         * @summary Trigger AI-driven risk analysis for a fund
+         * @param {ApiV1RiskAiReviewPostRequest} apiV1RiskAiReviewPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskAiReviewPost: async (apiV1RiskAiReviewPostRequest: ApiV1RiskAiReviewPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1RiskAiReviewPostRequest' is not null or undefined
+            assertParamExists('apiV1RiskAiReviewPost', 'apiV1RiskAiReviewPostRequest', apiV1RiskAiReviewPostRequest)
+            const localVarPath = `/api/v1/risk/ai-review`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1RiskAiReviewPostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Applies AI-suggested risk parameters (risk_percentage, max_drawdown_threshold) to the fund configuration and broadcasts a RISK_REBALANCE_APPLIED event to the Execution Service via Redis. 
+         * @summary Apply AI risk recommendation to fund config
+         * @param {string} fundId 
+         * @param {RiskRecommendation} riskRecommendation 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdApplyRecommendationPost: async (fundId: string, riskRecommendation: RiskRecommendation, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdApplyRecommendationPost', 'fundId', fundId)
+            // verify required parameter 'riskRecommendation' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdApplyRecommendationPost', 'riskRecommendation', riskRecommendation)
+            const localVarPath = `/api/v1/risk/fund/{fund_id}/apply-recommendation`
+                .replace(`{${"fund_id"}}`, encodeURIComponent(String(fundId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(riskRecommendation, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get fund-specific risk configuration
+         * @param {string} fundId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdConfigGet: async (fundId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdConfigGet', 'fundId', fundId)
+            const localVarPath = `/api/v1/risk/fund/{fund_id}/config`
+                .replace(`{${"fund_id"}}`, encodeURIComponent(String(fundId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Update fund risk configuration
+         * @param {string} fundId 
+         * @param {RiskAdjustmentRequest} riskAdjustmentRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdConfigPatch: async (fundId: string, riskAdjustmentRequest: RiskAdjustmentRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdConfigPatch', 'fundId', fundId)
+            // verify required parameter 'riskAdjustmentRequest' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdConfigPatch', 'riskAdjustmentRequest', riskAdjustmentRequest)
+            const localVarPath = `/api/v1/risk/fund/{fund_id}/config`
+                .replace(`{${"fund_id"}}`, encodeURIComponent(String(fundId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(riskAdjustmentRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Toggle fund-specific kill switch
+         * @param {string} fundId 
+         * @param {KillSwitchRequest} killSwitchRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdKillSwitchPost: async (fundId: string, killSwitchRequest: KillSwitchRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdKillSwitchPost', 'fundId', fundId)
+            // verify required parameter 'killSwitchRequest' is not null or undefined
+            assertParamExists('apiV1RiskFundFundIdKillSwitchPost', 'killSwitchRequest', killSwitchRequest)
+            const localVarPath = `/api/v1/risk/fund/{fund_id}/kill-switch`
+                .replace(`{${"fund_id"}}`, encodeURIComponent(String(fundId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(killSwitchRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns paginated list of AI risk rebalancing events for audit.
+         * @summary Get rebalance history audit trail
+         * @param {string} [fundId] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskRebalanceHistoryGet: async (fundId?: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/risk/rebalance-history`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (fundId !== undefined) {
+                localVarQueryParameter['fund_id'] = fundId;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * RiskApi - functional programming interface
+ */
+export const RiskApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = RiskApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
+         * @summary Trigger AI-driven risk analysis for a fund
+         * @param {ApiV1RiskAiReviewPostRequest} apiV1RiskAiReviewPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskAiReviewPost(apiV1RiskAiReviewPostRequest: ApiV1RiskAiReviewPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseRiskRecommendation>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskAiReviewPost(apiV1RiskAiReviewPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskAiReviewPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Applies AI-suggested risk parameters (risk_percentage, max_drawdown_threshold) to the fund configuration and broadcasts a RISK_REBALANCE_APPLIED event to the Execution Service via Redis. 
+         * @summary Apply AI risk recommendation to fund config
+         * @param {string} fundId 
+         * @param {RiskRecommendation} riskRecommendation 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskFundFundIdApplyRecommendationPost(fundId: string, riskRecommendation: RiskRecommendation, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseFundRiskConfig>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskFundFundIdApplyRecommendationPost(fundId, riskRecommendation, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskFundFundIdApplyRecommendationPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get fund-specific risk configuration
+         * @param {string} fundId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskFundFundIdConfigGet(fundId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseFundRiskConfig>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskFundFundIdConfigGet(fundId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskFundFundIdConfigGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Update fund risk configuration
+         * @param {string} fundId 
+         * @param {RiskAdjustmentRequest} riskAdjustmentRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskFundFundIdConfigPatch(fundId: string, riskAdjustmentRequest: RiskAdjustmentRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseFundRiskConfig>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskFundFundIdConfigPatch(fundId, riskAdjustmentRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskFundFundIdConfigPatch']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Toggle fund-specific kill switch
+         * @param {string} fundId 
+         * @param {KillSwitchRequest} killSwitchRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskFundFundIdKillSwitchPost(fundId: string, killSwitchRequest: KillSwitchRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskFundFundIdKillSwitchPost(fundId, killSwitchRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskFundFundIdKillSwitchPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns paginated list of AI risk rebalancing events for audit.
+         * @summary Get rebalance history audit trail
+         * @param {string} [fundId] 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1RiskRebalanceHistoryGet(fundId?: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1RiskRebalanceHistoryGet(fundId, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1RiskRebalanceHistoryGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * RiskApi - factory interface
+ */
+export const RiskApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = RiskApiFp(configuration)
+    return {
+        /**
+         * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
+         * @summary Trigger AI-driven risk analysis for a fund
+         * @param {RiskApiApiV1RiskAiReviewPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskAiReviewPost(requestParameters: RiskApiApiV1RiskAiReviewPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseRiskRecommendation> {
+            return localVarFp.apiV1RiskAiReviewPost(requestParameters.apiV1RiskAiReviewPostRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Applies AI-suggested risk parameters (risk_percentage, max_drawdown_threshold) to the fund configuration and broadcasts a RISK_REBALANCE_APPLIED event to the Execution Service via Redis. 
+         * @summary Apply AI risk recommendation to fund config
+         * @param {RiskApiApiV1RiskFundFundIdApplyRecommendationPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdApplyRecommendationPost(requestParameters: RiskApiApiV1RiskFundFundIdApplyRecommendationPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFundRiskConfig> {
+            return localVarFp.apiV1RiskFundFundIdApplyRecommendationPost(requestParameters.fundId, requestParameters.riskRecommendation, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get fund-specific risk configuration
+         * @param {RiskApiApiV1RiskFundFundIdConfigGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdConfigGet(requestParameters: RiskApiApiV1RiskFundFundIdConfigGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFundRiskConfig> {
+            return localVarFp.apiV1RiskFundFundIdConfigGet(requestParameters.fundId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Update fund risk configuration
+         * @param {RiskApiApiV1RiskFundFundIdConfigPatchRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdConfigPatch(requestParameters: RiskApiApiV1RiskFundFundIdConfigPatchRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseFundRiskConfig> {
+            return localVarFp.apiV1RiskFundFundIdConfigPatch(requestParameters.fundId, requestParameters.riskAdjustmentRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Toggle fund-specific kill switch
+         * @param {RiskApiApiV1RiskFundFundIdKillSwitchPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskFundFundIdKillSwitchPost(requestParameters: RiskApiApiV1RiskFundFundIdKillSwitchPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1RiskFundFundIdKillSwitchPost(requestParameters.fundId, requestParameters.killSwitchRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns paginated list of AI risk rebalancing events for audit.
+         * @summary Get rebalance history audit trail
+         * @param {RiskApiApiV1RiskRebalanceHistoryGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1RiskRebalanceHistoryGet(requestParameters: RiskApiApiV1RiskRebalanceHistoryGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1RiskRebalanceHistoryGet(requestParameters.fundId, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1RiskAiReviewPost operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskAiReviewPostRequest {
+    readonly apiV1RiskAiReviewPostRequest: ApiV1RiskAiReviewPostRequest
+}
+
+/**
+ * Request parameters for apiV1RiskFundFundIdApplyRecommendationPost operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskFundFundIdApplyRecommendationPostRequest {
+    readonly fundId: string
+
+    readonly riskRecommendation: RiskRecommendation
+}
+
+/**
+ * Request parameters for apiV1RiskFundFundIdConfigGet operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskFundFundIdConfigGetRequest {
+    readonly fundId: string
+}
+
+/**
+ * Request parameters for apiV1RiskFundFundIdConfigPatch operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskFundFundIdConfigPatchRequest {
+    readonly fundId: string
+
+    readonly riskAdjustmentRequest: RiskAdjustmentRequest
+}
+
+/**
+ * Request parameters for apiV1RiskFundFundIdKillSwitchPost operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskFundFundIdKillSwitchPostRequest {
+    readonly fundId: string
+
+    readonly killSwitchRequest: KillSwitchRequest
+}
+
+/**
+ * Request parameters for apiV1RiskRebalanceHistoryGet operation in RiskApi.
+ */
+export interface RiskApiApiV1RiskRebalanceHistoryGetRequest {
+    readonly fundId?: string
+
+    readonly limit?: number
+}
+
+/**
+ * RiskApi - object-oriented interface
+ */
+export class RiskApi extends BaseAPI {
+    /**
+     * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
+     * @summary Trigger AI-driven risk analysis for a fund
+     * @param {RiskApiApiV1RiskAiReviewPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskAiReviewPost(requestParameters: RiskApiApiV1RiskAiReviewPostRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskAiReviewPost(requestParameters.apiV1RiskAiReviewPostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Applies AI-suggested risk parameters (risk_percentage, max_drawdown_threshold) to the fund configuration and broadcasts a RISK_REBALANCE_APPLIED event to the Execution Service via Redis. 
+     * @summary Apply AI risk recommendation to fund config
+     * @param {RiskApiApiV1RiskFundFundIdApplyRecommendationPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskFundFundIdApplyRecommendationPost(requestParameters: RiskApiApiV1RiskFundFundIdApplyRecommendationPostRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskFundFundIdApplyRecommendationPost(requestParameters.fundId, requestParameters.riskRecommendation, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get fund-specific risk configuration
+     * @param {RiskApiApiV1RiskFundFundIdConfigGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskFundFundIdConfigGet(requestParameters: RiskApiApiV1RiskFundFundIdConfigGetRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskFundFundIdConfigGet(requestParameters.fundId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Update fund risk configuration
+     * @param {RiskApiApiV1RiskFundFundIdConfigPatchRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskFundFundIdConfigPatch(requestParameters: RiskApiApiV1RiskFundFundIdConfigPatchRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskFundFundIdConfigPatch(requestParameters.fundId, requestParameters.riskAdjustmentRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Toggle fund-specific kill switch
+     * @param {RiskApiApiV1RiskFundFundIdKillSwitchPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskFundFundIdKillSwitchPost(requestParameters: RiskApiApiV1RiskFundFundIdKillSwitchPostRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskFundFundIdKillSwitchPost(requestParameters.fundId, requestParameters.killSwitchRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns paginated list of AI risk rebalancing events for audit.
+     * @summary Get rebalance history audit trail
+     * @param {RiskApiApiV1RiskRebalanceHistoryGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1RiskRebalanceHistoryGet(requestParameters: RiskApiApiV1RiskRebalanceHistoryGetRequest = {}, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1RiskRebalanceHistoryGet(requestParameters.fundId, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

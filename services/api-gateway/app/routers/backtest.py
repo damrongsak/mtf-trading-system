@@ -17,6 +17,10 @@ from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 from app.services.internal_client import strategy_client
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(
     prefix="/backtest",
     tags=["backtest"],
@@ -137,12 +141,28 @@ async def run_backtest(req: BacktestRequest, db: Session = Depends(get_db)):
     
     # 1. Resolve Strategy Configuration
     if req.strategy_id:
-        strategy = db.query(Strategy).filter(Strategy.id == req.strategy_id).first()
-        if not strategy:
-            raise HTTPException(status_code=404, detail=f"Strategy {req.strategy_id} not found")
-        
-        saved_config = strategy.config_json or {}
-        req.strategy_params = {**saved_config, **req.strategy_params}
+        # Check if strategy_id is a valid UUID before querying
+        is_valid_uuid = False
+        try:
+            if isinstance(req.strategy_id, uuid.UUID):
+                is_valid_uuid = True
+            else:
+                uuid.UUID(str(req.strategy_id))
+                is_valid_uuid = True
+        except ValueError:
+            is_valid_uuid = False
+
+        if is_valid_uuid:
+            strategy = db.query(Strategy).filter(Strategy.id == req.strategy_id).first()
+            if not strategy:
+                raise HTTPException(status_code=404, detail=f"Strategy {req.strategy_id} not found")
+            
+            saved_config = strategy.config_json or {}
+            req.strategy_params = {**saved_config, **req.strategy_params}
+        else:
+            # Assume it's a template name or string ID handled directly by Strategy Core
+            logger.info(f"Using strategy template/string ID: {req.strategy_id}")
+            pass
 
     # 2. Resolve Fund/Portfolio Context
     if req.fund_id:

@@ -57,6 +57,15 @@ The `HookManager` allows external injection into the trading loop:
 - `on_market_data`: Enrich data before strategies see it.
 - `filter_signal`: Final veto power for Risk/AI Sentiment plugins. [See: api-agent-guardrails skill]
 
+## 💎 World-Class Strategy Features (v2.8)
+This service provides institutional-grade quantitative analysis tools:
+
+*   **Vectorized Strategy Engine**: High-performance backtesting using `vectorbt` via `VectorizedStrategyBase`.
+*   **Enhanced Monte Carlo**: Bootstrap-based resampling with confidence bands and ruin probability calculation.
+*   **Portfolio Optimization**: Hierarchical Risk Parity (HRP) and Risk Parity weighting via `PyPortfolioOpt`.
+*   **Minimax Regret Risk Filter**: Intelligent signal filtering using Game Theory to identify high-conviction trades.
+*   **Walk-Forward Analysis (WFA)**: Automated robustness testing with Out-Of-Sample (OOS) validation.
+
 ## 🚦 Institutional Strategy Lifecycle
 All strategies deployed in this service MUST follow the **7-Step Olympus Standard**:
 1. **SDD Spec**: Rules defined in `specs/08_logic`.
@@ -92,6 +101,23 @@ To understand or modify strategy behavior, follow this priority path:
 3.  **Registration**: Verify the strategy is registered in `app/registry.py`.
 4.  **Logging**: Query the `signal_log` and `opportunity_log` tables in PostgreSQL to track why signals were generated or blocked.
 
+### 📊 API Testing
+You can test the strategy logic and flow via the following endpoints:
+
+1. **Logic Test (Backtest API)**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/backtest/run \
+   -H "Content-Type: application/json" \
+   -d '{"symbol": "XAUUSD", "timeframe": "M15", "strategy_id": "bb_stoch_ob_v1", "strategy_params": {...}}'
+   ```
+
+2. **Flow Test (Internal Signal API)**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/internal/signals \
+   -H "X-Internal-API-Key: dev_secret_key" \
+   -d '{"symbol": "XAUUSD", "direction": "BULLISH", "type": "ENTRY", ...}'
+   ```
+
 ## 📂 Directory Structure
 
 ```text
@@ -121,4 +147,3 @@ This service is currently pinned to **`WEB_CONCURRENCY=1`** in `docker-compose.y
 - **Reason**: During the "Hydration Phase" (Startup), the `FleetManager` and `SharedMarketDataManager` perform heavy PostgreSQL reads (1,000 candles per symbol for 3+ active symbols). 
 - **The Problem**: Multi-worker setups (`WEB_CONCURRENCY > 1`) cause race conditions and resource exhaustion (CPU/Memory) during this heavy I/O/Compute phase, leading to "Child process died" errors and silent crashes.
 - **Future Scaling**: Horizontal scaling should be achieved by deploying multiple *instances* of the service (e.g., partitioned by symbol) rather than increasing uvicorn workers within a single container until the hydration logic is optimized to be more process-safe or centralized.
-

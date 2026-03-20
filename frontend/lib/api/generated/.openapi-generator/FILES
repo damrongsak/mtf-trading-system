@@ -36,6 +36,7 @@ docs/APIResponseFoundryAssembleResponse.md
 docs/APIResponseFoundryValidateResponse.md
 docs/APIResponseFoundryValidateResponseData.md
 docs/APIResponseFund.md
+docs/APIResponseFundRiskConfig.md
 docs/APIResponseIngestionResult.md
 docs/APIResponseIngestionResultAllOfData.md
 docs/APIResponseJournalEntryResponse.md
@@ -45,13 +46,17 @@ docs/APIResponseLibraryBookListAllOfData.md
 docs/APIResponseLibraryResults.md
 docs/APIResponseLibraryStatus.md
 docs/APIResponseLibraryStatusAllOfData.md
+docs/APIResponseMonteCarloResponse.md
 docs/APIResponseOpenInterestAnalytics.md
 docs/APIResponseOrchestrationLogs.md
 docs/APIResponseOrchestrationLogsAllOfData.md
 docs/APIResponsePerformanceComparison.md
 docs/APIResponsePipelineStatus.md
 docs/APIResponsePipelineStatusAllOfData.md
+docs/APIResponsePortfolioWeights.md
 docs/APIResponseRiskCheckResponse.md
+docs/APIResponseRiskRecommendation.md
+docs/APIResponseRiskRecommendationData.md
 docs/APIResponseSignalList.md
 docs/APIResponseSignalResponse.md
 docs/APIResponseStrategyList.md
@@ -67,6 +72,7 @@ docs/APIResponseUserPreferencesResponse.md
 docs/APIResponseUserResponse.md
 docs/APIResponseVaRMetrics.md
 docs/APIResponseVolatilityMetrics.md
+docs/APIResponseWFAResponse.md
 docs/APIResponseWalkForwardResponse.md
 docs/AdxRequest.md
 docs/AdxResponse.md
@@ -91,6 +97,8 @@ docs/ApiV1DataOpenInterestUploadPost201Response.md
 docs/ApiV1DataSourcesIdBackfillPost202Response.md
 docs/ApiV1DataSyncPost202Response.md
 docs/ApiV1DataUploadPost200Response.md
+docs/ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200Response.md
+docs/ApiV1ExecutionInspectAccountAccountIdSymbolSymbolGet200ResponseData.md
 docs/ApiV1ExecutionOrdersGet200Response.md
 docs/ApiV1ExecutionOrdersOrderIdPutRequest.md
 docs/ApiV1ExecutionTradesCloseAllPostRequest.md
@@ -110,6 +118,7 @@ docs/ApiV1KnowledgeStatusTaskIdGet200Response.md
 docs/ApiV1PluginsIdActivatePost200Response.md
 docs/ApiV1PromptsIdRenderPost200Response.md
 docs/ApiV1PromptsIdRenderPostRequest.md
+docs/ApiV1RiskAiReviewPostRequest.md
 docs/ApiV1SignalCheckPostRequest.md
 docs/ApiV1SignalsCancelAllPost200Response.md
 docs/ApiV1SignalsIdApprovePost200Response.md
@@ -119,6 +128,7 @@ docs/ApiV1TelegramWebhookPost200Response.md
 docs/AtrRequest.md
 docs/AuthTokens.md
 docs/BackfillRequest.md
+docs/BacktestApi.md
 docs/BacktestMetrics.md
 docs/BacktestRequest.md
 docs/BacktestResponse.md
@@ -143,6 +153,7 @@ docs/DataSourceUpdate.md
 docs/DefaultApi.md
 docs/Deployment.md
 docs/DeploymentCreate.md
+docs/DiagnosticApi.md
 docs/DrawdownMetrics.md
 docs/DriftAnalysis.md
 docs/EmaRequest.md
@@ -159,6 +170,7 @@ docs/FoundryAssembleResponse.md
 docs/FoundryValidateRequest.md
 docs/Fund.md
 docs/FundCreate.md
+docs/FundRiskConfig.md
 docs/FundUpdate.md
 docs/GapDiscoveryResponse.md
 docs/GapInfo.md
@@ -169,6 +181,7 @@ docs/JournalEntryCreateMentalState.md
 docs/JournalEntryCreateRootCause.md
 docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
+docs/KillSwitchRequest.md
 docs/KnowledgeApi.md
 docs/LatencyBucket.md
 docs/LatencyHeatmapResponse.md
@@ -204,13 +217,17 @@ docs/PluginConfigUpdate.md
 docs/PluginResponse.md
 docs/PortfolioAllocationUpdate.md
 docs/PortfolioAllocationUpdateAllocationsInner.md
+docs/PortfolioOptimizationRequest.md
 docs/RateLimitInfo.md
 docs/RejectionReasonSummary.md
 docs/ResponseStatus.md
+docs/RiskAdjustmentRequest.md
+docs/RiskApi.md
 docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md
 docs/RiskCheckResponseFinancials.md
 docs/RiskCheckResponsePositionSize.md
+docs/RiskRecommendation.md
 docs/RsiRequest.md
 docs/SMCFVG.md
 docs/SMCInducement.md
@@ -258,6 +275,8 @@ docs/UserPreferencesResponse.md
 docs/UserResponse.md
 docs/VaRMetrics.md
 docs/VolatilityMetrics.md
+docs/WFARequest.md
+docs/WFAResponse.md
 docs/WalkForwardRequest.md
 docs/WalkForwardResponse.md
 git_push.sh

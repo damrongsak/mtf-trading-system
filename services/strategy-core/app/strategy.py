@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import vectorbt as vbt
 
 # Registry to hold available strategies
 STRATEGIES = {}

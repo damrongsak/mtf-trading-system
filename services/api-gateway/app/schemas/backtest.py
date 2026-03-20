@@ -39,9 +39,9 @@ class BacktestRequest(BaseModel):
     size_type: str = 'amount' # amount, value, percent
     
     # Profile References
-    strategy_id: Optional[UUID] = None
-    fund_id: Optional[UUID] = None
-    trading_config_id: Optional[UUID] = None
+    strategy_id: Optional[Union[UUID, str]] = None
+    fund_id: Optional[Union[UUID, str]] = None
+    trading_config_id: Optional[Union[UUID, str]] = None
     
     # Optimization
     optimization: Optional[OptimizationConfig] = None
