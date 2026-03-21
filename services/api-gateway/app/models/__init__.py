@@ -19,6 +19,7 @@ from .data_source import DataSource
 from .decision_log import DecisionLog
 from .opportunity_log import OpportunityLog
 from .market import MarketCategory, MarketSymbol
+from .memory import EpisodicMemory
 from .deployment import Deployment
 from .chat import ChatSession, ChatMessage
 from .prompt import SystemPrompt, PromptAuditLog

@@ -37,6 +37,7 @@ services:
       data-pipeline:
         condition: service_healthy
     environment:
+      - PYTHONPATH=/app:/app/deps
       - EXECUTION_SERVICE_URL=http://execution:8000
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - DATA_PIPELINE_URL=http://data-pipeline:8000
@@ -181,6 +182,7 @@ services:
       data-pipeline:
         condition: service_healthy
     environment:
+      - PYTHONPATH=/app:/app/deps
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - REDIS_URL=redis://redis:6379/0
       - NUMBA_NUM_THREADS=2
@@ -228,7 +230,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 768M
+          memory: 1G
     networks:
       - default
       - external

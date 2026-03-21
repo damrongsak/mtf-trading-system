@@ -9,7 +9,7 @@
     "last_results": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "is_public": null,
+    "is_public": false,
     "created_at": "2026-03-18T06:42:40.103619+00:00",
     "updated_at": "2026-03-18T06:42:40.103619+00:00"
   },
