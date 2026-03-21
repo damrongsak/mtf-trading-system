@@ -503,6 +503,30 @@ paths:
                  schema:
                   $ref: '#/components/schemas/APIResponse_Analysis'
 
+  /api/v1/ai/mri/coaching:
+    post:
+      summary: Get psychological coaching based on journal RAG
+      tags: [AI]
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoachingRequest'
+      responses:
+        '200':
+          description: AI Coaching Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoachingResponse'
+
   /api/v1/analysis/gamma/levels:
     get:
       tags:
@@ -3381,6 +3405,42 @@ paths:
 
 components:
   schemas:
+    # --- Phase 10: Advanced Psychological MRI ---
+    CoachingRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        lookback_days:
+          type: integer
+          default: 7
+        focus_areas:
+          type: array
+          items:
+            type: string
+      required: [user_id]
+
+    CoachingResponse:
+      type: object
+      properties:
+        psychological_state:
+          type: string
+          description: "Detected emotional state (e.g., Revenge Trading, FOMO, Discipline)"
+        advice:
+          type: string
+          description: "Specific coaching narrative in Thai or English"
+        confluence_context:
+          type: object
+          description: "Market context during recorded journal entries"
+        suggested_actions:
+          type: array
+          items:
+            type: string
+        sentiment_trend:
+          type: string
+      required: [psychological_state, advice]
+
     # --- World-Class Strategy Core Upgrades ---
     WFARequest:
       type: object
