@@ -17,7 +17,7 @@ class RiskLimitsAgent:
     """
     
     @staticmethod
-    async def check_limits(db: AsyncSession, fund: Fund, broker_account_id: str):
+    async def check_limits(db: AsyncSession, fund: Fund, broker_account_id: str, symbol: str = None, risk_usd: float = 0.0):
         """
         Validates the overall risk state before allowing a new trade.
         HFT-Lite: Uses Redis-cached statistics instead of real-time DB queries.
@@ -38,6 +38,19 @@ class RiskLimitsAgent:
         
         if fund.max_drawdown_threshold and daily_pnl < -(fund.max_drawdown_threshold):
             raise ValueError(f"Risk Violation: Daily Drawdown Limit Reached (${abs(daily_pnl):.2f})")
+
+        # --- 1b. Asset-Specific Risk Caps (Phase 11) ---
+        if fund.asset_risk_caps and symbol and risk_usd > 0:
+            asset_caps = fund.asset_risk_caps
+            # Normalized symbol key (no underscores/slashes)
+            norm_symbol = symbol.replace("_", "").replace("/", "").upper()
+            
+            # Check for direct match or normalized match
+            cap = asset_caps.get(symbol) or asset_caps.get(norm_symbol)
+            if cap:
+                cap_float = float(cap)
+                if risk_usd > cap_float:
+                    raise ValueError(f"Risk Violation: Asset Risk Cap exceeded for {symbol} (${risk_usd} > ${cap_float})")
 
         # --- 2. Dynamic Configurations (L1/L2 Cached RiskFilters) ---
         from app.services.cache_service import execution_cache

@@ -22,6 +22,7 @@ from app.services.price_service import price_service
 from app.core.units import UnitConverter
 import asyncio
 import time
+from app.risk.parity import RiskParityEngine
 
 logger = logging.getLogger(__name__)
 
@@ -242,14 +243,17 @@ class OrderService:
             
             # Fallback to Standard Risk-Based Sizing if units not yet set
             if units is None:
-                # [Phase 9] Extract Knowledge Score (1.0 = Neutral, >1.0 = High Confidence)
+                # [Phase 9/11] Institutional Scaling Multiplier
                 knowledge_score = float(req_data.get("knowledge_score", 1.0))
                 
-                # Use requested risk or the calculated effective limit
-                sizing_risk = (target_risk if target_risk is not None else effective_limit) * knowledge_score
+                # Combine Fund scale_factor and Signal knowledge_score
+                scale_multiplier = await RiskParityEngine.get_scale_multiplier(fund_id, knowledge_score)
                 
-                if knowledge_score != 1.0:
-                    logger.info(f"🧠 [Phase 9] Knowledge-Driven Scaling Applied: {knowledge_score}x (Adjusted Risk: ${sizing_risk})")
+                # Use requested risk or the calculated effective limit
+                sizing_risk = (target_risk if target_risk is not None else effective_limit) * scale_multiplier
+                
+                if scale_multiplier != 1.0:
+                    logger.info(f"⚖️ [Phase 11] Institutional Scaling Applied: {scale_multiplier}x (Adjusted Risk: ${sizing_risk})")
                 
                 current_price = await adapter.get_current_price(req_data["symbol"])
                 sl_distance = abs(current_price - stop_loss)
@@ -329,6 +333,7 @@ class OrderService:
                 tp_price=take_profit,
                 entry_price=entry_ref,
                 units=units,
+                risk_usd=target_risk,
                 broker_account_id=account_id,
                 trace_id=trace_id
             )
@@ -464,6 +469,7 @@ class OrderService:
         tp_price: float,
         entry_price: float = 0.0,
         units: float = 0.0,
+        risk_usd: float = 0.0,
         broker_account_id: str = None,
         trace_id: str = None
     ):
@@ -532,7 +538,7 @@ class OrderService:
                 )
         
         # Task for Phase 3 Limits (Now DB-free)
-        tasks.append(RiskLimitsAgent.check_limits(db, fund, broker_account_id))
+        tasks.append(RiskLimitsAgent.check_limits(db, fund, broker_account_id, symbol=symbol, risk_usd=risk_usd))
         
         # [NEW] Phase 28: Account-Specific Margin Check
         # Resolve full account for leverage

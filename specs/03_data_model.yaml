@@ -140,6 +140,18 @@ entities:
         enum_values: ["MIN_VOL", "HRP", "ERC"]
         default: "HRP"
         description: "Model used for Risk Parity calculation"
+      - name: scale_factor
+        type: decimal
+        precision: 5
+        scale: 4
+        default: 1.0000
+        required: true
+        description: "Institutional risk multiplier (e.g. 1.25 = 125% risk)"
+      - name: asset_risk_caps
+        type: jsonb
+        default: "{}"
+        required: true
+        description: "Per-asset risk limits (e.g. {'XAUUSD': 0.02})"
 
   UserFund:
     description: "Many-to-Many relationship between Users and Funds with Roles"

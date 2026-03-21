@@ -99,6 +99,10 @@ class Fund(Base):
     auto_protect_enabled = Column(Boolean, default=False, nullable=False)
     emergency_sl_pips = Column(Numeric(10, 2), default=500.0, nullable=False)
 
+    # [PHASE 11] Institutional Scaling
+    scale_factor = Column(Numeric(5, 4), default=1.0000, nullable=False)
+    asset_risk_caps = Column(JSONB, default={}, nullable=False)
+
 class MarketCategory(Base):
     __tablename__ = "market_categories"
     __table_args__ = {"extend_existing": True}
