@@ -4098,6 +4098,22 @@ components:
           type: string
           format: date-time
           nullable: true
+        parent_trade_id:
+          type: string
+          format: uuid
+          nullable: true
+        execution_algo:
+          type: string
+          nullable: true
+          description: "Execution algorithm used (TWAP, VWAP, SCALE_IN)"
+        algo_params:
+          type: object
+          nullable: true
+          description: "Parameters for the execution algorithm"
+        algo_status:
+          type: string
+          enum: [NONE, PENDING, RUNNING, COMPLETED, CANCELLED]
+          default: NONE
         knowledge_context:
           type: object
           nullable: true
@@ -4828,6 +4844,14 @@ components:
         atr_multiplier:
           type: number
           default: 1.0
+        execution_algo:
+          type: string
+          nullable: true
+          description: "Optional execution algorithm (TWAP, VWAP, SCALE_IN)"
+        algo_params:
+          type: object
+          nullable: true
+          description: "Parameters for the algorithm (e.g., {'duration': 3600})"
 
     OrderResponse:
       type: object

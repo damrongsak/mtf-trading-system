@@ -23,6 +23,7 @@ from app.core.units import UnitConverter
 import asyncio
 import time
 from app.risk.parity import RiskParityEngine
+from app.algorithms.manager import AlgoManager
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +338,18 @@ class OrderService:
                 broker_account_id=account_id,
                 trace_id=trace_id
             )
+
+            # [PHASE 12] Algorithm-Level Order Branching
+            if req_data.get("execution_algo"):
+                # Redirect to AlgoManager if an algo is requested (and not already a child slice)
+                if not req_data.get("parent_trade_id"):
+                    # Enrich req_data with calculated units and risk for the algo
+                    req_data["units"] = units
+                    req_data["target_risk"] = target_risk
+                    
+                    algo_res = await AlgoManager.create_algo_trade(req_data, db)
+                    # We return early since AlgoManager will handle slicing/execution
+                    return algo_res
 
             # 7. Execute
             exec_start = time.time()

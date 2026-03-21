@@ -16,6 +16,7 @@ from app.services.ai_bridge import AIBridge
 from app.adapters.factory import BrokerFactory
 from sqlalchemy import select, or_, update
 from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount, SignalLog
+from app.algorithms.manager import AlgoManager
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ logger = logging.getLogger(__name__)
 class ExecutionWorker:
     def __init__(self):
         self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        # Priority Queues (Priority > Default)
-        self.queue_names = ["queue:execution:priority", "queue:execution:commands"]
+        # Priority Queues (Priority > Algo > Default)
+        self.queue_names = ["queue:execution:priority", "queue:execution:algo", "queue:execution:commands"]
         self.redis = None
         self._running = False
 
@@ -134,13 +135,18 @@ class ExecutionWorker:
                                     "client_order_id": client_order_id
                                 }))
 
-                        result = await OrderService.execute_smart_order(req_data, db)
+                        if queue_key == "queue:execution:algo":
+                            # Process Algorithm Command
+                            await AlgoManager.process_algo_step(self.redis, db, req_data)
+                            result = {"status": "ALGO_PROCESSED"}
+                        else:
+                            result = await OrderService.execute_smart_order(req_data, db)
+                            
+                            # [Latency] Enrich result with latency if available
+                            if queue_latency_ms is not None:
+                                result["queue_latency_ms"] = round(queue_latency_ms, 2)
                         
-                        # [Latency] Enrich result with latency if available
-                        if queue_latency_ms is not None:
-                            result["queue_latency_ms"] = round(queue_latency_ms, 2)
-                        
-                        logger.info(f"Async Execution Success for {req_data.get('symbol')}: {result.get('id')}")
+                        logger.info(f"Async Execution Success for {req_data.get('symbol')}: {result.get('id') or result.get('status')}")
                 except Exception as biz_e:
                     logger.error(f"Async Execution Biz Logic Error: {biz_e}")
                     # Release lock so it can be retried

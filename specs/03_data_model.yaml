@@ -807,6 +807,22 @@ entities:
         type: boolean
         default: false
         description: "True if this was a shadow/simulated trade"
+      - name: parent_trade_id
+        type: uuid
+        nullable: true
+        description: "Link to the parent trade for sliced orders (TWAP/VWAP)"
+      - name: execution_algo
+        type: string
+        nullable: true
+        description: "Execution algorithm used (TWAP, VWAP, SCALE_IN)"
+      - name: algo_params
+        type: jsonb
+        nullable: true
+        description: "Parameters for the execution algorithm (e.g., duration, slices)"
+      - name: algo_status
+        type: string
+        default: "NONE"
+        description: "Status of the execution algorithm (PENDING, RUNNING, COMPLETED, CANCELLED)"
       - name: signal_id
         type: uuid
         nullable: true

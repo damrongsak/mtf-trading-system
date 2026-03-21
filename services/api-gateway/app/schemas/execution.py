@@ -14,3 +14,5 @@ class OrderRequest(BaseModel):
     tag: Optional[str] = None
     slippage_pips: Optional[int] = Field(None, description="Slippage tolerance in points")
     base_price: Optional[float] = Field(None, description="Base price for slippage calculation")
+    execution_algo: Optional[str] = Field(None, description="Algorithm name (e.g., TWAP, VWAP)")
+    algo_params: Optional[Dict[str, Any]] = Field(None, description="Parameters for the algorithm")

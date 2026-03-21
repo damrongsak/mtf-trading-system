@@ -173,6 +173,12 @@ class Trade(Base):
     is_live = Column(Boolean, default=False)
     is_shadow = Column(Boolean, default=False, nullable=True)
 
+    # [PHASE 12] Institutional Order Management
+    parent_trade_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    execution_algo = Column(String(50), nullable=True)
+    algo_params = Column(JSONB, nullable=True)
+    algo_status = Column(String(20), default="NONE")
+
     status = Column(SQLEnum(TradeStatus, name="tradestatus"), nullable=False)
     rejection_reason = Column(String(500), nullable=True)
     
