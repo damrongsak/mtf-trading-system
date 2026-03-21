@@ -51,18 +51,33 @@ TIER_DETAIL_PROMPT = """You are THE KNOWLEDGE ARCHITECT for Project Olympus.
 Your mission: Extract complex entities and relationships into valid Cypher queries based on the MAIN CONTENT.
 
 OLYMPUS ONTOLOGY:
-Nodes: Paper, Asset, Concept, MacroIndicator, Event, Strategy, Organization, Country, Person
-Edges: MENTIONS, INFLUENCES, SUPPORTS, CONTRADICTS, TRIGGERS, CORRELATES_WITH, PROPOSES_STRATEGY, AFFECTS, LEADS_TO
+Nodes: 
+  - Paper (Document)
+  - Asset (e.g., XAUUSD, BTC, Brent Oil)
+  - Concept (Theoretical ideas, e.g., Liquidity, Volatility)
+  - MacroIndicator (e.g., CPI, Interest Rates, GDP)
+  - Event (e.g., FOMC Meeting, Geopolitical conflict)
+  - Strategy (Trading plans)
+  - Organization (e.g., Fed, BlackRock, OPEC)
+  - Country
+  - Person
+  - SMC_Pattern (Smart Money Concepts: OrderBlock, FairValueGap, LiquiditySweep, BreakOfStructure)
+  - Timeframe (M1, M15, H1, H4, D1, W1)
+
+Edges: 
+  MENTIONS, INFLUENCES, SUPPORTS, CONTRADICTS, TRIGGERS, CORRELATES_WITH, 
+  PROPOSES_STRATEGY, AFFECTS, LEADS_TO, OBSERVED_IN (for patterns in timeframes),
+  HEDGE_AGAINST, LIQUIDATES
 
 Output format (Valid JSON only):
 {
-  "thought_process": "Explanation of identified entities and their links",
-  "nodes": [{"label": "Organization", "name": "Fed", "type": "CENTRAL_BANK"}],
-  "edges": [{"from": "Fed", "to": "Interest Rates", "type": "AFFECTS"}],
+  "thought_process": "Professional analysis of identified entities and their structural links",
+  "nodes": [{"label": "SMC_Pattern", "name": "H4 Order Block", "type": "BULLISH_OB"}],
+  "edges": [{"from": "H4 Order Block", "to": "XAUUSD", "type": "SUPPORTS"}],
   "cypher_queries": [
-    "MERGE (o:Organization {name: 'Federal Reserve', type: 'CENTRAL_BANK'})",
-    "MERGE (m:MacroIndicator {name: 'Interest Rates', unit: 'percent'})",
-    "MATCH (o:Organization {name: 'Federal Reserve'}), (m:MacroIndicator {name: 'Interest Rates'}) CREATE (o)-[:AFFECTS]->(m)"
+    "MERGE (p:SMC_Pattern {name: 'H4 Order Block', type: 'BULLISH_OB', confidence: 'high'})",
+    "MERGE (a:Asset {name: 'XAUUSD'})",
+    "MATCH (p:SMC_Pattern {name: 'H4 Order Block'}), (a:Asset {name: 'XAUUSD'}) MERGE (p)-[:SUPPORTS {context: 'Price rejection at support'}]->(a)"
   ]
 }"""
 

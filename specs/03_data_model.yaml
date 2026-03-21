@@ -2537,3 +2537,51 @@ redis_streams:
       - name: created_at
         type: datetime
         default: "now()"
+  EpisodicMemory:
+    description: "Persistent AI 'lessons learned' and episodic context (The Experience)"
+    table_name: "memories"
+    indexes:
+      - fields: ["user_id"]
+      - fields: ["fund_id"]
+      - fields: ["symbol"]
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+        description: "The user who 'learned' this memory (Isolation)"
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        nullable: true
+        description: "If provided, memory is shared within the fund"
+      - name: symbol
+        type: string
+        max_length: 20
+        nullable: true
+        description: "Specific market symbol context (e.g., 'XAU/USD')"
+      - name: timeframe
+        type: string
+        max_length: 10
+        nullable: true
+      - name: content
+        type: text
+        required: true
+        description: "The narrative 'lesson' or technical context"
+      - name: embedding
+        type: "vector(1536)"
+        description: "Gemini embedding for semantic retrieval"
+      - name: intent
+        type: string
+        nullable: true
+        description: "The intent during which this memory was created (e.g. STRATEGY_EXPLAIN)"
+      - name: metadata
+        type: jsonb
+        default: "{}"
+        description: "Extra context (session_id, strategy_id, logic_version)"
+      - name: created_at
+        type: datetime
+        default: "now()"

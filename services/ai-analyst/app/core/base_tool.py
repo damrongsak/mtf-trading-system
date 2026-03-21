@@ -5,6 +5,7 @@ from typing import Any, Optional, Type
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool as LCTool
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from app.utils.tracing import user_id_ctx, fund_id_ctx, request_id_ctx, account_id_ctx
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,13 @@ class BaseTool(LCTool):
         # Extract metadata from kwargs
         auth_token = kwargs.get("auth_token")
         request_id = kwargs.get("request_id")
+        user_id = kwargs.get("user_id")
+        fund_id = kwargs.get("fund_id")
+        
+        # Set context variables for this tool execution
+        t_rid = request_id_ctx.set(request_id)
+        t_uid = user_id_ctx.set(user_id)
+        t_fid = fund_id_ctx.set(fund_id)
         
         try:
             return await asyncio.wait_for(
@@ -78,6 +86,11 @@ class BaseTool(LCTool):
         except asyncio.TimeoutError:
             logger.error(f"⌛ Tool '{self.name}' timed out after {self.timeout}s.")
             return f"❌ Tool '{self.name}' timed out after {self.timeout}s. Please try again or simplify the query."
+        finally:
+            # Reset context
+            request_id_ctx.reset(t_rid)
+            user_id_ctx.reset(t_uid)
+            fund_id_ctx.reset(t_fid)
 
     async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
         """Subclasses should implement this instead of run or _arun."""

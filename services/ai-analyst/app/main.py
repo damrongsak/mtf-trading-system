@@ -22,6 +22,8 @@ from app.core.bootstrap import bootstrap_tools
 from app.routers import ingest, agents, admin, external, orchestration
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
+from app.services.episodic_memory import EpisodicMemoryService
+from app.database import SessionLocal
 from langgraph.checkpoint.redis import RedisSaver
 from redis.asyncio import Redis
 from app.core.scheduler import scheduler
@@ -106,8 +108,13 @@ async def lifespan(app: FastAPI):
         if services["rag"]:
             services["memory"] = MemoryService(services["rag"])
             logger.info("✅ Memory Service (Long-Term) Ready")
+            
+            # Phase 5: Initialize Episodic Memory Service (pgvector)
+            db = SessionLocal()
+            services["episodic_memory_service"] = EpisodicMemoryService(db)
+            logger.info("✅ Episodic Memory Service (pgvector) Ready")
     except Exception as e:
-        logger.error(f"❌ Memory Service Failed: {e}")
+        logger.error(f"❌ Memory Services Failed: {e}")
 
     try:
         from app.services.skill import SkillService
@@ -151,7 +158,8 @@ async def lifespan(app: FastAPI):
                     memory_service=services.get("memory"),
                     post_mortem_agent=services.get("post_mortem"),
                     trade_manager_agent=services.get("trade_manager"),
-                    risk_rebalancer_agent=services.get("risk_rebalancer")
+                    risk_rebalancer_agent=services.get("risk_rebalancer"),
+                    episodic_memory_service=services.get("episodic_memory_service")
                 )
                 logger.info("✅ Strategy Advisor Agent Ready")
         except Exception as e:

@@ -17,10 +17,9 @@ ENV UV_LINK_MODE=copy
 # Configure the virtual environment path
 ENV UV_PROJECT_ENVIRONMENT="/venv"
 
-# Install the project's dependencies using the lockfile and settings
+# Install the project's dependencies
+COPY uv.lock pyproject.toml ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --no-install-project --no-dev
 
 ENV PATH="/venv/bin:$PATH"

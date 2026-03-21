@@ -24,7 +24,6 @@ uv run ingest.py --mode hierarchical
 ```bash
 # Standard pytest (recommended)
 uv run pytest
-
 ## Docker Setup & Deployment
 
 The project is fully containerized as a high-performance FastAPI service.
@@ -35,7 +34,16 @@ The project is fully containerized as a high-performance FastAPI service.
 docker-compose up --build -d
 ```
 
-### 2. Startup Guard & Health
+### 2. FalkorDB Persistence (CRITICAL)
+FalkorDB uses a volume to persist graph data. The correct volume mapping in `docker-compose.yml` is:
+```yaml
+    volumes:
+      - ./infra/falkordb_data:/var/lib/falkordb/data
+```
+**Do NOT change the internal path to `/data`**, as the standard FalkorDB image uses `/var/lib/falkordb/data` as its working directory. Failing to use this path will result in data loss upon container recreation.
+
+### 3. Startup Guard & Health
+...
 The service includes a **`StartupGuard`** that validates:
 - **Redis/FalkorDB** connectivity.
 - **LLM Gateway** (OpenRouter) authentication.

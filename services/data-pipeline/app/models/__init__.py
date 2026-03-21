@@ -11,6 +11,7 @@ from .deployment import Deployment
 from .economic_event import EconomicEvent
 from .journal import JournalEntry, MentalState, TimelineEvent, RootCauseAnalysis
 from .market import MarketCategory, MarketSymbol
+from .memory import EpisodicMemory
 from .mental_hand_history import MentalHandHistory
 from .news import NewsArticle
 from .open_interest import OpenInterest

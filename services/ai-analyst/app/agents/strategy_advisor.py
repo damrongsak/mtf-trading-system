@@ -1,6 +1,7 @@
 from typing import TypedDict, Annotated, List, Union, Any, Dict, Optional
 import operator
 import json
+import uuid
 import logging
 import asyncio
 from langgraph.graph import StateGraph, END
@@ -11,7 +12,9 @@ from app.services.rag import RAGService
 from app.services.memory import MemoryService
 from app.services.semantic_cache import SemanticCache
 from app.services.openrouter import OpenRouterClient
+from app.services.episodic_memory import EpisodicMemoryService
 from app.core.config import settings
+from app.database import SessionLocal
 from app.core.schemas import (
     SystemToolCall,
     SystemToolSelection,
@@ -54,7 +57,7 @@ class AgentState(TypedDict):
     
     # Context
     retrieved_docs: List[str]
-    user_facts: List[str]
+    user_facts: Annotated[List[str], operator.add]
     market_context: str
     strategy_code: str
     
@@ -94,7 +97,8 @@ class StrategyAdvisorAgent:
                  memory_service: MemoryService = None,
                  post_mortem_agent: Any = None,
                  trade_manager_agent: Any = None,
-                 risk_rebalancer_agent: Any = None):
+                 risk_rebalancer_agent: Any = None,
+                 episodic_memory_service: EpisodicMemoryService = None):
         
         self.rag = rag_service
         self.gemini = gemini_client
@@ -105,6 +109,7 @@ class StrategyAdvisorAgent:
         self.post_mortem = post_mortem_agent
         self.trade_manager = trade_manager_agent
         self.risk_rebalancer = risk_rebalancer_agent
+        self.episodic_memory = episodic_memory_service
         
         # Initialize Tools
         self.tool_registry = ToolRegistry(rag_service)
@@ -116,6 +121,7 @@ class StrategyAdvisorAgent:
         workflow = StateGraph(AgentState)
 
         # 1. Add Nodes
+        workflow.add_node("memory_recall", self.node_memory_recall)
         workflow.add_node("query_optimizer", self.node_query_optimizer)
         workflow.add_node("router", self.node_router)
         workflow.add_node("decompose", self.node_decompose)
@@ -143,6 +149,7 @@ class StrategyAdvisorAgent:
         workflow.add_node("generate_briefing", self.node_generate_briefing)
 
         workflow.add_node("market_context", self.node_market_context)
+        workflow.add_node("memory_learn", self.node_memory_learn)
         
         # Specialist Scaling v2.5
         workflow.add_node("journal_analysis", self.node_journal_analysis)
@@ -153,8 +160,8 @@ class StrategyAdvisorAgent:
         workflow.add_node("external_critic", self.node_external_critic)
         
         # 2. Add Edges
-        workflow.set_entry_point("query_optimizer")
-        
+        workflow.set_entry_point("memory_recall")
+        workflow.add_edge("memory_recall", "query_optimizer")
         workflow.add_edge("query_optimizer", "market_context")
         workflow.add_edge("market_context", "severity_classifier")
         workflow.add_edge("severity_classifier", "check_cache")
@@ -233,10 +240,11 @@ class StrategyAdvisorAgent:
         workflow.add_edge("market_scan", "generate")
         workflow.add_edge("generate_briefing", "generate")
         workflow.add_edge("journal_analysis", "generate")
-        workflow.add_edge("portfolio_management", "generate")
-        workflow.add_edge("risk_rebalancing", "generate")
+        workflow.add_edge("portfolio_management", "reasoning")
+        workflow.add_edge("risk_rebalancing", "reasoning")
         
-        workflow.add_edge("generate", "evaluator")
+        workflow.add_edge("generate", "memory_learn")
+        workflow.add_edge("memory_learn", "evaluator")
         
         workflow.add_conditional_edges(
             "evaluator",
@@ -1976,8 +1984,91 @@ class StrategyAdvisorAgent:
                      "thoughts": final_state.get("thoughts"),
                      "intent": final_state.get("intent"),
                      "market_severity": final_state.get("market_severity"),
-                     "thread_id": thread_id
+                      "thread_id": thread_id
                  }
+
+    async def node_memory_recall(self, state: AgentState) -> dict:
+        """
+        Entry point: Semantic recall of past institutional experience.
+        """
+        user_id = state.get("user_id")
+        query = state.get("input_text", "")
+        fund_id = state.get("active_fund_id")
+        
+        if not self.episodic_memory or not user_id:
+            logger.warning(f"Memory Recall Skipped: Service={bool(self.episodic_memory)}, UID={user_id}")
+            return {"user_facts": []}
+
+        try:
+            # Resolve symbol if possible from input (basic heuristic)
+            symbol = None
+            if "GOLD" in query.upper() or "XAU" in query.upper(): symbol = "XAUUSD"
+            elif "EUR" in query.upper(): symbol = "EURUSD"
+            elif "JPY" in query.upper(): symbol = "USDJPY"
+            
+            # Resolve user_id/fund_id UUIDs
+            uid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+            fid = uuid.UUID(fund_id) if fund_id and isinstance(fund_id, str) else fund_id
+            
+            memories = await self.episodic_memory.retrieve_relevant_memories(
+                user_id=uid,
+                query=query,
+                symbol=symbol,
+                fund_id=fid,
+                limit=3
+            )
+            
+            facts = []
+            for m in memories:
+                # Add source tag for transparency in reasoning
+                facts.append(f"[Institutional Episodic Memory ({m['created_at'].split('T')[0]})]: {m['content']}")
+            
+            if facts:
+                logger.info(f"🧠 Recalled {len(facts)} memories for user {user_id}")
+            
+            return {"user_facts": facts}
+        except Exception as e:
+            logger.error(f"Memory Recall Node failed: {e}")
+            return {"user_facts": []}
+
+    async def node_memory_learn(self, state: AgentState) -> dict:
+        """
+        Post-generation: Strategically learn from the current analysis if it's high-value.
+        """
+        intent = state.get("intent")
+        response = state.get("final_response", "")
+        user_id = state.get("user_id")
+        fund_id = state.get("active_fund_id")
+        
+        # We only learn from primary analytical intents
+        learning_intents = ["market_analysis", "strategy_design", "strategy_explain", "journal_analysis", "TOOL_USE"]
+        
+        if not self.episodic_memory or not user_id or intent not in learning_intents:
+            return {}
+
+        # Heuristic: Save if the response is substantial and contains insights
+        if len(response) > 500 and any(keyword in response.lower() for keyword in ["insight", "lesson", "structural", "regime", "liquidity"]):
+            try:
+                # Extract a concise "Lesson" (first 300 chars or first paragraph)
+                lesson = response.split("\n\n")[0][:500]
+                if "context" not in lesson.lower():
+                    # Add context if not present
+                    lesson = f"Scenario: {state.get('input_text')[:100]}... Insight: {lesson}"
+                
+                uid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+                fid = uuid.UUID(fund_id) if fund_id and isinstance(fund_id, str) else fund_id
+
+                await self.episodic_memory.add_memory(
+                    user_id=uid,
+                    content=lesson,
+                    intent=intent,
+                    fund_id=fid
+                )
+                logger.info(f"✨ Learned new episodic memory for user {user_id}")
+            except Exception as e:
+                logger.error(f"Memory Learn Node failed: {e}")
+        
+        return {}
 
     async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
         """

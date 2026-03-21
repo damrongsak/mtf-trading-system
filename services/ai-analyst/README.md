@@ -123,10 +123,14 @@ GET /api/v1/orchestration/cache/status
 
 | Collection | Data Source | Purpose |
 | :--- | :--- | :--- |
+| `memories` (PG) | AI Analysis Sessions | Persistent Episodic Memory (User/Fund isolated) |
 | `lesson_learned` | Daily Post-Mortem | Self-learning from past mistakes/wins |
 | `user_memory` | Chat History | Long-term user preference tracking |
 | `system_docs` | Specs/Codebase | Ensuring SDD compliance in agent reasoning |
 | `quant_library` | PDFs/Books | Professional technical analysis context |
+
+> [!IMPORTANT]
+> **RBAC & Isolation**: All semantic memory starting from v3.2 (Phase 5) is strictly isolated by `user_id` at the database level. Sharing within a Fund is supported via the `fund_id` context.
 
 ## 📂 Directory Structure
 
