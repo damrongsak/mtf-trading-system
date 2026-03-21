@@ -211,5 +211,7 @@ async def asset_price_refresher():
 
 @app.on_event("startup")
 async def start_refresh_task():
-    """Start the background price refresher on app startup."""
+    """Start the background price refresher and market merger on app startup."""
+    from app.workers.merger import start_merger_worker
     asyncio.create_task(asset_price_refresher())
+    asyncio.create_task(start_merger_worker())

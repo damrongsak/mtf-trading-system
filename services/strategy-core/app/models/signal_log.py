@@ -33,3 +33,7 @@ class SignalLog(Base):
 
     sentiment_score = Column(Numeric(3, 2), nullable=True)
     sentiment_reason = Column(String, nullable=True)
+
+    # Phase 9: Knowledge-Driven Intelligence
+    knowledge_context = Column(JSONB, nullable=True)
+    knowledge_score = Column(Numeric(3, 2), nullable=True)

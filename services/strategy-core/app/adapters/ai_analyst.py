@@ -2,10 +2,12 @@ import os
 import json
 import logging
 import redis.asyncio as redis
+import httpx
 
 logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+AI_ANALYST_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 
 async def get_market_sentiment(symbol: str) -> dict:
     """
@@ -31,3 +33,24 @@ async def get_market_sentiment(symbol: str) -> dict:
     finally:
         if r:
             await r.aclose()
+
+async def get_knowledge_context(symbol: str) -> dict:
+    """
+    Fetch Knowledge Graph context from AI Analyst service (Direct call).
+    Returns: {"symbol": str, "entities": list, "summary": str, "knowledge_score": float}
+    """
+    url = f"{AI_ANALYST_URL}/api/v1/ai/knowledge/context"
+    params = {"symbol": symbol}
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("data", {})
+            else:
+                logger.warning(f"Knowledge Bridge returned HTTP {response.status_code} for {symbol}")
+                return {"knowledge_score": 1.0, "summary": "Knowledge Bridge error (fallback to neutral)"}
+    except Exception as e:
+        logger.error(f"Failed to fetch knowledge context for {symbol}: {e}")
+        return {"knowledge_score": 1.0, "summary": f"Connection error: {e}"}

@@ -101,6 +101,12 @@ class Trade(Base):
     # Additional Metadata (Confluence zones, indicators, etc.)
     metadata_json = Column(JSONB, nullable=True,
                           comment="Additional trade metadata (confluence zones, indicators, etc.)")
+    
+    # Phase 9: Knowledge-Driven Intelligence
+    knowledge_context = Column(JSONB, nullable=True,
+                              comment="GraphRAG context snapshot from FalkorDB")
+    knowledge_score = Column(Numeric(3, 2), nullable=True,
+                           comment="Semantic confidence score (0.0 to 1.5)")
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(),

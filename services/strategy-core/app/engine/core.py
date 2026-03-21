@@ -11,7 +11,7 @@ from app.schemas import ExecutionMode
 # # from app.adapters.oanda_history import OandaHistoryAdapter
 # from app.indicators import calculate_ema, calculate_atr, calculate_rsi
 # from app.indicators.smc import detect_order_blocks
-from app.adapters.ai_analyst import get_market_sentiment
+from app.adapters.ai_analyst import get_market_sentiment, get_knowledge_context
 from app.database import SessionLocal
 from app.models.signal_log import SignalLog
 from app.models.opportunity_log import OpportunityLog
@@ -346,6 +346,15 @@ class StrategyEngine:
                 is_sentiment_blocked = True
                 logger.info(f"Signal BLOCKED by Sentiment: Score {s_score} (Bullish) vs Signal Bearish")
 
+        # --- KNOWLEDGE CONTEXT (New - Phase 9) ---
+        knowledge_data = None
+        if use_sentiment: # Re-use the same flag for knowledge context
+            try:
+                knowledge_data = await get_knowledge_context(state.symbol)
+            except Exception as e:
+                logger.warning(f"Knowledge Context check failed for {state.symbol}: {e}")
+                knowledge_data = {"knowledge_score": 1.0, "summary": "Knowledge Bridge error (fail-soft)"}
+
         # --- PERSIST SIGNAL LOG ---
         try:
             db = SessionLocal()
@@ -361,6 +370,8 @@ class StrategyEngine:
                 meta_data=signal.get('meta_data', {}),
                 sentiment_score=sentiment_data.get("score") if sentiment_data else None,
                 sentiment_reason=sentiment_data.get("reason") if sentiment_data else None,
+                knowledge_context=knowledge_data if knowledge_data else None,
+                knowledge_score=knowledge_data.get("knowledge_score") if knowledge_data else None,
                 status="PENDING_APPROVAL" if state.mode == ExecutionMode.PENDING_APPROVAL else "CREATED"
             )
             # Mark if blocked in metadata

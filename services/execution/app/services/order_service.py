@@ -242,8 +242,14 @@ class OrderService:
             
             # Fallback to Standard Risk-Based Sizing if units not yet set
             if units is None:
+                # [Phase 9] Extract Knowledge Score (1.0 = Neutral, >1.0 = High Confidence)
+                knowledge_score = float(req_data.get("knowledge_score", 1.0))
+                
                 # Use requested risk or the calculated effective limit
-                sizing_risk = target_risk if target_risk is not None else effective_limit
+                sizing_risk = (target_risk if target_risk is not None else effective_limit) * knowledge_score
+                
+                if knowledge_score != 1.0:
+                    logger.info(f"🧠 [Phase 9] Knowledge-Driven Scaling Applied: {knowledge_score}x (Adjusted Risk: ${sizing_risk})")
                 
                 current_price = await adapter.get_current_price(req_data["symbol"])
                 sl_distance = abs(current_price - stop_loss)
