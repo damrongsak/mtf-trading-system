@@ -4038,6 +4038,10 @@ components:
           type: string
           format: date-time
           nullable: true
+        knowledge_context:
+          type: object
+          nullable: true
+          description: "Semantic summary from Knowledge Graph (FalkorDB) at time of trade"
         metadata_json:
           type: object
           nullable: true
@@ -5390,6 +5394,14 @@ components:
         sentiment_reason:
           type: string
           nullable: true
+        knowledge_context:
+          type: object
+          nullable: true
+          description: "Semantic summary from Knowledge Graph (FalkorDB) at time of signal"
+        knowledge_score:
+          type: number
+          nullable: true
+          description: "Semantic multiplier (0.5x to 1.5x) based on Knowledge context"
         user_id:
           type: string
           format: uuid

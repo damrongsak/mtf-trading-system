@@ -898,6 +898,10 @@ entities:
         type: jsonb
         nullable: true
         description: "Additional trade metadata (confluence zones, indicators, etc.)"
+      - name: knowledge_context
+        type: jsonb
+        nullable: true
+        description: "Semantic summary from Knowledge Graph (FalkorDB) at time of trade"
       - name: created_at
         type: datetime
         default: "now()"
@@ -1789,6 +1793,16 @@ validation_rules:
         precision: 18
         scale: 8
         nullable: true
+      - name: knowledge_context
+        type: jsonb
+        nullable: true
+        description: "Semantic summary from Knowledge Graph (FalkorDB) at time of signal"
+      - name: knowledge_score
+        type: decimal
+        precision: 5
+        scale: 4
+        nullable: true
+        description: "Semantic multiplier (0.5x to 1.5x) based on Knowledge context"
       - name: status
         type: enum
         enum_values: ["CREATED", "PENDING_APPROVAL", "EXECUTED", "FILLED", "REJECTED", "EXPIRED", "FAILED"]

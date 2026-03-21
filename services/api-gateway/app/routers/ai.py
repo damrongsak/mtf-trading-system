@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Request, Body
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, Body, Query
 from typing import Optional, List, Dict, Any
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timezone
@@ -689,3 +689,35 @@ async def proxy_ai_think(
             logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
+
+@router.get("/knowledge/context")
+async def proxy_knowledge_context(
+    request: Request,
+    symbol: str = Query(..., description="The symbol to query semantic context for"),
+    include_score: bool = Query(True, description="Whether to include knowledge-driven multiplier"),
+    authorization: str = Header(None, alias="Authorization")
+):
+    """
+    Proxy Knowledge Context request to AI Analyst service.
+    """
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"Authorization": authorization} if authorization else {}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+
+    async with await get_internal_client() as client:
+        try:
+            response = await client.get(
+                f"{AI_SERVICE_URL}/api/v1/ai/knowledge/context",
+                params={"symbol": symbol, "include_score": str(include_score).lower()},
+                headers=headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
+            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
+            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")

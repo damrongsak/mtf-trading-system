@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **mfe_usd** | **number** |  | [optional] [default to undefined]
 **exit_price** | **number** |  | [optional] [default to undefined]
 **exit_timestamp** | **string** |  | [optional] [default to undefined]
+**knowledge_context** | **object** | Semantic summary from Knowledge Graph (FalkorDB) at time of trade | [optional] [default to undefined]
 **metadata_json** | **object** |  | [optional] [default to undefined]
 
 ## Example
@@ -57,6 +58,7 @@ const instance: Trade = {
     mfe_usd,
     exit_price,
     exit_timestamp,
+    knowledge_context,
     metadata_json,
 };
 ```

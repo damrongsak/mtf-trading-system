@@ -2116,6 +2116,14 @@ export interface SignalResponse {
      */
     'sentiment_score'?: number | null;
     'sentiment_reason'?: string | null;
+    /**
+     * Semantic summary from Knowledge Graph (FalkorDB) at time of signal
+     */
+    'knowledge_context'?: object | null;
+    /**
+     * Semantic multiplier (0.5x to 1.5x) based on Knowledge context
+     */
+    'knowledge_score'?: number | null;
     'user_id'?: string | null;
     'fund_id'?: string | null;
     'broker_account_id'?: string | null;
@@ -2274,6 +2282,10 @@ export interface Trade {
     'mfe_usd'?: number | null;
     'exit_price'?: number | null;
     'exit_timestamp'?: string | null;
+    /**
+     * Semantic summary from Knowledge Graph (FalkorDB) at time of trade
+     */
+    'knowledge_context'?: object | null;
     'metadata_json'?: object | null;
 }
 

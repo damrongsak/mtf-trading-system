@@ -11,5 +11,6 @@ services = {
     "skill_creator": None,
     "checkpointer": None,
     "post_mortem": None,
-    "redis": None
+    "redis": None,
+    "falkor": None
 }

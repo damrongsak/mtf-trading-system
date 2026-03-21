@@ -184,4 +184,20 @@ The AI Coach monitors the *execution behavior*, not the price.
 2.  **Lockout**:
     *   Execution Service returns `423 Locked (Psychological Stop)`.
 3.  **Unlock**:
-    *   User must complete `POST /coach/mental-history` to reset the lock.
+    ---
+
+## 3.9 Knowledge-Driven Intelligence (v2.3)
+Bridging the Knowledge Graph (FalkorDB) with Execution & Risk layers.
+
+### 3.9.1 Semantic Risk Multiplier (Km)
+The Execution Service calculates a **Km** based on the signal's `knowledge_context`.
+
+1. **Km = 1.0 (Neutral)**: No conflicting or supporting knowledge found.
+2. **Km = 1.25 - 1.5 (Confirmed)**: High alignment with Geopolitical bias or War Premium (e.g., Long Gold confirmed by Central Bank demand node).
+3. **Km = 0.5 - 0.75 (Conflict)**: Direction contradicts Graph context (e.g., Long Gold while the Graph shows an "End of High Inflation" node).
+4. **Final Lot Size** = `Original_Lot * Km`.
+
+### 3.9.2 Intelligent Signal Filtering
+Rules for rejecting signals based on Knowledge context:
+1. **Rule [K1]**: Reject any "High Risk" signal if Knowledge Graph identifies an active "Market Closed" or "Holiday" node for the asset.
+2. **Rule [K2]**: Flag as "LOW_CONFIDENCE" if the signal's `confidence` > 0.8 but `knowledge_score` < 0.70.

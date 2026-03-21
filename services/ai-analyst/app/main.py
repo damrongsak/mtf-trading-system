@@ -19,7 +19,7 @@ from app.agents.trade_manager import TradeManagementAgent
 from app.agents.risk_rebalancer import RiskRebalancerAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
-from app.routers import ingest, agents, admin, external, orchestration
+from app.routers import ingest, agents, admin, external, orchestration, knowledge
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
 from app.services.episodic_memory import EpisodicMemoryService
@@ -199,6 +199,15 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Sentiment Service Failed: {e}")
 
         try:
+            from app.services.falkor import FalkorService
+            services["falkor"] = FalkorService()
+            # Note: Falkor connect is called on-demand or in lifespan if needed.
+            # We lazy-connect in the service for now to avoid hard startup failures.
+            logger.info("✅ Falkor Service (Knowledge Bridge) Initialized")
+        except Exception as e:
+            logger.error(f"❌ Falkor Service Failed: {e}")
+
+        try:
             # Start Scheduler & Schedule Job
             scheduler.start()
             
@@ -278,6 +287,7 @@ app.include_router(admin.router, prefix="/api/v1/ai/admin", tags=["Admin"])
 app.include_router(external.router, prefix="/api/v1/ai/external", tags=["External"])
 app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"]) 
 app.include_router(orchestration.router, prefix="/api/v1", tags=["Orchestration"])
+app.include_router(knowledge.router, prefix="/api/v1/ai", tags=["Knowledge"])
 
 
 @app.get("/health")
