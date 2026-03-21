@@ -91,7 +91,10 @@ class AlgoManager:
         
         # For Phase 12.1: Simple TWAP implementation
         from app.algorithms.twap import TwapAlgorithm
+        from app.algorithms.vwap import VwapAlgorithm
         if algo_name == "TWAP":
             await TwapAlgorithm.execute(rc, db, parent_id, req_data)
+        elif algo_name == "VWAP":
+            await VwapAlgorithm.execute(rc, db, parent_id, req_data)
         else:
             logger.error(f"Unsupported algorithm: {algo_name}")
