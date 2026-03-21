@@ -17,6 +17,7 @@ from app.adapters.factory import BrokerFactory
 from sqlalchemy import select, or_, update
 from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount, SignalLog
 from app.algorithms.manager import AlgoManager
+from app.services.reconciliation import ReconciliationService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -417,6 +418,7 @@ class FillTradeConsumer:
                         rr_ratio=rr_ratio,
                         pnl_usd=0.0,
                         exit_timestamp=None,
+                        parent_trade_id=uuid.UUID(data.get("parent_trade_id")) if data.get("parent_trade_id") else None,
                         metadata_json={
                             "broker_position_id": broker_order_id,
                             "deal_id": data.get("deal_id"),
@@ -440,6 +442,11 @@ class FillTradeConsumer:
                     )
                 
                 await db.commit()
+
+                # [PHASE 14] Parent Reconciliation
+                if new_trade.parent_trade_id:
+                    logger.info(f"[FillConsumer] 🏛️ Triggering reconciliation for parent {new_trade.parent_trade_id}")
+                    await ReconciliationService.reconcile_parent_fill(db, new_trade.parent_trade_id)
             
             # [STATISTICS] Phase 3: Update daily trade count in Redis
             try:

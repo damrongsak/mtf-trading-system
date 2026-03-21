@@ -221,6 +221,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 "is_shadow": is_shadow,
                 "symbol": symbol,
                 "direction": "BUY" if units > 0 else "SELL",
+                "parent_trade_id": trade_id if trade_id else None, # Use trade_id as parent if it exists
                 "pre_order": True  # Mark as pre-order context
             }
             pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
@@ -280,7 +281,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                         "comment": comment or "",
                         "is_shadow": is_shadow,
                         "symbol": symbol,
-                        "direction": "BUY" if units > 0 else "SELL"
+                        "direction": "BUY" if units > 0 else "SELL",
+                        "parent_trade_id": trade_id if trade_id else None
                     }
                     await execution_cache.set_order_context(order_id, context, expire=3600)
                     logger.debug(f"cTrader: Early context saved for {order_id}")
@@ -424,6 +426,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 "comment": comment or "",
                 "symbol": symbol,
                 "direction": "BUY" if units > 0 else "SELL",
+                "parent_trade_id": trade_id if trade_id else None,
                 "pre_order": True
             }
             pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
@@ -461,7 +464,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                         "tp_price": tp_price or 0.0,
                         "comment": comment or "",
                         "symbol": symbol,
-                        "direction": "BUY" if units > 0 else "SELL"
+                        "direction": "BUY" if units > 0 else "SELL",
+                        "parent_trade_id": trade_id if trade_id else None
                     }
                     await execution_cache.set_order_context(order_id, context, expire=3600)
                     logger.debug(f"cTrader: Early limit-context saved for {order_id}")
@@ -1098,6 +1102,7 @@ class CTraderMessageRouter:
                     direction=context.get("direction", "LONG"),
                     comment=context.get("comment", ""),
                     deal_id=deal_id,
+                    parent_trade_id=context.get("parent_trade_id"),
                     signal_timestamp_ns=context.get("signal_timestamp_ns"),
                     is_shadow=context.get("is_shadow", False)
                 )
