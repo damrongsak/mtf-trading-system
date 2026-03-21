@@ -10,7 +10,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 64M
     networks:
       - default
       - external
@@ -66,11 +66,12 @@ services:
       - "8002:8000"
     volumes:
       - ./services/execution:/app
+      - ./services/execution/deps:/app/deps
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 1G
+          memory: 512M
     networks:
       - default
       - external
@@ -80,6 +81,7 @@ services:
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
+      - PYTHONPATH=/app:/app/deps
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -100,6 +102,7 @@ services:
     env_file: .env
     volumes:
       - ./services/data-pipeline:/app
+      - ./services/data-pipeline/deps:/app/deps
       - ./services:/shared/services
       - /app/.venv
     depends_on:
@@ -113,6 +116,7 @@ services:
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - WEB_CONCURRENCY=1
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app:/app/deps
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -123,7 +127,7 @@ services:
       resources:
         limits:
           cpus: "0.25"
-          memory: 768M
+          memory: 384M
     networks:
       - default
       - external
@@ -135,18 +139,21 @@ services:
     command: python run_stream.py
     volumes:
       - ./services/data-pipeline:/app
+      - ./services/data-pipeline/deps:/app/deps
       - /app/.venv
     env_file: .env
+    environment:
+      - PYTHONPATH=/app:/app/deps
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+      - REDIS_URL=redis://redis:6379/0
+      - STREAM_SYMBOLS=EURUSD,USDJPY,XAUUSD
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
     depends_on:
       redis:
         condition: service_healthy
       data-pipeline:
         condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
-      - REDIS_URL=redis://redis:6379/0
-      - STREAM_SYMBOLS=EURUSD,USDJPY,XAUUSD
-      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
     deploy:
       resources:
         limits:
@@ -221,7 +228,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 768M
     networks:
       - default
       - external
@@ -332,7 +339,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 2GB
     volumes:
       - ./infra/pgvector_data:/var/lib/postgresql/data
       - ./infra/init-vector.sh:/docker-entrypoint-initdb.d/init-vector.sh
@@ -341,14 +348,14 @@ services:
       -c shared_preload_libraries=vector
       -c max_connections=200
       -c shared_buffers=1GB
-      -c effective_cache_size=3GB
-      -c maintenance_work_mem=256MB
+      -c effective_cache_size=1.5GB
+      -c maintenance_work_mem=128MB
       -c checkpoint_completion_target=0.9
       -c wal_buffers=16MB
       -c default_statistics_target=100
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
-      -c work_mem=5MB
+      -c work_mem=4MB
       -c min_wal_size=1GB
       -c max_wal_size=4GB
     healthcheck:
@@ -383,7 +390,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 256M
     networks:
       - default
       - external
@@ -395,14 +402,14 @@ services:
     image: redis/redis-stack-server:latest
     container_name: redis
     environment:
-      - REDIS_ARGS=--maxmemory 400mb --maxmemory-policy allkeys-lru --protected-mode no
+      - REDIS_ARGS=--maxmemory 300mb --maxmemory-policy allkeys-lru --protected-mode no
     ports:
       - "6379:6379"
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -423,7 +430,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
     volumes:
       - ./infra/falkordb_data:/var/lib/falkordb/data
     healthcheck:
