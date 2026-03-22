@@ -148,67 +148,64 @@ class BBStochOBStrategy(VectorizedStrategyBase):
         
         return entries, exits
 
-# --- API Compatibility Functions ---
+async def strategy(state, data_manager) -> Tuple[pd.Series, pd.Series, Optional[Dict[str, Any]]]:
+    """Modern Async entry point for Fleet Manager."""
+    symbol = state.symbol
+    tf = state.timeframe
+    params = state.config_json if state.config_json else {}
+    
+    try:
+        data = data_manager.get_candles(symbol, timeframe=tf)
+        if data.empty:
+            return None, None, None
+            
+        # Call the existing vectorized logic
+        strat_obj = BBStochOBStrategy("bb_stoch_ob_v1")
+        entries, exits = strat_obj.run_vector(data, params)
+        
+        # Build Signal Dict (Copy logic from legacy sync strategy function)
+        p = {**METADATA["defaults"], **(params or {})}
+        close = data['close']
+        high = data['high']
+        low = data['low']
+        
+        last_idx = -1
+        current_price = float(close.iloc[last_idx])
+        
+        _, bb_upper, bb_lower = calculate_bollinger_bands(close, p['bb_period'], p['bb_std'])
+        stoch_k, stoch_d = calculate_stochastic(high, low, close, p['stoch_k'], p['stoch_d'])
+        bull_ob, bear_ob = get_ob_signals(data, p['ob_lookback'], p['ob_tolerance'])
+        
+        direction = "FLAT"
+        if entries.iloc[last_idx] == 1: direction = "BULLISH"
+        elif entries.iloc[last_idx] == -1: direction = "BEARISH"
+        
+        signal_dict = None
+        if direction != "FLAT":
+            logic_path = []
+            if current_price < bb_lower.iloc[last_idx]: logic_path.append("BB_OVERSOLD")
+            if current_price > bb_upper.iloc[last_idx]: logic_path.append("BB_OVERBOUGHT")
+            if stoch_k.iloc[last_idx] < p['stoch_oversold']: logic_path.append("STOCH_OVERSOLD")
+            if stoch_k.iloc[last_idx] > p['stoch_overbought']: logic_path.append("STOCH_OVERBOUGHT")
+            if bull_ob.iloc[last_idx]: logic_path.append("BULLISH_OB_ZONE")
+            if bear_ob.iloc[last_idx]: logic_path.append("BEARISH_OB_ZONE")
 
-def strategy(data: pd.DataFrame, params: Dict[str, Any] = None) -> Tuple[pd.Series, pd.Series, Dict[str, Any]]:
-    """Standard entry point for backtest engine with rich learnable metadata."""
-    strat_obj = BBStochOBStrategy("bb_stoch_ob_v1")
-    entries, exits = strat_obj.run_vector(data, params)
-    
-    # Generate live signal dictionary from last row with RICH features
-    p = {**METADATA["defaults"], **(params or {})}
-    close = data['close']
-    high = data['high']
-    low = data['low']
-    
-    last_idx = -1
-    current_price = float(close.iloc[last_idx])
-    
-    # Re-calculate indicator values for the last bar to include in metadata
-    _, bb_upper, bb_lower = calculate_bollinger_bands(close, p['bb_period'], p['bb_std'])
-    stoch_k, stoch_d = calculate_stochastic(high, low, close, p['stoch_k'], p['stoch_d'])
-    bull_ob, bear_ob = get_ob_signals(data, p['ob_lookback'], p['ob_tolerance'])
-    atr = calculate_atr(high, low, close)
-    
-    direction = "FLAT"
-    if entries.iloc[last_idx] == 1: direction = "BULLISH"
-    elif entries.iloc[last_idx] == -1: direction = "BEARISH"
-    
-    # Build Logic Confluence Path
-    logic_path = []
-    if current_price < bb_lower.iloc[last_idx]: logic_path.append("BB_OVERSOLD")
-    if current_price > bb_upper.iloc[last_idx]: logic_path.append("BB_OVERBOUGHT")
-    if stoch_k.iloc[last_idx] < p['stoch_oversold']: logic_path.append("STOCH_OVERSOLD")
-    if stoch_k.iloc[last_idx] > p['stoch_overbought']: logic_path.append("STOCH_OVERBOUGHT")
-    if bull_ob.iloc[last_idx]: logic_path.append("BULLISH_OB_ZONE")
-    if bear_ob.iloc[last_idx]: logic_path.append("BEARISH_OB_ZONE")
-
-    signal_dict = {
-        "direction": direction,
-        "entry_price": current_price,
-        "reason": f"Signal via {', '.join(logic_path)}" if logic_path else "No clear confluence",
-        "metadata": {
-            "strategy_version": "2.8.0-vectorized",
-            "logic_path": logic_path,
-            # Learnable Features
-            "features": {
-                "bb_upper": float(bb_upper.iloc[last_idx]),
-                "bb_lower": float(bb_lower.iloc[last_idx]),
-                "bb_width_pct": float((bb_upper.iloc[last_idx] - bb_lower.iloc[last_idx]) / current_price * 100),
-                "stoch_k": float(stoch_k.iloc[last_idx]),
-                "stoch_d": float(stoch_d.iloc[last_idx]),
-                "atr": float(atr.iloc[last_idx]),
-                "price_to_bb_lower_ratio": float(current_price / bb_lower.iloc[last_idx]),
-                "price_to_bb_upper_ratio": float(current_price / bb_upper.iloc[last_idx])
-            },
-            "smc_context": {
-                "in_bullish_ob": bool(bull_ob.iloc[last_idx]),
-                "in_bearish_ob": bool(bear_ob.iloc[last_idx])
+            signal_dict = {
+                "direction": direction,
+                "entry_price": current_price,
+                "reason": f"BB Stoch OB: {direction} ({', '.join(logic_path)})",
+                "metadata": {
+                    "stoch_k": float(stoch_k.iloc[last_idx]),
+                    "bb_lower": float(bb_lower.iloc[last_idx]),
+                    "bb_upper": float(bb_upper.iloc[last_idx])
+                }
             }
-        }
-    }
-    
-    return entries, exits, signal_dict
+            
+        return entries, exits, signal_dict
+        
+    except Exception as e:
+        logger.error(f"Error in BBStochOB async strategy: {e}")
+        return None, None, None
 
 def strategy_vectorized(data: pd.DataFrame, params: Dict[str, Any] = None):
     """Vectorbt-optimized entry point."""

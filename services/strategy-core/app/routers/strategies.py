@@ -37,20 +37,33 @@ def list_active_fleet():
     }
 
 @router.post("/reload")
-def reload_strategies_endpoint():
+async def reload_strategies_endpoint():
     """
     Triggers a hot reload of all strategy plugins.
     Use this after adding or modifying strategy files.
     """
     try:
-        success = StrategyRegistry.reload_strategies()
-        # Also reload fleet to sync with DB
+        logger.info("Executing Strategy Fleet Hot Reload...")
         import asyncio
-        asyncio.create_task(FleetManager.get_instance().load_fleet())
-        return {"status": "success", "message": "Strategies reloaded successfully"}
+        loop = asyncio.get_running_loop()
+        
+        # 1. Reload Physical Templates (Thread-safe)
+        await loop.run_in_executor(None, StrategyRegistry.reload_strategies)
+        
+        # 2. Sync Fleet with Database (Async)
+        from app.fleet import FleetManager
+        await FleetManager.get_instance().load_fleet()
+        
+        logger.info("Strategy Fleet Hot Reload completed successfully.")
+        return {"status": "success", "message": "Strategies and Fleet reloaded successfully"}
     except Exception as e:
         logger.error(f"Failed to reload strategies: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        return {
+            "status": "error",
+            "message": str(e),
+            "trace": traceback.format_exc()
+        }
 
 @router.post("/{strategy_id}/tick")
 async def trigger_manual_tick(strategy_id: str = Path(..., description="ID of the active template strategy")):

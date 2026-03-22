@@ -45,6 +45,7 @@ temp/
 .coverage
 infra/postgres_data/
 infra/falkordb_data/
+infra/pgvector_data/
 host_runner.py
 do_test.sh
 run_docker_test.sh

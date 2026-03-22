@@ -1,16 +1,18 @@
-
 import logging
 import pandas as pd
 import numpy as np
 from app.indicators.volatility import calculate_atr, calculate_adr
 from app.indicators import calculate_ema
+from app.logic import check_macro_bias, check_trigger, calculate_stop_loss, SignalDirection, calculate_target_price, check_rrr
 
 logger = logging.getLogger(__name__)
 
 METADATA = {
-    "name": "Volatility Breakout V1",
-    "description": "Compression Breakout Strategy with AI Metadata",
+    "name": "Volatility Breakout Hunter",
+    "description": "Institutional Breakout: H1 Compression + M15 Keltner Breakout",
     "defaults": {
+        "tf_macro": "1h",
+        "tf_trigger": "15min",
         "atr_period": 14,
         "atr_smooth_period": 20,
         "adr_period": 20,
@@ -18,114 +20,83 @@ METADATA = {
     }
 }
 
-
-def strategy(data, params=None):
+async def strategy(state, data_manager):
     """
-    Unified Strategy: Volatility Compression Breakout
+    Volatility Breakout Hunter:
+    - Macro Bias: H1 Volatility Compression (ATR < ATR_SMA)
+    - Trigger: M15 Breakout of Keltner Channel
     """
-    if params is None:
-        params = {}
-        
-    config = METADATA["defaults"].copy()
-    config.update(params)
+    params = state.config_json if state.config_json else {}
+    symbol = state.symbol
     
-    # Parameters
-    atr_period = int(config.get('atr_period', 14))
-    atr_smooth_period = int(config.get('atr_smooth_period', 20))
-    adr_period = int(config.get('adr_period', 20))
-    keltner_mult = float(config.get('keltner_mult', 2.0))
+    tf_macro = params.get("tf_macro", "1h")
+    tf_trigger = params.get("tf_trigger", "15min")
+    atr_period = int(params.get("atr_period", 14))
+    atr_smooth_period = int(params.get("atr_smooth_period", 20))
+    adr_period = int(params.get("adr_period", 20))
+    keltner_mult = float(params.get("keltner_mult", 2.0))
     
-    if data.empty or len(data) < max(atr_period, adr_period) + 20:
-        return None, None, None
-        
     try:
-        high = data['high']
-        low = data['low']
-        close = data['close']
+        df_macro = data_manager.get_candles(symbol, timeframe=tf_macro)
+        df_trigger = data_manager.get_candles(symbol, timeframe=tf_trigger)
         
-        # 1. Indicators
-        atr = calculate_atr(high, low, close, window=atr_period)
-        atr_sma = atr.rolling(window=atr_smooth_period).mean()
-        
-        adr = calculate_adr(high, low, window=adr_period)
-        emax = calculate_ema(close, span=20) # Keltner Center
-        
-        # 2. Vectorized Logic
-        # Compression: Current Vol (ATR) < Average Vol (ATR SMA)
-        compression = (atr < atr_sma)
-        
-        # "Was in Compression" = Previous bar was compressed
-        was_compression = compression.shift(1)
-        
-        # Keltner Channels
-        upper_channel = emax + (keltner_mult * atr)
-        lower_channel = emax - (keltner_mult * atr)
-        
-        # Breakout
-        breakout_up = close > upper_channel
-        breakout_down = close < lower_channel
-        
-        # Signal = Was in Compression AND Breaking out now
-        # Note: We trigger on the FIRST bar of breakout
-        entries = was_compression & breakout_up
-        exits = was_compression & breakout_down
-        
-        # 3. Live Context (Last Candle)
-        current_close = close.iloc[-1]
-        curr_upper = upper_channel.iloc[-1]
-        curr_lower = lower_channel.iloc[-1]
-        current_atr = atr.iloc[-1]
-        current_atr_sma = atr_sma.iloc[-1]
-        current_adr = adr.iloc[-1]
-        
-        compression_ratio = current_atr / current_atr_sma if current_atr_sma > 0 else 1.0
-        
-        direction = None
-        reason = ""
-        
-        if entries.iloc[-1]:
-            direction = "BULLISH"
-            reason = f"Volatility Breakout Up (Close {current_close:.2f} > Upper {curr_upper:.2f})"
-        elif exits.iloc[-1]:
-            direction = "BEARISH"
-            reason = f"Volatility Breakout Down (Close {current_close:.2f} < Lower {curr_lower:.2f})"
-        
-        signal_dict = None
-        if direction:
-            # Stop Loss: 2 * ATR
-            sl_dist = 2.0 * current_atr
-            stop_loss = current_close - sl_dist if direction == "BULLISH" else current_close + sl_dist
-            
-            # Target: 1 * ADR (Daily Range expansion target)
-            tp_dist = current_adr
-            target_price = current_close + tp_dist if direction == "BULLISH" else current_close - tp_dist
-            
-            # AI Metadata
-            metadata = {
-                "signal_timestamp": str(data.index[-1]),
-                "volatility": {
-                    "atr_14": float(current_atr),
-                    "adr_20": float(current_adr),
-                    "compression_ratio": float(compression_ratio),
-                    "regime": "EXPANSION (Exiting Compression)"
-                },
-                "technical": {
-                    "breakout_level": float(current_close),
-                    "keltner_upper": float(curr_upper),
-                    "keltner_lower": float(curr_lower)
-                }
-            }
-            
-            signal_dict = {
-                "direction": direction,
-                "stop_loss": stop_loss,
-                "target_price": target_price,
-                "reason": reason,
-                "metadata": metadata
-            }
-            
-        return entries, exits, signal_dict
+        if df_macro.empty or df_trigger.empty:
+            return None, None, None
             
     except Exception as e:
-        logger.error(f"Error in Volatility Breakout Strategy: {e}")
+        logger.warning(f"Data fetch failed in Volatility_Hunter: {e}")
         return None, None, None
+
+    entries = pd.Series(False, index=df_trigger.index)
+    exits = pd.Series(False, index=df_trigger.index)
+    
+    # 1. Macro Compression (H1)
+    atr_h1 = calculate_atr(df_macro['high'], df_macro['low'], df_macro['close'], window=atr_period)
+    atr_sma_h1 = atr_h1.rolling(window=atr_smooth_period).mean()
+    
+    is_compressed = atr_h1.iloc[-1] < atr_sma_h1.iloc[-1]
+    
+    if not is_compressed:
+        return entries, exits, None
+
+    # 2. Trigger Signal (M15)
+    # Keltner Channels on M15
+    close_m15 = df_trigger['close']
+    ema_m15 = calculate_ema(close_m15, span=20)
+    atr_m15 = calculate_atr(df_trigger['high'], df_trigger['low'], close_m15, window=atr_period)
+    
+    upper_channel = ema_m15 + (keltner_mult * atr_m15)
+    lower_channel = ema_m15 - (keltner_mult * atr_m15)
+    
+    current_close = close_m15.iloc[-1]
+    last_close = close_m15.iloc[-2]
+    
+    direction = SignalDirection.NEUTRAL
+    if current_close > upper_channel.iloc[-1] and last_close <= upper_channel.iloc[-2]:
+        direction = SignalDirection.LONG
+        entries.iloc[-1] = True
+    elif current_close < lower_channel.iloc[-1] and last_close >= lower_channel.iloc[-2]:
+        direction = SignalDirection.SHORT
+        exits.iloc[-1] = True
+        
+    if direction != SignalDirection.NEUTRAL:
+        stop_loss = calculate_stop_loss(df_trigger, direction)
+        # ADR based target
+        adr_val = calculate_adr(df_trigger['high'], df_trigger['low'], window=adr_period).iloc[-1]
+        target_price = current_close + adr_val if direction == SignalDirection.LONG else current_close - adr_val
+        
+        if check_rrr(current_close, stop_loss, target_price, min_rrr=1.2):
+            signal_dict = {
+                "direction": direction.value,
+                "stop_loss": stop_loss,
+                "target_price": target_price,
+                "reason": f"Volatility Breakout: {direction.value} Expansion from H1 Compression",
+                "metadata": {
+                    "compression_ratio": float(atr_h1.iloc[-1] / atr_sma_h1.iloc[-1]),
+                    "atr_m15": float(atr_m15.iloc[-1]),
+                    "adr_target": float(adr_val)
+                }
+            }
+            return entries, exits, signal_dict
+            
+    return entries, exits, None
