@@ -383,12 +383,18 @@ To ensure partner integration safety, the WebSocket channel and its reference SD
 4.  Frontend displays **Mental Hand History** form.
 5.  User submits reflection -> AI unlocks Execution.
 
-### 5.4. Professional Deployment Pipeline (Prop-to-Live)
-To minimize capital risk, strategies follow a graduated lifecycle:
-1.  **Research**: Backtest & Monte Carlo validation.
-2.  **Shadow**: Live market data feed into `Strategy Core`, signals generated but **NOT** sent to broker.
-3.  **Paper**: Signals sent to a dedicated Demo/Paper account.
-4.  **Live**: Full capital deployment after 5+ days of positive Shadow/Paper performance.
+### 5.5. Sentiment-to-Risk Autonomous Pipeline
+To enhance institutional-grade risk management, Phase 56 introduced the **Sentiment-to-Risk** pipeline:
+1.  **Sentiment Ingestion**: `AI Analyst` periodically scores market sentiment for `XAUUSD` using Gemini 2.5 (Bullish/Bearish).
+2.  **Drift Calculation**: The `SentimentDriftAgent` compares weighted sentiment against historical norms and active fund risks.
+3.  **Risk Rebalance**: If sentiment significantly drifts, the system autonomously scales the `Fund` risk (% NAV) up or down.
+4.  **Audit & Alerts**: All rebalances are recorded in `rebalance_history` and broadcast via Telegram for transparency.
+
+### 5.6. FMEA Guardrails Signal Flow
+To prevent trading in low-probability environments, Phase 55 implemented **FMEA (Failure Mode and Effects Analysis)** guardrails:
+1.  **Momentum Filter**: Rejects signals if price change over N periods exceeds institutional thresholds (preventing "Catching Falling Knives").
+2.  **Expansion Layer**: Ensures trade entry coincides with high-volume expansion (FVG/Expansion candles), avoiding low-liquidity ranges.
+3.  **SMT Divergence (Smart Money Tool)**: Validates `XAUUSD` signals against correlated assets (`DXY`, `Silver`). Failure to find correlation results in signal rejection.
 
 ## 6. Intelligence & Caching (v2.7+)
 To manage the high latency of Gemini LLM calls, the **AI Analyst** implements **Semantic Caching**:

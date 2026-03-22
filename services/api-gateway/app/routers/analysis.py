@@ -504,3 +504,29 @@ async def get_cached_sentiment(symbol: str = "XAUUSD"):
             "symbol": symbol,
             "sentiment": {"score": 0.0, "reason": "Error fetching sentiment"}
         })
+
+@router.get("/macro/status", status_code=200)
+async def get_macro_status():
+    """
+    Fetches real-time macro indicators (DXY, VIX, GVZ) from Redis.
+    """
+    try:
+        r = redis.from_url(REDIS_URL, decode_responses=True)
+        labels = ["dxy", "vix", "gvz"]
+        results = {}
+        
+        for label in labels:
+            # Fetch rich JSON data if available
+            raw_json = await r.get(f"market_data:{label}")
+            if raw_json:
+                results[label] = json.loads(raw_json)
+            else:
+                # Fallback to simple value
+                val = await r.get(f"macro:{label}")
+                results[label] = {"value": float(val) if val else 0.0, "status": "legacy"}
+        
+        await r.aclose()
+        return success_response(data=results)
+    except Exception as e:
+        logger.error(f"Failed to fetch macro status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

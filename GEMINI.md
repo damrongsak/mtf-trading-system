@@ -255,7 +255,9 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 *   ✅ **System Drift Monitor:** Real-time health check (`/analysis/drift`).
 *   ✅ **AI Analyst V2:** Doc-RAG, Workflow Engine, BYOK, **Semantic Summarization**, and **Universal Agents (MCP)**.
 *   ✅ **Decoupled Architecture (v2.1):** Implemented **ECST** for symbol metadata and **Async RPC** for resilient execution.
-*   ✅ **Quality Assurance:** Comprehensive Unit Test Suite with **>60% code coverage** verified across all backend services.
+*   ✅ **AI Risk Rebalancer:** Autonomous **Sentiment-to-Risk** pipeline with automated Telegram alerts.
+*   ✅ **FMEA Guardrails:** Momentum, Expansion, and SMT divergence logic implemented in Strategy Core.
+*   ✅ **Quality Assurance:** Comprehensive E2E Integration Report (Phase 60) with **100% service health** and schema alignment.
 
 ##  Inspiration & Examples
 *   **Gridbot AI Volatility Harvester:** Check `example/gridbot-ai-volatility-harvester` for frontend UI/UX inspiration.

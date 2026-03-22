@@ -30,7 +30,7 @@ class YFinanceAdapter:
         try:
             # yfinance is blocking, so run in thread
             ticker = yf.Ticker(yf_symbol)
-            hist = await asyncio.to_thread(ticker.history, period="1d")
+            hist = await asyncio.to_thread(ticker.history, period="5d")
             
             if hist.empty:
                 logger.warning(f"No {label} data found from yfinance.")

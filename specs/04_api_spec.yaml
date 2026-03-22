@@ -7034,3 +7034,33 @@ components:
         timestamp:
           type: string
           format: date-time
+
+  /api/v1/analysis/macro/status:
+    get:
+      tags:
+        - Analysis
+      summary: Get real-time macro indicators (DXY, VIX, GVZ)
+      description: Fetches latest macro data from Redis cache.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                        value:
+                          type: number
+                        timestamp:
+                          type: string
+                        updated_at:
+                          type: string
