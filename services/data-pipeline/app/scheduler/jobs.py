@@ -259,23 +259,23 @@ async def run_ingestion_job(
             return
 
         for source in active_sources:
-            # Instantiate Client based on Provider
+            # 1. Fetch Symbols for THIS Source first to avoid unnecessary warnings
+            source_symbols = repo.get_symbols_for_datasource(source.id)
+            
+            # Apply Filter if provided
+            if symbols:
+                source_symbols = [ms for ms in source_symbols if ms.symbol in symbols]
+                
+            if not source_symbols:
+                # logger.debug(f"No symbols to process for {source.name}. Skipping.")
+                continue
+
+            # 2. Instantiate Client based on Provider
             client = None
             if source.provider == "OANDA":
-                # Config from source.config_json or env? adapter uses env by default but let's check
-                # OandaClient in this project seems to use env or hardcoded.
-                # Let's use the one from main.py pattern? 
-                # Actually OandaAdapter in jobs.py used OandaClient() which uses envs.
-                # Ideally we should use source.config_json if possible, but adapter might not support it yet.
-                # For now keeping it compatible with existing OandaClient if it doesn't take config.
-                # If we want to support multiple OANDA accounts, OandaClient needs refactor.
-                # Assuming single OANDA account for now or OandaClient reads env.
                 client = OandaClient() 
                 
             elif source.provider == "BINANCE":
-                # Instantiate generic Binance client or use httpx directly?
-                # Best to have an adapter. For now, skipping or using simple impl if we had one.
-                # We don't have a BinanceClient adapter imported yet.
                 logger.warning(f"Binance ingestion not yet fully implemented in jobs.py. Skipping {source.name}")
                 continue
                 
@@ -301,19 +301,6 @@ async def run_ingestion_job(
 
             else:
                 logger.warning(f"Unknown provider {source.provider}. Skipping.")
-                continue
-
-            # 2. Fetch Symbols for THIS Source
-            source_symbols = repo.get_symbols_for_datasource(source.id)
-            
-            # Apply Filter if provided
-            if symbols:
-                source_symbols = [ms for ms in source_symbols if ms.symbol in symbols]
-                
-            if not source_symbols:
-                logger.info(f"No symbols to process for {source.name}.")
-                if source.provider == "CTRADER" and client:
-                    await client.disconnect()
                 continue
                 
             # 3. Parallel Processing of Symbols & Timeframes
