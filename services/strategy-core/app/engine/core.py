@@ -124,6 +124,11 @@ class StrategyEngine:
         
         # Register strategy
         self.active_strategies[strategy_id] = state
+        
+        # Sync FleetManager to pick up the new state for manual ticks/UI
+        from app.fleet import FleetManager
+        asyncio.create_task(FleetManager.get_instance().load_fleet())
+        
         return {"status": "started"}
 
     async def stop_strategy(self, strategy_id: str):

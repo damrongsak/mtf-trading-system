@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel, UUID4, ConfigDict
@@ -93,6 +93,7 @@ class StrategyConfigUpdate(BaseModel):
 async def update_strategy_config(
     id: UUID4, 
     config: StrategyConfigUpdate, 
+    request: Request,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -102,6 +103,7 @@ async def update_strategy_config(
 
     # Resolve Fund ID from strategy
     await RequireRole([UserRole.OWNER, UserRole.MANAGER])(
+        request=request,
         fund_id=strategy.fund_id,
         current_user=current_user,
         db=db
@@ -203,6 +205,7 @@ from app.services.internal_client import strategy_client
 @router.post("/{id}/start", response_model=APIResponse[dict])
 async def start_strategy(
     id: UUID4, 
+    request: Request,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -212,6 +215,7 @@ async def start_strategy(
         
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
         fund_id=strategy.fund_id,
         current_user=current_user,
         db=db
@@ -256,6 +260,7 @@ async def start_strategy(
 @router.post("/{id}/stop", response_model=APIResponse[dict])
 async def stop_strategy(
     id: UUID4, 
+    request: Request,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -265,6 +270,7 @@ async def stop_strategy(
         
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
         fund_id=strategy.fund_id,
         current_user=current_user,
         db=db
@@ -286,6 +292,7 @@ async def stop_strategy(
 @router.delete("/{id}", response_model=APIResponse[dict])
 async def delete_strategy(
     id: UUID4, 
+    request: Request,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -295,6 +302,7 @@ async def delete_strategy(
         
     # Verify RBAC (OWNER or MANAGER)
     await RequireRole([UserRole.OWNER, UserRole.MANAGER])(
+        request=request,
         fund_id=strategy.fund_id,
         current_user=current_user,
         db=db
@@ -353,6 +361,7 @@ async def list_active_fleet(
 @router.post("/{id}/tick", response_model=APIResponse[dict])
 async def manual_strategy_tick(
     id: UUID4,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -363,6 +372,7 @@ async def manual_strategy_tick(
         raise HTTPException(status_code=404, detail="Strategy not found")
         
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
         fund_id=strategy.fund_id,
         current_user=current_user,
         db=db

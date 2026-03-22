@@ -312,5 +312,34 @@
     "last_simulation_result": null,
     "created_at": "2026-03-20T10:07:45.336237",
     "updated_at": "2026-03-20T10:07:45.336237"
+  },
+  {
+    "id": "ddb39d3a-9381-478e-a142-d03678eddec0",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "BOSWaves XAUUSD Shadow",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "boswaves_v1",
+    "config_json": {
+      "tp1_r": 1.0,
+      "tp2_r": 2.0,
+      "tp3_r": 3.0,
+      "symbol": "XAU_USD",
+      "is_shadow": true,
+      "atr_period": 15,
+      "ema_period": 50,
+      "move_sl_to_be": true,
+      "atr_multiplier": 3.5,
+      "partial_close_pct": 0.5
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-22T20:45:15.663766",
+    "updated_at": "2026-03-22T20:47:12.837525"
   }
 ]
