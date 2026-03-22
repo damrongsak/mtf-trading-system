@@ -473,6 +473,15 @@ async def run_ingestion_job(
                             candle_repo = CandleRepository(task_db)
                             await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
                             
+                            # Phase 63: World-Class Event-Driven Labelling
+                            try:
+                                from app.services.labelling_service import LabellingService
+                                labeller = LabellingService(task_db)
+                                # Label the most recent candles for this symbol/TF
+                                await labeller.process_symbol_timeframe(ms.id, tf, limit=50)
+                            except Exception as lex:
+                                logger.error(f"Immediate labelling failed for {symbol_name} {tf}: {lex}")
+
                             # Publish to stream and Update Cache
                             new_complete_candles = [c for c in batch_data if c['is_complete']]
                             
@@ -798,10 +807,22 @@ async def run_cot_sync_job():
                 # Using Gold as default symbol for this job
                 # The parser handles filtering for 'GOLD - COMMODITY EXCHANGE INC.'
                 records = await asyncio.to_thread(cot_service.parse_and_store, content, db, symbol="GOLD")
-                logger.info(f"COT sync job completed. Processed {len(records)} records for GOLD. Status: {records.get('status')}")
-            
+                return records
     except Exception as e:
         logger.error(f"COT sync job failed: {e}")
+    finally:
+        db.close()
+
+async def run_labelling_job():
+    """Scheduled job to perform AI Labelling on price data."""
+    logger.info("Starting scheduled AI Labelling job...")
+    from app.services.labelling_service import LabellingService
+    db = SessionLocal()
+    try:
+        service = LabellingService(db)
+        await service.run_labelling_job(batch_size=2000)
+    except Exception as e:
+        logger.error(f"AI Labelling job failed: {e}")
     finally:
         db.close()
 

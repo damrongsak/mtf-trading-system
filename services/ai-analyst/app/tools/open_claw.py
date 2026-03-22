@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Any, Optional, Type
+from pydantic import BaseModel, Field, model_validator
+from typing import Any, Optional, Type, Union
 import aiohttp
 import logging
 from app.core.config import settings
@@ -9,10 +9,27 @@ logger = logging.getLogger(__name__)
 
 class OpenClawInput(BaseModel):
     task: str = Field(..., description="The research task or objective for the AI browser (e.g. 'Read the latest gold analysis on Bloomberg and summarize the key drivers')")
+    objective: Optional[str] = Field(None, description="The specific goal/metric to extract (e.g. 'Net Commercial Volume for EUR')")
     url: Optional[str] = Field(None, description="Optional starting URL for the research")
     persona: Optional[str] = Field("agent", description="Specialist persona: 'quant_engineer', 'software_engineer', 'market_critic', 'graph_specialist'")
     context_data: Optional[dict] = Field(None, description="Optional internal Olympus state/code to be critiqued by the persona")
     autonomous: bool = Field(False, description="If True, uses the browser tool for zero-cost scraping instead of paid Search APIs")
+    depth: int = Field(1, description="Research depth (1-3). Higher depth performs iterative validation of findings.")
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_input(cls, data: Any) -> Any:
+        if not data:
+            return {"task": "General market research"}
+        if isinstance(data, str):
+            return {"task": data}
+        if isinstance(data, dict):
+            # Field aliasing: If model uses 'query' instead of 'task'
+            if "query" in data and "task" not in data:
+                return {**data, "task": data["query"]}
+            if not data.get("task"):
+                return {**data, "task": "General market research"}
+        return data
 
 class OpenClawChatInput(BaseModel):
     message: str = Field(..., description="The message or instruction to send to the OpenClaw agent (e.g. 'Go to Google and find X')")
@@ -45,9 +62,14 @@ class OpenClawResearcherTool(BaseTool):
             
         if isinstance(input_data, dict):
             task = input_data.get("task", "")
+            objective = input_data.get("objective")
             url = input_data.get("url")
             persona = input_data.get("persona", "agent")
             autonomous = input_data.get("autonomous", False)
+            depth = input_data.get("depth", 1)
+            
+            if objective:
+                task = f"{task} | SPECIFIC OBJECTIVE: {objective}"
         elif isinstance(input_data, str):
             task = input_data
 

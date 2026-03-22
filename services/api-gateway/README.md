@@ -157,6 +157,40 @@ For external consumers, use the dedicated `/api/v1/external` router.
 - **Docs**: See **[specs/05_external_auth.md](../../specs/05_external_auth.md)** for signing instructions and examples.
 - **SDK**: See **[tools/ws_client/mtf_ws_client.py](../../tools/ws_client/mtf_ws_client.py)** for Python reference client.
 
+### 🤖 Institutional AI Integration (Async)
+For 3rd party AI analysis, use the asynchronous `/ai/think` flow to avoid connection timeouts during deep reasoning.
+
+1. **Get Token**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/auth/token \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=<USER>&password=<PASS>"
+   ```
+
+2. **Submit Job**:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/ai/think \
+     -H "Authorization: Bearer <TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"message": "Analyze XAU/USD", "thread_id": "optional"}'
+   ```
+   *Returns `202 Accepted` with a unique `job_id`.*
+
+3. **Poll Results**:
+   ```bash
+   curl -X GET http://localhost:8000/api/v1/ai/jobs/<JOB_ID> \
+     -H "Authorization: Bearer <TOKEN>"
+   ```
+
+### 📡 Real-time Market Data (WebSockets)
+Connect to the price feed for live institutional updates broadcasted via ECST.
+
+- **Endpoint**: `ws://localhost:8000/api/v1/stream/prices`
+- **Parameters**: 
+    - `symbols`: Comma-separated list (e.g., `XAU_USD,EUR_USD`).
+    - `token`: Your JWT Access Token.
+- **Example**: `ws://localhost:8000/api/v1/stream/prices?symbols=XAU_USD&token=<TOKEN>`
+
 ### Management Commands
 ```bash
 # Sync database schema (Alembic)

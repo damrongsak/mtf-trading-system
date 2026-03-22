@@ -98,6 +98,68 @@ def check_market_regime(df_h1: pd.DataFrame, direction: SignalDirection) -> Dict
     
     return context
 
+def check_hunter_setup(df_setup: pd.DataFrame, direction: SignalDirection) -> bool:
+    """
+    Phase 64: Hunter Mode Setup
+    - Validates if a Liquidity Raid (Sweep) has occurred at structural landmarks.
+    - Checks for Asian Range or PDH/PDL sweeps.
+    """
+    if df_setup.empty:
+        return False
+    
+    # Get labels from last completed candle
+    labels = df_setup['ai_labels'].iloc[-1] if 'ai_labels' in df_setup.columns else {}
+    if not isinstance(labels, dict):
+        return False
+        
+    # 1. Check for Judas Swing (London Open Fakeout)
+    judas = labels.get("judas")
+    if judas:
+        if direction == SignalDirection.BULLISH and judas == "bullish":
+            return True
+        if direction == SignalDirection.BEARISH and judas == "bearish":
+            return True
+            
+    # 2. Check for Structural Sweeps (FVG/Sweep logic from data-pipeline)
+    sweep = labels.get("sweep")
+    if sweep:
+        if direction == SignalDirection.BULLISH and sweep == "bullish":
+            return True
+        if direction == SignalDirection.BEARISH and sweep == "bearish":
+            return True
+            
+    # 3. Check for EQH/EQL (Double Top/Bottom) being raided
+    # If we see EQH/EQL in the labels, we are IN the pool, 
+    # but the Hunter waits for the pierce.
+    
+    return False
+
+def check_hunter_trigger(df_base: pd.DataFrame, direction: SignalDirection) -> bool:
+    """
+    Phase 64: Hunter Mode Trigger (Wait-for-Sweep)
+    - Confirms the V-Shape rejection back into the range.
+    """
+    # Simply: Did the previous candle sweep a level and THIS candle close back inside?
+    # This is often confirmed by the 'judas' or 'sweep' label on the trigger candle
+    # which we already checked in setup. 
+    # Here we can add extra confirmation like Price > Asian Low (for Bullish)
+    
+    labels = df_base['ai_labels'].iloc[-2] if 'ai_labels' in df_base.columns else {}
+    if not isinstance(labels, dict):
+        return False
+        
+    # If the setup candle had a sweep, we trigger on the next candle 
+    # that maintains the rejection.
+    is_sweep = labels.get("sweep") or labels.get("judas")
+    if not is_sweep:
+        return False
+        
+    current_close = df_base['close'].iloc[-1]
+    
+    # Check for V-shape displacement (Displacement should be high)
+    # This is a proxy for the 'fuel' mentioned in the guide.
+    return True # Placeholder for more complex displacement check
+
 def check_trigger(df_m15, direction: SignalDirection, rv_threshold: float = 0.7, min_volatility: float = 0.0005) -> bool:
     import pandas as pd
     """

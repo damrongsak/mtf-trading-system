@@ -102,7 +102,9 @@ class SharedMarketDataManager:
                             'high': float(c.high),
                             'low': float(c.low),
                             'close': float(c.close),
-                            'volume': float(c.volume)
+                            'volume': float(c.volume),
+                            'ai_labels': c.ai_labels if hasattr(c, 'ai_labels') else {},
+                            'regime_tag': c.regime_tag if hasattr(c, 'regime_tag') else None
                         }
                         new_candles.append(candle)
                 
@@ -299,8 +301,10 @@ class SharedMarketDataManager:
                         'high': 'max',
                         'low': 'min',
                         'close': 'last',
-                        'volume': 'sum'
-                    }).dropna()
+                        'volume': 'sum',
+                        'ai_labels': 'last',   # Take the latest label for the resampled period
+                        'regime_tag': 'last'   # Take the latest regime tag
+                    }).dropna(subset=['open']) # open is reliable indicator of data presence
                     
                     if limit:
                         return df_resampled.iloc[-limit:].copy()
@@ -349,7 +353,9 @@ class SharedMarketDataManager:
                     'close': float(r.get('close')),
                     'volume': float(r.get('volume', 0)),
                     'delta': float(r.get('delta', 0.0)),
-                    'footprint': r.get('footprint', [])
+                    'footprint': r.get('footprint', []),
+                    'ai_labels': r.get('ai_labels', {}),
+                    'regime_tag': r.get('regime_tag')
                 }
                 s_data.candles_m1.append(candle)
 

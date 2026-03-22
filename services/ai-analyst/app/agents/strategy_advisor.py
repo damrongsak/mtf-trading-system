@@ -13,6 +13,8 @@ from app.services.memory import MemoryService
 from app.services.semantic_cache import SemanticCache
 from app.services.openrouter import OpenRouterClient
 from app.services.episodic_memory import EpisodicMemoryService
+from app.services.stability_observer import stability_observer
+from app.services.falkor import FalkorService
 from app.core.config import settings
 from app.database import SessionLocal
 from app.core.schemas import (
@@ -88,6 +90,10 @@ class AgentState(TypedDict):
     specialist_response: Optional[Dict[str, Any]] # Response from a specialist node
     active_fund_id: Optional[str] # Phase 57: Fund ID for risk analysis
     target_language: str # v2.9: Target language for final response
+    
+    # Phase 67: Perfection & Data Recovery
+    fact_check_result: Optional[dict]
+    data_gap_detected: bool # Flag to trigger recovery
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -110,6 +116,8 @@ class StrategyAdvisorAgent:
         self.trade_manager = trade_manager_agent
         self.risk_rebalancer = risk_rebalancer_agent
         self.episodic_memory = episodic_memory_service
+        self.stability_observer = stability_observer
+        self.falkor = FalkorService()
         
         # Initialize Tools
         self.tool_registry = ToolRegistry(rag_service)
@@ -129,6 +137,8 @@ class StrategyAdvisorAgent:
         workflow.add_node("reasoning", self.node_reason)
         workflow.add_node("generate", self.node_generate)
         workflow.add_node("evaluator", self.node_evaluator)
+        workflow.add_node("fact_checker", self.node_fact_checker)
+        workflow.add_node("data_recovery", self.node_data_recovery)
 
         workflow.add_node("memory_write", self.node_memory_write)
         workflow.add_node("check_cache", self.node_check_cache)
@@ -143,6 +153,7 @@ class StrategyAdvisorAgent:
         workflow.add_node("severity_classifier", self.node_severity_classifier)
         workflow.add_node("sentinel", self.node_sentinel)
         workflow.add_node("consensus_layer", self.node_consensus_layer)
+        workflow.add_node("drift_analyzer", self.node_drift_analyzer)
 
         # Consolidated Nodes
         workflow.add_node("market_scan", self.node_market_scan)
@@ -163,7 +174,8 @@ class StrategyAdvisorAgent:
         workflow.set_entry_point("memory_recall")
         workflow.add_edge("memory_recall", "query_optimizer")
         workflow.add_edge("query_optimizer", "market_context")
-        workflow.add_edge("market_context", "severity_classifier")
+        workflow.add_edge("market_context", "drift_analyzer")
+        workflow.add_edge("drift_analyzer", "severity_classifier")
         workflow.add_edge("severity_classifier", "check_cache")
 
         workflow.add_conditional_edges(
@@ -243,7 +255,8 @@ class StrategyAdvisorAgent:
         workflow.add_edge("portfolio_management", "reasoning")
         workflow.add_edge("risk_rebalancing", "reasoning")
         
-        workflow.add_edge("generate", "memory_learn")
+        workflow.add_edge("generate", "fact_checker")
+        workflow.add_edge("fact_checker", "memory_learn")
         workflow.add_edge("memory_learn", "evaluator")
         
         workflow.add_conditional_edges(
@@ -252,9 +265,12 @@ class StrategyAdvisorAgent:
             {
                 "satisfactory": "memory_write",
                 "refine": "decompose",
+                "data_recovery": "data_recovery",
                 "max_iterations": "memory_write"
             }
         )
+        
+        workflow.add_edge("data_recovery", "reasoning")
         
         workflow.add_edge("memory_write", END)
 
@@ -298,6 +314,30 @@ class StrategyAdvisorAgent:
         except Exception as e:
             logger.error(f"Error in node_market_context: {e}")
             return {"market_context_data": {}}
+
+    async def node_drift_analyzer(self, state: AgentState):
+        """
+        Ad-hoc Statistical Drift Analysis using StabilityObserver.
+        Updates state with drift status to trigger Safe Mode in Sentinel.
+        """
+        logger.info("🔍 Analyzing performance drift for Safe Mode assessment...")
+        db = SessionLocal()
+        try:
+            drift_data = await self.stability_observer.run_return_drift_check(db)
+            is_drifting = drift_data.get("is_drifting", False)
+            
+            if is_drifting:
+                logger.warning(f"⚠️ Market Drift Detected! KLD={drift_data.get('kl_divergence')}. Recommending Safe Mode.")
+                
+            return {
+                "market_context_data": {
+                    **(state.get("market_context_data") or {}),
+                    "drift_analysis": drift_data
+                },
+                "severity": "CRISIS" if is_drifting else state.get("severity", "ROUTINE")
+            }
+        finally:
+            db.close()
 
     async def node_journal_analysis(self, state: AgentState):
         """
@@ -643,6 +683,22 @@ class StrategyAdvisorAgent:
 
         logger.info("Sentinel Layer Reviewing state...")
         
+        # 0. Safe Mode Check (Phase 61)
+        drift_analysis = state.get("market_context_data", {}).get("drift_analysis", {})
+        is_drifting = drift_analysis.get("is_drifting", False)
+        
+        if is_drifting and state.get("intent") == "TOOL_USE":
+            logger.warning("🛡️ Sentinel Triggered SAFE MODE due to performance drift.")
+            # If we are in Safe Mode, we either reject or force a risk reduction.
+            # For now, we reject with a request for re-eval.
+            return {
+                "sentinel_result": {
+                    "approved": False,
+                    "reason": f"SAFE_MODE_ACTIVE: Statistical drift detected (KLD={drift_analysis.get('kl_divergence')}). Institutional returns are deviating from historical distribution. Standard execution is locked.",
+                    "is_safe_mode": True
+                }
+            }
+        
         # 1. Economic Sanity Gate (Phase 1)
         # We look for trade proposals in the reasoning or scratchpad
         # In this version, we expect tools to populate proposed_trade if they are about to execute.
@@ -925,11 +981,17 @@ class StrategyAdvisorAgent:
     def _route_evaluation(self, state: AgentState):
         """
         Routes based on evaluation result.
+        Phase 67: Added data_recovery route for missing metrics.
         """
         if state.get("is_satisfactory"):
             return "satisfactory"
         
-        if state.get("iteration_count", 0) >= 3:
+        # Check for data gap via flag
+        if state.get("data_gap_detected") and state.get("iteration_count", 0) < 2:
+            logger.info("🛡️ Data Gap Detected. Routing to Data Recovery Node.")
+            return "data_recovery"
+
+        if state.get("iteration_count", 0) >= 4: # Increased limit for recovery loops
             logger.warning("Max Agentic RAG iterations reached.")
             return "max_iterations"
             
@@ -1111,16 +1173,29 @@ class StrategyAdvisorAgent:
         from datetime import datetime
         current_date = datetime.utcnow().strftime("%Y-%m-%d")
         
+        # Phase 61: Structural Reasoning via Knowledge Graph (FalkorDB)
+        symbol = "XAUUSD" 
+        if state.get("optimized_query"):
+            words = state["optimized_query"].upper().replace("/", "").split()
+            for w in words:
+                if any(x in w for x in ["USD", "JPY", "GBP", "EUR", "BTC", "XAU", "WTI"]):
+                    symbol = w
+                    break
+        
+        kg_context = await self.falkor.query_context(symbol)
+        kg_summary = kg_context.get("summary", "No structural context.")
+
         prompt = REASONING_PROMPT_TEMPLATE.format(
             context=context,
             user_facts=user_facts,
+            kg_context=kg_summary,
             query=f"{state['optimized_query']}\n(Current Date: {current_date})"
         )
         
         try:
             # High-fidelity Reasoning (Pro models only)
             response = await self.gemini.generate_content(
-                model=[settings.gemini.model_id, "gemini-2.5-pro", "gemini-3.1-pro-preview"],
+                model=[settings.gemini.model_id, "gemini-2.5-pro"],
                 contents=[prompt]
             )
             new_trace_item = response.get("text", "")
@@ -1815,9 +1890,21 @@ class StrategyAdvisorAgent:
             text = res.get("text", "")
             data = EvaluationResult.model_validate_json(text)
             
+            # --- Phase 67: Fact-Check Integration ---
+            is_satisfactory = data.is_satisfactory
+            feedback = data.feedback or ""
+            
+            audit = state.get("fact_check_result")
+            if audit and audit.get("status") == "FAIL":
+                 logger.warning("🛡️ Fact-Checker detected discrepancies. Forcing refinement.")
+                 is_satisfactory = False
+                 errors = "\n".join(audit.get("discrepancies", []))
+                 feedback = f"FACTORY_AUDIT_FAILURE: The following facts in your response are NOT supported by raw tool data or are numerically incorrect:\n{errors}\nPlease re-reason and correct these values."
+            # ----------------------------------------
+            
             return {
-                "is_satisfactory": data.is_satisfactory,
-                "evaluation_feedback": data.feedback or "",
+                "is_satisfactory": is_satisfactory,
+                "evaluation_feedback": feedback,
                 "iteration_count": iteration + 1
             }
         except Exception as e:
@@ -1939,7 +2026,9 @@ class StrategyAdvisorAgent:
             "is_satisfactory": False,
             "context_code": context_code,
             "image_b64": image_b64,
-            "severity": "ROUTINE"
+            "severity": "ROUTINE",
+            "data_gap_detected": False,
+            "fact_check_result": None
         }
         
         import uuid
@@ -2006,9 +2095,28 @@ class StrategyAdvisorAgent:
             elif "EUR" in query.upper(): symbol = "EURUSD"
             elif "JPY" in query.upper(): symbol = "USDJPY"
             
-            # Resolve user_id/fund_id UUIDs
-            uid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-            fid = uuid.UUID(fund_id) if fund_id and isinstance(fund_id, str) else fund_id
+            # Resolve user_id/fund_id UUIDs with deterministic fallback
+            try:
+                if isinstance(user_id, str):
+                    try:
+                        uid = uuid.UUID(user_id)
+                    except ValueError:
+                        # Deterministic UUID for non-standard IDs (e.g. 'unified_user', 'demo1')
+                        uid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
+                else:
+                    uid = user_id
+
+                if fund_id and isinstance(fund_id, str):
+                    try:
+                        fid = uuid.UUID(fund_id)
+                    except ValueError:
+                        fid = uuid.uuid5(uuid.NAMESPACE_DNS, fund_id)
+                else:
+                    fid = fund_id
+            except Exception as e:
+                logger.warning(f"ID Resolution failed in Memory Recall: {e}")
+                uid = user_id
+                fid = fund_id
             
             memories = await self.episodic_memory.retrieve_relevant_memories(
                 user_id=uid,
@@ -2055,8 +2163,26 @@ class StrategyAdvisorAgent:
                     # Add context if not present
                     lesson = f"Scenario: {state.get('input_text')[:100]}... Insight: {lesson}"
                 
-                uid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-                fid = uuid.UUID(fund_id) if fund_id and isinstance(fund_id, str) else fund_id
+                try:
+                    if isinstance(user_id, str):
+                        try:
+                            uid = uuid.UUID(user_id)
+                        except ValueError:
+                            uid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
+                    else:
+                        uid = user_id
+
+                    if fund_id and isinstance(fund_id, str):
+                        try:
+                            fid = uuid.UUID(fund_id)
+                        except ValueError:
+                            fid = uuid.uuid5(uuid.NAMESPACE_DNS, fund_id)
+                    else:
+                        fid = fund_id
+                except Exception as e:
+                    logger.warning(f"ID Resolution failed in Memory Learn: {e}")
+                    uid = user_id
+                    fid = fund_id
 
                 await self.episodic_memory.add_memory(
                     user_id=uid,
@@ -2069,6 +2195,91 @@ class StrategyAdvisorAgent:
                 logger.error(f"Memory Learn Node failed: {e}")
         
         return {}
+
+    async def node_fact_checker(self, state: AgentState):
+        """
+        Phase 67: Zero-Hallucination Audit.
+        Verifies that final_response facts match scratchpad data.
+        """
+        response = state.get("final_response", "")
+        scratchpad = "\n".join(state.get("scratchpad", []))[-15000:]
+        query = state.get("optimized_query", "")
+        
+        if not response or not scratchpad:
+            return {"fact_check_result": {"status": "SKIPPED"}}
+
+        prompt = f"""
+        You are a Fact-Checking Auditor for a Quant Fund. 
+        Your task is to compare the AI's response against the RAW TOOL OUTPUTS.
+        
+        **User Query:** {query}
+        **AI Response:** {response}
+        **Raw Tool Outputs (Ground Truth):** {scratchpad}
+        
+        **Audit Checklist:**
+        1. **Numeric Fidelity**: Are prices, lot sizes, and profit numbers EXACTLY correct?
+        2. **Institutional Grounding**: If the AI mentions COT, Open Interest, or FVG, are those actually in the Raw Outputs?
+        3. **Data Completeness**: Did the AI report 'No Data' correctly, or did it make up a narrative?
+        
+        **Output JSON:**
+        {{
+            "status": "PASS" | "FAIL",
+            "discrepancies": ["list specific numeric or logical errors"],
+            "data_gap_detected": true/false (Set true if critical data like COT was sought but not found)
+        }}
+        """
+        
+        try:
+             res = await self.gemini.generate_content(
+                 model=[settings.gemini.flash_model_id],
+                 contents=[prompt]
+             )
+             text = res.get("text", "")
+             # Clean up JSON
+             if "```json" in text: text = text.split("```json")[1].split("```")[0].strip()
+             elif "```" in text: text = text.split("```")[1].split("```")[0].strip()
+             
+             audit_data = json.loads(text)
+             logger.info(f"Audit Result: {audit_data.get('status')} | Gaps: {audit_data.get('data_gap_detected')}")
+             
+             return {
+                 "fact_check_result": audit_data,
+                 "data_gap_detected": audit_data.get("data_gap_detected", False)
+             }
+        except Exception as e:
+            logger.error(f"Fact-checker failed: {e}")
+            return {"fact_check_result": {"status": "ERROR", "error": str(e)}}
+
+    async def node_data_recovery(self, state: AgentState):
+        """
+        Phase 67: Autonomous Data Recovery Node.
+        Triggers depth-3 research for missing metrics.
+        """
+        query = state.get("optimized_query", "")
+        audit = state.get("fact_check_result", {})
+        discrepancies = audit.get("discrepancies", [])
+        
+        logger.info(f"🚀 Triggering Deep Data Recovery for: {query}")
+        
+        # Construct specific objective
+        objective = f"Recover missing quantitative metrics for: {query}. Specifically find: {', '.join(discrepancies) if discrepancies else 'COT, OI, and Intraday Sentiment'}."
+        
+        open_claw_tool = self.tool_registry.get_tool("open_claw_research")
+        if open_claw_tool:
+             # Force depth=3 for mission-critical recovery
+             result = await open_claw_tool.arun({
+                 "task": f"Final data recovery pass for {query}",
+                 "objective": objective,
+                 "depth": 3
+             })
+             
+             recovery_msg = f"### 💡 AUTONOMOUS DATA RECOVERY RESULT ###\n{result}"
+             return {
+                 "scratchpad": [recovery_msg],
+                 "data_gap_detected": False # Reset flag
+             }
+             
+        return {"scratchpad": ["Data recovery tool unavailable."]}
 
     async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
         """
@@ -2088,7 +2299,9 @@ class StrategyAdvisorAgent:
             "tool_loop_count": 0,
             "evaluation_feedback": "",
             "is_satisfactory": False,
-            "severity": "ROUTINE"
+            "severity": "ROUTINE",
+            "data_gap_detected": False,
+            "fact_check_result": None
         }
         
         import uuid

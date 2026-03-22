@@ -27,6 +27,10 @@ Strategies are assembled from these standardized, reusable blocks.
 * **BLOCK_STRUCT_FIB_GOLDEN**:
     * **Logic**: Fibonacci Retracement (0.5 - 0.618) of the last swing.
     * **State**: VALID if Price is inside the Golden Pocket.
+* **BLOCK_STRUCT_LIQUIDITY_MATRIX** (Hunter Mode):
+    * **Logic**: Tracking resting orders and session extremes.
+    * **Fields**: `asian_range`, `pdh_pdl`, `equal_high_low`, `psych_levels`.
+    * **State**: RAID_IN_PROGRESS if price pierces level. CONFIRMED_SWEEP if followed by V-rejection.
 
 ### 2.3 Momentum/Trigger Blocks (The "When")
 * Used to time the entry with precision.
@@ -53,6 +57,14 @@ A pure volatility expansion strategy.
 2.  **Trigger**: `BLOCK_VOL_BREAKOUT` confirmed.
 3.  **Risk**: Stop Loss at `2.0 * ATR` from entry. Target at `1.0 * ADR`.
 4.  **AI Metadata**: Must report `compression_ratio`, `regime`, `volatility_metrics`.
+
+### STRAT_SMC_HUNTER_V1
+A liquidity raid strategy (Phase 64).
+1.  **Context**: `BLOCK_VOL_COMPRESSION` OR `RANGING`.
+2.  **Prerequisite**: `RAID_IN_PROGRESS` on Asian Range or EQH/EQL.
+3.  **Trigger**: `CONFIRMED_SWEEP` (V-Shape rejection back into the range).
+4.  **Risk**: Stop Loss at Raid High/Low. Target at opposite Liquidity Pool.
+5.  **Logic**: "Wait for others to be stopped out before considering entering."
 
 ---
 

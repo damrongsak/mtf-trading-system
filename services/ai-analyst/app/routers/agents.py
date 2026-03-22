@@ -170,14 +170,23 @@ async def ai_think(
                 message="Request blocked by guardrail"
             )
 
-        # 3. Execute Unified Thinking (via Strategy Advisor which acts as the main graph)
-        # Note: In a true Supervisor pattern, we might call services["supervisor"].
-        # But our StrategyAdvisor IS the complex graph that starts with a supervisor/router node.
+        # 3. Execute Unified Thinking
         auth_token = extract_auth_token(authorization)
         
+        # Try to get user_id from token if possible, else use a sensible default or request
+        # In this system, user_id is usually in the 'sub' or 'user_id' claim.
+        target_user_id = "unified_user"
+        if auth_token:
+             try:
+                 import jwt
+                 decoded = jwt.decode(auth_token, options={"verify_signature": False})
+                 target_user_id = decoded.get("sub") or decoded.get("user_id") or target_user_id
+             except:
+                 pass
+
         result = await services["strategy_advisor"].run(
             input_text=request.message,
-            user_id="unified_user",
+            user_id=target_user_id,
             auth_token=auth_token,
             image_b64=request.image_b64,
             thread_id=request.thread_id,

@@ -235,6 +235,40 @@ services:
       - default
       - external
 
+  ai-analyst-worker:
+    build: ./services/ai-analyst
+    container_name: ai-analyst-worker
+    env_file: .env
+    volumes:
+      - ./services/ai-analyst:/app
+      - /app/.venv
+    command: /venv/bin/python -m app.worker
+    depends_on:
+      mtf-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+      - PYTHONUNBUFFERED=1
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
+      - OPENCLAW_URL=http://host.docker.internal:18789
+      - PYTHONPATH=/app:/app/deps
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-9b0cb07e142a651540bf2659bb8663ea62641504e8d81309}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    networks:
+      - default
+      - external
+
   knowledge-ingestor:
     build: ./services/knowledge-ingestor
     container_name: knowledge-ingestor

@@ -44,9 +44,13 @@ class GetMarketContextTool(BaseTool):
             try:
                 # Use strategy-core market/candles endpoint
                 url = f"{settings.STRATEGY_CORE_URL}/api/v1/market/candles"
-                params = {"symbol": normalized_symbol, "timeframe": timeframe, "count": min(count, 50)} # Hard cap to prevent massive dumps
+                params = {"symbol": normalized_symbol, "timeframe": timeframe, "count": min(count, 50)}
                 
-                async with session.get(url, params=params, timeout=3.0) as resp:
+                headers = {}
+                if auth_token:
+                    headers["Authorization"] = f"Bearer {auth_token}" if not auth_token.startswith("Bearer ") else auth_token
+
+                async with session.get(url, params=params, headers=headers, timeout=3.0) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         candles = data.get("data", [])

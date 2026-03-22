@@ -36,6 +36,8 @@ class GetAccountStatusTool(BaseTool):
             "X-Internal-API-Key": api_key,
             "X-Request-ID": get_request_id()
         }
+        if auth_token:
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
         
         url = f"{execution_service_url}/account/summary"
         payload = {"broker_account_id": account_id}

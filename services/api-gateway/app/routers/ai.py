@@ -16,7 +16,6 @@ from app.database import get_db
 from app.models.chat import ChatSession, ChatMessage
 from app.models.user import User
 from app.security import get_current_user
-from app.schemas.ai import MarketAnalysisRequest, JournalAnalysisRequest, AnalysisResponse
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from app.utils.cache import cached_response
@@ -32,8 +31,12 @@ from app.schemas.generated import (
     ChatMessageCreate, 
     ChatSession as ChatSessionSchema, 
     ChatMessage as ChatMessageSchema,
-    ResponseStatus
+    ResponseStatus,
+    AIJobAccepted,
+    AIJobStatus
 )
+import json
+from app.utils.redis_client import get_redis_client
 
 from app.utils.http_client import get_internal_client
 
@@ -86,110 +89,6 @@ async def list_agents(request: Request):
             logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
             raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
 
-@router.post("/market-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_market(
-    req: MarketAnalysisRequest, 
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Proxy market analysis request to AI Analyst service.
-    """
-    request_id = getattr(request.state, "request_id", None)
-    account_id = await _get_broker_account_id(db, current_user.id)
-    headers = {"X-Request-ID": request_id} if request_id else {}
-    if account_id:
-        headers["X-Broker-Account-ID"] = account_id
-    
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/analyze/market", 
-                json=req.model_dump(mode='json'),
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT # Production-grade timeout
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as exc:
-            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
-            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
-            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
-
-@router.post("/journal-analysis", response_model=APIResponse[AnalysisResponse])
-async def analyze_journal(
-    req: JournalAnalysisRequest, 
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Proxy journal analysis request to AI Analyst service.
-    """
-    request_id = getattr(request.state, "request_id", None)
-    account_id = await _get_broker_account_id(db, current_user.id)
-    headers = {"X-Request-ID": request_id} if request_id else {}
-    if account_id:
-        headers["X-Broker-Account-ID"] = account_id
-    
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/analyze/journal", 
-                json=req.model_dump(mode='json'),
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as exc:
-            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
-            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
-            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
-
-class AgentRunRequest(pydantic.BaseModel):
-    input_text: str
-
-@router.post("/agent/observer/run")
-async def run_market_observer(
-    req: AgentRunRequest,
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
-):
-    """
-    Proxy agent run request to AI Analyst service with authentication.
-    """
-    request_id = getattr(request.state, "request_id", None)
-    account_id = await _get_broker_account_id(db, current_user.id)
-    headers = {"Authorization": f"Bearer {token}"}
-    if request_id:
-        headers["X-Request-ID"] = request_id
-    if account_id:
-        headers["X-Broker-Account-ID"] = account_id
-        
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/ai/agent/observer/run", 
-                json=req.model_dump(),
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT # Agents can be slow
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as exc:
-            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
-            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
-            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
-
 @router.get("/diagnose")
 async def proxy_diagnose(
     request: Request,
@@ -201,7 +100,7 @@ async def proxy_diagnose(
     if request_id:
         headers["X-Request-ID"] = request_id
         
-    async with httpx.AsyncClient(timeout=600.0) as client:
+    async with await get_internal_client() as client:
         try:
             logger.info(f"Proxying diagnose to {AI_SERVICE_URL}/api/v1/ai/diagnose with headers: {headers}")
             response = await client.get(
@@ -214,9 +113,6 @@ async def proxy_diagnose(
             err_type = type(e).__name__
             err_msg = str(e)
             logger.error(f"!!! DIAGNOSE PROXY CRITICAL FAILURE !!! Type: {err_type} | Message: {err_msg}")
-            import traceback
-            tb = traceback.format_exc()
-            logger.error(f"Traceback:\n{tb}")
             raise HTTPException(status_code=500, detail=f"Proxy Error: {err_type} - {err_msg}")
 
 @router.post("/agent/memory/sync")
@@ -595,99 +491,67 @@ async def proxy_clear_qdrant_collection(collection_name: str):
         )
         return response.json()
 
-@router.post("/external/search")
-async def proxy_external_search(request: Request):
-    """Proxy external search to AI Analyst."""
-    async with await get_internal_client() as client:
-        body = await request.json()
-        response = await client.post(
-            f"{AI_SERVICE_URL}/api/v1/ai/external/search",
-            json=body,
-            timeout=30.0
-        )
-        return response.json()
 
 
-@router.post("/agent/universal/run")
-async def proxy_run_universal_agent(
-    request: Request,
-    payload: Dict[str, Any] = Body(...)
-):
-    """Proxy universal agent run to AI Analyst."""
-    request_id = getattr(request.state, "request_id", None)
-    headers = {"X-Request-ID": request_id} if request_id else {}
-    
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/ai/agent/universal/run",
-                json=payload,
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Universal agent proxy failed: {repr(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Proxy Error: {repr(e)}")
 
 
-@router.post("/agent/skill-creator/run")
-async def proxy_run_skill_creator(
-    request: Request,
-    payload: Dict[str, Any] = Body(...)
-):
-    """Proxy skill creator agent run to AI Analyst."""
-    request_id = getattr(request.state, "request_id", None)
-    headers = {"X-Request-ID": request_id} if request_id else {}
-    
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/ai/agent/skill-creator/run",
-                json=payload,
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT
-            )
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Skill creator proxy failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/think")
+@router.post("/think", status_code=202)
 async def proxy_ai_think(
     request: Request,
     payload: Dict[str, Any] = Body(...),
-    authorization: str = Header(None, alias="Authorization")
+    authorization: str = Header(None, alias="Authorization"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Proxy Unified AI Thinking request to AI Analyst service.
+    Unified AI Thinking request - Pushed to async message queue.
     """
     request_id = getattr(request.state, "request_id", None)
     headers = {"Authorization": authorization} if authorization else {}
     if request_id:
         headers["X-Request-ID"] = request_id
     
-    async with await get_internal_client() as client:
-        try:
-            response = await client.post(
-                f"{AI_SERVICE_URL}/api/v1/ai/think", 
-                json=payload,
-                headers=headers,
-                timeout=AI_SERVICE_TIMEOUT
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as exc:
-            logger.error(f"AI service connection failed to {AI_SERVICE_URL}: {exc}")
-            raise HTTPException(status_code=503, detail=f"AI service unreachable: {exc}")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"AI service error {exc.response.status_code}: {exc.response.text}")
-            raise HTTPException(status_code=exc.response.status_code, detail=f"AI service error: {exc.response.text}")
+    account_id = await _get_broker_account_id(db, current_user.id)
+    if account_id:
+        headers["X-Broker-Account-ID"] = account_id
+
+    job_id = str(uuid.uuid4())
+    redis = await get_redis_client()
+    
+    # Store initial status
+    await redis.set(
+        f"ai:think:result:{job_id}", 
+        json.dumps({"status": "processing"}),
+        ex=86400  # 24 hour TTL
+    )
+    
+    # Push to worker stream
+    cmd_payload = {
+        "job_id": job_id,
+        "payload": json.dumps(payload),
+        "headers": json.dumps(headers)
+    }
+    
+    await redis.xadd("ai:think:cmd", cmd_payload, maxlen=1000)
+    logger.info(f"Pushed AI job {job_id} to stream ai:think:cmd")
+    
+    return {"job_id": job_id, "status": "processing"}
+
+@router.get("/jobs/{job_id}")
+async def get_ai_job_status(job_id: str):
+    """
+    Poll API for AI Analyst results.
+    """
+    redis = await get_redis_client()
+    result_str = await redis.get(f"ai:think:result:{job_id}")
+    
+    if not result_str:
+        raise HTTPException(status_code=404, detail="Job not found or expired")
+        
+    result_data = json.loads(result_str)
+    return result_data
 
 
 @router.get("/knowledge/context")

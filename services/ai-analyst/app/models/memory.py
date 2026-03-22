@@ -14,8 +14,8 @@ class EpisodicMemory(Base):
     __table_args__ = {"extend_existing": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    fund_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     
     symbol = Column(String(20), nullable=True, index=True)
     timeframe = Column(String(10), nullable=True)

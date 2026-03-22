@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TradingPlanInput(BaseModel):
-    symbol: str = Field(description="Trading symbol, e.g., 'XAU/USD'.")
+    symbol: Optional[str] = Field(default="XAUUSD", description="Trading symbol, e.g., 'XAU/USD'.")
     timeframe: str = Field(default="M15", description="Timeframe for analysis (e.g., 'M15', 'H1').")
     risk_percentage: Optional[float] = Field(default=None, description="Override risk percentage (e.g., 1.0 for 1%).")
 
@@ -38,12 +38,9 @@ class TradingPlanTool(BaseTool):
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
-        base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
-        
-        from app.core.config import settings
         data_url = f"{settings.DATA_PIPELINE_URL}/api/v1/candles"
         smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc"
-        acc_url = f"{settings.EXECUTION_SERVICE_URL}/api/v1/account/summary"
+        acc_url = f"{settings.EXECUTION_SERVICE_URL}/account/summary"
         quant_size_url = f"{settings.STRATEGY_CORE_URL}/api/v1/quant/size"
         
         try:
@@ -85,10 +82,20 @@ class TradingPlanTool(BaseTool):
                     return f"No actionable setups found for {normalized_symbol} in SMC analysis."
 
                 # 2. Fetch Equity & Risk directly from Execution Service
-                acc_resp = await client.get(acc_url, headers=headers, timeout=5.0)
+                # Note: We need a broker_account_id for the execution service. 
+                # We try to get it from context or just fetch the first active one if available?
+                # For stress-test, we'll try to use the one from headers.
+                from app.utils.tracing import get_account_id
+                acc_id = get_account_id()
+                
                 equity = 10000.0
-                if acc_resp.status_code == 200:
-                    equity = float(acc_resp.json().get("data", {}).get("NAV", 10000.0))
+                if acc_id:
+                    acc_payload = {"broker_account_id": acc_id}
+                    acc_resp = await client.post(acc_url, json=acc_payload, headers=headers, timeout=5.0)
+                    if acc_resp.status_code == 200:
+                        equity = float(acc_resp.json().get("data", {}).get("NAV", 10000.0))
+                else:
+                    logger.warning("No Broker-Account-ID found in context for TradingPlanTool sizing.")
 
                 risk_pct = risk_percentage if risk_percentage is not None else 1.0
 

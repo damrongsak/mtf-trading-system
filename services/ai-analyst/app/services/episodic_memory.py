@@ -52,22 +52,27 @@ class EpisodicMemoryService:
         """
         embedding = await self._get_embedding(content)
         
-        memory = EpisodicMemory(
-            user_id=user_id,
-            fund_id=fund_id,
-            symbol=symbol,
-            timeframe=timeframe,
-            intent=intent,
-            content=content,
-            embedding=embedding,
-            meta=metadata or {}
-        )
-        
-        self.db.add(memory)
-        self.db.commit()
-        self.db.refresh(memory)
-        logger.info(f"Saved episodic memory {memory.id} for user {user_id} (Symbol: {symbol})")
-        return memory
+        try:
+            memory = EpisodicMemory(
+                user_id=user_id,
+                fund_id=fund_id,
+                symbol=symbol,
+                timeframe=timeframe,
+                intent=intent,
+                content=content,
+                embedding=embedding,
+                meta=metadata or {}
+            )
+            
+            self.db.add(memory)
+            self.db.commit()
+            self.db.refresh(memory)
+            logger.info(f"Saved episodic memory {memory.id} for user {user_id} (Symbol: {symbol})")
+            return memory
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to add memory: {e}")
+            raise
 
     async def retrieve_relevant_memories(
         self, 
@@ -87,21 +92,26 @@ class EpisodicMemoryService:
         # We need to cast query_embedding to a string format [1.2, 3.4, ...] for pgvector
         # Or use the specific ARRAY cast.
         
-        # RBAC Filter: (user_id == target) OR (fund_id == target_fund AND fund_id IS NOT NULL)
-        conditions = [EpisodicMemory.user_id == user_id]
-        if fund_id:
-            conditions.append(EpisodicMemory.fund_id == fund_id)
-        
-        # Optional: Boost specific symbol matches
-        
-        query_stmt = (
-            self.db.query(EpisodicMemory)
-            .filter(or_(*conditions))
-            .order_by(EpisodicMemory.embedding.cosine_distance(query_embedding))
-            .limit(limit)
-        )
-        
-        results = query_stmt.all()
+        try:
+            # RBAC Filter: (user_id == target) OR (fund_id == target_fund AND fund_id IS NOT NULL)
+            conditions = [EpisodicMemory.user_id == user_id]
+            if fund_id:
+                conditions.append(EpisodicMemory.fund_id == fund_id)
+            
+            # Optional: Boost specific symbol matches
+            
+            query_stmt = (
+                self.db.query(EpisodicMemory)
+                .filter(or_(*conditions))
+                .order_by(EpisodicMemory.embedding.cosine_distance(query_embedding))
+                .limit(limit)
+            )
+            
+            results = query_stmt.all()
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to retrieve memories: {e}")
+            return []
         
         return [
             {

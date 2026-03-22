@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Any, Optional, Type
+from pydantic import BaseModel, Field, model_validator
+from typing import Any, Optional, Type, Union
 import aiohttp
 import json
 import logging
@@ -11,6 +11,18 @@ logger = logging.getLogger(__name__)
 
 class GoogleSearchInput(BaseModel):
     query: str = Field(..., description="The search query or keyword (e.g. 'XAUUSD news')")
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_input(cls, data: Any) -> Any:
+        if not data:
+            return {"query": "Latest market news"}
+        if isinstance(data, str):
+            return {"query": data}
+        if isinstance(data, dict):
+            if not data.get("query"):
+                return {**data, "query": "Latest market news"}
+        return data
 
 class GoogleSearchTool(BaseTool):
     """

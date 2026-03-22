@@ -440,12 +440,31 @@ paths:
             schema:
               $ref: '#/components/schemas/AIThinkRequest'
       responses:
-        '200':
-          description: AI Response
+        '202':
+          description: AI Request Accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AIThinkResponse'
+                $ref: '#/components/schemas/AIJobAccepted'
+
+  /api/v1/ai/jobs/{job_id}:
+    get:
+      summary: Poll API for AI Analyst results
+      tags: [AI]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job Status and Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIJobStatus'
         '503':
           description: Orchestrator Busy/Unavailable
 
@@ -471,56 +490,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_Briefing'
 
-  /api/v1/ai/market-analysis:
-    post:
-      summary: Generate market outlook
-      tags: [AI]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MarketAnalysisRequest'
-      responses:
-        '200':
-          description: Market Analysis
-          content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/APIResponse_Analysis'
 
-  /api/v1/ai/journal-analysis:
-    post:
-      summary: Analyze journal entry
-      tags: [AI]
-      requestBody:
-        content:
-          application/json:
-            schema:
-               $ref: '#/components/schemas/JournalAnalysisRequest'
-      responses:
-        '200':
-           description: Journal Analysis
-           content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/APIResponse_Analysis'
-
-  /api/v1/ai/smc-narrative:
-    post:
-      summary: Generate SMC Narrative
-      tags: [AI]
-      requestBody:
-         content:
-           application/json:
-             schema:
-               $ref: '#/components/schemas/SMCNarrativeRequest'
-      responses:
-         '200':
-            description: SMC Narrative
-            content:
-               application/json:
-                 schema:
-                  $ref: '#/components/schemas/APIResponse_Analysis'
 
   /api/v1/ai/mri/coaching:
     post:
@@ -7034,6 +7004,27 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    AIJobAccepted:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: processing
+
+    AIJobStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [processing, completed, failed]
+        data:
+          $ref: '#/components/schemas/AIThinkResponse'
+        error:
+          type: string
 
   /api/v1/analysis/macro/status:
     get:

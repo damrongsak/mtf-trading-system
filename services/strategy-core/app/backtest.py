@@ -51,7 +51,7 @@ def check_safety(code: str) -> Tuple[bool, str]:
 
 def fetch_data_from_db(market_symbol_id: str, timeframe: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     query = text("""
-        SELECT timestamp, open, high, low, close, volume 
+        SELECT timestamp, open, high, low, close, volume, ai_labels, regime_tag 
         FROM candles 
         WHERE market_symbol_id = :market_symbol_id
         AND timeframe = :timeframe 

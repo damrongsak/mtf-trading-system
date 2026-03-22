@@ -40,6 +40,7 @@ class Trade(Base):
     
     entry_price = Column(Numeric(18, 8), nullable=False)
     exit_price = Column(Numeric(18, 8), nullable=True)
+    exit_timestamp = Column(DateTime(timezone=True), nullable=True)
     pnl_usd = Column(Numeric(10, 2), nullable=True)
     
     metadata_json = Column(JSONB, nullable=True)
