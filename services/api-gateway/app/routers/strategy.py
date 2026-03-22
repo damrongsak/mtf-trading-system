@@ -338,3 +338,38 @@ async def run_strategies_backtest_custom(
         return success_response(data=result)
     except Exception as e:
          raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/active", response_model=APIResponse[dict])
+async def list_active_fleet(
+    current_user: User = Depends(get_current_user)
+):
+    """List all active strategy instances in the fleet."""
+    try:
+        result = await strategy_client.list_active_strategies()
+        return success_response(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{id}/tick", response_model=APIResponse[dict])
+async def manual_strategy_tick(
+    id: UUID4,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger a single logic tick for a specific strategy."""
+    # Check if strategy exists in DB first for RBAC
+    strategy = db.query(Strategy).filter(Strategy.id == id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+        
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
+    
+    try:
+        result = await strategy_client.trigger_manual_tick(str(id))
+        return success_response(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

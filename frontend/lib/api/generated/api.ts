@@ -23,6 +23,24 @@ import type { RequestArgs } from './base';
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerMap } from './base';
 
+export interface AIJobAccepted {
+    'job_id'?: string;
+    'status'?: string;
+}
+export interface AIJobStatus {
+    'status'?: AIJobStatusStatusEnum;
+    'data'?: AIThinkResponse;
+    'error'?: string;
+}
+
+export const AIJobStatusStatusEnum = {
+    Processing: 'processing',
+    Completed: 'completed',
+    Failed: 'failed'
+} as const;
+
+export type AIJobStatusStatusEnum = typeof AIJobStatusStatusEnum[keyof typeof AIJobStatusStatusEnum];
+
 export interface AIThinkRequest {
     /**
      * User input or command
@@ -902,6 +920,16 @@ export interface ApiV1AiIngestUploadPost200Response {
     'filename'?: string;
     'context_ref'?: object;
 }
+export interface ApiV1AnalysisMacroStatusGet200Response {
+    'status'?: string;
+    'data'?: { [key: string]: ApiV1AnalysisMacroStatusGet200ResponseDataValue; };
+}
+export interface ApiV1AnalysisMacroStatusGet200ResponseDataValue {
+    'symbol'?: string;
+    'value'?: number;
+    'timestamp'?: string;
+    'updated_at'?: string;
+}
 export interface ApiV1DataIngestManualPost202Response {
     'message'?: string;
 }
@@ -1068,6 +1096,10 @@ export interface ApiV1SignalsIdApprovePost200Response {
 }
 export interface ApiV1SignalsIdRejectPost200Response {
     'status'?: string;
+}
+export interface ApiV1StrategiesActiveGet200Response {
+    'templates'?: object;
+    'deployments'?: object;
 }
 export interface ApiV1TelegramSendPost200Response {
     'success'?: boolean;
@@ -2225,6 +2257,10 @@ export interface SmartOrderRequest {
     'symbol': string;
     'direction': SmartOrderRequestDirectionEnum;
     'stop_loss'?: number;
+    /**
+     * Price at the time of signal generation for slippage calculation
+     */
+    'signal_price'?: number;
     'generated_by': string;
     'reason'?: string;
     'risk_usd'?: number;
@@ -2587,13 +2623,16 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
          * 
-         * @summary Analyze journal entry
-         * @param {JournalAnalysisRequest} [journalAnalysisRequest] 
+         * @summary Poll API for AI Analyst results
+         * @param {string} jobId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AiJournalAnalysisPost: async (journalAnalysisRequest?: JournalAnalysisRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/ai/journal-analysis`;
+        apiV1AiJobsJobIdGet: async (jobId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'jobId' is not null or undefined
+            assertParamExists('apiV1AiJobsJobIdGet', 'jobId', jobId)
+            const localVarPath = `/api/v1/ai/jobs/{job_id}`
+                .replace(`{${"job_id"}}`, encodeURIComponent(String(jobId)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -2601,18 +2640,15 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
 
     
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(journalAnalysisRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -2739,40 +2775,6 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Generate market outlook
-         * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiMarketAnalysisPost: async (marketAnalysisRequest?: MarketAnalysisRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/ai/market-analysis`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(marketAnalysisRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
          * @summary Get psychological coaching based on journal RAG
          * @param {string} [userId] 
          * @param {CoachingRequest} [coachingRequest] 
@@ -2804,40 +2806,6 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(coachingRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Generate SMC Narrative
-         * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiSmcNarrativePost: async (sMCNarrativeRequest?: SMCNarrativeRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/ai/smc-narrative`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(sMCNarrativeRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -2891,15 +2859,15 @@ export const AIApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
-         * @summary Analyze journal entry
-         * @param {JournalAnalysisRequest} [journalAnalysisRequest] 
+         * @summary Poll API for AI Analyst results
+         * @param {string} jobId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1AiJournalAnalysisPost(journalAnalysisRequest?: JournalAnalysisRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiJournalAnalysisPost(journalAnalysisRequest, options);
+        async apiV1AiJobsJobIdGet(jobId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AIJobStatus>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiJobsJobIdGet(jobId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiJournalAnalysisPost']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiJobsJobIdGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2945,19 +2913,6 @@ export const AIApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Generate market outlook
-         * @param {MarketAnalysisRequest} [marketAnalysisRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1AiMarketAnalysisPost(marketAnalysisRequest?: MarketAnalysisRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiMarketAnalysisPost(marketAnalysisRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiMarketAnalysisPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
          * @summary Get psychological coaching based on journal RAG
          * @param {string} [userId] 
          * @param {CoachingRequest} [coachingRequest] 
@@ -2971,26 +2926,13 @@ export const AIApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary Generate SMC Narrative
-         * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1AiSmcNarrativePost(sMCNarrativeRequest?: SMCNarrativeRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseAnalysis>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiSmcNarrativePost(sMCNarrativeRequest, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiSmcNarrativePost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
          * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
          * @summary Unified AI Orchestrator
          * @param {AIThinkRequest} aIThinkRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1AiThinkPost(aIThinkRequest: AIThinkRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AIThinkResponse>> {
+        async apiV1AiThinkPost(aIThinkRequest: AIThinkRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AIJobAccepted>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiThinkPost(aIThinkRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiThinkPost']?.[localVarOperationServerIndex]?.url;
@@ -3007,13 +2949,13 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
     return {
         /**
          * 
-         * @summary Analyze journal entry
-         * @param {AIApiApiV1AiJournalAnalysisPostRequest} requestParameters Request parameters.
+         * @summary Poll API for AI Analyst results
+         * @param {AIApiApiV1AiJobsJobIdGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AiJournalAnalysisPost(requestParameters: AIApiApiV1AiJournalAnalysisPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
-            return localVarFp.apiV1AiJournalAnalysisPost(requestParameters.journalAnalysisRequest, options).then((request) => request(axios, basePath));
+        apiV1AiJobsJobIdGet(requestParameters: AIApiApiV1AiJobsJobIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<AIJobStatus> {
+            return localVarFp.apiV1AiJobsJobIdGet(requestParameters.jobId, options).then((request) => request(axios, basePath));
         },
         /**
          * Upload and semantically ingest a book (PDF/Markdown) into a Qdrant collection (defaults to quant_library).
@@ -3046,16 +2988,6 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
         },
         /**
          * 
-         * @summary Generate market outlook
-         * @param {AIApiApiV1AiMarketAnalysisPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiMarketAnalysisPost(requestParameters: AIApiApiV1AiMarketAnalysisPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
-            return localVarFp.apiV1AiMarketAnalysisPost(requestParameters.marketAnalysisRequest, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
          * @summary Get psychological coaching based on journal RAG
          * @param {AIApiApiV1AiMriCoachingPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -3065,33 +2997,23 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
             return localVarFp.apiV1AiMriCoachingPost(requestParameters.userId, requestParameters.coachingRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
-         * @summary Generate SMC Narrative
-         * @param {AIApiApiV1AiSmcNarrativePostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1AiSmcNarrativePost(requestParameters: AIApiApiV1AiSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseAnalysis> {
-            return localVarFp.apiV1AiSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(axios, basePath));
-        },
-        /**
          * Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
          * @summary Unified AI Orchestrator
          * @param {AIApiApiV1AiThinkPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1AiThinkPost(requestParameters: AIApiApiV1AiThinkPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AIThinkResponse> {
+        apiV1AiThinkPost(requestParameters: AIApiApiV1AiThinkPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AIJobAccepted> {
             return localVarFp.apiV1AiThinkPost(requestParameters.aIThinkRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
 
 /**
- * Request parameters for apiV1AiJournalAnalysisPost operation in AIApi.
+ * Request parameters for apiV1AiJobsJobIdGet operation in AIApi.
  */
-export interface AIApiApiV1AiJournalAnalysisPostRequest {
-    readonly journalAnalysisRequest?: JournalAnalysisRequest
+export interface AIApiApiV1AiJobsJobIdGetRequest {
+    readonly jobId: string
 }
 
 /**
@@ -3118,26 +3040,12 @@ export interface AIApiApiV1AiLibraryStatusFilenameGetRequest {
 }
 
 /**
- * Request parameters for apiV1AiMarketAnalysisPost operation in AIApi.
- */
-export interface AIApiApiV1AiMarketAnalysisPostRequest {
-    readonly marketAnalysisRequest?: MarketAnalysisRequest
-}
-
-/**
  * Request parameters for apiV1AiMriCoachingPost operation in AIApi.
  */
 export interface AIApiApiV1AiMriCoachingPostRequest {
     readonly userId?: string
 
     readonly coachingRequest?: CoachingRequest
-}
-
-/**
- * Request parameters for apiV1AiSmcNarrativePost operation in AIApi.
- */
-export interface AIApiApiV1AiSmcNarrativePostRequest {
-    readonly sMCNarrativeRequest?: SMCNarrativeRequest
 }
 
 /**
@@ -3153,13 +3061,13 @@ export interface AIApiApiV1AiThinkPostRequest {
 export class AIApi extends BaseAPI {
     /**
      * 
-     * @summary Analyze journal entry
-     * @param {AIApiApiV1AiJournalAnalysisPostRequest} requestParameters Request parameters.
+     * @summary Poll API for AI Analyst results
+     * @param {AIApiApiV1AiJobsJobIdGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public apiV1AiJournalAnalysisPost(requestParameters: AIApiApiV1AiJournalAnalysisPostRequest = {}, options?: RawAxiosRequestConfig) {
-        return AIApiFp(this.configuration).apiV1AiJournalAnalysisPost(requestParameters.journalAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
+    public apiV1AiJobsJobIdGet(requestParameters: AIApiApiV1AiJobsJobIdGetRequest, options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiJobsJobIdGet(requestParameters.jobId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -3196,17 +3104,6 @@ export class AIApi extends BaseAPI {
 
     /**
      * 
-     * @summary Generate market outlook
-     * @param {AIApiApiV1AiMarketAnalysisPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1AiMarketAnalysisPost(requestParameters: AIApiApiV1AiMarketAnalysisPostRequest = {}, options?: RawAxiosRequestConfig) {
-        return AIApiFp(this.configuration).apiV1AiMarketAnalysisPost(requestParameters.marketAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
      * @summary Get psychological coaching based on journal RAG
      * @param {AIApiApiV1AiMriCoachingPostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -3214,17 +3111,6 @@ export class AIApi extends BaseAPI {
      */
     public apiV1AiMriCoachingPost(requestParameters: AIApiApiV1AiMriCoachingPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AIApiFp(this.configuration).apiV1AiMriCoachingPost(requestParameters.userId, requestParameters.coachingRequest, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Generate SMC Narrative
-     * @param {AIApiApiV1AiSmcNarrativePostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1AiSmcNarrativePost(requestParameters: AIApiApiV1AiSmcNarrativePostRequest = {}, options?: RawAxiosRequestConfig) {
-        return AIApiFp(this.configuration).apiV1AiSmcNarrativePost(requestParameters.sMCNarrativeRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -3679,6 +3565,36 @@ export const AnalysisApiAxiosParamCreator = function (configuration?: Configurat
             };
         },
         /**
+         * Fetches latest macro data from Redis cache.
+         * @summary Get real-time macro indicators (DXY, VIX, GVZ)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisMacroStatusGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/analysis/macro/status`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
          * @summary Get Unified Open Interest Profile
          * @param {string} [symbol] 
@@ -3850,6 +3766,18 @@ export const AnalysisApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Fetches latest macro data from Redis cache.
+         * @summary Get real-time macro indicators (DXY, VIX, GVZ)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AnalysisMacroStatusGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1AnalysisMacroStatusGet200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AnalysisMacroStatusGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AnalysisApi.apiV1AnalysisMacroStatusGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
          * @summary Get Unified Open Interest Profile
          * @param {string} [symbol] 
@@ -3953,6 +3881,15 @@ export const AnalysisApiFactory = function (configuration?: Configuration, baseP
          */
         apiV1AnalysisGammaLevelsGet(requestParameters: AnalysisApiApiV1AnalysisGammaLevelsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
             return localVarFp.apiV1AnalysisGammaLevelsGet(requestParameters.symbol, requestParameters.currentPrice, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Fetches latest macro data from Redis cache.
+         * @summary Get real-time macro indicators (DXY, VIX, GVZ)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AnalysisMacroStatusGet(options?: RawAxiosRequestConfig): AxiosPromise<ApiV1AnalysisMacroStatusGet200Response> {
+            return localVarFp.apiV1AnalysisMacroStatusGet(options).then((request) => request(axios, basePath));
         },
         /**
          * Centralized endpoint for current positioning, gamma levels, and sentiment drift.
@@ -4121,6 +4058,16 @@ export class AnalysisApi extends BaseAPI {
      */
     public apiV1AnalysisGammaLevelsGet(requestParameters: AnalysisApiApiV1AnalysisGammaLevelsGetRequest = {}, options?: RawAxiosRequestConfig) {
         return AnalysisApiFp(this.configuration).apiV1AnalysisGammaLevelsGet(requestParameters.symbol, requestParameters.currentPrice, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Fetches latest macro data from Redis cache.
+     * @summary Get real-time macro indicators (DXY, VIX, GVZ)
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AnalysisMacroStatusGet(options?: RawAxiosRequestConfig) {
+        return AnalysisApiFp(this.configuration).apiV1AnalysisMacroStatusGet(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -4999,6 +4946,327 @@ export class BacktestApi extends BaseAPI {
      */
     public backtestWfaPost(requestParameters: BacktestApiBacktestWfaPostRequest, options?: RawAxiosRequestConfig) {
         return BacktestApiFp(this.configuration).backtestWfaPost(requestParameters.wFARequest, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * Class3rdPartyGatewayApi - axios parameter creator
+ */
+export const Class3rdPartyGatewayApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Get O(1) market snapshot (ECST)
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalMarketSnapshotSymbolGet: async (symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1ExternalMarketSnapshotSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/external/market/snapshot/{symbol}`
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Institutional access to active strategy fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalStrategiesActiveGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/external/strategies/active`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Institutional manual strategy trigger
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalStrategiesIdTickPost: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1ExternalStrategiesIdTickPost', 'id', id)
+            const localVarPath = `/api/v1/external/strategies/{id}/tick`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary High-performance trade execution for partners
+         * @param {object} body 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalTradeExecutePost: async (body: object, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'body' is not null or undefined
+            assertParamExists('apiV1ExternalTradeExecutePost', 'body', body)
+            const localVarPath = `/api/v1/external/trade/execute`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(body, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * Class3rdPartyGatewayApi - functional programming interface
+ */
+export const Class3rdPartyGatewayApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = Class3rdPartyGatewayApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Get O(1) market snapshot (ECST)
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExternalMarketSnapshotSymbolGet(symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExternalMarketSnapshotSymbolGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['Class3rdPartyGatewayApi.apiV1ExternalMarketSnapshotSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Institutional access to active strategy fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExternalStrategiesActiveGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExternalStrategiesActiveGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['Class3rdPartyGatewayApi.apiV1ExternalStrategiesActiveGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Institutional manual strategy trigger
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExternalStrategiesIdTickPost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExternalStrategiesIdTickPost(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['Class3rdPartyGatewayApi.apiV1ExternalStrategiesIdTickPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary High-performance trade execution for partners
+         * @param {object} body 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1ExternalTradeExecutePost(body: object, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExternalTradeExecutePost(body, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['Class3rdPartyGatewayApi.apiV1ExternalTradeExecutePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * Class3rdPartyGatewayApi - factory interface
+ */
+export const Class3rdPartyGatewayApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = Class3rdPartyGatewayApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Get O(1) market snapshot (ECST)
+         * @param {Class3rdPartyGatewayApiApiV1ExternalMarketSnapshotSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalMarketSnapshotSymbolGet(requestParameters: Class3rdPartyGatewayApiApiV1ExternalMarketSnapshotSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1ExternalMarketSnapshotSymbolGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Institutional access to active strategy fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalStrategiesActiveGet(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1ExternalStrategiesActiveGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Institutional manual strategy trigger
+         * @param {Class3rdPartyGatewayApiApiV1ExternalStrategiesIdTickPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalStrategiesIdTickPost(requestParameters: Class3rdPartyGatewayApiApiV1ExternalStrategiesIdTickPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1ExternalStrategiesIdTickPost(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary High-performance trade execution for partners
+         * @param {Class3rdPartyGatewayApiApiV1ExternalTradeExecutePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1ExternalTradeExecutePost(requestParameters: Class3rdPartyGatewayApiApiV1ExternalTradeExecutePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1ExternalTradeExecutePost(requestParameters.body, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1ExternalMarketSnapshotSymbolGet operation in Class3rdPartyGatewayApi.
+ */
+export interface Class3rdPartyGatewayApiApiV1ExternalMarketSnapshotSymbolGetRequest {
+    readonly symbol: string
+}
+
+/**
+ * Request parameters for apiV1ExternalStrategiesIdTickPost operation in Class3rdPartyGatewayApi.
+ */
+export interface Class3rdPartyGatewayApiApiV1ExternalStrategiesIdTickPostRequest {
+    readonly id: string
+}
+
+/**
+ * Request parameters for apiV1ExternalTradeExecutePost operation in Class3rdPartyGatewayApi.
+ */
+export interface Class3rdPartyGatewayApiApiV1ExternalTradeExecutePostRequest {
+    readonly body: object
+}
+
+/**
+ * Class3rdPartyGatewayApi - object-oriented interface
+ */
+export class Class3rdPartyGatewayApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get O(1) market snapshot (ECST)
+     * @param {Class3rdPartyGatewayApiApiV1ExternalMarketSnapshotSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExternalMarketSnapshotSymbolGet(requestParameters: Class3rdPartyGatewayApiApiV1ExternalMarketSnapshotSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return Class3rdPartyGatewayApiFp(this.configuration).apiV1ExternalMarketSnapshotSymbolGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Institutional access to active strategy fleet
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExternalStrategiesActiveGet(options?: RawAxiosRequestConfig) {
+        return Class3rdPartyGatewayApiFp(this.configuration).apiV1ExternalStrategiesActiveGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Institutional manual strategy trigger
+     * @param {Class3rdPartyGatewayApiApiV1ExternalStrategiesIdTickPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExternalStrategiesIdTickPost(requestParameters: Class3rdPartyGatewayApiApiV1ExternalStrategiesIdTickPostRequest, options?: RawAxiosRequestConfig) {
+        return Class3rdPartyGatewayApiFp(this.configuration).apiV1ExternalStrategiesIdTickPost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary High-performance trade execution for partners
+     * @param {Class3rdPartyGatewayApiApiV1ExternalTradeExecutePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1ExternalTradeExecutePost(requestParameters: Class3rdPartyGatewayApiApiV1ExternalTradeExecutePostRequest, options?: RawAxiosRequestConfig) {
+        return Class3rdPartyGatewayApiFp(this.configuration).apiV1ExternalTradeExecutePost(requestParameters.body, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -8001,36 +8269,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary List available strategy templates
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1StrategiesTemplatesGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/strategies/templates`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
          * Connect via WebSocket to receive real-time tick data for specified symbols. URL: ws://{host}/api/v1/stream/prices 
          * @summary WebSocket for real-time price updates
          * @param {string} token JWT Access Token
@@ -9573,18 +9811,6 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
-         * @summary List available strategy templates
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1StrategiesTemplatesGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseStrategyTemplateList>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesTemplatesGet(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.apiV1StrategiesTemplatesGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
          * Connect via WebSocket to receive real-time tick data for specified symbols. URL: ws://{host}/api/v1/stream/prices 
          * @summary WebSocket for real-time price updates
          * @param {string} token JWT Access Token
@@ -10525,15 +10751,6 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiV1StrategiesIdConfigPost(requestParameters: DefaultApiApiV1StrategiesIdConfigPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseStrategyResponse> {
             return localVarFp.apiV1StrategiesIdConfigPost(requestParameters.id, requestParameters.strategyConfigUpdate, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary List available strategy templates
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1StrategiesTemplatesGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponseStrategyTemplateList> {
-            return localVarFp.apiV1StrategiesTemplatesGet(options).then((request) => request(axios, basePath));
         },
         /**
          * Connect via WebSocket to receive real-time tick data for specified symbols. URL: ws://{host}/api/v1/stream/prices 
@@ -12151,16 +12368,6 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1StrategiesIdConfigPost(requestParameters: DefaultApiApiV1StrategiesIdConfigPostRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1StrategiesIdConfigPost(requestParameters.id, requestParameters.strategyConfigUpdate, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary List available strategy templates
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1StrategiesTemplatesGet(options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).apiV1StrategiesTemplatesGet(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -15279,6 +15486,297 @@ export class SignalApi extends BaseAPI {
      */
     public apiV1SignalsCancelAllPost(requestParameters: SignalApiApiV1SignalsCancelAllPostRequest = {}, options?: RawAxiosRequestConfig) {
         return SignalApiFp(this.configuration).apiV1SignalsCancelAllPost(requestParameters.deploymentId, requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * StrategiesApi - axios parameter creator
+ */
+export const StrategiesApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary List all active strategy instances in the fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesActiveGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/strategies/active`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List available strategy templates
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/strategies`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Manually trigger a strategy logic evaluation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesIdTickPost: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1StrategiesIdTickPost', 'id', id)
+            const localVarPath = `/api/v1/strategies/{id}/tick`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Hot reload all strategy plugins from disk
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesReloadPost: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/strategies/reload`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * StrategiesApi - functional programming interface
+ */
+export const StrategiesApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = StrategiesApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary List all active strategy instances in the fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesActiveGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1StrategiesActiveGet200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesActiveGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesActiveGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List available strategy templates
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<StrategyTemplate>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Manually trigger a strategy logic evaluation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesIdTickPost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesIdTickPost(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesIdTickPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Hot reload all strategy plugins from disk
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesReloadPost(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesReloadPost(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesReloadPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * StrategiesApi - factory interface
+ */
+export const StrategiesApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = StrategiesApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary List all active strategy instances in the fleet
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesActiveGet(options?: RawAxiosRequestConfig): AxiosPromise<ApiV1StrategiesActiveGet200Response> {
+            return localVarFp.apiV1StrategiesActiveGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List available strategy templates
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesGet(options?: RawAxiosRequestConfig): AxiosPromise<Array<StrategyTemplate>> {
+            return localVarFp.apiV1StrategiesGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Manually trigger a strategy logic evaluation
+         * @param {StrategiesApiApiV1StrategiesIdTickPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesIdTickPost(requestParameters: StrategiesApiApiV1StrategiesIdTickPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1StrategiesIdTickPost(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Hot reload all strategy plugins from disk
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesReloadPost(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.apiV1StrategiesReloadPost(options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1StrategiesIdTickPost operation in StrategiesApi.
+ */
+export interface StrategiesApiApiV1StrategiesIdTickPostRequest {
+    readonly id: string
+}
+
+/**
+ * StrategiesApi - object-oriented interface
+ */
+export class StrategiesApi extends BaseAPI {
+    /**
+     * 
+     * @summary List all active strategy instances in the fleet
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesActiveGet(options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesActiveGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List available strategy templates
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesGet(options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Manually trigger a strategy logic evaluation
+     * @param {StrategiesApiApiV1StrategiesIdTickPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesIdTickPost(requestParameters: StrategiesApiApiV1StrategiesIdTickPostRequest, options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesIdTickPost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Hot reload all strategy plugins from disk
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesReloadPost(options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesReloadPost(options).then((request) => request(this.axios, this.basePath));
     }
 }
 

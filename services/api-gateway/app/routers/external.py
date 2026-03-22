@@ -131,6 +131,29 @@ async def external_trade_execute(
     # Simply forward to internal execution router or push to Redis queue
     # For HFT-lite, pushing to Redis Trade Queue is fastest.
     return success_response(data={"status": "ACCEPTED", "timestamp": time.time()})
+
+@router.get("/strategies/active")
+async def external_list_active_strategies(
+    auth: str = Depends(verify_external_auth)
+):
+    """Institutional Access to Active Fleet."""
+    try:
+        result = await strategy_client.list_active_strategies()
+        return success_response(data=result)
+    except Exception as e:
+        return error_response(str(e), 500)
+
+@router.post("/strategies/{id}/tick")
+async def external_manual_strategy_tick(
+    id: str,
+    auth: str = Depends(verify_external_auth)
+):
+    """Institutional Manual Trigger."""
+    try:
+        result = await strategy_client.trigger_manual_tick(id)
+        return success_response(data=result)
+    except Exception as e:
+        return error_response(str(e), 500)
 # --- External WebSocket (Real-time Market Data) ---
 
 @router.websocket("/ws/prices")

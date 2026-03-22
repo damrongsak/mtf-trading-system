@@ -5,6 +5,8 @@ base.ts
 common.ts
 configuration.ts
 docs/AIApi.md
+docs/AIJobAccepted.md
+docs/AIJobStatus.md
 docs/AIThinkRequest.md
 docs/AIThinkResponse.md
 docs/APIResponse.md
@@ -92,6 +94,8 @@ docs/ApiV1AiAgentObserverRunPost200ResponseData.md
 docs/ApiV1AiAgentObserverRunPostRequest.md
 docs/ApiV1AiChatSessionsMessagePost200Response.md
 docs/ApiV1AiIngestUploadPost200Response.md
+docs/ApiV1AnalysisMacroStatusGet200Response.md
+docs/ApiV1AnalysisMacroStatusGet200ResponseDataValue.md
 docs/ApiV1DataIngestManualPost202Response.md
 docs/ApiV1DataOpenInterestSnapshotsGet200ResponseInner.md
 docs/ApiV1DataOpenInterestUploadPost201Response.md
@@ -124,6 +128,7 @@ docs/ApiV1SignalCheckPostRequest.md
 docs/ApiV1SignalsCancelAllPost200Response.md
 docs/ApiV1SignalsIdApprovePost200Response.md
 docs/ApiV1SignalsIdRejectPost200Response.md
+docs/ApiV1StrategiesActiveGet200Response.md
 docs/ApiV1TelegramSendPost200Response.md
 docs/ApiV1TelegramWebhookPost200Response.md
 docs/AtrRequest.md
@@ -143,6 +148,7 @@ docs/ChatMessage.md
 docs/ChatMessageCreate.md
 docs/ChatSession.md
 docs/ChatSessionCreate.md
+docs/Class3rdPartyGatewayApi.md
 docs/CoachingRequest.md
 docs/CoachingResponse.md
 docs/ConfigureBotRequest.md
@@ -254,6 +260,7 @@ docs/SignalBatchRequest.md
 docs/SignalRequest.md
 docs/SignalResponse.md
 docs/SmartOrderRequest.md
+docs/StrategiesApi.md
 docs/StrategyBacktestRequest.md
 docs/StrategyChatRequest.md
 docs/StrategyConfigUpdate.md

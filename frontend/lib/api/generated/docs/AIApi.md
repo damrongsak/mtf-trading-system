@@ -4,17 +4,15 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**apiV1AiJournalAnalysisPost**](#apiv1aijournalanalysispost) | **POST** /api/v1/ai/journal-analysis | Analyze journal entry|
+|[**apiV1AiJobsJobIdGet**](#apiv1aijobsjobidget) | **GET** /api/v1/ai/jobs/{job_id} | Poll API for AI Analyst results|
 |[**apiV1AiLibraryIngestPost**](#apiv1ailibraryingestpost) | **POST** /api/v1/ai/library/ingest | Ingest a book into Quant Library|
 |[**apiV1AiLibraryListGet**](#apiv1ailibrarylistget) | **GET** /api/v1/ai/library/list | List Library Books|
 |[**apiV1AiLibraryStatusFilenameGet**](#apiv1ailibrarystatusfilenameget) | **GET** /api/v1/ai/library/status/{filename} | Get Library Ingestion Status|
-|[**apiV1AiMarketAnalysisPost**](#apiv1aimarketanalysispost) | **POST** /api/v1/ai/market-analysis | Generate market outlook|
 |[**apiV1AiMriCoachingPost**](#apiv1aimricoachingpost) | **POST** /api/v1/ai/mri/coaching | Get psychological coaching based on journal RAG|
-|[**apiV1AiSmcNarrativePost**](#apiv1aismcnarrativepost) | **POST** /api/v1/ai/smc-narrative | Generate SMC Narrative|
 |[**apiV1AiThinkPost**](#apiv1aithinkpost) | **POST** /api/v1/ai/think | Unified AI Orchestrator|
 
-# **apiV1AiJournalAnalysisPost**
-> APIResponseAnalysis apiV1AiJournalAnalysisPost()
+# **apiV1AiJobsJobIdGet**
+> AIJobStatus apiV1AiJobsJobIdGet()
 
 
 ### Example
@@ -22,17 +20,16 @@ All URIs are relative to *http://localhost*
 ```typescript
 import {
     AIApi,
-    Configuration,
-    JournalAnalysisRequest
+    Configuration
 } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new AIApi(configuration);
 
-let journalAnalysisRequest: JournalAnalysisRequest; // (optional)
+let jobId: string; // (default to undefined)
 
-const { status, data } = await apiInstance.apiV1AiJournalAnalysisPost(
-    journalAnalysisRequest
+const { status, data } = await apiInstance.apiV1AiJobsJobIdGet(
+    jobId
 );
 ```
 
@@ -40,12 +37,12 @@ const { status, data } = await apiInstance.apiV1AiJournalAnalysisPost(
 
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
-| **journalAnalysisRequest** | **JournalAnalysisRequest**|  | |
+| **jobId** | [**string**] |  | defaults to undefined|
 
 
 ### Return type
 
-**APIResponseAnalysis**
+**AIJobStatus**
 
 ### Authorization
 
@@ -53,14 +50,15 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
+ - **Content-Type**: Not defined
  - **Accept**: application/json
 
 
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** | Journal Analysis |  -  |
+|**200** | Job Status and Result |  -  |
+|**503** | Orchestrator Busy/Unavailable |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -220,57 +218,6 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **apiV1AiMarketAnalysisPost**
-> APIResponseAnalysis apiV1AiMarketAnalysisPost()
-
-
-### Example
-
-```typescript
-import {
-    AIApi,
-    Configuration,
-    MarketAnalysisRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new AIApi(configuration);
-
-let marketAnalysisRequest: MarketAnalysisRequest; // (optional)
-
-const { status, data } = await apiInstance.apiV1AiMarketAnalysisPost(
-    marketAnalysisRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **marketAnalysisRequest** | **MarketAnalysisRequest**|  | |
-
-
-### Return type
-
-**APIResponseAnalysis**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Market Analysis |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **apiV1AiMriCoachingPost**
 > CoachingResponse apiV1AiMriCoachingPost()
 
@@ -325,59 +272,8 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **apiV1AiSmcNarrativePost**
-> APIResponseAnalysis apiV1AiSmcNarrativePost()
-
-
-### Example
-
-```typescript
-import {
-    AIApi,
-    Configuration,
-    SMCNarrativeRequest
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new AIApi(configuration);
-
-let sMCNarrativeRequest: SMCNarrativeRequest; // (optional)
-
-const { status, data } = await apiInstance.apiV1AiSmcNarrativePost(
-    sMCNarrativeRequest
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **sMCNarrativeRequest** | **SMCNarrativeRequest**|  | |
-
-
-### Return type
-
-**APIResponseAnalysis**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: application/json
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | SMC Narrative |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **apiV1AiThinkPost**
-> AIThinkResponse apiV1AiThinkPost(aIThinkRequest)
+> AIJobAccepted apiV1AiThinkPost(aIThinkRequest)
 
 Single entry point for all AI Analyst requests (Chat, Briefing, Market Analysis, Journal). Routes to specialized agents via Supervisor.
 
@@ -409,7 +305,7 @@ const { status, data } = await apiInstance.apiV1AiThinkPost(
 
 ### Return type
 
-**AIThinkResponse**
+**AIJobAccepted**
 
 ### Authorization
 
@@ -424,8 +320,7 @@ No authorization required
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** | AI Response |  -  |
-|**503** | Orchestrator Busy/Unavailable |  -  |
+|**202** | AI Request Accepted |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

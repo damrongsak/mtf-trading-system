@@ -11,6 +11,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AnalysisCalculateMacdPost**](#apiv1analysiscalculatemacdpost) | **POST** /api/v1/analysis/calculate/macd | Calculate MACD|
 |[**apiV1AnalysisCalculateRsiPost**](#apiv1analysiscalculatersipost) | **POST** /api/v1/analysis/calculate/rsi | Calculate RSI|
 |[**apiV1AnalysisGammaLevelsGet**](#apiv1analysisgammalevelsget) | **GET** /api/v1/analysis/gamma/levels | Get Gamma Levels and Market Regime|
+|[**apiV1AnalysisMacroStatusGet**](#apiv1analysismacrostatusget) | **GET** /api/v1/analysis/macro/status | Get real-time macro indicators (DXY, VIX, GVZ)|
 |[**apiV1AnalysisOiUnifiedProfileGet**](#apiv1analysisoiunifiedprofileget) | **GET** /api/v1/analysis/oi/unified-profile | Get Unified Open Interest Profile|
 |[**apiV1AnalysisSentimentCachedGet**](#apiv1analysissentimentcachedget) | **GET** /api/v1/analysis/sentiment/cached | Get Cached Sentiment from Redis|
 
@@ -371,6 +372,50 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Gamma Analysis Data |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AnalysisMacroStatusGet**
+> ApiV1AnalysisMacroStatusGet200Response apiV1AnalysisMacroStatusGet()
+
+Fetches latest macro data from Redis cache.
+
+### Example
+
+```typescript
+import {
+    AnalysisApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AnalysisApi(configuration);
+
+const { status, data } = await apiInstance.apiV1AnalysisMacroStatusGet();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**ApiV1AnalysisMacroStatusGet200Response**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

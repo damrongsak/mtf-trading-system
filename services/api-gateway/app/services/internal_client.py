@@ -129,6 +129,22 @@ class StrategyClient(BaseInternalClient):
         )
         return resp.json()
 
+    async def list_active_strategies(self) -> Dict[str, Any]:
+        try:
+            resp = await self._request("GET", "/api/v1/strategies/active", timeout=10.0)
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to fetch active strategies: {e}")
+            raise
+
+    async def trigger_manual_tick(self, strategy_id: str) -> Dict[str, Any]:
+        try:
+            resp = await self._request("POST", f"/api/v1/strategies/{strategy_id}/tick", timeout=15.0)
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Manual tick failed for {strategy_id}: {e}")
+            raise
+
     async def get_drawdown(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:
         resp = await self._request(
             "GET",

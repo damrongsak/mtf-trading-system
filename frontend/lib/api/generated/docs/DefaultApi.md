@@ -80,7 +80,6 @@ All URIs are relative to *http://localhost*
 |[**apiV1SignalDetectedGet**](#apiv1signaldetectedget) | **GET** /api/v1/signal/detected | Get detected signals history|
 |[**apiV1SignalLatestSymbolGet**](#apiv1signallatestsymbolget) | **GET** /api/v1/signal/latest/{symbol} | Get the latest signal for a specific symbol|
 |[**apiV1StrategiesIdConfigPost**](#apiv1strategiesidconfigpost) | **POST** /api/v1/strategies/{id}/config | Update configuration for a strategy instance|
-|[**apiV1StrategiesTemplatesGet**](#apiv1strategiestemplatesget) | **GET** /api/v1/strategies/templates | List available strategy templates|
 |[**apiV1StreamPricesGet**](#apiv1streampricesget) | **GET** /api/v1/stream/prices | WebSocket for real-time price updates|
 |[**apiV1TransactionsBalanceGet**](#apiv1transactionsbalanceget) | **GET** /api/v1/transactions/balance | Get fund balance|
 |[**apiV1TransactionsGet**](#apiv1transactionsget) | **GET** /api/v1/transactions | List transactions|
@@ -3948,49 +3947,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Configuration updated |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **apiV1StrategiesTemplatesGet**
-> APIResponseStrategyTemplateList apiV1StrategiesTemplatesGet()
-
-
-### Example
-
-```typescript
-import {
-    DefaultApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new DefaultApi(configuration);
-
-const { status, data } = await apiInstance.apiV1StrategiesTemplatesGet();
-```
-
-### Parameters
-This endpoint does not have any parameters.
-
-
-### Return type
-
-**APIResponseStrategyTemplateList**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | List of strategy templates |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

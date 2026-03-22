@@ -2193,16 +2193,55 @@ paths:
       responses:
         '204':
           description: Fund deleted
-  /api/v1/strategies/templates:
+  /api/v1/strategies:
     get:
       summary: List available strategy templates
+      tags: [Strategies]
       responses:
         '200':
           description: List of strategy templates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse_StrategyTemplateList'
+                type: array
+                items:
+                   $ref: '#/components/schemas/StrategyTemplate'
+  /api/v1/strategies/active:
+    get:
+      summary: List all active strategy instances in the fleet
+      tags: [Strategies]
+      responses:
+        '200':
+          description: Active fleet status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: object
+                  deployments:
+                    type: object
+  /api/v1/strategies/reload:
+    post:
+      summary: Hot reload all strategy plugins from disk
+      tags: [Strategies]
+      responses:
+        '200':
+          description: Reload successful
+  /api/v1/strategies/{id}/tick:
+    post:
+      summary: Manually trigger a strategy logic evaluation
+      tags: [Strategies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tick result
   /api/v1/strategies/{id}/config:
     post:
       summary: Update configuration for a strategy instance
@@ -3369,6 +3408,92 @@ paths:
           description: No linked Telegram account
         '503':
           description: Bot token not configured
+
+  # --- 3rd Party Gateway (Phase 70: Institutional) ---
+  /api/v1/external/market/snapshot/{symbol}:
+    get:
+      summary: Get O(1) market snapshot (ECST)
+      tags: [3rd Party Gateway]
+      security:
+        - HMACAuth: []
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Market snapshot data
+  /api/v1/external/trade/execute:
+    post:
+      summary: High-performance trade execution for partners
+      tags: [3rd Party Gateway]
+      security:
+        - HMACAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Trade accepted
+  /api/v1/external/strategies/active:
+    get:
+      summary: Institutional access to active strategy fleet
+      tags: [3rd Party Gateway]
+      security:
+        - HMACAuth: []
+      responses:
+        '200':
+          description: Active fleet status
+  /api/v1/external/strategies/{id}/tick:
+    post:
+      summary: Institutional manual strategy trigger
+      tags: [3rd Party Gateway]
+      security:
+        - HMACAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tick successful
+
+  /api/v1/analysis/macro/status:
+    get:
+      tags:
+        - Analysis
+      summary: Get real-time macro indicators (DXY, VIX, GVZ)
+      description: Fetches latest macro data from Redis cache.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                        value:
+                          type: number
+                        timestamp:
+                          type: string
+                        updated_at:
+                          type: string
 
   /api/v1/telegram/configure:
     post:
@@ -7025,33 +7150,3 @@ components:
           $ref: '#/components/schemas/AIThinkResponse'
         error:
           type: string
-
-  /api/v1/analysis/macro/status:
-    get:
-      tags:
-        - Analysis
-      summary: Get real-time macro indicators (DXY, VIX, GVZ)
-      description: Fetches latest macro data from Redis cache.
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                  data:
-                    type: object
-                    additionalProperties:
-                      type: object
-                      properties:
-                        symbol:
-                          type: string
-                        value:
-                          type: number
-                        timestamp:
-                          type: string
-                        updated_at:
-                          type: string

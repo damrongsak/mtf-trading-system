@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **symbol** | **string** |  | [default to undefined]
 **direction** | **string** |  | [default to undefined]
 **stop_loss** | **number** |  | [optional] [default to undefined]
+**signal_price** | **number** | Price at the time of signal generation for slippage calculation | [optional] [default to undefined]
 **generated_by** | **string** |  | [default to undefined]
 **reason** | **string** |  | [optional] [default to undefined]
 **risk_usd** | **number** |  | [optional] [default to undefined]
@@ -28,6 +29,7 @@ const instance: SmartOrderRequest = {
     symbol,
     direction,
     stop_loss,
+    signal_price,
     generated_by,
     reason,
     risk_usd,
