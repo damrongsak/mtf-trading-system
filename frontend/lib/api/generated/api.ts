@@ -554,6 +554,18 @@ export interface APIResponseOrchestrationLogsAllOfData {
     'status'?: string;
     'timestamp'?: string;
 }
+export interface APIResponsePITRecall {
+    'status': ResponseStatus;
+    'data'?: PITRecallResponse;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponsePerformanceComparison {
     'status': ResponseStatus;
     'data'?: PerformanceComparisonResponse;
@@ -1198,6 +1210,14 @@ export interface Candle {
     'close': number;
     'volume': number;
     'is_complete'?: boolean;
+    /**
+     * Automated labels (e.g., fake_sweep, expansion_confirmed)
+     */
+    'ai_labels'?: object | null;
+    /**
+     * Market regime classification
+     */
+    'regime_tag'?: string | null;
 }
 export interface ChatMessage {
     'id'?: string;
@@ -1234,6 +1254,27 @@ export interface ChatSessionCreate {
      * Optional initial message to start the session
      */
     'initial_message'?: string;
+}
+export interface CoachingRequest {
+    'user_id': string;
+    'lookback_days'?: number;
+    'focus_areas'?: Array<string>;
+}
+export interface CoachingResponse {
+    /**
+     * Detected emotional state (e.g., Revenge Trading, FOMO, Discipline)
+     */
+    'psychological_state': string;
+    /**
+     * Specific coaching narrative in Thai or English
+     */
+    'advice': string;
+    /**
+     * Market context during recorded journal entries
+     */
+    'confluence_context'?: object;
+    'suggested_actions'?: Array<string>;
+    'sentiment_trend'?: string;
 }
 export interface ConfigureBotRequest {
     'bot_token': string;
@@ -1432,6 +1473,16 @@ export interface Fund {
     'net_exposure_limit'?: number | null;
     'position_limit_single'?: number | null;
     'position_limit_sector'?: number | null;
+    'risk_parity_enabled'?: boolean;
+    'risk_parity_model'?: FundRiskParityModelEnum;
+    /**
+     * Institutional risk multiplier
+     */
+    'scale_factor'?: number;
+    /**
+     * Per-asset risk limits (e.g. {\'XAUUSD\': 0.02})
+     */
+    'asset_risk_caps'?: { [key: string]: number; };
 }
 
 export const FundStrategyTypeEnum = {
@@ -1442,6 +1493,13 @@ export const FundStrategyTypeEnum = {
 } as const;
 
 export type FundStrategyTypeEnum = typeof FundStrategyTypeEnum[keyof typeof FundStrategyTypeEnum];
+export const FundRiskParityModelEnum = {
+    MinVol: 'MIN_VOL',
+    Hrp: 'HRP',
+    Erc: 'ERC'
+} as const;
+
+export type FundRiskParityModelEnum = typeof FundRiskParityModelEnum[keyof typeof FundRiskParityModelEnum];
 
 export interface FundCreate {
     'name': string;
@@ -1756,6 +1814,16 @@ export interface OrderResponse {
     'units'?: string;
     'price'?: string;
     'time'?: string;
+}
+export interface PITRecallRequest {
+    'symbol': string;
+    'timeframe': string;
+    'start_time': string;
+    'end_time': string;
+    'include_labels'?: boolean;
+}
+export interface PITRecallResponse {
+    'candles'?: Array<Candle>;
 }
 export interface PaginatedResponseFund {
     'status': ResponseStatus;
@@ -2163,6 +2231,14 @@ export interface SmartOrderRequest {
     'confidence'?: number;
     'pain_threshold'?: number;
     'atr_multiplier'?: number;
+    /**
+     * Optional execution algorithm (TWAP, VWAP, SCALE_IN)
+     */
+    'execution_algo'?: string | null;
+    /**
+     * Parameters for the algorithm (e.g., {\'duration\': 3600})
+     */
+    'algo_params'?: object | null;
 }
 
 export const SmartOrderRequestDirectionEnum = {
@@ -2282,6 +2358,16 @@ export interface Trade {
     'mfe_usd'?: number | null;
     'exit_price'?: number | null;
     'exit_timestamp'?: string | null;
+    'parent_trade_id'?: string | null;
+    /**
+     * Execution algorithm used (TWAP, VWAP, SCALE_IN)
+     */
+    'execution_algo'?: string | null;
+    /**
+     * Parameters for the execution algorithm
+     */
+    'algo_params'?: object | null;
+    'algo_status'?: TradeAlgoStatusEnum;
     /**
      * Semantic summary from Knowledge Graph (FalkorDB) at time of trade
      */
@@ -2303,6 +2389,15 @@ export const TradeDirectionEnum = {
 } as const;
 
 export type TradeDirectionEnum = typeof TradeDirectionEnum[keyof typeof TradeDirectionEnum];
+export const TradeAlgoStatusEnum = {
+    None: 'NONE',
+    Pending: 'PENDING',
+    Running: 'RUNNING',
+    Completed: 'COMPLETED',
+    Cancelled: 'CANCELLED'
+} as const;
+
+export type TradeAlgoStatusEnum = typeof TradeAlgoStatusEnum[keyof typeof TradeAlgoStatusEnum];
 
 
 export const TradeDirection = {
@@ -2678,6 +2773,45 @@ export const AIApiAxiosParamCreator = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Get psychological coaching based on journal RAG
+         * @param {string} [userId] 
+         * @param {CoachingRequest} [coachingRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiMriCoachingPost: async (userId?: string, coachingRequest?: CoachingRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/ai/mri/coaching`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (userId !== undefined) {
+                localVarQueryParameter['user_id'] = userId;
+            }
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(coachingRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Generate SMC Narrative
          * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
          * @param {*} [options] Override http request option.
@@ -2824,6 +2958,20 @@ export const AIApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Get psychological coaching based on journal RAG
+         * @param {string} [userId] 
+         * @param {CoachingRequest} [coachingRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1AiMriCoachingPost(userId?: string, coachingRequest?: CoachingRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CoachingResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1AiMriCoachingPost(userId, coachingRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIApi.apiV1AiMriCoachingPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Generate SMC Narrative
          * @param {SMCNarrativeRequest} [sMCNarrativeRequest] 
          * @param {*} [options] Override http request option.
@@ -2908,6 +3056,16 @@ export const AIApiFactory = function (configuration?: Configuration, basePath?: 
         },
         /**
          * 
+         * @summary Get psychological coaching based on journal RAG
+         * @param {AIApiApiV1AiMriCoachingPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1AiMriCoachingPost(requestParameters: AIApiApiV1AiMriCoachingPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<CoachingResponse> {
+            return localVarFp.apiV1AiMriCoachingPost(requestParameters.userId, requestParameters.coachingRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Generate SMC Narrative
          * @param {AIApiApiV1AiSmcNarrativePostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
@@ -2964,6 +3122,15 @@ export interface AIApiApiV1AiLibraryStatusFilenameGetRequest {
  */
 export interface AIApiApiV1AiMarketAnalysisPostRequest {
     readonly marketAnalysisRequest?: MarketAnalysisRequest
+}
+
+/**
+ * Request parameters for apiV1AiMriCoachingPost operation in AIApi.
+ */
+export interface AIApiApiV1AiMriCoachingPostRequest {
+    readonly userId?: string
+
+    readonly coachingRequest?: CoachingRequest
 }
 
 /**
@@ -3036,6 +3203,17 @@ export class AIApi extends BaseAPI {
      */
     public apiV1AiMarketAnalysisPost(requestParameters: AIApiApiV1AiMarketAnalysisPostRequest = {}, options?: RawAxiosRequestConfig) {
         return AIApiFp(this.configuration).apiV1AiMarketAnalysisPost(requestParameters.marketAnalysisRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get psychological coaching based on journal RAG
+     * @param {AIApiApiV1AiMriCoachingPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1AiMriCoachingPost(requestParameters: AIApiApiV1AiMriCoachingPostRequest = {}, options?: RawAxiosRequestConfig) {
+        return AIApiFp(this.configuration).apiV1AiMriCoachingPost(requestParameters.userId, requestParameters.coachingRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -4832,6 +5010,42 @@ export class BacktestApi extends BaseAPI {
 export const DataApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
+         * Returns labelled historical candle data for a specific period.
+         * @summary Point-in-Time Historical Data Recall
+         * @param {PITRecallRequest} pITRecallRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataHistoryPitPost: async (pITRecallRequest: PITRecallRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'pITRecallRequest' is not null or undefined
+            assertParamExists('apiV1DataHistoryPitPost', 'pITRecallRequest', pITRecallRequest)
+            const localVarPath = `/api/v1/data/history/pit`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(pITRecallRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Returns the latest bid, ask, and timestamp from Redis L2 cache.
          * @summary Get latest tick data for a symbol
          * @param {string} symbol 
@@ -4875,6 +5089,19 @@ export const DataApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = DataApiAxiosParamCreator(configuration)
     return {
         /**
+         * Returns labelled historical candle data for a specific period.
+         * @summary Point-in-Time Historical Data Recall
+         * @param {PITRecallRequest} pITRecallRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1DataHistoryPitPost(pITRecallRequest: PITRecallRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponsePITRecall>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1DataHistoryPitPost(pITRecallRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DataApi.apiV1DataHistoryPitPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Returns the latest bid, ask, and timestamp from Redis L2 cache.
          * @summary Get latest tick data for a symbol
          * @param {string} symbol 
@@ -4897,6 +5124,16 @@ export const DataApiFactory = function (configuration?: Configuration, basePath?
     const localVarFp = DataApiFp(configuration)
     return {
         /**
+         * Returns labelled historical candle data for a specific period.
+         * @summary Point-in-Time Historical Data Recall
+         * @param {DataApiApiV1DataHistoryPitPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1DataHistoryPitPost(requestParameters: DataApiApiV1DataHistoryPitPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponsePITRecall> {
+            return localVarFp.apiV1DataHistoryPitPost(requestParameters.pITRecallRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Returns the latest bid, ask, and timestamp from Redis L2 cache.
          * @summary Get latest tick data for a symbol
          * @param {DataApiApiV1DataTickSymbolGetRequest} requestParameters Request parameters.
@@ -4910,6 +5147,13 @@ export const DataApiFactory = function (configuration?: Configuration, basePath?
 };
 
 /**
+ * Request parameters for apiV1DataHistoryPitPost operation in DataApi.
+ */
+export interface DataApiApiV1DataHistoryPitPostRequest {
+    readonly pITRecallRequest: PITRecallRequest
+}
+
+/**
  * Request parameters for apiV1DataTickSymbolGet operation in DataApi.
  */
 export interface DataApiApiV1DataTickSymbolGetRequest {
@@ -4920,6 +5164,17 @@ export interface DataApiApiV1DataTickSymbolGetRequest {
  * DataApi - object-oriented interface
  */
 export class DataApi extends BaseAPI {
+    /**
+     * Returns labelled historical candle data for a specific period.
+     * @summary Point-in-Time Historical Data Recall
+     * @param {DataApiApiV1DataHistoryPitPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1DataHistoryPitPost(requestParameters: DataApiApiV1DataHistoryPitPostRequest, options?: RawAxiosRequestConfig) {
+        return DataApiFp(this.configuration).apiV1DataHistoryPitPost(requestParameters.pITRecallRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * Returns the latest bid, ask, and timestamp from Redis L2 cache.
      * @summary Get latest tick data for a symbol

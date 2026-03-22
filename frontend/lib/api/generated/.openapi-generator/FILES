@@ -50,6 +50,7 @@ docs/APIResponseMonteCarloResponse.md
 docs/APIResponseOpenInterestAnalytics.md
 docs/APIResponseOrchestrationLogs.md
 docs/APIResponseOrchestrationLogsAllOfData.md
+docs/APIResponsePITRecall.md
 docs/APIResponsePerformanceComparison.md
 docs/APIResponsePipelineStatus.md
 docs/APIResponsePipelineStatusAllOfData.md
@@ -142,6 +143,8 @@ docs/ChatMessage.md
 docs/ChatMessageCreate.md
 docs/ChatSession.md
 docs/ChatSessionCreate.md
+docs/CoachingRequest.md
+docs/CoachingResponse.md
 docs/ConfigureBotRequest.md
 docs/ConfigureBotResponse.md
 docs/DataApi.md
@@ -206,6 +209,8 @@ docs/OpenInterestCommon.md
 docs/OpportunityLog.md
 docs/OrchestrationApi.md
 docs/OrderResponse.md
+docs/PITRecallRequest.md
+docs/PITRecallResponse.md
 docs/PaginatedResponseFund.md
 docs/PaginatedResponseJournalEntryResponse.md
 docs/PaginatedResponseStrategyResponse.md

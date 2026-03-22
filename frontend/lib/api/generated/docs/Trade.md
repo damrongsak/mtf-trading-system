@@ -27,6 +27,10 @@ Name | Type | Description | Notes
 **mfe_usd** | **number** |  | [optional] [default to undefined]
 **exit_price** | **number** |  | [optional] [default to undefined]
 **exit_timestamp** | **string** |  | [optional] [default to undefined]
+**parent_trade_id** | **string** |  | [optional] [default to undefined]
+**execution_algo** | **string** | Execution algorithm used (TWAP, VWAP, SCALE_IN) | [optional] [default to undefined]
+**algo_params** | **object** | Parameters for the execution algorithm | [optional] [default to undefined]
+**algo_status** | **string** |  | [optional] [default to AlgoStatusEnum_None]
 **knowledge_context** | **object** | Semantic summary from Knowledge Graph (FalkorDB) at time of trade | [optional] [default to undefined]
 **metadata_json** | **object** |  | [optional] [default to undefined]
 
@@ -58,6 +62,10 @@ const instance: Trade = {
     mfe_usd,
     exit_price,
     exit_timestamp,
+    parent_trade_id,
+    execution_algo,
+    algo_params,
+    algo_status,
     knowledge_context,
     metadata_json,
 };

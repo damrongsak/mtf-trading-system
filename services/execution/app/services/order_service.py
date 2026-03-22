@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from typing import Any
+from types import SimpleNamespace
 
 from app.adapters.factory import BrokerFactory
 from app.utils.crypto import decrypt_data
@@ -51,6 +52,7 @@ class OrderService:
         Core logic for placing a smart order with risk management and minimax check.
         Expects req_data to have: broker_account_id, symbol, direction, stop_loss, etc.
         """
+        from app.services.cache_service import execution_cache
         try:
             # 0. Shadow Mode & Global Check
             if req_data.get("is_shadow"):
@@ -78,7 +80,6 @@ class OrderService:
                 account_id = req_data.get("broker_account_id")
                 if account_id:
                     # We need to know the fund_id. In the hot path, we fetch from cache.
-                    from app.services.cache_service import execution_cache
                     account_data = await execution_cache.get_account(account_id)
                     if account_data and account_data.get("fund_id"):
                         fund_id = str(account_data["fund_id"])
@@ -108,10 +109,11 @@ class OrderService:
             if not account_data:
                 logger.error(f"Rule 7 Violation Prevented: Account {account_id} not in cache. Rejecting for hot-path protection.")
                 # We could trigger a background fetch here, but the current order must fail to keep loop latency <10ms
-                raise HTTPException(status_code=503, detail="System warming up. Broker account metadata not yet cached.")
+                raise HTTPException(status_code=503, detail=f"System warming up. Account {account_id} not in cache.")
 
             # Map dict to object for compatibility
-            account = type('obj', (object,), account_data)
+            from types import SimpleNamespace
+            account = SimpleNamespace(**account_data)
             await OrderService._log_trace(trace_id, "account_cache_hit", start_t)
 
             if not account.is_active:
@@ -157,11 +159,13 @@ class OrderService:
                 logger.error(f"Rule 7 Violation Prevented: Fund {fund_id} not in cache. Rejecting.")
                 raise HTTPException(status_code=503, detail="System warming up. Fund metadata not yet cached.")
 
-            fund = type('obj', (object,), fund_data)
+            # Map dict to object for compatibility
+            from types import SimpleNamespace
+            fund = SimpleNamespace(**fund_data)
             await OrderService._log_trace(trace_id, "fund_cache_hit", fund_start)
 
             # Determine Max Risk Limit
-            fund_limit = float(fund.max_risk_per_trade)
+            fund_limit = float(getattr(fund, "max_risk_per_trade", 50.0))
             account_limit = None
             if account.risk_settings and "max_risk_per_trade" in account.risk_settings:
                 account_limit = float(account.risk_settings["max_risk_per_trade"])
@@ -170,7 +174,8 @@ class OrderService:
             
             # Dynamic Risk via Last Known NAV (HFT-lite)
             calculated_risk = effective_limit
-            if fund.risk_percentage and float(fund.risk_percentage) > 0:
+            risk_percent = getattr(fund, "risk_percentage", 0.0)
+            if risk_percent and float(risk_percent) > 0:
                 try:
                     # In HFT-lite, we use cached NAV if available to save 100ms
                     from app.utils.redis_client import get_redis_client
@@ -186,7 +191,7 @@ class OrderService:
                         await OrderService._log_trace(trace_id, "nav_api_fetch", time.time())
                     
                     if nav > 0:
-                        dynamic_risk = nav * float(fund.risk_percentage)
+                        dynamic_risk = nav * float(risk_percent)
                         calculated_risk = min(dynamic_risk, effective_limit)
                 except Exception as e:
                     logger.warning(f"Failed to calculate dynamic risk: {e}")
@@ -212,6 +217,18 @@ class OrderService:
                 await OrderService._log_trace(trace_id, "price_cache_hit", price_start)
                 
             entry_ref = req_data.get("entry_price") or current_price
+            
+            # [FMEA Guardrail] Phase 1: Max Slippage Buffer
+            # Default to 1.0 (100 pips Gold) if not in settings
+            max_slippage = float(fund_data.get("max_slippage", 1.0))
+            signal_price = req_data.get("signal_price")
+            
+            if signal_price:
+                slippage = abs(current_price - signal_price)
+                if slippage > max_slippage:
+                    logger.warning(f"🛑 SLIPPAGE REJECTION: {req_data['symbol']} slippage {slippage:.2f} > max {max_slippage:.2f} (Signal: {signal_price}, Current: {current_price})")
+                    raise ValueError(f"Execution Rejected: Max Slippage Exceeded ({slippage:.2f} > {max_slippage:.2f})")
+
             # 5. Position Sizing (Risk Parity vs Standard)
             sizing_start = time.time()
             
@@ -446,7 +463,7 @@ class OrderService:
             logger.error(f"Rule 7 Violation Prevented: Account {account_id} not in cache for Market Making.")
             raise ValueError("Market Making metadata not available in cache.")
         
-        account = type('obj', (object,), account_data)
+        account = SimpleNamespace(**account_data)
         credentials = await execution_cache.get_credentials(account_id)
         if not credentials:
              # decrypt if not in L1
@@ -517,7 +534,7 @@ class OrderService:
             entry_price=entry_price,
             sl_price=sl_price,
             tp_price=tp_price,
-            active_filters=[type('obj', (object,), f) for f in active_filters_raw]
+            active_filters=[SimpleNamespace(**f) for f in active_filters_raw]
         )
 
         # 3. Parallelize Phase 2 & 3 (HFT-lite)
@@ -546,7 +563,7 @@ class OrderService:
                         sl_price=sl_price,
                         tp_price=tp_price,
                         entry_price=entry_price,
-                        filter_config=type('obj', (object,), f_data)
+                        filter_config=SimpleNamespace(**f_data)
                     )
                 )
         
@@ -557,7 +574,7 @@ class OrderService:
         # Resolve full account for leverage
         account_data = await execution_cache.get_account(broker_account_id)
         if account_data:
-            account_obj = type('obj', (object,), account_data)
+            account_obj = SimpleNamespace(**account_data)
             tasks.append(RiskLimitsAgent.check_margin(account_obj, symbol, units=units, current_price=entry_price))
 
         if tasks:

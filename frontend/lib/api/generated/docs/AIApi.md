@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 |[**apiV1AiLibraryListGet**](#apiv1ailibrarylistget) | **GET** /api/v1/ai/library/list | List Library Books|
 |[**apiV1AiLibraryStatusFilenameGet**](#apiv1ailibrarystatusfilenameget) | **GET** /api/v1/ai/library/status/{filename} | Get Library Ingestion Status|
 |[**apiV1AiMarketAnalysisPost**](#apiv1aimarketanalysispost) | **POST** /api/v1/ai/market-analysis | Generate market outlook|
+|[**apiV1AiMriCoachingPost**](#apiv1aimricoachingpost) | **POST** /api/v1/ai/mri/coaching | Get psychological coaching based on journal RAG|
 |[**apiV1AiSmcNarrativePost**](#apiv1aismcnarrativepost) | **POST** /api/v1/ai/smc-narrative | Generate SMC Narrative|
 |[**apiV1AiThinkPost**](#apiv1aithinkpost) | **POST** /api/v1/ai/think | Unified AI Orchestrator|
 
@@ -267,6 +268,60 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Market Analysis |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1AiMriCoachingPost**
+> CoachingResponse apiV1AiMriCoachingPost()
+
+
+### Example
+
+```typescript
+import {
+    AIApi,
+    Configuration,
+    CoachingRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new AIApi(configuration);
+
+let userId: string; // (optional) (default to undefined)
+let coachingRequest: CoachingRequest; // (optional)
+
+const { status, data } = await apiInstance.apiV1AiMriCoachingPost(
+    userId,
+    coachingRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **coachingRequest** | **CoachingRequest**|  | |
+| **userId** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**CoachingResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | AI Coaching Response |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

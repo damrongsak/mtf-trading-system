@@ -346,6 +346,25 @@ paths:
                   job_id:
                     type: string
 
+  /api/v1/data/history/pit:
+    post:
+      summary: Point-in-Time Historical Data Recall
+      description: Returns labelled historical candle data for a specific period.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PITRecallRequest'
+      responses:
+        '200':
+          description: Historical candle data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_PITRecall'
+
   /api/v1/discovery/gaps:
     get:
       summary: Discover data gaps
@@ -4368,6 +4387,14 @@ components:
           type: integer
         is_complete:
           type: boolean
+        ai_labels:
+          type: object
+          nullable: true
+          description: "Automated labels (e.g., fake_sweep, expansion_confirmed)"
+        regime_tag:
+          type: string
+          nullable: true
+          description: "Market regime classification"
 
     APIResponse_RiskCheckResponse:
       allOf:
@@ -4829,6 +4856,9 @@ components:
           enum: [BULLISH, BEARISH]
         stop_loss:
           type: number
+        signal_price:
+          type: number
+          description: Price at the time of signal generation for slippage calculation
         generated_by:
           type: string
         reason:
@@ -6796,6 +6826,44 @@ components:
           nullable: true
         bot_configured:
           type: boolean
+
+    PITRecallRequest:
+      type: object
+      required:
+        - symbol
+        - timeframe
+        - start_time
+        - end_time
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        include_labels:
+          type: boolean
+          default: true
+
+    PITRecallResponse:
+      type: object
+      properties:
+        candles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Candle'
+
+    APIResponse_PITRecall:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PITRecallResponse'
 
     SendTelegramMessageRequest:
       type: object

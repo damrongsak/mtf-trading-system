@@ -36,12 +36,14 @@ class RiskLimitsAgent:
         daily_pnl_raw = await rc.get(f"account_stats:daily_pnl:{broker_account_id}")
         daily_pnl = float(daily_pnl_raw) if daily_pnl_raw else 0.0
         
-        if fund.max_drawdown_threshold and daily_pnl < -(fund.max_drawdown_threshold):
+        max_drawdown = getattr(fund, "max_drawdown_threshold", None)
+        if max_drawdown and daily_pnl < -float(max_drawdown):
             raise ValueError(f"Risk Violation: Daily Drawdown Limit Reached (${abs(daily_pnl):.2f})")
 
         # --- 1b. Asset-Specific Risk Caps (Phase 11) ---
-        if fund.asset_risk_caps and symbol and risk_usd > 0:
-            asset_caps = fund.asset_risk_caps
+        asset_risk_caps = getattr(fund, "asset_risk_caps", {})
+        if asset_risk_caps and symbol and risk_usd > 0:
+            asset_caps = asset_risk_caps
             # Normalized symbol key (no underscores/slashes)
             norm_symbol = symbol.replace("_", "").replace("/", "").upper()
             
@@ -86,6 +88,26 @@ class RiskLimitsAgent:
                 
                 if recent_losses >= max_losses:
                     raise ValueError(f"Risk Violation: Consecutive Losses Limit Reached ({recent_losses} losses)")
+
+        # --- 3. Macro Volatility Circuit Breaker (Phase 1 / FMEA) ---
+        # Checks VIX (S&P 500 Vol) and GVZ (Gold Vol)
+        vix_raw = await rc.get("macro:vix")
+        gvz_raw = await rc.get("macro:gvz")
+        
+        vix = float(vix_raw) if vix_raw else 20.0
+        gvz = float(gvz_raw) if gvz_raw else 25.0
+        
+        # Thresholds (Could be moved to fund config)
+        vix_threshold = 35.0
+        gvz_threshold = 40.0
+        
+        if vix > vix_threshold:
+            logger.warning(f"⚠️ [Macro Citadel] VIX Extreme ({vix} > {vix_threshold}). Halting new trades.")
+            raise ValueError(f"System Halted: Market Volatility (VIX) too high for safe execution.")
+            
+        if "XAU" in symbol.upper() and gvz > gvz_threshold:
+            logger.warning(f"⚠️ [Macro Citadel] GVZ Extreme ({gvz} > {gvz_threshold}). Halting Gold trades.")
+            raise ValueError(f"System Halted: Gold Volatility (GVZ) too high.")
 
         return True
 

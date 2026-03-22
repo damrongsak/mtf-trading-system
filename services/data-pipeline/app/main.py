@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.routes import router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job, run_cot_sync_job, run_gvz_sync_job, run_search_sync_job, run_broker_sync_job
+from app.scheduler.jobs import run_ingestion_job, run_calendar_sync_job, run_news_sync_job, run_trade_sync_job, run_cot_sync_job, run_macro_sync_job, run_search_sync_job, run_broker_sync_job
 from app.logging_config import setup_logging
 from app.utils.scheduler_utils import with_tracing
 from app.utils.middleware import RequestIDMiddleware
@@ -54,8 +54,8 @@ async def start_scheduler():
     scheduler.add_job(with_tracing(run_cot_sync_job), 'interval', days=1, id='cot_sync_job', 
                       next_run_time=first_run, misfire_grace_time=3600)
     
-    # Schedule GVZ Sync every 5 minutes
-    scheduler.add_job(with_tracing(run_gvz_sync_job), 'interval', minutes=5, id='gvz_sync_job', 
+    # Schedule Macro Sync every 5 minutes (DXY, VIX, GVZ)
+    scheduler.add_job(with_tracing(run_macro_sync_job), 'interval', minutes=5, id='macro_sync_job', 
                       next_run_time=first_run, misfire_grace_time=60)
     
     # Schedule Broker Sync every 5 minutes (Phase 47)

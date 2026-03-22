@@ -54,6 +54,8 @@ class Candle(Base):
     
     # Dynamic Indicators (JSONB)
     indicators = Column(JSONB, nullable=True, comment="Flexible storage for calculated indicators (RSI, EMA, etc.)")
+    ai_labels = Column(JSONB, nullable=True, comment="Automated labels (e.g., fake_sweep, expansion_confirmed)")
+    regime_tag = Column(String(50), nullable=True, comment="Market regime classification")
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(),

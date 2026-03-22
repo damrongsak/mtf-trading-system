@@ -12,6 +12,8 @@ Name | Type | Description | Notes
 **close** | **number** |  | [default to undefined]
 **volume** | **number** |  | [default to undefined]
 **is_complete** | **boolean** |  | [optional] [default to undefined]
+**ai_labels** | **object** | Automated labels (e.g., fake_sweep, expansion_confirmed) | [optional] [default to undefined]
+**regime_tag** | **string** | Market regime classification | [optional] [default to undefined]
 
 ## Example
 
@@ -26,6 +28,8 @@ const instance: Candle = {
     close,
     volume,
     is_complete,
+    ai_labels,
+    regime_tag,
 };
 ```
 

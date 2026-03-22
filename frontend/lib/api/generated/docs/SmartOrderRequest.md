@@ -15,6 +15,8 @@ Name | Type | Description | Notes
 **confidence** | **number** |  | [optional] [default to 1.0]
 **pain_threshold** | **number** |  | [optional] [default to 10.0]
 **atr_multiplier** | **number** |  | [optional] [default to 1.0]
+**execution_algo** | **string** | Optional execution algorithm (TWAP, VWAP, SCALE_IN) | [optional] [default to undefined]
+**algo_params** | **object** | Parameters for the algorithm (e.g., {\&#39;duration\&#39;: 3600}) | [optional] [default to undefined]
 
 ## Example
 
@@ -32,6 +34,8 @@ const instance: SmartOrderRequest = {
     confidence,
     pain_threshold,
     atr_multiplier,
+    execution_algo,
+    algo_params,
 };
 ```
 

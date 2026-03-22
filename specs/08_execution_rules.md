@@ -98,6 +98,9 @@ These rules are dynamically enforced by the `Execution Service` via database con
     *   Hard Cap: Still constrained by the Hierarchical Limit.
 3.  **Min Lot Size**: Trades leading to lots < **0.01** (or broker min) are rejected.
 4.  **Volatility Guard**: If ATR > 100 pips (Flash Crash mode), trading is suspended.
+5.  **Momentum Displacement Limit**: Rejects `liquidity_sweep` signals if $V_d > 3\sigma$ (where $V_d$ is displacement velocity over 5 periods).
+6.  **Volume Delta Confirmation**: Sweeps MUST be accompanied by "Aggressive Absorption" (positive volume delta for bullish, negative for bearish).
+7.  **Macro Volatility Trigger**: If VIX or GVZ exceeds the 95th percentile threshold (e.g., VIX > 35), leverage is automatically reduced to 25% of the fund limit.
 
 ### 3.4 Hierarchical Citadel Filters (Phase 28+)
 The following filters operate on a Bottom-Up validation hierarchy (Strategy -> BrokerAccount -> Fund -> System). They are dynamically configured in the `risk_filters` table.

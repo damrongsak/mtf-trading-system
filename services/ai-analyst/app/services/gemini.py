@@ -81,12 +81,44 @@ class GeminiClient:
         
         # Circuit Breaker state: model_name -> expiration_timestamp (float)
         self._rate_limit_lockouts = {}
+        
+        # Phase 1: FMEA Guardrails
+        from app.services.monitoring import monitor
+        self.drift_monitor = monitor
+
+    async def _inject_safe_mode_instruction(self, contents: list) -> list:
+        """
+        Injects a Safe Mode warning if market drift is detected.
+        """
+        # This is a simplified check. In production, we'd pass the current OHLC to the monitor.
+        # For now, we assume the monitor is updated out-of-band by a background job.
+        # If we can't find a recent drift check, we default to False.
+        is_drifted = getattr(self.drift_monitor, "last_drift_status", False)
+        
+        if is_drifted:
+            safe_mode_msg = (
+                "\n\n[SAFE MODE ACTIVE: HIGH MARKET DRIFT DETECTED]\n"
+                "The current market environment significantly deviates from historical patterns. "
+                "Prioritize 'Wait' or 'Base SMC' recommendations. Be extremely conservative. "
+                "Avoid complex probabilistic predictions."
+            )
+            # Find the last text part and append
+            for content in reversed(contents):
+                if isinstance(content, str):
+                    # Replace the entire string with the appended version
+                    idx = contents.index(content)
+                    contents[idx] = content + safe_mode_msg
+                    break
+        return contents
 
     async def generate_content(self, model: Union[str, list], contents: list, config: dict = None, thinking_config: dict = None, api_key: str = None, response_schema: type = None, safety_settings: Optional[List[types.SafetySetting]] = None) -> dict:
         """
         Generic generation with support for Thinking models, Structured Output, and Active Fallback.
-        Implements a Circuit Breaker to instantly skip models currently under a 429 lockout.
+        Implements a Circuit Breaker and Safe Mode Guardrail.
         """
+        # Phase 1: Guardrail Injection
+        contents = await self._inject_safe_mode_instruction(contents)
+        
         models = [model] if isinstance(model, str) else model
         last_error = None
         

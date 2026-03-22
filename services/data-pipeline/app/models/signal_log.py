@@ -37,7 +37,7 @@ class SignalLog(Base):
 
     # Phase 9: Knowledge-Driven Intelligence
     knowledge_context = Column(JSONB, nullable=True)
-    knowledge_score = Column(Numeric(3, 2), nullable=True)
+    knowledge_score = Column(Numeric(5, 4), nullable=True)
 
 
     # Relationships

@@ -476,3 +476,54 @@ async def get_latest_tick(
             logger.error(f"Fetch tick failed: {e}")
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/history/pit")
+async def get_pit_historical_data(
+    symbol: str = Query(..., description="Symbol (e.g., XAUUSD)"),
+    timeframe: str = Query(..., description="Timeframe (e.g., 15m)"),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db)
+):
+    """
+    Get Point-in-Time (PIT) historical data with AI labels.
+    Direct DB access for institutional-grade auditability.
+    """
+    from app.models.candle import Candle
+    from sqlalchemy import and_
+    
+    try:
+        query = db.query(Candle).filter(
+            and_(
+                Candle.symbol == symbol.strip().upper(),
+                Candle.timeframe == timeframe
+            )
+        )
+        
+        if start_date:
+            query = query.filter(Candle.timestamp >= start_date)
+        if end_date:
+            query = query.filter(Candle.timestamp <= end_date)
+            
+        results = query.order_by(Candle.timestamp.desc()).limit(limit).all()
+        
+        data = [
+            {
+                "timestamp": c.timestamp.isoformat(),
+                "open": float(c.open),
+                "high": float(c.high),
+                "low": float(c.low),
+                "close": float(c.close),
+                "volume": float(c.volume) if c.volume else 0,
+                "ai_labels": c.ai_labels if hasattr(c, 'ai_labels') else {},
+                "regime_tag": c.regime_tag if hasattr(c, 'regime_tag') else None
+            }
+            for c in reversed(results)
+        ]
+        
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"PIT History failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")

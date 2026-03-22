@@ -4,6 +4,7 @@ import math
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+from types import SimpleNamespace
 from decimal import Decimal
 
 from fastapi import FastAPI, HTTPException, Depends, Body, Path
@@ -307,7 +308,7 @@ async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
 
     if account_data and credentials:
         # Mock account object for compatibility
-        account = type('obj', (object,), account_data)
+        account = SimpleNamespace(**account_data)
         return account, credentials
 
     # 2. Fallback to DB
@@ -341,7 +342,7 @@ async def get_account_and_credentials(account_id_str: str, db: AsyncSession):
                 "currency": getattr(account, 'currency', 'USD')
             }
             await execution_cache.set_account(account_id_str, account_data)
-            account = type('obj', (object,), account_data)
+            account = SimpleNamespace(**account_data)
 
         return account, credentials
     except Exception as e:
@@ -844,6 +845,7 @@ class SmartOrderRequest(BaseModel):
     symbol: str
     direction: str # BULLISH / BEARISH
     stop_loss: Optional[float] = None
+    signal_price: Optional[float] = None # For slippage guardrail
     take_profit: Optional[float] = None
     entry_price: Optional[float] = None
     time_in_force: Optional[str] = "GTC"
@@ -881,10 +883,13 @@ async def place_smart_order(authenticated: str = Depends(verify_internal_api_key
         req_data = req.dict()
         result = await OrderService.execute_smart_order(req_data, db)
         return success_response(data=result)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+    except ValueError as e:
+        logger.warning(f"Validation Error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Smart Order Error: {e}", exc_info=True)
+        if hasattr(e, "status_code"):
+            raise e
+        logger.error(f"Smart Order Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Redundant CancelOrderRequest removed (already defined above)

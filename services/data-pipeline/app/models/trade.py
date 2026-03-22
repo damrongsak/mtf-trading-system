@@ -105,7 +105,7 @@ class Trade(Base):
     # Phase 9: Knowledge-Driven Intelligence
     knowledge_context = Column(JSONB, nullable=True,
                               comment="GraphRAG context snapshot from FalkorDB")
-    knowledge_score = Column(Numeric(3, 2), nullable=True,
+    knowledge_score = Column(Numeric(5, 4), nullable=True,
                            comment="Semantic confidence score (0.0 to 1.5)")
 
     # Timestamps

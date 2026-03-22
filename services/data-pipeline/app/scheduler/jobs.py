@@ -764,40 +764,23 @@ async def run_trade_sync_job():
         await publisher.close()
         db.close()
 
-async def run_gvz_sync_job():
-    """Scheduled job to fetch Gold Volatility Index (^GVZ) from yfinance and push to Redis."""
-    logger.info("Starting scheduled GVZ Sync job...")
+async def run_macro_sync_job():
+    """Scheduled job to fetch Macro Indicators (DXY, VIX, GVZ) from yfinance and push to Redis."""
+    logger.info("Starting scheduled Macro Sync job...")
     try:
-        import yfinance as yf
+        from app.adapters.yfinance_adapter import yfinance_adapter
         from app.streaming.publisher import RedisPublisher
-        
-        # Period: 1d to get the most recent daily close
-        gvz = yf.Ticker("^GVZ")
-        hist = gvz.history(period="1d")
-        
-        if hist.empty:
-            logger.warning("No GVZ data found from yfinance.")
-            return
-
-        latest_value = float(hist['Close'].iloc[-1])
-        timestamp = str(hist.index[-1].isoformat())
-        
-        payload = {
-            "symbol": "^GVZ",
-            "value": latest_value,
-            "timestamp": timestamp,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
         
         publisher = RedisPublisher()
         await publisher.connect()
-        # Key: market_data:gvz (used by strategy-core as projected volatility input)
-        await publisher.redis.set("market_data:gvz", json.dumps(payload))
-        await publisher.close()
         
-        logger.info(f"GVZ sync job completed: {latest_value} at {timestamp}")
+        await yfinance_adapter.sync_all_macro(publisher)
+        
+        await publisher.close()
+        logger.info("Macro sync job completed successfully.")
         
     except Exception as e:
+        logger.error(f"Macro sync job failed: {e}")
         logger.error(f"GVZ sync job failed: {e}")
 
 async def run_broker_sync_job():

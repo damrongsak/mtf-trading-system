@@ -592,6 +592,15 @@ entities:
         type: jsonb
         nullable: true
         description: "Flexible storage for calculated indicators"
+      - name: ai_labels
+        type: jsonb
+        nullable: true
+        description: "Automated labels (e.g., fake_sweep, expansion_confirmed)"
+      - name: regime_tag
+        type: string
+        nullable: true
+        max_length: 50
+        description: "Market regime classification (e.g., expansion, markdown)"
       - name: created_at
         type: datetime
         default: "now()"

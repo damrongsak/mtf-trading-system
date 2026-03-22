@@ -19,6 +19,10 @@ Name | Type | Description | Notes
 **net_exposure_limit** | **number** |  | [optional] [default to undefined]
 **position_limit_single** | **number** |  | [optional] [default to undefined]
 **position_limit_sector** | **number** |  | [optional] [default to undefined]
+**risk_parity_enabled** | **boolean** |  | [optional] [default to false]
+**risk_parity_model** | **string** |  | [optional] [default to RiskParityModelEnum_Hrp]
+**scale_factor** | **number** | Institutional risk multiplier | [optional] [default to 1.0]
+**asset_risk_caps** | **{ [key: string]: number; }** | Per-asset risk limits (e.g. {\&#39;XAUUSD\&#39;: 0.02}) | [optional] [default to undefined]
 
 ## Example
 
@@ -40,6 +44,10 @@ const instance: Fund = {
     net_exposure_limit,
     position_limit_single,
     position_limit_sector,
+    risk_parity_enabled,
+    risk_parity_model,
+    scale_factor,
+    asset_risk_caps,
 };
 ```
 
