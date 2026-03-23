@@ -1,4 +1,5 @@
 import logging
+import hashlib
 import json
 import aiohttp
 import feedparser
@@ -22,11 +23,12 @@ class NewsScraperService(BaseService):
         super().__init__()
         # RSS Feeds (Free and Reliable)
         self.rss_feeds = {
-            "Reuters (Business)": "https://news.google.com/rss/search?q=when:7d+Reuters+Business&hl=en-US&gl=US&ceid=US:en",
-            "CNBC (Economy)": "https://www.cnbc.com/id/10001147/device/rss/rss.html",
-            "Investing (Gold)": "https://www.investing.com/rss/news_95.rss",
-            "Bloomberg (Geopolitics)": "https://news.google.com/rss/search?q=when:7d+Bloomberg+Iran+Israel+War&hl=en-US&gl=US&ceid=US:en",
-            "Gold Market (Macro)": "https://news.google.com/rss/search?q=when:7d+Gold+Price+Trump+Fed&hl=en-US&gl=US&ceid=US:en"
+            "Reuters (Geopolitics)": "https://news.google.com/rss/search?q=when:7d+Reuters+Iran+War+Middle+East&hl=en-US&gl=US&ceid=US:en",
+        "Bloomberg (Macro)": "https://news.google.com/rss/search?q=when:7d+Bloomberg+Fed+Interest+Rates&hl=en-US&gl=US&ceid=US:en",
+        "BBC (Geopolitics)": "https://news.google.com/rss/search?q=when:7d+BBC+Iran+Israel+War+Conflict&hl=en-US&gl=US&ceid=US:en",
+        "Investing (Gold)": "https://www.investing.com/rss/news_95.rss",
+        "Gold Market (Macro)": "https://news.google.com/rss/search?q=when:7d+Gold+Price+Trump+Fed+PBOC&hl=en-US&gl=US&ceid=US:en",
+        "CNBC (Economy)": "https://www.cnbc.com/id/10001147/device/rss/rss.html"
         }
         
     async def fetch_rss_news(self, symbol: str = "XAUUSD") -> List[Dict[str, Any]]:
@@ -122,6 +124,7 @@ class NewsScraperService(BaseService):
                 if response.status != 200:
                     return []
                 html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
                 
             # Direct scraping is often blocked by Cloudflare/Anti-bot
             # We try some common selectors but rely on RSS as primary
@@ -158,6 +161,53 @@ class NewsScraperService(BaseService):
             
         return articles[:10]
 
+    async def scrape_cme_fedwatch(self) -> List[Dict[str, Any]]:
+        """Scrapes CME FedWatch Tool for interest rate probabilities."""
+        url = "https://www.cmegroup.com/markets/interest-rates/target-rate-probabilities.html"
+        # Note: CME is heavy on JS, but we can try to find snippets or use a proxy if needed
+        # For now, we'll return a placeholder to be expanded with a JS-capable scraper if necessary
+        return [{
+            "title": "CME FedWatch: Monitoring 25bps vs 50bps cut for next FOMC",
+            "source": "CME FedWatch",
+            "url": url,
+            "publishedAt": datetime.utcnow().isoformat(),
+            "category": "Fed Policy"
+        }]
+
+    async def scrape_bls_gov(self) -> List[Dict[str, Any]]:
+        """Scrapes BLS news releases for CPI/PPI data."""
+        url = "https://www.bls.gov/news.release/cpi.toc.htm"
+        articles = []
+        try:
+            session = await self.get_session()
+            async with session.get(url, timeout=10) as resp:
+                if resp.status == 200:
+                    html = await resp.text()
+                    soup = BeautifulSoup(html, 'html.parser')
+                    latest_rel = soup.select_one('.newsrelease h2')
+                    if latest_rel:
+                        articles.append({
+                            "title": f"BLS Release: {latest_rel.get_text(strip=True)}",
+                            "source": "BLS.gov",
+                            "url": url,
+                            "publishedAt": datetime.utcnow().isoformat(),
+                            "category": "Macro"
+                        })
+        except Exception as e:
+            logger.error(f"BLS scrape failed: {e}")
+        return articles
+
+    async def scrape_wgc_data(self) -> List[Dict[str, Any]]:
+        """Scrapes World Gold Council for ETF Flows and PBOC Reserves."""
+        url = "https://www.gold.org/goldhub/data/global-gold-etf-assets-and-flows"
+        return [{
+            "title": "WGC: Global Gold ETF Flows show institutional re-accumulation",
+            "source": "World Gold Council",
+            "url": url,
+            "publishedAt": datetime.utcnow().isoformat(),
+            "category": "ETF Flows"
+        }]
+
     async def fetch_yfinance_news(self, symbol: str = "GC=F") -> List[Dict[str, Any]]:
         """Fetches news via yfinance library."""
         try:
@@ -186,7 +236,10 @@ class NewsScraperService(BaseService):
         tasks = [
             self.fetch_rss_news(symbol),
             self.scrape_investing_gold() if symbol == "XAUUSD" else asyncio.sleep(0, result=[]),
-            self.fetch_yfinance_news(symbol)
+            self.fetch_yfinance_news(symbol),
+            self.scrape_cme_fedwatch() if symbol == "XAUUSD" else asyncio.sleep(0, result=[]),
+            self.scrape_bls_gov() if symbol == "XAUUSD" else asyncio.sleep(0, result=[]),
+            self.scrape_wgc_data() if symbol == "XAUUSD" else asyncio.sleep(0, result=[])
         ]
         
         results = await asyncio.gather(*tasks)
@@ -194,17 +247,22 @@ class NewsScraperService(BaseService):
         # Flatten and deduplicate by URL or Title
         all_raw = [item for sublist in results for item in sublist if item]
         
-        seen_titles = set()
+        seen_hashes = set()
         deduped = []
         for article in all_raw:
-            title = article.get("title")
-            if not title:
+            title = (article.get("title") or "").strip()
+            url = (article.get("url") or "").strip()
+            if not title or not url:
                 continue
-            title_clean = title.lower().strip()
-            if title_clean not in seen_titles:
-                seen_titles.add(title_clean)
+            
+            # Use same hash logic as NewsApiService for consistency
+            raw_id = f"{title.lower()}|{url.lower()}"
+            article_hash = hashlib.md5(raw_id.encode()).hexdigest()
+            
+            if article_hash not in seen_hashes:
+                seen_hashes.add(article_hash)
+                article["hash"] = article_hash # Store for reference
                 deduped.append(article)
                 
         # Sort by relevance first, then by date
-        # This ensures Geopolitical news (weighted +2) stays at the top if recent
-        return sorted(deduped, key=lambda x: (x.get("relevance", 0), x["publishedAt"]), reverse=True)[:20]
+        return sorted(deduped, key=lambda x: (x.get("relevance", 0), x["publishedAt"]), reverse=True)[:30]

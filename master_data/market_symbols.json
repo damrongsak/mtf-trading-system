@@ -308,7 +308,7 @@
     "symbol": "GBPUSD",
     "display_name": "GBPUSD",
     "order_index": 999,
-    "is_active": true,
+    "is_active": false,
     "details": {
       "raw": {
         "digits": 5,
@@ -496,7 +496,7 @@
     "symbol": "XBRUSD",
     "display_name": "XBRUSD",
     "order_index": 999,
-    "is_active": true,
+    "is_active": false,
     "details": {
       "raw": {
         "digits": 2,

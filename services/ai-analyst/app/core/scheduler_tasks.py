@@ -110,6 +110,12 @@ async def check_sentiment_risk_drift():
         # 1. Get Current Sentiment
         current_data = await sentiment_service.get_sentiment(symbol="XAUUSD")
         current_score = current_data.get("score", 0.0)
+        reason = current_data.get("reason", "")
+        
+        # Guard against fallback/error scores to prevent false drift alerts
+        if current_score == 0.0 and any(x in reason for x in ["No recent news", "Error", "Unavailable", "Empty"]):
+            logger.warning(f"⚠️ Skipping sentiment drift check due to invalid score: {reason}")
+            return
         
         # 2. Get Previous Score from Redis (using SentimentService's redis client)
         prev_key = "sentiment:previous_score:XAUUSD"
@@ -246,6 +252,12 @@ async def _auto_apply_rebalance(fund_id: str, recommendation: dict, drift: float
             "risk_percentage": recommendation.get("risk_percentage", previous_config["risk_percentage"]),
             "max_drawdown_threshold": recommendation.get("max_drawdown_threshold", previous_config["max_drawdown_threshold"])
         }
+
+        # Guard: If config is already at recommended levels, skip apply and notify
+        if (abs(float(applied_config["risk_percentage"]) - float(previous_config["risk_percentage"])) < 0.01 and 
+            abs(float(applied_config["max_drawdown_threshold"]) - float(previous_config["max_drawdown_threshold"])) < 0.01):
+            logger.info(f"⏭️ Risk for fund {fund_id} is already at recommended levels. Skipping auto-apply.")
+            return
         
         # Update fund config
         db.execute(
@@ -386,11 +398,11 @@ async def _notify_fund_owners(fund_id: str, message: str):
                 await send_telegram_message(chat_id, message)
                 logger.info(f"📱 Telegram alert sent to chat_id={chat_id} for fund {fund_id}")
                 
-                # Set Throttle Key (15 mins TTL)
+                # Set Throttle Key (4 hours TTL to avoid spamming user every 15m)
                 redis = services.get("redis")
                 if redis:
                     throttle_key = f"alert_throttle:sentiment_drift:{fund_id}"
-                    await redis.setex(throttle_key, 900, "1")
+                    await redis.setex(throttle_key, 14400, "1")
             except Exception as e:
                 logger.error(f"Failed to send Telegram to {chat_id}: {e}")
     finally:

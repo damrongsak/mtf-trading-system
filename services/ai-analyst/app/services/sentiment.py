@@ -2,6 +2,7 @@ import json
 import redis.asyncio as redis
 import logging
 import hashlib
+import aiohttp
 from app.core.config import settings
 from app.core.schemas import SentimentResult
 from datetime import datetime, timedelta
@@ -14,7 +15,7 @@ class SentimentService:
     def __init__(self):
         # We now use the global gemini client from services dict
         self.redis = redis.from_url(settings.redis.url, decode_responses=True)
-        self.cache_ttl = 900 # 15 minutes (synced with scheduler frequency)
+        self.cache_ttl = 7200 # 2 hours (Efficiency Refinement)
 
     async def close(self):
         """Close Redis connection."""
@@ -64,7 +65,7 @@ class SentimentService:
             if drivers:
                 drivers_key = f"news:dynamic_keywords:{symbol}"
                 # We store as a JSON list, Scraper will consume it
-                await self.redis.setex(drivers_key, 3600, json.dumps(drivers)) # 1 hour TTL
+                await self.redis.setex(drivers_key, 7200, json.dumps(drivers)) # 2 hours TTL
                 logger.info(f"🧠 Updated Dynamic Key Drivers for {symbol}: {drivers}")
                 
             logger.info(f"💾 Cached new sentiment for {symbol} (Hash: {headlines_hash[:8]}...)")
@@ -102,14 +103,23 @@ class SentimentService:
             cached = await self.redis.get(cache_key)
             if cached:
                 headlines = json.loads(cached)
-                # Truncate to save context window/tokens
-                headlines = headlines[:20]
-                return [f"- {h['title']} ({h['source']})" for h in headlines]
-            
-            logger.warning(f"No headlines found in Redis for {symbol}. Ensure news-sync is running.")
-            return []
+            else:
+                # Proactive fallback: Fetch from Data Pipeline API directly
+                logger.info(f"Proactive fetch for {symbol} headlines from Data Pipeline...")
+                data_pipeline_url = f"{settings.DATA_PIPELINE_URL}/api/v1/news/headlines?symbol={symbol}"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(data_pipeline_url, timeout=10) as resp:
+                        if resp.status == 200:
+                            headlines = await resp.json()
+                        else:
+                            logger.error(f"Proactive fetch failed: HTTP {resp.status}")
+                            return []
+
+            # Truncate and format
+            headlines = headlines[:20]
+            return [f"- {h['title']} ({h.get('source', 'Unknown')})" for h in headlines if 'title' in h]
         except Exception as e:
-            logger.error(f"Failed to fetch news from Redis: {e}")
+            logger.error(f"Failed to fetch news (Redis/Fallback): {e}")
             return []
 
     async def _analyze_headlines_optimized(self, symbol: str, headlines: list[str]) -> dict:

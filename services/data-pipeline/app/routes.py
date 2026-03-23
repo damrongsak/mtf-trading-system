@@ -435,6 +435,28 @@ async def get_news_headlines(
     service = NewsApiService()
     return await service.fetch_headlines(symbol)
 
+@router.get("/news/cache/{symbol}", response_model=List[dict])
+async def get_cached_news_headlines(
+    symbol: str,
+):
+    """
+    Get raw headlines directly from Redis cache (L2).
+    """
+    from redis import asyncio as aioredis
+    from app.core.config import settings
+    import json
+    
+    redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    try:
+        cache_key = f"news:headlines:{symbol.upper()}"
+        cached_data = await redis_client.get(cache_key)
+        if not cached_data:
+            raise HTTPException(status_code=404, detail=f"No cached news found for {symbol}")
+            
+        return json.loads(cached_data)
+    finally:
+        await redis_client.close()
+
 @router.post("/news/sentiment", response_model=SentimentResponse, status_code=201)
 def save_news_sentiment(
     payload: SentimentCreate,

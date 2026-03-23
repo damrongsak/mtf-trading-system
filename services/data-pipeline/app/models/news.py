@@ -13,6 +13,9 @@ class NewsArticle(Base):
     url = Column(String, nullable=False)
     published_at = Column(DateTime(timezone=True), nullable=False, index=True)
     
-    symbol = Column(String, index=True, nullable=True) # Optional link to symbol
+    symbol = Column(String, index=True, nullable=True)
+    category = Column(String, nullable=True) # e.g. Geopolitics, Fed Policy
+    relevance_score = Column(Integer, default=0)
+    impact_rationale = Column(String, nullable=True) # The "Why"
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

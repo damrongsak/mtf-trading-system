@@ -43,6 +43,25 @@ async def get_headlines(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
+@router.get("/cache/{symbol}")
+async def get_cached_headlines(
+    symbol: str,
+):
+    """
+    Proxy to Data Pipeline: Get Raw Redis Headlines
+    """
+    async with await get_internal_client() as client:
+        try:
+            response = await client.get(
+                f"{DATA_SERVICE_URL}/api/v1/news/cache/{symbol}",
+                timeout=5.0
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Cache fetch failed: {str(e)}")
+
 @router.get("/sentiment/history")
 async def get_sentiment_history(
     symbol: Optional[str] = Query(None),

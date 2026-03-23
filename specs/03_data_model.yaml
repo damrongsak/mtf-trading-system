@@ -2261,6 +2261,20 @@ validation_rules:
       - name: symbol
         type: string
         nullable: true
+      - name: category
+        type: string
+        nullable: true
+        description: "News Category (e.g. Geopolitics, Fed Policy, Macro)"
+      - name: relevance_score
+        type: integer
+        default: 0
+        description: "Scraper-calculated relevance (0-10)"
+      - name: impact_rationale
+        type: text
+        nullable: true
+        description: "Brief explanation of why this news matters (The 'Why')"
+      - name: created_at
+        type: datetime
         default: "now()"
 
   RiskFilter:

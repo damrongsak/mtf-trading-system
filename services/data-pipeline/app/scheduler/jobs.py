@@ -14,6 +14,7 @@ from app.streaming.publisher import RedisPublisher
 from app.utils.retry import async_retry
 from app.utils.crypto import decrypt_data
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 import json
 
 def decrypt_and_parse(val):
@@ -616,6 +617,25 @@ async def run_news_sync_job():
         logger.error(f"News sync job failed: {e}")
     finally:
         await news_service.close()
+        db.close()
+
+async def run_cleanup_old_news_job(days: int = 7):
+    """Scheduled job to delete news articles older than X days."""
+    logger.info(f"Starting scheduled News Cleanup job... (Retention: {days} days)")
+    db = SessionLocal()
+    try:
+        # Retention cutoff
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        result = db.execute(
+            text("DELETE FROM news_articles WHERE published_at < :cutoff"),
+            {"cutoff": cutoff}
+        )
+        db.commit()
+        logger.info(f"News cleanup job completed. Deleted {result.rowcount} old articles.")
+    except Exception as e:
+        logger.error(f"News cleanup job failed: {e}")
+        db.rollback()
+    finally:
         db.close()
 
 async def run_trade_sync_job():

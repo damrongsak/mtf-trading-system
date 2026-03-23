@@ -90,8 +90,8 @@ class NewsApiService(BaseService):
         scraped_news = await self.scraper.get_all_news(symbol)
         if scraped_news:
             logger.info(f"✨ Successfully scraped {len(scraped_news)} news items for {symbol}. Prioritizing over NewsAPI.")
-            # Cache the results for 15 minutes to avoid hitting sites too hard
-            await self._cache_set(cache_key, scraped_news, ttl=900)
+            # Cache the results for 2 hours (Updated for Efficiency Refinement)
+            await self._cache_set(cache_key, scraped_news, ttl=7200)
             return scraped_news
 
         # 3. FALLBACK TO NEWSAPI (If scraper returns nothing or fails)
@@ -176,12 +176,14 @@ class NewsApiService(BaseService):
         
         new_count = 0
         for item in headlines:
+            title = (item.get("title") or "").strip()
             url = item.get("url")
-            if not url:
+            if not url or not title:
                 continue
                 
-            # Deduplication hash: URL
-            ext_id = hashlib.md5(url.encode()).hexdigest()
+            # Compound Deduplication hash: Title + URL (Refined)
+            raw_id = f"{title.lower()}|{url.lower()}"
+            ext_id = hashlib.md5(raw_id.encode()).hexdigest()
             
             exists = db.query(NewsArticle).filter(NewsArticle.external_id == ext_id).first()
             if exists:
@@ -200,7 +202,10 @@ class NewsApiService(BaseService):
                 source=item.get("source"),
                 url=url,
                 published_at=pub_at,
-                symbol=symbol
+                symbol=symbol,
+                category=item.get("category"),
+                relevance_score=item.get("relevance", 0),
+                impact_rationale=item.get("rationale")
             )
             db.add(article)
             new_count += 1
