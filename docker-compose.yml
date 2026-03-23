@@ -113,6 +113,9 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - NO_PROXY=*
       - REDIS_URL=redis://redis:6379/0
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
       - WEB_CONCURRENCY=1
@@ -120,15 +123,15 @@ services:
       - PYTHONPATH=/app:/app/deps
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     deploy:
       resources:
         limits:
-          cpus: "0.25"
-          memory: 384M
+          cpus: "0.50"
+          memory: 1024M
     networks:
       - default
       - external

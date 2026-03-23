@@ -42,6 +42,7 @@ class OandaClient:
         }
         params.update(kwargs) # Merge additional parameters
         
+
         try:
             # Use broker_symbol if provided, else fallback to OANDA's expected underscore format
             norm_symbol = broker_symbol or symbol.replace('/', '_')
@@ -50,11 +51,14 @@ class OandaClient:
             
             logger.info(f"Fetching OANDA candles for {symbol} | TF: {timeframe} (Mapped: {oanda_tf}) | Count: {count}")
             
-            self.client.request(r)
-            return r.response.get('candles', [])
+            resp = self.client.request(r)
+            if not resp:
+                logger.warning(f"OANDA returned empty response for {symbol}")
+                return []
+            return resp.get('candles', [])
         except Exception as e:
             logger.error(f"Failed to fetch candles for {symbol}: {e}")
-            raise e
+            return [] # Return empty instead of raising to allow continuation
 
     def get_open_positions(self) -> List[dict]:
         """

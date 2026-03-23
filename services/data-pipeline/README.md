@@ -151,6 +151,36 @@ docker compose exec data-pipeline python scripts/startup_check.py
 docker compose exec data-pipeline curl -X POST "http://localhost:8000/api/v1/news/calendar/sync"
 ```
 
+## 🕰️ Historical Data Backfill (Manual)
+
+The `data-pipeline` service provides dedicated scripts to backfill historical OHLCV candles from multiple data sources. These scripts must be executed directly inside the container and will populate the PostgreSQL `candles` table.
+
+### 1. cTrader Backfill
+Fetches trendbars from all active mapped cTrader accounts. Timeframes `M1` to `MN1`.
+```bash
+docker compose exec data-pipeline python scripts/backfill_ctrader_candles.py --days 30
+```
+
+### 2. OANDA Backfill
+Fetches historical candles for all active Forex/CFD symbols routed to OANDA. Timeframes `M1` to `MN1`.
+```bash
+docker compose exec data-pipeline python scripts/backfill_oanda_candles.py --days 30
+```
+
+### 3. Binance Backfill (Crypto)
+Fetches historical spot Klines strictly for `BTCUSDT` and `ETHUSDT` directly via the Binance Public API. Timeframes `M1` to `MN1`. *Automatically seeds required `DataSource` and `MarketSymbol` entries upon first run.*
+```bash
+docker compose exec data-pipeline python scripts/backfill_binance_candles.py --days 30
+```
+
+### 4. Yahoo Finance Backfill (Macro)
+Fetches bounding historical daily (`D1`) and weekly (`W1`) data for macroeconomic indicators critical to Hybrid Predictors and FMEA Guardrails (`^VIX`, `^GVZ`, `DX-Y.NYB`, `TIP`, `^GSPC`).
+```bash
+docker compose exec data-pipeline python scripts/backfill_yfinance_candles.py --days 365
+```
+
+> **Note**: Backfill jobs automatically deduplicate existing records using `ON CONFLICT` style logic. They can be safely run multiple times without causing Database constraints errors.
+
 ---
 
 ## 📂 Directory Structure
