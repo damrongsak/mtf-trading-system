@@ -26,7 +26,7 @@ class Candle(Base):
     high = Column(Numeric(18, 8), nullable=False)
     low = Column(Numeric(18, 8), nullable=False)
     close = Column(Numeric(18, 8), nullable=False)
-    volume = Column(Numeric(18, 8), nullable=False)
+    volume = Column(Numeric(24, 8), nullable=False)
     is_complete = Column(Boolean, default=True)
 
     # Dynamic Indicators (JSONB)

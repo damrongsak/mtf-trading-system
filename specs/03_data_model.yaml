@@ -539,7 +539,7 @@ entities:
         description: "Closing price"
       - name: volume
         type: decimal
-        precision: 18
+        precision: 24
         scale: 8
         required: true
         description: "Trading volume"

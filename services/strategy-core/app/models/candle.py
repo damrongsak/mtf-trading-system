@@ -34,7 +34,7 @@ class Candle(Base):
                 comment="Lowest price")
     close = Column(Numeric(18, 8), nullable=False,
                   comment="Closing price")
-    volume = Column(Numeric(18, 8), nullable=False,
+    volume = Column(Numeric(24, 8), nullable=False,
                    comment="Trading volume")
     is_complete = Column(Boolean, default=True, comment="Whether the candle is closed/complete")
 

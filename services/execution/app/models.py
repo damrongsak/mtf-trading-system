@@ -151,7 +151,7 @@ class Candle(Base):
     high = Column(Numeric, nullable=False)
     low = Column(Numeric, nullable=False)
     close = Column(Numeric, nullable=False)
-    volume = Column(Numeric, nullable=False)
+    volume = Column(Numeric(24, 8), nullable=False)
 
 class Trade(Base):
     __tablename__ = "trades"
