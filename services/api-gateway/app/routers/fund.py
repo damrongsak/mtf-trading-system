@@ -14,8 +14,12 @@ from app.schemas.generated import (
     Fund as GeneratedFund,
     FundCreate as GeneratedFundCreate,
     FundUpdate as GeneratedFundUpdate,
-    StrategyType
+    StrategyType,
+    RiskParityData,
+    APIResponse_RiskParityData
 )
+import json
+from app.utils.redis_client import get_redis_client
 
 router = APIRouter(
     prefix="/api/v1/funds",
@@ -300,3 +304,95 @@ async def delete_fund(
     db.commit()
     
     return None
+@router.get("/{fund_id}/risk-parity", response_model=APIResponse_RiskParityData)
+async def get_fund_risk_parity(
+    fund_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER]))
+):
+    """
+    Get real-time risk parity weights and AI sentiment for a fund.
+    """
+    rc = await get_redis_client()
+    
+    # 1. Fetch Weights from Redis
+    weights_json = await rc.get(f"fund:{fund_id}:risk_parity_weights")
+    if not weights_json:
+        return success_response(
+            data=RiskParityData(symbols=[], rebalance_interval_hours=6),
+            message="No risk parity weights found for this fund."
+        )
+    
+    # 2. Fetch Correlation and Active Symbols [PHASE 40]
+    correlation_json = await rc.get(f"fund:{fund_id}:correlation_stats")
+    active_symbols = await rc.smembers(f"fund:{fund_id}:active_symbols")
+    
+    market_integration_score = 0.0
+    systemic_alert = False
+    asset_loadings = {}
+    high_correlation_assets = []
+    
+    if correlation_json:
+        try:
+            corr_data = json.loads(correlation_json)
+            market_integration_score = float(corr_data.get("market_integration_score", 0.0))
+            systemic_alert = bool(corr_data.get("systemic_alert", False))
+            asset_loadings = corr_data.get("asset_loadings", {})
+            high_correlation_assets = corr_data.get("high_correlation_assets", [])
+        except: pass
+        
+    try:
+        weights = json.loads(weights_json)
+        symbols_data = []
+        
+        for symbol, weight in weights.items():
+            # 3. Fetch Sentiment from Redis
+            sentiment_json = await rc.get(f"sentiment:{symbol}")
+            score = 0.0
+            reason = "No recent sentiment analysis"
+            scaling_multiplier = 1.0
+            
+            if sentiment_json:
+                try:
+                    sent_data = json.loads(sentiment_json)
+                    score = float(sent_data.get("score", 0.0))
+                    reason = sent_data.get("reason", "Analyzed by AI")
+                    
+                    if score >= 0.3:
+                        scaling_multiplier = 1.0 + (score / 4.0)
+                    elif score <= -0.3:
+                        scaling_multiplier = 0.5
+                except: pass
+            
+            # 4. Correlation Context [PHASE 40]
+            pc1_loading = float(asset_loadings.get(symbol, 0.0))
+            is_systemic = symbol in high_correlation_assets
+            kc = 1.0
+            if systemic_alert and is_systemic:
+                # Reflection of Kc logic in parity.py
+                others_active = [s for s in active_symbols if s in high_correlation_assets and s != symbol]
+                if others_active:
+                    kc = 0.7
+            
+            symbols_data.append({
+                "symbol": symbol,
+                "weight": float(weight),
+                "sentiment_score": score,
+                "sentiment_reason": reason,
+                "scaling_multiplier": scaling_multiplier,
+                "pc1_loading": pc1_loading,
+                "is_systemic": is_systemic,
+                "kc_multiplier": kc
+            })
+            
+        return success_response(
+            data=RiskParityData(
+                symbols=symbols_data,
+                market_integration_score=market_integration_score,
+                systemic_alert=systemic_alert,
+                last_rebalanced=None,
+                rebalance_interval_hours=6
+            )
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing risk parity data: {str(e)}")

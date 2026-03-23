@@ -1432,12 +1432,25 @@ entities:
       - name: parameters
         type: jsonb
         default: "{}"
+      - name: last_results
+        type: jsonb
+        nullable: true
+      - name: last_optimization_result
+        type: jsonb
+        nullable: true
+      - name: last_simulation_result
+        type: jsonb
+        nullable: true
       - name: is_public
         type: boolean
         default: false
       - name: created_at
         type: datetime
         default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
       - name: updated_at
         type: datetime
         default: "now()"
@@ -1578,36 +1591,6 @@ validation_rules:
         type: datetime
         default: "now()"
 
-  SavedStrategy:
-    description: "User-defined custom strategy code repository"
-    table_name: "saved_strategies"
-    indexes:
-      - fields: ["user_id"]
-      - fields: ["name"]
-    fields:
-      - name: id
-        type: uuid
-        primary_key: true
-      - name: user_id
-        type: uuid
-        foreign_key: "users.id"
-        required: true
-      - name: name
-        type: string
-        required: true
-        max_length: 100
-      - name: description
-        type: text
-        nullable: true
-      - name: code
-        type: text
-        required: true
-        description: "Python source code of the strategy"
-      - name: is_public
-        type: boolean
-        default: false
-      - name: last_results
-        type: jsonb
         nullable: true
         description: "Persisted backtest metrics and plot"
       - name: last_optimization_result

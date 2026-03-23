@@ -6,7 +6,6 @@ All URIs are relative to *http://localhost*
 |------------- | ------------- | -------------|
 |[**apiV1AiAdminQdrantHealthGet**](#apiv1aiadminqdranthealthget) | **GET** /api/v1/ai/admin/qdrant/health | Get Qdrant Health Status|
 |[**apiV1SystemHaltPost**](#apiv1systemhaltpost) | **POST** /api/v1/system/halt | Emergency System Halt|
-|[**apiV1SystemQueueHealthGet**](#apiv1systemqueuehealthget) | **GET** /api/v1/system/queue-health | Get Async Execution Queue Health|
 |[**apiV1SystemResumePost**](#apiv1systemresumepost) | **POST** /api/v1/system/resume | Emergency System Resume|
 
 # **apiV1AiAdminQdrantHealthGet**
@@ -94,50 +93,6 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | System Halted |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **apiV1SystemQueueHealthGet**
-> APIResponse apiV1SystemQueueHealthGet()
-
-Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
-
-### Example
-
-```typescript
-import {
-    SystemApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new SystemApi(configuration);
-
-const { status, data } = await apiInstance.apiV1SystemQueueHealthGet();
-```
-
-### Parameters
-This endpoint does not have any parameters.
-
-
-### Return type
-
-**APIResponse**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/json
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**200** | Queue Health Data |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

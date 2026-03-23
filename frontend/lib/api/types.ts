@@ -308,6 +308,25 @@ export interface Fund {
     position_limit_sector: number | null;
 }
 
+export interface RiskParitySymbolData {
+    symbol: string;
+    weight: number;
+    sentiment_score: number;
+    sentiment_reason: string;
+    scaling_multiplier: number;
+    pc1_loading: number;
+    is_systemic: boolean;
+    kc_multiplier: number;
+}
+
+export interface RiskParityData {
+    symbols: RiskParitySymbolData[];
+    market_integration_score: number;
+    systemic_alert: boolean;
+    last_rebalanced?: string | null;
+    rebalance_interval_hours: number;
+}
+
 export interface UserPreferences {
     id: string;
     user_id: string;

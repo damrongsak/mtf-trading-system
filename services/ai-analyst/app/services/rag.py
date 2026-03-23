@@ -222,10 +222,17 @@ class RAGService:
 
     async def _get_embedding(self, text: str) -> list[float]:
         """Generate embedding using Gemini API."""
+        if not text or not isinstance(text, str) or not text.strip():
+            logger.warning("Empty or invalid text provided for embedding. Returning zero vector.")
+            return [0.0] * 3072
+
         try:
+            # Clean text to ensure no weird control characters are passed
+            clean_text = text.strip()
+            
             result = await self.gemini.client.aio.models.embed_content(
-                model="models/gemini-embedding-001",
-                contents=text
+                model="models/text-embedding-004", # Upgrading to the latest robust model
+                contents=clean_text
             )
             # Handle new SDK response structure
             if hasattr(result, 'embeddings') and result.embeddings:

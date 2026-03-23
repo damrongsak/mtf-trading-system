@@ -631,6 +631,18 @@ export interface APIResponseRiskCheckResponse {
 }
 
 
+export interface APIResponseRiskParityData {
+    'status': ResponseStatus;
+    'data'?: RiskParityData;
+    'message'?: string | null;
+    'errors'?: Array<ErrorDetail>;
+    'meta'?: Meta;
+    'auth'?: AuthTokens;
+    'rate_limit'?: RateLimitInfo;
+    'timestamp': string;
+}
+
+
 export interface APIResponseRiskRecommendation {
     'status'?: string;
     'data'?: APIResponseRiskRecommendationData;
@@ -1053,6 +1065,13 @@ export interface ApiV1KnowledgeStatusTaskIdGet200Response {
     'status'?: string;
     'filename'?: string;
     'detail'?: string;
+}
+export interface ApiV1NewsCacheSymbolGet200ResponseInner {
+    'title'?: string;
+    'source'?: string;
+    'url'?: string;
+    'publishedAt'?: string;
+    'relevance'?: number;
 }
 export interface ApiV1PluginsIdActivatePost200Response {
     'status'?: string;
@@ -2010,6 +2029,18 @@ export interface RiskCheckResponsePositionSize {
     'units'?: number;
     'lots'?: number;
     'standard_lot_size'?: number;
+}
+export interface RiskParityData {
+    'symbols'?: Array<RiskParityDataSymbolsInner>;
+    'last_rebalanced'?: string;
+    'rebalance_interval_hours'?: number;
+}
+export interface RiskParityDataSymbolsInner {
+    'symbol'?: string;
+    'weight'?: number;
+    'sentiment_score'?: number;
+    'sentiment_reason'?: string;
+    'scaling_multiplier'?: number;
 }
 export interface RiskRecommendation {
     /**
@@ -14623,6 +14654,114 @@ export class KnowledgeApi extends BaseAPI {
 
 
 /**
+ * NewsApi - axios parameter creator
+ */
+export const NewsApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Returns the latest news headlines cached in Redis for a specific symbol. This is intended for 3rd party consumption.
+         * @summary Get raw headlines from Redis cache
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1NewsCacheSymbolGet: async (symbol: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'symbol' is not null or undefined
+            assertParamExists('apiV1NewsCacheSymbolGet', 'symbol', symbol)
+            const localVarPath = `/api/v1/news/cache/{symbol}`
+                .replace(`{${"symbol"}}`, encodeURIComponent(String(symbol)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * NewsApi - functional programming interface
+ */
+export const NewsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = NewsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Returns the latest news headlines cached in Redis for a specific symbol. This is intended for 3rd party consumption.
+         * @summary Get raw headlines from Redis cache
+         * @param {string} symbol 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1NewsCacheSymbolGet(symbol: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ApiV1NewsCacheSymbolGet200ResponseInner>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1NewsCacheSymbolGet(symbol, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['NewsApi.apiV1NewsCacheSymbolGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * NewsApi - factory interface
+ */
+export const NewsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = NewsApiFp(configuration)
+    return {
+        /**
+         * Returns the latest news headlines cached in Redis for a specific symbol. This is intended for 3rd party consumption.
+         * @summary Get raw headlines from Redis cache
+         * @param {NewsApiApiV1NewsCacheSymbolGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1NewsCacheSymbolGet(requestParameters: NewsApiApiV1NewsCacheSymbolGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<ApiV1NewsCacheSymbolGet200ResponseInner>> {
+            return localVarFp.apiV1NewsCacheSymbolGet(requestParameters.symbol, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1NewsCacheSymbolGet operation in NewsApi.
+ */
+export interface NewsApiApiV1NewsCacheSymbolGetRequest {
+    readonly symbol: string
+}
+
+/**
+ * NewsApi - object-oriented interface
+ */
+export class NewsApi extends BaseAPI {
+    /**
+     * Returns the latest news headlines cached in Redis for a specific symbol. This is intended for 3rd party consumption.
+     * @summary Get raw headlines from Redis cache
+     * @param {NewsApiApiV1NewsCacheSymbolGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1NewsCacheSymbolGet(requestParameters: NewsApiApiV1NewsCacheSymbolGetRequest, options?: RawAxiosRequestConfig) {
+        return NewsApiFp(this.configuration).apiV1NewsCacheSymbolGet(requestParameters.symbol, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * OrchestrationApi - axios parameter creator
  */
 export const OrchestrationApiAxiosParamCreator = function (configuration?: Configuration) {
@@ -14858,6 +14997,40 @@ export class OrchestrationApi extends BaseAPI {
  */
 export const RiskApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * 
+         * @summary Get real-time risk parity weights and sentiment for a fund
+         * @param {string} fundId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1FundsFundIdRiskParityGet: async (fundId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'fundId' is not null or undefined
+            assertParamExists('apiV1FundsFundIdRiskParityGet', 'fundId', fundId)
+            const localVarPath = `/api/v1/funds/{fund_id}/risk-parity`
+                .replace(`{${"fund_id"}}`, encodeURIComponent(String(fundId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
          * @summary Trigger AI-driven risk analysis for a fund
@@ -15098,6 +15271,19 @@ export const RiskApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = RiskApiAxiosParamCreator(configuration)
     return {
         /**
+         * 
+         * @summary Get real-time risk parity weights and sentiment for a fund
+         * @param {string} fundId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1FundsFundIdRiskParityGet(fundId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseRiskParityData>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1FundsFundIdRiskParityGet(fundId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RiskApi.apiV1FundsFundIdRiskParityGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
          * @summary Trigger AI-driven risk analysis for a fund
          * @param {ApiV1RiskAiReviewPostRequest} apiV1RiskAiReviewPostRequest 
@@ -15189,6 +15375,16 @@ export const RiskApiFactory = function (configuration?: Configuration, basePath?
     const localVarFp = RiskApiFp(configuration)
     return {
         /**
+         * 
+         * @summary Get real-time risk parity weights and sentiment for a fund
+         * @param {RiskApiApiV1FundsFundIdRiskParityGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1FundsFundIdRiskParityGet(requestParameters: RiskApiApiV1FundsFundIdRiskParityGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseRiskParityData> {
+            return localVarFp.apiV1FundsFundIdRiskParityGet(requestParameters.fundId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
          * @summary Trigger AI-driven risk analysis for a fund
          * @param {RiskApiApiV1RiskAiReviewPostRequest} requestParameters Request parameters.
@@ -15252,6 +15448,13 @@ export const RiskApiFactory = function (configuration?: Configuration, basePath?
 };
 
 /**
+ * Request parameters for apiV1FundsFundIdRiskParityGet operation in RiskApi.
+ */
+export interface RiskApiApiV1FundsFundIdRiskParityGetRequest {
+    readonly fundId: string
+}
+
+/**
  * Request parameters for apiV1RiskAiReviewPost operation in RiskApi.
  */
 export interface RiskApiApiV1RiskAiReviewPostRequest {
@@ -15305,6 +15508,17 @@ export interface RiskApiApiV1RiskRebalanceHistoryGetRequest {
  * RiskApi - object-oriented interface
  */
 export class RiskApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get real-time risk parity weights and sentiment for a fund
+     * @param {RiskApiApiV1FundsFundIdRiskParityGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1FundsFundIdRiskParityGet(requestParameters: RiskApiApiV1FundsFundIdRiskParityGetRequest, options?: RawAxiosRequestConfig) {
+        return RiskApiFp(this.configuration).apiV1FundsFundIdRiskParityGet(requestParameters.fundId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * Sends the fund\'s current risk configuration and market context to the AI Analyst\'s RiskRebalancerAgent (Gemini) for analysis. Returns a recommendation with suggested parameter adjustments. 
      * @summary Trigger AI-driven risk analysis for a fund
@@ -15848,36 +16062,6 @@ export const SystemApiAxiosParamCreator = function (configuration?: Configuratio
             };
         },
         /**
-         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
-         * @summary Get Async Execution Queue Health
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1SystemQueueHealthGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/api/v1/system/queue-health`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
          * Clears the Global Kill Switch in Redis to resume trade executions.
          * @summary Emergency System Resume
          * @param {*} [options] Override http request option.
@@ -15941,18 +16125,6 @@ export const SystemApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
-         * @summary Get Async Execution Queue Health
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1SystemQueueHealthGet(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['SystemApi.apiV1SystemQueueHealthGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
          * Clears the Global Kill Switch in Redis to resume trade executions.
          * @summary Emergency System Resume
          * @param {*} [options] Override http request option.
@@ -15992,15 +16164,6 @@ export const SystemApiFactory = function (configuration?: Configuration, basePat
             return localVarFp.apiV1SystemHaltPost(options).then((request) => request(axios, basePath));
         },
         /**
-         * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
-         * @summary Get Async Execution Queue Health
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
-            return localVarFp.apiV1SystemQueueHealthGet(options).then((request) => request(axios, basePath));
-        },
-        /**
          * Clears the Global Kill Switch in Redis to resume trade executions.
          * @summary Emergency System Resume
          * @param {*} [options] Override http request option.
@@ -16034,16 +16197,6 @@ export class SystemApi extends BaseAPI {
      */
     public apiV1SystemHaltPost(options?: RawAxiosRequestConfig) {
         return SystemApiFp(this.configuration).apiV1SystemHaltPost(options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Returns the length (LLEN) of Priority, Default, and Dead Letter Queues from Redis. Also includes Global Kill Switch status.
-     * @summary Get Async Execution Queue Health
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    public apiV1SystemQueueHealthGet(options?: RawAxiosRequestConfig) {
-        return SystemApiFp(this.configuration).apiV1SystemQueueHealthGet(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

@@ -10,14 +10,13 @@ import { PortfolioSection } from '@/components/settings/PortfolioSection';
 import { FundOverviewCards } from '@/components/portfolio/FundOverviewCards';
 import { EquityCurveChart } from '@/components/portfolio/EquityCurveChart';
 import { MultiFundComparison } from '@/components/portfolio/MultiFundComparison';
-import { HRPWeightsDisplay } from '@/components/institutional/HRPWeightsDisplay';
+import { RiskParityTable } from '@/components/portfolio/RiskParityTable';
 import { useAccount } from '@/context/AccountContext';
 
 export default function PortfolioPage() {
   const { selectedAccount } = useAccount();
   const [funds, setFunds] = useState<Fund[]>([]);
   const [equityData, setEquityData] = useState<Record<string, AccountHistoryItem[]>>({});
-  const [hrpWeights, setHrpWeights] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,15 +29,11 @@ export default function PortfolioPage() {
         // Fetch equity history per fund's broker accounts
         // Use the first owned fund's account for now
         if (selectedAccount) {
-          const [historyRes, weightsRes] = await Promise.all([
-            analyticsApi.getAccountHistory(selectedAccount.id, 200),
-            analyticsApi.getHRPWeights(selectedAccount.fund_id)
-          ]);
+          const historyRes = await analyticsApi.getAccountHistory(selectedAccount.id, 200);
           
           // Group by fund name
           const fundName = fundsData.find(f => f.id === selectedAccount.fund_id)?.name || 'Primary';
           setEquityData({ [fundName]: historyRes.history });
-          setHrpWeights(weightsRes.weights);
         }
       } catch (error) {
         logger.error('Failed to fetch portfolio data', error);
@@ -78,7 +73,7 @@ export default function PortfolioPage() {
                   <EquityCurveChart data={equityData} loading={loading} />
                 </div>
                 <div>
-                  <HRPWeightsDisplay weights={hrpWeights} loading={loading} />
+                  {selectedAccount && <RiskParityTable fundId={selectedAccount.fund_id} />}
                 </div>
               </div>
 

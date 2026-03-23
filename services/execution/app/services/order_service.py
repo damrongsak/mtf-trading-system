@@ -264,8 +264,13 @@ class OrderService:
                 # [Phase 9/11] Institutional Scaling Multiplier
                 knowledge_score = float(req_data.get("knowledge_score", 1.0))
                 
-                # Combine Fund scale_factor and Signal knowledge_score
-                scale_multiplier = await RiskParityEngine.get_scale_multiplier(fund_id, knowledge_score)
+                # Combine Fund scale_factor, Signal knowledge_score, and AI Sentiment
+                scale_multiplier = await RiskParityEngine.get_scale_multiplier(
+                    fund_id, 
+                    req_data["symbol"], 
+                    req_data.get("direction", "LONG"), 
+                    knowledge_score
+                )
                 
                 # Use requested risk or the calculated effective limit
                 sizing_risk = (target_risk if target_risk is not None else effective_limit) * scale_multiplier

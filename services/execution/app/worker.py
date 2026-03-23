@@ -38,6 +38,10 @@ class ExecutionWorker:
         asyncio.create_task(self._analytics_loop())
         # Start Sync Loop (Parallel task)
         asyncio.create_task(self._sync_loop())
+        # Start Portfolio Rebalancer Loop (Phase 30)
+        asyncio.create_task(self._portfolio_rebalancer_loop())
+        # Start AI Correlation Loop (Phase 40)
+        asyncio.create_task(self._correlation_loop())
         
         while self._running:
             try:
@@ -211,6 +215,43 @@ class ExecutionWorker:
             
             # Wait 30 minutes
             await asyncio.sleep(1800)
+
+    async def _portfolio_rebalancer_loop(self):
+        """
+        [PHASE 30] Periodic Portfolio Risk Parity rebalancing.
+        """
+        from app.services.portfolio_rebalancer import PortfolioRebalancer
+        
+        logger.info("⚖️ [Rebalancer] Periodic loop started.")
+        rebalancer = PortfolioRebalancer()
+        
+        while self._running:
+            try:
+                await rebalancer.rebalance_all_funds()
+            except Exception as e:
+                logger.error(f"⚖️ [Rebalancer] Loop error: {e}")
+            
+            # Wait 6 hours (default)
+            await asyncio.sleep(settings.PORTFOLIO_REBALANCE_INTERVAL)
+
+    async def _correlation_loop(self):
+        """
+        [PHASE 40] Periodic AI Sentiment Correlation update.
+        Runs once per day to update factor loadings.
+        """
+        from app.services.correlation_service import CorrelationService
+        
+        logger.info("📊 [Correlation] Periodic correlation loop started.")
+        service = CorrelationService()
+        
+        while self._running:
+            try:
+                await service.update_all_correlations()
+            except Exception as e:
+                logger.error(f"📊 [Correlation] Loop error: {e}")
+            
+            # Wait 24 hours (86400 seconds)
+            await asyncio.sleep(86400)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,6 +498,15 @@ class FillTradeConsumer:
             except Exception as stats_err:
                 logger.warning(f"[FillConsumer] Failed to update trades_today stat: {stats_err}")
 
+            # [PHASE 40] Maintain Active Symbols for Correlation Logic
+            try:
+                if broker_account and broker_account.fund_id:
+                     fid = str(broker_account.fund_id)
+                     await self.redis.sadd(f"fund:{fid}:active_symbols", symbol)
+                     logger.debug(f"[FillConsumer] Symbol {symbol} added to active set for Fund {fid}")
+            except Exception as active_err:
+                logger.warning(f"[FillConsumer] Failed to update active_symbols set: {active_err}")
+
             # XACK only after successful commit — ensures retry on failure
             await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
             logger.info(
@@ -616,6 +666,31 @@ class CloseTradeConsumer:
                     break
                 
                 await db.commit()
+
+                # [PHASE 40] Maintain Active Symbols for Correlation Logic
+                try:
+                    from sqlalchemy import func
+                    # Check if any other trades remain OPEN for this symbol in this account
+                    count_stmt = select(func.count(Trade.trade_id)).where(
+                        Trade.broker_account_id == uuid.UUID(broker_account_uuid),
+                        Trade.status == TradeStatus.OPEN,
+                        Trade.symbol == data.get("instrument")
+                    )
+                    count_res = await db.execute(count_stmt)
+                    count = count_res.scalar()
+                    
+                    if count == 0:
+                        # Find the fund_id for this account
+                        acc_stmt = select(BrokerAccount).where(BrokerAccount.id == uuid.UUID(broker_account_uuid))
+                        acc_res = await db.execute(acc_stmt)
+                        broker_acc = acc_res.scalar_one_or_none()
+                        
+                        if broker_acc and broker_acc.fund_id:
+                             fid = str(broker_acc.fund_id)
+                             await self.redis.srem(f"fund:{fid}:active_symbols", data.get("instrument"))
+                             logger.debug(f"[CloseConsumer] Symbol {data.get('instrument')} removed from active set for Fund {fid}")
+                except Exception as clean_err:
+                    logger.warning(f"[CloseConsumer] Failed to cleanup active_symbols set: {clean_err}")
 
             await self.redis.xack(self.STREAM_KEY, self.GROUP_NAME, msg_id)
             logger.info(f"[CloseConsumer] ✅ Account {broker_account_uuid} stats updated. PnL: {pnl}")

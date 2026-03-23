@@ -103,6 +103,42 @@ class Fund(Base):
     scale_factor = Column(Numeric(5, 4), default=1.0000, nullable=False)
     asset_risk_caps = Column(JSONB, default={}, nullable=False)
 
+    # Relationships
+    strategies = relationship("Strategy", back_populates="fund")
+    allocations = relationship("PortfolioAllocation", back_populates="fund")
+
+class Strategy(Base):
+    __tablename__ = "strategies"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
+    broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    template_id = Column(String, nullable=False)
+    config_json = Column(JSONB, nullable=False)
+    is_active = Column(Boolean, default=False)
+    
+    # Relationships
+    fund = relationship("Fund", back_populates="strategies")
+    allocations = relationship("PortfolioAllocation", back_populates="strategy")
+
+class PortfolioAllocation(Base):
+    __tablename__ = "portfolio_allocations"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False)
+    strategy_id = Column(UUID(as_uuid=True), ForeignKey("strategies.id"), nullable=False)
+    
+    weight = Column(Numeric(5, 4), nullable=False)
+    volatility_target = Column(Numeric(5, 2), nullable=True)
+    last_rebalance = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    fund = relationship("Fund", back_populates="allocations")
+    strategy = relationship("Strategy", back_populates="allocations")
+
 class MarketCategory(Base):
     __tablename__ = "market_categories"
     __table_args__ = {"extend_existing": True}

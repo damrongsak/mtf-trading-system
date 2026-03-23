@@ -4,12 +4,63 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
+|[**apiV1FundsFundIdRiskParityGet**](#apiv1fundsfundidriskparityget) | **GET** /api/v1/funds/{fund_id}/risk-parity | Get real-time risk parity weights and sentiment for a fund|
 |[**apiV1RiskAiReviewPost**](#apiv1riskaireviewpost) | **POST** /api/v1/risk/ai-review | Trigger AI-driven risk analysis for a fund|
 |[**apiV1RiskFundFundIdApplyRecommendationPost**](#apiv1riskfundfundidapplyrecommendationpost) | **POST** /api/v1/risk/fund/{fund_id}/apply-recommendation | Apply AI risk recommendation to fund config|
 |[**apiV1RiskFundFundIdConfigGet**](#apiv1riskfundfundidconfigget) | **GET** /api/v1/risk/fund/{fund_id}/config | Get fund-specific risk configuration|
 |[**apiV1RiskFundFundIdConfigPatch**](#apiv1riskfundfundidconfigpatch) | **PATCH** /api/v1/risk/fund/{fund_id}/config | Update fund risk configuration|
 |[**apiV1RiskFundFundIdKillSwitchPost**](#apiv1riskfundfundidkillswitchpost) | **POST** /api/v1/risk/fund/{fund_id}/kill-switch | Toggle fund-specific kill switch|
 |[**apiV1RiskRebalanceHistoryGet**](#apiv1riskrebalancehistoryget) | **GET** /api/v1/risk/rebalance-history | Get rebalance history audit trail|
+
+# **apiV1FundsFundIdRiskParityGet**
+> APIResponseRiskParityData apiV1FundsFundIdRiskParityGet()
+
+
+### Example
+
+```typescript
+import {
+    RiskApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new RiskApi(configuration);
+
+let fundId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.apiV1FundsFundIdRiskParityGet(
+    fundId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **fundId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**APIResponseRiskParityData**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Risk parity data |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1RiskAiReviewPost**
 > APIResponseRiskRecommendation apiV1RiskAiReviewPost(apiV1RiskAiReviewPostRequest)

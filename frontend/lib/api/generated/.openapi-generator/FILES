@@ -58,6 +58,7 @@ docs/APIResponsePipelineStatus.md
 docs/APIResponsePipelineStatusAllOfData.md
 docs/APIResponsePortfolioWeights.md
 docs/APIResponseRiskCheckResponse.md
+docs/APIResponseRiskParityData.md
 docs/APIResponseRiskRecommendation.md
 docs/APIResponseRiskRecommendationData.md
 docs/APIResponseSignalList.md
@@ -120,6 +121,7 @@ docs/ApiV1KnowledgeIngestPost202Response.md
 docs/ApiV1KnowledgeIngestUrlPost202Response.md
 docs/ApiV1KnowledgeIngestUrlPostRequest.md
 docs/ApiV1KnowledgeStatusTaskIdGet200Response.md
+docs/ApiV1NewsCacheSymbolGet200ResponseInner.md
 docs/ApiV1PluginsIdActivatePost200Response.md
 docs/ApiV1PromptsIdRenderPost200Response.md
 docs/ApiV1PromptsIdRenderPostRequest.md
@@ -210,6 +212,7 @@ docs/MentalHandHistoryCreate.md
 docs/Meta.md
 docs/MonteCarloRequest.md
 docs/MonteCarloResponse.md
+docs/NewsApi.md
 docs/OpenInterestAnalysisResponse.md
 docs/OpenInterestCommon.md
 docs/OpportunityLog.md
@@ -238,6 +241,8 @@ docs/RiskCheckRequest.md
 docs/RiskCheckResponse.md
 docs/RiskCheckResponseFinancials.md
 docs/RiskCheckResponsePositionSize.md
+docs/RiskParityData.md
+docs/RiskParityDataSymbolsInner.md
 docs/RiskRecommendation.md
 docs/RsiRequest.md
 docs/SMCFVG.md

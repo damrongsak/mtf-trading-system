@@ -29,39 +29,46 @@ class FalkorService:
     async def query_context(self, symbol: str) -> Dict[str, Any]:
         """
         Retrieves semantic context for a specific symbol.
-        Returns a dictionary containing knowledge nodes and relationships.
+        Supports both 'Asset' and 'Symbol' labels and pulls related concepts/strategies.
         """
         if not self.graph:
             self.connect()
             
         try:
-            # Basic Cypher query to get related concepts for the symbol
-            # Note: The schema in FalkorDB is built by knowledge-ingestor.
-            # We assume nodes like (s:Symbol {name: 'XAUUSD'}) exist.
+            # Enhanced Cypher query to get related concepts, strategies, and risks
+            # Supports multi-hop (e.g., Asset -> Concept -> Strategy)
             query = f"""
-            MATCH (s:Symbol {{name: '{symbol}'}})-[r]-(n)
-            RETURN s.name as symbol, type(r) as rel, properties(n) as node_props, labels(n) as labels
-            LIMIT 10
+            MATCH (s) WHERE (s:Symbol OR s:Asset) AND s.name = '{symbol}'
+            OPTIONAL MATCH (s)-[r1]-(n)
+            OPTIONAL MATCH (n)-[r2]-(m) WHERE NOT m = s
+            RETURN s.name as symbol, 
+                   collect(distinct {{relation: type(r1), type: labels(n)[0], properties: properties(n)}}) as direct_entities,
+                   collect(distinct {{relation: type(r2), type: labels(m)[0], properties: properties(m)}}) as indirect_entities
             """
             result = self.graph.query(query)
             
             context_data = {
                 "symbol": symbol,
-                "timestamp": None, # Will be filled by caller
+                "timestamp": None,
                 "entities": [],
                 "summary": "No semantic context found in Knowledge Graph."
             }
             
             if result.result_set:
-                entities = []
-                for row in result.result_set:
-                    entities.append({
-                        "relation": row[1],
-                        "properties": row[2],
-                        "type": row[3][0] if row[3] else "Unknown"
-                    })
-                context_data["entities"] = entities
-                context_data["summary"] = f"Found {len(entities)} semantic relationships in Knowledge Graph."
+                row = result.result_set[0]
+                direct = [e for e in row[1] if e["relation"] is not None]
+                indirect = [e for e in row[2] if e["relation"] is not None]
+                
+                # Merge and deduplicate by node name in properties
+                all_entities = direct + indirect
+                unique_entities = {}
+                for e in all_entities:
+                    name = e["properties"].get("name")
+                    if name and name not in unique_entities:
+                        unique_entities[name] = e
+                
+                context_data["entities"] = list(unique_entities.values())
+                context_data["summary"] = f"Found {len(context_data['entities'])} unique semantic insights in Knowledge Graph."
                 
             return context_data
             

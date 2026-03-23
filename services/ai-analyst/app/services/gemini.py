@@ -116,6 +116,10 @@ class GeminiClient:
         Generic generation with support for Thinking models, Structured Output, and Active Fallback.
         Implements a Circuit Breaker and Safe Mode Guardrail.
         """
+        if not contents or (isinstance(contents, list) and len(contents) == 0):
+             logger.error("Gemini generate_content called with empty contents.")
+             raise ValueError("Empty contents provided for generation")
+
         # Phase 1: Guardrail Injection
         contents = await self._inject_safe_mode_instruction(contents)
         

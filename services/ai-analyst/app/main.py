@@ -19,7 +19,7 @@ from app.agents.trade_manager import TradeManagementAgent
 from app.agents.risk_rebalancer import RiskRebalancerAgent
 from app.services.sentiment import SentimentService
 from app.core.bootstrap import bootstrap_tools
-from app.routers import ingest, agents, admin, external, orchestration, knowledge, mri
+from app.routers import ingest, agents, admin, external, orchestration, knowledge, mri, risk
 from app.routers import analysis as analysis_router
 from app.services.memory import MemoryService
 from app.services.episodic_memory import EpisodicMemoryService
@@ -289,6 +289,7 @@ app.include_router(analysis_router.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(orchestration.router, prefix="/api/v1", tags=["Orchestration"])
 app.include_router(knowledge.router, prefix="/api/v1/ai", tags=["Knowledge"])
 app.include_router(mri.router, prefix="/api/v1", tags=["MRI"])
+app.include_router(risk.router, prefix="/api/v1/ai", tags=["Risk"])
 
 
 @app.get("/health")

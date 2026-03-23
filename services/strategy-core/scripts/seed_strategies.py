@@ -1,15 +1,31 @@
+#!/usr/bin/env python3
+"""
+MTF Olympus - Strategy Seeding Script
+Manual Usage:
+    1. Seed all strategies:
+       docker compose exec strategy-core python scripts/seed_strategies.py
+    2. Seed a specific strategy:
+       docker compose exec strategy-core python scripts/seed_strategies.py --strategy quasimodo_v1
+    3. Clear all seeded strategies for admin and re-seed:
+       docker compose exec strategy-core python scripts/seed_strategies.py --clear
+
+This script synchronizes the physical strategy files (app/strategies/*/strategy.py) 
+with the database (SavedStrategy table). It extracts metadata (name, description, defaults)
+from the source code using AST for safe parsing.
+"""
+
 import os
 import sys
-import re
+import argparse
 import ast
 from pathlib import Path
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 # Add app directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from app.database import Base, SessionLocal
+from app.database import SessionLocal
 from app.models.saved_strategy import SavedStrategy
 
 # Path to strategies relative to this script
@@ -28,77 +44,97 @@ def parse_metadata(content):
                         # Convert AST dict to python dict
                         return ast.literal_eval(node.value)
     except Exception as e:
-        print(f"Error parsing metadata: {e}")
+        print(f"  [!] Error parsing metadata: {e}")
     return {}
 
-def seed_strategies():
+def seed_strategies(target_strategy=None, clear_existing=False):
     db = SessionLocal()
 
     try:
-        # Get default user (admin) via Raw SQL because User model is not in strategy-core
+        # Get default user (admin)
         result = db.execute(text("SELECT id, username FROM users WHERE username = 'admin'")).fetchone()
-        
         if not result:
-            # Try getting any user
             result = db.execute(text("SELECT id, username FROM users LIMIT 1")).fetchone()
         
         if not result:
-            print("No user found in DB. Please create a user first.")
+            print("[-] No user found in DB. Please create a user first.")
             return
 
         user_id = result.id
         username = result.username
-        print(f"Seeding strategies for user: {username} ({user_id})")
+        print(f"[*] Seeding strategies for user: {username} ({user_id})")
 
-        # Iterate strategy folders
+        if clear_existing:
+            print(f"[*] Clearing existing strategies for user {username}...")
+            db.query(SavedStrategy).filter(SavedStrategy.user_id == user_id).delete()
+            db.commit()
+
         if not STRATEGIES_DIR.exists():
-            print(f"Strategy directory not found: {STRATEGIES_DIR}")
+            print(f"[-] Strategy directory not found: {STRATEGIES_DIR}")
             return
 
         for strategy_dir in STRATEGIES_DIR.iterdir():
-            if strategy_dir.is_dir() and (strategy_dir / "strategy.py").exists():
-                file_path = strategy_dir / "strategy.py"
-                print(f"Processing {strategy_dir.name}...")
+            if not strategy_dir.is_dir():
+                continue
+            
+            # Skip if filtering and not the target
+            if target_strategy and strategy_dir.name != target_strategy:
+                continue
                 
-                with open(file_path, "r") as f:
-                    content = f.read()
-                
-                metadata = parse_metadata(content)
-                name = metadata.get("strategy_name", strategy_dir.name.replace("_", " ").title())
-                description = metadata.get("description", "")
-                
-                # Check if exists
-                existing = db.query(SavedStrategy).filter(
-                    SavedStrategy.name == name,
-                    SavedStrategy.user_id == user_id
-                ).first()
+            strategy_file = strategy_dir / "strategy.py"
+            if not strategy_file.exists():
+                continue
 
-                if existing:
-                    print(f"Updating strategy: {name}")
-                    existing.code = content
-                    existing.code = content
-                    # Merge parameters if needed, or just keep existing. 
-                    # For a reset, we might want to update.
-                    # existing.parameters = {} 
-                else:
-                    print(f"Creating strategy: {name}")
-                    new_strat = SavedStrategy(
-                        user_id=user_id,
-                        name=name,
-                        code=content,
-                        is_public=True, # Make them public/system templates
-                        parameters={}
-                    )
-                    db.add(new_strat)
+            print(f"[*] Processing {strategy_dir.name}...")
+            
+            with open(strategy_file, "r") as f:
+                content = f.read()
+            
+            metadata = parse_metadata(content)
+            
+            # Support both 'strategy_name' (legacy) and 'name' (v2.1+)
+            name = metadata.get("strategy_name") or metadata.get("name") or strategy_dir.name.replace("_", " ").title()
+            description = metadata.get("description", "")
+            defaults = metadata.get("defaults", {})
+            
+            # Check if exists
+            existing = db.query(SavedStrategy).filter(
+                SavedStrategy.name == name,
+                SavedStrategy.user_id == user_id
+            ).first()
+
+            if existing:
+                print(f"  [+] Updating strategy: {name}")
+                existing.code = content
+                existing.description = description
+                # Update parameters with defaults if it was empty
+                if not existing.parameters:
+                    existing.parameters = defaults
+            else:
+                print(f"  [+] Creating strategy: {name}")
+                new_strat = SavedStrategy(
+                    user_id=user_id,
+                    name=name,
+                    description=description,
+                    code=content,
+                    is_public=True,
+                    parameters=defaults
+                )
+                db.add(new_strat)
         
         db.commit()
-        print("Seeding complete.")
+        print("[+] Seeding complete.")
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"[-] Error: {e}")
         db.rollback()
     finally:
         db.close()
 
 if __name__ == "__main__":
-    seed_strategies()
+    parser = argparse.ArgumentParser(description="Seed strategies from files to DB")
+    parser.add_argument("--strategy", type=str, help="Specific strategy directory name to seed")
+    parser.add_argument("--clear", action="store_true", help="Clear existing strategies for user before seeding")
+    args = parser.parse_args()
+
+    seed_strategies(target_strategy=args.strategy, clear_existing=args.clear)

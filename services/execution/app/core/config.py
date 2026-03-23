@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     
     SYSTEM_USER: str = os.getenv("SYSTEM_USER", "execution_service")
     SYSTEM_PASSWORD: str = os.getenv("SYSTEM_PASSWORD", "servicepassword123")
+    
+    PORTFOLIO_REBALANCE_INTERVAL: int = 21600 # 6 hours in seconds
 
     class Config:
         env_file = ".env"

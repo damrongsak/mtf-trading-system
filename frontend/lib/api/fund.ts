@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { APIResponse, Fund, StrategyType, AssetClass } from './types';
+import { APIResponse, Fund, StrategyType, AssetClass, RiskParityData } from './types';
 
 /**
  * Get all funds the current user has access to
@@ -80,4 +80,17 @@ export async function updateFund(fundId: string, data: UpdateFundDto): Promise<F
  */
 export async function deleteFund(fundId: string): Promise<void> {
     await apiClient.delete(`/api/v1/funds/${fundId}`);
+}
+/**
+ * Get real-time risk parity weights and AI sentiment for a fund
+ * @param fundId - Fund ID
+ */
+export async function getFundRiskParity(fundId: string): Promise<RiskParityData> {
+    const response = await apiClient.get<APIResponse<RiskParityData>>(`/api/v1/funds/${fundId}/risk-parity`);
+
+    if (!response.data.data) {
+        throw new Error('Invalid response from risk parity endpoint');
+    }
+
+    return response.data.data;
 }

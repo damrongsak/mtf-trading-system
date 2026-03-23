@@ -2209,6 +2209,25 @@ paths:
       responses:
         '204':
           description: Fund deleted
+
+  /api/v1/funds/{fund_id}/risk-parity:
+    get:
+      summary: Get real-time risk parity weights and sentiment for a fund
+      tags: [Risk]
+      parameters:
+        - name: fund_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Risk parity data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_RiskParityData'
   /api/v1/strategies:
     get:
       summary: List available strategy templates
@@ -3974,6 +3993,38 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/AlphaResponse'
+
+    RiskParityData:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol: {type: string}
+              weight: {type: number}
+              sentiment_score: {type: number}
+              sentiment_reason: {type: string}
+              scaling_multiplier: {type: number}
+              pc1_loading: {type: number}
+              is_systemic: {type: boolean}
+              kc_multiplier: {type: number}
+        market_integration_score: {type: number}
+        systemic_alert: {type: boolean}
+        last_rebalanced:
+          type: string
+          format: date-time
+        rebalance_interval_hours:
+          type: number
+
+    APIResponse_RiskParityData:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RiskParityData'
 
     MarketAnalysisRequest:
       type: object
