@@ -215,7 +215,7 @@ class RAGService:
             self.qdrant.create_collection(
                 collection_name=name,
                 vectors_config=models.VectorParams(
-                    size=3072,  # Gemini-embedding-001 dimension
+                    size=3072,  # Verified dimension for gemini-embedding-001
                     distance=models.Distance.COSINE
                 )
             )
@@ -227,11 +227,11 @@ class RAGService:
             return [0.0] * 3072
 
         try:
-            # Clean text to ensure no weird control characters are passed
+            # Clean text
             clean_text = text.strip()
             
             result = await self.gemini.client.aio.models.embed_content(
-                model="models/text-embedding-004", # Upgrading to the latest robust model
+                model="models/gemini-embedding-001",
                 contents=clean_text
             )
             # Handle new SDK response structure

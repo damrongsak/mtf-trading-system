@@ -102,11 +102,12 @@ To ensure zero-math drift across disparate asset classes (Gold vs. Forex), the s
 - **✅ Phase 57 — AI-Driven Risk Rebalancer** (Complete 2026-03-19):
     - **[P57-1] Internal Risk Config Endpoint**: `GET /funds/{fund_id}/risk-config` — provides direct DB access for AI Analyst (bypasses Gateway to avoid reentrant deadlocks).
     - **[P57-2] Dynamic Threshold Refresh**: `EquityGuardian` now listens for `RISK_REBALANCE_APPLIED` events on Redis `system:events` channel and invalidates its threshold cache, forcing a fresh DB read on the next analysis cycle.
-- **✅ Phase 58 — Institutional "Zero-Math" & cTrader Metadata** (Complete 2026-03-20):
-    - **[P58-1] Universal Unit Standard**: Enforced **100,000 units = 1.0 Standard Lot** system-wide. All adapters (cTrader, OANDA) must normalize volume via `UnitConverter`.
-    - **[P58-2] 4-Tuple Symbol Cache**: Upgraded cTrader L3 cache to `(symbol_id, lot_size_cents, step_cents, digits)`. This enables precise risk calculation and price rounding for complex assets like **Gold (XAU/USD)** and **Crypto**, specifically optimized for brokers like **IC Markets**.
-    - **[P58-3] Resilient Sync & Fill**: Refactored `SyncService` and `FillTradeConsumer` to use standardized lot scaling, ensuring DB-Broker parity.
-    - **[P58-4] Shadowing Fixes**: Resolved Python scoping (UnboundLocalError) and shadowing issues in `ctrader.py` to ensure high-concurrency event processing.
+- [P58-4] Shadowing Fixes**: Resolved Python scoping (UnboundLocalError) and shadowing issues in `ctrader.py` to ensure high-concurrency event processing.
+- **✅ Phase 40 — AI Correlation-Aware Risk Scaling** (Complete 2026-03-24):
+    - **[P40-1] PCA Integration**: Leverages `ai-analyst` PCA engine for systemic risk detection (Market Integration > 60%).
+    - **[P40-2] Kc Multiplier ($K_c$)**: Implemented dynamic de-risking multiplier (0.70x) for assets with high factor-loadings and overlapping exposures.
+    - **[P40-3] Active Symbol Sentinel**: Fill/Close consumers now maintain a real-time Redis SET (`fund:{id}:active_symbols`) to enable zero-latency correlation audits.
+    - **[P40-4] Systemic Alert Propagation**: Gateway now broadcasts systemic hazards to the frontend, triggering automatic protective scaling across the fund.
 
 ## 🤖 AI-Agent Operational Guide
 

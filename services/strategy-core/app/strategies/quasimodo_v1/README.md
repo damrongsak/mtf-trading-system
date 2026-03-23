@@ -34,7 +34,12 @@ The strategy identifies "Smart Money" footprints where price sweeps a previous s
     - `M15`: Pattern Setup & Entry Trigger.
 - **Data:** Requires OHLCV data with at least 200 candles for EMA calculation.
 
-## 🛡️ Risk Management
+## 🛡️ Institutional Risk Management
+- **Smart Dynamic Risk:** Updated to use 1% of NAV per trade, scaled by the global engine.
+- **Hierarchical Scaling ($K_{total}$):**
+    - $K_m$ (Model): 1.25x for high-displacement breakouts (>2.5 ATR).
+    - $K_s$ (Sentiment): 1.25x for Buy+Bullish / Sell+Bearish alignment; 0.5x for conflict.
+    - $K_c$ (Correlation): 0.70x cut for assets with >60% market integration and systemic overlap.
 - **Stop Loss:** Volatility-adjusted: `(Pattern_Range * 1.2) + (ATR * 0.5)`.
 - **Take Profit (Multi-Target):**
     - TP1: 1.0R (Move SL to Breakeven).
@@ -42,4 +47,4 @@ The strategy identifies "Smart Money" footprints where price sweeps a previous s
     - TP3: Runner with Trailing SL.
 
 ---
-*Standard: MTF Olympus v2.0*
+*Standard: MTF Olympus v2.1 (Institutional Grade)*

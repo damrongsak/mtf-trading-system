@@ -17,50 +17,9 @@
     "risk_settings": null,
     "leverage": 1000,
     "currency": "USD",
-    "balance_snapshot": "986.25",
+    "balance_snapshot": "1021.41",
     "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-23T02:04:54.585900+00:00"
-  },
-  {
-    "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "data_source_id": null,
-    "broker_name": "OANDA",
-    "account_name": "OANDA Live Main",
-    "account_number": "001-011-437083-005",
-    "credentials_encrypted": "Z0FBQUFBQnBxLUg4X1hXb0UwMjBwN2h0MEViZHd5c25wVHpDdmN4TjVQWnV4em5hOHM3Vk9WZW95bDNLOGMxZTZ0T2JNMFVjMXNkT1kycHRsbWl0VHZCQUVBR0NOQnlfV09VUHB1Z0NlYlZtaF9oZXRUTC1KLUVjelNUZzUwWU5ZeGFIeXhmRWhMU3liVkNoaURxMWlORExuUEtjYXJXZnpBcmRLWXgtRS1tSTFyVU1hWWdrQUZlY2N5SjBWeC1PNTBCQXczYkVuaXB1SUlSNHBKMVNwU3dfa3ZKX0pfOVREbHFRTDQ3TkpveU1Wb0M2bm5tb1IyMVRqZVBWeUZxQ1NjZV81R1VfTXY5Tw==",
-    "is_active": true,
-    "is_live": true,
-    "environment": "live",
-    "supported_symbols": [
-      "XAU_USD",
-      "EUR_USD"
-    ],
-    "risk_settings": null,
-    "leverage": 30,
-    "currency": "USD",
-    "balance_snapshot": "177.40",
-    "created_at": "2026-03-07T07:31:48.641343+00:00",
-    "updated_at": "2026-03-23T05:27:37.863164+00:00"
-  },
-  {
-    "id": "9015103c-4c88-47f3-a46e-c07173c190df",
-    "fund_id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "broker_name": "pepperstone",
-    "account_name": "Pepperstone Live 1010319",
-    "account_number": "1010319",
-    "credentials_encrypted": "Z0FBQUFBQnB1TU5kcUxLTEdxd01SQnlqNk9weFVOXzlvakc3M0swN1JtTmNHX0E3dzMtUjNuNmdIaVBBOWx5M1VlNW1ZNG9yX2t4TWNtMVlNU0YydmtlODVQUFZzNXlFQkd6NUtoVnlrWGZFbkN2NWpIa24xb1FuTUozSEFzdkdLeGZ2Y0NaX0xCa3RnVndzYjZrdDJ2bnZQRkZrTFh5RGlQVDZrcHNYdFh6TEFCTFVvM2dHSWFjMVQ0bFc0SFp4ZUJQWkx3WWl2UmxLZHZsSmNqZm9xMkpIUFMtTmVWQVFJeHdUWUpTY0lzbzZLanZYRkxEdWcydTV3ckZ4RVdTYmNSQUZBWWtTNHpZNC1TaUxDb1U5SllRR19ybnJDZ3Vjcng5TGlGRDRlVWNlVVY3TWNFOGFQQjQzc2tqejFsaHpndjFwemoxZlpTa2JMRHNPcFJ0Q1ZIR2NsZzUwMEVMUUsyMjdkc2pkUTRXM0ItVExGQnhJWjRmU2hqYnI2STdiQzdmb2tkMURZMnZlUHA4OTA1Sm1Od2kxQm1kM0F2QWZReW5MU2tNazlmdHc1eHpDbGgtQl9ZeHoyRVViaXFjZWRhLVNad1VjbHRjYnRxZXhfclFUTk93WHBGWWxFQ1VvOU4yb0NjeEVnVGhZRExQYkRhMVhaTlNNNi1zVndObHpHTjFLYWt1Rkdja3Q2RFFVVFhUWExFeW1ON29nemhDV0NncTJTbkUxX29WcmdHa3NvVkJjSlcwPQ==",
-    "is_active": true,
-    "is_live": true,
-    "environment": "PRACTICE",
-    "supported_symbols": null,
-    "risk_settings": null,
-    "leverage": 30,
-    "currency": "JPY",
-    "balance_snapshot": "0.00",
-    "created_at": "2026-03-17T01:12:55.136117+00:00",
-    "updated_at": "2026-03-17T02:58:37.460327+00:00"
+    "updated_at": "2026-03-23T21:37:44.022044+00:00"
   },
   {
     "id": "066e21a0-0933-4f70-8e35-605f4759f927",
@@ -84,26 +43,48 @@
     "currency": "USD",
     "balance_snapshot": "3668.80",
     "created_at": "2026-03-14T10:11:51.015390+00:00",
-    "updated_at": "2026-03-23T05:27:37.863164+00:00"
+    "updated_at": "2026-03-23T21:37:44.022044+00:00"
   },
   {
-    "id": "d7af00b8-e186-4dc2-b3c0-0ccd7d067d4a",
-    "fund_id": "702f825f-675a-48c1-b726-b4f248a2a65b",
+    "id": "9015103c-4c88-47f3-a46e-c07173c190df",
+    "fund_id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
     "broker_name": "pepperstone",
-    "account_name": "Pepperstone Live 1071818",
-    "account_number": "1071818",
-    "credentials_encrypted": "Z0FBQUFBQnB1TU5kN1FlV21NbmRRSjRmdVcyOUdjQy1sQlRhaVVnaEc4T2paSjB0LXktVW1tNzdncEtwZG5JeXpSd3B0MTB3T2dLVThSallxTklReEl4M1FHZmduLWV2N2hMRVVJZWlNUnhOOUtOY3JEb0EwWmM4dXNnUG1oZkx1U2VoQ3E1SmFBczBVVmdPZ1J2WUFNc083NmtEbDFxc04tQUJyUDVDaGpfcHNMYk9zWU9GVnhkSWNMSndNSjZrZk9uOUF1OENVX3pEZmZkNmFmWTk4aGdheU1WVTZJR3pGeHBYTjZtYmxyNERfeTI0SGZFUDRrS1hscXhuUnRzYUZuLWRVelBhVG52Rmsxd1BHdWxJUWlMbVJMVV85bkRvdFI3X3lWU2hWTlJWVFk1OEZ3bEM2SVNoblliQnBwZmItZmtFVGQtaXVxZ0VSZ21LWVJ6M2NWVk5OR3JiNkRIU3pCaVNaQUZIVUQ1VFpYTFNnYzFvV1RiS0FFXzFpUnk5ZHZMQTNORnFMWVJCWnFmMzFpenk2bXhOcklzNkFzVUJlQmZmLTFhYnZhQ2NkY3B0M1ZvOUhMVV9PajZ5eVZHTVZQeVhUeXdENlNuUzZrbWV2dGhqMWZzQjdCTTlxOVVoSnBOYzd5TzJIdmNZOTRjMUR3OGFTNkVpdUFVMllsR3BzU2otZDJacDVIRzhHM3dnZ3dIYmU2bHZsWmNZNWZRTV9GckVlb2dfdUsxLVg3X1JDcGFRM2hVPQ==",
+    "account_name": "Pepperstone Live 1010319",
+    "account_number": "1010319",
+    "credentials_encrypted": "Z0FBQUFBQnB1TU5kcUxLTEdxd01SQnlqNk9weFVOXzlvakc3M0swN1JtTmNHX0E3dzMtUjNuNmdIaVBBOWx5M1VlNW1ZNG9yX2t4TWNtMVlNU0YydmtlODVQUFZzNXlFQkd6NUtoVnlrWGZFbkN2NWpIa24xb1FuTUozSEFzdkdLeGZ2Y0NaX0xCa3RnVndzYjZrdDJ2bnZQRkZrTFh5RGlQVDZrcHNYdFh6TEFCTFVvM2dHSWFjMVQ0bFc0SFp4ZUJQWkx3WWl2UmxLZHZsSmNqZm9xMkpIUFMtTmVWQVFJeHdUWUpTY0lzbzZLanZYRkxEdWcydTV3ckZ4RVdTYmNSQUZBWWtTNHpZNC1TaUxDb1U5SllRR19ybnJDZ3Vjcng5TGlGRDRlVWNlVVY3TWNFOGFQQjQzc2tqejFsaHpndjFwemoxZlpTa2JMRHNPcFJ0Q1ZIR2NsZzUwMEVMUUsyMjdkc2pkUTRXM0ItVExGQnhJWjRmU2hqYnI2STdiQzdmb2tkMURZMnZlUHA4OTA1Sm1Od2kxQm1kM0F2QWZReW5MU2tNazlmdHc1eHpDbGgtQl9ZeHoyRVViaXFjZWRhLVNad1VjbHRjYnRxZXhfclFUTk93WHBGWWxFQ1VvOU4yb0NjeEVnVGhZRExQYkRhMVhaTlNNNi1zVndObHpHTjFLYWt1Rkdja3Q2RFFVVFhUWExFeW1ON29nemhDV0NncTJTbkUxX29WcmdHa3NvVkJjSlcwPQ==",
     "is_active": true,
     "is_live": true,
     "environment": "PRACTICE",
     "supported_symbols": null,
     "risk_settings": null,
     "leverage": 30,
-    "currency": "USD",
-    "balance_snapshot": "1.06",
+    "currency": "JPY",
+    "balance_snapshot": "0.00",
     "created_at": "2026-03-17T01:12:55.136117+00:00",
-    "updated_at": "2026-03-23T05:27:37.863164+00:00"
+    "updated_at": "2026-03-17T02:58:37.460327+00:00"
+  },
+  {
+    "id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "data_source_id": null,
+    "broker_name": "OANDA",
+    "account_name": "OANDA Live Main",
+    "account_number": "001-011-437083-005",
+    "credentials_encrypted": "Z0FBQUFBQnBxLUg4X1hXb0UwMjBwN2h0MEViZHd5c25wVHpDdmN4TjVQWnV4em5hOHM3Vk9WZW95bDNLOGMxZTZ0T2JNMFVjMXNkT1kycHRsbWl0VHZCQUVBR0NOQnlfV09VUHB1Z0NlYlZtaF9oZXRUTC1KLUVjelNUZzUwWU5ZeGFIeXhmRWhMU3liVkNoaURxMWlORExuUEtjYXJXZnpBcmRLWXgtRS1tSTFyVU1hWWdrQUZlY2N5SjBWeC1PNTBCQXczYkVuaXB1SUlSNHBKMVNwU3dfa3ZKX0pfOVREbHFRTDQ3TkpveU1Wb0M2bm5tb1IyMVRqZVBWeUZxQ1NjZV81R1VfTXY5Tw==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "live",
+    "supported_symbols": [
+      "XAU_USD",
+      "EUR_USD"
+    ],
+    "risk_settings": null,
+    "leverage": 30,
+    "currency": "USD",
+    "balance_snapshot": "177.40",
+    "created_at": "2026-03-07T07:31:48.641343+00:00",
+    "updated_at": "2026-03-23T21:37:44.022044+00:00"
   },
   {
     "id": "c414fe39-de58-412f-a87c-f14fdc6cdbb6",
@@ -123,5 +104,24 @@
     "balance_snapshot": "0.00",
     "created_at": "2026-03-17T01:12:55.136117+00:00",
     "updated_at": "2026-03-17T02:58:37.460327+00:00"
+  },
+  {
+    "id": "d7af00b8-e186-4dc2-b3c0-0ccd7d067d4a",
+    "fund_id": "702f825f-675a-48c1-b726-b4f248a2a65b",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "broker_name": "pepperstone",
+    "account_name": "Pepperstone Live 1071818",
+    "account_number": "1071818",
+    "credentials_encrypted": "Z0FBQUFBQnB1TU5kN1FlV21NbmRRSjRmdVcyOUdjQy1sQlRhaVVnaEc4T2paSjB0LXktVW1tNzdncEtwZG5JeXpSd3B0MTB3T2dLVThSallxTklReEl4M1FHZmduLWV2N2hMRVVJZWlNUnhOOUtOY3JEb0EwWmM4dXNnUG1oZkx1U2VoQ3E1SmFBczBVVmdPZ1J2WUFNc083NmtEbDFxc04tQUJyUDVDaGpfcHNMYk9zWU9GVnhkSWNMSndNSjZrZk9uOUF1OENVX3pEZmZkNmFmWTk4aGdheU1WVTZJR3pGeHBYTjZtYmxyNERfeTI0SGZFUDRrS1hscXhuUnRzYUZuLWRVelBhVG52Rmsxd1BHdWxJUWlMbVJMVV85bkRvdFI3X3lWU2hWTlJWVFk1OEZ3bEM2SVNoblliQnBwZmItZmtFVGQtaXVxZ0VSZ21LWVJ6M2NWVk5OR3JiNkRIU3pCaVNaQUZIVUQ1VFpYTFNnYzFvV1RiS0FFXzFpUnk5ZHZMQTNORnFMWVJCWnFmMzFpenk2bXhOcklzNkFzVUJlQmZmLTFhYnZhQ2NkY3B0M1ZvOUhMVV9PajZ5eVZHTVZQeVhUeXdENlNuUzZrbWV2dGhqMWZzQjdCTTlxOVVoSnBOYzd5TzJIdmNZOTRjMUR3OGFTNkVpdUFVMllsR3BzU2otZDJacDVIRzhHM3dnZ3dIYmU2bHZsWmNZNWZRTV9GckVlb2dfdUsxLVg3X1JDcGFRM2hVPQ==",
+    "is_active": true,
+    "is_live": true,
+    "environment": "PRACTICE",
+    "supported_symbols": null,
+    "risk_settings": null,
+    "leverage": 30,
+    "currency": "USD",
+    "balance_snapshot": "1.06",
+    "created_at": "2026-03-17T01:12:55.136117+00:00",
+    "updated_at": "2026-03-23T21:37:44.022044+00:00"
   }
 ]

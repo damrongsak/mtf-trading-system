@@ -24,6 +24,12 @@
     "role": "MANAGER"
   },
   {
+    "id": "948b5b71-785d-40f5-b62a-b8cdb754ea88",
+    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "role": "TRADER"
+  },
+  {
     "id": "99e64df2-a99b-419c-9f6d-ba07d27d8631",
     "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
@@ -52,11 +58,5 @@
     "user_id": "6a4a2b5d-c41a-4b2a-b467-66b6ebbf6644",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "role": "OWNER"
-  },
-  {
-    "id": "948b5b71-785d-40f5-b62a-b8cdb754ea88",
-    "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "role": "TRADER"
   }
 ]

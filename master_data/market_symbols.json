@@ -1,5 +1,25 @@
 [
   {
+    "id": "2d99c6b8-9745-4e5b-8e61-3b979f8b7f56",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "symbol": "EUR_USD",
+    "display_name": "EUR/USD",
+    "order_index": 0,
+    "is_active": true,
+    "details": null
+  },
+  {
+    "id": "afcb14a5-0af2-4bb6-85bf-1f45447f9cc6",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
+    "symbol": "XAU_USD",
+    "display_name": "XAU/USD",
+    "order_index": 0,
+    "is_active": true,
+    "details": null
+  },
+  {
     "id": "12a88060-9239-499c-9105-42cd81d3a570",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -45,7 +65,7 @@
             "startSecond": 406860
           }
         ],
-        "swapLong": 1.04,
+        "swapLong": 1.03,
         "swapTime": 1260,
         "symbolId": "4",
         "gslCharge": "0",
@@ -94,26 +114,6 @@
     }
   },
   {
-    "id": "2d99c6b8-9745-4e5b-8e61-3b979f8b7f56",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "symbol": "EUR_USD",
-    "display_name": "EUR/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": null
-  },
-  {
-    "id": "afcb14a5-0af2-4bb6-85bf-1f45447f9cc6",
-    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
-    "data_source_id": "dd2d2c1d-445d-4e5e-a34a-54375cbd6b1e",
-    "symbol": "XAU_USD",
-    "display_name": "XAU/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": null
-  },
-  {
     "id": "06a0dbf2-42af-40ce-b305-87b10ec4e86e",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -159,7 +159,7 @@
             "startSecond": 406860
           }
         ],
-        "swapLong": -0.84,
+        "swapLong": -0.85,
         "swapTime": 1260,
         "symbolId": "1",
         "gslCharge": "0",
@@ -253,13 +253,13 @@
             "startSecond": 410400
           }
         ],
-        "swapLong": 0.89,
+        "swapLong": 0.86,
         "swapTime": 1260,
         "symbolId": "99",
         "gslCharge": "0",
         "maxVolume": "1000000",
         "minVolume": "5000",
-        "swapShort": -2.8,
+        "swapShort": -2.83,
         "commission": "0",
         "leverageId": "1236",
         "slDistance": 0,
@@ -299,6 +299,19 @@
       "step_volume": 50.0,
       "baseCurrency": "XTI",
       "quoteCurrency": "USD"
+    }
+  },
+  {
+    "id": "0ed557b6-68f3-42fa-861d-739824690f21",
+    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
+    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
+    "symbol": "ETHUSDT",
+    "display_name": "ETHUSDT",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "baseAsset": "ETH",
+      "quoteAsset": "USDT"
     }
   },
   {
@@ -392,100 +405,6 @@
       "pipPosition": 4,
       "step_volume": 1000.0,
       "baseCurrency": "GBP",
-      "quoteCurrency": "USD"
-    }
-  },
-  {
-    "id": "a7836ff9-3f70-4222-b2ee-1fc7be81e78d",
-    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "XAUUSD",
-    "display_name": "XAU/USD",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "raw": {
-        "digits": 2,
-        "holiday": [
-          {
-            "name": "16.02.2026 - Early close @ 21:29",
-            "endSecond": 86399,
-            "holidayId": "1035",
-            "description": "Washington's Birthday - METALS, XNGUSD, XTIUSD, GCJ26",
-            "holidayDate": "20500",
-            "isRecurring": false,
-            "startSecond": 77340,
-            "scheduleTimeZone": "Europe/Bucharest"
-          }
-        ],
-        "lotSize": "10000",
-        "schedule": [
-          {
-            "endSecond": 147540,
-            "startSecond": 64920
-          },
-          {
-            "endSecond": 233940,
-            "startSecond": 151320
-          },
-          {
-            "endSecond": 320340,
-            "startSecond": 237720
-          },
-          {
-            "endSecond": 406740,
-            "startSecond": 324120
-          },
-          {
-            "endSecond": 493020,
-            "startSecond": 410520
-          }
-        ],
-        "swapLong": -57.88,
-        "swapTime": 1260,
-        "symbolId": "41",
-        "gslCharge": "0",
-        "maxVolume": "1000000",
-        "minVolume": "100",
-        "swapShort": 50.66,
-        "commission": "3000",
-        "leverageId": "1438",
-        "slDistance": 0,
-        "stepVolume": "100",
-        "swapPeriod": 24,
-        "tpDistance": 0,
-        "gslDistance": 0,
-        "maxExposure": "10000000000000",
-        "pipPosition": 2,
-        "tradingMode": "ENABLED",
-        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
-        "minCommission": "0",
-        "commissionType": "USD_PER_MILLION_USD",
-        "skipSWAPPeriods": 0,
-        "scheduleTimeZone": "America/New_York",
-        "skipRolloverDays": 3,
-        "minCommissionType": "QUOTE_CURRENCY",
-        "swapRollover3Days": "WEDNESDAY",
-        "enableShortSelling": true,
-        "guaranteedStopLoss": false,
-        "minCommissionAsset": "USD",
-        "rolloverCommission": "0",
-        "swapCalculationType": "PIPS",
-        "chargeSwapAtWeekends": false,
-        "pnlConversionFeeRate": 0,
-        "preciseMinCommission": "0",
-        "rolloverCommission3Days": "WEDNESDAY",
-        "preciseTradingCommissionRate": "3000000000"
-      },
-      "digits": 2,
-      "maxLot": 10000.0,
-      "minLot": 1.0,
-      "lotStep": 1.0,
-      "lot_size": 10000,
-      "symbol_id": 41,
-      "pipPosition": 2,
-      "step_volume": 1.0,
-      "baseCurrency": "XAU",
       "quoteCurrency": "USD"
     }
   },
@@ -614,58 +533,6 @@
     }
   },
   {
-    "id": "4d89df27-637e-4910-ace2-9a43fa3d0a26",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": null,
-    "symbol": "VIX",
-    "display_name": "VIX",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^VIX"
-    }
-  },
-  {
-    "id": "2b7aacee-3220-4459-b530-3cc7d50981b2",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": null,
-    "symbol": "GVZ",
-    "display_name": "GVZ",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^GVZ"
-    }
-  },
-  {
-    "id": "5717a393-1b24-41e0-8e76-ff3d86f6bdf4",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": null,
-    "symbol": "DXY",
-    "display_name": "DXY",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "DX-Y.NYB"
-    }
-  },
-  {
-    "id": "2557beae-1ce3-4897-8c81-4b76d3d73ef0",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": null,
-    "symbol": "SPX",
-    "display_name": "SPX",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^GSPC"
-    }
-  },
-  {
     "id": "e2549069-eb08-4f48-8ea4-931fbba834cc",
     "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
     "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
@@ -679,22 +546,61 @@
     }
   },
   {
-    "id": "0ed557b6-68f3-42fa-861d-739824690f21",
-    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
-    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
-    "symbol": "ETHUSDT",
-    "display_name": "ETHUSDT",
+    "id": "2557beae-1ce3-4897-8c81-4b76d3d73ef0",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "SPX",
+    "display_name": "SPX",
     "order_index": 0,
     "is_active": true,
     "details": {
-      "baseAsset": "ETH",
-      "quoteAsset": "USDT"
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GSPC"
+    }
+  },
+  {
+    "id": "2b7aacee-3220-4459-b530-3cc7d50981b2",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "GVZ",
+    "display_name": "GVZ",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GVZ"
+    }
+  },
+  {
+    "id": "4d89df27-637e-4910-ace2-9a43fa3d0a26",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "VIX",
+    "display_name": "VIX",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^VIX"
+    }
+  },
+  {
+    "id": "5717a393-1b24-41e0-8e76-ff3d86f6bdf4",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "DXY",
+    "display_name": "DXY",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "DX-Y.NYB"
     }
   },
   {
     "id": "674f6a14-3098-4741-b27b-2e7139e89577",
     "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": null,
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
     "symbol": "TIPS",
     "display_name": "TIPS",
     "order_index": 0,
@@ -702,6 +608,100 @@
     "details": {
       "asset_class": "Macro",
       "yfinance_ticker": "TIP"
+    }
+  },
+  {
+    "id": "a7836ff9-3f70-4222-b2ee-1fc7be81e78d",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XAUUSD",
+    "display_name": "XAU/USD",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "raw": {
+        "digits": 2,
+        "holiday": [
+          {
+            "name": "16.02.2026 - Early close @ 21:29",
+            "endSecond": 86399,
+            "holidayId": "1035",
+            "description": "Washington's Birthday - METALS, XNGUSD, XTIUSD, GCJ26",
+            "holidayDate": "20500",
+            "isRecurring": false,
+            "startSecond": 77340,
+            "scheduleTimeZone": "Europe/Bucharest"
+          }
+        ],
+        "lotSize": "10000",
+        "schedule": [
+          {
+            "endSecond": 147540,
+            "startSecond": 64920
+          },
+          {
+            "endSecond": 233940,
+            "startSecond": 151320
+          },
+          {
+            "endSecond": 320340,
+            "startSecond": 237720
+          },
+          {
+            "endSecond": 406740,
+            "startSecond": 324120
+          },
+          {
+            "endSecond": 493020,
+            "startSecond": 410520
+          }
+        ],
+        "swapLong": -54.05,
+        "swapTime": 1260,
+        "symbolId": "41",
+        "gslCharge": "0",
+        "maxVolume": "1000000",
+        "minVolume": "100",
+        "swapShort": 46.27,
+        "commission": "3000",
+        "leverageId": "1438",
+        "slDistance": 0,
+        "stepVolume": "100",
+        "swapPeriod": 24,
+        "tpDistance": 0,
+        "gslDistance": 0,
+        "maxExposure": "10000000000000",
+        "pipPosition": 2,
+        "tradingMode": "ENABLED",
+        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
+        "minCommission": "0",
+        "commissionType": "USD_PER_MILLION_USD",
+        "skipSWAPPeriods": 0,
+        "scheduleTimeZone": "America/New_York",
+        "skipRolloverDays": 3,
+        "minCommissionType": "QUOTE_CURRENCY",
+        "swapRollover3Days": "WEDNESDAY",
+        "enableShortSelling": true,
+        "guaranteedStopLoss": false,
+        "minCommissionAsset": "USD",
+        "rolloverCommission": "0",
+        "swapCalculationType": "PIPS",
+        "chargeSwapAtWeekends": false,
+        "pnlConversionFeeRate": 0,
+        "preciseMinCommission": "0",
+        "rolloverCommission3Days": "WEDNESDAY",
+        "preciseTradingCommissionRate": "3000000000"
+      },
+      "digits": 2,
+      "maxLot": 10000.0,
+      "minLot": 1.0,
+      "lotStep": 1.0,
+      "lot_size": 10000,
+      "symbol_id": 41,
+      "pipPosition": 2,
+      "step_volume": 1.0,
+      "baseCurrency": "XAU",
+      "quoteCurrency": "USD"
     }
   }
 ]
