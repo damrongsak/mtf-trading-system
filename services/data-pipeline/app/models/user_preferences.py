@@ -7,12 +7,11 @@ import enum
 from app.database import Base
 
 
-class StrategyType(str, enum.Enum):
-    """Strategy type enum for portfolio management"""
-    MTF_SMC_BASIC = "MTF_SMC_BASIC"
-    LONG_SHORT_EQUITY = "LONG_SHORT_EQUITY"
-    MACRO_TACTICAL = "MACRO_TACTICAL"
-    MULTI_ASSET = "MULTI_ASSET"
+class JargonLevel(str, enum.Enum):
+    """Jargon level for AI Analyst responses"""
+    LOW_RETAIL = "LOW_RETAIL"
+    MEDIUM_FINANCIAL = "MEDIUM_FINANCIAL"
+    HIGH_INSTITUTIONAL = "HIGH_INSTITUTIONAL"
 
 
 class UserPreferences(Base):
@@ -24,6 +23,11 @@ class UserPreferences(Base):
     
     # Fund Management
     default_fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=True)
+    
+    # UI/UX Preferences
+    theme = Column(String, default="dark", nullable=False)
+    language = Column(String, default="en", nullable=False)
+    jargon_level = Column(Enum(JargonLevel), default=JargonLevel.MEDIUM_FINANCIAL, nullable=False)
     
     # Strategy Configuration
     # strategy_type moved to Fund

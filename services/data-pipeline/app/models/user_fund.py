@@ -39,6 +39,8 @@ class Fund(Base):
 
     risk_parity_enabled = Column(Boolean, default=False)
     risk_parity_model = Column(Enum("MIN_VOL", "HRP", "ERC", name="risk_parity_model_enum"), default="HRP")
+    scale_factor = Column(Numeric(5, 4), default=1.0000, nullable=False)
+    asset_risk_caps = Column(JSONB, default={}, nullable=False)
 
     # [NEW] Auto-Protect (Emergency SL)
     auto_protect_enabled = Column(Boolean, default=False, nullable=False)
