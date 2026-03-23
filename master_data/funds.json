@@ -10,9 +10,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -20,6 +20,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -35,9 +37,9 @@
       "METALS"
     ],
     "max_risk_per_trade": "100.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0005",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "1.50",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -45,6 +47,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -59,9 +63,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "1.50",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -69,6 +73,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -83,9 +89,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0005",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.50",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -93,6 +99,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -107,9 +115,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.00",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -117,6 +125,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -131,9 +141,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.00",
+    "max_drawdown_threshold": "2.00",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -141,6 +151,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -155,9 +167,9 @@
       "FX"
     ],
     "max_risk_per_trade": "10.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "3.00",
+    "max_drawdown_threshold": "1.50",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -165,6 +177,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -180,9 +194,9 @@
       "XAGUSD"
     ],
     "max_risk_per_trade": "2.00",
-    "risk_percentage": "0.0005",
+    "risk_percentage": "0.0050",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "2.50",
+    "max_drawdown_threshold": "1.25",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -190,6 +204,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   },
@@ -204,9 +220,9 @@
       "FX"
     ],
     "max_risk_per_trade": "100.00",
-    "risk_percentage": "0.0050",
+    "risk_percentage": "0.0010",
     "default_lot_size": "0.01",
-    "max_drawdown_threshold": "4.50",
+    "max_drawdown_threshold": "2.50",
     "max_portfolio_beta": "0.35",
     "gross_exposure_limit": "100.00",
     "net_exposure_limit": "15.00",
@@ -214,6 +230,8 @@
     "position_limit_sector": "10.00",
     "risk_parity_enabled": false,
     "risk_parity_model": "HRP",
+    "scale_factor": "1.0000",
+    "asset_risk_caps": {},
     "auto_protect_enabled": false,
     "emergency_sl_pips": "500.00"
   }

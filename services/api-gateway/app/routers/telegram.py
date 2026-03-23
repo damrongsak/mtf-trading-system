@@ -145,26 +145,62 @@ async def link_telegram(
 ):
     """
     Links a Telegram chat_id to the authenticated user's account.
+    Strict 1:1 Enforcement:
+    1. One chat_id per user (updates existing if needed).
+    2. One user per chat_id (rejects if chat_id belongs to someone else).
     """
-    # Check if this chat_id is already linked
+    # 1. Check if this chat_id is already linked to SOMEONE ELSE
+    conflict = db.query(TelegramChatMapping).filter(
+        TelegramChatMapping.chat_id == request.chat_id,
+        TelegramChatMapping.user_id != current_user.id
+    ).first()
+    
+    if conflict:
+        raise HTTPException(
+            status_code=400,
+            detail="This Telegram account is already linked to another user."
+        )
+    
+    # 2. Check if the user already has a mapping (1:1 constraint)
+    logger.info(f"Checking for existing mapping for user_id: {current_user.id}")
     existing = db.query(TelegramChatMapping).filter(
-        TelegramChatMapping.chat_id == request.chat_id
+        TelegramChatMapping.user_id == current_user.id
     ).first()
     
     if existing:
-        if existing.user_id == current_user.id:
+        logger.info(f"Found existing mapping ID: {existing.id}, chat_id: {existing.chat_id} for user_id: {current_user.id}")
+        if existing.chat_id == request.chat_id:
+            logger.info(f"Chat ID {request.chat_id} already linked for user {current_user.id}")
             return LinkTelegramResponse(
                 success=True,
                 message="This Telegram account is already linked to your account.",
                 chat_id=request.chat_id
             )
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="This Telegram account is already linked to another user."
+            # Update existing mapping to new chat_id
+            old_chat_id = existing.chat_id
+            logger.info(f"Updating existing mapping ID {existing.id} from {old_chat_id} to {request.chat_id}")
+            existing.chat_id = request.chat_id
+            existing.is_active = True
+            db.flush()
+            db.commit()
+            logger.info(f"User {current_user.username} updated Telegram link from {old_chat_id} to {request.chat_id}")
+            
+            await send_telegram_message(
+                request.chat_id,
+                f"✅ **Telegram Link Updated**\n\n"
+                f"Your account (**{current_user.username}**) is now linked to this chat.\n"
+                f"Previous chat link has been deactivated."
+            )
+            
+            return LinkTelegramResponse(
+                success=True,
+                message="Telegram link updated successfully!",
+                chat_id=request.chat_id
             )
     
-    # Create new mapping
+    logger.info(f"No existing mapping found for user_id: {current_user.id}. Creating new one for chat_id: {request.chat_id}")
+    # 3. Create new mapping
     mapping = TelegramChatMapping(
         user_id=current_user.id,
         chat_id=request.chat_id,

@@ -4,6 +4,7 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.models.candle import Candle
 from app.repositories.candle_repository import CandleRepository
 import redis
@@ -37,7 +38,7 @@ class LabellingService:
             # For simplicity in this iteration, we fetch symbols from the candles table directly
             # using a distinct query on rows where ai_labels IS NULL.
             distinct_symbols_tf = self.db.execute(
-                "SELECT DISTINCT market_symbol_id, timeframe FROM candles WHERE ai_labels IS NULL OR regime_tag IS NULL LIMIT 10"
+                text("SELECT DISTINCT market_symbol_id, timeframe FROM candles WHERE ai_labels IS NULL OR regime_tag IS NULL LIMIT 10")
             ).fetchall()
             
             if not distinct_symbols_tf:

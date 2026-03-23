@@ -10,11 +10,11 @@ from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from typing import List, Optional, Any
 import uuid # Standard lib uuid
-from app.models.user_preferences import StrategyType # Import shared StrEnum
 from app.schemas.generated import (
     Fund as GeneratedFund,
     FundCreate as GeneratedFundCreate,
-    FundUpdate as GeneratedFundUpdate
+    FundUpdate as GeneratedFundUpdate,
+    StrategyType
 )
 
 router = APIRouter(

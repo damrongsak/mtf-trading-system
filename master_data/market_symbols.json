@@ -612,5 +612,96 @@
       "baseCurrency": "XBR",
       "quoteCurrency": "USD"
     }
+  },
+  {
+    "id": "4d89df27-637e-4910-ace2-9a43fa3d0a26",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": null,
+    "symbol": "VIX",
+    "display_name": "VIX",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^VIX"
+    }
+  },
+  {
+    "id": "2b7aacee-3220-4459-b530-3cc7d50981b2",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": null,
+    "symbol": "GVZ",
+    "display_name": "GVZ",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GVZ"
+    }
+  },
+  {
+    "id": "5717a393-1b24-41e0-8e76-ff3d86f6bdf4",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": null,
+    "symbol": "DXY",
+    "display_name": "DXY",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "DX-Y.NYB"
+    }
+  },
+  {
+    "id": "2557beae-1ce3-4897-8c81-4b76d3d73ef0",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": null,
+    "symbol": "SPX",
+    "display_name": "SPX",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GSPC"
+    }
+  },
+  {
+    "id": "e2549069-eb08-4f48-8ea4-931fbba834cc",
+    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
+    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
+    "symbol": "BTCUSDT",
+    "display_name": "BTCUSDT",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT"
+    }
+  },
+  {
+    "id": "0ed557b6-68f3-42fa-861d-739824690f21",
+    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
+    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
+    "symbol": "ETHUSDT",
+    "display_name": "ETHUSDT",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "baseAsset": "ETH",
+      "quoteAsset": "USDT"
+    }
+  },
+  {
+    "id": "674f6a14-3098-4741-b27b-2e7139e89577",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": null,
+    "symbol": "TIPS",
+    "display_name": "TIPS",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "TIP"
+    }
   }
 ]

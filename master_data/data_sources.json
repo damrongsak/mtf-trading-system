@@ -25,5 +25,14 @@
     "config_json": null,
     "schema_json": null,
     "is_active": true
+  },
+  {
+    "id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
+    "name": "BINANCE",
+    "provider": "BINANCE",
+    "type": "api",
+    "config_json": {},
+    "schema_json": null,
+    "is_active": true
   }
 ]

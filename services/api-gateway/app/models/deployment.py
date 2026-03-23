@@ -14,7 +14,6 @@ class Deployment(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=False, index=True)
     is_active = Column(Boolean, default=True)
-    is_shadow = Column(Boolean, default=False, nullable=True, comment="If true, signals are not sent to the broker")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     strategy_id = Column(UUID(as_uuid=True), ForeignKey("saved_strategies.id", ondelete="CASCADE"), nullable=False, index=True)
     
@@ -26,7 +25,7 @@ class Deployment(Base):
     # State
     status = Column(Enum("STARTING", "ACTIVE", "STOPPED", "ERROR", "STOPPING", name="deployment_status_enum"), default="STARTING", index=True, nullable=False)
     is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
-    is_shadow = Column(Boolean, default=False, nullable=False) # Added is_shadow field
+    is_shadow = Column(Boolean, default=False, nullable=True, comment="If true, signals are not sent to the broker")
     
     # Performance/Tracking
     started_at = Column(DateTime(timezone=True), server_default=func.now())

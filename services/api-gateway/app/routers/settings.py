@@ -4,7 +4,8 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user_preferences import UserPreferences, StrategyType
+from app.models.user_preferences import UserPreferences
+from app.schemas.generated import StrategyType
 from app.security import get_current_user
 from pydantic import BaseModel, ConfigDict
 from app.schemas.response import APIResponse

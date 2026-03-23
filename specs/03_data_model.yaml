@@ -2491,6 +2491,7 @@ redis_streams:
         foreign_key: "users.id"
         on_delete: CASCADE
         required: true
+        unique: true
         description: "Owner of this Telegram mapping"
       - name: chat_id
         type: bigint

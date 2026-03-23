@@ -309,29 +309,38 @@ class TelegramPollingService:
     def _auto_link_chat(self, db: Session, user_id: UUID, chat_id: int):
         """Automatically create or update a mapping for personal bot users. Synchronous."""
         try:
-            mapping = db.query(TelegramChatMapping).filter(
-                TelegramChatMapping.user_id == user_id,
+            # 1. Check if the user already has a mapping (1:1 constraint)
+            existing_user_mapping = db.query(TelegramChatMapping).filter(
+                TelegramChatMapping.user_id == user_id
+            ).first()
+            
+            if existing_user_mapping:
+                if existing_user_mapping.chat_id != chat_id:
+                    # User moved to a different chat, update it
+                    old_chat = existing_user_mapping.chat_id
+                    existing_user_mapping.chat_id = chat_id
+                    existing_user_mapping.is_active = True
+                    db.commit()
+                    logger.info(f"Auto-updated Telegram link for user {user_id} from {old_chat} to {chat_id}")
+                return
+
+            # 2. Check if this chat_id is linked to SOMEONE ELSE (conflict)
+            conflict = db.query(TelegramChatMapping).filter(
                 TelegramChatMapping.chat_id == chat_id
             ).first()
             
-            if not mapping:
-                # Check if this chat_id is linked to SOMEONE ELSE (conflict)
-                conflict = db.query(TelegramChatMapping).filter(
-                    TelegramChatMapping.chat_id == chat_id
-                ).first()
-                
-                if conflict:
-                    # If it was linked to someone else on the SYSTEM bot, 
-                    # we can "reclaim" it for this user's personal bot context.
-                    conflict.user_id = user_id
-                else:
-                    new_mapping = TelegramChatMapping(
-                        user_id=user_id,
-                        chat_id=chat_id,
-                        is_active=True
-                    )
-                    db.add(new_mapping)
-                db.commit()
+            if conflict:
+                # If it was linked to someone else on the SYSTEM bot, 
+                # we can "reclaim" it for this user's personal bot context.
+                conflict.user_id = user_id
+            else:
+                new_mapping = TelegramChatMapping(
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    is_active=True
+                )
+                db.add(new_mapping)
+            db.commit()
         except Exception as e:
             logger.error(f"Auto-link failed: {e}")
 

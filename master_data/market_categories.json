@@ -10,5 +10,17 @@
     "name": "Metals",
     "order_index": 1,
     "is_active": true
+  },
+  {
+    "id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "name": "Macro",
+    "order_index": 99,
+    "is_active": true
+  },
+  {
+    "id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
+    "name": "Crypto",
+    "order_index": 2,
+    "is_active": true
   }
 ]
