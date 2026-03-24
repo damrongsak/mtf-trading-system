@@ -1,25 +1,5 @@
 [
   {
-    "id": "04f20738-6d37-4293-be6e-96539b65885a",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "System: Volatility Breakout",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "config_id": null,
-    "template_id": "volatility_breakout",
-    "config_json": {
-      "symbol": "XAUUSD"
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": true,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-20T10:07:45.336237",
-    "updated_at": "2026-03-20T10:07:45.336237"
-  },
-  {
     "id": "066aa6c5-c431-4be1-a9d1-642faecf5e0a",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "name": "SMC GBPUSD Live Monitoring (Oanda)",
@@ -114,80 +94,46 @@
     "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
-    "id": "d976d1a9-1d76-4f23-9ae4-3e57a028ca24",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Gold SMC Hunter V1",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "smc_hunter_v1",
-    "config_json": {
-      "symbol": "XAU_USD",
-      "risk_pct": 1.0,
-      "tf_macro": "4h",
-      "tf_setup": "1h",
-      "tf_trigger": "15min"
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-22T18:28:40.690046",
-    "updated_at": "2026-03-22T18:28:40.690046"
-  },
-  {
-    "id": "ddb39d3a-9381-478e-a142-d03678eddec0",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "BOSWaves XAUUSD Shadow",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "boswaves_v1",
-    "config_json": {
-      "tp1_r": 1.0,
-      "tp2_r": 2.0,
-      "tp3_r": 3.0,
-      "symbol": "XAU_USD",
-      "is_shadow": true,
-      "atr_period": 15,
-      "ema_period": 50,
-      "move_sl_to_be": true,
-      "atr_multiplier": 3.5,
-      "partial_close_pct": 0.5
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-22T20:45:15.663766",
-    "updated_at": "2026-03-22T20:47:12.837525"
-  },
-  {
-    "id": "614bdef8-09ff-4eed-a6c1-959fd81e6daa",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "name": "SMC Capital Main",
+    "id": "04f20738-6d37-4293-be6e-96539b65885a",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "System: Volatility Breakout",
     "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
     "config_id": null,
-    "template_id": "smc_v1",
+    "template_id": "volatility_breakout",
     "config_json": {
-      "symbol": "EURUSD",
-      "min_rrr": 1.5,
-      "tf_macro": "4h",
-      "tf_setup": "1h"
+      "symbol": "XAUUSD"
     },
     "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-20T10:07:45.336237",
+    "updated_at": "2026-03-20T10:07:45.336237"
+  },
+  {
+    "id": "8276c10a-6f5d-4678-b5c2-ac01bc6b9fc4",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "3rd Party Test Strategy",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "symbol": "XAUUSD"
+    },
+    "risk_settings": {
+      "risk_pct": 1.0
+    },
     "custom_code": null,
     "is_active": true,
     "is_shadow": false,
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-16T05:35:27.873895",
-    "updated_at": "2026-03-16T05:35:27.873895"
+    "created_at": "2026-03-24T07:06:56.673824",
+    "updated_at": "2026-03-24T07:06:56.673824"
   },
   {
     "id": "9e0195a6-3068-4e10-b3ff-1dc77b7e2e78",
@@ -244,6 +190,35 @@
     "last_simulation_result": null,
     "created_at": "2026-03-18T10:00:00",
     "updated_at": "2026-03-18T10:00:00"
+  },
+  {
+    "id": "1d053b0e-4987-41d7-a592-6216a60c792c",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Quasimodo V2 Shadow",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "quasimodo_v1",
+    "config_json": {
+      "symbol": "XAUUSD",
+      "ema_fast": 13,
+      "ema_slow": 50,
+      "ema_macro": 200,
+      "timeframe": "15min",
+      "swing_strength": 1,
+      "rl_filter_threshold": 0.4
+    },
+    "risk_settings": {
+      "risk_pct": 0.01,
+      "max_sl_pips": 40
+    },
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T02:06:43.080983",
+    "updated_at": "2026-03-24T02:06:43.080983"
   },
   {
     "id": "ac30fa46-8501-4dc9-bf33-e87e329c8b7f",
@@ -320,6 +295,59 @@
     "updated_at": "2026-03-07T08:45:13.226081"
   },
   {
+    "id": "d976d1a9-1d76-4f23-9ae4-3e57a028ca24",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Gold SMC Hunter V1",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "smc_hunter_v1",
+    "config_json": {
+      "symbol": "XAU_USD",
+      "risk_pct": 1.0,
+      "tf_macro": "4h",
+      "tf_setup": "1h",
+      "tf_trigger": "15min"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-22T18:28:40.690046",
+    "updated_at": "2026-03-22T18:28:40.690046"
+  },
+  {
+    "id": "ddb39d3a-9381-478e-a142-d03678eddec0",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "BOSWaves XAUUSD Shadow",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "boswaves_v1",
+    "config_json": {
+      "tp1_r": 1.0,
+      "tp2_r": 2.0,
+      "tp3_r": 3.0,
+      "symbol": "XAU_USD",
+      "is_shadow": true,
+      "atr_period": 15,
+      "ema_period": 50,
+      "move_sl_to_be": true,
+      "atr_multiplier": 3.5,
+      "partial_close_pct": 0.5
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-22T20:45:15.663766",
+    "updated_at": "2026-03-22T20:47:12.837525"
+  },
+  {
     "id": "e3fa821b-8df3-4f27-a938-48fda0994b1a",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "name": "SMC Capital Gold",
@@ -343,35 +371,6 @@
     "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
-    "id": "1d053b0e-4987-41d7-a592-6216a60c792c",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Quasimodo V2 Shadow",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "quasimodo_v1",
-    "config_json": {
-      "symbol": "XAUUSD",
-      "ema_fast": 13,
-      "ema_slow": 50,
-      "ema_macro": 200,
-      "timeframe": "15min",
-      "swing_strength": 1,
-      "rl_filter_threshold": 0.4
-    },
-    "risk_settings": {
-      "risk_pct": 0.01,
-      "max_sl_pips": 40
-    },
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": true,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T02:06:43.080983",
-    "updated_at": "2026-03-24T02:06:43.080983"
-  },
-  {
     "id": "a1b2c3d4-e5f6-4a5b-8c9d-d1e2f3a4b5c6",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "name": "Sentinel V1 System",
@@ -389,7 +388,50 @@
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-24T13:00:00.000000",
-    "updated_at": "2026-03-24T13:00:00.000000"
+    "created_at": "2026-03-24T13:00:00",
+    "updated_at": "2026-03-24T13:00:00"
+  },
+  {
+    "id": "614bdef8-09ff-4eed-a6c1-959fd81e6daa",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "name": "SMC Capital Main",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "smc_v1",
+    "config_json": {
+      "symbol": "EURUSD",
+      "min_rrr": 1.5,
+      "tf_macro": "4h",
+      "tf_setup": "1h"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-16T05:35:27.873895",
+    "updated_at": "2026-03-16T05:35:27.873895"
+  },
+  {
+    "id": "df2f5d15-731d-4624-b200-eb30d25f442c",
+    "fund_id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
+    "name": "Forbidden Strategy V2",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "symbol": "BTCUSD"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T06:15:24.045332",
+    "updated_at": "2026-03-24T06:15:24.045332"
   }
 ]

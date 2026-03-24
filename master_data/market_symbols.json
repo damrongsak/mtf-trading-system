@@ -20,100 +20,6 @@
     "details": null
   },
   {
-    "id": "12a88060-9239-499c-9105-42cd81d3a570",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "USDJPY",
-    "display_name": "USDJPY",
-    "order_index": 999,
-    "is_active": true,
-    "details": {
-      "raw": {
-        "digits": 3,
-        "holiday": [
-          {
-            "name": "01.01.2026 New Year's Day  ALL FX *",
-            "endSecond": 0,
-            "holidayId": "1016",
-            "description": "01.01.2026 New Year's Day  ALL FX *",
-            "holidayDate": "20454",
-            "isRecurring": false,
-            "startSecond": 0,
-            "scheduleTimeZone": "Europe/Bucharest"
-          }
-        ],
-        "lotSize": "10000000",
-        "schedule": [
-          {
-            "endSecond": 147540,
-            "startSecond": 61260
-          },
-          {
-            "endSecond": 233940,
-            "startSecond": 147660
-          },
-          {
-            "endSecond": 320340,
-            "startSecond": 234060
-          },
-          {
-            "endSecond": 406740,
-            "startSecond": 320460
-          },
-          {
-            "endSecond": 493020,
-            "startSecond": 406860
-          }
-        ],
-        "swapLong": 1.03,
-        "swapTime": 1260,
-        "symbolId": "4",
-        "gslCharge": "0",
-        "maxVolume": "1000000000",
-        "minVolume": "100000",
-        "swapShort": -1.67,
-        "commission": "3000",
-        "leverageId": "1438",
-        "slDistance": 0,
-        "stepVolume": "100000",
-        "swapPeriod": 24,
-        "tpDistance": 0,
-        "gslDistance": 0,
-        "maxExposure": "10000000000000",
-        "pipPosition": 2,
-        "tradingMode": "ENABLED",
-        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
-        "minCommission": "0",
-        "commissionType": "USD_PER_MILLION_USD",
-        "skipSWAPPeriods": 0,
-        "scheduleTimeZone": "America/New_York",
-        "skipRolloverDays": 3,
-        "minCommissionType": "CURRENCY",
-        "swapRollover3Days": "WEDNESDAY",
-        "enableShortSelling": true,
-        "guaranteedStopLoss": false,
-        "minCommissionAsset": "USD",
-        "rolloverCommission": "0",
-        "swapCalculationType": "PIPS",
-        "chargeSwapAtWeekends": false,
-        "pnlConversionFeeRate": 0,
-        "preciseMinCommission": "0",
-        "rolloverCommission3Days": "WEDNESDAY",
-        "preciseTradingCommissionRate": "3000000000"
-      },
-      "digits": 3,
-      "maxLot": 10000000.0,
-      "minLot": 1000.0,
-      "lotStep": 1000.0,
-      "lot_size": 10000000,
-      "symbol_id": 4,
-      "pipPosition": 2,
-      "step_volume": 1000.0,
-      "baseCurrency": "USD",
-      "quoteCurrency": "JPY"
-    }
-  },
-  {
     "id": "06a0dbf2-42af-40ce-b305-87b10ec4e86e",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -315,6 +221,71 @@
     }
   },
   {
+    "id": "2557beae-1ce3-4897-8c81-4b76d3d73ef0",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "SPX",
+    "display_name": "SPX",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GSPC"
+    }
+  },
+  {
+    "id": "2b7aacee-3220-4459-b530-3cc7d50981b2",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "GVZ",
+    "display_name": "GVZ",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^GVZ"
+    }
+  },
+  {
+    "id": "4d89df27-637e-4910-ace2-9a43fa3d0a26",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "VIX",
+    "display_name": "VIX",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "^VIX"
+    }
+  },
+  {
+    "id": "5717a393-1b24-41e0-8e76-ff3d86f6bdf4",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "DXY",
+    "display_name": "DXY",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "DX-Y.NYB"
+    }
+  },
+  {
+    "id": "674f6a14-3098-4741-b27b-2e7139e89577",
+    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "TIPS",
+    "display_name": "TIPS",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "asset_class": "Macro",
+      "yfinance_ticker": "TIP"
+    }
+  },
+  {
     "id": "69d5ce22-4f95-4a91-b534-5298ec2aec5b",
     "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
     "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
@@ -418,6 +389,113 @@
       "step_volume": 1000.0,
       "baseCurrency": "GBP",
       "quoteCurrency": "USD"
+    }
+  },
+  {
+    "id": "e2549069-eb08-4f48-8ea4-931fbba834cc",
+    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
+    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
+    "symbol": "BTCUSDT",
+    "display_name": "BTCUSDT",
+    "order_index": 0,
+    "is_active": true,
+    "details": {
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT"
+    }
+  },
+  {
+    "id": "12a88060-9239-499c-9105-42cd81d3a570",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "USDJPY",
+    "display_name": "USDJPY",
+    "order_index": 999,
+    "is_active": true,
+    "details": {
+      "raw": {
+        "digits": 3,
+        "holiday": [
+          {
+            "name": "01.01.2026 New Year's Day  ALL FX *",
+            "endSecond": 0,
+            "holidayId": "1016",
+            "description": "01.01.2026 New Year's Day  ALL FX *",
+            "holidayDate": "20454",
+            "isRecurring": false,
+            "startSecond": 0,
+            "scheduleTimeZone": "Europe/Bucharest"
+          }
+        ],
+        "lotSize": "10000000",
+        "schedule": [
+          {
+            "endSecond": 147540,
+            "startSecond": 61260
+          },
+          {
+            "endSecond": 233940,
+            "startSecond": 147660
+          },
+          {
+            "endSecond": 320340,
+            "startSecond": 234060
+          },
+          {
+            "endSecond": 406740,
+            "startSecond": 320460
+          },
+          {
+            "endSecond": 493020,
+            "startSecond": 406860
+          }
+        ],
+        "swapLong": 1.03,
+        "swapTime": 1260,
+        "symbolId": "4",
+        "gslCharge": "0",
+        "maxVolume": "1000000000",
+        "minVolume": "100000",
+        "swapShort": -1.67,
+        "commission": "3000",
+        "leverageId": "1438",
+        "slDistance": 0,
+        "stepVolume": "100000",
+        "swapPeriod": 24,
+        "tpDistance": 0,
+        "gslDistance": 0,
+        "maxExposure": "10000000000000",
+        "pipPosition": 2,
+        "tradingMode": "ENABLED",
+        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
+        "minCommission": "0",
+        "commissionType": "USD_PER_MILLION_USD",
+        "skipSWAPPeriods": 0,
+        "scheduleTimeZone": "America/New_York",
+        "skipRolloverDays": 3,
+        "minCommissionType": "CURRENCY",
+        "swapRollover3Days": "WEDNESDAY",
+        "enableShortSelling": true,
+        "guaranteedStopLoss": false,
+        "minCommissionAsset": "USD",
+        "rolloverCommission": "0",
+        "swapCalculationType": "PIPS",
+        "chargeSwapAtWeekends": false,
+        "pnlConversionFeeRate": 0,
+        "preciseMinCommission": "0",
+        "rolloverCommission3Days": "WEDNESDAY",
+        "preciseTradingCommissionRate": "3000000000"
+      },
+      "digits": 3,
+      "maxLot": 10000000.0,
+      "minLot": 1000.0,
+      "lotStep": 1000.0,
+      "lot_size": 10000000,
+      "symbol_id": 4,
+      "pipPosition": 2,
+      "step_volume": 1000.0,
+      "baseCurrency": "USD",
+      "quoteCurrency": "JPY"
     }
   },
   {
@@ -542,84 +620,6 @@
       "step_volume": 50.0,
       "baseCurrency": "XBR",
       "quoteCurrency": "USD"
-    }
-  },
-  {
-    "id": "e2549069-eb08-4f48-8ea4-931fbba834cc",
-    "category_id": "b4fbe6b4-bd86-47d5-b21d-179742764c00",
-    "data_source_id": "f0a66fba-cd87-4c6e-b7ac-4227b16a3d6d",
-    "symbol": "BTCUSDT",
-    "display_name": "BTCUSDT",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "baseAsset": "BTC",
-      "quoteAsset": "USDT"
-    }
-  },
-  {
-    "id": "2557beae-1ce3-4897-8c81-4b76d3d73ef0",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "SPX",
-    "display_name": "SPX",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^GSPC"
-    }
-  },
-  {
-    "id": "2b7aacee-3220-4459-b530-3cc7d50981b2",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "GVZ",
-    "display_name": "GVZ",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^GVZ"
-    }
-  },
-  {
-    "id": "4d89df27-637e-4910-ace2-9a43fa3d0a26",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "VIX",
-    "display_name": "VIX",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "^VIX"
-    }
-  },
-  {
-    "id": "5717a393-1b24-41e0-8e76-ff3d86f6bdf4",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "DXY",
-    "display_name": "DXY",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "DX-Y.NYB"
-    }
-  },
-  {
-    "id": "674f6a14-3098-4741-b27b-2e7139e89577",
-    "category_id": "8097794c-30ae-40bf-a2cf-a160ef1b4bde",
-    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "TIPS",
-    "display_name": "TIPS",
-    "order_index": 0,
-    "is_active": true,
-    "details": {
-      "asset_class": "Macro",
-      "yfinance_ticker": "TIP"
     }
   },
   {

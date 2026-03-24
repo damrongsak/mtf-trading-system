@@ -1,5 +1,11 @@
 [
   {
+    "id": "022ed936-d306-4b4e-ae1c-5887c8e88807",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "role": "OWNER"
+  },
+  {
     "id": "1d8f9d5d-42aa-4f50-b006-5c6f74762452",
     "user_id": "7a5a8238-0fb1-4764-a244-768c1550ea17",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
@@ -18,6 +24,12 @@
     "role": "OWNER"
   },
   {
+    "id": "82dc1e06-72a4-4a4f-9dd3-8a6b85b4d1d2",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "role": "OWNER"
+  },
+  {
     "id": "8420072c-ff6e-4e15-95f6-2f467bbfd097",
     "user_id": "d0e66859-a197-496f-8999-18c7bc67207f",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
@@ -33,6 +45,12 @@
     "id": "99e64df2-a99b-419c-9f6d-ba07d27d8631",
     "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "role": "OWNER"
+  },
+  {
+    "id": "ab606c8b-7a53-42c7-9cf2-bd27dbcecf01",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "role": "OWNER"
   },
   {
@@ -57,24 +75,6 @@
     "id": "d8dc0671-92f1-4341-a3b9-45de0b035b11",
     "user_id": "6a4a2b5d-c41a-4b2a-b467-66b6ebbf6644",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "role": "OWNER"
-  },
-  {
-    "id": "82dc1e06-72a4-4a4f-9dd3-8a6b85b4d1d2",
-    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "role": "OWNER"
-  },
-  {
-    "id": "ab606c8b-7a53-42c7-9cf2-bd27dbcecf01",
-    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "role": "OWNER"
-  },
-  {
-    "id": "022ed936-d306-4b4e-ae1c-5887c8e88807",
-    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
-    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
     "role": "OWNER"
   }
 ]
