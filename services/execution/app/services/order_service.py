@@ -50,7 +50,7 @@ class OrderService:
     async def execute_smart_order(req_data: dict, db: AsyncSession):
         """
         Core logic for placing a smart order with risk management and minimax check.
-        Expects req_data to have: broker_account_id, symbol, direction, stop_loss, etc.
+        Expects req_data to have: broker_account_id, symbol, direction, sl_price, etc.
         """
         from app.services.cache_service import execution_cache
         try:
@@ -136,11 +136,11 @@ class OrderService:
             adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
 
             # 3. Validation (Standard checks)
-            stop_loss = req_data.get("stop_loss")
-            if not stop_loss:
-                raise ValueError("Smart Order requires a Stop Loss price to calculate risk.")
+            sl_price = req_data.get("sl_price")
+            if not sl_price:
+                raise ValueError("Smart Order requires an 'sl_price' to calculate risk.")
             
-            take_profit = req_data.get("take_profit")
+            tp_price = req_data.get("tp_price")
 
             if not req_data.get("generated_by"):
                 raise ValueError("Traceability Error: 'generated_by' (Strategy Name) is required.")
@@ -216,7 +216,8 @@ class OrderService:
             else:
                 await OrderService._log_trace(trace_id, "price_cache_hit", price_start)
                 
-            entry_ref = req_data.get("entry_price") or current_price
+            price = req_data.get("price") or current_price
+            entry_ref = price
             
             # [FMEA Guardrail] Phase 1: Max Slippage Buffer
             # Default to 1.0 (100 pips Gold) if not in settings
@@ -253,11 +254,11 @@ class OrderService:
                         units = risk_capital / current_price
                         logger.info(f"⚖️ [RiskParity] Sizing: weight={target_weight}, equity=${equity}, units={units}")
                         # Calculate implied risk for the safety cap check below
-                        if stop_loss:
+                        if sl_price:
                             # Use Pro UnitConverter for Risk calculation
                             # units here are standard units (oz/base), we need to convert to volume_cents
                             vol_cents = units * 100 # standard units to cents
-                            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - stop_loss), vol_cents)
+                            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - sl_price), vol_cents)
             
             # Fallback to Standard Risk-Based Sizing if units not yet set
             if units is None:
@@ -279,7 +280,7 @@ class OrderService:
                     logger.info(f"⚖️ [Phase 11] Institutional Scaling Applied: {scale_multiplier}x (Adjusted Risk: ${sizing_risk})")
                 
                 current_price = await adapter.get_current_price(req_data["symbol"])
-                sl_distance = abs(current_price - stop_loss)
+                sl_distance = abs(current_price - sl_price)
                 if sl_distance == 0:
                     raise ValueError("Stop loss cannot be equal to entry price")
                 
@@ -291,7 +292,7 @@ class OrderService:
             # Recalculate risk for final verification using official converter
             # Convert units (internal) to volume_cents (broker) first
             final_vol_cents = units * (lot_size_cents / 100000.0)
-            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - stop_loss), final_vol_cents)
+            target_risk = UnitConverter.calculate_risk_usd(abs(current_price - sl_price), final_vol_cents)
 
             if target_risk > effective_limit:
                  logger.warning(f"⚠️ [Guardrail] Risk ${target_risk} exceeds fund limit ${fund_limit}. Capping.")
@@ -305,11 +306,11 @@ class OrderService:
                 if units is None:
                     logger.error(f"[ERROR] units is None for BULLISH order. req_data={req_data}")
                 units = abs(units)
-                if stop_loss >= entry_ref:
+                if sl_price >= entry_ref:
                     raise ValueError("Long SL must be below Entry Price")
             elif direction == "BEARISH":
                 units = -abs(units)
-                if stop_loss <= entry_ref:
+                if sl_price <= entry_ref:
                     raise ValueError("Short SL must be above Entry Price")
             else:
                 raise ValueError("Invalid direction")
@@ -326,9 +327,8 @@ class OrderService:
 
             # 6. Minimax Check
             reward_usd = 0.0
-            take_profit = req_data.get("take_profit")
-            if take_profit:
-                reward_dist = abs(take_profit - entry_ref)
+            if tp_price:
+                reward_dist = abs(tp_price - entry_ref)
                 # [FIX] Use official converter for Reward calculation to avoid 100,000x multiplier error
                 reward_usd = UnitConverter.calculate_risk_usd(reward_dist, final_vol_cents)
             else:
@@ -352,8 +352,8 @@ class OrderService:
                 fund=fund,
                 symbol=req_data["symbol"],
                 direction=direction,
-                sl_price=stop_loss,
-                tp_price=take_profit,
+                sl_price=sl_price,
+                tp_price=tp_price,
                 entry_price=entry_ref,
                 units=units,
                 risk_usd=target_risk,
@@ -378,13 +378,14 @@ class OrderService:
             logger.info(f"Executing: {req_data['symbol']} {units} units. Risk=${target_risk}")
             
             # ... execution logic ...
-            if req_data.get("entry_price"):
+            if req_data.get("price") or req_data.get("stop_price"):
                 response = await adapter.place_limit_order(
                     symbol=req_data["symbol"],
                     units=units,
-                    entry_price=req_data["entry_price"],
-                    sl_price=stop_loss,
-                    tp_price=take_profit,
+                    price=req_data.get("price") or req_data.get("stop_price"),
+                    sl_price=sl_price,
+                    tp_price=tp_price,
+                    stop_price=req_data.get("stop_price"),
                     time_in_force=req_data.get("time_in_force", "GTC"),
                     trade_id=None,
                     comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}",
@@ -395,13 +396,14 @@ class OrderService:
                 response = await adapter.place_market_order(
                     symbol=req_data["symbol"],
                     units=units,
-                    sl_price=stop_loss,
-                    tp_price=take_profit,
+                    sl_price=sl_price,
+                    tp_price=tp_price,
                     trade_id=None,
                     comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}",
                     signal_timestamp_ns=req_data.get("signal_timestamp_ns"),
                     is_shadow=req_data.get("is_shadow", False)
                 )
+
             
             await OrderService._log_trace(trace_id, "broker_execute", exec_start)
             

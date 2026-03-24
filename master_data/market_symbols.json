@@ -65,7 +65,7 @@
             "startSecond": 406860
           }
         ],
-        "swapLong": -0.85,
+        "swapLong": -0.84,
         "swapTime": 1260,
         "symbolId": "1",
         "gslCharge": "0",
@@ -159,13 +159,13 @@
             "startSecond": 410400
           }
         ],
-        "swapLong": 0.86,
+        "swapLong": 0.93,
         "swapTime": 1260,
         "symbolId": "99",
         "gslCharge": "0",
         "maxVolume": "1000000",
         "minVolume": "5000",
-        "swapShort": -2.83,
+        "swapShort": -2.75,
         "commission": "0",
         "leverageId": "1236",
         "slDistance": 0,
@@ -405,100 +405,6 @@
     }
   },
   {
-    "id": "12a88060-9239-499c-9105-42cd81d3a570",
-    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
-    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
-    "symbol": "USDJPY",
-    "display_name": "USDJPY",
-    "order_index": 999,
-    "is_active": true,
-    "details": {
-      "raw": {
-        "digits": 3,
-        "holiday": [
-          {
-            "name": "01.01.2026 New Year's Day  ALL FX *",
-            "endSecond": 0,
-            "holidayId": "1016",
-            "description": "01.01.2026 New Year's Day  ALL FX *",
-            "holidayDate": "20454",
-            "isRecurring": false,
-            "startSecond": 0,
-            "scheduleTimeZone": "Europe/Bucharest"
-          }
-        ],
-        "lotSize": "10000000",
-        "schedule": [
-          {
-            "endSecond": 147540,
-            "startSecond": 61260
-          },
-          {
-            "endSecond": 233940,
-            "startSecond": 147660
-          },
-          {
-            "endSecond": 320340,
-            "startSecond": 234060
-          },
-          {
-            "endSecond": 406740,
-            "startSecond": 320460
-          },
-          {
-            "endSecond": 493020,
-            "startSecond": 406860
-          }
-        ],
-        "swapLong": 1.03,
-        "swapTime": 1260,
-        "symbolId": "4",
-        "gslCharge": "0",
-        "maxVolume": "1000000000",
-        "minVolume": "100000",
-        "swapShort": -1.67,
-        "commission": "3000",
-        "leverageId": "1438",
-        "slDistance": 0,
-        "stepVolume": "100000",
-        "swapPeriod": 24,
-        "tpDistance": 0,
-        "gslDistance": 0,
-        "maxExposure": "10000000000000",
-        "pipPosition": 2,
-        "tradingMode": "ENABLED",
-        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
-        "minCommission": "0",
-        "commissionType": "USD_PER_MILLION_USD",
-        "skipSWAPPeriods": 0,
-        "scheduleTimeZone": "America/New_York",
-        "skipRolloverDays": 3,
-        "minCommissionType": "CURRENCY",
-        "swapRollover3Days": "WEDNESDAY",
-        "enableShortSelling": true,
-        "guaranteedStopLoss": false,
-        "minCommissionAsset": "USD",
-        "rolloverCommission": "0",
-        "swapCalculationType": "PIPS",
-        "chargeSwapAtWeekends": false,
-        "pnlConversionFeeRate": 0,
-        "preciseMinCommission": "0",
-        "rolloverCommission3Days": "WEDNESDAY",
-        "preciseTradingCommissionRate": "3000000000"
-      },
-      "digits": 3,
-      "maxLot": 10000000.0,
-      "minLot": 1000.0,
-      "lotStep": 1000.0,
-      "lot_size": 10000000,
-      "symbol_id": 4,
-      "pipPosition": 2,
-      "step_volume": 1000.0,
-      "baseCurrency": "USD",
-      "quoteCurrency": "JPY"
-    }
-  },
-  {
     "id": "dc195892-5c05-4de2-897c-fb533c06440f",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -623,6 +529,100 @@
     }
   },
   {
+    "id": "12a88060-9239-499c-9105-42cd81d3a570",
+    "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "USDJPY",
+    "display_name": "USDJPY",
+    "order_index": 999,
+    "is_active": true,
+    "details": {
+      "raw": {
+        "digits": 3,
+        "holiday": [
+          {
+            "name": "01.01.2026 New Year's Day  ALL FX *",
+            "endSecond": 0,
+            "holidayId": "1016",
+            "description": "01.01.2026 New Year's Day  ALL FX *",
+            "holidayDate": "20454",
+            "isRecurring": false,
+            "startSecond": 0,
+            "scheduleTimeZone": "Europe/Bucharest"
+          }
+        ],
+        "lotSize": "10000000",
+        "schedule": [
+          {
+            "endSecond": 147540,
+            "startSecond": 61260
+          },
+          {
+            "endSecond": 233940,
+            "startSecond": 147660
+          },
+          {
+            "endSecond": 320340,
+            "startSecond": 234060
+          },
+          {
+            "endSecond": 406740,
+            "startSecond": 320460
+          },
+          {
+            "endSecond": 493020,
+            "startSecond": 406860
+          }
+        ],
+        "swapLong": 1.02,
+        "swapTime": 1260,
+        "symbolId": "4",
+        "gslCharge": "0",
+        "maxVolume": "1000000000",
+        "minVolume": "100000",
+        "swapShort": -1.65,
+        "commission": "3000",
+        "leverageId": "1438",
+        "slDistance": 0,
+        "stepVolume": "100000",
+        "swapPeriod": 24,
+        "tpDistance": 0,
+        "gslDistance": 0,
+        "maxExposure": "10000000000000",
+        "pipPosition": 2,
+        "tradingMode": "ENABLED",
+        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
+        "minCommission": "0",
+        "commissionType": "USD_PER_MILLION_USD",
+        "skipSWAPPeriods": 0,
+        "scheduleTimeZone": "America/New_York",
+        "skipRolloverDays": 3,
+        "minCommissionType": "CURRENCY",
+        "swapRollover3Days": "WEDNESDAY",
+        "enableShortSelling": true,
+        "guaranteedStopLoss": false,
+        "minCommissionAsset": "USD",
+        "rolloverCommission": "0",
+        "swapCalculationType": "PIPS",
+        "chargeSwapAtWeekends": false,
+        "pnlConversionFeeRate": 0,
+        "preciseMinCommission": "0",
+        "rolloverCommission3Days": "WEDNESDAY",
+        "preciseTradingCommissionRate": "3000000000"
+      },
+      "digits": 3,
+      "maxLot": 10000000.0,
+      "minLot": 1000.0,
+      "lotStep": 1000.0,
+      "lot_size": 10000000,
+      "symbol_id": 4,
+      "pipPosition": 2,
+      "step_volume": 1000.0,
+      "baseCurrency": "USD",
+      "quoteCurrency": "JPY"
+    }
+  },
+  {
     "id": "a7836ff9-3f70-4222-b2ee-1fc7be81e78d",
     "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
@@ -668,13 +668,13 @@
             "startSecond": 410520
           }
         ],
-        "swapLong": -54.05,
+        "swapLong": -52.59,
         "swapTime": 1260,
         "symbolId": "41",
         "gslCharge": "0",
         "maxVolume": "1000000",
         "minVolume": "100",
-        "swapShort": 46.27,
+        "swapShort": 45.36,
         "commission": "3000",
         "leverageId": "1438",
         "slDistance": 0,

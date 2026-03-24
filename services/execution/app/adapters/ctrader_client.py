@@ -431,13 +431,15 @@ class AsyncCTraderClient:
                            price: Optional[float] = None, sl: Optional[float] = None, tp: Optional[float] = None,
                            comment: Optional[str] = None,
                            slippage_pips: Optional[int] = None,
-                           base_price: Optional[float] = None):
+                           base_price: Optional[float] = None,
+                           stop_price: Optional[float] = None):
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = int(account_id)
         req.symbolId = int(symbol_id)
         req.orderType = order_type 
         req.tradeSide = trade_side
         req.volume = int(volume)
+        
         
         if price is not None:
              if order_type in [ProtoOAOrderType.LIMIT, ProtoOAOrderType.STOP_LIMIT]:
@@ -446,6 +448,9 @@ class AsyncCTraderClient:
                  req.stopPrice = float(price)
              elif order_type == ProtoOAOrderType.MARKET_RANGE:
                  req.baseSlippagePrice = float(price)
+        
+        if stop_price is not None:
+             req.stopPrice = float(stop_price)
         
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
@@ -508,6 +513,7 @@ class AsyncCTraderClient:
                     price: Optional[float] = None, 
                     sl: Optional[float] = None, 
                     tp: Optional[float] = None,
+                    stop_price: Optional[float] = None,
                     trailing_sl: Optional[bool] = None):
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = int(account_id)
@@ -515,6 +521,7 @@ class AsyncCTraderClient:
         
         if volume is not None: req.volume = int(volume)
         if price is not None: req.limitPrice = float(price)
+        if stop_price is not None: req.stopPrice = float(stop_price)
         if sl is not None: req.stopLoss = float(sl)
         if tp is not None: req.takeProfit = float(tp)
         if trailing_sl is not None: req.trailingStopLoss = bool(trailing_sl)

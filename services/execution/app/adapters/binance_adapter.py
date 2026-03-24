@@ -86,13 +86,15 @@ class BinanceAdapter(BrokerAdapter):
     async def place_market_order(self, symbol: str, units: float, sl_price: Optional[float] = None, tp_price: Optional[float] = None, trade_id: Optional[str] = None, comment: Optional[str] = None, tag: Optional[str] = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Execution not yet implemented")
 
-    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
-                          tag: Optional[str] = None) -> Dict[str, Any]:
+                          tag: Optional[str] = None,
+                          stop_price: Optional[float] = None,
+                          order_type: Any = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Limit Order not yet implemented")
 
     async def get_order_book(self, symbol: str) -> Dict[str, Any]:

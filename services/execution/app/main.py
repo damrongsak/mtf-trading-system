@@ -257,11 +257,13 @@ class AccountSummaryRequest(BaseModel):
 class OrderRequest(BaseModel):
     broker_account_id: str
     symbol: str = Field(..., description="Instrument e.g., XAU_USD")
-    order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP")
+    order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP, STOP_LIMIT")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
-    price: Optional[float] = None # For Limit/Stop
+    price: Optional[float] = None # Limit Price
+    stop_price: Optional[float] = None # Trigger Price for STOP/STOP_LIMIT
     sl_price: Optional[float] = Field(None, description="Stop Loss price")
     tp_price: Optional[float] = Field(None, description="Take Profit price")
+    trailing_sl: Optional[bool] = Field(None, description="Trailing Stop Loss")
     trade_id: Optional[str] = None
     comment: Optional[str] = None
     tag: Optional[str] = None
@@ -390,34 +392,35 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
                 comment=req.comment,
                 tag=req.tag
             )
-        elif req.order_type == "LIMIT":
-            if not req.price:
-                 raise HTTPException(status_code=400, detail="Price required for LIMIT order")
+        elif req.order_type in ["LIMIT", "STOP", "STOP_LIMIT"]:
+            # Standardize validation: price required for LIMIT/STOP/STOP_LIMIT
+            # stop_price required for STOP/STOP_LIMIT
+            if req.order_type in ["LIMIT", "STOP_LIMIT"] and not req.price:
+                 raise HTTPException(status_code=400, detail=f"Price required for {req.order_type} order")
+            if req.order_type in ["STOP", "STOP_LIMIT"] and not req.stop_price:
+                 # Fallback: if stop_price missing but price provided, use price as stop_price (old behavior for STOP)
+                 if req.price:
+                      req.stop_price = req.price
+                 else:
+                      raise HTTPException(status_code=400, detail=f"Stop price required for {req.order_type} order")
+            
+            # Resolve order_type enum for cTrader
+            target_order_type = ProtoOAOrderType.LIMIT
+            if req.order_type == "STOP": target_order_type = ProtoOAOrderType.STOP
+            if req.order_type == "STOP_LIMIT": target_order_type = ProtoOAOrderType.STOP_LIMIT
+
             response = await adapter.place_limit_order(
                 symbol=req.symbol,
                 units=req.units,
-                entry_price=req.price,
-                sl_price=req.sl_price,
-                tp_price=req.tp_price,
-                comment=req.comment,
-                tag=req.tag,
-                slippage_pips=req.slippage_pips,
-                base_price=req.base_price
-            )
-        elif req.order_type == "STOP":
-             if not req.price:
-                 raise HTTPException(status_code=400, detail="Price required for STOP order")
-             response = await adapter.place_limit_order(
-                symbol=req.symbol,
-                units=req.units,
-                entry_price=req.price,
+                price=req.price or req.stop_price, # Use price as limit price
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
                 comment=req.comment,
                 tag=req.tag,
                 slippage_pips=req.slippage_pips,
                 base_price=req.base_price,
-                order_type=ProtoOAOrderType.STOP
+                stop_price=req.stop_price,
+                order_type=target_order_type
             )
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
@@ -845,10 +848,9 @@ class SmartOrderRequest(BaseModel):
     broker_account_id: str
     symbol: str
     direction: str # BULLISH / BEARISH
-    stop_loss: Optional[float] = None
-    signal_price: Optional[float] = None # For slippage guardrail
-    take_profit: Optional[float] = None
-    entry_price: Optional[float] = None
+    sl_price: Optional[float] = None
+    tp_price: Optional[float] = None
+    price: Optional[float] = None
     time_in_force: Optional[str] = "GTC"
     slippage_tolerance: Optional[float] = None
     generated_by: str
@@ -899,23 +901,17 @@ class AmendOrderRequest(BaseModel):
     broker_account_id: str
     units: Optional[float] = None
     price: Optional[float] = None
-    stop_loss: Optional[float] = Field(None, alias="sl_price")
-    take_profit: Optional[float] = Field(None, alias="tp_price")
-    trailing_stop: Optional[bool] = Field(None, alias="trailing_sl")
-
-    model_config = {
-        "populate_by_name": True
-    }
+    stop_price: Optional[float] = None
+    sl_price: Optional[float] = None
+    tp_price: Optional[float] = None
+    trailing_sl: Optional[bool] = None
 
 class AmendPositionRequest(BaseModel):
     broker_account_id: str
-    stop_loss: Optional[float] = Field(None, alias="sl_price")
-    take_profit: Optional[float] = Field(None, alias="tp_price")
-    trailing_stop: Optional[bool] = Field(None, alias="trailing_sl")
-
-    model_config = {
-        "populate_by_name": True
-    }
+    sl_price: Optional[float] = None
+    tp_price: Optional[float] = None
+    trailing_sl: Optional[bool] = None
+    units: Optional[float] = None # Added for partial close support
 
 @app.delete("/orders/{order_id}")
 async def cancel_order(order_id: str, broker_account_id: str, db: AsyncSession = Depends(get_db), authenticated: str = Depends(verify_internal_api_key)):
@@ -947,9 +943,10 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
                 order_id=order_id,
                 units=req.units,
                 price=req.price,
-                sl_price=req.stop_loss,
-                tp_price=req.take_profit,
-                trailing_sl=req.trailing_stop
+                sl_price=req.sl_price,
+                tp_price=req.tp_price,
+                stop_price=req.stop_price,
+                trailing_sl=req.trailing_sl
             )
             
             # Sync to local DB if trade exists
@@ -962,12 +959,12 @@ async def amend_order(authenticated: str = Depends(verify_internal_api_key), ord
                 result = await db.execute(stmt)
                 trade = result.scalar_one_or_none()
                 if trade:
-                    if req.stop_loss is not None:
-                        trade.sl_price = req.stop_loss
-                    if req.take_profit is not None:
-                        trade.tp_price = req.take_profit
-                    if req.trailing_stop is not None:
-                        trade.trailing_stop = req.trailing_stop
+                    if req.sl_price is not None:
+                        trade.sl_price = req.sl_price
+                    if req.tp_price is not None:
+                        trade.tp_price = req.tp_price
+                    if req.trailing_sl is not None:
+                        trade.trailing_stop = req.trailing_sl
                     await db.commit()
             except Exception as db_err:
                 logger.error(f"Failed to sync order amendment to DB: {db_err}")
@@ -997,9 +994,10 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
         if hasattr(adapter, 'amend_position'):
             res = await adapter.amend_position(
                 broker_trade_id=position_id,
-                sl_price=req.stop_loss,
-                tp_price=req.take_profit,
-                trailing_sl=req.trailing_stop
+                sl_price=req.sl_price,
+                tp_price=req.tp_price,
+                trailing_sl=req.trailing_sl,
+                units=req.units
             )
             
             # Sync to local DB if trade exists
@@ -1012,12 +1010,12 @@ async def amend_position(authenticated: str = Depends(verify_internal_api_key), 
                 result = await db.execute(stmt)
                 trade = result.scalar_one_or_none()
                 if trade:
-                    if req.stop_loss is not None:
-                        trade.sl_price = req.stop_loss
-                    if req.take_profit is not None:
-                        trade.tp_price = req.take_profit
-                    if req.trailing_stop is not None:
-                        trade.trailing_stop = req.trailing_stop
+                    if req.sl_price is not None:
+                        trade.sl_price = req.sl_price
+                    if req.tp_price is not None:
+                        trade.tp_price = req.tp_price
+                    if req.trailing_sl is not None:
+                        trade.trailing_stop = req.trailing_sl
                     await db.commit()
             except Exception as db_err:
                 logger.error(f"Failed to sync position amendment to DB: {db_err}")

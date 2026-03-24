@@ -29,14 +29,16 @@ class BrokerAdapter(ABC):
         pass
 
     @abstractmethod
-    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
-                          tag: Optional[str] = None) -> Dict[str, Any]:
-        """Place a limit order."""
+                          tag: Optional[str] = None,
+                          stop_price: Optional[float] = None,
+                          order_type: Any = None) -> Dict[str, Any]:
+        """Place a limit, stop, or stop-limit order."""
         pass
 
     @abstractmethod
@@ -82,16 +84,20 @@ class BrokerAdapter(ABC):
     async def amend_order(self, order_id: str, units: Optional[float] = None, 
                     price: Optional[float] = None, 
                     sl_price: Optional[float] = None, 
-                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+                    tp_price: Optional[float] = None,
+                    stop_price: Optional[float] = None,
+                    trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         """
-        Amend a pending order (units, price, SL, TP).
+        Amend a pending order (units, price, SL, TP, Stop Price, Trailing SL).
         """
         raise NotImplementedError("Amend order not implemented for this broker")
 
     async def amend_position(self, broker_trade_id: str, 
                         sl_price: Optional[float] = None, 
-                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+                        tp_price: Optional[float] = None,
+                        trailing_sl: Optional[bool] = None,
+                        units: Optional[float] = None) -> Dict[str, Any]:
         """
-        Amend an open position (SL, TP).
+        Amend an open position (SL, TP, Trailing SL, Partial Close).
         """
         raise NotImplementedError("Amend position not implemented for this broker")

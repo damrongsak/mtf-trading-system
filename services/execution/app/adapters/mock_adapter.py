@@ -52,22 +52,26 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
-    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
-                          tag: Optional[str] = None) -> Dict[str, Any]:
+                          tag: Optional[str] = None,
+                          stop_price: Optional[float] = None,
+                          order_type: Any = None) -> Dict[str, Any]:
         mock_id = str(uuid.uuid4())
         return {
             "orderCreateTransaction": {
                 "id": mock_id,
                 "instrument": symbol,
                 "units": str(units),
-                "price": str(entry_price),
+                "price": str(price),
+                "stopPrice": str(stop_price) if stop_price else None,
                 "time": datetime.utcnow().isoformat(),
-                "timeInForce": time_in_force
+                "timeInForce": time_in_force,
+                "type": str(order_type) if order_type else "LIMIT"
             }
         }
 

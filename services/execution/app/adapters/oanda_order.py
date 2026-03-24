@@ -130,29 +130,43 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
             raise e
 
-    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
                           trade_id: Optional[str] = None,
                           comment: Optional[str] = None,
-                          tag: Optional[str] = None) -> Dict[str, Any]:
+                          tag: Optional[str] = None,
+                          stop_price: Optional[float] = None,
+                          order_type: Any = None) -> Dict[str, Any]:
         """
-        Place a Limit Order with optional SL/TP.
+        Place a Limit or Stop Order with optional SL/TP.
+        OANDA REST v20 handles STOP/LIMIT via the same endpoint but different 'type' in body.
         """
         # Diagnostic logging for Unit Sign issue
-        logger.info(f"OANDA: Placing limit order for {symbol}, units={units}, price={entry_price}")
+        logger.info(f"OANDA: Placing order for {symbol}, units={units}, price={price}, type={order_type}")
 
         units_str = str(float(units))
         if units < 0 and not units_str.startswith("-"):
              units_str = f"-{abs(units)}"
 
+        # Determine OANDA order type
+        oanda_type = "LIMIT"
+        if order_type == "STOP":
+             oanda_type = "STOP"
+        elif order_type == "MARKET_IF_TOUCHED":
+             oanda_type = "MARKET_IF_TOUCHED"
+        
+        # Note: OANDA STOP_LIMIT is not directly supported via a single 'STOP_LIMIT' type in the same way 
+        # but can be simulated or ignored for now if not available in basic v20.
+        # For simplicity, treat STOP_LIMIT as LIMIT or STOP if requested, or raise if unsupported.
+
         order_body = {
             "order": {
-                "type": "LIMIT",
+                "type": oanda_type,
                 "instrument": symbol,
                 "units": units_str,
-                "price": str(entry_price),
+                "price": str(price),
                 "timeInForce": time_in_force,
                 "positionFill": "DEFAULT"
             }
@@ -365,7 +379,9 @@ class OandaOrderAdapter(BrokerAdapter):
     async def amend_order(self, order_id: str, units: Optional[float] = None, 
                     price: Optional[float] = None, 
                     sl_price: Optional[float] = None, 
-                    tp_price: Optional[float] = None) -> Dict[str, Any]:
+                    tp_price: Optional[float] = None,
+                    stop_price: Optional[float] = None,
+                    trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         """
         Amend a pending order on OANDA by replacing it.
         Requires fetching the existing order first if partial update.
@@ -419,7 +435,9 @@ class OandaOrderAdapter(BrokerAdapter):
 
     async def amend_position(self, broker_trade_id: str, 
                         sl_price: Optional[float] = None, 
-                        tp_price: Optional[float] = None) -> Dict[str, Any]:
+                        tp_price: Optional[float] = None,
+                        trailing_sl: Optional[bool] = None,
+                        units: Optional[float] = None) -> Dict[str, Any]:
         """
         Amend an open trade's SL/TP on OANDA using TradeCRCDO.
         """

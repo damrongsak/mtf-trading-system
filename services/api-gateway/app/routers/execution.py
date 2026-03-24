@@ -125,7 +125,7 @@ async def sync_account_trades(
         logger.error(f"Error syncing trades: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-from app.schemas.execution import OrderRequest
+from app.schemas.execution import OrderRequest, AmendOrderRequest, AmendPositionRequest
 
 @router.post("/orders")
 async def place_order(
@@ -156,11 +156,7 @@ async def place_order(
             raise HTTPException(status_code=404, detail="Broker account not found")
 
         # 1. Normalize order data for Execution Service (HFT-Lite)
-        # Ensure 'price' is used instead of 'limit_price' for LIMIT/STOP orders
-        # Ensure 'sl_price' and 'tp_price' are used instead of 'stop_loss' and 'take_profit'
-        if "limit_price" in order_data and "price" not in order_data:
-            order_data["price"] = order_data.pop("limit_price")
-        
+        # Ensure sl_price and tp_price are favored over legacy names if present
         if "stop_loss" in order_data and "sl_price" not in order_data:
             order_data["sl_price"] = order_data.pop("stop_loss")
             
@@ -582,11 +578,12 @@ async def place_smart_order(
 @router.put("/orders/{order_id}")
 async def amend_order(
     order_id: str,
-    payload: Dict[str, Any],
+    amend_req: AmendOrderRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
+        payload = amend_req.model_dump(exclude_none=True)
         broker_account_id = payload.get("broker_account_id")
         if not broker_account_id:
             raise HTTPException(status_code=400, detail="broker_account_id is required")
@@ -612,11 +609,12 @@ async def amend_order(
 @router.put("/positions/{position_id}")
 async def amend_position(
     position_id: str,
-    payload: Dict[str, Any],
+    amend_req: AmendPositionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
+        payload = amend_req.model_dump(exclude_none=True)
         broker_account_id = payload.get("broker_account_id")
         if not broker_account_id:
             raise HTTPException(status_code=400, detail="broker_account_id is required")

@@ -2963,10 +2963,18 @@ paths:
             schema:
               type: object
               required:
-                - exit_price
+                - price
               properties:
-                exit_price:
+                price:
                   type: number
+                  description: "Actual exit price (for local PnL calculation)"
+                broker_account_id:
+                  type: string
+                  format: uuid
+                  description: "Required to identify which account to close on broker"
+                units:
+                  type: number
+                  description: "Optional: units to close (for partial close). Default is full position."
       responses:
         '200':
           description: Trade closed successfully
@@ -2997,11 +3005,11 @@ paths:
                 broker_account_id:
                   type: string
                   format: uuid
-                stop_loss:
+                sl_price:
                   type: number
-                take_profit:
+                tp_price:
                   type: number
-                trailing_stop:
+                trailing_sl:
                   type: boolean
                   description: "Enable/Disable trailing stop loss"
       responses:
@@ -3045,7 +3053,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object # Simplify for now
+              $ref: '#/components/schemas/OrderRequest'
       responses:
         '200':
           description: Order placed
@@ -3104,11 +3112,15 @@ paths:
                   description: "Signed order units (positive for BUY, negative for SELL)."
                 price:
                   type: number
-                stop_loss:
+                  description: "New limit price"
+                stop_price:
                   type: number
-                take_profit:
+                  description: "New trigger price (for STOP/STOP_LIMIT)"
+                sl_price:
                   type: number
-                trailing_stop:
+                tp_price:
+                  type: number
+                trailing_sl:
                   type: boolean
                   description: "Enable/Disable trailing stop loss"
       responses:
@@ -5055,6 +5067,48 @@ components:
 
 
 
+    OrderRequest:
+      type: object
+      required:
+        - broker_account_id
+        - symbol
+        - units
+        - order_type
+      properties:
+        broker_account_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        units:
+          type: number
+          description: "Signed order units (positive for BUY, negative for SELL)."
+        side:
+          type: string
+          enum: [BUY, SELL]
+          description: "Redundant but helpful for 3rd parties. Overrides sign of units if provided."
+        order_type:
+          type: string
+          enum: [MARKET, LIMIT, STOP, STOP_LIMIT]
+        price:
+          type: number
+          description: "Limit price (Required for LIMIT/STOP_LIMIT)"
+        stop_price:
+          type: number
+          description: "Trigger price (Required for STOP/STOP_LIMIT)"
+        sl_price:
+          type: number
+        tp_price:
+          type: number
+        trailing_sl:
+          type: boolean
+        slippage_pips:
+          type: integer
+        comment:
+          type: string
+        tag:
+          type: string
+    
     SmartOrderRequest:
       type: object
       required:
@@ -5071,9 +5125,11 @@ components:
         direction:
           type: string
           enum: [BULLISH, BEARISH]
-        stop_loss:
+        sl_price:
           type: number
-        signal_price:
+        tp_price:
+          type: number
+        price:
           type: number
           description: Price at the time of signal generation for slippage calculation
         generated_by:

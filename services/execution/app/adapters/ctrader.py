@@ -390,7 +390,7 @@ class CTraderOrderAdapter(BrokerAdapter):
 
 
 
-    async def place_limit_order(self, symbol: str, units: float, entry_price: float,
+    async def place_limit_order(self, symbol: str, units: float, price: float,
                           sl_price: Optional[float] = None,
                           tp_price: Optional[float] = None,
                           time_in_force: str = "GTC",
@@ -399,6 +399,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                           tag: Optional[str] = None,
                           slippage_pips: Optional[int] = None,
                           base_price: Optional[float] = None,
+                          stop_price: Optional[float] = None,
                           order_type: int = ProtoOAOrderType.LIMIT) -> Dict[str, Any]:
         await self.client.connect()
         try:
@@ -438,12 +439,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                 order_type=order_type,
                 trade_side=ProtoOATradeSide.BUY if units > 0 else ProtoOATradeSide.SELL,
                 volume=abs(volume_cents),
-                price=entry_price,
+                price=price,
                 sl=sl_price,
                 tp=tp_price,
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto"),
                 slippage_pips=slippage_pips,
-                base_price=base_price
+                base_price=base_price,
+                stop_price=stop_price
             )
 
             # Check for Rejection in ExecutionEvent
@@ -479,7 +481,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     "id": str(res.order.orderId) if res.HasField("order") else (str(res.position.positionId) if res.HasField("position") else "0"),
                     "instrument": symbol,
                     "units": str(units),
-                    "price": str(entry_price),  # Return original price (not pipette)
+                    "price": str(price),  # Return original price (not pipette)
                     "time": datetime.utcnow().isoformat()
                 }
             }
@@ -644,6 +646,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                     price: Optional[float] = None,
                     sl_price: Optional[float] = None,
                     tp_price: Optional[float] = None,
+                    stop_price: Optional[float] = None,
                     trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
@@ -705,6 +708,7 @@ class CTraderOrderAdapter(BrokerAdapter):
             # Preserve existing SL/TP if not explicitly provided
             final_sl = sl_price if sl_price is not None else target_order.get("sl")
             final_tp = tp_price if tp_price is not None else target_order.get("tp")
+            final_stop = stop_price if stop_price is not None else target_order.get("stop_price")
             final_trailing = trailing_sl if trailing_sl is not None else target_order.get("trailing_sl", False)
 
             res = await self.client.amend_order(
@@ -714,6 +718,7 @@ class CTraderOrderAdapter(BrokerAdapter):
                 price=price,
                 sl=final_sl,
                 tp=final_tp,
+                stop_price=final_stop,
                 trailing_sl=final_trailing
             )
             return {"status": "amended", "order_id": order_id}
