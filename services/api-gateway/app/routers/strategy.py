@@ -113,6 +113,49 @@ async def instantiate_strategy(
         message=f"Strategy {new_strategy.name} instantiated and fleet reload triggered."
     )
 
+# --- Saved Strategies (Library) ---
+
+@router.get("/saved", response_model=List[SavedStrategyResponse])
+def list_saved_strategies(
+    public_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List strategies from the library.
+    """
+    query = db.query(SavedStrategy)
+    
+    if public_only:
+        query = query.filter(SavedStrategy.is_public == True)
+    else:
+        query = query.filter(
+            or_(
+                SavedStrategy.user_id == current_user.id,
+                SavedStrategy.is_public == True
+            )
+        )
+    
+    return query.order_by(SavedStrategy.updated_at.desc()).all()
+
+@router.post("/saved", response_model=SavedStrategyResponse)
+def save_strategy_to_library(
+    strategy: SavedStrategyCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Save a custom strategy to the library."""
+    db_strategy = SavedStrategy(
+        **strategy.model_dump(),
+        user_id=current_user.id
+    )
+    db.add(db_strategy)
+    db.commit()
+    db.refresh(db_strategy)
+    return db_strategy
+
+# --- Strategy Instances ---
+
 @router.get("/", response_model=PaginatedResponse[StrategyResponse])
 async def list_strategies(
     fund_id: UUID4, 
@@ -484,46 +527,5 @@ async def manual_strategy_tick(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Saved Strategies (Library) ---
-
-@router.get("/saved", response_model=List[SavedStrategyResponse])
-def list_saved_strategies(
-    public_only: bool = False,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    List strategies from the library.
-    Returns:
-    1. Strategies owned by current user
-    2. Strategies marked as public
-    """
-    query = db.query(SavedStrategy)
-    
-    if public_only:
-        query = query.filter(SavedStrategy.is_public == True)
-    else:
-        query = query.filter(
-            or_(
-                SavedStrategy.user_id == current_user.id,
-                SavedStrategy.is_public == True
-            )
-        )
-    
-    return query.order_by(SavedStrategy.updated_at.desc()).all()
-
-@router.post("/saved", response_model=SavedStrategyResponse)
-def save_strategy_to_library(
-    strategy: SavedStrategyCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Save a custom strategy to the library."""
-    db_strategy = SavedStrategy(
-        **strategy.model_dump(),
-        user_id=current_user.id
-    )
-    db.add(db_strategy)
-    db.commit()
-    db.refresh(db_strategy)
-    return db_strategy
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

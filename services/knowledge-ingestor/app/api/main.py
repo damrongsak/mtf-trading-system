@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -14,6 +15,7 @@ from app.core.health import StartupGuard
 from app.ingestors.hierarchical_ingestor import HierarchicalIngestor
 from app.utils.middleware import RequestIDMiddleware
 from app.utils.tracing import request_id_ctx
+from app.tools.falkordb_client import FalkorDBClient
 
 logger = get_logger("OlympusAPI")
 
@@ -27,8 +29,62 @@ app.add_middleware(RequestIDMiddleware)
 # Global Ingestor Instance
 ingestor = HierarchicalIngestor()
 
-# Simple In-Memory Task Store (In production, use Redis)
-tasks = {}
+# --- Redis-Backed Task Store (Fix for Multi-Worker Visibility) ---
+class RedisTaskStore:
+    """Task storage using Redis to share state across workers."""
+    def __init__(self):
+        self.client = FalkorDBClient(host=config.falkor_host, port=config.falkor_port)
+        self.prefix = "task:"
+        self.expiry = 86400 # 24 hours
+        
+    def _get_redis(self):
+        if not self.client._client:
+            self.client.connect()
+        return self.client._client
+
+    def __setitem__(self, key, value):
+        r = self._get_redis()
+        if r:
+            r.set(f"{self.prefix}{key}", json.dumps(value), ex=self.expiry)
+
+    def __getitem__(self, key):
+        r = self._get_redis()
+        if not r: return None
+        data = r.get(f"{self.prefix}{key}")
+        if not data:
+            raise KeyError(key)
+        return json.loads(data)
+
+    def __contains__(self, key):
+        r = self._get_redis()
+        return r.exists(f"{self.prefix}{key}") if r else False
+
+    def get(self, key, default=None):
+        try:
+            val = self[key]
+            return val if val is not None else default
+        except KeyError:
+            return default
+
+    def update(self, key, **kwargs):
+        data = self.get(key, {})
+        data.update(kwargs)
+        self[key] = data
+
+    def all(self):
+        r = self._get_redis()
+        if not r: return {}
+        keys = r.keys(f"{self.prefix}*")
+        results = {}
+        for k in keys:
+            task_id = k.replace(self.prefix, "")
+            try:
+                results[task_id] = self[task_id]
+            except:
+                pass
+        return results
+
+tasks = RedisTaskStore()
 
 class IngestionTask(BaseModel):
     task_id: str
@@ -59,19 +115,41 @@ async def run_ingestion_background(task_id: str, file_path: Path):
     # Inherit or set task_id as correlation_id
     token = request_id_ctx.set(task_id)
     try:
-        tasks[task_id]["status"] = "processing"
+        tasks.update(task_id, status="processing")
         logger.info(f"🚀 Background Task {task_id} started for {file_path.name}")
         
         result = await ingestor.run_pipeline(file_path)
         
-        tasks[task_id]["status"] = "completed"
-        tasks[task_id]["result"] = result
-        logger.info(f"✅ Background Task {task_id} completed successfully.")
+        # Determine if it was a skip or actual completion
+        final_status = "completed"
+        if result.status == "complete":
+            # Check if it was skipped (no nodes created and merge_notes mentions skip)
+            if getattr(result, "total_nodes", 0) == 0 and "Skipped" in str(result.committer_result.get("merge_notes", "")):
+                final_status = "skipped"
+                logger.info(f"⏭️ Task {task_id} skipped (already exists).")
+            else:
+                logger.info(f"✅ Task {task_id} completed successfully.")
+            
+            # Archive the file
+            ingestor.archive_file(file_path)
+        else:
+            final_status = "failed"
+            reason = getattr(result, "error", "Unknown pipeline error")
+            ingestor.move_to_errors(file_path, str(reason))
+            logger.error(f"❌ Task {task_id} failed: {reason}")
+
+        # Final update to Redis
+        tasks.update(
+            task_id, 
+            status=final_status, 
+            result=result.__dict__ if hasattr(result, "__dict__") else result,
+            finished_at=datetime.now().isoformat()
+        )
+        
     except Exception as e:
-        tasks[task_id]["status"] = "failed"
-        tasks[task_id]["error"] = str(e)
-        tasks[task_id]["finished_at"] = datetime.now().isoformat()
+        tasks.update(task_id, status="failed", error=str(e), finished_at=datetime.now().isoformat())
         logger.error("background_task_failed", extra={"task_id": task_id, "error": str(e)})
+        ingestor.move_to_errors(file_path, str(e))
     finally:
         request_id_ctx.reset(token)
 
@@ -146,18 +224,20 @@ async def ingest_url(background_tasks: BackgroundTasks, request: UrlRequest):
         try:
             text = await WebScraperTool.scrape_url(request.url)
             if not text:
-                tasks[task_id]["status"] = "failed"
-                tasks[task_id]["error"] = "Failed to scrape URL or no content found"
+                tasks.update(task_id, status="failed", error="Failed to scrape URL or no content found")
                 return
 
-            tasks[task_id]["status"] = "ingesting"
+            tasks.update(task_id, status="ingesting")
             result = await ingestor.run_pipeline_on_text(text, filename=f"web_{task_id}")
             
-            tasks[task_id]["status"] = "completed"
-            tasks[task_id]["result"] = result
+            tasks.update(
+                task_id, 
+                status="completed", 
+                result=result.__dict__ if hasattr(result, "__dict__") else result,
+                finished_at=datetime.now().isoformat()
+            )
         except Exception as e:
-            tasks[task_id]["status"] = "failed"
-            tasks[task_id]["error"] = str(e)
+            tasks.update(task_id, status="failed", error=str(e), finished_at=datetime.now().isoformat())
             logger.error(f"URL Ingestion failed: {e}", extra={"task_id": task_id})
         finally:
             request_id_ctx.reset(token)
@@ -175,9 +255,9 @@ async def get_status(task_id: str):
 @app.get("/tasks")
 async def list_tasks():
     """List all recent ingestion tasks."""
-    return tasks
+    return tasks.all()
 
-# --- Background Scheduler for Asset Prices ---
+# --- Background Scheduler for Asset Prices (with Distributed Locking) ---
 async def asset_price_refresher():
     """Background loop to update top asset prices every hour."""
     from app.tools.market_reader import MarketReaderTool
@@ -188,30 +268,61 @@ async def asset_price_refresher():
     assets = ["Gold", "Bitcoin", "Silver", "Crude Oil", "S&P 500"]
     
     while True:
-        # Generate a unique ID for each refresh cycle
-        cycle_id = f"refresh-{uuid.uuid4().hex[:8]}"
-        token = request_id_ctx.set(cycle_id)
-        logger.info("🕒 Starting scheduled asset price refresh...")
-        try:
-            for asset in assets:
-                price = MarketReaderTool.get_spot_price(asset)
-                if price:
-                    now_str = datetime.now().isoformat()
-                    query = f"MERGE (a:Asset {{name: '{asset}'}}) SET a.price = {price}, a.last_updated = '{now_str}'"
-                    client.execute_query(query)
-                    logger.info(f"✅ Updated {asset}: ${price}")
+        # Distributed Lock to ensure only one worker runs this
+        r = tasks._get_redis()
+        if not r: 
+            await asyncio.sleep(60)
+            continue
             
-            # Wait for 1 hour (3600 seconds)
+        # Try to acquire lock for 1 hour
+        lock_key = "lock:asset_price_refresher"
+        if r.set(lock_key, "1", nx=True, ex=3500):
+            cycle_id = f"refresh-{uuid.uuid4().hex[:8]}"
+            token = request_id_ctx.set(cycle_id)
+            logger.info("🕒 Starting scheduled asset price refresh (Lock Acquired)...")
+            try:
+                for asset in assets:
+                    price = MarketReaderTool.get_spot_price(asset)
+                    if price:
+                        now_str = datetime.now().isoformat()
+                        query = f"MERGE (a:Asset {{name: '{asset}'}}) SET a.price = {price}, a.last_updated = '{now_str}'"
+                        client.execute_query(query)
+                        logger.info(f"✅ Updated {asset}: ${price}")
+            except Exception as e:
+                logger.error(f"Error in price refresher: {e}")
+            finally:
+                request_id_ctx.reset(token)
+            
+            # Sleep for 1 hour
             await asyncio.sleep(3600)
-        except Exception as e:
-            logger.error(f"Error in price refresher: {e}")
-            await asyncio.sleep(60) # Retry sooner on error
-        finally:
-            request_id_ctx.reset(token)
+        else:
+            # Another worker has the lock, wait and try later
+            await asyncio.sleep(300)
 
 @app.on_event("startup")
 async def start_refresh_task():
     """Start the background price refresher and market merger on app startup."""
     from app.workers.merger import start_merger_worker
+    
+    # We use a distributed lock wrapper for merger too
+    async def merger_with_lock():
+        r = tasks._get_redis()
+        while True:
+            if not r: 
+                await asyncio.sleep(60)
+                continue
+            
+            lock_key = "lock:market_merger"
+            if r.set(lock_key, "1", nx=True, ex=1700): # 30 min approx
+                logger.info("🛡️ Market Merger Lock Acquired.")
+                try:
+                    await start_merger_worker()
+                except Exception as e:
+                    logger.error(f"Merger worker crashed: {e}")
+                finally:
+                    r.delete(lock_key)
+            
+            await asyncio.sleep(300)
+
     asyncio.create_task(asset_price_refresher())
-    asyncio.create_task(start_merger_worker())
+    asyncio.create_task(merger_with_lock())
