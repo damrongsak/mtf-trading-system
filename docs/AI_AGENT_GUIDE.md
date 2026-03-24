@@ -136,12 +136,18 @@ To maintain system integrity and auditability, AI agents MUST follow these rules
 - **ERROR HANDLING (422)**: If you provide a non-UUID string (e.g., `sentinel_v1`), the API will return a **422 Unprocessable Entity**. This is a schema validation failure, NOT a 404.
 - **ERROR HANDLING (403/404)**: If the UUID is valid but you lack permissions, you receive a **403 Forbidden**. If the UUID does not exist, a **404 Not Found**.
 
-### 2. Signal Traceability & Reasons
-- **TRANSPARENCY**: Every tick response includes a `reason` field.
-- **USAGE**: Even if `signal` is null, always parse the `reason` to understand why (e.g., `"QM Pattern not detected"`).
-- **OBSERVABILITY**: Use `GET /api/v1/strategies/{id}/logs` to fetch the last 100 internal calculation logs for a strategy.
+### 2. Signal Traceability & Reasons (V2.1 Standard)
+- **MANDATORY**: Every tick response MUST include a human-readable `reason` field.
+- **TEMPLATE RULE**: Return a dictionary containing `{"signal": ..., "reason": "..."}`.
+- **DYNAMIC RULE**: The `strategy()` function MUST return a `reason` key in its signal dictionary or a 4-element tuple where the 4th element is a log string/dict.
+- **OBSERVABILITY**: Use `GET /api/v1/strategies/{id}/logs` to fetch the last 100 internal calculation logs.
 
-### 3. Strategy Registration & On-Demand Instantiation
+### 3. Strategy Professionalization (Sandbox & Imports)
+- **STANDARD IMPORTS**: Always use `import datetime`, `import json`, and `import time`. Avoid `from datetime import datetime` to prevent module shadowing.
+- **SANDBOX GLOBALS**: In the dynamic executor, `pd`, `np`, `vbt`, `datetime`, `json`, and `time` are injected into `local_scope`. You do not need to re-import them inside the strategy function, though doing so is harmless.
+- **HYDRATION**: Newly instantiated strategies require a ~2s "warm-up" period for the FleetManager to sync state from DB.
+
+### 4. Strategy Registration & On-Demand Instantiation
 - **ON-DEMAND**: Institutional users should use `POST /api/v1/strategies/instantiate` to deploy new instances from templates.
 - **MANUAL (Legacy)**: If using physical folders:
 1.  **Append to Master Data**: Add the strategy metadata and a unique UUID to `master_data/strategies.json`.
