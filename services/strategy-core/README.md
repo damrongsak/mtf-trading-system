@@ -66,6 +66,45 @@ This service provides institutional-grade quantitative analysis tools:
 *   **Minimax Regret Risk Filter**: Intelligent signal filtering using Game Theory to identify high-conviction trades.
 *   **Walk-Forward Analysis (WFA)**: Automated robustness testing with Out-Of-Sample (OOS) validation.
 
+## 🏗️ Strategy Lifecycle & Flows
+
+The following flows govern how strategy code transitions from local development to institutional deployment.
+
+### 1. Local File to DB & Backup (MDMS)
+This flow ensures physical code is synchronized with the institutional database and backed up to version-controlled JSON.
+
+```mermaid
+graph TD
+    A[Local Code: app/strategies/name/strategy.py] -->|1. Register| B[master_data/strategies.json]
+    B -->|2. MDMS Import| C[(mtf_db: strategies table)]
+    C -->|3. Fleet Load| D[Strategy Core: FleetManager]
+    D -->|4. Tick via UUID| E[Execution Result]
+    C -->|5. MDMS Export| B
+    B -->|6. Backup/Git| F[Version Control]
+```
+
+### 2. The 3 Paths to Deployment
+There are three distinct ways a strategy can reach the live execution environment.
+
+```mermaid
+graph LR
+    subgraph Path_A [Static Template - SDD]
+        A1[Code Folder] --> A2[strategies.json] --> A3[strategies table]
+    end
+    
+    subgraph Path_B [Dynamic Bot - Web/AI]
+        B1[Web UI Code] --> B2[SavedStrategy table] --> B3[Deployment table]
+    end
+    
+    subgraph Path_C [Quick Seeding - Dev]
+        C1[Code Folder] --> C2[seed_strategies.py] --> B2
+    end
+    
+    A3 --> Fleet[FleetManager]
+    B3 --> Fleet
+    Fleet -->|Trigger Tick| Live[Live Execution]
+```
+
 ## 🚦 Institutional Strategy Lifecycle
 All strategies deployed in this service MUST follow the **7-Step Olympus Standard**:
 1. **SDD Spec**: Rules defined in `specs/08_logic`.

@@ -1,9 +1,11 @@
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
+from app.models.deployment import Deployment
 from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.user import User
 from app.routers.auth import oauth2_scheme
@@ -62,6 +64,51 @@ async def create_strategy(
     db.commit()
     db.refresh(new_strategy)
     return success_response(data=StrategyResponse.model_validate(new_strategy))
+
+@router.post("/instantiate", response_model=APIResponse[StrategyResponse])
+async def instantiate_strategy(
+    strategy: StrategyCreate, 
+    request: Request,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    On-Demand Institutional Instantiation:
+    Creates a strategy record and immediately triggers a fleet reload.
+    """
+    # 1. Verify RBAC for the target fund
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
+        fund_id=strategy.fund_id,
+        current_user=current_user,
+        db=db
+    )
+    
+    # 2. Create the record
+    new_strategy = Strategy(
+        name=strategy.name,
+        fund_id=strategy.fund_id,
+        template_id=strategy.template_id,
+        broker_account_id=strategy.broker_account_id,
+        config_json=strategy.config_json,
+        risk_settings=strategy.risk_settings,
+        is_active=True # Default to active for instantiation
+    )
+    db.add(new_strategy)
+    db.commit()
+    db.refresh(new_strategy)
+    
+    # 3. Trigger Fleet Reload (Institutional Standard)
+    try:
+        await strategy_client._request("POST", "/api/v1/strategies/reload")
+    except Exception as e:
+        # We don't fail the whole request if reload fails, but we should log it
+        pass
+        
+    return success_response(
+        data=StrategyResponse.model_validate(new_strategy),
+        message=f"Strategy {new_strategy.name} instantiated and fleet reload triggered."
+    )
 
 @router.get("/", response_model=PaginatedResponse[StrategyResponse])
 async def list_strategies(
@@ -358,6 +405,38 @@ async def list_active_fleet(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{id}/logs", response_model=APIResponse[dict])
+async def get_strategy_logs_proxy(
+    id: UUID4,
+    request: Request,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Bridge to fetch recent calculation logs from Strategy Core with RBAC."""
+    # 1. Check Deployment first
+    target = db.query(Deployment).filter(Deployment.id == id).first()
+    if not target:
+        # 2. Try Strategy
+        target = db.query(Strategy).filter(Strategy.id == id).first()
+    
+    if not target:
+        raise HTTPException(status_code=404, detail="Strategy or Deployment not found")
+        
+    # Verify RBAC (VIEWER or higher)
+    await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER])(
+        request=request,
+        fund_id=target.fund_id,
+        current_user=current_user,
+        db=db
+    )
+    
+    try:
+        result = await strategy_client.get_strategy_logs(str(id), limit=limit)
+        return success_response(data=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{id}/tick", response_model=APIResponse[dict])
 async def manual_strategy_tick(
     id: UUID4,
@@ -365,11 +444,29 @@ async def manual_strategy_tick(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Manually trigger a single logic tick for a specific strategy."""
-    # Check if strategy exists in DB first for RBAC
+    """Manually trigger a single logic tick for a specific strategy/deployment."""
+    # 1. Try to find in Deployments first (Professional Path)
+    deployment = db.query(Deployment).filter(Deployment.id == id).first()
+    if deployment:
+        # Verify RBAC for deployment
+        await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+            request=request,
+            fund_id=deployment.fund_id,
+            current_user=current_user,
+            db=db
+        )
+        try:
+            # Institutional FIX: Wait for hydration if newly instantiated (safety buffer)
+            await asyncio.sleep(2) 
+            result = await strategy_client.trigger_manual_tick(str(id))
+            return success_response(data=result)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # 2. Fallback to Strategies (Legacy/Template Path)
     strategy = db.query(Strategy).filter(Strategy.id == id).first()
     if not strategy:
-        raise HTTPException(status_code=404, detail="Strategy not found")
+        raise HTTPException(status_code=404, detail="Strategy or Deployment not found")
         
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
         request=request,

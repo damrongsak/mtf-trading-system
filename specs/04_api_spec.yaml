@@ -2267,6 +2267,10 @@ paths:
   /api/v1/strategies/{id}/tick:
     post:
       summary: Manually trigger a strategy logic evaluation
+      description: |
+        Triggers a logic evaluation for a specific strategy instance.
+        **Institutional Warning**: Only database-backed UUIDs are supported.
+        Template names (e.g., 'quasimodo_v1') will return 422.
       tags: [Strategies]
       parameters:
         - name: id
@@ -2274,9 +2278,60 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         '200':
           description: Tick result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string}
+                  reason: {type: string, description: Human-readable trace of the logic evaluation}
+
+  /api/v1/strategies/{id}/logs:
+    get:
+      summary: Retrieve recent calculation logs for a strategy
+      tags: [Strategies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Recent logs fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_dict'
+
+  /api/v1/strategies/instantiate:
+    post:
+      summary: On-demand instantiation of a strategy from a template
+      tags: [Strategies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StrategyCreate'
+      responses:
+        '200':
+          description: Strategy instantiated and fleet reloaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_StrategyResponse'
+
   /api/v1/strategies/{id}/config:
     post:
       summary: Update configuration for a strategy instance

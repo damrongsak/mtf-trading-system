@@ -128,9 +128,40 @@ Agents implementing or deploying strategies MUST follow the **7-Step Olympus Sta
 7.  **Drift Monitoring**: Use `PerformanceMonitor` to detect "Alpha Decay" and signal skipped vs. taken.
 
 ---
-## 📋 Step 8: Standardized Handoff & Progress Tracking
-...
-*(Example: `2026-03-08-AI-ANALYST-V2.2-POST-MORTEM-SENTINEL.md`)*
+## 🛡️ Step 8: Strategy Registration & Ticking (Institutional Guardrails)
+To maintain system integrity and auditability, AI agents MUST follow these rules when working with strategies:
+
+### 1. The "UUID Only" Rule
+- **RESTRICTION**: The `/api/v1/strategies/{id}/tick` endpoint only supports database-backed UUIDs.
+- **ERROR HANDLING (422)**: If you provide a non-UUID string (e.g., `sentinel_v1`), the API will return a **422 Unprocessable Entity**. This is a schema validation failure, NOT a 404.
+- **ERROR HANDLING (403/404)**: If the UUID is valid but you lack permissions, you receive a **403 Forbidden**. If the UUID does not exist, a **404 Not Found**.
+
+### 2. Signal Traceability & Reasons
+- **TRANSPARENCY**: Every tick response includes a `reason` field.
+- **USAGE**: Even if `signal` is null, always parse the `reason` to understand why (e.g., `"QM Pattern not detected"`).
+- **OBSERVABILITY**: Use `GET /api/v1/strategies/{id}/logs` to fetch the last 100 internal calculation logs for a strategy.
+
+### 3. Strategy Registration & On-Demand Instantiation
+- **ON-DEMAND**: Institutional users should use `POST /api/v1/strategies/instantiate` to deploy new instances from templates.
+- **MANUAL (Legacy)**: If using physical folders:
+1.  **Append to Master Data**: Add the strategy metadata and a unique UUID to `master_data/strategies.json`.
+2.  **Sync to DB**: Run the MDMS import:
+    ```bash
+    docker compose exec api-gateway python scripts/manage_master_data.py import
+    ```
+3.  **Fleet Reload**: Trigger a reload in Strategy Core:
+    ```bash
+    curl -X POST http://localhost:8000/api/v1/strategies/reload
+    ```
+
+### 3. Verification Script
+Use the built-in audit script to verify fleet health:
+```bash
+docker compose exec strategy-core python verify_fleet_uuid.py
+```
+
+## 📋 Step 9: Standardized Handoff & Progress Tracking
+To ensure continuity across multiple AI agent sessions, all significant architectural changes or logic fixes MUST be documented in a handoff artifact.
 
 ### 📝 Content Structure
 Each handoff MUST include:
@@ -140,7 +171,9 @@ Each handoff MUST include:
 4.  **Next Steps**: Actionable items for the next agent (e.g., monitor performance, tune prompts).
 5.  **Key Files**: List of critical files modified or new components created.
 
-## 🔍 Step 8: Standardized Logging (Observability)
+*(Example: `2026-03-08-AI-ANALYST-V2.2-POST-MORTEM-SENTINEL.md`)*
+
+## 🔍 Step 10: Standardized Logging (Observability)
 To comply with **Observability Guardrails**, all services must implement structured JSON logging.
 
 ### 1. JSON Configuration
@@ -171,7 +204,7 @@ finally:
 
 Refer to `specs/13_logging_standard.md` for the full schema requirements.
 
-## 🕸️ Step 9: Service Communication Patterns (Resilience)
+## 🕸️ Step 11: Service Communication Patterns (Resilience)
 To avoid deadlocks and high-coupling, follow these patterns when designing inter-service logic:
 
 | Pattern | Usage | Benefit |
@@ -183,7 +216,7 @@ To avoid deadlocks and high-coupling, follow these patterns when designing inter
 
 **CRITICAL RULE**: **NEVER** call the `api-gateway` from an internal service tool. If Service A needs data from Service B, call B directly or use a cached Event-Carried state.
 
-## 💾 Step 10: Initial Seeding & Environment Setup
+## 💾 Step 12: Initial Seeding & Environment Setup
 For a fresh environment, AI agents should ensure the following sequence is executed in the `api-gateway` service:
 
 1.  **System Config**: `seed_system.py` (Ensures M1+ timeframes).

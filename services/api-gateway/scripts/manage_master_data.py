@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import engine, SessionLocal
 from app.models.user import User
+from app.models.deployment import Deployment
 from app.models.user_fund import Fund, UserFund
 from app.models.market import MarketCategory, MarketSymbol
 from app.models.data_source import DataSource
@@ -53,6 +54,7 @@ TABLE_MODELS = [
     (SavedStrategy, "saved_strategies.json"),
     (StrategyConfig, "strategy_configs.json"),
     (Strategy, "strategies.json"),
+    (Deployment, "deployments.json"),
     (LibraryBook, "library_books.json")
 ]
 

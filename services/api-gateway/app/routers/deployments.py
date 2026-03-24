@@ -162,6 +162,7 @@ async def create_deployment(
 @router.post("/{id}/stop", response_model=DeploymentResponse)
 async def stop_deployment(
     id: UUID,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -175,6 +176,7 @@ async def stop_deployment(
 
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
         fund_id=deployment.fund_id,
         current_user=current_user,
         db=db
@@ -191,6 +193,7 @@ async def stop_deployment(
 @router.post("/{id}/restart", response_model=DeploymentResponse)
 async def restart_deployment(
     id: UUID,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -204,6 +207,7 @@ async def restart_deployment(
 
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER])(
+        request=request,
         fund_id=deployment.fund_id,
         current_user=current_user,
         db=db
@@ -304,6 +308,7 @@ async def stop_bot_instance(deployment_id: str):
 @router.get("/{id}/logs", response_model=PaginatedResponse[Any]) # Using Any to avoid circular imports if schema issue, or specific schema
 async def get_deployment_logs(
     id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     skip: int = 0,
@@ -319,6 +324,7 @@ async def get_deployment_logs(
 
     # Verify RBAC
     await RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER])(
+        request=request,
         fund_id=deployment.fund_id,
         current_user=current_user,
         db=db

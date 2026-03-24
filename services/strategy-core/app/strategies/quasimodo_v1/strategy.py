@@ -330,8 +330,14 @@ async def strategy(state, data_manager):
     qm_strat = QuasimodoStrategy()
     
     # 4. Execute Analysis with MTF Support
-    # We pass data_h1 as a kwarg for optional enrichment
     entries, exits, signal = await qm_strat.run_live_signal(data_15m, params, data_h1=data_h1)
+    
+    if signal is None:
+        signal = {
+            "symbol": symbol,
+            "direction": "NEUTRAL",
+            "reason": "QM Pattern not detected or filters (EMA/ATR) not met in current window."
+        }
     
     return entries, exits, signal
 

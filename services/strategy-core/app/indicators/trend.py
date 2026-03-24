@@ -33,26 +33,48 @@ def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, length: int
         }, index=close.index)
 
     try:
-        # 2. Use VectorBT Native ADX (High-Performance Numba-backed implementation)
-        # In VectorBT, ADX is accessible via vbt.ADX
-        adx_ind = vbt.ADX.run(high, low, close, window=length)
+        # 2. Native ADX implementation (Wilder's Smoothing) - Resilient to missing TA-Lib
+        # Calculate True Range (TR)
+        prev_close = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev_close).abs(),
+            (low - prev_close).abs()
+        ], axis=1).max(axis=1)
+        
+        # Calculate Directional Movement (+DM and -DM)
+        up_move = high - high.shift(1)
+        down_move = low.shift(1) - low
+        
+        plus_dm = pd.Series(0.0, index=close.index)
+        plus_dm.loc[(up_move > down_move) & (up_move > 0)] = up_move
+        
+        minus_dm = pd.Series(0.0, index=close.index)
+        minus_dm.loc[(down_move > up_move) & (down_move > 0)] = down_move
+        
+        # Wilder's Smoothing (EMA with alpha = 1/N)
+        alpha = 1.0 / length
+        atr = tr.ewm(alpha=alpha, adjust=False, min_periods=length).mean()
+        plus_di_smooth = plus_dm.ewm(alpha=alpha, adjust=False, min_periods=length).mean()
+        minus_di_smooth = minus_dm.ewm(alpha=alpha, adjust=False, min_periods=length).mean()
+        
+        plus_di = 100 * (plus_di_smooth / atr)
+        minus_di = 100 * (minus_di_smooth / atr)
+        dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+        adx = dx.ewm(alpha=alpha, adjust=False, min_periods=length).mean()
         
         # 3. Final sanitization (ensure no Inf values that crash JSON)
         def _clean(s):
-            # Replace Inf with NaN and ensure the series is clean
-            if isinstance(s, pd.Series):
-                return s.replace([np.inf, -np.inf], np.nan)
-            return s
+            return s.replace([np.inf, -np.inf], np.nan)
 
         return pd.DataFrame({
-            'adx': _clean(adx_ind.adx),
-            'dmp': _clean(adx_ind.plus_di),
-            'dmn': _clean(adx_ind.minus_di)
+            'adx': _clean(adx),
+            'dmp': _clean(plus_di),
+            'dmn': _clean(minus_di)
         }, index=close.index)
         
     except Exception as e:
-        logger.error(f"VectorBT ADX calculation failed: {e}")
-        # Fallback to NaN if something goes wrong
+        logger.error(f"Institutional ADX calculation failed: {e}")
         return pd.DataFrame({
             'adx': [np.nan] * actual_length,
             'dmp': [np.nan] * actual_length,

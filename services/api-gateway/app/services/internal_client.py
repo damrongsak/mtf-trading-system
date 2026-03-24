@@ -11,11 +11,25 @@ EXECUTION_SERVICE_URL = os.getenv("EXECUTION_SERVICE_URL", "http://execution:800
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev_secret_key")
 
 class BaseInternalClient:
-    """Base class for internal service clients using the shared HTTP utility."""
+    """Base class for internal service clients with a persistent AsyncClient."""
     
+    _client_instance: Optional[httpx.AsyncClient] = None
+
     def __init__(self, base_url: str, headers: Optional[Dict[str, str]] = None):
         self.base_url = base_url
         self.headers = headers or {}
+
+    @classmethod
+    async def get_shared_client(cls) -> httpx.AsyncClient:
+        if cls._client_instance is None or cls._client_instance.is_closed:
+            # Using standard transport with retries for internal reliability
+            transport = httpx.AsyncHTTPTransport(retries=3, trust_env=False)
+            cls._client_instance = httpx.AsyncClient(
+                transport=transport,
+                timeout=600.0,
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
+            )
+        return cls._client_instance
 
     async def _request(
         self, 
@@ -24,7 +38,7 @@ class BaseInternalClient:
         timeout: Optional[float] = None, 
         **kwargs
     ) -> httpx.Response:
-        client = await get_internal_client()
+        client = await self.get_shared_client()
         url = f"{self.base_url}{path}"
         
         # Merge headers
@@ -32,17 +46,15 @@ class BaseInternalClient:
         if "headers" in kwargs:
             request_headers.update(kwargs.pop("headers"))
             
-        async with client:
-            # Note: Retries are handled by the transport in get_internal_client()
-            resp = await client.request(
-                method, 
-                url, 
-                timeout=timeout, 
-                headers=request_headers, 
-                **kwargs
-            )
-            resp.raise_for_status()
-            return resp
+        resp = await client.request(
+            method, 
+            url, 
+            timeout=timeout, 
+            headers=request_headers, 
+            **kwargs
+        )
+        resp.raise_for_status()
+        return resp
 
 class StrategyClient(BaseInternalClient):
     def __init__(self):
@@ -143,6 +155,18 @@ class StrategyClient(BaseInternalClient):
             return resp.json()
         except Exception as e:
             logger.error(f"Manual tick failed for {strategy_id}: {e}")
+            raise
+
+    async def get_strategy_logs(self, strategy_id: str, limit: int = 50) -> Dict[str, Any]:
+        try:
+            resp = await self._request(
+                "GET", f"/api/v1/strategies/{strategy_id}/logs", 
+                params={"limit": limit},
+                timeout=10.0
+            )
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to fetch strategy logs for {strategy_id}: {e}")
             raise
 
     async def get_drawdown(self, symbol: str, timeframe: str, limit: int) -> Dict[str, Any]:

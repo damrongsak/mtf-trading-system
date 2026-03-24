@@ -397,7 +397,7 @@ async def start_strategy_endpoint(strategy_id: str, config: dict):
     await live_runner.start()
     return await strategy_engine.start_strategy(strategy_id, config)
 
-@router.post("/strategies/{strategy_id}/stop")
+@router.post("/legacy-strategies/{strategy_id}/stop")
 async def stop_strategy_endpoint(strategy_id: str):
     from app.engine import strategy_engine
     return await strategy_engine.stop_strategy(strategy_id)
@@ -447,9 +447,9 @@ def run_optimization_endpoint(req: StrategyBacktestRequest):
         
         response = OptimizationResponse(results=results)
         
+        # Skip results save if not requested
         if req.strategy_id:
             from app.utils.persistence import save_strategy_result
-            # Results are already dicts (from run_grid_search)
             save_strategy_result(req.strategy_id, 'optimization', results)
             
         return response
@@ -536,7 +536,7 @@ from app.routers.analytics import router as analytics_router
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
 
 from app.routers.strategies import router as strategies_router
-app.include_router(strategies_router, prefix="/api/v1")
+app.include_router(strategies_router, prefix="/api/v1/strategies")
 
 from app.routers.execution_flow import router as execution_flow_router
 app.include_router(execution_flow_router, prefix="/api/v1")

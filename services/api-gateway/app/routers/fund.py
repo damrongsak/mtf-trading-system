@@ -16,7 +16,7 @@ from app.schemas.generated import (
     FundUpdate as GeneratedFundUpdate,
     StrategyType,
     RiskParityData,
-    APIResponse_RiskParityData
+    APIResponseRiskParityData
 )
 import json
 from app.utils.redis_client import get_redis_client
@@ -304,7 +304,7 @@ async def delete_fund(
     db.commit()
     
     return None
-@router.get("/{fund_id}/risk-parity", response_model=APIResponse_RiskParityData)
+@router.get("/{fund_id}/risk-parity", response_model=APIResponseRiskParityData)
 async def get_fund_risk_parity(
     fund_id: uuid.UUID,
     db: Session = Depends(get_db),

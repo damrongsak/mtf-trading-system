@@ -26,14 +26,22 @@ class DynamicBotExecutor:
     def _initialize_strategy(self):
         """Initializes the strategy scope and extracts the strategy function."""
         try:
+            import json
+            import time
+            import datetime
             import vectorbt as vbt
             local_scope = {
                 "pd": pd,
                 "np": np,
                 "vbt": vbt,
+                "json": json,
+                "time": time,
+                "datetime": datetime,
                 "indicators": indicators,
+                "__builtins__": __builtins__
             }
-            exec(self._compiled_code, {}, local_scope)
+            # Symmetric scope binding prevents NameError for injected dependencies
+            exec(self._compiled_code, local_scope, local_scope)
             if "strategy" not in local_scope:
                 logger.error(f"Strategy {self.deployment_id}: 'strategy' function not found.")
                 return None
@@ -69,28 +77,24 @@ class DynamicBotExecutor:
             
             # 2. Call User Function
             params = state.config_json.get("strategy_params", {})
-            
-            # Execute logic (assuming it might be sync or async based on signature)
-            # Most dynamic strategies are sync currently. 
-            # If it's a coroutine, we await it.
-            if asyncio.iscoroutinefunction(self.strategy_fn):
-                result = await self.strategy_fn(state, data_manager)
-            else:
-                # Legacy signature support: def strategy(df, params)
-                # New signature support: def strategy(state, data_manager)
-                import inspect
-                sig = inspect.signature(self.strategy_fn)
-                if len(sig.parameters) == 2:
-                    # Generic way to check if it's (df, params) or (state, data_manager)
-                    # For now, let's try to pass based on what the function expects.
-                    # If first param is named 'data' or 'df', pass df.
-                    param_names = list(sig.parameters.keys())
-                    if param_names[0] in ['df', 'data']:
-                        result = self.strategy_fn(df, params)
-                    else:
-                        result = self.strategy_fn(state, data_manager)
+            import inspect
+
+            # Determine arguments based on signature
+            sig = inspect.signature(self.strategy_fn)
+            if len(sig.parameters) == 2:
+                param_names = list(sig.parameters.keys())
+                if param_names[0] in ['df', 'data']:
+                    result_raw = self.strategy_fn(df, params)
                 else:
-                    result = self.strategy_fn(df, params)
+                    result_raw = self.strategy_fn(state, data_manager)
+            else:
+                result_raw = self.strategy_fn(df, params)
+
+            # Resiliently handle sync vs async results
+            if inspect.isawaitable(result_raw):
+                result = await result_raw
+            else:
+                result = result_raw
             
             # Standardize Result
             # result can be: 
@@ -101,6 +105,10 @@ class DynamicBotExecutor:
             signal_data = None
             log_data = {}
             
+            signal_data = None
+            log_data = {}
+            reason = "Dynamic Manual Tick"
+            
             if isinstance(result, tuple):
                 if len(result) >= 3:
                     signal_data = result[2]
@@ -109,9 +117,13 @@ class DynamicBotExecutor:
             else:
                 signal_data = result
                 
+            if isinstance(signal_data, dict):
+                reason = signal_data.get("reason", reason)
+
             return {
                 "signal": signal_data if isinstance(signal_data, dict) else None,
-                "logs": log_data if isinstance(log_data, dict) else {}
+                "logs": log_data if isinstance(log_data, dict) else {},
+                "reason": reason
             }
 
         except Exception as e:

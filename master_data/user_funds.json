@@ -58,5 +58,23 @@
     "user_id": "6a4a2b5d-c41a-4b2a-b467-66b6ebbf6644",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "role": "OWNER"
+  },
+  {
+    "id": "82dc1e06-72a4-4a4f-9dd3-8a6b85b4d1d2",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "role": "OWNER"
+  },
+  {
+    "id": "ab606c8b-7a53-42c7-9cf2-bd27dbcecf01",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "role": "OWNER"
+  },
+  {
+    "id": "022ed936-d306-4b4e-ae1c-5887c8e88807",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "role": "OWNER"
   }
 ]
