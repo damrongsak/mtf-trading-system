@@ -10,7 +10,7 @@ from app.schemas.saved_strategy import SavedStrategyCreate, SavedStrategyUpdate,
 from app.security import get_current_user
 from app.models.user import User
 
-router = APIRouter(prefix="/saved-strategies", tags=["Strategies (Library)"])
+router = APIRouter(prefix="/strategies/saved", tags=["Strategies (Library)"])
 
 @router.post("/", response_model=SavedStrategyResponse)
 def create_strategy(

@@ -25,23 +25,33 @@ from app.utils.response import paginated_response
 
 @router.get("/", response_model=PaginatedResponse[DeploymentResponse])
 async def list_deployments(
-    fund_id: UUID,
+    fund_id: Optional[UUID] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     skip: int = 0,
-    limit: int = 100,
-    user_fund: UserFund = Depends(RequireRole([UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER, UserRole.VIEWER]))
+    limit: int = 100
 ):
     """
     List active deployments.
     """
-    # 1. Get Total Count
-    total = db.query(Deployment).filter(Deployment.fund_id == fund_id).count()
+    # Get funds this user has access to
+    user_funds = db.query(UserFund).filter(UserFund.user_id == current_user.id).all()
+    authorized_fund_ids = [uf.fund_id for uf in user_funds]
     
-    # 2. Get Data
-    deployments = db.query(Deployment).options(joinedload(Deployment.strategy)).filter(
-        Deployment.fund_id == fund_id
-    ).order_by(Deployment.started_at.desc()).offset(skip).limit(limit).all()
+    if not authorized_fund_ids:
+        return paginated_response(items=[], total=0, skip=skip, limit=limit)
+
+    query = db.query(Deployment).options(joinedload(Deployment.strategy))
+    
+    if fund_id:
+        if fund_id not in authorized_fund_ids:
+            raise HTTPException(status_code=403, detail="Not authorized for this fund")
+        query = query.filter(Deployment.fund_id == fund_id)
+    else:
+        query = query.filter(Deployment.fund_id.in_(authorized_fund_ids))
+
+    total = query.count()
+    deployments = query.order_by(Deployment.started_at.desc()).offset(skip).limit(limit).all()
     
     # Calculate PnL for each deployment
     results = []
