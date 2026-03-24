@@ -4,14 +4,16 @@ description: |
     Use this skill when you need to create, add, or implement an institutional-grade "World-Class" trading strategy in the `strategy-core` service.
 ---
 
-# New Strategy Implementation (World-Class Standard v2.8)
-**Goal:** Create a high-performance, learnable, and robust strategy in `services/strategy-core`.
+# New Strategy Implementation (World-Class Standard v2.9)
+**Goal:** Create a high-performance, learnable, and robust strategy in `services/strategy-core` compliant with institutional professionalization.
 
 ## 🛡️ Mandates
 1.  **Vectorization**: All strategies MUST be vectorized using `vectorbt` for O(1) backtesting.
-2.  **Rich Metadata**: Signals MUST include a `logic_path` and `features` for AI learning.
-3.  **Hierarchy**: Strategies MUST be linked to a `Fund` and `BrokerAccount` via the database.
-4.  **Sync**: Local files MUST be synced to the DB using `seed_strategies.py` and `sync_strategy_deployments.py`.
+2.  **Mandatory Traceability**: Signals MUST include a `reason` field (string) in the `signal_dict` explaining the logic (even if NEUTRAL).
+3.  **Strategic Observability**: calculation-level logs MUST be captured in the `logs` list for API retrieval.
+4.  **Sandbox Professionals**: Python sandbox strategies MUST use `pd`, `np`, `vbt`, `datetime`, `json`, and `time` natively (injected in scope).
+5.  **Import Standard**: Use `import datetime` (module level) instead of `from datetime import datetime` to avoid shadowing.
+6.  **Hierarchy**: Strategies MUST be linked to a `Fund` via the database.
 
 ## Process
 
@@ -30,70 +32,72 @@ description: |
             # Vectorized logic here returning boolean series
             ...
     ```
-*   **Define Rich Metadata**:
-    Include `logic_path` (list of confluences) and `features` (raw indicator values) in the `signal_dict`.
-
-### 3. Database Synchronization (MANDATORY)
-Local changes are not live until synced. Run these commands from the root:
-1.  **Sync Code to Template Store**:
-    ```bash
-    docker compose exec strategy-core python scripts/seed_strategies.py
+*   **Implement Professional Signal Dict**:
+    ```python
+    signal_dict = {
+        "direction": "BULLISH",
+        "reason": "Price > EMA200 and RSI < 30", # MANDATORY
+        "logic_path": ["EMA_FILTER", "RSI_OVERSOLD"]
+    }
     ```
-2.  **Register as Deployment (Sandbox/Live)**:
+
+### 3. Deployment & Instantiation
+Institutional systems use the on-demand flow:
+1.  **Sync Template**: Run `docker compose exec strategy-core python scripts/seed_strategies.py`.
+2.  **Instantiate via API**:
     ```bash
-    docker compose exec strategy-core python scripts/sync_strategy_deployments.py
+    curl -X POST http://localhost:8000/api/v1/strategies/instantiate \
+      -H "Authorization: Bearer <token>" \
+      -d '{"template_id": "your_strategy_v1", "fund_id": "...", ...}'
     ```
 
 ### 4. Validation Gates
 The strategy MUST pass these tests before deployment:
-1.  **Monte Carlo**: Ruin Probability < 1% (use `scripts/monte_carlo_smc_atr.py` as reference).
-2.  **Walk-Forward (WFA)**: Robustness Score > 60% via `app.proving_ground.validator`.
-3.  **Minimax Regret**: Check `metadata.minimax_regret_score > 1.5`.
+1.  **Monte Carlo**: Ruin Probability < 1%.
+2.  **Walk-Forward (WFA)**: Robustness Score > 60%.
+3.  **Traceability Audit**: Ensure `reason` is present in manual tick response.
 
-## Code Template (World-Class)
+## Code Template (Institutional v2.9)
 ```python
 import pandas as pd
 import numpy as np
 import vectorbt as vbt
+import datetime # PREFERRED
 from typing import Tuple, Dict, Any
 from app.foundry.vector_base import VectorizedStrategyBase
 
 METADATA = {
-    "name": "World Class Strategy",
-    "description": "High-performance learnable strategy",
+    "name": "Institutional RSI V1",
+    "description": "Professional RSI with mandatory traceability",
     "defaults": { "period": 14, "threshold": 30 }
 }
 
-class MyWorldClassStrategy(VectorizedStrategyBase):
+class InstitutionalRsi(VectorizedStrategyBase):
     def run_vector(self, data: pd.DataFrame, params: Dict[str, Any] = None) -> Tuple[pd.Series, pd.Series]:
         p = {**METADATA["defaults"], **(params or {})}
         close = data['close']
-        
-        # 1. Vectorized Indicators
         rsi = vbt.RSI.run(close, window=p['period']).rsi
-        
-        # 2. Vectorized Signals
         entries = rsi < p['threshold']
         exits = rsi > 70
-        
         return entries, exits
 
 def strategy(data: pd.DataFrame, params: Dict[str, Any] = None):
-    """Standard Entry Point"""
-    obj = MyWorldClassStrategy("my_strat")
+    obj = InstitutionalRsi("inst_rsi")
     entries, exits = obj.run_vector(data, params)
     
-    # Build Rich Metadata for AI Analyst
     last_idx = -1
+    is_buy = entries.iloc[last_idx]
+    
+    # TRACEABILITY: Professional reasoning
+    reason = "Price is neutral; waiting for oversold RSI"
+    if is_buy:
+        reason = f"RSI({data['close'].iloc[last_idx]:.2f}) is oversold below {params.get('threshold', 30)}"
+
     signal_dict = {
-        "direction": "BULLISH" if entries.iloc[last_idx] else "FLAT",
-        "entry_price": float(data['close'].iloc[last_idx]),
-        "logic_path": ["RSI_OVERSOLD"] if entries.iloc[last_idx] else [],
-        "metadata": {
-            "features": {
-                "rsi_val": float(rsi.iloc[last_idx])
-            }
-        }
+        "direction": "BULLISH" if is_buy else "FLAT",
+        "reason": reason, # MANDATORY
+        "logic_path": ["RSI_OVERSOLD"] if is_buy else [],
+        "metadata": {"features": {"rsi": float(data['close'].iloc[last_idx])}}
     }
     return entries, exits, signal_dict
 ```
