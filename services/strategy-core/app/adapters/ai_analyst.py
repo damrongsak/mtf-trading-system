@@ -1,8 +1,8 @@
 import os
 import json
 import logging
-import redis.asyncio as redis
 import httpx
+from app.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +14,8 @@ async def get_market_sentiment(symbol: str) -> dict:
     Read AI Analyst sentiment score from Redis (Async/Fast).
     Returns: {"score": float, "reason": str} or None on failure.
     """
-    r = None
     try:
-        r = redis.from_url(REDIS_URL, decode_responses=True)
+        r = get_redis_client()
         # Using a standard cache key for sentiment
         cache_key = f"sentiment:{symbol}"
         data_str = await r.get(cache_key)
@@ -30,9 +29,6 @@ async def get_market_sentiment(symbol: str) -> dict:
     except Exception as e:
         logger.error(f"Failed to read sentiment from Redis for {symbol}: {e}")
         return {"score": 0.0, "reason": f"Redis read error: {e}"}
-    finally:
-        if r:
-            await r.aclose()
 
 async def get_knowledge_context(symbol: str) -> dict:
     """

@@ -25,7 +25,7 @@ YAHOO_MAPPINGS = {
     "^GSPC": "SPX",
     "TIP": "TIPS",
     # Gold & FX (Spot)
-    "GC=F": "XAUUSD",      # Gold Futures as proxy for Spot
+    "GC=F": "XAU_USD_YF",  # Explicit mapping to our new symbol
     "EURUSD=X": "EURUSD",
     "GBPUSD=X": "GBPUSD",
     "USDJPY=X": "USDJPY"
@@ -51,7 +51,8 @@ def find_market_symbol(db: Session, sys_sym: str) -> list:
 def backfill_yfinance(days: int = 365):
     db = SessionLocal()
     try:
-        timeframes = {"D1": "1d", "W1": "1wk"}
+        # Added M15 and H4 support
+        timeframes = {"M15": "15m", "H1": "1h", "H4": "1h", "D1": "1d", "W1": "1wk"}
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
         
@@ -97,7 +98,12 @@ def backfill_yfinance(days: int = 365):
                     logger.info(f"    Fetching {tf_sys} ({tf_yf}) for past {days} days")
                     try:
                         ticker = yf.Ticker(yf_sym)
-                        period_str = f"{days}d" if days < 730 else "max"
+                        # Adjustment for intraday limits (Yahoo limits 15m to last 60 days usually)
+                        if tf_sys == "M15":
+                            period_str = "60d"
+                        else:
+                            period_str = f"{days}d" if days < 730 else "max"
+                            
                         df = ticker.history(period=period_str, interval=tf_yf)
                         
                         if df.empty:

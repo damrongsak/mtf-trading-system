@@ -5332,6 +5332,67 @@ components:
           type: object
         is_active:
           type: boolean
+        last_signal:
+          $ref: '#/components/schemas/ProfessionalStrategySignal'
+
+    ProfessionalStrategySignal:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active_scanning, signal_found, pending_entry]
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        indicators:
+          type: object
+          properties:
+            ema_13: {type: number}
+            ema_50: {type: number}
+            ema_200: {type: number}
+            ema_200_h1: {type: number, nullable: true}
+            atr: {type: number}
+            trend_bias: {type: string}
+            macro_alignment: {type: boolean}
+        market_structure:
+          type: object
+          properties:
+            pattern_found: {type: boolean}
+            direction: {type: string, nullable: true}
+            levels:
+              type: object
+              nullable: true
+              properties:
+                ls1: {type: number}
+                lh1: {type: number}
+                ls2: {type: number}
+                lh2: {type: number}
+                qml: {type: number}
+            proximity_pips: {type: number}
+        rl_analysis:
+          type: object
+          properties:
+            quality_score: {type: number}
+            recommendation: {type: string}
+            metrics: {type: object}
+        execution:
+          type: object
+          properties:
+            is_entry: {type: boolean}
+            reason: {type: string}
+            levels:
+              type: object
+              nullable: true
+              properties:
+                entry: {type: number}
+                sl: {type: number}
+                tp1: {type: number}
+                tp2: {type: number}
+                rrr: {type: number}
     StrategyCreate:
       type: object
       required:

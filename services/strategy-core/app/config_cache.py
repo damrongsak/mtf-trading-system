@@ -3,6 +3,7 @@ import json
 import os
 import redis
 from typing import Optional, Dict
+from app.utils.redis_client import get_redis_client
 
 class RedisConfigCache:
     _instance = None
@@ -10,8 +11,7 @@ class RedisConfigCache:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(RedisConfigCache, cls).__new__(cls)
-            cls._instance.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-            cls._instance.client = redis.from_url(cls._instance.redis_url, decode_responses=True)
+            cls._instance.client = get_redis_client()
             cls._instance.local_cache = {} # id -> config
         return cls._instance
 

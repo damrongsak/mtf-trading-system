@@ -315,6 +315,18 @@
     }
   },
   {
+    "id": "69d5ce22-4f95-4a91-b534-5298ec2aec5b",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "XAU_USD_YF",
+    "display_name": "Gold (Yahoo Finance)",
+    "order_index": null,
+    "is_active": true,
+    "details": {
+      "yfinance_ticker": "GC=F"
+    }
+  },
+  {
     "id": "8f8bdaef-d587-48a9-ace4-4653b5264a88",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",

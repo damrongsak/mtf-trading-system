@@ -8,8 +8,8 @@ import os
 import json
 import logging
 import asyncio
-import redis.asyncio as redis
 from dataclasses import asdict
+from app.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +99,10 @@ async def get_gamma_levels(
 
     # 3. Redis Caching
     cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}"
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-    redis_client = None
     try:
-        redis_client = redis.from_url(redis_url, decode_responses=True)
+        redis_client = get_redis_client()
         cached_result = await redis_client.get(cache_key)
         if cached_result:
-            await redis_client.close()
             return json.loads(cached_result)
     except Exception as e:
         logger.warning(f"Redis cache read failed: {e}")
@@ -178,12 +175,10 @@ async def get_gamma_levels(
             return super(NpEncoder, self).default(obj)
 
     # 7. Write to Cache (15 min TTL)
-    if redis_client:
-        try:
-            await redis_client.setex(cache_key, 900, json.dumps(response_data, cls=NpEncoder))
-        except Exception as e:
-            logger.warning(f"Redis cache write failed: {e}")
-        finally:
-            await redis_client.close()
+    try:
+        redis_client = get_redis_client()
+        await redis_client.setex(cache_key, 900, json.dumps(response_data, cls=NpEncoder))
+    except Exception as e:
+        logger.warning(f"Redis cache write failed: {e}")
 
     return response_data

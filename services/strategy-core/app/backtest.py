@@ -102,6 +102,12 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
         if df.empty:
             logger.warning(f"No data found for {req.symbol} ({req.timeframe})")
             return _empty_response(status="ERROR_NO_DATA")
+
+        # --- OLYMPUS FIX: Ensure clean numeric data for VectorBT / Numba ---
+        # Any 'object' columns like ai_labels or regime_tag will crash the nopython pipeline
+        numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+        df = df[numeric_cols].astype(float)
+        # -----------------------------------------------------------------
         
         # 2. Strategy Logic
         strategy_name = req.strategy_params.get("name")
@@ -126,24 +132,36 @@ def run_historical_backtest(req: BacktestRequest) -> BacktestResponse:
 
         logger.info(f"Running strategy: {strategy_name}")
         
+        # Ensure registry is loaded
+        if not StrategyRegistry._loaded:
+            StrategyRegistry.load_strategies()
+
         strategy_func = get_strategy_sync(strategy_name)
         if not strategy_func:
             strategy_func = get_strategy(strategy_name)
         if not strategy_func:
+            logger.warning(f"Strategy {strategy_name} not found, falling back to built-ins")
             strategy_func = get_strategy("ma_crossover")
 
-        # Use Close price for VBT logic
-        close_price = df['close'].astype(float)
+        # 3. Use Close price for VBT logic (prepare early)
+        close_price = df['close'].copy()
         
         # Run Strategy
-        sig = inspect.signature(strategy_func)
-        if 'params' in sig.parameters:
-             result = strategy_func(df, params=req.strategy_params)
-        else:
-             try:
-                 result = strategy_func(df, **req.strategy_params)
-             except:
-                 result = strategy_func(df)
+        try:
+            sig = inspect.signature(strategy_func)
+            if 'params' in sig.parameters:
+                result = strategy_func(df, params=req.strategy_params)
+            else:
+                try:
+                    result = strategy_func(df, **req.strategy_params)
+                except:
+                    # Fallback for built-ins that expect only close_price Series
+                    logger.info(f"Retrying {strategy_name} with close_price Series")
+                    result = strategy_func(close_price, params=req.strategy_params)
+        except Exception as e:
+             logger.error(f"Strategy execution failed: {e}")
+             # Final attempt: direct call with close_price
+             result = strategy_func(close_price, req.strategy_params)
 
         # Unpack
         if isinstance(result, tuple):

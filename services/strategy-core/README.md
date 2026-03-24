@@ -111,12 +111,20 @@ You can test the strategy logic and flow via the following endpoints:
    -d '{"symbol": "XAUUSD", "timeframe": "M15", "strategy_id": "bb_stoch_ob_v1", "strategy_params": {...}}'
    ```
 
-2. **Flow Test (Internal Signal API)**:
+2. **Professional Monitoring API (Institutional)**:
+   Trigger a manual tick and receive high-fidelity telemetry (Indicators, ML Scores, Structure).
    ```bash
-   curl -X POST http://localhost:8000/api/v1/internal/signals \
-   -H "X-Internal-API-Key: dev_secret_key" \
-   -d '{"symbol": "XAUUSD", "direction": "BULLISH", "type": "ENTRY", ...}'
+   curl -X POST http://localhost:8000/api/v1/strategies/{strategy_id}/tick \
+   -H "Authorization: Bearer <JWT_TOKEN>" | jq .
    ```
+   *See [Quasimodo V2 README](app/strategies/quasimodo_v1/README.md) for detailed schema.*
+
+3. **Flow Test (Internal Signal API)**:
+    ```bash
+    curl -X POST http://localhost:8000/api/v1/internal/signals \
+    -H "X-Internal-API-Key: dev_secret_key" \
+    -d '{"symbol": "XAUUSD", "direction": "BULLISH", "type": "ENTRY", ...}'
+    ```
 
 ## 📂 Directory Structure
 

@@ -12,6 +12,7 @@ from app.database import SessionLocal, engine
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
 from app.processing.feature_extractor import FeatureExtractor
+from app.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,8 @@ class IndicatorWorker:
 
     async def start(self):
         self.running = True
-        self.redis = redis.from_url(self.redis_url, decode_responses=True)
-        logger.info(f"IndicatorWorker connected to Redis at {self.redis_url}")
+        self.redis = get_redis_client()
+        logger.info(f"IndicatorWorker connected to Global Redis Pool")
         
         # Create Consumer Group
         await self._ensure_group_exists()
@@ -83,8 +84,8 @@ class IndicatorWorker:
 
     async def stop(self):
         self.running = False
-        if self.redis:
-            await self.redis.close()
+        # Redis is now global/pooled, do not close it here.
+        pass
 
     async def _consume_loop(self):
         logger.info("IndicatorWorker loop started.")

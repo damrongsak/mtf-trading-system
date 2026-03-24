@@ -14,12 +14,11 @@ async def verify_dependencies():
     logger.info("Verifying system dependencies...")
     
     # 1. Check Redis
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    from app.utils.redis_client import get_redis_client
     try:
-        # Use a short timeout for the check
-        r = redis.from_url(redis_url, socket_connect_timeout=3, socket_timeout=3)
+        # Use the global pooled client for health check
+        r = get_redis_client()
         await r.ping()
-        await r.close()
         logger.info("✅ Redis connection verified.")
     except Exception as e:
         logger.error(f"❌ Redis connection failed: {e}")

@@ -1,50 +1,42 @@
-# Quasimodo V1 Strategy (QM-v1)
+# Quasimodo V2 Strategy (QM-v2)
 
 ## 📋 Overview
-**Quasimodo V1** is an institutional-grade trading strategy designed for XAU/USD (Gold). it implements a high-probability reversal pattern based on **Liquidity Sweeps (LS)** and **Break of Structure (BOS)**, combined with **Multi-Timeframe (MTF)** confluence.
+**Quasimodo V2** is a professional-grade evolution of the classic QM pattern, optimized for **XAU/USD (Gold)**. It combines institutional market structure analysis with **Multi-Timeframe (MTF)** confluence and **Deep Reinforcement Learning (RL)** signal quality filtering.
 
-The strategy identifies "Smart Money" footprints where price sweeps a previous swing point, breaks the immediate structure with displacement, and returns to the "Quasimodo Level" (QML/QMH) for entry.
+The strategy identifies "Smart Money" footprints where price sweeps a previous swing point, breaks structure with high displacement, and returns to the "Quasimodo Level" (QML) for a high-probability entry aligned with the macro trend.
 
-## 🏗️ Logic & Patterns
-1.  **Macro Bias (H1):** EMA 50/200 alignment. Price must be above/below EMA 200 for Bullish/Bearish bias.
-2.  **Pattern Structure (M15/H1):**
-    - **LS1 -> LH1 -> LS2 (Sweep) -> LH2 (BOS):** For Bullish QM.
-    - **HS1 -> LL1 -> HS2 (Sweep) -> LL2 (BOS):** For Bearish QM.
-3.  **Entry Trigger (M15):** 
-    - Price returns to LS1/HS1 (The QM Level).
-    - EMA 13 alignment.
-    - "Strong Body" candle confirmation (Body > 50% of Range).
-4.  **Displacement Check:** All BOS legs must have a High-Volume/Large-Body expansion.
+## 🏗️ Logic & Patterns (V2 Enhancements)
+1.  **Macro Bias (H1):** Institutional EMA 200 alignment. Price must be above/below H1 EMA 200 for Bullish/Bearish bias.
+2.  **Professional Telemetry:** Every logic "tick" exports high-fidelity metrics for 3rd party monitoring (see API section).
+3.  **RL-Quality Filter:** Uses a pre-trained Reinforcement Learning agent to score pattern quality based on:
+    *   **Displacement Magnitude**: The strength of the BOS leg relative to ATR.
+    *   **Session Timing**: Alignment with London/New York volatility.
+    *   **Structure Clarity**: Proximity of the return to the exact QML.
 
-## ⚙️ Parameters
+## ⚙️ Parameters (V2)
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
 | `risk_pct` | `0.01` | Dynamic risk per trade (1.0% of NAV). |
-| `ema_fast` | `13` | Fast EMA for entry alignment. |
-| `ema_slow` | `50` | Slow EMA for structure alignment. |
-| `min_rrr` | `1.5` | Minimum Risk-Reward Ratio required. |
-| `atr_period` | `14` | ATR period for volatility-adjusted Stop Loss. |
-| `max_sl_pips`| `40` | Hard cap on SL distance (Institutional Guardrail). |
-| `swing_strength`| `2` | ZigZag strength for swing point detection. |
+| `ema_fast` | `13` | Fast EMA (M15) for entry alignment. |
+| `ema_slow` | `50` | Slow EMA (M15) for structure alignment. |
+| `ema_macro` | `200` | Macro EMA for H1 trend filter. |
+| `rl_filter_threshold` | `0.40` | Min score (0-1) required for signal qualification. |
+| `qml_buffer` | `0.2` | Tolerance for price reaching the QML. |
 
-## 🛠️ Requirements & Setup
-- **Symbols:** Optimized for `XAU_USD`.
-- **Timeframes:**
-    - `H1`: Macro Structure & Trend.
-    - `M15`: Pattern Setup & Entry Trigger.
-- **Data:** Requires OHLCV data with at least 200 candles for EMA calculation.
+## 🌐 Professional API Integration
+Quasimodo V2 supports external monitoring via the REST API.
+
+### Enriched Signal Payload
+When triggering a manual tick or receiving a signal, the following schema is provided:
+- `indicators`: M15/H1 EMA confluence, ATR, and Macro Bias status.
+- `market_structure`: Exact coordinates (LS1, LH1, LS2, LH2) and QML.
+- `rl_analysis`: AI confidence score and diagnostic verdict.
+- `execution`: Institutional entry/SL/TP levels with RRR calculation.
 
 ## 🛡️ Institutional Risk Management
-- **Smart Dynamic Risk:** Updated to use 1% of NAV per trade, scaled by the global engine.
-- **Hierarchical Scaling ($K_{total}$):**
-    - $K_m$ (Model): 1.25x for high-displacement breakouts (>2.5 ATR).
-    - $K_s$ (Sentiment): 1.25x for Buy+Bullish / Sell+Bearish alignment; 0.5x for conflict.
-    - $K_c$ (Correlation): 0.70x cut for assets with >60% market integration and systemic overlap.
-- **Stop Loss:** Volatility-adjusted: `(Pattern_Range * 1.2) + (ATR * 0.5)`.
-- **Take Profit (Multi-Target):**
-    - TP1: 1.0R (Move SL to Breakeven).
-    - TP2: 2.0R.
-    - TP3: Runner with Trailing SL.
+- **Volatility-Adjusted Stop Loss:** SL is calculated as `(Pattern_Range * 1.2) + (ATR * 0.5)`.
+- **Dynamic Lot Scaling:** Automated 100k standard unit conversion via `UnitConverter`.
+- **Shadow Mode Support:** Fully verified for institutional "Shadow Run" monitoring.
 
 ---
-*Standard: MTF Olympus v2.1 (Institutional Grade)*
+*Standard: MTF Olympus v2.2 (Professional Grade)*

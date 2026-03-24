@@ -128,16 +128,14 @@ class SharedMarketDataManager:
         Seeds the initial price context for immediate strategy readiness.
         """
         import os
-        import redis.asyncio as redis
+        from app.utils.redis_client import get_redis_client
         from datetime import datetime
         
         try:
-            redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-            r = redis.from_url(redis_url, decode_responses=True)
+            r = get_redis_client()
             
             # Fetch from new L2 Cache
             cache = await r.hgetall(f"market_data:spot:{symbol}")
-            await r.close()
             
             if cache and "bid" in cache:
                 bid = float(cache.get("bid", 0))

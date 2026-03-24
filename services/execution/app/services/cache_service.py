@@ -35,7 +35,8 @@ class ExecutionCache:
 
     async def _get_redis(self):
         if not self.redis:
-            self.redis = aioredis.from_url(self.redis_url, decode_responses=True)
+            from app.utils.redis_client import get_redis_client
+            self.redis = get_redis_client()
         return self.redis
 
     def _get_l1(self, key: str) -> Optional[Any]:

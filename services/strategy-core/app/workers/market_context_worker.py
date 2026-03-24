@@ -13,6 +13,7 @@ from app.models.market import MarketSymbol
 from app.indicators.garch_engine import garch_engine
 from app.quant.engine import quant_engine
 from app.utils.scheduler_utils import tracing_context
+from app.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +31,15 @@ class MarketContextWorker:
         
     async def start(self):
         self.running = True
-        self.redis = redis.from_url(self.redis_url, decode_responses=True)
-        logger.info(f"MarketContextWorker connected to Redis at {self.redis_url}")
+        self.redis = get_redis_client()
+        logger.info(f"MarketContextWorker connected to Global Redis Pool")
         
         asyncio.create_task(self._loop())
 
     async def stop(self):
         self.running = False
-        if self.redis:
-            await self.redis.close()
+        # Managed by global pool
+        pass
 
     async def _refresh_cache(self):
         try:

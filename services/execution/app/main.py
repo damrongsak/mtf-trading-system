@@ -72,8 +72,9 @@ async def startup_event():
     asyncio.create_task(close_trade_consumer.start())
 
     # Initialize Equity Guardian
+    from app.utils.redis_client import get_redis_client
     try:
-        redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        redis_client = get_redis_client()
         guardian = EquityGuardian(redis_client)
         
         # Schedule Health Check

@@ -101,38 +101,30 @@ async def publish_fill(
         payload["latency_ms"] = round((fill_time_ns - signal_timestamp_ns) / 1e6, 2)
     payload_json = json.dumps(payload)
 
+    from app.utils.redis_client import get_redis_client
+    rc = get_redis_client()
+
     try:
-        rc = aioredis.from_url(os.environ.get("REDIS_URL", "redis://redis:6379/0"))
-        async with rc:
-            # 1. WS Push to API Gateway (List)
-            await rc.lpush(redis_key, payload_json)
-            await rc.expire(redis_key, FILL_TTL)
+        # 1. WS Push to API Gateway (List)
+        await rc.lpush(redis_key, payload_json)
+        await rc.expire(redis_key, FILL_TTL)
 
-            # 2. Stream for FillTradeConsumer → DB persistence (HFT-Lite)
-            # Redis Streams require field-value pairs — store as a single "data" field
-            if status == "FILLED":
-                await rc.xadd(
-                    FILL_STREAM_KEY,
-                    {"data": payload_json},
-                    maxlen=STREAM_MAXLEN,
-                    approximate=True,
-                )
+        # 2. Stream for FillTradeConsumer → DB persistence (HFT-Lite)
+        if status == "FILLED":
+            await rc.xadd(
+                FILL_STREAM_KEY,
+                {"data": payload_json},
+                maxlen=STREAM_MAXLEN,
+                approximate=True,
+            )
 
-            # 3. [Latency] Log "fill_received" step to original trace
-            if trace_id:
-                # We use the same helper logic as OrderService but without needing the full service
-                duration_ms = (time.time() - payload["fill_time"]) * 1000 # This is just internal pub time
-                # However, the goal is to append to trace:{trace_id}
-                # Trace keys are trace:{trace_id}, values are List[step:ms]
-                # We don't have the original start_t here easily, but we can log the step name
-                try:
-                    msg = f"fill_received:{time.time()*1000:.2f}" # Using absolute time for sync if needed, or delta
-                    # Better: OrderService._log_trace style
-                    # Since we don't have start_t, we just append a timestamped marker
-                    await rc.rpush(f"trace:{trace_id}", f"fill_received:{time.time()}")
-                    await rc.publish("execution:traces", json.dumps({"trace_id": trace_id, "step": "fill_received", "duration_ms": 0.0}))
-                except:
-                    pass
+        # 3. [Latency] Log "fill_received" step to original trace
+        if trace_id:
+            try:
+                await rc.rpush(f"trace:{trace_id}", f"fill_received:{time.time()}")
+                await rc.publish("execution:traces", json.dumps({"trace_id": trace_id, "step": "fill_received", "duration_ms": 0.0}))
+            except:
+                pass
 
         logger.info(
             f"[H2] Fill published: account={account_id} trace_id={trace_id} "
@@ -188,20 +180,21 @@ async def publish_close(
     }
     payload_json = json.dumps(payload)
 
+    from app.utils.redis_client import get_redis_client
+    rc = get_redis_client()
+
     try:
-        rc = aioredis.from_url(os.environ.get("REDIS_URL", "redis://redis:6379/0"))
-        async with rc:
-            await rc.xadd(
-                CLOSED_STREAM_KEY,
-                {"data": payload_json},
-                maxlen=STREAM_MAXLEN,
-                approximate=True,
-            )
-            
-            # Also publish to WS channel for frontend
-            ws_key = f"{FILL_KEY_PREFIX}:{account_id}"
-            await rc.lpush(ws_key, payload_json)
-            await rc.expire(ws_key, FILL_TTL)
+        await rc.xadd(
+            CLOSED_STREAM_KEY,
+            {"data": payload_json},
+            maxlen=STREAM_MAXLEN,
+            approximate=True,
+        )
+        
+        # Also publish to WS channel for frontend
+        ws_key = f"{FILL_KEY_PREFIX}:{account_id}"
+        await rc.lpush(ws_key, payload_json)
+        await rc.expire(ws_key, FILL_TTL)
 
         logger.info(
             f"[H2] Close published: account={account_id} deal={deal_id} "

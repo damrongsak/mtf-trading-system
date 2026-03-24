@@ -14,6 +14,7 @@ from app.logging_config import setup_logging, set_correlation_id, reset_correlat
 from app.database import AsyncSessionLocal
 from app.services.ai_bridge import AIBridge
 from app.adapters.factory import BrokerFactory
+from app.utils.redis_client import get_redis_client
 from sqlalchemy import select, or_, update
 from app.models import Trade, TradeStatus, TradeDirection, BrokerAccount, SignalLog
 from app.algorithms.manager import AlgoManager
@@ -46,7 +47,7 @@ class ExecutionWorker:
         while self._running:
             try:
                 if not self.redis:
-                    self.redis = redis.from_url(self.redis_url, decode_responses=True)
+                    self.redis = get_redis_client()
                 
                 # BRPOP returns (queue_name, message) - Multi-key prioritizes strictly from left to right
                 result = await self.redis.brpop(self.queue_names, timeout=5)
@@ -67,8 +68,8 @@ class ExecutionWorker:
 
     async def stop(self):
         self._running = False
-        if self.redis:
-            await self.redis.close()
+        # if self.redis:
+        #     await self.redis.close()
         logger.info("Execution Worker stopped.")
 
     async def _process_command(self, queue_key: str, message_json: str):
@@ -284,7 +285,7 @@ class FillTradeConsumer:
         while self._running:
             try:
                 if not self.redis:
-                    self.redis = redis.from_url(self.redis_url, decode_responses=True)
+                    self.redis = get_redis_client()
                     await self._ensure_consumer_group()
 
                 # XREADGROUP — block waiting for new messages
@@ -573,7 +574,7 @@ class CloseTradeConsumer:
         while self._running:
             try:
                 if not self.redis:
-                    self.redis = redis.from_url(self.redis_url, decode_responses=True)
+                    self.redis = get_redis_client()
                     await self._ensure_consumer_group()
 
                 results = await self.redis.xreadgroup(

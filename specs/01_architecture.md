@@ -83,6 +83,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Backtesting Engine**: Centralized, vectorized financial math library (Vectorbt).
     - **Strategy Assembler**: Compiles JSON `StrategyConfig` into Python pipelines.
     - **Unified Streaming**: Robust Redis Pub/Sub subscriber supporting pattern matching (`psubscribe`).
+    - **Professional Telemetry (v2.2)**: Standardized high-fidelity JSON output for logic evaluations, including MTF indicators, market structure coordinates, and RL-based signal quality scores.
     - **Walk-Forward Validator**: Automated Train/Test split engine to assign "Robustness Scores".
 
 ### 4.3. Execution Service (`services/execution`)
