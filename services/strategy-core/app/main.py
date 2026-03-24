@@ -562,10 +562,10 @@ async def startup_event():
         await context_worker.start()
         logger.info("Market Context Worker started.")
         
-        # Load Strategy Fleet from Database
+        # Load Strategy Fleet from Database in background to avoid blocking Uvicorn startup
         from app.fleet import FleetManager
-        await FleetManager.get_instance().load_fleet()
-        logger.info("Strategy Fleet Loaded on startup.")
+        asyncio.create_task(FleetManager.get_instance().load_fleet())
+        logger.info("Strategy Fleet Load started in background.")
 
 
 

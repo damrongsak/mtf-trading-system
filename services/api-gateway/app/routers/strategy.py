@@ -16,7 +16,12 @@ from sqlalchemy import or_
 from app.models.saved_strategy import SavedStrategy
 from app.schemas.saved_strategy import SavedStrategyCreate, SavedStrategyUpdate, SavedStrategyResponse
 from app.schemas.response import APIResponse, PaginatedResponse
+import os
 from app.utils.response import success_response, paginated_response
+from app.services.internal_client import strategy_client
+
+# Service URLs
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
 router = APIRouter(
     prefix="/api/v1/strategies",
@@ -528,7 +533,8 @@ async def manual_strategy_tick(
         )
         try:
             # Institutional FIX: Wait for hydration if newly instantiated (safety buffer)
-            await asyncio.sleep(2) 
+            # Increased to 10s as hydration now runs in background on strategy-core startup/reload
+            await asyncio.sleep(10) 
             result = await strategy_client.trigger_manual_tick(str(id))
             return success_response(data=result)
         except Exception as e:
@@ -549,8 +555,5 @@ async def manual_strategy_tick(
     try:
         result = await strategy_client.trigger_manual_tick(str(id))
         return success_response(data=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

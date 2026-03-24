@@ -324,7 +324,7 @@ async def strategy(state, data_manager):
         return pd.Series(False, index=[pd.Timestamp.now()]), pd.Series(False, index=[pd.Timestamp.now()]), {}
 
     # 2. Fetch H1 Data (Context/Macro TF)
-    data_h1 = data_manager.get_candles(symbol, "1hour", limit=200)
+    data_h1 = data_manager.get_candles(symbol, "H1", limit=200)
     
     # 3. Initialize Strategy Engine
     qm_strat = QuasimodoStrategy()
