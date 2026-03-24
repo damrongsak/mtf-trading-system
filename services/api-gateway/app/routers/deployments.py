@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db, SessionLocal
 from app.security import get_current_user
 from app.models.deployment import Deployment
+from app.models.strategy import Strategy
 from app.models.user import User
 from app.models.user_fund import UserFund, UserRole
 from app.dependencies.rbac import RequireRole
@@ -147,6 +148,18 @@ async def create_deployment(
     
     if active_count >= 5:
         raise HTTPException(status_code=400, detail="Deployment limit reached (Max 5). Stop an existing bot first.")
+
+    # 1b. Verify Strategy exists and belongs to the fund
+    strategy = db.query(Strategy).filter(
+        Strategy.id == deployment_in.strategy_id,
+        Strategy.fund_id == deployment_in.fund_id
+    ).first()
+    
+    if not strategy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Strategy {deployment_in.strategy_id} not found or does not belong to Fund {deployment_in.fund_id}"
+        )
 
     # 2. Create DB Record
     deployment = Deployment(

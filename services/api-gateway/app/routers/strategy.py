@@ -6,6 +6,7 @@ from pydantic import BaseModel, UUID4, ConfigDict
 from app.database import get_db
 from app.models.strategy import Strategy
 from app.models.deployment import Deployment
+from app.models.broker_account import BrokerAccount
 from app.models.user_fund import Fund, UserFund, UserRole
 from app.models.user import User
 from app.routers.auth import oauth2_scheme
@@ -53,6 +54,18 @@ async def create_strategy(
     fund = db.query(Fund).filter(Fund.id == strategy.fund_id).first()
     if not fund:
         raise HTTPException(status_code=404, detail="Fund not found")
+
+    # 1b. Verify Broker Account exists and belongs to the fund
+    broker_account = db.query(BrokerAccount).filter(
+        BrokerAccount.id == strategy.broker_account_id,
+        BrokerAccount.fund_id == strategy.fund_id
+    ).first()
+    
+    if not broker_account:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Broker Account {strategy.broker_account_id} not found or does not belong to Fund {strategy.fund_id}"
+        )
     
     new_strategy = Strategy(
         name=strategy.name,
@@ -86,6 +99,18 @@ async def instantiate_strategy(
         current_user=current_user,
         db=db
     )
+
+    # 1b. Verify Broker Account exists and belongs to the fund
+    broker_account = db.query(BrokerAccount).filter(
+        BrokerAccount.id == strategy.broker_account_id,
+        BrokerAccount.fund_id == strategy.fund_id
+    ).first()
+    
+    if not broker_account:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Broker Account {strategy.broker_account_id} not found or does not belong to Fund {strategy.fund_id}"
+        )
     
     # 2. Create the record
     new_strategy = Strategy(
