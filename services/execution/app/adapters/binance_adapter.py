@@ -107,3 +107,10 @@ class BinanceAdapter(BrokerAdapter):
     async def get_current_price(self, symbol: str) -> float:
         # Placeholder
         return 0.0
+
+    async def amend_position(self, broker_trade_id: str, 
+                        sl_price: Optional[float] = None, 
+                        tp_price: Optional[float] = None,
+                        trailing_sl: Optional[bool] = None,
+                        units: Optional[float] = None) -> Dict[str, Any]:
+        raise NotImplementedError("Binance Position Amendment not yet implemented")

@@ -141,3 +141,10 @@ class MockAdapter(BrokerAdapter):
     # Optional dynamic method if needed
     async def get_summary(self):
         return await self.get_account_summary()
+
+    async def amend_position(self, broker_trade_id: str, 
+                        sl_price: Optional[float] = None, 
+                        tp_price: Optional[float] = None,
+                        trailing_sl: Optional[bool] = None,
+                        units: Optional[float] = None) -> Dict[str, Any]:
+        return {"status": "amended", "position_id": broker_trade_id}

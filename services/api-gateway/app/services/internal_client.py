@@ -53,7 +53,11 @@ class BaseInternalClient:
             headers=request_headers, 
             **kwargs
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Internal API error ({method} {path}): {e.response.status_code} - {e.response.text}")
+            raise e
         return resp
 
 class StrategyClient(BaseInternalClient):

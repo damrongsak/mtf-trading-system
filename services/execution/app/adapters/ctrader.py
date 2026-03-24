@@ -735,7 +735,8 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def amend_position(self, broker_trade_id: str,
                         sl_price: Optional[float] = None,
                         tp_price: Optional[float] = None,
-                        trailing_sl: Optional[bool] = None) -> Dict[str, Any]:
+                        trailing_sl: Optional[bool] = None,
+                        units: Optional[float] = None) -> Dict[str, Any]:
         await self.client.connect()
         try:
             await self.client.authorize_app(self.client_id, self.client_secret)
@@ -753,8 +754,14 @@ class CTraderOrderAdapter(BrokerAdapter):
 
             # Determine position side and entry price for validation
             is_buy = target.tradeData.tradeSide == ProtoOATradeSide.BUY
-            entry_price = float(target.price) if target.price else 0.0
+            # [FIX] cTrader Protobuf prices are scaled by 10^digits. Use L3 cache for O(1) resolution.
+            symbol_id = target.tradeData.symbolId
+            cached = self.__class__._symbol_cache.get(f"ID_{symbol_id}")
+            digits = cached[3] if cached else 2 # Default to 2 if not cached
+            entry_price = (float(target.price) / (10**digits)) if target.price else 0.0
 
+            # [FIX] Only validate SL/TP if we have a valid entry price. 
+            # Newly opened positions might have 0.0 price for a few milliseconds in the reconcile cache.
             if entry_price > 0:
                 if sl_price is not None:
                     if is_buy and sl_price >= entry_price:
@@ -774,6 +781,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                         raise RiskValidationError(
                             f"Invalid TP for SHORT: tp_price={tp_price} must be BELOW entry_price={entry_price}"
                         )
+            else:
+                logger.info(f"Skipping SL/TP risk validation for position {broker_trade_id} because entry_price is 0.0 (transient state)")
 
             # Preserve existing SL/TP if not explicitly provided
             # target is ProtoOAPosition from get_reconcile

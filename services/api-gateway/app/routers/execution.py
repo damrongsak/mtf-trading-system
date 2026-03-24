@@ -266,7 +266,7 @@ async def close_all_trades(
 @router.post("/trades/{trade_id}/close")
 async def close_trade(
     trade_id: str,
-    payload: Dict[str, float] = Body(..., embed=False), # expect {"exit_price": 123.45}
+    payload: Dict[str, Any] = Body(..., embed=False), # expect {"exit_price": 123.45, "broker_account_id": "..."}
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -275,7 +275,7 @@ async def close_trade(
     Now integrates with Execution Service to close on Broker.
     """
     try:
-        exit_price = payload.get("exit_price")
+        exit_price = payload.get("price") or payload.get("exit_price")
         
         # 1. Resolve Trade (Dual Search: Internal UUID or Broker ID)
         trade = None
@@ -291,7 +291,7 @@ async def close_trade(
             raise HTTPException(status_code=404, detail=f"Trade {trade_id} not found in database")
             
         # 2. Close on Broker
-        if trade.broker_account_id:
+        if trade.broker_account_id and trade.broker_trade_id:
             account = db.query(BrokerAccount).filter(BrokerAccount.id == trade.broker_account_id).first()
             if account:
                 # Verify permission for this account
@@ -301,18 +301,16 @@ async def close_trade(
                 ).first()
                 
                 if has_access:
-                    oanda_id = trade.metadata_json.get("oanda_id") if trade.metadata_json else None
-                    
-                    if oanda_id:
-                        try:
-                            await execution_client.close_trade(
-                                trade_id=oanda_id, 
-                                broker_account_id=str(account.id)
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to close trade on broker: {e}")
-                            # Could choose to fail here or proceed to close locally
-                            # For now, let's proceed but warn.
+                    try:
+                        # Standardized Close: Use broker_trade_id (works for cTrader, Oanda, Binance)
+                        await execution_client.close_trade(
+                            trade_id=trade.broker_trade_id, 
+                            broker_account_id=str(account.id)
+                        )
+                        logger.info(f"Successfully sent close command for trade {trade.broker_trade_id} on account {account.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to close trade on broker: {e}")
+                        # We proceed to close locally even if broker call fails (client can retry or sync handles it)
         
         # 2. Close Locally
         # Use the resolved trade's internal UUID for consistency in TradeService
@@ -609,13 +607,21 @@ async def amend_order(
 @router.put("/positions/{position_id}")
 async def amend_position(
     position_id: str,
-    amend_req: AmendPositionRequest,
+    amend_req: Optional[AmendPositionRequest] = None,
+    payload: Optional[Dict[str, Any]] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     try:
-        payload = amend_req.model_dump(exclude_none=True)
-        broker_account_id = payload.get("broker_account_id")
+        # Support both Pydantic model and raw dict for internal/spec calls
+        if amend_req:
+            payload_data = amend_req.model_dump(exclude_none=True)
+        elif payload:
+            payload_data = payload
+        else:
+            raise HTTPException(status_code=400, detail="Request body is required")
+
+        broker_account_id = payload_data.get("broker_account_id")
         if not broker_account_id:
             raise HTTPException(status_code=400, detail="broker_account_id is required")
             
@@ -638,7 +644,7 @@ async def amend_position(
         except (ValueError, TypeError):
             pass
 
-        result = await execution_client.amend_position(broker_trade_id, payload)
+        result = await execution_client.amend_position(broker_trade_id, payload_data)
         return success_response(data=result, message="Position amendment command sent")
         
     except HTTPException:
