@@ -41,8 +41,8 @@ class FleetManager:
         Loads all active strategies and deployments from the database into memory.
         """
         logger.info("Loading Strategy Fleet...")
-        # Force re-scan of strategies
-        StrategyRegistry.load_strategies()
+        # Force re-scan of strategies (Threaded)
+        await asyncio.to_thread(StrategyRegistry.load_strategies)
         
         self.active_strategies = {}
         self.active_deployments = {}
@@ -136,8 +136,11 @@ class FleetManager:
                 from app.market_data import market_data_manager
                 active_symbols = self.get_active_symbols()
                 logger.info(f"Hydrating market data for {len(active_symbols)} symbols: {active_symbols}")
-                for sym in active_symbols:
-                    market_data_manager.load_history(sym)
+                
+                # Parallelize hydration using a thread pool for synchronous DB queries
+                tasks = [asyncio.to_thread(market_data_manager.load_history, sym) for sym in active_symbols]
+                await asyncio.gather(*tasks)
+                logger.info("Market data hydration complete.")
                     
         except Exception as e:
             logger.error(f"Error loading fleet: {e}")

@@ -27,6 +27,7 @@ from datetime import datetime
 import traceback
 import logging
 import time
+import asyncio
 
 # Configure logging
 from app.logging_config import setup_logging
@@ -564,6 +565,7 @@ async def startup_event():
         
         # Load Strategy Fleet from Database in background to avoid blocking Uvicorn startup
         from app.fleet import FleetManager
+        import asyncio
         asyncio.create_task(FleetManager.get_instance().load_fleet())
         logger.info("Strategy Fleet Load started in background.")
 
