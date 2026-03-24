@@ -149,7 +149,7 @@ app.include_router(market.router, prefix="/api/v1/market")
 app.include_router(stream.router, prefix="/api/v1/stream")
 app.include_router(market_data.router, prefix="/api/v1")
 app.include_router(system.router, prefix="/api/v1/system", tags=["System"])
-app.include_router(saved_strategies.router, prefix="/api/v1")
+# app.include_router(saved_strategies.router, prefix="/api/v1") # REMOVED: Merged into strategy.router to avoid prefix clash
 app.include_router(deployments.router, prefix="/api/v1/deployments")
 app.include_router(internal.router)
 app.include_router(foundry.router, prefix="/api/v1")
