@@ -6,6 +6,7 @@ class OrderRequest(BaseModel):
     broker_account_id: Optional[str] = Field(None, description="The ID of the broker account")
     symbol: str = Field(..., description="Instrument e.g., XAU_USD")
     order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP, STOP_LIMIT")
+    side: Optional[str] = Field(None, description="BUY or SELL")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
     price: Optional[float] = None # For Limit/Stop
     stop_price: Optional[float] = Field(None, description="Trigger price for STOP/STOP_LIMIT")

@@ -473,7 +473,7 @@ class FillTradeConsumer:
                 if new_trade.signal_id:
                     # Update SignalLog to FILLED and link the new trade_id
                     await db.execute(
-                        _update(SignalLog)
+                        update(SignalLog)
                         .where(SignalLog.id == new_trade.signal_id)
                         .values(
                             status="FILLED",

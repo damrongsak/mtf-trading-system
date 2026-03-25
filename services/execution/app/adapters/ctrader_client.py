@@ -236,10 +236,12 @@ class AsyncCTraderClient:
             req.clientId = client_id
             req.clientSecret = client_secret
             
+            logger.info(f"Authorizing App: {client_id}")
             resp_msg = await self.send(req)
             
             # Extract response
             if resp_msg.payloadType == ProtoOAApplicationAuthRes().payloadType:
+                logger.info(f"App Authorized successfully: {client_id}")
                 self._app_authorized = True
                 return True
             elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
@@ -261,6 +263,7 @@ class AsyncCTraderClient:
             resp_msg = await self.send(req)
             
             if resp_msg.payloadType == ProtoOAAccountAuthRes().payloadType:
+                logger.info(f"Account {account_id} authorized successfully.")
                 self._account_authorized = True
                 return True
             elif resp_msg.payloadType == ProtoOAErrorRes().payloadType:
@@ -432,8 +435,10 @@ class AsyncCTraderClient:
                            comment: Optional[str] = None,
                            slippage_pips: Optional[int] = None,
                            base_price: Optional[float] = None,
-                           stop_price: Optional[float] = None):
+                           stop_price: Optional[float] = None,
+                           client_msg_id: Optional[str] = None):
         req = ProtoOANewOrderReq()
+        # clientMsgId belongs to ProtoMessage wrapper, handled by self.send()
         req.ctidTraderAccountId = int(account_id)
         req.symbolId = int(symbol_id)
         req.orderType = order_type 
@@ -461,7 +466,7 @@ class AsyncCTraderClient:
              if base_price is not None: req.baseSlippagePrice = float(base_price)
         
         print(f"cTrader Client final req: {req}", flush=True)
-        resp_msg = await self.send(req)
+        resp_msg = await self.send(req, client_msg_id=client_msg_id)
         
         if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:
             # cTrader returns ExecutionEvent for new orders

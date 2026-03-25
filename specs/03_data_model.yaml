@@ -788,6 +788,10 @@ entities:
         max_length: 100
         nullable: true
         description: "Stable deal identifier for cTrader deduplication; optional for OANDA"
+      - name: parent_trade_id
+        type: uuid
+        nullable: true
+        description: "For child trades (TWAP/VWAP slices or partial closes), links back to original trade"
       - name: symbol
         type: string
         required: true

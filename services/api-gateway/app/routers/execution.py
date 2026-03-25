@@ -12,7 +12,8 @@ from app.models.broker_account import BrokerAccount
 from app.utils.crypto import decrypt_data
 from app.utils.response import success_response, paginated_response
 from app.schemas.trade import TradeResponse
-from typing import Dict, Any, List
+from app.schemas.execution import AmendPositionRequest
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import logging
 import asyncio
@@ -162,6 +163,14 @@ async def place_order(
             
         if "take_profit" in order_data and "tp_price" not in order_data:
             order_data["tp_price"] = order_data.pop("take_profit")
+
+        # 1.5 Sign units based on side if provided
+        side = order_data.get("side")
+        units = order_data.get("units", 0)
+        if side == "SELL" and units > 0:
+            order_data["units"] = -abs(units)
+        elif side == "BUY" and units < 0:
+            order_data["units"] = abs(units)
 
         # 2. Execute Order
         # Pass ID directly

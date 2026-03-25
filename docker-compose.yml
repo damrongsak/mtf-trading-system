@@ -80,6 +80,7 @@ services:
       - DATABASE_URL=postgresql://trader:trader@mtf-postgres:5432/mtf_db
       - DATA_PIPELINE_URL=http://data-pipeline:8000
       - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
+      - AI_ANALYST_URL=http://ai-analyst:8000
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
       - PYTHONPATH=/app:/app/deps

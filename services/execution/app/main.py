@@ -7,7 +7,10 @@ from typing import Optional, Dict, Any, List
 from types import SimpleNamespace
 from decimal import Decimal
 
-from fastapi import FastAPI, HTTPException, Depends, Body, Path
+from fastapi import FastAPI, HTTPException, Depends, Body, Path, Request
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+import time
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
@@ -56,8 +59,28 @@ async def verify_internal_api_key(api_key: str = Depends(api_key_header)):
 
 app = FastAPI(title="Execution Service")
 
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        method = request.method
+        url = request.url.path
+        logger.info(f"🚀 INCOMING: {method} {url}")
+        
+        try:
+            response = await call_next(request)
+            process_time = time.time() - start_time
+            logger.info(f"🏁 OUTGOING: {method} {url} - Status: {response.status_code} - Time: {process_time:.4f}s")
+            return response
+        except Exception as e:
+            process_time = time.time() - start_time
+            logger.error(f"💥 CRASH: {method} {url} - Error: {e} - Time: {process_time:.4f}s", exc_info=True)
+            raise
+
+app.add_middleware(RequestLoggingMiddleware)
+
 @app.on_event("startup")
 async def startup_event():
+    print("🚀 [CRITICAL] startup_event started")
     logger.info("Starting Execution Service...")
     
     # Verify critical dependencies before accepting traffic
@@ -80,8 +103,8 @@ async def startup_event():
         # Schedule Health Check
         scheduler.add_job(guardian.check_health, 'interval', minutes=5, misfire_grace_time=60)
         
-        # [Phase 57] Start Event Listener
-        await guardian.start_listener()
+        # [Phase 57] Start Event Listener (Non-blocking)
+        asyncio.create_task(guardian.start_listener())
         
         # [THE JANITOR] Schedule State Reconciliation every 1 minute
         scheduler.add_job(JanitorService.reconcile_all_accounts, 'interval', minutes=1, misfire_grace_time=60)
@@ -108,8 +131,7 @@ async def startup_event():
         logger.error(f"❌ Equity Guardian Init Failed: {e}")
     
     # [HFT-lite] Pre-hydrate L3 Execution Cache for all active accounts
-    # This eliminates the cold-start latency (DB I/O) on the first live trade command.
-    # It runs in a background task so it does not block service readiness.
+    print("🚀 [CRITICAL] Triggering _warmup_execution_cache task")
     asyncio.create_task(_warmup_execution_cache())
 
 async def _warmup_execution_cache():
@@ -233,16 +255,25 @@ app.add_middleware(
 )
 
 @app.exception_handler(ConnectionResetError)
-async def connection_reset_handler(request, exc):
+async def connection_reset_handler(request: Request, exc: ConnectionResetError):
     logger.error(f"Global ConnectionResetError caught: {exc}")
-    return error_response(message="Internal Connection Reset by Peer. Please retry.", status_code=503)
+    return JSONResponse(
+        status_code=503,
+        content=error_response(message="Internal Connection Reset by Peer. Please retry.", status_code=503)
+    )
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
-        raise exc
-    logger.error(f"Unhandled Exception: {exc}", exc_info=True)
-    return error_response(message=f"Internal Server Error: {str(exc)}", status_code=500)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(message=exc.detail, status_code=exc.status_code)
+        )
+    logger.error(f"Unhandled Exception in Execution Service: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content=error_response(message=f"Internal Server Error: {str(exc)}", status_code=500)
+    )
 
 
 # --- Request Models ---
@@ -258,6 +289,7 @@ class OrderRequest(BaseModel):
     broker_account_id: str
     symbol: str = Field(..., description="Instrument e.g., XAU_USD")
     order_type: str = Field("MARKET", description="MARKET, LIMIT, STOP, STOP_LIMIT")
+    side: Optional[str] = Field(None, description="BUY or SELL")
     units: float = Field(..., description="Units to trade (positive=long, negative=short)")
     price: Optional[float] = None # Limit Price
     stop_price: Optional[float] = None # Trigger Price for STOP/STOP_LIMIT
@@ -375,14 +407,17 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
     try:
         logger.info(f"Incoming Order Request: {req.dict()}")
         account, credentials = await get_account_and_credentials(req.broker_account_id, db)
+        logger.info(f"🚀 [HFT-lite] Creating adapter for {account.broker_name}...")
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # [Latency] HFT-Lite: If cTrader, try to warm up connection
-        if account.broker_name == "CTRADER":
+        if account.broker_name.upper() in ["CTRADER", "ICMARKETS", "ICMARKETSSC", "FXPRO", "PEPPERSTONE", "BLACKBULLMARKETS"]:
+            logger.info("🚀 [HFT-lite] Connecting to cTrader...")
             await adapter.client.connect()
 
         # Support Market, Limit, Stop based on order_type
         if req.order_type == "MARKET":
+            logger.info(f"🚀 [HFT-lite] Placing MARKET {req.side} order for {req.symbol} ({req.units} units)...")
             response = await adapter.place_market_order(
                 symbol=req.symbol,
                 units=req.units,
@@ -409,6 +444,7 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
             if req.order_type == "STOP": target_order_type = ProtoOAOrderType.STOP
             if req.order_type == "STOP_LIMIT": target_order_type = ProtoOAOrderType.STOP_LIMIT
 
+            logger.info(f"🚀 [HFT-lite] Placing {req.order_type} order for {req.symbol}...")
             response = await adapter.place_limit_order(
                 symbol=req.symbol,
                 units=req.units,
@@ -425,6 +461,7 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         else:
              raise HTTPException(status_code=400, detail=f"Unsupported order type: {req.order_type}")
         
+        logger.info(f"🚀 [HFT-lite] Order placed successfully. Parsing response...")
         # Parse relevant fields from OANDA response
         trade_id = "0"
         fill = response.get("orderFillTransaction")
@@ -445,14 +482,11 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         })
     except HTTPException as he:
         raise he
-    except V20Error as ve:
-        logger.error(f"OANDA API Error: {ve}")
-        raise HTTPException(status_code=400, detail=f"OANDA Error: {str(ve)}")
     except ValueError as ve:
-        logger.error(f"Value Error: {ve}")
+        logger.error(f"❌ [HFT-lite] Value Error: {ve}")
         raise HTTPException(status_code=400, detail=f"Invalid Input: {str(ve)}")
     except Exception as e:
-        logger.error(f"Place Order Error: {e}", exc_info=True)
+        logger.error(f"❌ [HFT-lite] Place Order Error: {e}", exc_info=True)
         # Expose error detail for debugging (in dev/test envs this is acceptable)
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
@@ -1095,3 +1129,6 @@ async def get_fund_risk_config(fund_id: str, db: AsyncSession = Depends(get_db),
     except Exception as e:
         logger.error(f"Error fetching fund risk config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# EOF

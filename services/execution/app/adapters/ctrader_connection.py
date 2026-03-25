@@ -11,7 +11,12 @@ def _global_ctrader_handler(msg):
     logger.debug(f"Global cTrader Handler: Received message type {msg.payloadType}")
     try:
         from app.adapters.ctrader import CTraderMessageRouter
-        CTraderMessageRouter.handle_unsolicited_message(msg)
+        if hasattr(CTraderMessageRouter, "handle_unsolicited_message"):
+            CTraderMessageRouter.handle_unsolicited_message(msg)
+        else:
+            logger.error("CTraderMessageRouter found but handle_unsolicited_message attribute is missing")
+    except ImportError:
+        logger.error("Could not import CTraderMessageRouter from app.adapters.ctrader")
     except Exception as e:
         # Avoid circular import or missing router issues during startup
         logging.getLogger(__name__).error(f"Global cTrader handler error: {e}")

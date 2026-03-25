@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -96,10 +97,13 @@ class CTraderOrderAdapter(BrokerAdapter):
     async def _populate_symbol_cache(self):
         """Pre-hydrate symbol cache from execution cache / HTTP fallback for HFT-lite performance."""
         try:
+            logger.info("cTrader: Starting symbol hydration for 'CTRADER'...")
             symbols = await execution_cache.get_symbols("CTRADER")
             if not symbols:
-                 logger.error("cTrader: Failed to fetch symbols from cache/HTTP.")
+                 logger.error("cTrader: No symbols returned from cache/HTTP for 'CTRADER'.")
                  return
+            
+            logger.info(f"cTrader: Fetched {len(symbols) if isinstance(symbols, list) else 'dict'} symbols. Processing...")
 
             # API Gateway JSON is typically {"status": "success", "data": [...]}
             if isinstance(symbols, dict) and "data" in symbols:
@@ -210,8 +214,8 @@ class CTraderOrderAdapter(BrokerAdapter):
             
             logger.info(f"cTrader Normalized: units={units} -> volume_cents={volume_cents} (lot_size={lot_size_cents}, step={step_cents})")
 
-            # [RACE CONDITION FIX] Save context BEFORE create_order to prevent async fill arriving before context
-            # Use symbol + direction as a temporary key since we don't know order_id yet
+            # [RACE CONDITION FIX] Use client_msg_id for sub-millisecond fill matching.
+            client_msg_id = f"mtf_{uuid.uuid4().hex[:8]}"
             pre_context = {
                 "trace_id": trade_id or "",
                 "signal_timestamp_ns": signal_timestamp_ns,
@@ -221,22 +225,31 @@ class CTraderOrderAdapter(BrokerAdapter):
                 "is_shadow": is_shadow,
                 "symbol": symbol,
                 "direction": "BUY" if units > 0 else "SELL",
-                "parent_trade_id": trade_id if trade_id else None, # Use trade_id as parent if it exists
-                "pre_order": True  # Mark as pre-order context
+                "parent_trade_id": trade_id if trade_id else None,
+                "pre_order": True,
+                "client_msg_id": client_msg_id
             }
+            # Save by client_msg_id FIRST (The absolute source of truth for the arriving fill)
+            await execution_cache.set_order_context(client_msg_id, pre_context, expire=60)
+            
+            # Fallback by symbol:direction (Old logic, kept for extra safety)
             pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
-            await execution_cache.set_order_context(pre_key, pre_context, expire=30)
+            await execution_cache.set_order_context(pre_key, pre_context, expire=60)
+
+            # Market order is always MARKET
+            ct_order_type = ProtoOAOrderType.MARKET
 
             res = await self.client.create_order(
                 account_id=self.account_id,
                 symbol_id=symbol_id,
-                order_type=ProtoOAOrderType.MARKET,
+                order_type=ct_order_type,
                 trade_side=ProtoOATradeSide.BUY if units > 0 else ProtoOATradeSide.SELL,
                 volume=abs(volume_cents),
                 # SL/TP must be set AFTER fill for market orders (cTrader requirement)
                 sl=None,
                 tp=None,
-                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto")
+                comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto"),
+                client_msg_id=client_msg_id
             )
 
             # [H2] REJECTED - publish fill event so WS client gets callback
@@ -419,7 +432,8 @@ class CTraderOrderAdapter(BrokerAdapter):
             # place_limit_order implies LIMIT.
             # OrderType: LIMIT
 
-            # [RACE CONDITION FIX] Save context BEFORE create_order
+            # [RACE CONDITION FIX] Use client_msg_id
+            client_msg_id = f"mtf_p_{uuid.uuid4().hex[:8]}"
             pre_context = {
                 "trace_id": trade_id or "",
                 "sl_price": sl_price or 0.0,
@@ -428,10 +442,13 @@ class CTraderOrderAdapter(BrokerAdapter):
                 "symbol": symbol,
                 "direction": "BUY" if units > 0 else "SELL",
                 "parent_trade_id": trade_id if trade_id else None,
-                "pre_order": True
+                "pre_order": True,
+                "client_msg_id": client_msg_id
             }
+            await execution_cache.set_order_context(client_msg_id, pre_context, expire=60)
+            
             pre_key = f"pre:{symbol}:{'BUY' if units > 0 else 'SELL'}"
-            await execution_cache.set_order_context(pre_key, pre_context, expire=30)
+            await execution_cache.set_order_context(pre_key, pre_context, expire=60)
 
             res = await self.client.create_order(
                 account_id=self.account_id,
@@ -445,7 +462,8 @@ class CTraderOrderAdapter(BrokerAdapter):
                 comment=comment if comment else (f"Ref:{trade_id}" if trade_id else "Auto"),
                 slippage_pips=slippage_pips,
                 base_price=base_price,
-                stop_price=stop_price
+                stop_price=stop_price,
+                client_msg_id=client_msg_id
             )
 
             # Check for Rejection in ExecutionEvent
@@ -758,7 +776,8 @@ class CTraderOrderAdapter(BrokerAdapter):
             symbol_id = target.tradeData.symbolId
             cached = self.__class__._symbol_cache.get(f"ID_{symbol_id}")
             digits = cached[3] if cached else 2 # Default to 2 if not cached
-            entry_price = (float(target.price) / (10**digits)) if target.price else 0.0
+            # [FIX] cTrader ProtoOAPosition.price is a double (already scaled). DO NOT divide by 10^digits.
+            entry_price = float(target.price) if target.price else 0.0
 
             # [FIX] Only validate SL/TP if we have a valid entry price. 
             # Newly opened positions might have 0.0 price for a few milliseconds in the reconcile cache.
@@ -801,7 +820,8 @@ class CTraderOrderAdapter(BrokerAdapter):
         except (ValueError, RiskValidationError) as ve:
             raise ve
         except Exception as e:
-            logger.error(f"cTrader Amend Position Error: {e}")
+            import traceback
+            logger.error(f"_process_execution_event error: {e}\n{traceback.format_exc()}")
             raise e
 
     async def get_open_trades(self) -> List[Dict[str, Any]]:
@@ -948,8 +968,8 @@ class CTraderMessageRouter:
     [HFT-lite] Global Router for unsolicited cTrader messages.
     Handles ExecutionEvents (Fills) across all active connections.
     """
-    @staticmethod
-    def handle_unsolicited_message(msg: ProtoMessage):
+    @classmethod
+    def handle_unsolicited_message(cls, msg: ProtoMessage):
         """Main entry point from AsyncCTraderClient"""
         logger.info(f"cTrader Router: Received message payloadType={msg.payloadType}")
 
@@ -970,39 +990,45 @@ class CTraderMessageRouter:
             event = ProtoOAExecutionEvent()
             event.ParseFromString(msg.payload)
 
-            account_id = str(event.ctidTraderAccountId)
             exec_type = event.executionType
+            order_data = getattr(event, "order", None)
+            broker_order_id = str(order_data.orderId) if order_data and hasattr(order_data, "orderId") else "N/A"
+            client_msg_id = getattr(event, "clientMsgId", None)
+            account_id = str(event.ctidTraderAccountId)
+            
+            logger.info(f"!!! DEBUG !!! cTrader Router: ExecutionEvent type={exec_type} for Order {broker_order_id} (ClientMsgId: {client_msg_id})")
 
             # We only care about fills for now
             if exec_type != ProtoOAExecutionType.ORDER_FILLED:
-                # logger.debug(f"cTrader: Async ExecutionEvent {exec_type} for acc {account_id} - ignoring.")
                 return
 
             broker_order_id = str(event.order.orderId)
             logger.info(f"cTrader: Async Fill received for Order {broker_order_id} (Acc: {account_id})")
 
             # 1. Fetch Context from Redis
+            # Try 1: By broker_order_id (Standard persistence)
             context = await execution_cache.get_order_context(broker_order_id)
 
-            # If not found, try pre-order context (race condition fix)
+            # Try 2: By client_msg_id (Primary Race Condition Fix)
+            if not context and client_msg_id:
+                context = await execution_cache.get_order_context(client_msg_id)
+                if context:
+                    logger.info(f"cTrader: Found context via client_msg_id {client_msg_id} for order {broker_order_id}")
+
+            # Try 3: By pre-order key (symbol:direction) - Fallback
             if not context:
-                # Protobuf 3: scalar fields don't work with HasField if not marked optional
-                # tradeSide is an enum (scalar)
+                # [Optimization] Extract symbol and direction from event if no context found yet
                 order_data = getattr(event, "order", None)
                 deal_data = getattr(event, "deal", None)
                 
                 symbol_id = None
-                if order_data and order_data.HasField("symbolId"):
+                if order_data and hasattr(order_data, "symbolId"):
                     symbol_id = order_data.symbolId
-                elif deal_data and deal_data.HasField("symbolId"):
+                elif deal_data and hasattr(deal_data, "symbolId"):
                     symbol_id = deal_data.symbolId
 
                 symbol = "UNKNOWN"
                 if symbol_id:
-                    # Need an instance of CTraderOrderAdapter to call _resolve_name_from_id_cache
-                    # This is a bit hacky, but avoids passing adapter instance around
-                    # Or, make _resolve_name_from_id_cache a static method if it doesn't need self
-                    # For now, we'll use the class method directly.
                     symbol, _, _, _ = CTraderOrderAdapter._resolve_name_from_id_cache(symbol_id)
                 
                 direction = "UNKNOWN"
@@ -1042,20 +1068,19 @@ class CTraderMessageRouter:
             gross_profit = 0.0
             deal_id = None
             
-            if event.HasField("deal"):
-                raw_volume = event.deal.volume
-                deal_id = str(event.deal.dealId)
-                if hasattr(event.deal, "closePositionDetail") and event.deal.HasField("closePositionDetail"):
-                    close_volume = event.deal.volume
+            deal_data = getattr(event, "deal", None)
+            if deal_data:
+                raw_volume = deal_data.volume
+                deal_id = str(deal_data.dealId)
+                if hasattr(deal_data, "closePositionDetail"):
+                    close_volume = deal_data.volume
                 
-                # grossProfit is a scalar in Proto3, HasField will fail if not marked optional
-                # We use getattr with default 0.0
-                raw_gross = getattr(event.deal, "grossProfit", 0)
+                raw_gross = getattr(deal_data, "grossProfit", 0)
                 if raw_gross != 0:
-                    money_digits = getattr(event.deal, "moneyDigits", 2)
+                    money_digits = getattr(deal_data, "moneyDigits", 2)
                     gross_profit = float(raw_gross) / (10 ** money_digits)
-            elif event.HasField("order") and event.order.HasField("tradeData"):
-                raw_volume = event.order.tradeData.volume
+            elif order_data and hasattr(order_data, "tradeData"):
+                raw_volume = order_data.tradeData.volume
 
             # 3. Handle Closure vs Fill
             from app.services.fill_publisher import publish_fill, publish_close
@@ -1096,8 +1121,8 @@ class CTraderMessageRouter:
                 )
             else:
                 # Normal Fill (Entry)
-                fill_price = float(event.deal.executionPrice) if event.HasField("deal") else (
-                    float(event.order.executionPrice) if event.HasField("order") and event.order.executionPrice else 0.0
+                fill_price = float(deal_data.executionPrice) if deal_data and hasattr(deal_data, "executionPrice") else (
+                    float(order_data.executionPrice) if order_data and hasattr(order_data, "executionPrice") and order_data.executionPrice else 0.0
                 )
                 
                 sl_price = context.get("sl_price", 0.0)
