@@ -13,6 +13,7 @@ from app.core.app_config import config
 from app.core.logger import get_logger
 from app.core.health import StartupGuard
 from app.ingestors.hierarchical_ingestor import HierarchicalIngestor
+from app.core.graph_linter import GraphLinter
 from app.utils.middleware import RequestIDMiddleware
 from app.utils.tracing import request_id_ctx
 from app.tools.falkordb_client import FalkorDBClient
@@ -26,8 +27,9 @@ app = FastAPI(
 )
 app.add_middleware(RequestIDMiddleware)
 
-# Global Ingestor Instance
+# Global Ingestor & Linter Instances
 ingestor = HierarchicalIngestor()
+linter = GraphLinter()
 
 # --- Redis-Backed Task Store (Fix for Multi-Worker Visibility) ---
 class RedisTaskStore:
@@ -257,6 +259,21 @@ async def list_tasks():
     """List all recent ingestion tasks."""
     return tasks.all()
 
+@app.post("/graph/lint")
+async def trigger_linting(background_tasks: BackgroundTasks):
+    """Trigger a manual graph linting and entity resolution cycle."""
+    task_id = f"lint-{uuid.uuid4().hex[:8]}"
+    
+    async def run_lint():
+        token = request_id_ctx.set(task_id)
+        try:
+            await linter.run_linting_cycle()
+        finally:
+            request_id_ctx.reset(token)
+            
+    background_tasks.add_task(run_lint)
+    return {"task_id": task_id, "status": "triggered", "message": "Graph linting started in background"}
+
 # --- Background Scheduler for Asset Prices (with Distributed Locking) ---
 async def asset_price_refresher():
     """Background loop to update top asset prices every hour."""
@@ -326,3 +343,24 @@ async def start_refresh_task():
 
     asyncio.create_task(asset_price_refresher())
     asyncio.create_task(merger_with_lock())
+    
+    # --- Pillar 4: Periodic Graph Linting (Every 6 Hours) ---
+    async def periodic_linter():
+        r = tasks._get_redis()
+        while True:
+            if not r: 
+                await asyncio.sleep(60)
+                continue
+            
+            lock_key = "lock:graph_linter"
+            # Try to acquire lock for 6 hours
+            if r.set(lock_key, "1", nx=True, ex=21500): 
+                logger.info("🧹 Starting Periodic Graph Linting (Scheduled)...")
+                try:
+                    await linter.run_linting_cycle()
+                except Exception as e:
+                    logger.error(f"Linter failed: {e}")
+            
+            await asyncio.sleep(1800) # Check lock every 30 min
+
+    asyncio.create_task(periodic_linter())

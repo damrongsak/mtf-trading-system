@@ -3,14 +3,59 @@ import logging
 import re
 import asyncio
 import requests
-from typing import Dict, Any, List, Optional
+import instructor
+from openai import OpenAI
+from typing import Dict, Any, List, Optional, Type, TypeVar
 from app.core.app_config import config
 
+T = TypeVar("T")
 logger = logging.getLogger("OlympusLLMUtils")
 
 class LLMUtils:
     """Utilities for interacting with LLMs and processing responses"""
     
+    @staticmethod
+    async def call_llm_structured(
+        system_prompt: str, 
+        user_prompt: str, 
+        response_model: Type[T],
+        tier: str = "default", 
+        max_retries: int = 2
+    ) -> T:
+        """Call LLM and return a validated Pydantic model using instructor"""
+        if not config.openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY not set")
+
+        # OpenRouter-compatible client for Instructor
+        client = instructor.from_openai(
+            OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=config.openrouter_api_key,
+            ),
+            mode=instructor.Mode.JSON,
+        )
+
+        try:
+            # Instructor handles the extraction, validation, and retries
+            return await asyncio.to_thread(
+                client.chat.completions.create,
+                model=config.model_name,
+                response_model=response_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_retries=max_retries,
+                temperature=0.1,
+                extra_headers={
+                    "HTTP-Referer": "https://openclaw.local",
+                    "X-Title": f"OlympusIngestor-{tier}-Structured"
+                }
+            )
+        except Exception as e:
+            logger.error(f"❌ Structured LLM error ({tier}): {e}")
+            raise
+
     @staticmethod
     async def call_llm(system_prompt: str, user_prompt: str, tier: str = "default", max_tokens: int = 4000) -> Dict[str, Any]:
         """Call OpenRouter API with prompt and handle errors with fallback"""

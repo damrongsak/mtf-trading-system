@@ -131,6 +131,18 @@ The project strictly enforces SDD. Read the [Specs](specs/) before making logic 
 
 ---
 
+## 🧠 Knowledge Graph & AI Analyst
+The system utilizes **FalkorDB** to build a complex semantic network of market intelligence.
+
+### 🏛️ Institutional-Grade Ingestion (The 4 Pillars)
+To ensure the highest graph quality and zero-corruption, the `knowledge-ingestor` service implements four key pillars:
+1.  **Intelligent Structural Analysis**: Analyzes document layout and themes *before* extraction to provide global context.
+2.  **Semantic Chunking**: Uses Markdown-aware splitting to preserve relationship context between related concepts.
+3.  **Schema Enforcement (Pydantic)**: Forces LLM extraction to follow a strict **Ontology** (Assets, Strategies, SMC Patterns) with automatic validation via `instructor`.
+4.  **Periodic Graph Linting**: Automated background worker that removes orphan nodes and performs **Fuzzy Entity Resolution** (e.g., merging "FED" and "Federal Reserve").
+
+---
+
 ## ⚠️ Disclaimer
 **USE AT YOUR OWN RISK.** MTF Olympus is an educational quant platform. Automated trading involves significant risk of loss. The authors assume no responsibility for financial outcomes.
 

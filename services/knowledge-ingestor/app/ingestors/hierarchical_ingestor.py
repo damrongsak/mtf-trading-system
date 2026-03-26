@@ -4,18 +4,18 @@ Professional large file ingestion for financial news & analysis
 """
 
 import json
-import logging
-import re
 import asyncio
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, Any, List
 
 from app.base_ingestor import BaseIngestor
 from app.core.llm_utils import LLMUtils
 from app.core.logger import get_logger
+from app.core.semantic_chunker import SemanticChunker
+from app.core.ontology import GraphExtractionSchema
+from app.core.doc_analyzer import DocumentAnalyzer, DocStructure
 from app.tools.market_reader import MarketReaderTool
 from app.tools.web_search import WebSearchTool
 from app.core.models import ChunkResult, HierarchicalResult
@@ -28,25 +28,35 @@ logger = get_logger("HierarchicalIngestor")
 
 TIER_SUMMARY_PROMPT = """You are THE EXECUTIVE SUMMARY EXPERT for Project Olympus.
 
+GLOBAL CONTEXT:
+Document Title: {doc_title}
+Key Themes: {main_themes}
+Anchor Entities: {key_entities}
+
 Your mission: Extract key metadata and high-level context from the document's introduction.
 
 Output format (Valid JSON only):
-{
+{{
   "reasoning": "Brief analysis of the introduction",
   "headlines": ["Lead headline", "Secondary event"],
   "tickers": ["XAUUSD", "BTC"],
   "sentiment": "bullish|bearish|neutral",
-  "key_numbers": {"label": value},
+  "key_numbers": {{"label": value}},
   "source": "Source name",
   "timestamp": "YYYY-MM-DD",
   "cypher_queries": [
-    "MERGE (p:Paper {title: 'Doc Title', source: 'Source', date: 'Date', hash: 'HASH_PLACEHOLDER'})",
-    "MERGE (a:Asset {name: 'XAUUSD', type: 'COMMODITY'})"
+    "MERGE (p:Paper {{title: 'Doc Title', source: 'Source', date: 'Date', hash: 'HASH_PLACEHOLDER'}})",
+    "MERGE (a:Asset {{name: 'XAUUSD', type: 'COMMODITY'}})"
   ]
-}"""
+}}"""
 
 
 TIER_DETAIL_PROMPT = """You are THE KNOWLEDGE ARCHITECT for Project Olympus.
+
+GLOBAL CONTEXT:
+Document Title: {doc_title}
+Key Themes: {main_themes}
+Anchor Entities: {key_entities}
 
 Your mission: Extract complex entities and relationships into valid Cypher queries based on the MAIN CONTENT.
 
@@ -70,34 +80,39 @@ Edges:
   HEDGE_AGAINST, LIQUIDATES
 
 Output format (Valid JSON only):
-{
+{{
   "thought_process": "Professional analysis of identified entities and their structural links",
-  "nodes": [{"label": "SMC_Pattern", "name": "H4 Order Block", "type": "BULLISH_OB"}],
-  "edges": [{"from": "H4 Order Block", "to": "XAUUSD", "type": "SUPPORTS"}],
+  "nodes": [{{ "label": "SMC_Pattern", "name": "H4 Order Block", "type": "BULLISH_OB" }}],
+  "edges": [{{ "from": "H4 Order Block", "to": "XAUUSD", "type": "SUPPORTS" }}],
   "cypher_queries": [
-    "MERGE (p:SMC_Pattern {name: 'H4 Order Block', type: 'BULLISH_OB', confidence: 'high'})",
-    "MERGE (a:Asset {name: 'XAUUSD'})",
-    "MATCH (p:SMC_Pattern {name: 'H4 Order Block'}), (a:Asset {name: 'XAUUSD'}) MERGE (p)-[:SUPPORTS {context: 'Price rejection at support'}]->(a)"
+    "MERGE (p:SMC_Pattern {{name: 'H4 Order Block', type: 'BULLISH_OB', confidence: 'high'}})",
+    "MERGE (a:Asset {{name: 'XAUUSD'}})",
+    "MATCH (p:SMC_Pattern {{name: 'H4 Order Block'}}), (a:Asset {{name: 'XAUUSD'}}) MERGE (p)-[:SUPPORTS {{context: 'Price rejection at support'}}]->(a)"
   ]
-}"""
+}}"""
 
 
 TIER_CONCLUSION_PROMPT = """You are THE MARKET STRATEGIST for Project Olympus.
 
+GLOBAL CONTEXT:
+Document Title: {doc_title}
+Key Themes: {main_themes}
+Anchor Entities: {key_entities}
+
 Your mission: Extract forward-looking predictions and actionable trading strategies.
 
 Output format (Valid JSON only):
-{
+{{
   "strategy_logic": "Analysis of why these strategies are proposed",
-  "predictions": [{"event": "Gold $3k", "probability": "HIGH", "timeline": "Q2 2026"}],
-  "strategies": [{"name": "Long Gold", "timeframe": "H4", "entry": 2850}],
+  "predictions": [{{ "event": "Gold $3k", "probability": "HIGH", "timeline": "Q2 2026" }}],
+  "strategies": [{{ "name": "Long Gold", "timeframe": "H4", "entry": 2850 }}],
   "risk_factors": ["inflation", "geopolitics"],
   "cypher_queries": [
-    "MERGE (s:Strategy {name: 'Long Gold', timeframe: 'H4'})",
-    "MERGE (e:Event {name: 'Gold $3k Target', probability: 'HIGH'})",
-    "MATCH (s:Strategy {name: 'Long Gold'}), (e:Event {name: 'Gold $3k Target'}) CREATE (s)-[:PROPOSES_STRATEGY]->(e)"
+    "MERGE (s:Strategy {{name: 'Long Gold', timeframe: 'H4'}})",
+    "MERGE (e:Event {{name: 'Gold $3k Target', probability: 'HIGH'}})",
+    "MATCH (s:Strategy {{name: 'Long Gold'}}), (e:Event {{name: 'Gold $3k Target'}}) CREATE (s)-[:PROPOSES_STRATEGY]->(e)"
   ]
-}"""
+}}"""
 
 
 COMMITTER_PROMPT = """You are THE COMMITTER for Project Olympus.
@@ -157,6 +172,7 @@ class HierarchicalIngestor(BaseIngestor):
         self.summary_chars = 2000      # First 2KB for summary
         self.detail_chars = 60_000     # 60KB for details (with chunking)
         self.conclusion_chars = 3000    # Last 3KB for conclusion
+        self.semantic_chunker = SemanticChunker(chunk_size=12000, chunk_overlap=1000)
     
     def read_file_tiers(self, path: Path) -> Dict[str, Any]:
         """Read file and split into 3 tiers (supports PDF and text)"""
@@ -188,7 +204,7 @@ class HierarchicalIngestor(BaseIngestor):
         detail_content = full_content[detail_start:detail_end]
         
         if len(detail_content) > self.detail_chars:
-            chunks = self._chunk_by_headings(detail_content)
+            chunks = self.semantic_chunker.split_text(detail_content)
             tiers["detail"] = chunks
             metadata["tier_sizes"]["detail"] = len(detail_content)
             metadata["detail_chunks"] = len(chunks)
@@ -206,25 +222,14 @@ class HierarchicalIngestor(BaseIngestor):
         """Calculate SHA-256 hash of content"""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
-    def _chunk_by_headings(self, content: str) -> List[str]:
-        """Split content by markdown headings for better context"""
-        parts = re.split(r'(?=^##\s+.+$)', content, flags=re.MULTILINE)
-        chunks = []
-        current = ""
-        for part in parts:
-            if len(current) + len(part) < 15000:
-                current += part
-            else:
-                if current.strip():
-                    chunks.append(current)
-                current = part
-        if current.strip():
-            chunks.append(current)
-        return chunks if chunks else [content]
-    
-    async def process_tier_summary(self, content: str) -> ChunkResult:
-        """Tier 1: Executive Summary"""
-        result = await LLMUtils.call_llm(TIER_SUMMARY_PROMPT, content, "summary", max_tokens=2000)
+    async def process_tier_summary(self, content: str, doc_analysis: DocStructure) -> ChunkResult:
+        """Tier 1: Executive Summary with Structural Context"""
+        prompt = TIER_SUMMARY_PROMPT.format(
+            doc_title=doc_analysis.title,
+            main_themes=", ".join(doc_analysis.main_themes),
+            key_entities=", ".join(doc_analysis.key_entities)
+        )
+        result = await LLMUtils.call_llm(prompt, content, "summary", max_tokens=2000)
         queries = result.get("cypher_queries", [])
         return ChunkResult(
             tier="summary",
@@ -234,29 +239,52 @@ class HierarchicalIngestor(BaseIngestor):
             raw_response=str(result)[:500]
         )
     
-    async def process_tier_detail(self, content: str | List[str]) -> ChunkResult:
-        """Tier 2: Full Content Details"""
-        if isinstance(content, list):
-            all_queries = []
-            node_count = 0
-            edge_count = 0
-            for i, chunk in enumerate(content):
-                result = await LLMUtils.call_llm(TIER_DETAIL_PROMPT, chunk, "detail", max_tokens=8000)
-                all_queries.extend(result.get("cypher_queries", []))
-                node_count += len(result.get("nodes", []))
-                edge_count += len(result.get("edges", []))
-            cypher_queries = all_queries
-        else:
-            result = await LLMUtils.call_llm(TIER_DETAIL_PROMPT, content, "detail", max_tokens=8000)
-            cypher_queries = result.get("cypher_queries", [])
-            node_count = len(result.get("nodes", []))
-            edge_count = len(result.get("edges", []))
+    async def process_tier_detail(self, content: str | List[str], doc_analysis: DocStructure) -> ChunkResult:
+        """Tier 2: Full Content Details with Structured Schema Enforcement & Context"""
+        all_queries = []
+        node_count = 0
+        edge_count = 0
         
-        return ChunkResult(tier="detail", cypher_queries=cypher_queries, node_count=node_count, edge_count=edge_count)
+        prompt = TIER_DETAIL_PROMPT.format(
+            doc_title=doc_analysis.title,
+            main_themes=", ".join(doc_analysis.main_themes),
+            key_entities=", ".join(doc_analysis.key_entities)
+        )
+        
+        chunks = content if isinstance(content, list) else [content]
+        
+        for i, chunk in enumerate(chunks):
+            try:
+                # Use instructor-powered structured extraction
+                structured_data = await LLMUtils.call_llm_structured(
+                    system_prompt=prompt,
+                    user_prompt=chunk,
+                    response_model=GraphExtractionSchema,
+                    tier="detail_structured"
+                )
+                
+                # Convert validated schema to Cypher
+                queries = structured_data.to_cypher()
+                all_queries.extend(queries)
+                node_count += len(structured_data.nodes)
+                edge_count += len(structured_data.relationships)
+                
+            except Exception as e:
+                self.logger.error(f"❌ Detail Ingestion failed for chunk {i}: {e}")
+                # Fallback to basic JSON call if structured fails (best effort)
+                result = await LLMUtils.call_llm(TIER_DETAIL_PROMPT, chunk, "detail_fallback", max_tokens=8000)
+                all_queries.extend(result.get("cypher_queries", []))
+
+        return ChunkResult(tier="detail", cypher_queries=all_queries, node_count=node_count, edge_count=edge_count)
     
-    async def process_tier_conclusion(self, content: str) -> ChunkResult:
-        """Tier 3: Conclusion & Predictions"""
-        result = await LLMUtils.call_llm(TIER_CONCLUSION_PROMPT, content, "conclusion", max_tokens=3000)
+    async def process_tier_conclusion(self, content: str, doc_analysis: DocStructure) -> ChunkResult:
+        """Tier 3: Conclusion & Predictions with Structural Context"""
+        prompt = TIER_CONCLUSION_PROMPT.format(
+            doc_title=doc_analysis.title,
+            main_themes=", ".join(doc_analysis.main_themes),
+            key_entities=", ".join(doc_analysis.key_entities)
+        )
+        result = await LLMUtils.call_llm(prompt, content, "conclusion", max_tokens=3000)
         queries = result.get("cypher_queries", [])
         return ChunkResult(
             tier="conclusion",
@@ -366,11 +394,15 @@ Total queries to merge: {len(all_queries)}
                 processing_time_ms=int((time.time() - start_time) * 1000)
             )
 
+        # 1. Structural Analysis (Pillar 1)
+        doc_analysis = await DocumentAnalyzer.analyze(full_content[:15000])
+        self.logger.info(f"🧠 Global Context Acquired: {doc_analysis.title}")
+
         file_data = self.read_file_tiers(file_path)
         
-        summary_task = self.process_tier_summary(file_data["tiers"]["summary"])
-        detail_task = self.process_tier_detail(file_data["tiers"]["detail"])
-        conclusion_task = self.process_tier_conclusion(file_data["tiers"]["conclusion"])
+        summary_task = self.process_tier_summary(file_data["tiers"]["summary"], doc_analysis)
+        detail_task = self.process_tier_detail(file_data["tiers"]["detail"], doc_analysis)
+        conclusion_task = self.process_tier_conclusion(file_data["tiers"]["conclusion"], doc_analysis)
         
         results = await asyncio.gather(summary_task, detail_task, conclusion_task)
         commit_result = await self.process_committer(results, file_path.name)
@@ -389,16 +421,19 @@ Total queries to merge: {len(all_queries)}
         
         elapsed_ms = int((time.time() - start_time) * 1000)
         
+        # Merge commit_result with execution stats for better visibility
+        combined_committer_result = {**commit_result, **exec_result}
+        
         return HierarchicalResult(
             filename=file_path.name,
             status="complete" if exec_result.get("success", 0) > 0 else "failed",
             summary_queries=results[0].cypher_queries,
             detail_queries=results[1].cypher_queries,
             conclusion_queries=results[2].cypher_queries,
-            committer_result=commit_result,
+            committer_result=combined_committer_result,
             processing_time_ms=elapsed_ms,
-            total_nodes=sum(r.node_count for r in results),
-            total_edges=sum(r.edge_count for r in results)
+            total_nodes=exec_result.get("success", sum(r.node_count for r in results)),
+            total_edges=exec_result.get("total", sum(r.edge_count for r in results)) - exec_result.get("success", 0)
         )
 
     async def run_pipeline_on_text(self, text: str, filename: str = "web_content.txt") -> HierarchicalResult:
@@ -432,7 +467,7 @@ Total queries to merge: {len(all_queries)}
         detail_content = text[detail_start:detail_end]
         
         if len(detail_content) > self.detail_chars:
-            tiers["detail"] = self._chunk_by_headings(detail_content)
+            tiers["detail"] = self.semantic_chunker.split_text(detail_content)
         else:
             tiers["detail"] = detail_content
         
@@ -461,16 +496,19 @@ Total queries to merge: {len(all_queries)}
         
         elapsed_ms = int((time.time() - start_time) * 1000)
         
+        # Merge commit_result with execution stats for better visibility
+        combined_committer_result = {**commit_result, **exec_result}
+        
         return HierarchicalResult(
             filename=filename,
             status="complete" if exec_result.get("success", 0) > 0 else "failed",
             summary_queries=results[0].cypher_queries,
             detail_queries=results[1].cypher_queries,
             conclusion_queries=results[2].cypher_queries,
-            committer_result=commit_result,
+            committer_result=combined_committer_result,
             processing_time_ms=elapsed_ms,
-            total_nodes=sum(r.node_count for r in results),
-            total_edges=sum(r.edge_count for r in results)
+            total_nodes=exec_result.get("success", sum(r.node_count for r in results)),
+            total_edges=exec_result.get("total", sum(r.edge_count for r in results)) - exec_result.get("success", 0)
         )
 
 

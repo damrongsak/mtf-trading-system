@@ -65,6 +65,7 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
 ### 2.8. Knowledge Graph Ingestion
 - **Goal**: Build a semantic network of connections between market concepts, documents, and entities.
 - **Process**:
+    - **Semantic Chunking**: Prior to extraction, documents are partitioned based on logical structure (headings, topics) and semantic continuity rather than fixed character counts. This preserves context for complex relationships.
     - **Tripartite Extraction**: Extracts (Subject, Predicate, Object) triplets from unstructured text.
     - **Entity Resolution**: Clusters similar entities to build a clean graph.
     - **Storage**: Persists triplets into **FalkorDB**.

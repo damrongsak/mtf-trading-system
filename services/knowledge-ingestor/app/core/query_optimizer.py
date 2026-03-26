@@ -25,7 +25,8 @@ def deduplicate_cypher_queries(queries: List[str]) -> List[str]:
 
     # Regex for simple MERGE (Label {props})
     # Example: MERGE (n:Asset {name: 'XAUUSD', type: 'COMMODITY'})
-    merge_pattern = re.compile(r'MERGE\s+\(\w+:(\w+)\s+\{(.+)\}\)')
+    # Anchored with ^ and $ to ensure it only matches standalone node MERGE statements
+    merge_pattern = re.compile(r'^MERGE\s+\(\w+:(\w+)\s+\{(.+?)\}\)$', re.IGNORECASE)
 
     for q in queries:
         q = q.strip()
@@ -34,16 +35,23 @@ def deduplicate_cypher_queries(queries: List[str]) -> List[str]:
         
         seen_exact.add(q)
         
-        match = merge_pattern.search(q)
+        match = merge_pattern.match(q)
         if match:
             label = match.group(1)
             props_str = match.group(2)
             
             # Extract name and other props
-            # This is a bit naive but works for simple {key: 'val', key2: 'val2'}
+            # Robust property parser that handles quoted strings and escaped characters
             props = {}
-            for prop_match in re.finditer(r'(\w+):\s*[\'"]?([^\'",}]+)[\'"]?', props_str):
+            # Regex for key: value where value can be a single/double quoted string or unquoted value
+            prop_regex = re.compile(r'(\w+):\s*(\'(?:[^\'\\]|\\.)*\'|"(?:[^"\\]|\\.)*"|[^\'",}]+)')
+            for prop_match in prop_regex.finditer(props_str):
                 k, v = prop_match.groups()
+                # Remove quotes from the extracted value
+                if v.startswith(("'", '"')) and v.endswith(v[0]):
+                    v = v[1:-1]
+                # Unescape escaped characters
+                v = v.replace("\\'", "'").replace('\\"', '"')
                 props[k] = v.strip()
             
             # We identify nodes primarily by 'name' or 'title'
