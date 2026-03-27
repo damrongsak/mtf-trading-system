@@ -33,7 +33,7 @@ class PriceService:
             self.redis = aioredis.from_url(self.redis_url, decode_responses=True)
         return self.redis
 
-    async def get_latest_price(self, symbol: str, max_age_ms: int = 500, provider: Optional[str] = None) -> Tuple[Optional[float], Optional[str]]:
+    async def get_latest_price(self, symbol: str, max_age_ms: int = 5000, provider: Optional[str] = None) -> Tuple[Optional[float], Optional[str]]:
         """
         Fetches the latest price from the Redis-backed ECST cache.
         Returns: (price, error_message)
@@ -41,10 +41,14 @@ class PriceService:
         norm_symbol = symbol.replace("_", "").replace("/", "").upper()
         
         if provider:
-            key = f"market_data:spot:{provider.upper()}:{norm_symbol}"
+            p_upper = provider.upper()
+            # [Institutional Hardening] Map cTrader-compatible brokers to universal CTRADER key
+            if p_upper in ["ICMARKETS", "ICMARKETSSC", "FXPRO", "PEPPERSTONE", "BLACKBULLMARKETS"]:
+                key = f"market_data:spot:CTRADER:{norm_symbol}"
+            else:
+                key = f"market_data:spot:{p_upper}:{norm_symbol}"
         else:
             # Fallback to CTRADER (primary) if provider is not specified for backward compatibility
-            # This is safer than failing immediately if a caller hasn't been updated yet.
             key = f"market_data:spot:CTRADER:{norm_symbol}"
             
         try:

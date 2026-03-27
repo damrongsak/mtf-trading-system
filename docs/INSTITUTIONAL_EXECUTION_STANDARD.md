@@ -57,5 +57,16 @@ Both AI agents and users can verify the system's reasoning via the inspection AP
 - **Endpoint**: `GET /inspect/account/{account_id}/symbol/{symbol}`
 - **Verification**: Cross-reference the "Dry Run" output with this document to ensure the system is behaving as an "Institutional Pro".
 
+## 6. Directionality & Unit Sign Standard (v2.1)
+
+To eliminate "sign-flip" errors and ensure cross-broker protocol safety, MTF Olympus enforces a strictly positive unit standard:
+
+- **Rule: Absolute Units**: All internal transmission and storage of volume MUST use absolute values (strictly positive). Units <= 0 are rejected during pre-validation.
+- **Rule: Explicit Side**: Order placement methods MUST accept a `side` parameter (`BUY` or `SELL`) to determine trade direction.
+- **Mapping Protocol**:
+    - **Strategy-Core**: BULLISH → BUY, BEARISH → SELL.
+    - **API Gateway**: Unsigns legacy incoming units; passes absolute values and explicit side.
+    - **Adapters**: The final unit sign calculation is deferred to the broker-specific adapter's edge.
+
 ---
 **MTF Olympus** | *Alpha Through Standardized Execution*

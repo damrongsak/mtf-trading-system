@@ -19,7 +19,7 @@ class BrokerAdapter(ABC):
         pass
 
     @abstractmethod
-    async def place_market_order(self, symbol: str, units: float, 
+    async def place_market_order(self, symbol: str, units: float, side: str,
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
@@ -29,7 +29,7 @@ class BrokerAdapter(ABC):
         pass
 
     @abstractmethod
-    async def place_limit_order(self, symbol: str, units: float, price: float,
+    async def place_limit_order(self, symbol: str, units: float, side: str, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",

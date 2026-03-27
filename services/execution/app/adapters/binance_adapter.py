@@ -83,10 +83,10 @@ class BinanceAdapter(BrokerAdapter):
         # Placeholder
         return []
 
-    async def place_market_order(self, symbol: str, units: float, sl_price: Optional[float] = None, tp_price: Optional[float] = None, trade_id: Optional[str] = None, comment: Optional[str] = None, tag: Optional[str] = None) -> Dict[str, Any]:
+    async def place_market_order(self, symbol: str, units: float, side: str, sl_price: Optional[float] = None, tp_price: Optional[float] = None, trade_id: Optional[str] = None, comment: Optional[str] = None, tag: Optional[str] = None) -> Dict[str, Any]:
         raise NotImplementedError("Binance Execution not yet implemented")
 
-    async def place_limit_order(self, symbol: str, units: float, price: float,
+    async def place_limit_order(self, symbol: str, units: float, side: str, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",

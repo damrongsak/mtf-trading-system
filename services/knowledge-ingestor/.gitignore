@@ -51,5 +51,6 @@ coverage.xml
 # Project Specific
 source_data/archive/
 source_data/errors/
+source_data/restoration/
 !source_data/README.md
 !source_data/fed_meeting_mar2026.md

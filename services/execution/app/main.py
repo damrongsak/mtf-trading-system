@@ -30,6 +30,9 @@ from app.adapters.factory import BrokerFactory
 from app.adapters.ctrader_connection import CTraderConnectionManager
 from app.services.order_service import OrderService
 from app.services.cache_service import execution_cache
+from app.services.price_service import price_service
+from app.validators.order_validator import OrderValidator
+from app.adapters.ctrader import RiskValidationError
 from app.worker import worker, fill_trade_consumer, close_trade_consumer
 from app.health import verify_dependencies
 from app.core.scheduler import scheduler
@@ -410,10 +413,57 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         logger.info(f"🚀 [HFT-lite] Creating adapter for {account.broker_name}...")
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
+        # [SAFETY] Basic Input Validation
+        if req.units <= 0:
+            raise HTTPException(status_code=400, detail="Order units must be greater than zero")
+
         # [Latency] HFT-Lite: If cTrader, try to warm up connection
         if account.broker_name.upper() in ["CTRADER", "ICMARKETS", "ICMARKETSSC", "FXPRO", "PEPPERSTONE", "BLACKBULLMARKETS"]:
             logger.info("🚀 [HFT-lite] Connecting to cTrader...")
             await adapter.client.connect()
+
+        # [SAFETY] Synchronous Pre-validation (Institutional Hardening)
+        # Fetch current market price for validation
+        current_price, price_err = await price_service.get_latest_price(req.symbol, provider=account.broker_name)
+        if price_err:
+             # Fallback to API if cache miss
+             try:
+                 current_price = await adapter.get_current_price(req.symbol)
+             except Exception:
+                 current_price = 0.0
+        
+        # Determine Ask/Bid for validator
+        current_ask = current_price # Midpoint fallback
+        current_bid = current_price
+        
+        # Run OrderValidator
+        try:
+            # Resolve risk filters for the fund
+            active_filters = []
+            if account.fund_id:
+                filters_raw = await execution_cache.get_risk_filters(str(account.fund_id), str(account.id))
+                if filters_raw is None:
+                    filters_raw = await execution_cache.get_risk_filters(str(account.fund_id))
+                if filters_raw:
+                    active_filters = [SimpleNamespace(**f) for f in filters_raw]
+
+            # Ensure we validate against the requested target price for pending orders
+            entry_price = req.price or req.stop_price or current_price
+            
+            OrderValidator.validate(
+                symbol=req.symbol,
+                entry_price=entry_price,
+                sl_price=req.sl_price or 0.0,
+                tp_price=req.tp_price or 0.0,
+                side=req.side,
+                order_type=req.order_type,
+                current_ask=current_ask,
+                current_bid=current_bid,
+                active_filters=active_filters
+            )
+        except ValueError as ve:
+            logger.warning(f"🛑 [Pre-validation] Order Rejection: {ve}")
+            raise HTTPException(status_code=400, detail=str(ve))
 
         # Support Market, Limit, Stop based on order_type
         if req.order_type == "MARKET":
@@ -421,6 +471,7 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
             response = await adapter.place_market_order(
                 symbol=req.symbol,
                 units=req.units,
+                side=req.side,
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
                 trade_id=req.trade_id,
@@ -444,10 +495,11 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
             if req.order_type == "STOP": target_order_type = ProtoOAOrderType.STOP
             if req.order_type == "STOP_LIMIT": target_order_type = ProtoOAOrderType.STOP_LIMIT
 
-            logger.info(f"🚀 [HFT-lite] Placing {req.order_type} order for {req.symbol}...")
+            logger.info(f"🚀 [HFT-lite] Placing {req.order_type} {req.side} order for {req.symbol}...")
             response = await adapter.place_limit_order(
                 symbol=req.symbol,
                 units=req.units,
+                side=req.side,
                 price=req.price or req.stop_price, # Use price as limit price
                 sl_price=req.sl_price,
                 tp_price=req.tp_price,
@@ -482,12 +534,14 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         })
     except HTTPException as he:
         raise he
-    except ValueError as ve:
-        logger.error(f"❌ [HFT-lite] Value Error: {ve}")
-        raise HTTPException(status_code=400, detail=f"Invalid Input: {str(ve)}")
+    except (ValueError, RiskValidationError) as ve:
+        logger.error(f"❌ [HFT-lite] Validation/Value Error: {ve}")
+        # Map to 422 for risk violations if it's a RiskValidationError, otherwise 400
+        status = 422 if isinstance(ve, RiskValidationError) else 400
+        raise HTTPException(status_code=status, detail=str(ve))
     except Exception as e:
         logger.error(f"❌ [HFT-lite] Place Order Error: {e}", exc_info=True)
-        # Expose error detail for debugging (in dev/test envs this is acceptable)
+        # Expose error detail for debugging
         raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
 @app.get("/inspect/account/{account_id}/symbol/{symbol}", response_model=APIResponse[Dict[str, Any]])
@@ -824,8 +878,17 @@ async def sync_trades(authenticated: str = Depends(verify_internal_api_key), req
         logger.info(f"Syncing trades for {account.id} from {start_date} to {end_date}")
 
         # Fetch History
-        history = await adapter.get_trade_history(start_date, end_date)
-        logger.info(f"Fetched {len(history)} trades from adapter")
+        try:
+            history = await adapter.get_trade_history(start_date, end_date)
+            logger.info(f"Fetched {len(history)} trades from adapter")
+        except Exception as sync_e:
+            logger.error(f"Sync Trades Error: {sync_e}")
+            if "CANT_ROUTE_REQUEST" in str(sync_e) or "environment" in str(sync_e):
+                raise HTTPException(
+                    status_code=503, 
+                    detail=f"Broker Connection Error: {str(sync_e)}. Please check if your account environment (Demo/Live) matches the provided credentials."
+                )
+            raise HTTPException(status_code=500, detail=f"Broker Sync Failed: {str(sync_e)}")
         
         imported_count = 0
         

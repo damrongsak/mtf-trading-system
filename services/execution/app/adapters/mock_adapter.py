@@ -28,7 +28,7 @@ class MockAdapter(BrokerAdapter):
     async def get_open_trades(self) -> List[Dict[str, Any]]:
         return []
 
-    async def place_market_order(self, symbol: str, units: float, 
+    async def place_market_order(self, symbol: str, units: float, side: str,
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
@@ -52,7 +52,7 @@ class MockAdapter(BrokerAdapter):
             }
         }
 
-    async def place_limit_order(self, symbol: str, units: float, price: float,
+    async def place_limit_order(self, symbol: str, units: float, side: str, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
@@ -62,6 +62,21 @@ class MockAdapter(BrokerAdapter):
                           stop_price: Optional[float] = None,
                           order_type: Any = None) -> Dict[str, Any]:
         mock_id = str(uuid.uuid4())
+        # Store the trade internally
+        self.trades[mock_id] = {
+            "id": mock_id,
+            "instrument": symbol,
+            "units": units,
+            "side": side,
+            "price": price,
+            "time": datetime.utcnow().isoformat(),
+            "sl_price": sl_price,
+            "tp_price": tp_price,
+            "stop_price": stop_price,
+            "time_in_force": time_in_force,
+            "type": str(order_type) if order_type else "LIMIT",
+            "status": "PENDING"
+        }
         return {
             "orderCreateTransaction": {
                 "id": mock_id,

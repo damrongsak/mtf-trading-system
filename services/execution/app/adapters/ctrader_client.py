@@ -465,7 +465,7 @@ class AsyncCTraderClient:
              if slippage_pips is not None: req.slippageInPoints = int(slippage_pips)
              if base_price is not None: req.baseSlippagePrice = float(base_price)
         
-        print(f"cTrader Client final req: {req}", flush=True)
+        logger.info(f"cTrader Client: ProtoOANewOrderReq: {req}")
         resp_msg = await self.send(req, client_msg_id=client_msg_id)
         
         if resp_msg.payloadType == ProtoOAExecutionEvent().payloadType:

@@ -446,36 +446,60 @@ async def get_latest_tick(
     current_user = Depends(get_current_user)
 ):
     """
-    Get the latest tick data for a symbol. Proxies to Data Pipeline.
-    Requires authentication.
+    Get the latest tick data for a symbol directly from Redis (ECST).
+    Optimized to bypass proxying to Data Pipeline.
     """
-    async with await get_internal_client() as client:
-        try:
-            # Normalize symbol
-            clean_symbol = symbol.strip().upper()
+    import time
+    try:
+        r = await redis_client.get_client()
+        # Normalize symbol
+        norm_symbol = symbol.replace("_", "").replace("/", "").upper()
+        
+        # Try multiple key formats (CTRADER, OANDA)
+        cache_keys = [
+            f"market_data:spot:CTRADER:{norm_symbol}",
+            f"market_data:spot:OANDA:{norm_symbol}"
+        ]
+        
+        snapshot = {}
+        for key in cache_keys:
+            temp = await r.hgetall(key)
+            if temp and "bid" in temp:
+                snapshot = temp
+                break
+        
+        if not snapshot or "bid" not in snapshot:
+            # Fallback to proxying if Redis is missing (optional, but safer)
+            async with await get_internal_client() as client:
+                response = await client.get(
+                    f"{DATA_SERVICE_URL}/api/v1/market/tick/{norm_symbol}",
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    return success_response(data=response.json())
             
-            response = await client.get(
-                f"{DATA_SERVICE_URL}/api/v1/market/tick/{clean_symbol}",
-                timeout=5.0
-            )
+            raise HTTPException(status_code=404, detail=f"Tick data not found for {symbol}")
             
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch tick: {response.status_code} - {response.text}")
-                if response.status_code == 404:
-                    raise HTTPException(status_code=404, detail=f"Tick data not found for {symbol}")
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-                
-            return success_response(data=response.json())
-            
-        except httpx.RequestError as e:
-            logger.error(f"Data Service unavailable (Tick): {e}")
-            raise HTTPException(status_code=503, detail=f"Data Service unavailable: {str(e)}")
-        except HTTPException as he:
-            raise he
-        except Exception as e:
-            logger.error(f"Fetch tick failed: {e}")
-            logger.error(traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+        # Parse result
+        return success_response(data={
+            "symbol": norm_symbol,
+            "bid": float(snapshot["bid"]),
+            "ask": float(snapshot["ask"]),
+            "ts": float(snapshot.get("ts", 0)),
+            "source": snapshot.get("source", "unknown")
+        })
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Direct Tick Fetch failed for {symbol}: {e}")
+        # Final fallback to proxy if something else failed
+        async with await get_internal_client() as client:
+            try:
+                response = await client.get(f"{DATA_SERVICE_URL}/api/v1/market/tick/{symbol.upper()}", timeout=5.0)
+                if response.status_code == 200:
+                    return success_response(data=response.json())
+            except: pass
+        raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
 
 @router.get("/history/pit")
 async def get_pit_historical_data(

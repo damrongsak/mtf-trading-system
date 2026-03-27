@@ -81,7 +81,6 @@ class ExecutionCache:
         try:
             r = await self._get_redis()
             res = await r.set(key, json.dumps(data), ex=ttl)
-            logger.info(f"DEBUG: Redis SET {key} (ttl={ttl}) result: {res}")
         except Exception as e:
             logger.error(f"Redis Cache Error (set_account): {e}")
 
@@ -179,6 +178,57 @@ class ExecutionCache:
             await r.set(key, json.dumps(filters), ex=ttl)
         except Exception as e:
             logger.error(f"Redis Cache Error (set_risk_filters): {e}")
+
+    async def get_tick(self, symbol: str, source: str = "CTRADER") -> Optional[Dict]:
+        """
+        [PHASE 16] Fetches latest market tick from Redis (ECST).
+        Data Pipeline saves at: market_data:spot:{source}:{symbol}
+        """
+        source = source.upper()
+        symbol = symbol.replace("_", "").replace("/", "").upper()
+        
+        # Priority list: Primary Source -> CTRADER -> OANDA
+        sources_to_try = [source]
+        if "CTRADER" not in sources_to_try:
+            sources_to_try.append("CTRADER")
+        if "OANDA" not in sources_to_try:
+            sources_to_try.append("OANDA")
+            
+        for s in sources_to_try:
+            key = f"market_data:spot:{s}:{symbol}"
+            
+            # Check L1
+            cached = self._get_l1(key)
+            if cached:
+                return cached
+                
+            try:
+                r = await self._get_redis()
+                # market_data keys are Hashes in this system
+                data = await r.hgetall(key)
+                if data:
+                    # Convert bytes to string if necessary (aioredis might return bytes)
+                    processed_data = {}
+                    for k, v in data.items():
+                        k_str = k.decode() if isinstance(k, bytes) else k
+                        v_str = v.decode() if isinstance(v, bytes) else v
+                        processed_data[k_str] = v_str
+                    
+                    self._set_l1(key, processed_data, ttl=1)
+                    return processed_data
+            except Exception as e:
+                logger.error(f"Redis Cache Error (get_tick) for {symbol} source {s}: {e}")
+                
+        return None
+
+    async def set_tick(self, symbol: str, tick: Dict, source: str = "CTRADER", ttl: int = 60):
+        key = f"market_data:spot:{source}:{symbol.upper()}"
+        self._set_l1(key, tick, ttl=1)
+        try:
+            r = await self._get_redis()
+            await r.set(key, json.dumps(tick), ex=ttl)
+        except Exception as e:
+            logger.error(f"Redis Cache Error (set_tick): {e}")
 
     def invalidate(self, key: str):
         if key in self._l1_cache:

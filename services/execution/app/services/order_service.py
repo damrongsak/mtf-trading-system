@@ -301,19 +301,19 @@ class OrderService:
                  target_risk = fund_limit
             
             await OrderService._log_trace(trace_id, "sizing_calc", sizing_start)
-            direction = req_data.get("direction")
-            if direction == "BULLISH":
-                if units is None:
-                    logger.error(f"[ERROR] units is None for BULLISH order. req_data={req_data}")
+            direction_input = req_data.get("direction")
+            if direction_input == "BULLISH":
+                side = "BUY"
                 units = abs(units)
                 if sl_price >= entry_ref:
                     raise ValueError("Long SL must be below Entry Price")
-            elif direction == "BEARISH":
-                units = -abs(units)
+            elif direction_input == "BEARISH":
+                side = "SELL"
+                units = abs(units)
                 if sl_price <= entry_ref:
                     raise ValueError("Short SL must be above Entry Price")
             else:
-                raise ValueError("Invalid direction")
+                raise ValueError(f"Invalid direction: {direction_input}")
 
             # Min Lot Validation (Allow fractional for Crypto/OANDA, e.g. 0.01)
             if abs(units) < 0.0001: 
@@ -381,11 +381,13 @@ class OrderService:
             if req_data.get("price") or req_data.get("stop_price"):
                 response = await adapter.place_limit_order(
                     symbol=req_data["symbol"],
-                    units=units,
+                    units=abs(units), # Magnitude handled here
+                    side=side,        # Side handled here
                     price=req_data.get("price") or req_data.get("stop_price"),
                     sl_price=sl_price,
                     tp_price=tp_price,
                     stop_price=req_data.get("stop_price"),
+                    order_type=req_data.get("order_type", "LIMIT"),
                     time_in_force=req_data.get("time_in_force", "GTC"),
                     trade_id=None,
                     comment=f"{req_data.get('generated_by', 'Manual')}-{req_data.get('signal_id', '0')}",
@@ -395,7 +397,8 @@ class OrderService:
             else:
                 response = await adapter.place_market_order(
                     symbol=req_data["symbol"],
-                    units=units,
+                    units=abs(units),
+                    side=side,
                     sl_price=sl_price,
                     tp_price=tp_price,
                     trade_id=None,

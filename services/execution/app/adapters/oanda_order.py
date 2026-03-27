@@ -54,7 +54,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"OANDA Account Summary Error: {e}")
             raise e
 
-    async def place_market_order(self, symbol: str, units: float, 
+    async def place_market_order(self, symbol: str, units: float, side: str,
                            sl_price: Optional[float] = None, 
                            tp_price: Optional[float] = None, 
                            trade_id: Optional[str] = None,
@@ -66,12 +66,12 @@ class OandaOrderAdapter(BrokerAdapter):
         # Diagnostic logging for Unit Sign issue
         logger.info(f"OANDA: Placing market order for {symbol}, units={units}")
         
-        # Ensure units is stringified correctly and preserves negative sign
-        units_str = str(float(units))
-        if units < 0 and not units_str.startswith("-"):
-             # Extrememly rare edge case with some float types/libs, but better safe for HFT
-             units_str = f"-{abs(units)}"
-             logger.warning(f"OANDA: Corrected missing negative sign for units: {units_str}")
+        # Ensure units is stringified correctly and preserves negative sign if SELL
+        is_buy = side.upper() in ["BUY", "LONG"]
+        signed_units = abs(float(units)) if is_buy else -abs(float(units))
+        units_str = str(signed_units)
+        
+        logger.info(f"OANDA: Placing market order for {symbol}, units={units} (side={side}) -> signed_units={units_str}")
 
         order_body = {
             "order": {
@@ -130,7 +130,7 @@ class OandaOrderAdapter(BrokerAdapter):
             logger.error(f"Failed to place OANDA order for {symbol}: {e}")
             raise e
 
-    async def place_limit_order(self, symbol: str, units: float, price: float,
+    async def place_limit_order(self, symbol: str, units: float, side: str, price: float,
                           sl_price: Optional[float] = None, 
                           tp_price: Optional[float] = None, 
                           time_in_force: str = "GTC",
@@ -143,12 +143,11 @@ class OandaOrderAdapter(BrokerAdapter):
         Place a Limit or Stop Order with optional SL/TP.
         OANDA REST v20 handles STOP/LIMIT via the same endpoint but different 'type' in body.
         """
-        # Diagnostic logging for Unit Sign issue
-        logger.info(f"OANDA: Placing order for {symbol}, units={units}, price={price}, type={order_type}")
-
-        units_str = str(float(units))
-        if units < 0 and not units_str.startswith("-"):
-             units_str = f"-{abs(units)}"
+        is_buy = side.upper() in ["BUY", "LONG"]
+        signed_units = abs(float(units)) if is_buy else -abs(float(units))
+        units_str = str(signed_units)
+        
+        logger.info(f"OANDA: Placing order for {symbol}, units={units} (side={side}) -> signed_units={units_str}, price={price}, type={order_type}")
 
         # Determine OANDA order type
         oanda_type = "LIMIT"

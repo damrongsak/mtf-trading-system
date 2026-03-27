@@ -191,6 +191,20 @@ To ensure 100% data fidelity between the Execution Service worker, the Sync Serv
 
 ---
 
+## 3.10 Directionality & Unit Sign Standard (v2.1)
+
+To eliminate "sign-flip" errors and ensure cross-broker protocol safety, MTF Olympus enforces the following directionality standard:
+
+1.  **Rule: Strictly Positive Units**: All internal transmission and storage of volume MUST use absolute values (strictly positive).
+2.  **Rule: Explicit Side Parameter**: Order placement methods MUST accept a `side` parameter (`BUY` or `SELL`) to determine trade direction.
+3.  **Mapping Rules**:
+    - **Strategy-Core**: Maps `BULLISH` -> `BUY` and `BEARISH` -> `SELL`.
+    - **API Gateway**: Removes any legacy unit-signing logic; passes absolute units and explicit side.
+    - **Execution Service**: Rejects any order where `units <= 0`.
+    - **Adapters**: The final unit sign (if required by broker API like OANDA) is applied *only* at the adapter's edge.
+
+---
+
 ## 4. Layer 5: AI Coach Intervention
 The AI Coach monitors the *execution behavior*, not the price.
 

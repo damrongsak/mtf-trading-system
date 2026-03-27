@@ -211,6 +211,7 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 5.  **Commit changes:** Use descriptive commit messages (e.g., `feat: add user auth`, `fix: resolve db connection`).
 6.  **Merge to `dev`:**
     ```bash
+```
     git checkout dev
     git merge feature/your-feature-name
     git push origin dev
@@ -218,6 +219,7 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 
 ## 🔑 Key Logic & Constraints (Phases 1-28)
 *   **Unit & Lot Standardization Rules (CRITICAL)**:
+    - **Institutional v2.1 Standard**: All services MUST use **Absolute Units** (strictly positive) and an explicit **side** parameter (`BUY`/`SELL`). Signed units are deprecated and will be rejected.
     - **Internal Standard**: All services MUST use the **100,000 units = 1.0 Standard Lot** convention internally.
     - **Zero-Math Adapter Rule**: Adapters MUST use `app.core.units.UnitConverter` for all volume normalization. No ad-hoc math allowed.
     - **Hierarchical Logic**: Every trade follows the `User -> Fund -> BrokerAccount -> Symbol` chain. Agents MUST resolve this hierarchy before execution.

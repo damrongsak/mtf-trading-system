@@ -18,8 +18,9 @@ class AIBridge:
         """
         url = f"{settings.AI_ANALYST_URL}/api/v1/ai/agent/entry-reason/analyze"
         # Ensure JSON serializable (Enums to strings)
+        from decimal import Decimal
         serializable_data = {
-            k: (v.value if hasattr(v, "value") else v) 
+            k: (v.value if hasattr(v, "value") else (float(v) if isinstance(v, Decimal) else v)) 
             for k, v in trade_data.items()
         }
         
@@ -47,8 +48,9 @@ class AIBridge:
         """
         url = f"{settings.AI_ANALYST_URL}/api/v1/ai/agent/post-mortem/analyze"
         # Ensure JSON serializable (Enums to strings)
+        from decimal import Decimal
         serializable_data = {
-            k: (v.value if hasattr(v, "value") else v) 
+            k: (v.value if hasattr(v, "value") else (float(v) if isinstance(v, Decimal) else v)) 
             for k, v in trade_data.items()
         }
         

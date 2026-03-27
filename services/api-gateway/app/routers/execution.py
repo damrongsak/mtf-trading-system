@@ -19,6 +19,7 @@ import logging
 import asyncio
 import traceback
 import uuid
+import httpx
 from app.utils.symbol_utils import normalize_symbol
 
 logger = logging.getLogger(__name__)
@@ -164,13 +165,12 @@ async def place_order(
         if "take_profit" in order_data and "tp_price" not in order_data:
             order_data["tp_price"] = order_data.pop("take_profit")
 
-        # 1.5 Sign units based on side if provided
-        side = order_data.get("side")
-        units = order_data.get("units", 0)
-        if side == "SELL" and units > 0:
-            order_data["units"] = -abs(units)
-        elif side == "BUY" and units < 0:
-            order_data["units"] = abs(units)
+        # [NEW] Direction to Side mapping for robustness
+        if "direction" in order_data and not order_data.get("side"):
+            order_data["side"] = order_data.pop("direction")
+
+        # 1.5 Units remain absolute (Institutional Standard v2.1)
+        # Directionality is handled via 'side' parameter in the execution service
 
         # 2. Execute Order
         # Pass ID directly
@@ -182,8 +182,20 @@ async def place_order(
         return success_response(data=execution_result, message="Order placed successfully")
     except HTTPException:
         raise
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code
+        try:
+            detail = e.response.json().get("detail", str(e))
+        except Exception:
+            detail = e.response.text or str(e)
+            
+        if status_code < 500:
+            logger.warning(f"Order Rejected ({status_code}): {detail}")
+        else:
+            logger.error(f"Execution Service Failure ({status_code}): {detail}")
+        raise HTTPException(status_code=status_code, detail=detail)
     except Exception as e:
-        logger.error(f"Error placing order: {e}")
+        logger.error(f"Internal Gateway Error on Order: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -337,6 +349,40 @@ async def close_trade(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/trades/sync")
+async def sync_trades(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger a historical trade sync from the broker.
+    """
+    try:
+        broker_account_id = payload.get("broker_account_id")
+        lookback_days = payload.get("lookback_days", 30)
+        
+        if not broker_account_id:
+             raise HTTPException(status_code=400, detail="broker_account_id is required")
+
+        # Verify access
+        account = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
+            BrokerAccount.id == broker_account_id,
+            UserFund.user_id == current_user.id
+        ).first()
+        
+        if not account:
+            raise HTTPException(status_code=404, detail="Broker Account not found or access denied")
+
+        result = await execution_client.sync_trades(str(account.id), lookback_days)
+        return success_response(data=result, message="Historical sync completed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error syncing trades: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/trades/open")
 async def get_open_trades(
     payload: Dict[str, Any] = Body(...),
@@ -416,8 +462,8 @@ async def get_trades(
             trade_status = TradeStatus[status.upper()]
             query = query.filter(Trade.status == trade_status)
             
-            # Sync with Oanda if requesting OPEN trades
-            if trade_status == TradeStatus.OPEN:
+            # Sync with Oanda/cTrader if requesting OPEN or PENDING trades
+            if trade_status in [TradeStatus.OPEN, TradeStatus.PENDING]:
                 # Iterate all active accounts for this user
                 accounts = db.query(BrokerAccount).join(Fund).join(UserFund).filter(
                     UserFund.user_id == current_user.id, 
@@ -425,7 +471,7 @@ async def get_trades(
                 ).all()
                     
                 async def sync_account(acc):
-                    if acc.broker_name not in ["OANDA", "CTRADER"]:
+                    if acc.broker_name.lower() not in ["oanda", "ctrader", "icmarkets", "icmarketssc", "fxpro", "pepperstone"]:
                         return # Janitor service handles others
                     try:
                         trades = await execution_client.get_open_trades(str(acc.id))
@@ -568,18 +614,20 @@ async def place_smart_order(
         
     except HTTPException as he:
         raise he
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code
+        try:
+            detail = e.response.json().get("detail", str(e))
+        except Exception:
+            detail = e.response.text or str(e)
+            
+        if status_code < 500:
+            logger.warning(f"Smart Order Rejected ({status_code}): {detail}")
+        else:
+            logger.error(f"Execution Service Failure ({status_code}): {detail}")
+        raise HTTPException(status_code=status_code, detail=detail)
     except Exception as e:
-        # Check if it's an HTTP error from the execution client
-        if hasattr(e, 'response') and hasattr(e.response, 'status_code'):
-             status_code = e.response.status_code
-             try:
-                 detail = e.response.json().get("detail", str(e))
-             except:
-                 detail = str(e)
-             logger.error(f"Execution Service Error ({status_code}): {detail}")
-             raise HTTPException(status_code=status_code, detail=detail)
-             
-        logger.error(f"Smart Order Error: {e}", exc_info=True)
+        logger.error(f"Internal Gateway Error on Smart Order: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/orders/{order_id}")

@@ -14,6 +14,7 @@ from enum import Enum
 class TradeStatus(str, Enum):
     """Trade execution status."""
     OPEN = "OPEN"
+    PENDING = "PENDING"
     CLOSED = "CLOSED"
     REJECTED = "REJECTED"
 

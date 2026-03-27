@@ -5074,6 +5074,7 @@ components:
         - symbol
         - units
         - order_type
+        - side
       properties:
         broker_account_id:
           type: string
@@ -5082,11 +5083,11 @@ components:
           type: string
         units:
           type: number
-          description: "Signed order units (positive for BUY, negative for SELL)."
+          description: "Absolute order units (strictly positive). Direction is determined by 'side'."
         side:
           type: string
           enum: [BUY, SELL]
-          description: "Redundant but helpful for 3rd parties. Overrides sign of units if provided."
+          description: "Mandatory direction for the order."
         order_type:
           type: string
           enum: [MARKET, LIMIT, STOP, STOP_LIMIT]
@@ -5125,6 +5126,7 @@ components:
         direction:
           type: string
           enum: [BULLISH, BEARISH]
+          description: "Directional bias (mapped to side: BUY/SELL)."
         sl_price:
           type: number
         tp_price:
@@ -5165,7 +5167,7 @@ components:
           type: string
         units:
           type: string
-          description: "Signed order units (positive for BUY, negative for SELL)."
+          description: "Absolute order units."
         price:
           type: string
         time:

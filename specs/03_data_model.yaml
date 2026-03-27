@@ -842,7 +842,7 @@ entities:
         description: "Link to the specific signal that triggered this trade"
       - name: status
         type: enum
-        enum_values: ["OPEN", "CLOSED", "REJECTED"]
+        enum_values: ["OPEN", "PENDING", "CLOSED", "REJECTED"]
         required: true
         description: "Trade execution status (REJECTED tracks risk violations)"
       - name: rejection_reason
@@ -854,7 +854,7 @@ entities:
         type: enum
         enum_values: ["LONG", "SHORT"]
         required: true
-        description: "Trade direction"
+        description: "Trade direction (mapped to side: BUY/SELL)"
       - name: entry_price
         type: decimal
         precision: 18
@@ -882,7 +882,7 @@ entities:
         precision: 10
         scale: 2
         required: true
-        description: "Calculated lot size (e.g. 0.01). Broker units must be divided by 100,000.0 for consistent persistence (100,000 units = 1.0 lot)."
+        description: "Calculated lot size (strictly positive, e.g. 0.01). Broker units must be divided by 100,000.0 for consistent persistence (100,000 units = 1.0 lot)."
       - name: risk_usd
         type: decimal
         precision: 10

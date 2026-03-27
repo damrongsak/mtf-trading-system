@@ -236,6 +236,7 @@ async def verify_ctrader_credentials(credentials: Dict[str, Any], is_live: bool 
 class BrokerAccountResponse(GeneratedBrokerAccount):
     credentials: Optional[Dict[str, Any]] = None
     created_at: Optional[Any] = None
+    environment: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -383,6 +384,7 @@ async def list_accounts(
     resp_list = []
     for a in accounts:
         item = BrokerAccountResponse.model_validate(a)
+        item.environment = a.environment # Manual assignment as it might be missing from generated base
         role = user_fund_map.get(a.fund_id)
         
         # Security: Only decrypt credentials for OWNER and MANAGER

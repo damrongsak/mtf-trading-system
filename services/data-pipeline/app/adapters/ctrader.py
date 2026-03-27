@@ -76,8 +76,8 @@ class CTraderClient:
             req.symbolId = symbol_id
             req.count = count
             
-            # Use current time as end?
-            # req.toTimestamp = int(datetime.utcnow().timestamp() * 1000) 
+            # Use current time as end (Required in some versions/brokers)
+            req.toTimestamp = int(datetime.utcnow().timestamp() * 1000)
 
             resp = await client.send(req)
             

@@ -34,23 +34,29 @@ class Trade(Base):
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True, index=True)
     broker_trade_id = Column(String(100), nullable=True, index=True,
                              comment="Official trade ID from broker")
+    broker_deal_id = Column(String(100), nullable=True, index=True,
+                             comment="Stable deal identifier for cTrader deduplication; optional for OANDA")
     parent_trade_id = Column(UUID(as_uuid=True), nullable=True, index=True,
                              comment="For child trades (TWAP/VWAP/Partial Close)")
+    
+    # [PHASE 12] Institutional Order Management
+    execution_algo = Column(String(50), nullable=True, comment="Execution algorithm used (TWAP, VWAP, SCALE_IN)")
+    algo_params = Column(JSONB, nullable=True, comment="Parameters for the execution algorithm")
+    algo_status = Column(String(20), default="NONE", comment="Status of the execution algorithm")
     
     symbol = Column(String(20), nullable=False, index=True)
     strategy_name = Column(String(100), nullable=False,
                           comment="Name of the strategy that generated the signal")
     signal_timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
                              comment="Timestamp when the signal was generated")
+    signal_id = Column(UUID(as_uuid=True), nullable=True, index=True,
+                        comment="Link to the specific signal that triggered this trade")
     signal_timestamp_ns = Column(BigInteger, nullable=True,
-                                comment="Nanosecond precision timestamp for latency tracking")
+                                 comment="Nanosecond precision timestamp for latency tracking")
     latency_ms = Column(Numeric(10, 4), nullable=True,
                         comment="Execution latency in milliseconds (Fill - Signal)")
-    is_live = Column(Boolean, default=False)
-    is_shadow = Column(Boolean, default=False, nullable=True,
-                       comment="If true, signals are not sent to the broker")
-    signal_id = Column(UUID(as_uuid=True), nullable=True, index=True,
-                       comment="Link to the specific signal that triggered this trade")
+    is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
+    is_shadow = Column(Boolean, default=False, comment="If true, signals are not sent to the broker")
 
     # Status and Rejection Tracking
     status = Column(SQLEnum(TradeStatus), nullable=False, index=True,
@@ -97,7 +103,7 @@ class Trade(Base):
                            comment="Timestamp when the trade was closed")
 
     # Broker Specifics
-    broker_deal_id = Column(String(100), nullable=True, unique=True)
+    # broker_deal_id = Column(String(100), nullable=True, unique=True) # Already handled in Phase 12 above
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
 
@@ -123,7 +129,7 @@ class Trade(Base):
 
     # Table constraints (from specs/03_data_model.yaml validation_rules)
     __table_args__ = (
-        CheckConstraint('risk_usd <= 100.00', name='check_risk_cap'),
+        CheckConstraint('risk_usd <= 10.00', name='check_risk_cap'),
         CheckConstraint('lot_size > 0', name='check_min_lot_size'),
         CheckConstraint('atr_pips <= 100.0 OR atr_pips IS NULL', name='check_max_atr_pips'),
         CheckConstraint('rr_ratio >= 2.0 OR rr_ratio IS NULL', name='check_min_rr_ratio'),

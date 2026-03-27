@@ -153,25 +153,33 @@ class TradeService:
         logger.info(f"Syncing {len(broker_trades)} open trades for account {broker_account_id}")
         synced_trades = []
         
+        seen_ids = set()
         for bt in broker_trades:
             broker_id = str(bt.get("id"))
             if not broker_id:
                 continue
+            seen_ids.add(broker_id)
                 
-            # Check if trade exists by broker_trade_id
+            # Check if trade exists by broker_trade_id (Search both OPEN and PENDING)
             existing_trade = db.query(Trade).filter(
-                Trade.status == TradeStatus.OPEN,
+                Trade.status.in_([TradeStatus.OPEN, TradeStatus.PENDING]),
                 Trade.broker_trade_id == broker_id
             ).first()
             
-            # Fallback for old Oanda trades stored only in metadata (Migration support)
+            # Fallback for old Oanda trades stored only in metadata
             if not existing_trade:
                 existing_trade = db.query(Trade).filter(
-                    Trade.status == TradeStatus.OPEN,
+                    Trade.status.in_([TradeStatus.OPEN, TradeStatus.PENDING]),
                     Trade.metadata_json['oanda_id'].astext == broker_id
                 ).first()
             
             if existing_trade:
+                # Update status (PENDING -> OPEN if it's now a position)
+                new_status = TradeStatus.OPEN if bt.get("type") == "POSITION" else TradeStatus.PENDING
+                if existing_trade.status != new_status:
+                    logger.info(f"Trade {broker_id} status changed: {existing_trade.status.value} -> {new_status.value}")
+                    existing_trade.status = new_status
+
                 # Update SL/TP if they exist in the incoming data
                 if "sl" in bt and bt["sl"] is not None:
                     existing_trade.sl_price = float(bt["sl"])
@@ -187,7 +195,7 @@ class TradeService:
                 synced_trades.append(existing_trade)
                 continue
             
-            # Create NEW Trade if we missed it (e.g. opened externally)
+            # Create NEW Trade if we missed it
             try:
                 units = float(bt.get("units") or bt.get("currentUnits") or 0)
                 direction = bt.get("direction")
@@ -198,6 +206,9 @@ class TradeService:
                 
                 entry_price = float(bt.get("entry_price") or bt.get("price") or 0)
                 
+                # Determine status based on type
+                target_status = TradeStatus.OPEN if bt.get("type") == "POSITION" else TradeStatus.PENDING
+
                 new_trade = Trade(
                     trade_id=uuid.uuid4(),
                     broker_account_id=broker_account_id,
@@ -205,7 +216,7 @@ class TradeService:
                     symbol=bt.get("symbol") or bt.get("instrument", "UNKNOWN"),
                     strategy_name="External Sync",
                     signal_timestamp=datetime.now(timezone.utc),
-                    status=TradeStatus.OPEN,
+                    status=target_status,
                     direction=direction,
                     entry_price=entry_price,
                     sl_price=float(bt.get("sl") or 0),
@@ -224,7 +235,44 @@ class TradeService:
                 
             except Exception as e:
                 logger.error(f"Failed to import external trade {broker_id}: {e}")
+
+        # 3. Identify and Close trades that are no longer on Broker
+        if broker_account_id:
+            logger.info(f"Checking for trades to close in DB for account {broker_account_id}")
+            db_open_trades = db.query(Trade).filter(
+                Trade.broker_account_id == broker_account_id,
+                Trade.status.in_([TradeStatus.OPEN, TradeStatus.PENDING])
+            ).all()
+            logger.info(f"Found {len(db_open_trades)} OPEN/PENDING trades in DB for account {broker_account_id}")
+            
+            for dot in db_open_trades:
+                # If trade was just synced or created, skip
+                if any(str(st.broker_trade_id) == str(dot.broker_trade_id) for st in synced_trades):
+                    continue
                 
+                # Check seen_ids (extra safety)
+                if str(dot.broker_trade_id) in seen_ids:
+                    continue
+                    
+                # Special check for old Oanda trades
+                oanda_id = (dot.metadata_json or {}).get("oanda_id")
+                if oanda_id and str(oanda_id) in seen_ids:
+                    continue
+                    
+                logger.info(f"Marking trade {dot.trade_id} (Broker ID: {dot.broker_trade_id}) as CLOSED (not found on broker)")
+                dot.status = TradeStatus.CLOSED
+                dot.exit_timestamp = datetime.now(timezone.utc)
+                if not dot.metadata_json:
+                    dot.metadata_json = {}
+                dot.metadata_json["sync_close"] = True
+                dot.metadata_json["reconciliation_required"] = True
+                
+                # IMPORTANT: DO NOT set exit_price to 0 here. 
+                # Keep it NULL so the PnL calculation doesn't produce massive negative numbers.
+                # The PnL will be updated when the next historical sync runs.
+                dot.exit_price = None
+                dot.pnl_usd = None
+        
         db.commit()
         return synced_trades
 

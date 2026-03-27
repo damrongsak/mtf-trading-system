@@ -101,7 +101,8 @@ class Trade(Base):
                            comment="Timestamp when the trade was closed")
 
     # Broker Specifics
-    broker_deal_id = Column(String(100), nullable=True, unique=True)
+    broker_deal_id = Column(String(100), nullable=True, index=True,
+                             comment="Stable deal identifier for cTrader deduplication; optional for OANDA")
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
 

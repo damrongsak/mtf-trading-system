@@ -56,7 +56,11 @@ class BaseInternalClient:
         try:
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            logger.error(f"Internal API error ({method} {path}): {e.response.status_code} - {e.response.text}")
+            # Distinguish between client errors (Expected rejections) and server errors (Failures)
+            if e.response.status_code < 500:
+                logger.warning(f"Internal Service Validation ({method} {path}): {e.response.status_code} - See detail in router logs")
+            else:
+                logger.error(f"Internal Service Failure ({method} {path}): {e.response.status_code} - {e.response.text}")
             raise e
         return resp
 
@@ -207,8 +211,11 @@ class ExecutionClient(BaseInternalClient):
                 order_data["broker_account_id"] = str(broker_account_id)
             resp = await self._request("POST", "/orders", json=order_data, timeout=30.0)
             return resp.json().get("data", {})
+        except httpx.HTTPStatusError:
+            # Silence redundant ERROR logging for validation failures here; handled by _request (WARNING) and router.
+            raise
         except Exception as e:
-            logger.error(f"Failed to place order: {e}")
+            logger.error(f"Failed to place order (System Error): {e}")
             raise
 
     async def get_trades(self, broker_account_id: str) -> List[Dict[str, Any]]:
@@ -319,6 +326,19 @@ class ExecutionClient(BaseInternalClient):
             return resp.json().get("data", [])
         except Exception as e:
             logger.error(f"Failed to fetch open trades: {e}")
+            raise
+
+    async def sync_trades(self, broker_account_id: str, lookback_days: int = 30) -> Dict[str, Any]:
+        """Trigger historical trade sync from broker to internal DB."""
+        try:
+            resp = await self._request(
+                "POST", "/trades/sync",
+                json={"broker_account_id": str(broker_account_id), "lookback_days": lookback_days},
+                timeout=300.0 # Historical sync can be slow
+            )
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Failed to sync trades: {e}")
             raise
 
     async def inspect_execution(self, broker_account_id: str, symbol: str) -> Dict[str, Any]:

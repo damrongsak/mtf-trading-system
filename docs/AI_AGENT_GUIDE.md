@@ -49,7 +49,8 @@ class PlaceOrderTool(BaseTool):
         # 2. Prepare Payload
         payload = {
             "symbol": symbol,
-            "units": units, # Positive for BUY, Negative for SELL
+            "units": abs(units), # v2.1 Standard: ALWAYS Absolute
+            "side": "BUY" if units > 0 else "SELL", # v2.1 Standard: Explicit Side
             "order_type": "MARKET"
         }
         
@@ -102,6 +103,7 @@ Monitor the `execution.filled.stream` for real-time trade updates.
 - **LOT SCALING STANDARD**: Raw broker units must be scaled to standard lot sizes using a **100,000.0** divisor (e.g., 1000 units = 0.01 lots). This standard is universal.
 - **HIERARCHICAL CONTEXT**: AI agents MUST resolve the `User -> Fund -> Account -> Symbol` hierarchy before execution. Refer to [Institutional Execution Standard](file:///home/dan/workspace/mtf-trading-system/docs/INSTITUTIONAL_EXECUTION_STANDARD.md) for formulas.
 - **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification.
+- **GOLDEN RULE (V2.1)**: NEVER send signed units to the API Gateway or Execution Service. ALWAYS use strictly positive (absolute) `units` and specify the `side` (`BUY` or `SELL`) explicitly. Rejection (400) occurs if `units <= 0`.
 
 ## 🏁 Summary Checklist
 - [ ] Parse `04_api_spec.yaml`.
