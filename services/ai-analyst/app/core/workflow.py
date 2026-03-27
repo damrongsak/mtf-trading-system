@@ -6,7 +6,8 @@ import operator
 from langchain_core.messages import BaseMessage
 from langchain_core.tools import StructuredTool, BaseTool as LCTool
 from app.services.gemini import GeminiClient
-from app.tools.episodic_memory import FetchUnanalyzedTradesTool, SaveEpisodicMemoryTool
+from app.tools.episodic_memory import SaveEpisodicMemoryTool
+from app.tools.journal import FetchUnanalyzedTradesTool, FetchTradeDetailsTool, GetJournalEntriesTool, PostMortemTool
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,7 @@ def resolve_tools(tool_names: List[str]) -> List[LCTool]:
     return resolved
 
 registry.register("fetch_unanalyzed_trades", FetchUnanalyzedTradesTool(), "Fetches historical closed trades missing AI Journal Entry")
+registry.register("fetch_trade_details", FetchTradeDetailsTool(), "Fetches institutional details for a specific trade")
 registry.register("save_episodic_memory", SaveEpisodicMemoryTool(), "Save actionable lessons for the Episodic Memory module")
 
 from app.tools.account import GetAccountStatusTool
@@ -148,6 +150,7 @@ registry.register("market_state", MarketStateTool())
 registry.register("volatility_structure_analysis", VolatilityStructureTool())
 registry.register("get_risk_map", RiskMapTool())
 registry.register("get_journal_entries", GetJournalEntriesTool())
+registry.register("run_post_mortem", PostMortemTool(), "Run institutional analysis on a specific trade_id")
 
 # --- Workflow Base ---
 class OlympusWorkflow:

@@ -101,7 +101,9 @@ async def process_job(redis_client: Redis, job_id: str, payload: dict, headers: 
             auth_token=auth_token,
             image_b64=image_b64,
             thread_id=thread_id,
-            intent_hint=intent
+            intent_hint=intent,
+            trade_id=payload.get("trade_id"),
+            is_journal_job=payload.get("is_journal_job", False)
         )
         
         result_payload = {
@@ -125,11 +127,19 @@ async def main():
     async with AsyncExitStack() as stack:
         redis_client = await bootstrap_worker(stack)
         
+        # Ensure stream exists
+        try:
+            await redis_client.xadd(STREAM_KEY, {"init": "1"})
+            logger.info(f"Stream {STREAM_KEY} ensured.")
+        except:
+            pass
+            
         try:
             await redis_client.xgroup_create(STREAM_KEY, GROUP_NAME, id='0', mkstream=True)
+            logger.info(f"Consumer group {GROUP_NAME} created.")
         except Exception as e:
             if "BUSYGROUP" not in str(e):
-                raise
+                logger.error(f"Failed to create group: {e}")
                 
         logger.info(f"Started AI Analyst Worker listening on {STREAM_KEY}")
         

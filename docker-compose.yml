@@ -84,6 +84,7 @@ services:
       - PYTHONUNBUFFERED=1
       - WEB_CONCURRENCY=1
       - PYTHONPATH=/app:/app/deps
+      - REDIS_URL=redis://redis:6379/0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s

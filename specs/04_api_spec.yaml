@@ -3,6 +3,90 @@ info:
   title: MTF Trading API
   version: 0.1.0
 paths:
+  /api/v1/trades/reconcile:
+    post:
+      tags: [Trades]
+      summary: Trigger manual broker reconciliation for closed trades
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fund_id:
+                  type: string
+                  format: uuid
+                trade_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Reconciliation job triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/journal/post-mortem/{trade_id}:
+    get:
+      tags: [Journal]
+      summary: Get AI-generated post-mortem analysis for a trade
+      parameters:
+        - name: trade_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Post-mortem analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostMortemResponse'
+    post:
+      tags: [Journal]
+      summary: Trigger generation of a new post-mortem analysis
+      parameters:
+        - name: trade_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Analysis job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIJobAccepted'
+
+  /api/v1/history/reconcile:
+    post:
+      tags: [History]
+      summary: Trigger automated broker history reconciliation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                days_back:
+                  type: integer
+                  default: 7
+      responses:
+        '200':
+          description: Reconciliation job triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   /api/v1/alpha/test:
     post:
       summary: Run detailed backtest for alpha formula
@@ -4789,7 +4873,7 @@ components:
     # --- Trade Schemas ---
     TradeStatus:
       type: string
-      enum: [OPEN, CLOSED, REJECTED]
+      enum: [OPEN, PENDING, CLOSED, REJECTED]
 
     TradeDirection:
       type: string
@@ -4855,10 +4939,67 @@ components:
         broker_deal_id:
           type: string
           nullable: true
+        execution_latency_ms:
+          type: number
+          nullable: true
+        slippage_pips:
+          type: number
+          nullable: true
+        slippage_ms:
+          type: number
+          nullable: true
+        broker_raw_pnl:
+          type: number
+          nullable: true
+        broker_commission:
+          type: number
+          nullable: true
+        broker_swap:
+          type: number
+          nullable: true
+        reconciled_at:
+          type: string
+          format: date-time
+          nullable: true
+        reconciliation_status:
+          type: string
+          default: "PENDING"
         created_at:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+
+    PostMortemResponse:
+      type: object
+      properties:
+        trade_id:
+          type: string
+          format: uuid
+        summary:
+          type: string
+          description: "One-sentence executive summary of the trade result"
+        execution_quality:
+          type: string
+          description: "Assessment of entry/exit quality and slippage"
+        psychological_analysis:
+          type: string
+          description: "Analysis of emotional state and decision making"
+        alpha_lesson:
+          type: string
+          description: "Key takeaway for future strategy performance"
+        metrics:
+          type: object
+          properties:
+            slippage_pips:
+              type: number
+            execution_latency_ms:
+              type: number
+            profit_efficiency:
+              type: number
+              description: "Ratio of realized PnL to MFE"
+        created_at:
           type: string
           format: date-time
 

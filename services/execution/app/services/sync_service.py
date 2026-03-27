@@ -10,6 +10,7 @@ from app.utils.crypto import decrypt_data
 from app.database import AsyncSessionLocal
 from app.core.config import settings
 from app.core.units import UnitConverter
+from app.services.history_reconciliation import HistoryReconciliationService
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,8 @@ class SyncService:
         for acc_id, trades in results:
             if trades is not None:
                 broker_states[acc_id] = trades
+                # [INSTITUTIONAL] Trigger historical reconciliation audit
+                asyncio.create_task(HistoryReconciliationService.reconcile_account_history(acc_id, days_back=7))
 
         # 2. Fetch DB state for this fund (Fetch all to avoid ghost duplicates for closed trades)
         account_ids = [acc.id for acc in accounts]

@@ -5,7 +5,7 @@ from app.tools.account import GetAccountStatusTool
 from app.tools.signal import GetTechnicalSignalsTool
 from app.tools.calendar import GetEconomicCalendarTool
 from app.tools.search import GoogleSearchTool
-from app.tools.journal import GetJournalEntriesTool
+from app.tools.journal import GetJournalEntriesTool, FetchTradeDetailsTool, FetchUnanalyzedTradesTool
 from app.tools.alpha_deployer import AlphaDeployerTool
 from app.tools.strategy_retriever import StrategyRetrieverTool
 from app.tools.open_interest import OpenInterestTool
@@ -44,6 +44,8 @@ def bootstrap_tools():
     
     # Journal Tools
     registry.register("get_journal_entries", GetJournalEntriesTool())
+    registry.register("fetch_trade_details", FetchTradeDetailsTool())
+    registry.register("fetch_unanalyzed_trades", FetchUnanalyzedTradesTool())
     
     # Strategy Tools
     registry.register("deploy_alpha_strategy", AlphaDeployerTool())
@@ -68,7 +70,7 @@ def bootstrap_tools():
     registry.register("open_claw_research", OpenClawResearcherTool())
     registry.register("risk_review", RiskReviewTool())
     
-    print("All standard tools registered.")
+    print(f"All standard tools registered. Keys: {list(registry._tools.keys())}")
 
 async def run_diagnostics(auth_token: str = None) -> list:
     """

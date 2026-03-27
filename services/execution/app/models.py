@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime, Enum as SQLEnum, func, BigInteger, CheckConstraint
+from sqlalchemy import Column, String, JSON, Numeric, Boolean, Integer, ForeignKey, DateTime, Enum as SQLEnum, func, BigInteger, CheckConstraint, Text, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
@@ -205,7 +205,12 @@ class Trade(Base):
     signal_timestamp = Column(DateTime(timezone=True), nullable=False)
     signal_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     signal_timestamp_ns = Column(BigInteger, nullable=True)
-    latency_ms = Column(Numeric(10, 4), nullable=True)
+    execution_latency_ms = Column(Numeric(10, 4), nullable=True,
+                                 comment="Execution latency in milliseconds (Broker Fill - System Signal)")
+    slippage_pips = Column(Numeric(10, 2), nullable=True,
+                          comment="Slippage in pips (Actual Entry - Planned Entry)")
+    slippage_ms = Column(Numeric(10, 4), nullable=True,
+                        comment="Broker execution latency (Broker Fill - Broker Order)")
     is_live = Column(Boolean, default=False)
     is_shadow = Column(Boolean, default=False, nullable=True)
 
@@ -238,9 +243,14 @@ class Trade(Base):
     
     broker_trade_id = Column(String(100), nullable=True)
     broker_deal_id = Column(String(100), nullable=True, unique=True)
-    commission = Column(Numeric(10, 2), nullable=True)
+    commission = Column(Numeric(10, 2), nullable=True, comment="Trading commission in USD (System Estimate or Reconciled)")
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
+    broker_raw_pnl = Column(Numeric(18, 2), nullable=True, comment="Original PnL reported by broker")
+    broker_commission = Column(Numeric(18, 2), nullable=True, comment="Original commission reported by broker")
+    broker_swap = Column(Numeric(18, 2), nullable=True, comment="Original swap reported by broker")
+    reconciled_at = Column(DateTime(timezone=True), nullable=True, comment="Last successful broker reconciliation")
+    reconciliation_status = Column(String(20), default="PENDING", comment="PENDING, SUCCESS, FAILED")
     
     metadata_json = Column(JSONB, nullable=True)
     
@@ -316,3 +326,24 @@ class SignalLog(Base):
     execution_id = Column(UUID(as_uuid=True), nullable=True)
     filled_price = Column(Numeric(18, 8), nullable=True)
     filled_time = Column(DateTime(timezone=True), nullable=True)
+
+class PostMortem(Base):
+    __tablename__ = "post_mortems"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trade_id = Column(UUID(as_uuid=True), ForeignKey("trades.trade_id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    
+    summary = Column(Text, nullable=True)
+    classification = Column(String(50), nullable=True, comment="GOOD_WIN, BAD_WIN, GOOD_LOSS, BAD_LOSS")
+    execution_quality = Column(Text, nullable=True)
+    psychological_analysis = Column(Text, nullable=True)
+    alpha_lesson = Column(Text, nullable=True)
+    
+    # Metrics
+    slippage_pips = Column(Float, nullable=True)
+    execution_latency_ms = Column(Float, nullable=True)
+    profit_efficiency = Column(Float, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

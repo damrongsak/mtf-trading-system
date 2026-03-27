@@ -34,8 +34,6 @@ class Trade(Base):
     broker_account_id = Column(UUID(as_uuid=True), ForeignKey("broker_accounts.id"), nullable=True, index=True)
     broker_trade_id = Column(String(100), nullable=True, index=True,
                              comment="Official trade ID from broker")
-    broker_deal_id = Column(String(100), nullable=True, index=True,
-                             comment="Stable deal identifier for cTrader deduplication; optional for OANDA")
     parent_trade_id = Column(UUID(as_uuid=True), nullable=True, index=True,
                              comment="For child trades (TWAP/VWAP/Partial Close)")
     
@@ -53,9 +51,13 @@ class Trade(Base):
                         comment="Link to the specific signal that triggered this trade")
     signal_timestamp_ns = Column(BigInteger, nullable=True,
                                  comment="Nanosecond precision timestamp for latency tracking")
-    latency_ms = Column(Numeric(10, 4), nullable=True,
-                        comment="Execution latency in milliseconds (Fill - Signal)")
-    is_live = Column(Boolean, default=False) # True = Real Money, False = Paper
+    execution_latency_ms = Column(Numeric(10, 4), nullable=True,
+                                 comment="Execution latency in milliseconds (Broker Fill - System Signal)")
+    slippage_pips = Column(Numeric(10, 2), nullable=True,
+                          comment="Slippage in pips (Actual Entry - Planned Entry)")
+    slippage_ms = Column(Numeric(10, 4), nullable=True,
+                        comment="Broker execution latency (Broker Fill - Broker Order)")
+    is_live = Column(Boolean, default=False)  # True = Real Money, False = Paper
     is_shadow = Column(Boolean, default=False, comment="If true, signals are not sent to the broker")
 
     # Status and Rejection Tracking
@@ -80,7 +82,7 @@ class Trade(Base):
     lot_size = Column(Numeric(12, 6), nullable=False,
                      comment="Calculated lot size (must be >= 0.01)")
     commission = Column(Numeric(10, 2), nullable=True,
-                       comment="Trading commission in USD")
+                       comment="Trading commission in USD (System Estimate or Reconciled)")
     risk_usd = Column(Numeric(10, 2), nullable=False,
                      comment="Calculated risk in USD (must be <= $10)")
     atr_pips = Column(Numeric(10, 2), nullable=True,
@@ -103,9 +105,15 @@ class Trade(Base):
                            comment="Timestamp when the trade was closed")
 
     # Broker Specifics
-    # broker_deal_id = Column(String(100), nullable=True, unique=True) # Already handled in Phase 12 above
+    broker_deal_id = Column(String(100), nullable=True, index=True,
+                             comment="Stable deal identifier for cTrader deduplication; optional for OANDA")
     swap = Column(Numeric(10, 2), nullable=True)
     gross_pnl = Column(Numeric(10, 2), nullable=True)
+    broker_raw_pnl = Column(Numeric(18, 2), nullable=True, comment="Original PnL reported by broker")
+    broker_commission = Column(Numeric(18, 2), nullable=True, comment="Original commission reported by broker")
+    broker_swap = Column(Numeric(18, 2), nullable=True, comment="Original swap reported by broker")
+    reconciled_at = Column(DateTime(timezone=True), nullable=True, comment="Last successful broker reconciliation")
+    reconciliation_status = Column(String(20), default="PENDING", comment="PENDING, SUCCESS, FAILED")
 
     # Additional Metadata (Confluence zones, indicators, etc.)
     metadata_json = Column(JSONB, nullable=True,

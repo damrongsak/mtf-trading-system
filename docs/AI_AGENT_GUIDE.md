@@ -1,9 +1,11 @@
-# AI Agent Integration Guide - MTF Olympus
+# 🏛️ MTF Olympus (v2.2)
+
+**The Institutional Wealth Operating System for XAU/USD (Gold).**
+
+[![Ecosystem](https://img.shields.io/badge/Ecosystem-Live-brightgreen)](https://github.com/damrongsak/mtf-trading-system)
+[![Status](https://img.shields.io/badge/Status-Alpha_V2.2-blue)](specs/10_implementation_status.md)
 
 This guide outlines the steps for an AI agent (e.g., Gemini, GPT, or custom LangGraph agents) to understand and interact with the MTF Olympus backend API.
-
-## 🏗️ Step 1: Ingest Technical Specifications
-The "Source of Truth" for all system capabilities is the `specs/` directory.
 
 1.  **API Specification**: Read `specs/04_api_spec.yaml`. This file defines all available endpoints, request bodies, and response schemas.
 2.  **Data Model**: Read `specs/03_data_model.yaml` to understand how trades, accounts, and signals are structured in the database.
@@ -104,6 +106,23 @@ Monitor the `execution.filled.stream` for real-time trade updates.
 - **HIERARCHICAL CONTEXT**: AI agents MUST resolve the `User -> Fund -> Account -> Symbol` hierarchy before execution. Refer to [Institutional Execution Standard](file:///home/dan/workspace/mtf-trading-system/docs/INSTITUTIONAL_EXECUTION_STANDARD.md) for formulas.
 - **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification.
 - **GOLDEN RULE (V2.1)**: NEVER send signed units to the API Gateway or Execution Service. ALWAYS use strictly positive (absolute) `units` and specify the `side` (`BUY` or `SELL`) explicitly. Rejection (400) occurs if `units <= 0`.
+
+## 📓 Step 13: Institutional Journaling & Post-Mortem (V2.2 Standard)
+The system implements an automated "Post-Mortem Analysis" pipeline for every closed trade.
+
+### 1. The Reconciliation Loop
+- **Trigger**: Closed trades are reconciled via `POST /api/v1/history/reconcile`.
+- **Latency**: Reconciled trades include `execution_latency_ms` and `slippage_pips`.
+- **Status**: Monitor `reconciliation_status` (SUCCESS/FAILED).
+
+### 2. Post-Mortem Routing
+- **Specialist Node**: Use the `JOURNAL_ANALYSIS` intent in the orchestrator to route to the `PostMortemAgent`.
+- **Heuristic Bypass**: Critical journaling jobs (e.g., from `HistoryReconciliationService`) bypass semantic cache and severity classification to ensure 100% determinism.
+- **Data Extractions**: Extract `trade_id` from `node_intent_optimizer` context to fetch full trade metrics via `fetch_trade_details`.
+
+### 3. Persistence Standard
+- **Atomic Commits**: The `PostMortemAgent` uses binary `AUTOCOMMIT` on the database session to ensure analysis summary and grade are persisted immediately.
+- **Output Schema**: Analysis must include `trade_grade` (A-D), `pnl_reconciled`, and `psychological_state`.
 
 ## 🏁 Summary Checklist
 - [ ] Parse `04_api_spec.yaml`.

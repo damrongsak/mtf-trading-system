@@ -810,12 +810,24 @@ entities:
         type: bigint
         nullable: true
         description: "Nanosecond precision timestamp for latency tracking"
-      - name: latency_ms
+      - name: execution_latency_ms
         type: decimal
         precision: 10
         scale: 4
         nullable: true
-        description: "Execution latency in milliseconds (Fill - Signal)"
+        description: "Execution latency in milliseconds (Broker Fill Time - System Signal Time)"
+      - name: slippage_pips
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Slippage in pips (Actual Entry - Planned Entry)"
+      - name: slippage_ms
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Broker execution latency (Broker Fill Time - Broker Order Time)"
       - name: is_shadow
         type: boolean
         default: false
@@ -934,7 +946,41 @@ entities:
         precision: 10
         scale: 2
         nullable: true
-        description: "Trading commission in USD"
+        description: "Trading commission in USD (System Estimate or Reconciled)"
+      - name: broker_raw_pnl
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Original PnL reported by broker in account currency"
+      - name: broker_commission
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Original commission reported by broker"
+      - name: broker_swap
+        type: decimal
+        precision: 18
+        scale: 2
+        nullable: true
+        description: "Original swap reported by broker"
+      - name: reconciled_at
+        type: datetime
+        nullable: true
+        description: "Timestamp of last successful broker reconciliation"
+      - name: reconciliation_status
+        type: string
+        default: "PENDING"
+        description: "Reconciliation status (PENDING, SUCCESS, FAILED)"
+      - name: post_mortem_generated
+        type: boolean
+        default: false
+        description: "True if an AI post-mortem has been generated for this trade"
+      - name: post_mortem_id
+        type: uuid
+        nullable: true
+        description: "Link to the primary PostMortem record"
       - name: metadata_json
         type: jsonb
         nullable: true

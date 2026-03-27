@@ -94,6 +94,9 @@ class AgentState(TypedDict):
     # Phase 67: Perfection & Data Recovery
     fact_check_result: Optional[dict]
     data_gap_detected: bool # Flag to trigger recovery
+    
+    trade_id: Optional[str]
+    is_journal_job: Optional[bool]
 
 class StrategyAdvisorAgent:
     def __init__(self, 
@@ -232,8 +235,9 @@ class StrategyAdvisorAgent:
         
         workflow.add_conditional_edges(
             "sentinel",
-            lambda x: "consensus" if x.get("severity") == "CRISIS" and x.get("sentinel_result", {}).get("approved") else ("reasoning" if not x.get("sentinel_result", {}).get("approved") and x.get("intent") in ["STRATEGY_EXPLAIN", "RESEARCH", "MARKET_ANALYSIS"] else "tool_use"),
+            lambda x: "satisfactory" if x.get("intent") == "JOURNAL_ANALYSIS" else ("consensus" if x.get("severity") == "CRISIS" and x.get("sentinel_result", {}).get("approved") else ("reasoning" if not x.get("sentinel_result", {}).get("approved") and x.get("intent") in ["STRATEGY_EXPLAIN", "RESEARCH", "MARKET_ANALYSIS"] else "tool_use")),
             {
+                "satisfactory": "memory_write",
                 "consensus": "consensus_layer",
                 "reasoning": "reasoning",
                 "tool_use": "tool_selection"
@@ -291,15 +295,14 @@ class StrategyAdvisorAgent:
         context_results = {}
         
         try:
-            # We use the registry to get the tool
-            from app.core.workflow import registry
-            market_tool = registry.get("get_market_context")
+            # We use the local tool_registry
+            market_tool = self.tool_registry.get_tool("get_market_context")
             
             if market_tool:
                 # Run parallel fetches for benchmarks
                 tasks = []
                 for sym in benchmarks:
-                    tasks.append(market_tool.ainvoke({"symbol": sym, "auth_token": state.get("auth_token")}))
+                    tasks.append(market_tool.arun({"symbol": sym}, auth_token=state.get("auth_token")))
                 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 
@@ -348,39 +351,74 @@ class StrategyAdvisorAgent:
             return {"final_response": "Post-Mortem Agent not initialized.", "intent": "CHAT"}
 
         try:
-            # 1. Fetch unanalyzed trades via tool
-            from app.core.workflow import registry
-            fetch_tool = registry.get("fetch_unanalyzed_trades")
-            if not fetch_tool:
-                return {"final_response": "Tool 'fetch_unanalyzed_trades' not found.", "intent": "CHAT"}
+            # 1. Fetch trades to analyze
+            target_trade_id = state.get("trade_id")
+            query = state.get("optimized_query", "")
+            
+            # Robust Extraction: If trade_id is missing from state, extract from query string (UUID regex)
+            if not target_trade_id and query:
+                import re
+                uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', query.lower())
+                if uuid_match:
+                    target_trade_id = uuid_match.group(1)
+                    logger.info(f"Extracted trade_id {target_trade_id} from query string.")
 
-            res = await fetch_tool.run_tool({"limit": 5})
-            trades = res.get("trades", [])
+            if target_trade_id:
+                # Targeted Fetch
+                logger.info(f"🛡️ Specialist: Fetching details for {target_trade_id} via fetch_trade_details tool.")
+                fetch_tool = self.tool_registry.get_tool("fetch_trade_details")
+                if not fetch_tool:
+                     logger.error("🛡️ Specialist Error: Tool 'fetch_trade_details' not found in registry.")
+                     return {"final_response": "Tool 'fetch_trade_details' not found.", "intent": "CHAT"}
+                
+                # Ensure we pass the auth token for secure fetch
+                res = await fetch_tool.arun({"trade_id": target_trade_id}, auth_token=state.get("auth_token"))
+                logger.info(f"🛡️ Specialist: Fetch result for {target_trade_id}: {res}")
+                
+                # fetch_trade_details returns {"status": "success", "trade": {...}}
+                trade_data = res.get("trade") if isinstance(res, dict) else None
+                trades = [trade_data] if trade_data else []
+                logger.info(f"Targeted post-mortem for trade {target_trade_id}: {'found' if trades else 'not found'}")
+            else:
+                # Batch Fetch (Legacy/General request)
+                fetch_tool = self.tool_registry.get_tool("fetch_unanalyzed_trades")
+                if not fetch_tool:
+                    return {"final_response": "Tool 'fetch_unanalyzed_trades' not found.", "intent": "CHAT"}
+                res = await fetch_tool.arun({"limit": 5}, auth_token=state.get("auth_token"))
+                trades = res.get("trades", []) if isinstance(res, dict) else []
+                logger.info(f"Batch post-mortem: found {len(trades)} trades")
 
-            if not trades:
+            if not trades or not any(trades):
+                 msg = "I couldn't find any unanalyzed trades in your journal to review."
+                 if target_trade_id:
+                     msg = f"I couldn't find trade details for ID {target_trade_id} or it has already been analyzed."
                  return {
-                     "final_response": "I couldn't find any unanalyzed trades in your journal to review at this moment.",
+                     "final_response": msg,
                      "intent": "JOURNAL_ANALYSIS"
                  }
 
             # 2. Run specialist analysis
+            logger.info(f"🛡️ Specialist: Running batch analysis for {len(trades)} trades.")
             analysis_results = await self.post_mortem.run_batch_analysis(trades, state["user_id"])
+            logger.info(f"🛡️ Specialist: Batch analysis complete. Results: {analysis_results}")
             
             # 3. Format result for generator
             summary = []
             for i, r in enumerate(analysis_results):
                 if not r: continue
                 symbol = trades[i].get("instrument") or trades[i].get("symbol", "Unknown")
-                pnl = trades[i].get("realized_pnl", 0)
-                summary.append(f"- {symbol} (${pnl}): {r.get('classification')} | Lesson: {r.get('critical_lesson')}")
+                pnl = trades[i].get("pnl_usd", 0) or trades[i].get("realized_pnl", 0)
+                summary.append(f"- {symbol} (${pnl}): {r.get('classification')} | Lesson: {r.get('alpha_lesson')}")
 
             response_text = "### 📊 Recent Trade Post-Mortem\n\n" + "\n".join(summary)
             response_text += "\n\nInsights have been saved to your episodic memory."
 
             return {
                 "specialist_response": {"results": analysis_results},
+                "response": response_text,
                 "final_response": response_text,
-                "intent": "JOURNAL_ANALYSIS"
+                "intent": "JOURNAL_ANALYSIS",
+                "is_satisfactory": True
             }
         except Exception as e:
             logger.error(f"Journal analysis failed: {e}")
@@ -396,13 +434,12 @@ class StrategyAdvisorAgent:
 
         try:
              # 1. Fetch Open Trades
-             from app.core.workflow import registry
-             fetch_tool = registry.get("get_account_status") # This tool returns positions
+             fetch_tool = self.tool_registry.get_tool("get_account_status")
              if not fetch_tool:
                  return {"final_response": "Tool 'get_account_status' not found.", "intent": "CHAT"}
 
-             account_data = await fetch_tool.run_tool({}, auth_token=state.get("auth_token"))
-             positions = account_data.get("positions", [])
+             account_data = await fetch_tool.arun({}, auth_token=state.get("auth_token"))
+             positions = account_data.get("positions", []) if isinstance(account_data, dict) else []
 
              if not positions:
                  return {
@@ -433,7 +470,8 @@ class StrategyAdvisorAgent:
              return {
                  "specialist_response": {"results": results},
                  "final_response": response_text,
-                 "intent": "PORTFOLIO_MANAGEMENT"
+                 "intent": "PORTFOLIO_MANAGEMENT",
+                 "is_satisfactory": True
              }
 
         except Exception as e:
@@ -506,7 +544,7 @@ class StrategyAdvisorAgent:
         - **STRATEGY_DESIGN**: User wants to CREATE, modify, or optimize a trading strategy or code.
         - **MARKET_REPORT**: User asks for a broad overview of the market (Market Observer mode).
         - **DAILY_BRIEFING**: User asks for their daily trading checklist or journal summary.
-        - **JOURNAL_ANALYSIS**: User asks to analyze, review, or "post-mortem" their recent closed trades to extract lessons or psychological patterns.
+        - **JOURNAL_ANALYSIS**: User asks to analyze, review, or "post-mortem" their recent closed trades to extract lessons or psychological patterns. This intent is also used for institutional performance reviews on specific trade IDs.
         - **PORTFOLIO_MANAGEMENT**: User asks to manage, move SL to breakeven, trail stops, or actively adjust open positions/portfolio risk.
         - **STRATEGY_EXPLAIN**: User asks for a DEEP explanation, logic check, or narrative walkthrough of a specific strategy signal, level, or institutional setup (e.g., "Explain why we long here", "What is the logic behind this OB?").
         - **ABOUT_SYSTEM**: User asks about MTF Olympus proprietary architecture, tools, API endpoints, or mentions "EA", "Legend EA", "Project Olympus", or "Microsoft".
@@ -520,9 +558,10 @@ class StrategyAdvisorAgent:
         **CRITICAL**: 
         1. If the user asks for balance, equity, positions, margin, or trade actions, ALWAYS classify as **TOOL_USE**.
         2. If the user says "generate a trading plan", "give me a plan", "buy/sell setup", or "what should I trade", ALWAYS classify as **TOOL_USE** (not MARKET_ANALYSIS).
-        3. If the user says "send to telegram", "notify me", "alert me", or "send it", ALWAYS classify as **TOOL_USE**.
-        4. If the user says "EA", "Project Olympus", "Microsoft", or asks about "API", ALWAYS classify as **ABOUT_SYSTEM**.
-        5. Only use **MARKET_ANALYSIS** for open-ended commentary or institutional analysis WITHOUT a specific plan output requested.
+        3. If the user says "post-mortem", "analyze", "review", or mentions a TRADE UUID (e.g. cb242...), ALWAYS classify as **JOURNAL_ANALYSIS**.
+        4. If the user says "send to telegram", "notify me", "alert me", or "send it", ALWAYS classify as **TOOL_USE**.
+        5. If the user says "EA", "Project Olympus", "Microsoft", or asks about "API", ALWAYS classify as **ABOUT_SYSTEM**.
+        6. Only use **MARKET_ANALYSIS** for open-ended commentary or institutional analysis WITHOUT a specific plan output requested.
 
         
         **Output JSON only:**
@@ -534,6 +573,27 @@ class StrategyAdvisorAgent:
         """
         
         try:
+            # --- Phase 68: Hardening - Automated Job Prefix Check ---
+            query_str = state.get("input_text", "")
+            # Priority 1: Direct flag from command payload
+            if state.get("is_journal_job"):
+                logger.info(f"🛡️ Intent Optimizer: Found is_journal_job flag. Forcing JOURNAL_ANALYSIS.")
+                return {
+                    "optimized_query": query_str,
+                    "intent": "JOURNAL_ANALYSIS",
+                    "is_journal_job": True,
+                    "target_language": "English"
+                }
+                
+            if query_str.startswith("pm_") or "post-mortem" in query_str.lower():
+                logger.info(f"🛡️ Intent Optimizer: Auto-detected Post-Mortem job ({query_str}). Forcing JOURNAL_ANALYSIS.")
+                return {
+                    "optimized_query": query_str,
+                    "intent": "JOURNAL_ANALYSIS",
+                    "is_journal_job": True,
+                    "target_language": "English"
+                }
+
             # Tier 1 fallback logic
             response = await self.gemini.generate_content(
                 model=[
@@ -549,6 +609,14 @@ class StrategyAdvisorAgent:
             text = response.get("text", "")
             data = QueryOptimization.model_validate_json(text)
             
+            # --- Heuristic Overrides (Phase 68: Hardening Post-Mortem Routing) ---
+            # If we see a trade_id or a 'post-mortem' keyword, force JOURNAL_ANALYSIS
+            query_lower = state.get("query", "").lower()
+            if state.get("trade_id") or "post-mortem" in query_lower or query_lower.startswith("pm_"):
+                 data.intent = "JOURNAL_ANALYSIS"
+                 state["is_journal_job"] = True
+                 logger.info(f"Heuristic Override: Forced intent to JOURNAL_ANALYSIS for {state.get('trade_id') or 'query'}")
+
             logger.info(f"Optimization Result - Intent: {data.intent}, Lang: {data.target_language}, Query: {data.optimized_query}")
             
             # Phase 2: Search Guard logic
@@ -566,6 +634,7 @@ class StrategyAdvisorAgent:
             return {
                 "optimized_query": data.optimized_query,
                 "intent": data.intent,
+                "is_journal_job": state.get("is_journal_job", False),
                 "target_language": data.target_language,
                 "block_web_search": is_blocked
             }
@@ -581,10 +650,12 @@ class StrategyAdvisorAgent:
     async def node_severity_classifier(self, state: AgentState):
         """
         Classifies the severity of the request to determine the graph topology.
-        - CRISIS: High market impact, financial danger, or adversarial conditions.
-        - VOLATILITY: Market news, sentiment shifts, complex quantitative research.
-        - ROUTINE: Standard chat, briefings, or simple queries.
         """
+        # --- Phase 68: Hardness Override ---
+        if state.get("is_journal_job") or state.get("intent") == "JOURNAL_ANALYSIS":
+            logger.info("🛡️ Severity Classifier: Skipping for Journal Job. Forcing ROUTINE.")
+            return {"severity": "ROUTINE", "market_severity": "ROUTINE"}
+
         query = state["optimized_query"]
         intent = state.get("intent", "CHAT")
         
@@ -676,6 +747,12 @@ class StrategyAdvisorAgent:
         2. Economic Sanity Gate (Hard Python Constraints).
         """
         severity = state.get("severity", "ROUTINE")
+        intent = state.get("intent", "CHAT")
+
+        # Phase 68: Hardness Override - Journal Analysis does not need Sentinel Review
+        if intent == "JOURNAL_ANALYSIS" or state.get("is_journal_job"):
+            logger.info("🛡️ Sentinel: Skipping review for JOURNAL_ANALYSIS to ensure persistence.")
+            return {"sentinel_result": {"approved": True}}
         
         # skip for ROUTINE if no tools were called
         if severity == "ROUTINE" and not state.get("scratchpad"):
@@ -936,9 +1013,11 @@ class StrategyAdvisorAgent:
         """
         Conditional Logic: Routes based on Intent.
         """
+        # Phase 68: Priority route for Journaling
+        if state.get("is_journal_job") or state.get("intent") == "JOURNAL_ANALYSIS":
+             return "journal_analysis"
+
         # Prioritize Pending Confirmation
-        if state.get("pending_tool_call"):
-            return "confirmation_check"
             
         intent = state.get("intent", "CHAT")
         severity = state.get("severity", "ROUTINE")
@@ -982,7 +1061,14 @@ class StrategyAdvisorAgent:
         """
         Routes based on evaluation result.
         Phase 67: Added data_recovery route for missing metrics.
+        Phase 68: Hardened Journal termination.
         """
+        # --- Phase 68 Override ---
+        # Journal Analysis doesn't need refinement loops - it must persist immediately.
+        if state.get("intent") == "JOURNAL_ANALYSIS" or state.get("is_journal_job"):
+             logger.info("🛡️ Journal Analysis detected in Router. Enforcing SATISFACTORY for persistence.")
+             return "satisfactory"
+
         if state.get("is_satisfactory"):
             return "satisfactory"
         
@@ -1003,21 +1089,15 @@ class StrategyAdvisorAgent:
         """
         # If tools were selected, go to execution
         if state.get("tool_calls"):
-            # Limit loops using turn-based count
-            loop_count = state.get("tool_loop_count", 0)
             intent = state.get("intent", "CHAT")
             
-            # Dynamic Turn Limits: 
-            # - RESEARCH queries get 10 turns
-            # - Standard queries get 5 turns to minimize latency
-            max_turns = 10 if intent == "RESEARCH" else 5
-            
-            logger.debug(f"Loop Check: turn={loop_count}, intent={intent}, max={max_turns}, tools_this_turn={len(state['tool_calls'])}")
-            
-            if loop_count >= max_turns:
-                logger.warning(f"Max tool execution turns ({max_turns}) reached for intent {intent}. Forcing generation.")
-                return "done"
-            return "execute"
+            # Phase 68: Hardening - Journal tasks should not loop tools
+            if intent == "JOURNAL_ANALYSIS":
+                 logger.info("🛡️ Journal Analysis detected in Selection Router. Forcing DONE to prevent tool loops.")
+                 return "done"
+
+            # Limit loops using turn-based count
+            loop_count = state.get("tool_loop_count", 0)
             
         # No tools selected -> Move to final response generation
         return "done"
@@ -1552,12 +1632,11 @@ class StrategyAdvisorAgent:
                 "market_state"
             ]
         
-        from app.core.workflow import registry as global_registry
         async def run_briefing_tool(name):
              logger.error(f"DEBUG_TRACER: Analyst starting briefing tool: {name}")
-             tool = global_registry.get(name)
+             tool = self.tool_registry.get_tool(name)
              if not tool:
-                 logger.error(f"DEBUG_TRACER: Tool {name} NOT FOUND in global registry")
+                 logger.error(f"DEBUG_TRACER: Tool {name} NOT FOUND in agent tool registry")
                  return f"Tool {name} not found."
              try:
                  inp = {}
@@ -1819,6 +1898,11 @@ class StrategyAdvisorAgent:
         The 'Judge' node. Evaluates if the response is complete and accurate.
         Uses Flash Lite with capped context to avoid token quota issues.
         """
+        # Phase 68: Hardness Override - Journal Analysis does not need evaluation loops
+        if state.get("is_journal_job") or state.get("intent") == "JOURNAL_ANALYSIS":
+            logger.info("🛡️ Evaluator: Skipping review for Journal Job to ensure persistence.")
+            return {"is_satisfactory": True}
+        
         query = state["optimized_query"]
         response = state["final_response"]
         iteration = state.get("iteration_count", 0)
@@ -2005,7 +2089,7 @@ class StrategyAdvisorAgent:
 
     # --- PUBLIC API ---
 
-    async def stream(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
+    async def stream(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None, trade_id: str = None):
         """
         Streaming entry point using LangGraph astream_events (v2).
         Yields events as they occur in the graph.
@@ -2028,7 +2112,8 @@ class StrategyAdvisorAgent:
             "image_b64": image_b64,
             "severity": "ROUTINE",
             "data_gap_detected": False,
-            "fact_check_result": None
+            "fact_check_result": None,
+            "trade_id": trade_id
         }
         
         import uuid
@@ -2089,11 +2174,21 @@ class StrategyAdvisorAgent:
             return {"user_facts": []}
 
         try:
+            # Phase 68: Hardening - fallback to optimized_query if input_text is empty
+            if not query:
+                query = state.get("optimized_query", state.get("query", "Institutional trade review"))
+            
+            # Final Safety: If STILL empty (should be impossible now), skip embedding
+            if not query or not query.strip():
+                 logger.warning("Memory Recall: Query is empty after fallbacks. Skipping.")
+                 return {"user_facts": []}
+
             # Resolve symbol if possible from input (basic heuristic)
             symbol = None
-            if "GOLD" in query.upper() or "XAU" in query.upper(): symbol = "XAUUSD"
-            elif "EUR" in query.upper(): symbol = "EURUSD"
-            elif "JPY" in query.upper(): symbol = "USDJPY"
+            query_upper = query.upper()
+            if "GOLD" in query_upper or "XAU" in query_upper: symbol = "XAUUSD"
+            elif "EUR" in query_upper: symbol = "EURUSD"
+            elif "JPY" in query_upper: symbol = "USDJPY"
             
             # Resolve user_id/fund_id UUIDs with deterministic fallback
             try:
@@ -2281,7 +2376,7 @@ class StrategyAdvisorAgent:
              
         return {"scratchpad": ["Data recovery tool unavailable."]}
 
-    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None):
+    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None, trade_id: str = None, is_journal_job: bool = False):
         """
         Main entry point.
         """
@@ -2301,7 +2396,9 @@ class StrategyAdvisorAgent:
             "is_satisfactory": False,
             "severity": "ROUTINE",
             "data_gap_detected": False,
-            "fact_check_result": None
+            "fact_check_result": None,
+            "trade_id": trade_id,
+            "is_journal_job": is_journal_job
         }
         
         import uuid
