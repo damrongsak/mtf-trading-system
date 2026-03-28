@@ -97,9 +97,22 @@ class IngestionTask(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Run health checks on startup."""
-    if not StartupGuard.run_all():
-        logger.critical("🛑 Startup Health Checks Failed. Exiting.")
+    # Redis + directories must pass — these are fast and local
+    redis_ok = StartupGuard.check_redis()
+    dirs_ok = StartupGuard.check_directories()
+    if not (redis_ok and dirs_ok):
+        logger.critical("🛑 Critical infrastructure check failed. Exiting.")
         os._exit(1)
+
+    # LLM tier checks are slow (external API calls) — run in background
+    # The service is available immediately; /health/llm shows live status
+    async def _check_llm_background():
+        tiers = StartupGuard.check_llm_tiers()
+        healthy = sum(1 for t in tiers.values() if t["status"] == "healthy")
+        logger.info(f"🔍 LLM Tier Readiness: {healthy}/3 tiers healthy at startup.")
+
+    asyncio.create_task(_check_llm_background())
+    logger.info("🏛️ Project Olympus Ingestor: ONLINE (LLM tier check running in background)")
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
@@ -111,6 +124,57 @@ async def root_redirect():
 async def health_check():
     """Basic health endpoint for monitoring."""
     return {"status": "healthy", "service": "app-ingestor", "version": "1.0.0"}
+
+
+@app.get("/health/llm", tags=["Health"])
+async def llm_health_check():
+    """
+    Professional 3-Tier LLM Health Check.
+
+    Probes each tier independently and returns:
+    - Per-tier status: healthy | credit_exhausted | unconfigured | error | unreachable
+    - overall_status: healthy (≥1 tier OK), degraded (some tiers down), critical (all down)
+    - cascade_ready: true if ingestion can proceed
+    """
+    import asyncio
+    from app.core.health import _check_openrouter_model, _check_gemini_direct
+
+    # Run all 3 probes concurrently
+    tier1_res, tier2_res, tier3_res = await asyncio.gather(
+        asyncio.to_thread(_check_openrouter_model, config.tier1_model, "tier1"),
+        asyncio.to_thread(_check_openrouter_model, config.tier2_model, "tier2"),
+        asyncio.to_thread(_check_gemini_direct, config.tier3_model, "tier3"),
+    )
+
+    tiers = {
+        "tier1_primary": tier1_res,
+        "tier2_secondary": tier2_res,
+        "tier3_last_resort": tier3_res,
+    }
+
+    healthy_count = sum(1 for t in tiers.values() if t["status"] == "healthy")
+    total = len(tiers)
+
+    if healthy_count == total:
+        overall = "healthy"
+    elif healthy_count > 0:
+        overall = "degraded"
+    else:
+        overall = "critical"
+
+    return {
+        "overall_status": overall,
+        "cascade_ready": healthy_count > 0,
+        "healthy_tiers": healthy_count,
+        "total_tiers": total,
+        "tiers": tiers,
+        "strategy": {
+            "tier1": config.tier1_model,
+            "tier2": config.tier2_model,
+            "tier3": config.tier3_model,
+        },
+    }
+
 
 async def run_ingestion_background(task_id: str, file_path: Path):
     """Background task to run the ingestion pipeline."""

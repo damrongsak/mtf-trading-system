@@ -470,6 +470,9 @@ services:
       - "6380:6379" # Changed host port to 6380 to avoid conflict with Redis
       - "3001:3000"
     restart: unless-stopped
+    # RDB persistence: snapshot every 60s if ≥1 key changed; also every 300s if ≥10 keys changed.
+    # This uses Redis-compatible BGSAVE/RDB — the recommended FalkorDB persistence method.
+    command: ["falkordb", "--save", "60", "1", "--save", "300", "10", "--dir", "/var/lib/falkordb/data"]
     deploy:
       resources:
         limits:
@@ -484,6 +487,7 @@ services:
     networks:
       - default
       - external
+
 
 networks:
   external:
