@@ -88,6 +88,17 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
         - `references/`: Contextual documents injected into sub-agents.
     - **Skill Execution**: Spawns a transient **Sub-Agent** with full skill instructions when triggered via `ExecuteSkillTool`.
 
+### 2.10. Real-Time Streaming & Cascading LLM Architecture (V2.2)
+- **Goal**: Ensure high availability, reliable feedback, and cost-optimized LLM operations.
+- **SSE Streaming**: 
+    - **Pipeline Progress**: The ingestor publishes JSON events to Redis Pub/Sub, which are streamed to clients via `/api/v1/stream/status/{task_id}`.
+    - **Interactive LLM**: Token-by-token streaming via `/api/v1/stream/llm` using `httpx` async generators.
+- **3-Tier Cascading Logic**:
+    - **Tier 1 (Pro)**: `gemini-2.5-pro` for complex hierarchical analysis and graph construction.
+    - **Tier 2 (Flash)**: `gemini-2.5-flash` for rapid summarization and standard ingestion.
+    - **Tier 3 (Backup)**: `gpt-4o-mini` via OpenRouter (SSE supported) to guarantee service continuity during primary provider outages.
+- **Connection Resilience**: Uses a singleton `httpx.AsyncClient` with connection pooling and specialized SSE parsers for provider-specific delta formats.
+
 ## 3. Architecture components
 
 ### 3.1. System Data Flow (Consolidated v3.0)
@@ -232,7 +243,11 @@ class MarketNarrative(BaseModel):
 - **POST** `/api/v1/ai/agent/memory/sync`
 - **Logic**: Background sync for trade learning.
 
-### 5.3. Legacy Endpoints (DEPRECATED)
+### 5.3. Streaming & Events (V2.2 Standard)
+- **GET** `/api/v1/stream/status/{task_id}`: Stream ingestion progress events.
+- **POST** `/api/v1/stream/llm`: Stream token-by-token LLM responses.
+
+### 5.4. Legacy Endpoints (DEPRECATED)
 - `/api/v1/ai/briefing` (Use `/ai/think?intent=briefing`)
 - `/api/v1/ai/market-analysis`
 - `/api/v1/ai/journal-analysis`

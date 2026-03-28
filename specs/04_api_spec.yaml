@@ -1207,6 +1207,44 @@ paths:
                   detail:
                     type: string
 
+  /api/v1/stream/status/{task_id}:
+    get:
+      summary: Stream real-time pipeline progress events
+      tags: [Knowledge]
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream of progress events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: "data: {\"event\": \"queued\", \"task_id\": \"...\"}"
+
+  /api/v1/stream/llm:
+    post:
+      summary: Stream token-by-token LLM responses
+      tags: [Knowledge]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMStreamRequest'
+      responses:
+        '200':
+          description: SSE stream of LLM tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: "data: {\"choices\": [{\"delta\": {\"content\": \"Hello\"}}]}"
+
   /api/v1/knowledge/tasks:
     get:
       summary: List all recent ingestion tasks
@@ -7532,3 +7570,17 @@ components:
           $ref: '#/components/schemas/AIThinkResponse'
         error:
           type: string
+
+    LLMStreamRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+        model:
+          type: string
+          nullable: true
+        temperature:
+          type: number
+          default: 0.7

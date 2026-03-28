@@ -98,6 +98,8 @@ class BaseIngestor(abc.ABC):
         # Deduplicate and optimize
         optimized_queries = deduplicate_cypher_queries(initial_valid)
         self.logger.info(f"⚖️ Query Optimization: {len(initial_valid)} → {len(optimized_queries)} queries")
+        if optimized_queries:
+            self.logger.info(f"🚀 Executing first query: {optimized_queries[0]}")
         
         result = self.client.execute_batch(optimized_queries)
         return result

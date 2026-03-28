@@ -33,6 +33,8 @@ WORKDIR /app
 # Copy virtual environment and source code from builder
 # Both stages now agree on /opt/venv
 COPY --from=builder /opt/venv /opt/venv
+# Copy uv into runtime so `uv run pytest` works inside exec sessions
+COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 COPY . .
 
 # Environment configuration

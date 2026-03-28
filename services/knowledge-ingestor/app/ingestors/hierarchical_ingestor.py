@@ -6,9 +6,10 @@ Professional large file ingestion for financial news & analysis
 import json
 import asyncio
 import hashlib
+import redis as redislib
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
 
 from app.base_ingestor import BaseIngestor
 from app.core.llm_utils import LLMUtils
@@ -167,12 +168,46 @@ class HierarchicalIngestor(BaseIngestor):
     
     def __init__(self):
         super().__init__("OlympusHierarchicalIngestor")
-        
-        # Tier sizes
-        self.summary_chars = 2000      # First 2KB for summary
-        self.detail_chars = 60_000     # 60KB for details (with chunking)
-        self.conclusion_chars = 3000    # Last 3KB for conclusion
+        self.summary_chars = 2000
+        self.detail_chars = 60_000
+        self.conclusion_chars = 3000
         self.semantic_chunker = SemanticChunker(chunk_size=12000, chunk_overlap=1000)
+
+    def _make_publisher(self, task_id: str | None) -> Callable:
+        """
+        Returns a publish(stage, **kwargs) function that sends JSON progress
+        events to Redis channel `progress:{task_id}`.
+        Creates one Redis connection per pipeline run (cheap, sync).
+        If task_id is None, returns a no-op.
+        """
+        if not task_id:
+            return lambda stage, **kw: None
+        try:
+            r = redislib.Redis(
+                host=config.falkor_host,
+                port=config.falkor_port,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+            )
+            r.ping()  # Verify connection immediately
+            self.logger.info(f"📡 Redis progress publisher ready for {task_id}")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to connect to Redis for progress tracking: {e}")
+            return lambda stage, **kw: None
+
+        def publish(stage: str, **kwargs) -> None:
+            try:
+                payload = json.dumps({
+                    "stage": stage,
+                    "task_id": task_id,
+                    "ts": datetime.now().isoformat(),
+                    **kwargs,
+                })
+                r.publish(f"progress:{task_id}", payload)
+            except Exception as e:
+                self.logger.warning(f"⚠️ Progress publish failed ({stage}) for {task_id}: {e}")
+
+        return publish
     
     def read_file_tiers(self, path: Path) -> Dict[str, Any]:
         """Read file and split into 3 tiers (supports PDF and text)"""
@@ -361,10 +396,11 @@ Total queries to merge: {len(all_queries)}
                         
         return enrichment_queries
 
-    async def run_pipeline(self, file_path: Path) -> HierarchicalResult:
+    async def run_pipeline(self, file_path: Path, task_id: str | None = None) -> HierarchicalResult:
         """Execute the full 3-tier pipeline with incremental sync check"""
         import time
         start_time = time.time()
+        publish = self._make_publisher(task_id)
         
         # Read content first for hashing
         if file_path.suffix.lower() == '.pdf':
@@ -384,6 +420,7 @@ Total queries to merge: {len(all_queries)}
         # Check if already exists in FalkorDB
         if self.client.check_content_exists(content_hash):
             self.logger.info(f"⏭️ Skipping {file_path.name} (Hash already exists: {content_hash})")
+            publish("skipped", filename=file_path.name, reason="Hash already exists")
             return HierarchicalResult(
                 filename=file_path.name,
                 status="complete",
@@ -394,20 +431,35 @@ Total queries to merge: {len(all_queries)}
                 processing_time_ms=int((time.time() - start_time) * 1000)
             )
 
-        # 1. Structural Analysis (Pillar 1)
+        # 1. Structural Analysis
         doc_analysis = await DocumentAnalyzer.analyze(full_content[:15000])
         self.logger.info(f"🧠 Global Context Acquired: {doc_analysis.title}")
+        publish("doc_analysis_done", title=doc_analysis.title, themes=doc_analysis.main_themes[:5])
 
         file_data = self.read_file_tiers(file_path)
-        
+
+        publish("summary_start", chars=len(file_data["tiers"]["summary"]))
         summary_task = self.process_tier_summary(file_data["tiers"]["summary"], doc_analysis)
-        detail_task = self.process_tier_detail(file_data["tiers"]["detail"], doc_analysis)
+
+        detail_content = file_data["tiers"]["detail"]
+        detail_chunks = len(detail_content) if isinstance(detail_content, list) else 1
+        publish("detail_start", chunks=detail_chunks)
+        detail_task = self.process_tier_detail(detail_content, doc_analysis)
+
+        publish("conclusion_start", chars=len(file_data["tiers"]["conclusion"]))
         conclusion_task = self.process_tier_conclusion(file_data["tiers"]["conclusion"], doc_analysis)
-        
+
         results = await asyncio.gather(summary_task, detail_task, conclusion_task)
+        publish("summary_done", queries=len(results[0].cypher_queries))
+        publish("detail_done", queries=len(results[1].cypher_queries))
+        publish("conclusion_done", queries=len(results[2].cypher_queries))
+
+        publish("committer_start")
         commit_result = await self.process_committer(results, file_path.name)
+        publish("committer_done", final_nodes=len(commit_result.get("final_nodes", [])))
         
-        # --- NEW: Intelligence Layer (Market + Web) ---
+        # Intelligence Layer (Market + Web)
+        publish("enrichment_start")
         web_queries = await self.enrich_with_intelligence(commit_result)
         final_queries = commit_result["final_queries"] + web_queries
         
@@ -420,13 +472,19 @@ Total queries to merge: {len(all_queries)}
         exec_result = self.execute_to_falkor(final_queries)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
-        
-        # Merge commit_result with execution stats for better visibility
         combined_committer_result = {**commit_result, **exec_result}
-        
+        status = "complete" if exec_result.get("success", 0) > 0 else "failed"
+
+        publish(
+            "pipeline_done" if status == "complete" else "pipeline_failed",
+            nodes=exec_result.get("success", 0),
+            total_queries=len(final_queries),
+            elapsed_ms=elapsed_ms,
+        )
+
         return HierarchicalResult(
             filename=file_path.name,
-            status="complete" if exec_result.get("success", 0) > 0 else "failed",
+            status=status,
             summary_queries=results[0].cypher_queries,
             detail_queries=results[1].cypher_queries,
             conclusion_queries=results[2].cypher_queries,
@@ -436,15 +494,17 @@ Total queries to merge: {len(all_queries)}
             total_edges=exec_result.get("total", sum(r.edge_count for r in results)) - exec_result.get("success", 0)
         )
 
-    async def run_pipeline_on_text(self, text: str, filename: str = "web_content.txt") -> HierarchicalResult:
+    async def run_pipeline_on_text(self, text: str, filename: str = "web_content.txt", task_id: str | None = None) -> HierarchicalResult:
         """Execute the 3-tier pipeline on raw text content with hash check"""
         import time
         start_time = time.time()
+        publish = self._make_publisher(task_id)
         
         content_hash = self._calculate_hash(text)
         
         if self.client.check_content_exists(content_hash):
             self.logger.info(f"⏭️ Skipping text ingestion (Hash already exists: {content_hash})")
+            publish("skipped", filename=filename, reason="Hash already exists")
             return HierarchicalResult(
                 filename=filename,
                 status="complete",
@@ -475,14 +535,24 @@ Total queries to merge: {len(all_queries)}
         tiers["conclusion"] = text[-conclusion_size:]
         
         # Process tiers
+        publish("summary_start", chars=len(tiers["summary"]))
         summary_task = self.process_tier_summary(tiers["summary"])
+        detail_chunks = len(tiers["detail"]) if isinstance(tiers["detail"], list) else 1
+        publish("detail_start", chunks=detail_chunks)
         detail_task = self.process_tier_detail(tiers["detail"])
+        publish("conclusion_start", chars=len(tiers["conclusion"]))
         conclusion_task = self.process_tier_conclusion(tiers["conclusion"])
         
         results = await asyncio.gather(summary_task, detail_task, conclusion_task)
+        publish("summary_done", queries=len(results[0].cypher_queries))
+        publish("detail_done", queries=len(results[1].cypher_queries))
+        publish("conclusion_done", queries=len(results[2].cypher_queries))
+        publish("committer_start")
         commit_result = await self.process_committer(results, filename)
+        publish("committer_done", final_nodes=len(commit_result.get("final_nodes", [])))
         
         # Intelligence Layer
+        publish("enrichment_start")
         web_queries = await self.enrich_with_intelligence(commit_result)
         final_queries = commit_result["final_queries"] + web_queries
         
@@ -495,13 +565,17 @@ Total queries to merge: {len(all_queries)}
         exec_result = self.execute_to_falkor(final_queries)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
-        
-        # Merge commit_result with execution stats for better visibility
         combined_committer_result = {**commit_result, **exec_result}
-        
+        status_txt = "complete" if exec_result.get("success", 0) > 0 else "failed"
+        publish(
+            "pipeline_done" if status_txt == "complete" else "pipeline_failed",
+            nodes=exec_result.get("success", 0),
+            elapsed_ms=elapsed_ms,
+        )
+
         return HierarchicalResult(
             filename=filename,
-            status="complete" if exec_result.get("success", 0) > 0 else "failed",
+            status=status_txt,
             summary_queries=results[0].cypher_queries,
             detail_queries=results[1].cypher_queries,
             conclusion_queries=results[2].cypher_queries,

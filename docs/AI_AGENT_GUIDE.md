@@ -148,7 +148,7 @@ Agents implementing or deploying strategies MUST follow the **7-Step Olympus Sta
 6.  **Shadow Trading**: (Requirement) Run on live data for 5+ days to measure execution drift.
 7.  **Drift Monitoring**: Use `PerformanceMonitor` to detect "Alpha Decay" and signal skipped vs. taken.
 
----
+***
 ## 🛡️ Step 8: Strategy Registration & Ticking (Institutional Guardrails)
 To maintain system integrity and auditability, AI agents MUST follow these rules when working with strategies:
 
@@ -252,5 +252,26 @@ For a fresh environment, AI agents should ensure the following sequence is execu
 4.  **Test Data**: `seed_test_data.py` (Enforces trader1 -> cTrader and trader2 -> OANDA mappings).
 5.  **Demo Setup**: `setup_ctrader_demo.py` (Configures `demo1` and account `9919680`).
 
----
+***
+## 📡 Step 14: Streaming & Resilience Standard (V2.2)
+To provide real-time feedback and high availability, agents MUST utilize the SSE streaming and cascading LLM architecture.
+
+### 1. Ingestion Progress Monitoring
+Instead of polling `/knowledge/status/{task_id}`, use the SSE endpoint:
+- **Endpoint**: `GET /api/v1/stream/status/{task_id}`
+- **Events**: `queued`, `processing`, `completed`, `failed`.
+- **Heartbeats**: The stream emits a `: heartbeat` every 15s to keep the connection alive.
+
+### 2. Cascading LLM Logic
+The `LLMUtils` class implements a 3-tier fallback to ensure zero-downtime:
+1. **Primary**: Gemini 2.5 Pro (Deep reasoning, long context).
+2. **Secondary**: Gemini 2.5 Flash (Fast, cost-effective).
+3. **Tertiary**: GPT-4o-mini (Reliable backup via OpenRouter using SSE-compatible protocols).
+
+### 3. Token Streaming
+For interactive chat or live analysis, use:
+- **Endpoint**: `POST /api/v1/stream/llm`
+- **Format**: Standard OpenAI-compatible SSE chunks (delta content).
+
+***
 **MTF Olympus** | *Institutional Alpha at Scale*

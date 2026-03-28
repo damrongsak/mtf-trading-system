@@ -15,6 +15,8 @@ Professional-grade agentic pipeline for ingesting complex financial research int
 - **Dual-Mode Ingestion**:
   - **Standard**: Fast, linear processing for smaller files.
   - **Hierarchical**: 3-tier recursive processing (Summary, Detail, Conclusion) for large research papers.
+- **Real-time SSE Streaming**: Asynchronous ingestion progress tracking and token-by-token LLM responses via Server-Sent Events.
+- **Cascading LLM Architecture**: 3-tier fallback logic (Gemini 2.5 Pro → Flash → GPT-4o) ensuring high availability and cost optimization.
 - **Agentic Pipeline**: Planner, Architect, and Committer agents working in sync.
 - **82%+ Test Coverage**: Robust suite using `pytest` with comprehensive mocking (LLM, Redis, FS).
 - **Modern Tooling**: Powered by `uv` for lightning-fast dependency management and Python 3.12.
@@ -48,7 +50,14 @@ Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the interacti
 
 ### 3. Trigger Ingestion via API
 ```bash
+# Returns a task_id immediately
 curl -X POST "http://localhost:8000/ingest" -F "file=@source_data/my_report.pdf"
+```
+
+### 4. Monitor Progress (Real-time)
+```bash
+# Stream ingestion events (queued, processing, completed)
+curl -N "http://localhost:8000/stream/status/{task_id}"
 ```
 
 ## Core Features
@@ -57,6 +66,7 @@ curl -X POST "http://localhost:8000/ingest" -F "file=@source_data/my_report.pdf"
 - **WebScout Agent**: Automated live web discovery using DuckDuckGo.
 - **Startup Guard**: Automated infrastructure validation on boot.
 - **Structured Logging**: JSON logs for professional production monitoring.
+- **SSE Streaming**: Native support for `EventSource` in the frontend for live pipeline heartbeats.
 
 ---
 

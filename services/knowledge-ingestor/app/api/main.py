@@ -17,6 +17,7 @@ from app.core.graph_linter import GraphLinter
 from app.utils.middleware import RequestIDMiddleware
 from app.utils.tracing import request_id_ctx
 from app.tools.falkordb_client import FalkorDBClient
+from app.api.streaming import router as streaming_router
 
 logger = get_logger("OlympusAPI")
 
@@ -26,6 +27,7 @@ app = FastAPI(
     version="1.0.0"
 )
 app.add_middleware(RequestIDMiddleware)
+app.include_router(streaming_router, prefix="/stream", tags=["Streaming"])
 
 # Global Ingestor & Linter Instances
 ingestor = HierarchicalIngestor()
@@ -184,7 +186,7 @@ async def run_ingestion_background(task_id: str, file_path: Path):
         tasks.update(task_id, status="processing")
         logger.info(f"🚀 Background Task {task_id} started for {file_path.name}")
         
-        result = await ingestor.run_pipeline(file_path)
+        result = await ingestor.run_pipeline(file_path, task_id=task_id)
         
         # Determine if it was a skip or actual completion
         final_status = "completed"
@@ -238,6 +240,16 @@ async def ingest_file(background_tasks: BackgroundTasks, file: UploadFile = File
         "status": "queued",
         "timestamp": datetime.now().isoformat()
     }
+
+    # Publish initial queued event for SSE subscribers
+    try:
+        import redis as redislib
+        r = redislib.Redis(host=config.falkor_host, port=config.falkor_port, socket_timeout=2)
+        import json as _json
+        r.publish(f"progress:{task_id}", _json.dumps({"stage": "queued", "task_id": task_id, "filename": file.filename, "ts": datetime.now().isoformat()}))
+        r.close()
+    except Exception:
+        pass
     
     background_tasks.add_task(run_ingestion_background, task_id, temp_path)
     
@@ -294,7 +306,7 @@ async def ingest_url(background_tasks: BackgroundTasks, request: UrlRequest):
                 return
 
             tasks.update(task_id, status="ingesting")
-            result = await ingestor.run_pipeline_on_text(text, filename=f"web_{task_id}")
+            result = await ingestor.run_pipeline_on_text(text, filename=f"web_{task_id}", task_id=task_id)
             
             tasks.update(
                 task_id, 
