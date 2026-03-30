@@ -985,6 +985,22 @@ entities:
         type: jsonb
         nullable: true
         description: "Additional trade metadata (confluence zones, indicators, etc.)"
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        nullable: true
+        description: "Owner of the trade (RBAC)"
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        nullable: true
+        description: "Fund that the trade belongs to (RBAC)"
+      - name: latency_ms
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+        description: "Total systemic latency (Signal -> Execution Fill)"
       - name: knowledge_context
         type: jsonb
         nullable: true
@@ -998,6 +1014,77 @@ entities:
         default: "now()"
         on_update: "now()"
         description: "Record last update timestamp"
+
+  PostMortem:
+    description: "AI-generated post-trade analysis and psychological journaling"
+    table_name: "post_mortems"
+    indexes:
+      - fields: ["trade_id"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: trade_id
+        type: uuid
+        foreign_key: "trades.trade_id"
+        required: true
+        unique: true
+        on_delete: "CASCADE"
+        description: "The trade record this analysis belongs to"
+      - name: summary
+        type: text
+        nullable: true
+        description: "AI summarized trade narrative"
+      - name: execution_quality
+        type: text
+        nullable: true
+        description: "AI feedback on order execution and slippage"
+      - name: psychological_analysis
+        type: text
+        nullable: true
+        description: "AI analysis of trader's mental state during the trade"
+      - name: alpha_lesson
+        type: text
+        nullable: true
+        description: "Key takeaway for future strategy refinement"
+      - name: slippage_pips
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+      - name: execution_latency_ms
+        type: decimal
+        precision: 10
+        scale: 4
+        nullable: true
+      - name: profit_efficiency
+        type: decimal
+        precision: 5
+        scale: 4
+        nullable: true
+      - name: classification
+        type: string
+        max_length: 50
+        nullable: true
+        description: "GOOD_WIN, BAD_WIN, GOOD_LOSS, BAD_LOSS"
+      - name: pnl_net
+        type: decimal
+        precision: 10
+        scale: 2
+        nullable: true
+        description: "Net profit after fees and slippage"
+      - name: smart_score
+        type: integer
+        nullable: true
+        description: "Proprietary AI score for trade quality (0-100)"
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+        on_update: "now()"
 
   StrategyRun:
     description: "Backtest run results and performance metrics"

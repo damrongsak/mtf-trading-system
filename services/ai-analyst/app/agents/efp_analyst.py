@@ -1,6 +1,5 @@
-import asyncio
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 import httpx
 import pandas as pd
 from app.core.config import settings

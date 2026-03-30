@@ -25,7 +25,7 @@ import instructor
 from google import genai
 from google.genai import types as genai_types
 from openai import OpenAI
-from typing import Dict, Any, Type, TypeVar, AsyncGenerator
+from typing import Dict, Any, Type, TypeVar, AsyncGenerator, cast
 from app.core.app_config import config
 
 T = TypeVar("T")
@@ -48,10 +48,10 @@ def _get_http_client() -> httpx.AsyncClient:
     if _http_client is None or _http_client.is_closed:
         _http_client = httpx.AsyncClient(
             timeout=httpx.Timeout(
-                connect=5.0,   # TCP handshake max 5s
-                read=120.0,    # SSE/response read max 120s
-                write=30.0,    # Request write max 30s
-                pool=5.0,      # Pool acquire wait max 5s
+                connect=5.0,  # TCP handshake max 5s
+                read=120.0,  # SSE/response read max 120s
+                write=30.0,  # Request write max 30s
+                pool=5.0,  # Pool acquire wait max 5s
             ),
             limits=httpx.Limits(
                 max_keepalive_connections=10,
@@ -63,9 +63,19 @@ def _get_http_client() -> httpx.AsyncClient:
 
 # ─────────────────────────── Internal Helpers ────────────────────────────────
 
+
 def _is_retryable_error(e: Exception) -> bool:
     msg = str(e)
-    return any(x in msg for x in ["402", "429", "Insufficient credits", "rate-limited", "Payment Required"])
+    return any(
+        x in msg
+        for x in [
+            "402",
+            "429",
+            "Insufficient credits",
+            "rate-limited",
+            "Payment Required",
+        ]
+    )
 
 
 def _openrouter_headers(tier_label: str) -> dict:
@@ -83,6 +93,7 @@ def _get_gemini_client() -> genai.Client:
 
 
 # ─────────────────────────── LLMUtils ────────────────────────────────────────
+
 
 class LLMUtils:
     """
@@ -118,11 +129,14 @@ class LLMUtils:
             try:
                 logger.debug(f"[Tier 1] Structured → {config.tier1_model}")
                 client = instructor.from_openai(
-                    OpenAI(base_url="https://openrouter.ai/api/v1", api_key=config.openrouter_api_key),
+                    OpenAI(
+                        base_url="https://openrouter.ai/api/v1",
+                        api_key=config.openrouter_api_key,
+                    ),
                     mode=instructor.Mode.JSON,
                 )
                 result = await asyncio.to_thread(
-                    client.chat.completions.create,
+                    cast(Any, client.chat.completions.create),
                     model=config.tier1_model,
                     response_model=response_model,
                     messages=messages,
@@ -131,22 +145,27 @@ class LLMUtils:
                     extra_headers=_openrouter_headers(f"{tier}-T1-s"),
                 )
                 logger.info(f"✅ [Tier 1] {config.tier1_model}: OK")
-                return result
+                return cast(T, result)
             except Exception as e:
                 last_error = e
                 level = "warning" if _is_retryable_error(e) else "error"
-                getattr(logger, level)(f"⚠️ [Tier 1] {config.tier1_model} failed: {e} → Tier 2")
+                getattr(logger, level)(
+                    f"⚠️ [Tier 1] {config.tier1_model} failed: {e} → Tier 2"
+                )
 
         # ── Tier 2 ────────────────────────────────────────────────────────────
         if config.openrouter_api_key:
             try:
                 logger.debug(f"[Tier 2] Structured → {config.tier2_model}")
                 client = instructor.from_openai(
-                    OpenAI(base_url="https://openrouter.ai/api/v1", api_key=config.openrouter_api_key),
+                    OpenAI(
+                        base_url="https://openrouter.ai/api/v1",
+                        api_key=config.openrouter_api_key,
+                    ),
                     mode=instructor.Mode.JSON,
                 )
                 result = await asyncio.to_thread(
-                    client.chat.completions.create,
+                    cast(Any, client.chat.completions.create),
                     model=config.tier2_model,
                     response_model=response_model,
                     messages=messages,
@@ -155,25 +174,29 @@ class LLMUtils:
                     extra_headers=_openrouter_headers(f"{tier}-T2-s"),
                 )
                 logger.info(f"✅ [Tier 2] {config.tier2_model}: OK")
-                return result
+                return cast(T, result)
             except Exception as e:
                 last_error = e
-                logger.warning(f"⚠️ [Tier 2] {config.tier2_model} failed: {e} → Tier 3 (Gemini Direct)")
+                logger.warning(
+                    f"⚠️ [Tier 2] {config.tier2_model} failed: {e} → Tier 3 (Gemini Direct)"
+                )
 
         # ── Tier 3: Google Gemini Direct ──────────────────────────────────────
         if config.google_api_key:
             try:
                 google_model = config.tier3_model.split("/")[-1]
                 logger.debug(f"[Tier 3] Structured → Gemini Direct: {google_model}")
-                patched = instructor.from_provider(f"google/{google_model}", api_key=config.google_api_key)
+                patched = instructor.from_provider(
+                    f"google/{google_model}", api_key=config.google_api_key
+                )
                 result = await asyncio.to_thread(
-                    patched.create,
+                    cast(Any, patched.create),
                     response_model=response_model,
                     messages=messages,
                     max_retries=max_retries,
                 )
                 logger.info(f"✅ [Tier 3] Gemini Direct ({google_model}): OK")
-                return result
+                return cast(T, result)
             except Exception as e:
                 last_error = e
                 logger.error(f"❌ [Tier 3] Gemini Direct failed: {e}")
@@ -225,9 +248,7 @@ class LLMUtils:
             if result is not None:
                 return result
 
-        logger.critical(
-            f"🚨 ALL 3 LLM TIERS FAILED. Last error: {last_error}"
-        )
+        logger.critical(f"🚨 ALL 3 LLM TIERS FAILED. Last error: {last_error}")
         return {"error": f"All 3 LLM tiers exhausted. Last error: {last_error}"}
 
     # ── SSE Streaming: Single OpenRouter Tier ────────────────────────────────
@@ -260,7 +281,10 @@ class LLMUtils:
             "temperature": 0.1,
             "stream": True,
         }
-        yield {"event": "tier_start", "data": {"tier_label": tier_label, "model": model}}
+        yield {
+            "event": "tier_start",
+            "data": {"tier_label": tier_label, "model": model},
+        }
 
         client = _get_http_client()
         full_text = ""
@@ -268,20 +292,42 @@ class LLMUtils:
 
         try:
             async with client.stream(
-                "POST", url,
+                "POST",
+                url,
                 json=payload,
                 headers=_openrouter_headers(tier_label),
             ) as response:
                 if response.status_code == 402:
-                    yield {"event": "error", "data": {"code": 402, "reason": "Insufficient credits", "model": model}}
+                    yield {
+                        "event": "error",
+                        "data": {
+                            "code": 402,
+                            "reason": "Insufficient credits",
+                            "model": model,
+                        },
+                    }
                     return
                 if response.status_code == 429:
                     retry_after = response.headers.get("Retry-After", "unknown")
-                    yield {"event": "error", "data": {"code": 429, "reason": f"Rate limited (retry-after:{retry_after}s)", "model": model}}
+                    yield {
+                        "event": "error",
+                        "data": {
+                            "code": 429,
+                            "reason": f"Rate limited (retry-after:{retry_after}s)",
+                            "model": model,
+                        },
+                    }
                     return
                 if response.status_code != 200:
                     err_body = await response.aread()
-                    yield {"event": "error", "data": {"code": response.status_code, "reason": err_body.decode("utf-8", errors="replace")[:300], "model": model}}
+                    yield {
+                        "event": "error",
+                        "data": {
+                            "code": response.status_code,
+                            "reason": err_body.decode("utf-8", errors="replace")[:300],
+                            "model": model,
+                        },
+                    }
                     return
 
                 async for line in response.aiter_lines():
@@ -301,13 +347,22 @@ class LLMUtils:
                         continue
 
         except httpx.ConnectTimeout:
-            yield {"event": "error", "data": {"reason": f"Connect timeout (5s) for {model}", "model": model}}
+            yield {
+                "event": "error",
+                "data": {"reason": f"Connect timeout (5s) for {model}", "model": model},
+            }
             return
         except httpx.ReadTimeout:
-            yield {"event": "error", "data": {"reason": f"Read timeout (120s) for {model}", "model": model}}
+            yield {
+                "event": "error",
+                "data": {"reason": f"Read timeout (120s) for {model}", "model": model},
+            }
             return
         except httpx.NetworkError as e:
-            yield {"event": "error", "data": {"reason": f"Network error: {e}", "model": model}}
+            yield {
+                "event": "error",
+                "data": {"reason": f"Network error: {e}", "model": model},
+            }
             return
         except Exception as e:
             logger.error(f"❌ [{tier_label}] Unexpected: {e}")
@@ -315,7 +370,15 @@ class LLMUtils:
             return
 
         logger.info(f"✅ [{tier_label}] {model}: streamed {token_count} tokens")
-        yield {"event": "tier_done", "data": {"tier_label": tier_label, "model": model, "tokens": token_count, "full_text": full_text}}
+        yield {
+            "event": "tier_done",
+            "data": {
+                "tier_label": tier_label,
+                "model": model,
+                "tokens": token_count,
+                "full_text": full_text,
+            },
+        }
 
     # ── SSE Streaming: Cascading 3-Tier ──────────────────────────────────────
 
@@ -348,14 +411,24 @@ class LLMUtils:
             ):
                 if event["event"] == "error":
                     had_error = True
-                    yield {"event": "fallback", "data": {**event["data"], "from_tier": 1, "model": config.tier1_model}}
+                    yield {
+                        "event": "fallback",
+                        "data": {
+                            **event["data"],
+                            "from_tier": 1,
+                            "model": config.tier1_model,
+                        },
+                    }
                     break
                 if event["event"] == "delta":
                     full_text += event["data"]["text"]
                 yield event
 
             if not had_error and full_text:
-                yield {"event": "done", "data": {"full_text": full_text, "tier_used": 1}}
+                yield {
+                    "event": "done",
+                    "data": {"full_text": full_text, "tier_used": 1},
+                }
                 return
 
         # ── Tier 2 ────────────────────────────────────────────────────────────
@@ -370,25 +443,40 @@ class LLMUtils:
             ):
                 if event["event"] == "error":
                     had_error = True
-                    yield {"event": "fallback", "data": {**event["data"], "from_tier": 2, "model": config.tier2_model}}
+                    yield {
+                        "event": "fallback",
+                        "data": {
+                            **event["data"],
+                            "from_tier": 2,
+                            "model": config.tier2_model,
+                        },
+                    }
                     break
                 if event["event"] == "delta":
                     full_text += event["data"]["text"]
                 yield event
 
             if not had_error and full_text:
-                yield {"event": "done", "data": {"full_text": full_text, "tier_used": 2}}
+                yield {
+                    "event": "done",
+                    "data": {"full_text": full_text, "tier_used": 2},
+                }
                 return
 
         # ── Tier 3: Google Gemini Streaming ───────────────────────────────────
         if config.google_api_key:
             google_model = config.tier3_model.split("/")[-1]
-            yield {"event": "tier_start", "data": {"tier_label": f"{tier}-T3", "model": config.tier3_model}}
+            yield {
+                "event": "tier_start",
+                "data": {"tier_label": f"{tier}-T3", "model": config.tier3_model},
+            }
             try:
                 gemini_client = _get_gemini_client()
                 full_text, token_count = "", 0
                 full_prompt = f"SYSTEM: {system_prompt}\n\nUSER: {user_prompt}"
-                async for chunk in await gemini_client.aio.models.generate_content_stream(
+                async for (
+                    chunk
+                ) in await gemini_client.aio.models.generate_content_stream(
                     model=google_model,
                     contents=full_prompt,
                     config=genai_types.GenerateContentConfig(temperature=0.1),
@@ -398,13 +486,33 @@ class LLMUtils:
                         token_count += 1
                         yield {"event": "delta", "data": {"text": chunk.text}}
 
-                logger.info(f"✅ [Tier 3] Gemini ({google_model}): streamed {token_count} tokens")
-                yield {"event": "tier_done", "data": {"tier_label": f"{tier}-T3", "model": config.tier3_model, "tokens": token_count, "full_text": full_text}}
-                yield {"event": "done", "data": {"full_text": full_text, "tier_used": 3}}
+                logger.info(
+                    f"✅ [Tier 3] Gemini ({google_model}): streamed {token_count} tokens"
+                )
+                yield {
+                    "event": "tier_done",
+                    "data": {
+                        "tier_label": f"{tier}-T3",
+                        "model": config.tier3_model,
+                        "tokens": token_count,
+                        "full_text": full_text,
+                    },
+                }
+                yield {
+                    "event": "done",
+                    "data": {"full_text": full_text, "tier_used": 3},
+                }
                 return
             except Exception as e:
                 logger.error(f"❌ [Tier 3] Gemini streaming failed: {e}")
-                yield {"event": "fallback", "data": {"from_tier": 3, "model": config.tier3_model, "reason": str(e)}}
+                yield {
+                    "event": "fallback",
+                    "data": {
+                        "from_tier": 3,
+                        "model": config.tier3_model,
+                        "reason": str(e),
+                    },
+                }
 
         logger.critical("🚨 ALL 3 LLM TIERS FAILED (streaming).")
         yield {"event": "error", "data": {"message": "All 3 LLM tiers exhausted"}}
@@ -433,13 +541,19 @@ class LLMUtils:
         try:
             logger.debug(f"[{tier_label}] OpenRouter/{model}…")
             client = _get_http_client()
-            response = await client.post(url, json=payload, headers=_openrouter_headers(tier_label))
+            response = await client.post(
+                url, json=payload, headers=_openrouter_headers(tier_label)
+            )
             if response.status_code == 200:
                 content = response.json()["choices"][0]["message"]["content"]
                 logger.info(f"✅ [{tier_label}] {model}: OK")
                 return LLMUtils.parse_json_response(content), None
             elif response.status_code in [402, 429]:
-                type_err = "Insufficient credits" if response.status_code == 402 else "Rate limited"
+                type_err = (
+                    "Insufficient credits"
+                    if response.status_code == 402
+                    else "Rate limited"
+                )
                 err = f"{response.status_code} {type_err} for {model}"
                 logger.warning(f"⚠️ [{tier_label}] {err}")
                 return None, err
@@ -500,7 +614,7 @@ class LLMUtils:
         clean = re.sub(r"```\s*$", "", clean, flags=re.MULTILINE).strip()
 
         try:
-            return json.loads(clean)
+            return cast(Dict[str, Any], json.loads(clean))
         except json.JSONDecodeError:
             pass
 
@@ -508,7 +622,7 @@ class LLMUtils:
         brace_end = clean.rfind("}")
         if brace_start != -1 and brace_end > brace_start:
             try:
-                return json.loads(clean[brace_start : brace_end + 1])
+                return cast(Dict[str, Any], json.loads(clean[brace_start : brace_end + 1]))
             except json.JSONDecodeError:
                 pass
 
@@ -517,7 +631,7 @@ class LLMUtils:
             if "\n" in clean:
                 fixed = clean.replace("\n", "\\n")
             fixed = re.sub(r"(\w+):", r'"\1":', fixed)
-            return json.loads(fixed)
+            return cast(Dict[str, Any], json.loads(fixed))
         except json.JSONDecodeError:
             pass
 

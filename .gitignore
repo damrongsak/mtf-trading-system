@@ -59,3 +59,15 @@ services/data-pipeline/debug_output.txt
 debug_*.py
 *.xlsx
 trained_models/
+backups/
+
+# AI Agent Specific (Environment Local)
+.agent/skills/python-patterns
+.agent/skills/python-testing
+.agent/skills/quant-mastery
+.agent/skills/ai-agent-guardrails (if needed)
+
+# Service Specific Temp Files
+services/knowledge-ingestor/logs/
+services/knowledge-ingestor/app/test_output.txt
+services/knowledge-ingestor/test_report.txt

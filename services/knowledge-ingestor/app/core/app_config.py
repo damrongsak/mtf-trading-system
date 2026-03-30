@@ -41,6 +41,11 @@ class AppConfig:
         self.model_name = self.tier1_model
         self.fallback_model_name = self.tier2_model
 
+        # ── Performance & Concurrency ──────────────────────────
+        self.ki_max_concurrency = int(os.getenv("KI_MAX_CONCURRENCY", 5))
+        self.ki_tool_timeout = int(os.getenv("KI_TOOL_TIMEOUT", 15))
+        self.ki_log_format = os.getenv("KI_LOG_FORMAT", "human")
+
         # ── File System Paths ───────────────────────────────────
         self.source_dir = self.root_dir / "source_data"
         self.archive_dir = self.source_dir / "archive"
@@ -63,4 +68,3 @@ class AppConfig:
 
 # Singleton instance
 config = AppConfig()
-

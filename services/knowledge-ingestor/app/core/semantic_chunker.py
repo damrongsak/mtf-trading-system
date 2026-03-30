@@ -9,6 +9,7 @@ from typing import List
 
 logger = logging.getLogger("SemanticChunker")
 
+
 class SemanticChunker:
     """
     Splits text into semantically meaningful chunks.
@@ -19,7 +20,7 @@ class SemanticChunker:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         # Pattern to identify Markdown headers (#, ##, ###, ####)
-        self.header_pattern = re.compile(r'(?m)^(#{1,4}\s+.+)$')
+        self.header_pattern = re.compile(r"(?m)^(#{1,4}\s+.+)$")
 
     def split_text(self, text: str) -> List[str]:
         """
@@ -30,7 +31,7 @@ class SemanticChunker:
 
         # 1. First split by highest level headers to get logical sections
         sections = self._split_by_headers(text)
-        
+
         # 2. Further split sections that are too large
         final_chunks = []
         for section in sections:
@@ -41,25 +42,27 @@ class SemanticChunker:
 
         # 3. Apply overlap if needed (currently simple append for continuity)
         # Note: In a fully semantic version, overlap would be more complex
-        
-        logger.info(f"📄 Semantic Split: {len(text)} chars → {len(final_chunks)} chunks")
+
+        logger.info(
+            f"📄 Semantic Split: {len(text)} chars → {len(final_chunks)} chunks"
+        )
         return final_chunks
 
     def _split_by_headers(self, text: str) -> List[str]:
         """Splits text by Markdown headers."""
         # Find all header positions
         splits = [m.start() for m in self.header_pattern.finditer(text)]
-        
+
         if not splits:
             return [text]
-            
+
         chunks = []
         last_idx = 0
         for split_idx in splits:
             if split_idx > last_idx:
                 chunks.append(text[last_idx:split_idx].strip())
             last_idx = split_idx
-        
+
         chunks.append(text[last_idx:].strip())
         return [c for c in chunks if c]
 
@@ -81,7 +84,7 @@ class SemanticChunker:
             else:
                 if current_chunk:
                     chunks.append(current_chunk.strip())
-                
+
                 # If a single paragraph is larger than chunk_size, split by sentences
                 if len(p) > self.chunk_size:
                     sentences = self._split_by_sentences(p)
@@ -103,5 +106,5 @@ class SemanticChunker:
     def _split_by_sentences(self, text: str) -> List[str]:
         """Naive sentence splitter using regex."""
         # Split by . ! or ? followed by whitespace and a capital letter
-        sentence_endings = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
+        sentence_endings = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
         return sentence_endings.split(text)

@@ -285,6 +285,8 @@ services:
     volumes:
       - ./services/knowledge-ingestor:/app
       - /app/.venv
+      - ./temp:/app/temp:ro
+      - ./temp/md_economics_real:/knowledge_source:ro
     depends_on:
       falkordb:
         condition: service_healthy
@@ -297,6 +299,7 @@ services:
       - MODEL_NAME=${KI_MODEL_NAME:-google/gemini-2.5-flash}
       - FALLBACK_MODEL_NAME=${KI_FALLBACK_MODEL_NAME:-google/gemini-2.0-flash-001}
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

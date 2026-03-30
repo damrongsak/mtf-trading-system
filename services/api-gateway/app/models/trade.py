@@ -3,7 +3,7 @@ Trade SQLAlchemy model.
 Source of truth: specs/03_data_model.yaml -> Trade entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text, Boolean, BigInteger
+from sqlalchemy import Column, String, DateTime, Numeric, Integer, Enum as SQLEnum, ForeignKey, Index, func, CheckConstraint, Text, Boolean, BigInteger, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
@@ -132,6 +132,14 @@ class Trade(Base):
                        onupdate=func.now(),
                        comment="Record last update timestamp")
 
+    # [PHASE 12] RBAC & Institutional Tracking
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True,
+                     comment="Owner of the trade (RBAC)")
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=True, index=True,
+                     comment="Fund that the trade belongs to (RBAC)")
+    latency_ms = Column(Numeric(10, 4), nullable=True,
+                        comment="Total systemic latency (Signal -> Execution Fill)")
+
     # Relationship to StrategyRun
     strategy_run = relationship("StrategyRun", back_populates="trades")
 
@@ -149,3 +157,29 @@ class Trade(Base):
 
     def __repr__(self):
         return f"<Trade {self.trade_id} {self.symbol} {self.direction.value} {self.status.value} risk=${self.risk_usd}>"
+
+
+class PostMortem(Base):
+    __tablename__ = "post_mortems"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trade_id = Column(UUID(as_uuid=True), ForeignKey("trades.trade_id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    
+    summary = Column(Text, nullable=True)
+    classification = Column(String(50), nullable=True, comment="GOOD_WIN, BAD_WIN, GOOD_LOSS, BAD_LOSS")
+    execution_quality = Column(Text, nullable=True)
+    psychological_analysis = Column(Text, nullable=True)
+    alpha_lesson = Column(Text, nullable=True)
+    
+    # Metrics
+    slippage_pips = Column(Float, nullable=True)
+    execution_latency_ms = Column(Float, nullable=True)
+    profit_efficiency = Column(Float, nullable=True)
+    
+    # [PHASE 28] AI Institutional Hardening
+    pnl_net = Column(Numeric(10, 2), nullable=True, comment="Net profit after fees and slippage")
+    smart_score = Column(Integer, nullable=True, comment="Proprietary AI score for trade quality (0-100)")
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

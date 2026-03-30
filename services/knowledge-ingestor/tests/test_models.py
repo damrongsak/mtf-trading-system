@@ -1,6 +1,7 @@
 import unittest
 from app.core.models import ChunkResult, IngestionResult, HierarchicalResult
 
+
 class TestModels(unittest.TestCase):
     def test_chunk_result(self):
         res = ChunkResult(tier="summary", cypher_queries=["CREATE (...)"])
@@ -14,9 +15,12 @@ class TestModels(unittest.TestCase):
         self.assertEqual(res.status, "complete")
 
     def test_hierarchical_result(self):
-        res = HierarchicalResult(filename="test.md", status="complete", category="macro")
+        res = HierarchicalResult(
+            filename="test.md", status="complete", category="macro"
+        )
         self.assertEqual(res.category, "macro")
         self.assertEqual(res.status, "complete")
+
 
 if __name__ == "__main__":
     unittest.main()

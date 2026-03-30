@@ -16,6 +16,26 @@ router = APIRouter(
 
 KNOWLEDGE_SERVICE_URL = os.getenv("KNOWLEDGE_INGESTOR_URL", "http://knowledge-ingestor:8000")
 
+@router.delete("/graph")
+async def delete_graph(request: Request):
+    """Proxy graph deletion request to Knowledge Ingestor."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with await get_internal_client() as client:
+        try:
+            response = await client.delete(
+                f"{KNOWLEDGE_SERVICE_URL}/graph",
+                headers=headers,
+                timeout=10.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail="Knowledge Ingestor service unreachable")
+
 @router.post("/ingest", status_code=202)
 async def ingest_file(request: Request, file: UploadFile = File(...)):
     """Proxy file upload to Knowledge Ingestor."""
@@ -73,6 +93,27 @@ async def ingest_url(request: Request, payload: Dict[str, Any] = Body(...)):
         try:
             response = await client.post(
                 f"{KNOWLEDGE_SERVICE_URL}/ingest/url",
+                json=payload,
+                headers=headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail="Knowledge Ingestor service unreachable")
+
+@router.post("/ingest/directory", status_code=202)
+async def ingest_directory(request: Request, payload: Dict[str, Any] = Body(...)):
+    """Proxy directory ingestion request to Knowledge Ingestor."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with await get_internal_client() as client:
+        try:
+            response = await client.post(
+                f"{KNOWLEDGE_SERVICE_URL}/ingest/directory",
                 json=payload,
                 headers=headers,
                 timeout=30.0

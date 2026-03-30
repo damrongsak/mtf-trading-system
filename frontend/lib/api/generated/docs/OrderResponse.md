@@ -7,7 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **string** |  | [optional] [default to undefined]
 **instrument** | **string** |  | [optional] [default to undefined]
-**units** | **string** | Signed order units (positive for BUY, negative for SELL). | [optional] [default to undefined]
+**units** | **string** | Absolute order units. | [optional] [default to undefined]
 **price** | **string** |  | [optional] [default to undefined]
 **time** | **string** |  | [optional] [default to undefined]
 

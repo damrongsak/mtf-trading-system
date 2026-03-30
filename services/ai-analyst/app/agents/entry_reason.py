@@ -19,7 +19,6 @@ class EntryReasonAgent:
         Summarizes the entry logic and assigns a conviction score.
         """
         trade_id = trade_data.get("id") or trade_data.get("trace_id")
-        symbol = trade_data.get("symbol")
         
         try:
             trade_json = safe_json_dumps(trade_data, indent=2)

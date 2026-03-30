@@ -223,39 +223,39 @@ paths:
                 $ref: '#/components/schemas/SystemPromptResponse'
 
   /api/v1/prompts/{id}/render:
-     post:
-       summary: Render prompt with variables
-       parameters:
-         - name: id
-           in: path
-           required: true
-           schema:
-             type: string
-             format: uuid
-       requestBody:
-         content:
-           application/json:
-             schema:
-               type: object
-               required:
-                 - variables
-               properties:
-                 variables:
-                   type: object
-       responses:
-         '200':
-            description: Rendered Text
-            content:
-              application/json:
-                schema:
+    post:
+      summary: Render prompt with variables
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - variables
+              properties:
+                variables:
                   type: object
-                  properties:
-                     rendered_text:
-                       type: string
-                     missing_variables:
-                       type: array
-                       items:
-                         type: string
+      responses:
+        '200':
+          description: Rendered Text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rendered_text:
+                    type: string
+                  missing_variables:
+                    type: array
+                    items:
+                      type: string
 
   /api/v1/ai/agents:
     get:
@@ -1085,7 +1085,20 @@ paths:
                   timestamp:
                     type: string
         '503':
-           description: Agent Unavailable
+          description: Agent Unavailable
+  /api/v1/knowledge/graph:
+    delete:
+      summary: Full reset of the knowledge graph
+      description: Deletes all nodes and relationships in FalkorDB.
+      tags: [Knowledge]
+      responses:
+        '200':
+          description: Graph deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   /api/v1/knowledge/ingest:
     post:
       summary: Upload a file for knowledge ingestion
@@ -1179,7 +1192,46 @@ paths:
                     type: string
                   url:
                     type: string
-
+    
+  /api/v1/knowledge/ingest/directory:
+    post:
+      summary: Trigger bulk ingestion from a local server directory
+      tags: [Knowledge]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Absolute or relative path to the directory (e.g., temp/markdown_economics)
+                force:
+                  type: boolean
+                  default: false
+                  description: If true, re-ingest files even if hash already exists
+                clean_first:
+                  type: boolean
+                  default: false
+                  description: If true, delete the graph before starting ingestion
+      responses:
+        '202':
+          description: Directory ingestion job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch_id:
+                    type: string
+                  total_files:
+                    type: integer
+                  status:
+                    type: string
+    
   /api/v1/knowledge/status/{task_id}:
     get:
       summary: Get the status of a specific ingestion task
@@ -2434,7 +2486,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse_dict'
+                $ref: '#/components/schemas/APIResponse'
 
   /api/v1/strategies/instantiate:
     post:

@@ -5,6 +5,8 @@
 
 * `Open` (value: `'OPEN'`)
 
+* `Pending` (value: `'PENDING'`)
+
 * `Closed` (value: `'CLOSED'`)
 
 * `Rejected` (value: `'REJECTED'`)

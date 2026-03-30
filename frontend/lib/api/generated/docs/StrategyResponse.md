@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **config_json** | **object** |  | [optional] [default to undefined]
 **risk_settings** | **object** |  | [optional] [default to undefined]
 **is_active** | **boolean** |  | [optional] [default to undefined]
+**last_signal** | [**ProfessionalStrategySignal**](ProfessionalStrategySignal.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -26,6 +27,7 @@ const instance: StrategyResponse = {
     config_json,
     risk_settings,
     is_active,
+    last_signal,
 };
 ```
 

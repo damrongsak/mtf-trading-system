@@ -3,16 +3,13 @@ import uuid
 
 import json
 import asyncio
-from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from app.services.gemini import GeminiClient
 from app.services.rag import RAGService
-from app.core.config import settings
 
 from app.utils.json import safe_json_dumps
-from app.models.trade import Trade, PostMortem, TradeStatus
+from app.models.trade import PostMortem
 from app.database import SessionLocal
-from app.tools.journal import FetchTradeDetailsTool
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +23,7 @@ class PostMortemAgent:
         self.rag = rag_service
 
     async def analyze_trade(self, trade_data: Dict[str, Any], user_id: str) -> Optional[Dict[str, Any]]:
+        """
         Runs a post-mortem analysis on a single closed trade.
         """
         # --- Phase 69: Hardening - Support Nested Trade Data ---
@@ -37,7 +35,6 @@ class PostMortemAgent:
         logger.info(f"🛡️ Post-Mortem Specialist: Identified trade_id: {trade_id}")
         
         symbol = actual_data.get("symbol")
-        result = actual_data.get("pnl_usd") or actual_data.get("result_pnl") or actual_data.get("profit") or 0
         
         # Serialize trade_data safely (handles UUIDs, Decimals, etc.)
         try:

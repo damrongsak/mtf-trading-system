@@ -97,22 +97,3 @@ class RootCauseAnalysis(Base):
     
     journal_entry = relationship("JournalEntry", back_populates="root_cause")
 
-class PostMortem(Base):
-    __tablename__ = "post_mortems"
-    __table_args__ = {"extend_existing": True}
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    trade_id = Column(UUID(as_uuid=True), ForeignKey("trades.trade_id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
-    
-    summary = Column(Text, nullable=True)
-    execution_quality = Column(Text, nullable=True)
-    psychological_analysis = Column(Text, nullable=True)
-    alpha_lesson = Column(Text, nullable=True)
-    
-    # Metrics
-    slippage_pips = Column(Float, nullable=True)
-    execution_latency_ms = Column(Float, nullable=True)
-    profit_efficiency = Column(Float, nullable=True)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

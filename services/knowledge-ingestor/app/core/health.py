@@ -20,6 +20,7 @@ logger = get_logger("StartupGuard")
 
 # ─────────────────────────── Per-Tier Health Checks ──────────────────────────
 
+
 def _check_openrouter_model(model: str, tier_label: str) -> Dict:
     """
     Probe a specific OpenRouter model via the /generation endpoint.
@@ -49,7 +50,9 @@ def _check_openrouter_model(model: str, tier_label: str) -> Dict:
                 "model": model,
                 "provider": "openrouter",
                 "status": "healthy" if found else "model_not_found",
-                "note": "OK" if found else f"Model '{model}' not listed in OpenRouter catalogue",
+                "note": "OK"
+                if found
+                else f"Model '{model}' not listed in OpenRouter catalogue",
             }
         elif resp.status_code == 402:
             return {
@@ -126,6 +129,7 @@ def _check_gemini_direct(model_id: str, tier_label: str) -> Dict:
 
 # ─────────────────────────── StartupGuard ────────────────────────────────────
 
+
 class StartupGuard:
     """Industrial-grade startup validation and health checks."""
 
@@ -133,7 +137,9 @@ class StartupGuard:
     def check_redis() -> bool:
         """Verify Redis/FalkorDB connectivity."""
         try:
-            r = Redis(host=config.falkor_host, port=config.falkor_port, socket_timeout=5)
+            r = Redis(
+                host=config.falkor_host, port=config.falkor_port, socket_timeout=5
+            )
             r.ping()
             logger.info("✅ Redis/FalkorDB Connectivity: OK")
             return True
@@ -159,11 +165,17 @@ class StartupGuard:
             if status == "healthy":
                 logger.info(f"✅ LLM {tier.upper()} ({model}): OK")
             elif status == "credit_exhausted":
-                logger.warning(f"⚠️ LLM {tier.upper()} ({model}): Credit Exhausted — will skip to next tier")
+                logger.warning(
+                    f"⚠️ LLM {tier.upper()} ({model}): Credit Exhausted — will skip to next tier"
+                )
             elif status == "unconfigured":
-                logger.warning(f"⚠️ LLM {tier.upper()} ({model}): API key not configured")
+                logger.warning(
+                    f"⚠️ LLM {tier.upper()} ({model}): API key not configured"
+                )
             else:
-                logger.error(f"❌ LLM {tier.upper()} ({model}): {status} — {info.get('note')}")
+                logger.error(
+                    f"❌ LLM {tier.upper()} ({model}): {status} — {info.get('note')}"
+                )
 
         # Alert if ALL tiers are degraded
         all_down = all(r["status"] not in ("healthy",) for r in results.values())
@@ -212,7 +224,9 @@ class StartupGuard:
         if success:
             logger.info("🏛️ Project Olympus Readiness: COMMAND AUTHORIZED")
         else:
-            logger.critical("🚨 Project Olympus Readiness: MISSION ABORTED. Check infrastructure.")
+            logger.critical(
+                "🚨 Project Olympus Readiness: MISSION ABORTED. Check infrastructure."
+            )
         return success
 
 

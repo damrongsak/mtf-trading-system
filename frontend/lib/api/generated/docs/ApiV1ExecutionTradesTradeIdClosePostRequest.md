@@ -5,7 +5,9 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**exit_price** | **number** |  | [default to undefined]
+**price** | **number** | Actual exit price (for local PnL calculation) | [default to undefined]
+**broker_account_id** | **string** | Required to identify which account to close on broker | [optional] [default to undefined]
+**units** | **number** | Optional: units to close (for partial close). Default is full position. | [optional] [default to undefined]
 
 ## Example
 
@@ -13,7 +15,9 @@ Name | Type | Description | Notes
 import { ApiV1ExecutionTradesTradeIdClosePostRequest } from './api';
 
 const instance: ApiV1ExecutionTradesTradeIdClosePostRequest = {
-    exit_price,
+    price,
+    broker_account_id,
+    units,
 };
 ```
 

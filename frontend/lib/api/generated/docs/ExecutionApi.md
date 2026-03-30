@@ -337,7 +337,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1ExecutionOrdersPost**
-> APIResponse apiV1ExecutionOrdersPost(body)
+> APIResponse apiV1ExecutionOrdersPost(orderRequest)
 
 
 ### Example
@@ -345,16 +345,17 @@ No authorization required
 ```typescript
 import {
     ExecutionApi,
-    Configuration
+    Configuration,
+    OrderRequest
 } from './api';
 
 const configuration = new Configuration();
 const apiInstance = new ExecutionApi(configuration);
 
-let body: object; //
+let orderRequest: OrderRequest; //
 
 const { status, data } = await apiInstance.apiV1ExecutionOrdersPost(
-    body
+    orderRequest
 );
 ```
 
@@ -362,7 +363,7 @@ const { status, data } = await apiInstance.apiV1ExecutionOrdersPost(
 
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
-| **body** | **object**|  | |
+| **orderRequest** | **OrderRequest**|  | |
 
 
 ### Return type

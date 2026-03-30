@@ -82,7 +82,7 @@ class Trade(Base):
     lot_size = Column(Numeric(12, 6), nullable=False,
                      comment="Calculated lot size (must be >= 0.01)")
     commission = Column(Numeric(10, 2), nullable=True,
-                       comment="Trading commission in USD")
+                       comment="Trading commission in USD (System Estimate or Reconciled)")
     risk_usd = Column(Numeric(10, 2), nullable=False,
                      comment="Calculated risk in USD (must be <= $10)")
     atr_pips = Column(Numeric(10, 2), nullable=True,
@@ -114,6 +114,14 @@ class Trade(Base):
     broker_swap = Column(Numeric(18, 2), nullable=True, comment="Original swap reported by broker")
     reconciled_at = Column(DateTime(timezone=True), nullable=True, comment="Last successful broker reconciliation")
     reconciliation_status = Column(String(20), default="PENDING", comment="PENDING, SUCCESS, FAILED")
+
+    # [PHASE 12] RBAC & Institutional Tracking
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True,
+                     comment="Owner of the trade (RBAC)")
+    fund_id = Column(UUID(as_uuid=True), ForeignKey("funds.id"), nullable=True, index=True,
+                     comment="Fund that the trade belongs to (RBAC)")
+    latency_ms = Column(Numeric(10, 4), nullable=True,
+                        comment="Total systemic latency (Signal -> Execution Fill)")
 
     # Additional Metadata (Confluence zones, indicators, etc.)
     metadata_json = Column(JSONB, nullable=True,
@@ -167,6 +175,10 @@ class PostMortem(Base):
     slippage_pips = Column(Float, nullable=True)
     execution_latency_ms = Column(Float, nullable=True)
     profit_efficiency = Column(Float, nullable=True)
+    
+    # [PHASE 28] AI Institutional Hardening
+    pnl_net = Column(Numeric(10, 2), nullable=True, comment="Net profit after fees and slippage")
+    smart_score = Column(Integer, nullable=True, comment="Proprietary AI score for trade quality (0-100)")
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -986,13 +986,20 @@ export interface ApiV1ExecutionOrdersOrderIdPutRequest {
      * Signed order units (positive for BUY, negative for SELL).
      */
     'units'?: number;
+    /**
+     * New limit price
+     */
     'price'?: number;
-    'stop_loss'?: number;
-    'take_profit'?: number;
+    /**
+     * New trigger price (for STOP/STOP_LIMIT)
+     */
+    'stop_price'?: number;
+    'sl_price'?: number;
+    'tp_price'?: number;
     /**
      * Enable/Disable trailing stop loss
      */
-    'trailing_stop'?: boolean;
+    'trailing_sl'?: boolean;
 }
 export interface ApiV1ExecutionTradesCloseAllPostRequest {
     'broker_account_id': string;
@@ -1020,15 +1027,30 @@ export interface ApiV1ExecutionTradesSyncPostRequest {
 }
 export interface ApiV1ExecutionTradesTradeIdAmendPostRequest {
     'broker_account_id': string;
-    'stop_loss'?: number;
-    'take_profit'?: number;
+    'sl_price'?: number;
+    'tp_price'?: number;
     /**
      * Enable/Disable trailing stop loss
      */
-    'trailing_stop'?: boolean;
+    'trailing_sl'?: boolean;
 }
 export interface ApiV1ExecutionTradesTradeIdClosePostRequest {
-    'exit_price': number;
+    /**
+     * Actual exit price (for local PnL calculation)
+     */
+    'price': number;
+    /**
+     * Required to identify which account to close on broker
+     */
+    'broker_account_id'?: string;
+    /**
+     * Optional: units to close (for partial close). Default is full position.
+     */
+    'units'?: number;
+}
+export interface ApiV1HistoryReconcilePostRequest {
+    'user_id'?: string;
+    'days_back'?: number;
 }
 export interface ApiV1InternalSignalsPostRequest {
     'symbol'?: string;
@@ -1046,6 +1068,25 @@ export interface ApiV1KnowledgeIngestBatchPost202Response {
 export interface ApiV1KnowledgeIngestBatchPost202ResponseTasksInner {
     'task_id'?: string;
     'filename'?: string;
+}
+export interface ApiV1KnowledgeIngestDirectoryPost202Response {
+    'batch_id'?: string;
+    'total_files'?: number;
+    'status'?: string;
+}
+export interface ApiV1KnowledgeIngestDirectoryPostRequest {
+    /**
+     * Absolute or relative path to the directory (e.g., temp/markdown_economics)
+     */
+    'path': string;
+    /**
+     * If true, re-ingest files even if hash already exists
+     */
+    'force'?: boolean;
+    /**
+     * If true, delete the graph before starting ingestion
+     */
+    'clean_first'?: boolean;
 }
 export interface ApiV1KnowledgeIngestPost202Response {
     'task_id'?: string;
@@ -1120,6 +1161,13 @@ export interface ApiV1StrategiesActiveGet200Response {
     'templates'?: object;
     'deployments'?: object;
 }
+export interface ApiV1StrategiesIdTickPost200Response {
+    'status'?: string;
+    /**
+     * Human-readable trace of the logic evaluation
+     */
+    'reason'?: string;
+}
 export interface ApiV1TelegramSendPost200Response {
     'success'?: boolean;
     'chat_id'?: number;
@@ -1127,6 +1175,10 @@ export interface ApiV1TelegramSendPost200Response {
 }
 export interface ApiV1TelegramWebhookPost200Response {
     'ok'?: boolean;
+}
+export interface ApiV1TradesReconcilePostRequest {
+    'fund_id'?: string;
+    'trade_id'?: string;
 }
 export interface AtrRequest {
     'high': Array<number>;
@@ -1720,6 +1772,11 @@ export interface KillSwitchRequest {
     'active'?: boolean;
     'reason'?: string;
 }
+export interface LLMStreamRequest {
+    'prompt': string;
+    'model'?: string | null;
+    'temperature'?: number;
+}
 export interface LatencyBucket {
     'hour'?: number;
     'symbol'?: string;
@@ -1856,11 +1913,54 @@ export interface OpportunityLog {
     'reason'?: string;
     'strategy_name'?: string;
 }
+export interface OrderRequest {
+    'broker_account_id': string;
+    'symbol': string;
+    /**
+     * Absolute order units (strictly positive). Direction is determined by \'side\'.
+     */
+    'units': number;
+    /**
+     * Mandatory direction for the order.
+     */
+    'side': OrderRequestSideEnum;
+    'order_type': OrderRequestOrderTypeEnum;
+    /**
+     * Limit price (Required for LIMIT/STOP_LIMIT)
+     */
+    'price'?: number;
+    /**
+     * Trigger price (Required for STOP/STOP_LIMIT)
+     */
+    'stop_price'?: number;
+    'sl_price'?: number;
+    'tp_price'?: number;
+    'trailing_sl'?: boolean;
+    'slippage_pips'?: number;
+    'comment'?: string;
+    'tag'?: string;
+}
+
+export const OrderRequestSideEnum = {
+    Buy: 'BUY',
+    Sell: 'SELL'
+} as const;
+
+export type OrderRequestSideEnum = typeof OrderRequestSideEnum[keyof typeof OrderRequestSideEnum];
+export const OrderRequestOrderTypeEnum = {
+    Market: 'MARKET',
+    Limit: 'LIMIT',
+    Stop: 'STOP',
+    StopLimit: 'STOP_LIMIT'
+} as const;
+
+export type OrderRequestOrderTypeEnum = typeof OrderRequestOrderTypeEnum[keyof typeof OrderRequestOrderTypeEnum];
+
 export interface OrderResponse {
     'id'?: string;
     'instrument'?: string;
     /**
-     * Signed order units (positive for BUY, negative for SELL).
+     * Absolute order units.
      */
     'units'?: string;
     'price'?: string;
@@ -1969,6 +2069,93 @@ export const PortfolioOptimizationRequestMethodEnum = {
 
 export type PortfolioOptimizationRequestMethodEnum = typeof PortfolioOptimizationRequestMethodEnum[keyof typeof PortfolioOptimizationRequestMethodEnum];
 
+export interface PostMortemResponse {
+    'trade_id'?: string;
+    /**
+     * One-sentence executive summary of the trade result
+     */
+    'summary'?: string;
+    /**
+     * Assessment of entry/exit quality and slippage
+     */
+    'execution_quality'?: string;
+    /**
+     * Analysis of emotional state and decision making
+     */
+    'psychological_analysis'?: string;
+    /**
+     * Key takeaway for future strategy performance
+     */
+    'alpha_lesson'?: string;
+    'metrics'?: PostMortemResponseMetrics;
+    'created_at'?: string;
+}
+export interface PostMortemResponseMetrics {
+    'slippage_pips'?: number;
+    'execution_latency_ms'?: number;
+    /**
+     * Ratio of realized PnL to MFE
+     */
+    'profit_efficiency'?: number;
+}
+export interface ProfessionalStrategySignal {
+    'status'?: ProfessionalStrategySignalStatusEnum;
+    'symbol'?: string;
+    'timeframe'?: string;
+    'timestamp'?: string;
+    'indicators'?: ProfessionalStrategySignalIndicators;
+    'market_structure'?: ProfessionalStrategySignalMarketStructure;
+    'rl_analysis'?: ProfessionalStrategySignalRlAnalysis;
+    'execution'?: ProfessionalStrategySignalExecution;
+}
+
+export const ProfessionalStrategySignalStatusEnum = {
+    ActiveScanning: 'active_scanning',
+    SignalFound: 'signal_found',
+    PendingEntry: 'pending_entry'
+} as const;
+
+export type ProfessionalStrategySignalStatusEnum = typeof ProfessionalStrategySignalStatusEnum[keyof typeof ProfessionalStrategySignalStatusEnum];
+
+export interface ProfessionalStrategySignalExecution {
+    'is_entry'?: boolean;
+    'reason'?: string;
+    'levels'?: ProfessionalStrategySignalExecutionLevels | null;
+}
+export interface ProfessionalStrategySignalExecutionLevels {
+    'entry'?: number;
+    'sl'?: number;
+    'tp1'?: number;
+    'tp2'?: number;
+    'rrr'?: number;
+}
+export interface ProfessionalStrategySignalIndicators {
+    'ema_13'?: number;
+    'ema_50'?: number;
+    'ema_200'?: number;
+    'ema_200_h1'?: number | null;
+    'atr'?: number;
+    'trend_bias'?: string;
+    'macro_alignment'?: boolean;
+}
+export interface ProfessionalStrategySignalMarketStructure {
+    'pattern_found'?: boolean;
+    'direction'?: string | null;
+    'levels'?: ProfessionalStrategySignalMarketStructureLevels | null;
+    'proximity_pips'?: number;
+}
+export interface ProfessionalStrategySignalMarketStructureLevels {
+    'ls1'?: number;
+    'lh1'?: number;
+    'ls2'?: number;
+    'lh2'?: number;
+    'qml'?: number;
+}
+export interface ProfessionalStrategySignalRlAnalysis {
+    'quality_score'?: number;
+    'recommendation'?: string;
+    'metrics'?: object;
+}
 export interface RateLimitInfo {
     'limit': number;
     'remaining': number;
@@ -2032,6 +2219,8 @@ export interface RiskCheckResponsePositionSize {
 }
 export interface RiskParityData {
     'symbols'?: Array<RiskParityDataSymbolsInner>;
+    'market_integration_score'?: number;
+    'systemic_alert'?: boolean;
     'last_rebalanced'?: string;
     'rebalance_interval_hours'?: number;
 }
@@ -2041,6 +2230,9 @@ export interface RiskParityDataSymbolsInner {
     'sentiment_score'?: number;
     'sentiment_reason'?: string;
     'scaling_multiplier'?: number;
+    'pc1_loading'?: number;
+    'is_systemic'?: boolean;
+    'kc_multiplier'?: number;
 }
 export interface RiskRecommendation {
     /**
@@ -2286,12 +2478,16 @@ export type SignalResponseStatusEnum = typeof SignalResponseStatusEnum[keyof typ
 export interface SmartOrderRequest {
     'broker_account_id': string;
     'symbol': string;
+    /**
+     * Directional bias (mapped to side: BUY/SELL).
+     */
     'direction': SmartOrderRequestDirectionEnum;
-    'stop_loss'?: number;
+    'sl_price'?: number;
+    'tp_price'?: number;
     /**
      * Price at the time of signal generation for slippage calculation
      */
-    'signal_price'?: number;
+    'price'?: number;
     'generated_by': string;
     'reason'?: string;
     'risk_usd'?: number;
@@ -2356,6 +2552,7 @@ export interface StrategyResponse {
     'config_json'?: object;
     'risk_settings'?: object;
     'is_active'?: boolean;
+    'last_signal'?: ProfessionalStrategySignal;
 }
 export interface StrategyTemplate {
     'id'?: string;
@@ -2493,6 +2690,14 @@ export interface TradeResponse {
     'rejection_reason'?: string | null;
     'broker_trade_id'?: string | null;
     'broker_deal_id'?: string | null;
+    'execution_latency_ms'?: number | null;
+    'slippage_pips'?: number | null;
+    'slippage_ms'?: number | null;
+    'broker_raw_pnl'?: number | null;
+    'broker_commission'?: number | null;
+    'broker_swap'?: number | null;
+    'reconciled_at'?: string | null;
+    'reconciliation_status'?: string;
     'created_at': string;
     'updated_at': string;
 }
@@ -2501,6 +2706,7 @@ export interface TradeResponse {
 
 export const TradeStatus = {
     Open: 'OPEN',
+    Pending: 'PENDING',
     Closed: 'CLOSED',
     Rejected: 'REJECTED'
 } as const;
@@ -12926,13 +13132,13 @@ export const ExecutionApiAxiosParamCreator = function (configuration?: Configura
         /**
          * 
          * @summary Place a new order
-         * @param {object} body 
+         * @param {OrderRequest} orderRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1ExecutionOrdersPost: async (body: object, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'body' is not null or undefined
-            assertParamExists('apiV1ExecutionOrdersPost', 'body', body)
+        apiV1ExecutionOrdersPost: async (orderRequest: OrderRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'orderRequest' is not null or undefined
+            assertParamExists('apiV1ExecutionOrdersPost', 'orderRequest', orderRequest)
             const localVarPath = `/api/v1/execution/orders`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -12952,7 +13158,7 @@ export const ExecutionApiAxiosParamCreator = function (configuration?: Configura
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(body, localVarRequestOptions, configuration)
+            localVarRequestOptions.data = serializeDataIfNeeded(orderRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -13308,12 +13514,12 @@ export const ExecutionApiFp = function(configuration?: Configuration) {
         /**
          * 
          * @summary Place a new order
-         * @param {object} body 
+         * @param {OrderRequest} orderRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1ExecutionOrdersPost(body: object, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersPost(body, options);
+        async apiV1ExecutionOrdersPost(orderRequest: OrderRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1ExecutionOrdersPost(orderRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ExecutionApi.apiV1ExecutionOrdersPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -13488,7 +13694,7 @@ export const ExecutionApiFactory = function (configuration?: Configuration, base
          * @throws {RequiredError}
          */
         apiV1ExecutionOrdersPost(requestParameters: ExecutionApiApiV1ExecutionOrdersPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
-            return localVarFp.apiV1ExecutionOrdersPost(requestParameters.body, options).then((request) => request(axios, basePath));
+            return localVarFp.apiV1ExecutionOrdersPost(requestParameters.orderRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -13619,7 +13825,7 @@ export interface ExecutionApiApiV1ExecutionOrdersOrderIdPutRequest {
  * Request parameters for apiV1ExecutionOrdersPost operation in ExecutionApi.
  */
 export interface ExecutionApiApiV1ExecutionOrdersPostRequest {
-    readonly body: object
+    readonly orderRequest: OrderRequest
 }
 
 /**
@@ -13753,7 +13959,7 @@ export class ExecutionApi extends BaseAPI {
      * @throws {RequiredError}
      */
     public apiV1ExecutionOrdersPost(requestParameters: ExecutionApiApiV1ExecutionOrdersPostRequest, options?: RawAxiosRequestConfig) {
-        return ExecutionApiFp(this.configuration).apiV1ExecutionOrdersPost(requestParameters.body, options).then((request) => request(this.axios, this.basePath));
+        return ExecutionApiFp(this.configuration).apiV1ExecutionOrdersPost(requestParameters.orderRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -14246,10 +14452,331 @@ export class FoundryApi extends BaseAPI {
 
 
 /**
+ * HistoryApi - axios parameter creator
+ */
+export const HistoryApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Trigger automated broker history reconciliation
+         * @param {ApiV1HistoryReconcilePostRequest} [apiV1HistoryReconcilePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1HistoryReconcilePost: async (apiV1HistoryReconcilePostRequest?: ApiV1HistoryReconcilePostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/history/reconcile`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1HistoryReconcilePostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * HistoryApi - functional programming interface
+ */
+export const HistoryApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = HistoryApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Trigger automated broker history reconciliation
+         * @param {ApiV1HistoryReconcilePostRequest} [apiV1HistoryReconcilePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1HistoryReconcilePost(apiV1HistoryReconcilePostRequest?: ApiV1HistoryReconcilePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1HistoryReconcilePost(apiV1HistoryReconcilePostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['HistoryApi.apiV1HistoryReconcilePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * HistoryApi - factory interface
+ */
+export const HistoryApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = HistoryApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Trigger automated broker history reconciliation
+         * @param {HistoryApiApiV1HistoryReconcilePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1HistoryReconcilePost(requestParameters: HistoryApiApiV1HistoryReconcilePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1HistoryReconcilePost(requestParameters.apiV1HistoryReconcilePostRequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1HistoryReconcilePost operation in HistoryApi.
+ */
+export interface HistoryApiApiV1HistoryReconcilePostRequest {
+    readonly apiV1HistoryReconcilePostRequest?: ApiV1HistoryReconcilePostRequest
+}
+
+/**
+ * HistoryApi - object-oriented interface
+ */
+export class HistoryApi extends BaseAPI {
+    /**
+     * 
+     * @summary Trigger automated broker history reconciliation
+     * @param {HistoryApiApiV1HistoryReconcilePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1HistoryReconcilePost(requestParameters: HistoryApiApiV1HistoryReconcilePostRequest = {}, options?: RawAxiosRequestConfig) {
+        return HistoryApiFp(this.configuration).apiV1HistoryReconcilePost(requestParameters.apiV1HistoryReconcilePostRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * JournalApi - axios parameter creator
+ */
+export const JournalApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Get AI-generated post-mortem analysis for a trade
+         * @param {string} tradeId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1JournalPostMortemTradeIdGet: async (tradeId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'tradeId' is not null or undefined
+            assertParamExists('apiV1JournalPostMortemTradeIdGet', 'tradeId', tradeId)
+            const localVarPath = `/api/v1/journal/post-mortem/{trade_id}`
+                .replace(`{${"trade_id"}}`, encodeURIComponent(String(tradeId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Trigger generation of a new post-mortem analysis
+         * @param {string} tradeId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1JournalPostMortemTradeIdPost: async (tradeId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'tradeId' is not null or undefined
+            assertParamExists('apiV1JournalPostMortemTradeIdPost', 'tradeId', tradeId)
+            const localVarPath = `/api/v1/journal/post-mortem/{trade_id}`
+                .replace(`{${"trade_id"}}`, encodeURIComponent(String(tradeId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * JournalApi - functional programming interface
+ */
+export const JournalApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = JournalApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Get AI-generated post-mortem analysis for a trade
+         * @param {string} tradeId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1JournalPostMortemTradeIdGet(tradeId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<PostMortemResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalPostMortemTradeIdGet(tradeId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['JournalApi.apiV1JournalPostMortemTradeIdGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Trigger generation of a new post-mortem analysis
+         * @param {string} tradeId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1JournalPostMortemTradeIdPost(tradeId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AIJobAccepted>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1JournalPostMortemTradeIdPost(tradeId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['JournalApi.apiV1JournalPostMortemTradeIdPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * JournalApi - factory interface
+ */
+export const JournalApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = JournalApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Get AI-generated post-mortem analysis for a trade
+         * @param {JournalApiApiV1JournalPostMortemTradeIdGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1JournalPostMortemTradeIdGet(requestParameters: JournalApiApiV1JournalPostMortemTradeIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<PostMortemResponse> {
+            return localVarFp.apiV1JournalPostMortemTradeIdGet(requestParameters.tradeId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Trigger generation of a new post-mortem analysis
+         * @param {JournalApiApiV1JournalPostMortemTradeIdPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1JournalPostMortemTradeIdPost(requestParameters: JournalApiApiV1JournalPostMortemTradeIdPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AIJobAccepted> {
+            return localVarFp.apiV1JournalPostMortemTradeIdPost(requestParameters.tradeId, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1JournalPostMortemTradeIdGet operation in JournalApi.
+ */
+export interface JournalApiApiV1JournalPostMortemTradeIdGetRequest {
+    readonly tradeId: string
+}
+
+/**
+ * Request parameters for apiV1JournalPostMortemTradeIdPost operation in JournalApi.
+ */
+export interface JournalApiApiV1JournalPostMortemTradeIdPostRequest {
+    readonly tradeId: string
+}
+
+/**
+ * JournalApi - object-oriented interface
+ */
+export class JournalApi extends BaseAPI {
+    /**
+     * 
+     * @summary Get AI-generated post-mortem analysis for a trade
+     * @param {JournalApiApiV1JournalPostMortemTradeIdGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1JournalPostMortemTradeIdGet(requestParameters: JournalApiApiV1JournalPostMortemTradeIdGetRequest, options?: RawAxiosRequestConfig) {
+        return JournalApiFp(this.configuration).apiV1JournalPostMortemTradeIdGet(requestParameters.tradeId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Trigger generation of a new post-mortem analysis
+     * @param {JournalApiApiV1JournalPostMortemTradeIdPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1JournalPostMortemTradeIdPost(requestParameters: JournalApiApiV1JournalPostMortemTradeIdPostRequest, options?: RawAxiosRequestConfig) {
+        return JournalApiFp(this.configuration).apiV1JournalPostMortemTradeIdPost(requestParameters.tradeId, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * KnowledgeApi - axios parameter creator
  */
 export const KnowledgeApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * Deletes all nodes and relationships in FalkorDB.
+         * @summary Full reset of the knowledge graph
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeGraphDelete: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/knowledge/graph`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @summary Upload multiple files for knowledge ingestion
@@ -14285,6 +14812,42 @@ export const KnowledgeApiAxiosParamCreator = function (configuration?: Configura
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = localVarFormParams;
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Trigger bulk ingestion from a local server directory
+         * @param {ApiV1KnowledgeIngestDirectoryPostRequest} apiV1KnowledgeIngestDirectoryPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestDirectoryPost: async (apiV1KnowledgeIngestDirectoryPostRequest: ApiV1KnowledgeIngestDirectoryPostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'apiV1KnowledgeIngestDirectoryPostRequest' is not null or undefined
+            assertParamExists('apiV1KnowledgeIngestDirectoryPost', 'apiV1KnowledgeIngestDirectoryPostRequest', apiV1KnowledgeIngestDirectoryPostRequest)
+            const localVarPath = `/api/v1/knowledge/ingest/directory`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1KnowledgeIngestDirectoryPostRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -14430,6 +14993,76 @@ export const KnowledgeApiAxiosParamCreator = function (configuration?: Configura
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary Stream token-by-token LLM responses
+         * @param {LLMStreamRequest} lLMStreamRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StreamLlmPost: async (lLMStreamRequest: LLMStreamRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'lLMStreamRequest' is not null or undefined
+            assertParamExists('apiV1StreamLlmPost', 'lLMStreamRequest', lLMStreamRequest)
+            const localVarPath = `/api/v1/stream/llm`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(lLMStreamRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Stream real-time pipeline progress events
+         * @param {string} taskId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StreamStatusTaskIdGet: async (taskId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'taskId' is not null or undefined
+            assertParamExists('apiV1StreamStatusTaskIdGet', 'taskId', taskId)
+            const localVarPath = `/api/v1/stream/status/{task_id}`
+                .replace(`{${"task_id"}}`, encodeURIComponent(String(taskId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -14439,6 +15072,18 @@ export const KnowledgeApiAxiosParamCreator = function (configuration?: Configura
 export const KnowledgeApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = KnowledgeApiAxiosParamCreator(configuration)
     return {
+        /**
+         * Deletes all nodes and relationships in FalkorDB.
+         * @summary Full reset of the knowledge graph
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeGraphDelete(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeGraphDelete(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeGraphDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
         /**
          * 
          * @summary Upload multiple files for knowledge ingestion
@@ -14450,6 +15095,19 @@ export const KnowledgeApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeIngestBatchPost(files, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeIngestBatchPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Trigger bulk ingestion from a local server directory
+         * @param {ApiV1KnowledgeIngestDirectoryPostRequest} apiV1KnowledgeIngestDirectoryPostRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1KnowledgeIngestDirectoryPost(apiV1KnowledgeIngestDirectoryPostRequest: ApiV1KnowledgeIngestDirectoryPostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1KnowledgeIngestDirectoryPost202Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1KnowledgeIngestDirectoryPost(apiV1KnowledgeIngestDirectoryPostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeIngestDirectoryPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -14503,6 +15161,32 @@ export const KnowledgeApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1KnowledgeTasksGet']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * 
+         * @summary Stream token-by-token LLM responses
+         * @param {LLMStreamRequest} lLMStreamRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StreamLlmPost(lLMStreamRequest: LLMStreamRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StreamLlmPost(lLMStreamRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1StreamLlmPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Stream real-time pipeline progress events
+         * @param {string} taskId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StreamStatusTaskIdGet(taskId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StreamStatusTaskIdGet(taskId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['KnowledgeApi.apiV1StreamStatusTaskIdGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -14513,6 +15197,15 @@ export const KnowledgeApiFactory = function (configuration?: Configuration, base
     const localVarFp = KnowledgeApiFp(configuration)
     return {
         /**
+         * Deletes all nodes and relationships in FalkorDB.
+         * @summary Full reset of the knowledge graph
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeGraphDelete(options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1KnowledgeGraphDelete(options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Upload multiple files for knowledge ingestion
          * @param {KnowledgeApiApiV1KnowledgeIngestBatchPostRequest} requestParameters Request parameters.
@@ -14521,6 +15214,16 @@ export const KnowledgeApiFactory = function (configuration?: Configuration, base
          */
         apiV1KnowledgeIngestBatchPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestBatchPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeIngestBatchPost202Response> {
             return localVarFp.apiV1KnowledgeIngestBatchPost(requestParameters.files, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Trigger bulk ingestion from a local server directory
+         * @param {KnowledgeApiApiV1KnowledgeIngestDirectoryPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1KnowledgeIngestDirectoryPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestDirectoryPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1KnowledgeIngestDirectoryPost202Response> {
+            return localVarFp.apiV1KnowledgeIngestDirectoryPost(requestParameters.apiV1KnowledgeIngestDirectoryPostRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -14561,6 +15264,26 @@ export const KnowledgeApiFactory = function (configuration?: Configuration, base
         apiV1KnowledgeTasksGet(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: object; }> {
             return localVarFp.apiV1KnowledgeTasksGet(options).then((request) => request(axios, basePath));
         },
+        /**
+         * 
+         * @summary Stream token-by-token LLM responses
+         * @param {KnowledgeApiApiV1StreamLlmPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StreamLlmPost(requestParameters: KnowledgeApiApiV1StreamLlmPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.apiV1StreamLlmPost(requestParameters.lLMStreamRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Stream real-time pipeline progress events
+         * @param {KnowledgeApiApiV1StreamStatusTaskIdGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StreamStatusTaskIdGet(requestParameters: KnowledgeApiApiV1StreamStatusTaskIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.apiV1StreamStatusTaskIdGet(requestParameters.taskId, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -14569,6 +15292,13 @@ export const KnowledgeApiFactory = function (configuration?: Configuration, base
  */
 export interface KnowledgeApiApiV1KnowledgeIngestBatchPostRequest {
     readonly files?: Array<File>
+}
+
+/**
+ * Request parameters for apiV1KnowledgeIngestDirectoryPost operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1KnowledgeIngestDirectoryPostRequest {
+    readonly apiV1KnowledgeIngestDirectoryPostRequest: ApiV1KnowledgeIngestDirectoryPostRequest
 }
 
 /**
@@ -14593,9 +15323,33 @@ export interface KnowledgeApiApiV1KnowledgeStatusTaskIdGetRequest {
 }
 
 /**
+ * Request parameters for apiV1StreamLlmPost operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1StreamLlmPostRequest {
+    readonly lLMStreamRequest: LLMStreamRequest
+}
+
+/**
+ * Request parameters for apiV1StreamStatusTaskIdGet operation in KnowledgeApi.
+ */
+export interface KnowledgeApiApiV1StreamStatusTaskIdGetRequest {
+    readonly taskId: string
+}
+
+/**
  * KnowledgeApi - object-oriented interface
  */
 export class KnowledgeApi extends BaseAPI {
+    /**
+     * Deletes all nodes and relationships in FalkorDB.
+     * @summary Full reset of the knowledge graph
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeGraphDelete(options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeGraphDelete(options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Upload multiple files for knowledge ingestion
@@ -14605,6 +15359,17 @@ export class KnowledgeApi extends BaseAPI {
      */
     public apiV1KnowledgeIngestBatchPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestBatchPostRequest = {}, options?: RawAxiosRequestConfig) {
         return KnowledgeApiFp(this.configuration).apiV1KnowledgeIngestBatchPost(requestParameters.files, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Trigger bulk ingestion from a local server directory
+     * @param {KnowledgeApiApiV1KnowledgeIngestDirectoryPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1KnowledgeIngestDirectoryPost(requestParameters: KnowledgeApiApiV1KnowledgeIngestDirectoryPostRequest, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1KnowledgeIngestDirectoryPost(requestParameters.apiV1KnowledgeIngestDirectoryPostRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -14648,6 +15413,28 @@ export class KnowledgeApi extends BaseAPI {
      */
     public apiV1KnowledgeTasksGet(options?: RawAxiosRequestConfig) {
         return KnowledgeApiFp(this.configuration).apiV1KnowledgeTasksGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Stream token-by-token LLM responses
+     * @param {KnowledgeApiApiV1StreamLlmPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StreamLlmPost(requestParameters: KnowledgeApiApiV1StreamLlmPostRequest, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1StreamLlmPost(requestParameters.lLMStreamRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Stream real-time pipeline progress events
+     * @param {KnowledgeApiApiV1StreamStatusTaskIdGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StreamStatusTaskIdGet(requestParameters: KnowledgeApiApiV1StreamStatusTaskIdGetRequest, options?: RawAxiosRequestConfig) {
+        return KnowledgeApiFp(this.configuration).apiV1StreamStatusTaskIdGet(requestParameters.taskId, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -15772,6 +16559,45 @@ export const StrategiesApiAxiosParamCreator = function (configuration?: Configur
         },
         /**
          * 
+         * @summary Retrieve recent calculation logs for a strategy
+         * @param {string} id 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesIdLogsGet: async (id: string, limit?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('apiV1StrategiesIdLogsGet', 'id', id)
+            const localVarPath = `/api/v1/strategies/{id}/logs`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Triggers a logic evaluation for a specific strategy instance. **Institutional Warning**: Only database-backed UUIDs are supported. Template names (e.g., \'quasimodo_v1\') will return 422. 
          * @summary Manually trigger a strategy logic evaluation
          * @param {string} id 
          * @param {*} [options] Override http request option.
@@ -15798,6 +16624,42 @@ export const StrategiesApiAxiosParamCreator = function (configuration?: Configur
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary On-demand instantiation of a strategy from a template
+         * @param {StrategyCreate} strategyCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesInstantiatePost: async (strategyCreate: StrategyCreate, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'strategyCreate' is not null or undefined
+            assertParamExists('apiV1StrategiesInstantiatePost', 'strategyCreate', strategyCreate)
+            const localVarPath = `/api/v1/strategies/instantiate`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(strategyCreate, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -15869,15 +16731,42 @@ export const StrategiesApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Retrieve recent calculation logs for a strategy
+         * @param {string} id 
+         * @param {number} [limit] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesIdLogsGet(id: string, limit?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesIdLogsGet(id, limit, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesIdLogsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Triggers a logic evaluation for a specific strategy instance. **Institutional Warning**: Only database-backed UUIDs are supported. Template names (e.g., \'quasimodo_v1\') will return 422. 
          * @summary Manually trigger a strategy logic evaluation
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async apiV1StrategiesIdTickPost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+        async apiV1StrategiesIdTickPost(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ApiV1StrategiesIdTickPost200Response>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesIdTickPost(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesIdTickPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary On-demand instantiation of a strategy from a template
+         * @param {StrategyCreate} strategyCreate 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1StrategiesInstantiatePost(strategyCreate: StrategyCreate, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponseStrategyResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1StrategiesInstantiatePost(strategyCreate, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StrategiesApi.apiV1StrategiesInstantiatePost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -15921,13 +16810,33 @@ export const StrategiesApiFactory = function (configuration?: Configuration, bas
         },
         /**
          * 
+         * @summary Retrieve recent calculation logs for a strategy
+         * @param {StrategiesApiApiV1StrategiesIdLogsGetRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesIdLogsGet(requestParameters: StrategiesApiApiV1StrategiesIdLogsGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1StrategiesIdLogsGet(requestParameters.id, requestParameters.limit, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Triggers a logic evaluation for a specific strategy instance. **Institutional Warning**: Only database-backed UUIDs are supported. Template names (e.g., \'quasimodo_v1\') will return 422. 
          * @summary Manually trigger a strategy logic evaluation
          * @param {StrategiesApiApiV1StrategiesIdTickPostRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        apiV1StrategiesIdTickPost(requestParameters: StrategiesApiApiV1StrategiesIdTickPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+        apiV1StrategiesIdTickPost(requestParameters: StrategiesApiApiV1StrategiesIdTickPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<ApiV1StrategiesIdTickPost200Response> {
             return localVarFp.apiV1StrategiesIdTickPost(requestParameters.id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary On-demand instantiation of a strategy from a template
+         * @param {StrategiesApiApiV1StrategiesInstantiatePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1StrategiesInstantiatePost(requestParameters: StrategiesApiApiV1StrategiesInstantiatePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<APIResponseStrategyResponse> {
+            return localVarFp.apiV1StrategiesInstantiatePost(requestParameters.strategyCreate, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -15942,10 +16851,26 @@ export const StrategiesApiFactory = function (configuration?: Configuration, bas
 };
 
 /**
+ * Request parameters for apiV1StrategiesIdLogsGet operation in StrategiesApi.
+ */
+export interface StrategiesApiApiV1StrategiesIdLogsGetRequest {
+    readonly id: string
+
+    readonly limit?: number
+}
+
+/**
  * Request parameters for apiV1StrategiesIdTickPost operation in StrategiesApi.
  */
 export interface StrategiesApiApiV1StrategiesIdTickPostRequest {
     readonly id: string
+}
+
+/**
+ * Request parameters for apiV1StrategiesInstantiatePost operation in StrategiesApi.
+ */
+export interface StrategiesApiApiV1StrategiesInstantiatePostRequest {
+    readonly strategyCreate: StrategyCreate
 }
 
 /**
@@ -15974,6 +16899,17 @@ export class StrategiesApi extends BaseAPI {
 
     /**
      * 
+     * @summary Retrieve recent calculation logs for a strategy
+     * @param {StrategiesApiApiV1StrategiesIdLogsGetRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesIdLogsGet(requestParameters: StrategiesApiApiV1StrategiesIdLogsGetRequest, options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesIdLogsGet(requestParameters.id, requestParameters.limit, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Triggers a logic evaluation for a specific strategy instance. **Institutional Warning**: Only database-backed UUIDs are supported. Template names (e.g., \'quasimodo_v1\') will return 422. 
      * @summary Manually trigger a strategy logic evaluation
      * @param {StrategiesApiApiV1StrategiesIdTickPostRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -15981,6 +16917,17 @@ export class StrategiesApi extends BaseAPI {
      */
     public apiV1StrategiesIdTickPost(requestParameters: StrategiesApiApiV1StrategiesIdTickPostRequest, options?: RawAxiosRequestConfig) {
         return StrategiesApiFp(this.configuration).apiV1StrategiesIdTickPost(requestParameters.id, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary On-demand instantiation of a strategy from a template
+     * @param {StrategiesApiApiV1StrategiesInstantiatePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1StrategiesInstantiatePost(requestParameters: StrategiesApiApiV1StrategiesInstantiatePostRequest, options?: RawAxiosRequestConfig) {
+        return StrategiesApiFp(this.configuration).apiV1StrategiesInstantiatePost(requestParameters.strategyCreate, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -16609,6 +17556,114 @@ export class TelegramApi extends BaseAPI {
      */
     public apiV1TelegramWebhookPost(requestParameters: TelegramApiApiV1TelegramWebhookPostRequest, options?: RawAxiosRequestConfig) {
         return TelegramApiFp(this.configuration).apiV1TelegramWebhookPost(requestParameters.telegramUpdate, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * TradesApi - axios parameter creator
+ */
+export const TradesApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * 
+         * @summary Trigger manual broker reconciliation for closed trades
+         * @param {ApiV1TradesReconcilePostRequest} [apiV1TradesReconcilePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TradesReconcilePost: async (apiV1TradesReconcilePostRequest?: ApiV1TradesReconcilePostRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/trades/reconcile`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(apiV1TradesReconcilePostRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * TradesApi - functional programming interface
+ */
+export const TradesApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = TradesApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Trigger manual broker reconciliation for closed trades
+         * @param {ApiV1TradesReconcilePostRequest} [apiV1TradesReconcilePostRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1TradesReconcilePost(apiV1TradesReconcilePostRequest?: ApiV1TradesReconcilePostRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<APIResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1TradesReconcilePost(apiV1TradesReconcilePostRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TradesApi.apiV1TradesReconcilePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * TradesApi - factory interface
+ */
+export const TradesApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = TradesApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Trigger manual broker reconciliation for closed trades
+         * @param {TradesApiApiV1TradesReconcilePostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1TradesReconcilePost(requestParameters: TradesApiApiV1TradesReconcilePostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<APIResponse> {
+            return localVarFp.apiV1TradesReconcilePost(requestParameters.apiV1TradesReconcilePostRequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for apiV1TradesReconcilePost operation in TradesApi.
+ */
+export interface TradesApiApiV1TradesReconcilePostRequest {
+    readonly apiV1TradesReconcilePostRequest?: ApiV1TradesReconcilePostRequest
+}
+
+/**
+ * TradesApi - object-oriented interface
+ */
+export class TradesApi extends BaseAPI {
+    /**
+     * 
+     * @summary Trigger manual broker reconciliation for closed trades
+     * @param {TradesApiApiV1TradesReconcilePostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public apiV1TradesReconcilePost(requestParameters: TradesApiApiV1TradesReconcilePostRequest = {}, options?: RawAxiosRequestConfig) {
+        return TradesApiFp(this.configuration).apiV1TradesReconcilePost(requestParameters.apiV1TradesReconcilePostRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

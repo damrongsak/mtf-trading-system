@@ -13,7 +13,6 @@ Connection Management:
 
 import json
 import asyncio
-import logging
 from datetime import datetime
 from typing import AsyncGenerator
 
@@ -30,7 +29,7 @@ router = APIRouter()
 logger = get_logger("OlympusStreaming")
 
 _HEARTBEAT_INTERVAL = 15.0  # seconds between SSE keepalive comments
-_POLL_INTERVAL = 0.1        # seconds between Redis message polls
+_POLL_INTERVAL = 0.1  # seconds between Redis message polls
 _TERMINAL_STAGES = {"pipeline_done", "pipeline_failed", "skipped"}
 
 
@@ -46,6 +45,7 @@ def _make_async_redis() -> aioredis.Redis:
 
 
 # ─────────────────────────── Task Progress Stream ────────────────────────────
+
 
 @router.get(
     "/status/{task_id}",
@@ -73,6 +73,7 @@ async def stream_task_status(
     - pipeline_done | pipeline_failed | skipped  (terminal — stream closes)
     - heartbeat (every 15s, keeps connection alive)
     """
+
     async def event_generator() -> AsyncGenerator[dict, None]:
         r = _make_async_redis()
         pubsub = r.pubsub()
@@ -112,7 +113,9 @@ async def stream_task_status(
                 if heartbeat_elapsed >= _HEARTBEAT_INTERVAL:
                     yield {
                         "event": "heartbeat",
-                        "data": json.dumps({"ts": datetime.now().isoformat(), "task_id": task_id}),
+                        "data": json.dumps(
+                            {"ts": datetime.now().isoformat(), "task_id": task_id}
+                        ),
                     }
                     heartbeat_elapsed = 0.0
 
@@ -136,6 +139,7 @@ async def stream_task_status(
 
 
 # ─────────────────────────── Direct LLM Stream ───────────────────────────────
+
 
 class LLMStreamRequest(BaseModel):
     system_prompt: str
@@ -165,6 +169,7 @@ async def stream_llm(body: LLMStreamRequest, request: Request):
     - done        {"full_text": "...", "tier_used": 1}
     - error       {"message": "All 3 LLM tiers exhausted"}
     """
+
     async def event_generator() -> AsyncGenerator[dict, None]:
         try:
             async for event in LLMUtils.call_llm_streaming(
@@ -182,3 +187,60 @@ async def stream_llm(body: LLMStreamRequest, request: Request):
             yield {"event": "error", "data": json.dumps({"message": str(e)})}
 
     return EventSourceResponse(event_generator())
+
+
+# ─────────────────────────── Batch Progress Stream ───────────────────────────
+
+
+@router.get(
+    "/batch/{batch_id}",
+    summary="Real-time batch progress (SSE)",
+    description=(
+        "Subscribe to summary events for an entire batch. "
+        "Emits periodic aggregate stats (Done/Total) and final completion."
+    ),
+)
+async def stream_batch_status(
+    batch_id: str,
+    request: Request,
+    interval: int = 2,
+):
+    """
+    SSE endpoint for monitoring an entire batch of files.
+    Polls the orchestrator stats and yields aggregate updates.
+    """
+    from app.core.orchestrator import orchestrator
+
+    async def batch_generator() -> AsyncGenerator[dict, None]:
+        logger.info(f"📡 Batch SSE subscribed → batch:{batch_id}")
+        last_total_done = -1
+
+        try:
+            while not await request.is_disconnected():
+                stats = orchestrator.get_batch_stats(batch_id)
+                total = stats.get("total", 0)
+                done = (
+                    stats.get("completed", 0)
+                    + stats.get("failed", 0)
+                    + stats.get("skipped", 0)
+                )
+
+                # Only push if progress changed or significant time passed
+                if done != last_total_done:
+                    yield {"event": "batch_update", "data": json.dumps(stats)}
+                    last_total_done = done
+
+                if total > 0 and done >= total:
+                    logger.info(f"🏁 Batch complete: {batch_id}")
+                    yield {"event": "batch_done", "data": json.dumps(stats)}
+                    break
+
+                await asyncio.sleep(interval)
+
+        except Exception as e:
+            logger.error(f"Batch SSE error ({batch_id}): {e}")
+            yield {"event": "error", "data": json.dumps({"message": str(e)})}
+        finally:
+            logger.info(f"🧹 Batch SSE cleanup for {batch_id}")
+
+    return EventSourceResponse(batch_generator())

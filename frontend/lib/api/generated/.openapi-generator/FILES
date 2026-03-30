@@ -114,9 +114,12 @@ docs/ApiV1ExecutionTradesSyncPost200ResponseData.md
 docs/ApiV1ExecutionTradesSyncPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdAmendPostRequest.md
 docs/ApiV1ExecutionTradesTradeIdClosePostRequest.md
+docs/ApiV1HistoryReconcilePostRequest.md
 docs/ApiV1InternalSignalsPostRequest.md
 docs/ApiV1KnowledgeIngestBatchPost202Response.md
 docs/ApiV1KnowledgeIngestBatchPost202ResponseTasksInner.md
+docs/ApiV1KnowledgeIngestDirectoryPost202Response.md
+docs/ApiV1KnowledgeIngestDirectoryPostRequest.md
 docs/ApiV1KnowledgeIngestPost202Response.md
 docs/ApiV1KnowledgeIngestUrlPost202Response.md
 docs/ApiV1KnowledgeIngestUrlPostRequest.md
@@ -131,8 +134,10 @@ docs/ApiV1SignalsCancelAllPost200Response.md
 docs/ApiV1SignalsIdApprovePost200Response.md
 docs/ApiV1SignalsIdRejectPost200Response.md
 docs/ApiV1StrategiesActiveGet200Response.md
+docs/ApiV1StrategiesIdTickPost200Response.md
 docs/ApiV1TelegramSendPost200Response.md
 docs/ApiV1TelegramWebhookPost200Response.md
+docs/ApiV1TradesReconcilePostRequest.md
 docs/AtrRequest.md
 docs/AuthTokens.md
 docs/BackfillRequest.md
@@ -185,8 +190,10 @@ docs/FundRiskConfig.md
 docs/FundUpdate.md
 docs/GapDiscoveryResponse.md
 docs/GapInfo.md
+docs/HistoryApi.md
 docs/IndicatorResponse.md
 docs/JournalAnalysisRequest.md
+docs/JournalApi.md
 docs/JournalEntryCreate.md
 docs/JournalEntryCreateMentalState.md
 docs/JournalEntryCreateRootCause.md
@@ -194,6 +201,7 @@ docs/JournalEntryCreateTimelineEventsInner.md
 docs/JournalEntryResponse.md
 docs/KillSwitchRequest.md
 docs/KnowledgeApi.md
+docs/LLMStreamRequest.md
 docs/LatencyBucket.md
 docs/LatencyHeatmapResponse.md
 docs/LibraryHit.md
@@ -217,6 +225,7 @@ docs/OpenInterestAnalysisResponse.md
 docs/OpenInterestCommon.md
 docs/OpportunityLog.md
 docs/OrchestrationApi.md
+docs/OrderRequest.md
 docs/OrderResponse.md
 docs/PITRecallRequest.md
 docs/PITRecallResponse.md
@@ -232,6 +241,15 @@ docs/PluginResponse.md
 docs/PortfolioAllocationUpdate.md
 docs/PortfolioAllocationUpdateAllocationsInner.md
 docs/PortfolioOptimizationRequest.md
+docs/PostMortemResponse.md
+docs/PostMortemResponseMetrics.md
+docs/ProfessionalStrategySignal.md
+docs/ProfessionalStrategySignalExecution.md
+docs/ProfessionalStrategySignalExecutionLevels.md
+docs/ProfessionalStrategySignalIndicators.md
+docs/ProfessionalStrategySignalMarketStructure.md
+docs/ProfessionalStrategySignalMarketStructureLevels.md
+docs/ProfessionalStrategySignalRlAnalysis.md
 docs/RateLimitInfo.md
 docs/RejectionReasonSummary.md
 docs/ResponseStatus.md
@@ -283,6 +301,7 @@ docs/Trade.md
 docs/TradeDirection.md
 docs/TradeResponse.md
 docs/TradeStatus.md
+docs/TradesApi.md
 docs/TransactionCreate.md
 docs/TransactionResponse.md
 docs/UnifiedOIProfileResponse.md

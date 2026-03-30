@@ -1,6 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
+import httpx
+from unittest.mock import patch, MagicMock, AsyncMock
 from app.core.llm_utils import LLMUtils
+from app.core.app_config import config
+
 
 class TestLLMUtils(unittest.IsolatedAsyncioTestCase):
     def test_parse_json_markdown(self):
@@ -23,7 +26,7 @@ class TestLLMUtils(unittest.IsolatedAsyncioTestCase):
 
     def test_parse_json_error(self):
         """Test parsing invalid JSON"""
-        response = 'Invalid stuff { not a json'
+        response = "Invalid stuff { not a json"
         result = LLMUtils.parse_json_response(response)
         self.assertIn("error", result)
 
@@ -33,83 +36,74 @@ class TestLLMUtils(unittest.IsolatedAsyncioTestCase):
         result = LLMUtils.parse_json_response(response)
         self.assertEqual(result.get("key"), "value\nwith newline")
 
-    def test_parse_cypher_queries_manual(self):
-        """Test manual extraction of cypher_queries array"""
-        response = 'Some talk "cypher_queries": ["MATCH (n) RETURN n", "CREATE (n)"]'
-        result = LLMUtils.parse_json_response(response)
-        self.assertEqual(len(result.get("cypher_queries", [])), 2)
+    @patch("app.core.llm_utils.LLMUtils._try_openrouter")
+    async def test_call_llm_success(self, mock_try_openrouter):
+        """Test successful Tier 1 call"""
+        mock_try_openrouter.return_value = ({"result": "ok"}, None)
 
-    @patch("app.core.llm_utils.asyncio.to_thread")
-    async def test_call_llm_success(self, mock_to_thread):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": '{"result": "ok"}'}}]
-        }
-        mock_to_thread.return_value = mock_response
-        
-        from app.core.app_config import config
         config.openrouter_api_key = "test_key"
-        
+
         result = await LLMUtils.call_llm("sys", "user")
         self.assertEqual(result.get("result"), "ok")
+        mock_try_openrouter.assert_called_once()
 
-    @patch("app.core.llm_utils.asyncio.to_thread")
-    async def test_call_llm_api_error(self, mock_to_thread):
-        from app.core.app_config import config
+    @patch("app.core.llm_utils.LLMUtils._try_openrouter")
+    @patch("app.core.llm_utils.LLMUtils._try_gemini_direct")
+    async def test_call_llm_fallback_to_gemini(self, mock_gemini, mock_openrouter):
+        """Test fallback through both OpenRouter tiers to Gemini"""
         config.openrouter_api_key = "test_key"
-        
-        mock_response = MagicMock()
+        config.google_api_key = "google_key"
+
+        # Both OpenRouter tiers fail
+        mock_openrouter.return_value = (None, "Provider failure")
+        # Gemini succeeds
+        mock_gemini.return_value = ({"result": "gemini_ok"}, None)
+
+        result = await LLMUtils.call_llm("sys", "user")
+        self.assertEqual(result.get("result"), "gemini_ok")
+        self.assertEqual(mock_openrouter.call_count, 2)
+        mock_gemini.assert_called_once()
+
+    @patch("app.core.llm_utils._get_http_client")
+    async def test_try_openrouter_http_error(self, mock_get_client):
+        """Test provider helper handling HTTP errors"""
+        mock_client = AsyncMock(spec=httpx.AsyncClient)
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
-        mock_to_thread.return_value = mock_response
-    
-        result = await LLMUtils.call_llm("sys", "user")
-        self.assertIn("error", result)
-        self.assertIn("API error: 500", result["error"])
+        mock_client.post.return_value = mock_response
+        mock_get_client.return_value = mock_client
 
-    @patch("app.core.llm_utils.asyncio.to_thread")
-    async def test_call_llm_fallback_success(self, mock_to_thread):
-        """Test that LLM falls back to second model on first failure"""
-        from app.core.app_config import config
-        config.openrouter_api_key = "test_key"
-        config.model_name = "first-model"
-        config.fallback_model_name = "fallback-model"
-        
-        # First call fails, second succeeds
-        mock_fail = MagicMock()
-        mock_fail.status_code = 400
-        mock_fail.text = "Bad Request"
-        
-        mock_success = MagicMock()
-        mock_success.status_code = 200
-        mock_success.json.return_value = {
-            "choices": [{"message": {"content": '{"result": "fallback_ok"}'}}]
-        }
-        
-        mock_to_thread.side_effect = [mock_fail, mock_success]
-        
-        result = await LLMUtils.call_llm("sys", "user")
-        self.assertEqual(result.get("result"), "fallback_ok")
-        self.assertEqual(mock_to_thread.call_count, 2)
-        
-        # Verify first call used first-model
-        args, kwargs = mock_to_thread.call_args_list[0]
-        # First arg after mock_to_thread, func, is requests.post. 
-        # The args passed to requests.post are in args[1:] or kwargs.
-        # But wait, asyncio.to_thread(func, *args, **kwargs)
-        # So call_args will be (requests.post, url, ...)
-        self.assertEqual(kwargs['json']['model'], "first-model")
-        
-        # Verify second call used fallback-model
-        args, kwargs = mock_to_thread.call_args_list[1]
-        self.assertEqual(kwargs['json']['model'], "fallback-model")
+        result, err = await LLMUtils._try_openrouter(
+            "model", "sys", "user", 1000, "tier-label"
+        )
+        self.assertIsNone(result)
+        self.assertIsNotNone(err)
+        self.assertIn("HTTP 500", err or "")
 
-    async def test_call_llm_no_key(self):
-        from app.core.app_config import config
+    @patch("app.core.llm_utils._get_http_client")
+    async def test_try_openrouter_network_error(self, mock_get_client):
+        """Test provider helper handling network exceptions"""
+        mock_client = AsyncMock(spec=httpx.AsyncClient)
+        mock_client.post.side_effect = httpx.ConnectTimeout("Timeout")
+        mock_get_client.return_value = mock_client
+
+        result, err = await LLMUtils._try_openrouter(
+            "model", "sys", "user", 1000, "tier-label"
+        )
+        self.assertIsNone(result)
+        self.assertIsNotNone(err)
+        self.assertIn("Connect timeout", err or "")
+
+    async def test_call_llm_no_keys(self):
+        """Test behavior when no API keys are configured"""
         config.openrouter_api_key = None
+        config.google_api_key = None
+
         result = await LLMUtils.call_llm("sys", "user")
         self.assertIn("error", result)
+        self.assertIn("exhausted", result["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

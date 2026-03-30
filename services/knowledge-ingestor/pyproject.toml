@@ -15,6 +15,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pypdf>=6.7.5",
     "pytest>=9.0.2",
+    "pytest-asyncio>=0.25.3",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "instructor[google-genai]>=1.7.2",
@@ -29,7 +30,22 @@ dependencies = [
     "requests-mock>=1.12.1",
     "uvicorn[standard]>=0.41.0",
     "watchfiles>=1.0.4",
+    "falkordb>=1.2.0",
+    "ruff>=0.9.9",
+    "mypy>=1.15.0",
+    "types-requests>=2.32.0.20241016",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["falkordb.*", "requests.*"]
+ignore_missing_imports = true
 
 [tool.uv]
 package = false
