@@ -1,5 +1,25 @@
 [
   {
+    "id": "04f20738-6d37-4293-be6e-96539b65885a",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "System: Volatility Breakout",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "volatility_breakout",
+    "config_json": {
+      "symbol": "XAUUSD"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-20T10:07:45.336237",
+    "updated_at": "2026-03-20T10:07:45.336237"
+  },
+  {
     "id": "066aa6c5-c431-4be1-a9d1-642faecf5e0a",
     "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
     "name": "SMC GBPUSD Live Monitoring (Oanda)",
@@ -94,59 +114,14 @@
     "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
-    "id": "04f20738-6d37-4293-be6e-96539b65885a",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "System: Volatility Breakout",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "config_id": null,
-    "template_id": "volatility_breakout",
-    "config_json": {
-      "symbol": "XAUUSD"
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": true,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-20T10:07:45.336237",
-    "updated_at": "2026-03-20T10:07:45.336237"
-  },
-  {
-    "id": "8276c10a-6f5d-4678-b5c2-ac01bc6b9fc4",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "3rd Party Test Strategy",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "id": "02200974-c257-487d-a51e-ea5f579f4ca6",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774349477",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
     "config_id": null,
     "template_id": "sentinel_v1",
     "config_json": {
-      "symbol": "XAUUSD"
-    },
-    "risk_settings": {
-      "risk_pct": 1.0
-    },
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T07:06:56.673824",
-    "updated_at": "2026-03-24T07:06:56.673824"
-  },
-  {
-    "id": "9e0195a6-3068-4e10-b3ff-1dc77b7e2e78",
-    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
-    "name": "SMC Alpha Gold",
-    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
-    "config_id": null,
-    "template_id": "smc_v1",
-    "config_json": {
-      "symbol": "XAUUSD",
-      "min_rrr": 1.5,
-      "tf_macro": "4h",
-      "tf_setup": "1h"
+      "period": 14
     },
     "risk_settings": {},
     "custom_code": null,
@@ -155,18 +130,18 @@
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-16T05:35:27.873895",
-    "updated_at": "2026-03-16T05:35:27.873895"
+    "created_at": "2026-03-24T10:51:17.180255",
+    "updated_at": "2026-03-24T10:51:17.180255"
   },
   {
-    "id": "97110748-ec83-4bfb-9616-11e0391548a6",
+    "id": "0bf1e2ef-3e3a-45e3-9e4e-d64c32986ac1",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "TestStrat2",
+    "name": "Audit Bot 1774349330",
     "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
     "config_id": null,
-    "template_id": "bb_stochastic_v1",
+    "template_id": "sentinel_v1",
     "config_json": {
-      "symbol": "XAUUSD"
+      "period": 14
     },
     "risk_settings": {},
     "custom_code": null,
@@ -175,41 +150,28 @@
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-24T07:36:30.893424",
-    "updated_at": "2026-03-24T07:36:30.893424"
+    "created_at": "2026-03-24T10:48:50.991891",
+    "updated_at": "2026-03-24T10:48:50.991891"
   },
   {
-    "id": "a9c449dc-6d65-4bcc-8a6b-6ce6af705919",
+    "id": "1128bbe5-2552-4a5d-816e-a930603439ba",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "BB Stochastic Scalping (Gold)",
+    "name": "Audit Bot 1774349191",
     "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
     "config_id": null,
-    "template_id": "bb_stoch_ob_v1",
+    "template_id": "sentinel_v1",
     "config_json": {
-      "bb_std": 1.5,
-      "symbol": "XAUUSD",
-      "stoch_d": 3,
-      "stoch_k": 9,
-      "bb_period": 13,
-      "timeframe": "M15",
-      "ob_lookback": 15,
-      "ob_tolerance": 0.008,
-      "atr_multiplier": 2.0,
-      "stoch_oversold": 20,
-      "stoch_overbought": 80
+      "period": 14
     },
-    "risk_settings": {
-      "max_drawdown_limit": 5.0,
-      "risk_per_trade_percent": 1.0
-    },
+    "risk_settings": {},
     "custom_code": null,
     "is_active": true,
     "is_shadow": false,
     "last_backtest_result": null,
     "last_optimization_result": null,
     "last_simulation_result": null,
-    "created_at": "2026-03-18T10:00:00",
-    "updated_at": "2026-03-18T10:00:00"
+    "created_at": "2026-03-24T10:46:31.453403",
+    "updated_at": "2026-03-24T10:46:31.453403"
   },
   {
     "id": "12c647c6-3030-4a5e-b1d3-1936cd49e677",
@@ -259,6 +221,228 @@
     "last_simulation_result": null,
     "created_at": "2026-03-24T02:06:43.080983",
     "updated_at": "2026-03-24T08:03:23.454003"
+  },
+  {
+    "id": "53a3d073-7666-44d1-8a9a-90ae447f3336",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774348957",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "period": 14
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T10:42:37.292261",
+    "updated_at": "2026-03-24T10:42:37.292261"
+  },
+  {
+    "id": "614bdef8-09ff-4eed-a6c1-959fd81e6daa",
+    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
+    "name": "SMC Capital Main",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "smc_v1",
+    "config_json": {
+      "symbol": "EURUSD",
+      "min_rrr": 1.5,
+      "tf_macro": "4h",
+      "tf_setup": "1h"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-16T05:35:27.873895",
+    "updated_at": "2026-03-16T05:35:27.873895"
+  },
+  {
+    "id": "65fc9dfe-5093-4937-91be-c9c744d49f1e",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774349511",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "period": 14
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T10:51:51.699549",
+    "updated_at": "2026-03-24T10:51:51.699549"
+  },
+  {
+    "id": "72f9acb0-2634-48f3-8f91-94b767ff9ee2",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774349053",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "period": 14
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T10:44:13.788950",
+    "updated_at": "2026-03-24T10:44:13.788950"
+  },
+  {
+    "id": "8276c10a-6f5d-4678-b5c2-ac01bc6b9fc4",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "3rd Party Test Strategy",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "symbol": "XAUUSD"
+    },
+    "risk_settings": {
+      "risk_pct": 1.0
+    },
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T07:06:56.673824",
+    "updated_at": "2026-03-24T07:06:56.673824"
+  },
+  {
+    "id": "82819500-33f5-482f-865b-0dd81a45cb5a",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774349257",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "period": 14
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T10:47:37.740844",
+    "updated_at": "2026-03-24T10:47:37.740844"
+  },
+  {
+    "id": "97110748-ec83-4bfb-9616-11e0391548a6",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "TestStrat2",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "bb_stochastic_v1",
+    "config_json": {
+      "symbol": "XAUUSD"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T07:36:30.893424",
+    "updated_at": "2026-03-24T07:36:30.893424"
+  },
+  {
+    "id": "9e0195a6-3068-4e10-b3ff-1dc77b7e2e78",
+    "fund_id": "89d35461-aa24-4275-b899-caaf1a4035b1",
+    "name": "SMC Alpha Gold",
+    "broker_account_id": "ae8d4499-c90d-43f6-b14a-d5697dd4c799",
+    "config_id": null,
+    "template_id": "smc_v1",
+    "config_json": {
+      "symbol": "XAUUSD",
+      "min_rrr": 1.5,
+      "tf_macro": "4h",
+      "tf_setup": "1h"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-16T05:35:27.873895",
+    "updated_at": "2026-03-16T05:35:27.873895"
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a5b-8c9d-d1e2f3a4b5c6",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "name": "Sentinel V1 System",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "symbol": "XAUUSD",
+      "threshold": 0.5
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": true,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T13:00:00",
+    "updated_at": "2026-03-24T13:00:00"
+  },
+  {
+    "id": "a9c449dc-6d65-4bcc-8a6b-6ce6af705919",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "BB Stochastic Scalping (Gold)",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "bb_stoch_ob_v1",
+    "config_json": {
+      "bb_std": 1.5,
+      "symbol": "XAUUSD",
+      "stoch_d": 3,
+      "stoch_k": 9,
+      "bb_period": 13,
+      "timeframe": "M15",
+      "ob_lookback": 15,
+      "ob_tolerance": 0.008,
+      "atr_multiplier": 2.0,
+      "stoch_oversold": 20,
+      "stoch_overbought": 80
+    },
+    "risk_settings": {
+      "max_drawdown_limit": 5.0,
+      "risk_per_trade_percent": 1.0
+    },
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-18T10:00:00",
+    "updated_at": "2026-03-18T10:00:00"
   },
   {
     "id": "ac30fa46-8501-4dc9-bf33-e87e329c8b7f",
@@ -388,6 +572,46 @@
     "updated_at": "2026-03-22T20:47:12.837525"
   },
   {
+    "id": "df2f5d15-731d-4624-b200-eb30d25f442c",
+    "fund_id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
+    "name": "Forbidden Strategy V2",
+    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "symbol": "BTCUSD"
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T06:15:24.045332",
+    "updated_at": "2026-03-24T06:15:24.045332"
+  },
+  {
+    "id": "e23fe69e-8ba7-4c6d-9bc0-49bb8726af69",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Audit Bot 1774348866",
+    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
+    "config_id": null,
+    "template_id": "sentinel_v1",
+    "config_json": {
+      "period": 14
+    },
+    "risk_settings": {},
+    "custom_code": null,
+    "is_active": true,
+    "is_shadow": false,
+    "last_backtest_result": null,
+    "last_optimization_result": null,
+    "last_simulation_result": null,
+    "created_at": "2026-03-24T10:41:06.472147",
+    "updated_at": "2026-03-24T10:41:06.472147"
+  },
+  {
     "id": "e3fa821b-8df3-4f27-a938-48fda0994b1a",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "name": "SMC Capital Gold",
@@ -411,130 +635,6 @@
     "updated_at": "2026-03-16T05:35:27.873895"
   },
   {
-    "id": "a1b2c3d4-e5f6-4a5b-8c9d-d1e2f3a4b5c6",
-    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
-    "name": "Sentinel V1 System",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "symbol": "XAUUSD",
-      "threshold": 0.5
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": true,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T13:00:00",
-    "updated_at": "2026-03-24T13:00:00"
-  },
-  {
-    "id": "e23fe69e-8ba7-4c6d-9bc0-49bb8726af69",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774348866",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:41:06.472147",
-    "updated_at": "2026-03-24T10:41:06.472147"
-  },
-  {
-    "id": "53a3d073-7666-44d1-8a9a-90ae447f3336",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774348957",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:42:37.292261",
-    "updated_at": "2026-03-24T10:42:37.292261"
-  },
-  {
-    "id": "614bdef8-09ff-4eed-a6c1-959fd81e6daa",
-    "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
-    "name": "SMC Capital Main",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "config_id": null,
-    "template_id": "smc_v1",
-    "config_json": {
-      "symbol": "EURUSD",
-      "min_rrr": 1.5,
-      "tf_macro": "4h",
-      "tf_setup": "1h"
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-16T05:35:27.873895",
-    "updated_at": "2026-03-16T05:35:27.873895"
-  },
-  {
-    "id": "df2f5d15-731d-4624-b200-eb30d25f442c",
-    "fund_id": "f3dcc4f5-fde9-4f0d-a864-d23ad9c147f8",
-    "name": "Forbidden Strategy V2",
-    "broker_account_id": "53e48543-7f6f-465c-ac20-d23d2d2b5495",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "symbol": "BTCUSD"
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T06:15:24.045332",
-    "updated_at": "2026-03-24T06:15:24.045332"
-  },
-  {
-    "id": "72f9acb0-2634-48f3-8f91-94b767ff9ee2",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349053",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:44:13.788950",
-    "updated_at": "2026-03-24T10:44:13.788950"
-  },
-  {
     "id": "e6906028-c616-4ec9-b01d-62caebf9c22a",
     "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
     "name": "Audit Bot 1774349085",
@@ -553,105 +653,5 @@
     "last_simulation_result": null,
     "created_at": "2026-03-24T10:44:45.761076",
     "updated_at": "2026-03-24T10:44:45.761076"
-  },
-  {
-    "id": "1128bbe5-2552-4a5d-816e-a930603439ba",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349191",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:46:31.453403",
-    "updated_at": "2026-03-24T10:46:31.453403"
-  },
-  {
-    "id": "82819500-33f5-482f-865b-0dd81a45cb5a",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349257",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:47:37.740844",
-    "updated_at": "2026-03-24T10:47:37.740844"
-  },
-  {
-    "id": "0bf1e2ef-3e3a-45e3-9e4e-d64c32986ac1",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349330",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:48:50.991891",
-    "updated_at": "2026-03-24T10:48:50.991891"
-  },
-  {
-    "id": "02200974-c257-487d-a51e-ea5f579f4ca6",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349477",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:51:17.180255",
-    "updated_at": "2026-03-24T10:51:17.180255"
-  },
-  {
-    "id": "65fc9dfe-5093-4937-91be-c9c744d49f1e",
-    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
-    "name": "Audit Bot 1774349511",
-    "broker_account_id": "066e21a0-0933-4f70-8e35-605f4759f927",
-    "config_id": null,
-    "template_id": "sentinel_v1",
-    "config_json": {
-      "period": 14
-    },
-    "risk_settings": {},
-    "custom_code": null,
-    "is_active": true,
-    "is_shadow": false,
-    "last_backtest_result": null,
-    "last_optimization_result": null,
-    "last_simulation_result": null,
-    "created_at": "2026-03-24T10:51:51.699549",
-    "updated_at": "2026-03-24T10:51:51.699549"
   }
 ]
