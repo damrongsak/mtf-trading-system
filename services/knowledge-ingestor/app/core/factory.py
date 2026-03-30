@@ -3,7 +3,7 @@ Olympus Service Factory - Centralized Lazy Singletons
 Prevents circular imports between API and Workers.
 """
 
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 
 logger = get_logger("OlympusFactory")
 

@@ -300,6 +300,8 @@ services:
       - FALLBACK_MODEL_NAME=${KI_FALLBACK_MODEL_NAME:-google/gemini-2.0-flash-001}
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - KI_LOG_FORMAT=json
+    command: ["python", "-m", "gunicorn", "app.api.main:app", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300", "--preload"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -308,8 +310,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          cpus: "1.0"
+          memory: 1G
     networks:
       - default
       - external

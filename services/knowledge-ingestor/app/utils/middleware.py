@@ -3,7 +3,7 @@ import time
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.utils.tracing import request_id_ctx
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 
 logger = get_logger("Middleware")
 

@@ -52,9 +52,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Industrial-Grade Execution: Gunicorn with Uvicorn Workers
 # Using the module execution pattern for maximum stability
+# Reduced workers and added --preload to optimize startup in constrained environments
 CMD ["python", "-m", "gunicorn", "app.api.main:app", \
-     "--workers", "4", \
+     "--workers", "1", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--bind", "0.0.0.0:8000", \
      "--timeout", "300", \
+     "--preload", \
      "--log-level", "info"]

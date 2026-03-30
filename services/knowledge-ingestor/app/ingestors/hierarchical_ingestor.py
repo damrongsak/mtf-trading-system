@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 
 from app.base_ingestor import BaseIngestor
 from app.core.llm_utils import LLMUtils
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 from app.core.semantic_chunker import SemanticChunker
 from app.core.ontology import GraphExtractionSchema
 from app.core.doc_analyzer import DocumentAnalyzer, DocStructure

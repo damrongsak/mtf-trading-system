@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from app.core.app_config import config
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 from app.core.orchestrator import orchestrator
 from app.core.factory import get_ingestor
 from app.utils.tracing import request_id_ctx

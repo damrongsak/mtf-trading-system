@@ -3,7 +3,7 @@ import asyncio
 from ddgs import DDGS
 from dogpile.cache import make_region
 from app.core.app_config import config
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 
 logger = get_logger("OlympusWebSearch")
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Callable, Awaitable
 
 from app.core.app_config import config
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 from app.tools.falkordb_client import FalkorDBClient
 
 logger = get_logger("OlympusOrchestrator")

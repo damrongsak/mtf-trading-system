@@ -9,7 +9,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 
 from app.core.app_config import config
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 from app.core.orchestrator import orchestrator
 from app.core.factory import get_ingestor
 from app.core.worker import worker

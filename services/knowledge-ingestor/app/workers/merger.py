@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from app.core.app_config import config
-from app.core.logger import get_logger
+from app.core.logging_config import get_logger
 from app.tools.falkordb_client import FalkorDBClient
 
 logger = get_logger("MarketMerger")
