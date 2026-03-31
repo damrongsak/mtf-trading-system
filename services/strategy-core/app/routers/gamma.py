@@ -61,6 +61,8 @@ async def get_gamma_levels(
     symbol: str = "XAUUSD", 
     snapshot_at: Optional[datetime] = None,
     current_price: Optional[float] = None,
+    min_dte: Optional[int] = None,
+    max_dte: Optional[int] = None,
     db: Session = Depends(get_db),
     fetch_candles: Any = Depends(get_fetch_candles)
 ):
@@ -98,7 +100,7 @@ async def get_gamma_levels(
         price_to_use = 0.0
 
     # 3. Redis Caching
-    cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}"
+    cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}:{min_dte}:{max_dte}"
     try:
         redis_client = get_redis_client()
         cached_result = await redis_client.get(cache_key)
@@ -108,12 +110,18 @@ async def get_gamma_levels(
         logger.warning(f"Redis cache read failed: {e}")
 
     # 4. Database Query Pushdown (Filter DB side instead of fetching all)
-    max_call_record = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).order_by(OpenInterest.call_oi.desc()).first()
-    max_put_record = db.query(OpenInterest).filter(OpenInterest.snapshot_at == snapshot_time).order_by(OpenInterest.put_oi.desc()).first()
+    base_filter = [OpenInterest.snapshot_at == snapshot_time]
+    if min_dte is not None:
+        base_filter.append(OpenInterest.dte >= min_dte)
+    if max_dte is not None:
+        base_filter.append(OpenInterest.dte <= max_dte)
+
+    max_call_record = db.query(OpenInterest).filter(*base_filter).order_by(OpenInterest.call_oi.desc()).first()
+    max_put_record = db.query(OpenInterest).filter(*base_filter).order_by(OpenInterest.put_oi.desc()).first()
     
     filter_range = 300.0
     filtered_records = db.query(OpenInterest).filter(
-        OpenInterest.snapshot_at == snapshot_time,
+        *base_filter,
         OpenInterest.strike >= price_to_use - filter_range,
         OpenInterest.strike <= price_to_use + filter_range
     ).all()

@@ -7,9 +7,9 @@ class TestLiquidityProfileAnalyzer:
         
         # Mock Data (Futures strikes)
         records = [
-            {'strike': 2000, 'call_oi': 100, 'put_oi': 500, 'underlying_price': 2010, 'dte': 5},
-            {'strike': 2050, 'call_oi': 1000, 'put_oi': 200, 'underlying_price': 2010, 'dte': 5},
-            {'strike': 2100, 'call_oi': 500, 'put_oi': 100, 'underlying_price': 2010, 'dte': 5}
+            {'strike': 2000, 'call_oi': 100, 'put_oi': 500, 'underlying_price': 2010, 'dte': 5, 'contract_symbol': 'XAUUSD'},
+            {'strike': 2050, 'call_oi': 1000, 'put_oi': 200, 'underlying_price': 2010, 'dte': 5, 'contract_symbol': 'XAUUSD'},
+            {'strike': 2100, 'call_oi': 500, 'put_oi': 100, 'underlying_price': 2010, 'dte': 5, 'contract_symbol': 'XAUUSD'}
         ]
         
         # basis = 2010 (Futures) - 2005 (Spot) = 5.0
@@ -36,7 +36,7 @@ class TestLiquidityProfileAnalyzer:
     def test_analyze_with_smc_confluence(self):
         analyzer = LiquidityProfileAnalyzer()
         records = [
-            {'strike': 2050, 'call_oi': 1000, 'put_oi': 100, 'underlying_price': 2050}
+            {'strike': 2050, 'call_oi': 1000, 'put_oi': 100, 'underlying_price': 2050, 'contract_symbol': 'XAUUSD'}
         ]
         
         # Mock SMC data

@@ -18,7 +18,7 @@ def setup_db():
     import uuid
     # Add mock data
     now = datetime.utcnow()
-    oi = OpenInterest(
+    oi1 = OpenInterest(
         id=str(uuid.uuid4()), # Explicitly string for SQLite
         strike=2000.0,
         call_oi=1000.0,
@@ -28,9 +28,21 @@ def setup_db():
         dte=10,
         contract_symbol="XAUUSD"
     )
-    db.add(oi)
+    oi2 = OpenInterest(
+        id=str(uuid.uuid4()),
+        strike=2050.0,
+        call_oi=5000.0,
+        put_oi=100.0,
+        underlying_price=2000.0,
+        snapshot_at=now,
+        dte=90,
+        contract_symbol="XAUUSD"
+    )
+    db.add(oi1)
+    db.add(oi2)
     db.commit()
-    db.refresh(oi)
+    db.refresh(oi1)
+    db.refresh(oi2)
     
     def _get_db_override():
         yield db
@@ -57,6 +69,19 @@ def test_get_gamma_levels_success():
         assert "levels" in data
         assert "regime" in data
         assert data["snapshot_at"] is not None
+        
+        # Test DTE filtering
+        response_filtered = client.get("/api/v1/analysis/gamma/levels?symbol=XAUUSD&max_dte=30")
+        assert response_filtered.status_code == 200
+        data_filtered = response_filtered.json()
+        
+        # Verify call wall is different when filtering out the 90-DTE 5000 Call OI
+        heat_filtered = data_filtered.get("heatmap", [])
+        assert len(heat_filtered) > 0
+        strikes = [h["strike"] for h in heat_filtered]
+        assert 2000.0 in strikes
+        assert 2050.0 not in strikes
     finally:
         if get_fetch_candles in app.dependency_overrides:
             del app.dependency_overrides[get_fetch_candles]
+

@@ -210,6 +210,14 @@ class LiquidityProfileAnalyzer:
         total_call_oi = df_target['call_oi'].sum()
         total_put_oi = df_target['put_oi'].sum()
         
+        # Distance-Weighted GEX Proxy
+        mapped_strikes = df_target['strike'] - basis
+        pct_distance = np.abs(mapped_strikes - current_spot_price) / current_spot_price * 100.0
+        # Weight exponentially favors At-The-Money (ATM) strikes
+        weights = 1.0 / (1.0 + pct_distance ** 2)
+        weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
+        net_gex = float(weighted_net.sum())
+        
         df_sorted = df_target.sort_values('strike')
         gamma_flip_row = df_sorted.iloc[(df_sorted['call_oi'] - df_sorted['put_oi']).abs().argsort()[:1]]
         gamma_flip_level = gamma_flip_row['strike'].values[0] if not gamma_flip_row.empty else None
@@ -229,13 +237,13 @@ class LiquidityProfileAnalyzer:
                 confluence=flip_conf
             ))
 
-        regime_type = 'POSITIVE_GAMMA' if current_spot_price > (gamma_flip_level - basis if gamma_flip_level else 0) else 'NEGATIVE_GAMMA'
+        regime_type = 'POSITIVE_GAMMA' if net_gex > 0 else 'NEGATIVE_GAMMA'
         
         regime = MarketRegime(
-            net_gex=total_call_oi - total_put_oi,
+            net_gex=net_gex,
             regime=regime_type,
             gamma_flip_level=gamma_flip_level,
-            summary=f"Market is in {regime_type} regime for {target_contract}. Net OI Delta: {total_call_oi - total_put_oi:,.0f}"
+            summary=f"Market is in {regime_type} regime for {target_contract}. Net Distance-Weighted GEX: {net_gex:,.0f} (Raw Call: {total_call_oi:,.0f}, Raw Put: {total_put_oi:,.0f})"
         )
 
         # 7. Optimized Max Pain (on filtered data)
