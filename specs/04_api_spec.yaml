@@ -1954,6 +1954,29 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: min_oi
+          in: query
+          description: "Minimum Open Interest filter"
+          schema:
+            type: integer
+            default: 0
+        - name: max_oi
+          in: query
+          description: "Maximum Open Interest filter"
+          schema:
+            type: integer
+            type: integer
+        - name: min_dte
+          in: query
+          description: "Minimum Days to Expiration filter"
+          schema:
+            type: integer
+            default: 0
+        - name: max_dte
+          in: query
+          description: "Maximum Days to Expiration filter"
+          schema:
+            type: integer
       responses:
         '200':
           description: Analytics data (PCR, Max Pain, Net Delta)

@@ -24,13 +24,18 @@ class OpenInterestRepository:
          .limit(limit)\
          .all()
 
-    def get_by_snapshot(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False) -> List[OpenInterest]:
+    def get_by_snapshot(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> List[OpenInterest]:
         """
         Get all Open Interest records for a specific snapshot with optional filters.
         """
         query = self.db.query(OpenInterest).filter(
             OpenInterest.snapshot_at == snapshot_at
         )
+
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
 
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
@@ -63,6 +68,11 @@ class OpenInterestRepository:
             OpenInterest.snapshot_at == snapshot_at
         )
 
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
+
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
@@ -82,7 +92,7 @@ class OpenInterestRepository:
 
         return (min_strike, max_strike)
 
-    def get_analysis_data(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False) -> Dict[str, Any]:
+    def get_analysis_data(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> Dict[str, Any]:
         """
         Aggregates Open Interest data to calculate PCR, Max Pain, and detailed strike distribution.
         """
@@ -93,6 +103,11 @@ class OpenInterestRepository:
         ).filter(
             OpenInterest.snapshot_at == snapshot_at
         )
+
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
 
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)

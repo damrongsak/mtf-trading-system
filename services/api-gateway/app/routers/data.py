@@ -215,12 +215,14 @@ async def get_open_interest_analysis(
     contract: Optional[str] = Query(None),
     min_oi: int = Query(0),
     max_oi: Optional[int] = Query(None),
+    min_dte: Optional[int] = Query(None),
+    max_dte: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Get detailed OI analysis directly from DB. Cached in Redis (5 min).
     """
-    cache_key = f"oi:analysis:{snapshot_at.isoformat()}:{contract}:{min_oi}:{max_oi}"
+    cache_key = f"oi:analysis:{snapshot_at.isoformat()}:{contract}:{min_oi}:{max_oi}:{min_dte}:{max_dte}"
     
     try:
         r = await redis_client.get_client()
@@ -237,7 +239,9 @@ async def get_open_interest_analysis(
             snapshot_at=snapshot_at,
             contract_symbol=contract,
             min_oi=min_oi,
-            max_oi=max_oi
+            max_oi=max_oi,
+            min_dte=min_dte,
+            max_dte=max_dte
         )
         
         # Update Cache
