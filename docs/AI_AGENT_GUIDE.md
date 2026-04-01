@@ -107,6 +107,16 @@ Monitor the `execution.filled.stream` for real-time trade updates.
 - **DETERMINISTIC UUIDs**: Always use `uuid.uuid5(uuid.NAMESPACE_DNS, f"{account_id}_{broker_order_id}")` for trade identification.
 - **GOLDEN RULE (V2.1)**: NEVER send signed units to the API Gateway or Execution Service. ALWAYS use strictly positive (absolute) `units` and specify the `side` (`BUY` or `SELL`) explicitly. Rejection (400) occurs if `units <= 0`.
 
+### 🧮 5.5 Institutional GEX Data Integrity (V2.5 Standard)
+To maintain a mathematically valid liquidity surface, agents MUST adhere to the following GEX standards:
+
+1. **Reality-Anchoring**: When calling `/data/open-interest/gex`, you MUST provide the `spot_price` parameter matching current market reality (e.g., ~$4,750+ in April 2026). 
+   - **CRITICAL BUG WARNING**: Reliance on default parameters without a `spot_price` may lead to calculations anchored to stale $2,800-level strikes, producing invalid "ghost" walls.
+2. **Quarterly Aggregation (90-Day DTE)**: Institutional liquidity is best analyzed through a quarterly lens. 
+   - **Default Behavior**: If `min_dte` and `max_dte` are omitted, the engine defaults to **DTE <= 90**.
+   - **Recommendation**: Always use the 90-day aggregate for structural support/resistance analysis to capture the full breadth of dealer hedging.
+3. **Regime Validation**: If `total_gex` is exceptionally low or the `gamma_flip` is mathematically impossible given the spot price, trigger a **Data Integrity Alert** and refuse to generate a trade signal.
+
 ## 📓 Step 13: Institutional Journaling & Post-Mortem (V2.2 Standard)
 The system implements an automated "Post-Mortem Analysis" pipeline for every closed trade.
 

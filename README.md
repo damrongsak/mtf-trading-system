@@ -143,6 +143,16 @@ To ensure the highest graph quality and zero-corruption, the `knowledge-ingestor
 
 ---
 
+## 📊 Gold GEX Institutional Pipeline (v2.5)
+The platform features a reality-anchored Gamma Exposure engine specifically tuned for the $4,750+ Gold regime (April 2026).
+
+### Key Hardening Features:
+1.  **Reality-Anchored Calculations**: Dynamic spot price injection ensures Greek calculations are centered on current market strikes ($4,700+) rather than stale historical clusters.
+2.  **Quarterly Liquidity Aggregation**: Implements a **90-Day DTE filter** by default to capture the full breadth of institutional hedging activity across multiple option contracts.
+3.  **Volatility Suppression Tracking**: Real-time identification of `LONG_GAMMA` and `SHORT_GAMMA` regimes to adjust strategy risk parameters.
+
+---
+
 ## ⚠️ Disclaimer
 **USE AT YOUR OWN RISK.** MTF Olympus is an educational quant platform. Automated trading involves significant risk of loss. The authors assume no responsibility for financial outcomes.
 

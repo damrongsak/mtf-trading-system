@@ -69,3 +69,5 @@ class OpenInterestGEXResponse(BaseModel):
     gamma_flip: float
     regime: str
     distribution: List[GEXDistribution]
+    nearest_dte: Optional[float] = None
+    max_dte: Optional[float] = None

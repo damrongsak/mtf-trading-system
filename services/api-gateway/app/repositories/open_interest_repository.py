@@ -237,11 +237,53 @@ class OpenInterestRepository:
         sigma: float = 0.16, 
         r: float = 0.05, 
         min_dte: Optional[int] = None, 
-        max_dte: Optional[int] = None
+        max_dte: Optional[int] = None,
+        spot_price: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Calculates GEX Surface and Gamma Flip Point for a snapshot.
         """
+        # --- Initialization (Safety against UnboundLocalError) ---
+        total_gex_val = 0.0
+        flip_point = 0.0
+        gex_dist = []
+        nearest_dte = 0.0
+        spot = spot_price or 0.0
+        regime = "NEUTRAL"
+        
+        # 1. First, find available DTEs...
+        if not contract_symbol:
+            # AUTO-RESOLVER: Find the contract with the highest net OI for this snapshot
+            # This ensures we anchor to the most significant liquidity surface (usually the monthly active)
+            oi_rank = (
+                select(OpenInterest.contract_symbol, func.sum(OpenInterest.call_oi + OpenInterest.put_oi).label('total_oi'))
+                .filter(OpenInterest.snapshot_at == snapshot_at)
+                .group_by(OpenInterest.contract_symbol)
+                .order_by(desc('total_oi'))
+            )
+            top_contract = self.db.execute(oi_rank).fetchone()
+            if top_contract:
+                contract_symbol = top_contract[0]
+                # Log the resolved symbol for auditability (if logging is enabled)
+                # print(f"Resolved contract_symbol to {contract_symbol} (Highest OI)")
+        
+        dte_query = select(OpenInterest.dte).filter(OpenInterest.snapshot_at == snapshot_at)
+        if contract_symbol:
+            dte_query = dte_query.filter(OpenInterest.contract_symbol == contract_symbol)
+        
+        available_dtes = [float(x[0]) for x in self.db.execute(dte_query.distinct()).fetchall()]
+        if not available_dtes:
+            return {
+                "total_gex_notional": 0.0, 
+                "gamma_flip": 0.0, 
+                "distribution": [],
+                "nearest_dte": 0.0,
+                "regime": "NEUTRAL"
+            }
+            
+        nearest_dte = min(available_dtes)
+        
+        # 2. Main Query
         query = select(
             OpenInterest.strike,
             OpenInterest.dte,
@@ -252,10 +294,16 @@ class OpenInterestRepository:
             OpenInterest.snapshot_at == snapshot_at
         )
 
-        if min_dte:
+        # Apply DTE Filtering (Prefer Quarterly Aggregation if not specified)
+        if min_dte is not None:
             query = query.filter(OpenInterest.dte >= min_dte)
-        if max_dte:
+        if max_dte is not None:
             query = query.filter(OpenInterest.dte <= max_dte)
+        
+        # If no range provided, default to Quarterly (90 days) to aggregate short-term liquidity
+        if min_dte is None and max_dte is None:
+            query = query.filter(OpenInterest.dte <= 90)
+
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
@@ -263,20 +311,41 @@ class OpenInterestRepository:
         
         rows = self.db.execute(query).fetchall()
         if not rows:
-            return {"total_gex": 0.0, "flip_point": 0.0, "distribution": []}
+            return {
+                "snapshot_at": snapshot_at,
+                "spot_price": spot_price or 0.0,
+                "total_gex": 0.0, 
+                "gamma_flip": 0.0, 
+                "distribution": [],
+                "nearest_dte": nearest_dte,
+                "max_dte": 90 if max_dte is None else max_dte,
+                "regime": "NEUTRAL"
+            }
 
-        gex_dist = []
-        total_gex = 0.0
+        # 3. Spot Price Selection
+        # If spot still 0, calculate from average underlying
+        if spot <= 0:
+            spot = sum(float(r.underlying_price or 0) for r in rows) / len(rows)
         
-        # Spot Price (Average of all underlying prices in the snapshot)
-        spot = sum(float(r.underlying_price or 0) for r in rows) / len(rows)
+        # 4. GEX Calculation & Strike Windowing
+        gex_dist = []
+        total_gex_val = 0.0
         
         for row in rows:
             strike = float(row.strike)
+            
+            # STRIKE WINDOWING: Ignore strikes more than 20% away from spot (Standard Institutional Window)
+            # This prevents stale deep ITM/OTM strikes (like $550 for a $4700 spot) from creating artifacts
+            if abs(strike - spot) / spot > 0.20:
+                continue
+                
             dte = int(row.dte)
             c_oi = float(row.call_oi or 0)
             p_oi = float(row.put_oi or 0)
             T = dte / 365.25 # Years
+            
+            # Handle T=0 for expiration day
+            if T <= 0: T = 0.00001
             
             gamma = calculate_black_scholes_gamma(spot, strike, T, r, sigma)
             
@@ -285,7 +354,7 @@ class OpenInterestRepository:
             put_gex = p_oi * gamma * 100 * spot * -1
             strike_gex = call_gex + put_gex
             
-            total_gex += strike_gex
+            total_gex_val += strike_gex
             
             gex_dist.append({
                 "strike": strike,
@@ -295,27 +364,36 @@ class OpenInterestRepository:
                 "net_gex": strike_gex
             })
 
-        # Find Gamma Flip Point (Linear interpolation where Net GEX crosses Zero)
-        flip_point = 0.0
-        # Sort by strike for crossing detection
-        gex_dist.sort(key=lambda x: x["strike"])
-        for i in range(len(gex_dist) - 1):
-            g1 = gex_dist[i]["net_gex"]
-            g2 = gex_dist[i+1]["net_gex"]
-            if (g1 <= 0 and g2 > 0) or (g1 >= 0 and g2 < 0):
-                # Linear Interpolation
+        # B. Find Zero Crossing (Gamma Flip)
+        # Only look for flip if we have at least 2 strikes (for interpolation)
+        if len(gex_dist) >= 2:
+            # Sort by strike for linear search
+            gex_dist = sorted(gex_dist, key=lambda x: x["strike"])
+            
+            for i in range(len(gex_dist) - 1):
+                g1 = gex_dist[i]["net_gex"]
+                g2 = gex_dist[i+1]["net_gex"]
                 k1 = gex_dist[i]["strike"]
                 k2 = gex_dist[i+1]["strike"]
-                if g2 - g1 != 0:
-                    flip_point = k1 - g1 * (k2 - k1) / (g2 - g1)
-                    break
+                
+                if (g1 < 0 and g2 > 0) or (g1 > 0 and g2 < 0):
+                    # Linear interpolation for zero crossing
+                    # Safety check for division by zero
+                    if abs(g2 - g1) > 1e-9:
+                        flip_point = k1 - g1 * (k2 - k1) / (g2 - g1)
+                        break
+
+        # C. Sentiment/Regime
+        regime = "LONG_GAMMA" if total_gex_val > 0 else "SHORT_GAMMA"
+        if abs(total_gex_val) < 1e-6: regime = "NEUTRAL"
 
         return {
             "snapshot_at": snapshot_at,
             "spot_price": spot,
-            "total_gex": total_gex,
+            "total_gex": total_gex_val,
             "gamma_flip": flip_point,
-            "regime": "LONG_GAMMA" if total_gex > 0 else "SHORT_GAMMA",
-            "distribution": gex_dist
+            "regime": regime,
+            "distribution": gex_dist,
+            "nearest_dte": nearest_dte,
+            "max_dte": max_dte if max_dte is not None else (90 if min_dte is None else 999)
         }
-

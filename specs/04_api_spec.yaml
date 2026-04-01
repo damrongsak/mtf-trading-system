@@ -2015,12 +2015,19 @@ paths:
             default: 0.05
         - name: min_dte
           in: query
+          description: "Minimum Days to Expiration"
           schema:
             type: integer
         - name: max_dte
           in: query
+          description: "Maximum Days to Expiration (default 90 for quarterly aggregate)"
           schema:
             type: integer
+        - name: spot_price
+          in: query
+          description: "Institutional Reality Spot Price (Anchors GEX Surface)"
+          schema:
+            type: number
       responses:
         '200':
           description: GEX Surface data
@@ -7360,6 +7367,12 @@ components:
         regime:
           type: string
           enum: [LONG_GAMMA, SHORT_GAMMA]
+        nearest_dte:
+          type: number
+          nullable: true
+        max_dte:
+          type: number
+          nullable: true
         distribution:
           type: array
           items:
