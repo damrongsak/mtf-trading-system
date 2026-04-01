@@ -335,7 +335,12 @@ async def get_market_regime(symbol: str, timeframe: str = "H1", bias: str = "NEU
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/gamma/levels", status_code=200)
-async def get_gamma_levels(symbol: str = "XAUUSD", current_price: Optional[float] = None):
+async def get_gamma_levels(
+    symbol: str = "XAUUSD", 
+    current_price: Optional[float] = None,
+    max_dte: Optional[int] = None,
+    snapshot_at: Optional[str] = None
+):
     """
     Fetches Gamma Levels and Market Regime from Strategy Core.
     """
@@ -344,6 +349,10 @@ async def get_gamma_levels(symbol: str = "XAUUSD", current_price: Optional[float
         params = {"symbol": symbol}
         if current_price:
             params["current_price"] = str(current_price)
+        if max_dte:
+            params["max_dte"] = str(max_dte)
+        if snapshot_at:
+            params["snapshot_at"] = snapshot_at
             
         response = await http_client.get(url, params=params)
         

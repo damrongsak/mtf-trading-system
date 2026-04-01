@@ -99,19 +99,31 @@ class LiquidityProfileAnalyzer:
             
         df_target['mapped_price'] = df_target['strike'] - basis
 
-        # 3. Identify Walls (Vectorized)
-        max_call_idx = df_target['call_oi'].idxmax()
-        max_put_idx = df_target['put_oi'].idxmax()
-        
-        max_call_row = df_target.loc[max_call_idx]
-        max_put_row = df_target.loc[max_put_idx]
+        # 4. Identify Walls (Local vs Global)
+        # Global Walls (Absolute maximums)
+        max_call_row = df_target.loc[df_target['call_oi'].idxmax()]
+        max_put_row = df_target.loc[df_target['put_oi'].idxmax()]
         max_oi_overall = df_target['total_oi'].max() or 1.0
 
-        # 4. Filter relevant strikes for Max Pain / Heatmap (+/- 15% standard)
-        price_range = current_spot_price * 0.15
+        # Primary Walls (Nearest to Spot - +/- 10% range)
+        local_range = current_spot_price * 0.10
+        df_local = df_target[
+            (df_target['mapped_price'] >= current_spot_price - local_range) & 
+            (df_target['mapped_price'] <= current_spot_price + local_range)
+        ]
+        
+        if not df_local.empty:
+            primary_call_row = df_local.loc[df_local['call_oi'].idxmax()]
+            primary_put_row = df_local.loc[df_local['put_oi'].idxmax()]
+        else:
+            primary_call_row = max_call_row
+            primary_put_row = max_put_row
+
+        # 5. Filter relevant strikes for Max Pain / Heatmap (+/- 15% standard)
+        price_range_pain = current_spot_price * 0.15
         df_filtered = df_target[
-            (df_target['mapped_price'] >= current_spot_price - price_range) & 
-            (df_target['mapped_price'] <= current_spot_price + price_range)
+            (df_target['mapped_price'] >= current_spot_price - price_range_pain) & 
+            (df_target['mapped_price'] <= current_spot_price + price_range_pain)
         ]
         
         if len(df_filtered) < 5:
@@ -142,16 +154,13 @@ class LiquidityProfileAnalyzer:
             
             # Fib Confluence
             fibs = smc_data.get('auto_fibs', {})
-        # 5. Construct Gamma Levels (Vectorized)
+        # 6. Construct Gamma Levels
         levels = []
         
         def check_confluence_vec(mapped_prices: np.ndarray) -> List[List[str]]:
             if not smc_data: return [[] for _ in range(len(mapped_prices))]
-            # Vectorized confluence check is harder for complex SMC data, 
-            # but for 3-4 major levels it's acceptable to loop or use broadcasting.
             results = []
             tolerance = 2.0
-            
             obs = smc_data.get('order_blocks', [])
             fvgs = smc_data.get('fvgs', [])
             fibs = smc_data.get('auto_fibs', {})
@@ -165,46 +174,78 @@ class LiquidityProfileAnalyzer:
                     if fvg['bottom'] - tolerance <= p <= fvg['top'] + tolerance:
                         tags.append(f"FVG_{fvg['type'].upper()}")
                 for level, price in fibs.items():
-                    if abs(price - p) <= tolerance:
+                    if abs(float(price) - p) <= tolerance:
                         tags.append(f"FIB_{level}")
                 results.append(list(set(tags)))
             return results
 
-        # Major Call Wall (Resistance)
-        call_conf = check_confluence_vec(np.array([max_call_row['mapped_price']]))[0]
-        dte_val = int(max_call_row['dte']) if pd.notnull(max_call_row['dte']) else None
+        # Primary Resistance (Local Call Wall)
+        p_call_conf = check_confluence_vec(np.array([primary_call_row['mapped_price']]))[0]
+        dte_val = int(primary_call_row['dte']) if pd.notnull(primary_call_row['dte']) else None
         levels.append(GammaLevel(
-            price=float(max_call_row['mapped_price']),
-            strike=float(max_call_row['strike']),
+            price=float(primary_call_row['mapped_price']),
+            strike=float(primary_call_row['strike']),
             type='CALL_WALL',
-            zone_type=get_zone_type(max_call_row['strike']),
-            strength=float(max_call_row['call_oi']),
-            description=f"Major Resistance (Call Wall) at {max_call_row['strike']}",
+            zone_type=get_zone_type(primary_call_row['strike']),
+            strength=float(primary_call_row['call_oi']),
+            description=f"Primary Resistance (Local Call Wall) at {primary_call_row['strike']}",
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="RESISTANCE",
-            zone_type_v2="SUPPLY_ZONE" if max_call_row['call_oi'] > max_put_row['put_oi'] * 1.5 else "NEUTRAL",
-            significance_score=self.calculate_significance('CALL_WALL', get_zone_type(max_call_row['strike']), call_conf, max_call_row['call_oi']/max_oi_overall),
-            confluence=call_conf
+            zone_type_v2="SUPPLY_ZONE",
+            significance_score=self.calculate_significance('CALL_WALL', get_zone_type(primary_call_row['strike']), p_call_conf, primary_call_row['call_oi']/max_oi_overall),
+            confluence=p_call_conf
         ))
 
-        # Major Put Wall (Support)
-        put_conf = check_confluence_vec(np.array([max_put_row['mapped_price']]))[0]
-        dte_val = int(max_put_row['dte']) if pd.notnull(max_put_row['dte']) else None
+        # Major Resistance (Absolute Call Wall)
+        if primary_call_row['strike'] != max_call_row['strike']:
+            m_call_conf = check_confluence_vec(np.array([max_call_row['mapped_price']]))[0]
+            levels.append(GammaLevel(
+                price=float(max_call_row['mapped_price']),
+                strike=float(max_call_row['strike']),
+                type='CALL_WALL',
+                zone_type="MAJOR",
+                strength=float(max_call_row['call_oi']),
+                description=f"Major Institutional Resistance at {max_call_row['strike']}",
+                market_action="RESISTANCE",
+                zone_type_v2="SUPPLY_ZONE",
+                significance_score=0.9,
+                confluence=m_call_conf
+            ))
+
+        # Primary Support (Local Put Wall)
+        p_put_conf = check_confluence_vec(np.array([primary_put_row['mapped_price']]))[0]
+        dte_val = int(primary_put_row['dte']) if pd.notnull(primary_put_row['dte']) else None
         levels.append(GammaLevel(
-            price=float(max_put_row['mapped_price']),
-            strike=float(max_put_row['strike']),
+            price=float(primary_put_row['mapped_price']),
+            strike=float(primary_put_row['strike']),
             type='PUT_WALL',
-            zone_type=get_zone_type(max_put_row['strike']),
-            strength=float(max_put_row['put_oi']),
-            description=f"Major Support (Put Wall) at {max_put_row['strike']}",
+            zone_type=get_zone_type(primary_put_row['strike']),
+            strength=float(primary_put_row['put_oi']),
+            description=f"Primary Support (Local Put Wall) at {primary_put_row['strike']}",
             dte=dte_val,
             term=self.categorize_dte(dte_val),
             market_action="SUPPORT",
-            zone_type_v2="DEMAND_ZONE" if max_put_row['put_oi'] > max_call_row['call_oi'] * 1.5 else "NEUTRAL",
-            significance_score=self.calculate_significance('PUT_WALL', get_zone_type(max_put_row['strike']), put_conf, max_put_row['put_oi']/max_oi_overall),
-            confluence=put_conf
+            zone_type_v2="DEMAND_ZONE",
+            significance_score=self.calculate_significance('PUT_WALL', get_zone_type(primary_put_row['strike']), p_put_conf, primary_put_row['put_oi']/max_oi_overall),
+            confluence=p_put_conf
         ))
+
+        # Absolute Floor (Global Put Wall)
+        if primary_put_row['strike'] != max_put_row['strike']:
+            m_put_conf = check_confluence_vec(np.array([max_put_row['mapped_price']]))[0]
+            levels.append(GammaLevel(
+                price=float(max_put_row['mapped_price']),
+                strike=float(max_put_row['strike']),
+                type='PUT_WALL',
+                zone_type="MAJOR",
+                strength=float(max_put_row['put_oi']),
+                description=f"Absolute Institutional Floor at {max_put_row['strike']}",
+                market_action="SUPPORT",
+                zone_type_v2="DEMAND_ZONE",
+                significance_score=0.9,
+                confluence=m_put_conf
+            ))
 
         # 6. GEX Regime
         total_call_oi = df_target['call_oi'].sum()

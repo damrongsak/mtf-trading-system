@@ -19,35 +19,57 @@ class YFinanceAdapter:
         "GVZ": "^GVZ"
     }
 
-    async def fetch_indicator(self, label: str) -> Optional[Dict[str, Any]]:
+    async def fetch_candles(
+        self, 
+        ticker_symbol: str, 
+        interval: str = "1h", 
+        period: str = "60d",
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> list[Dict[str, Any]]:
         """
-        Fetches the latest data for a macro indicator.
+        Fetches historical OHLC candles from Yahoo Finance.
+        Args:
+            ticker_symbol: YF ticker (e.g. ^GSPC, GC=F)
+            interval: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+            period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+            start_date: Start datetime object
+            end_date: End datetime object
         """
-        yf_symbol = self.MACRO_SYMBOLS.get(label)
-        if not yf_symbol:
-            return None
-            
         try:
-            # yfinance is blocking, so run in thread
-            ticker = yf.Ticker(yf_symbol)
-            hist = await asyncio.to_thread(ticker.history, period="5d")
+            ticker = yf.Ticker(ticker_symbol)
             
-            if hist.empty:
-                logger.warning(f"No {label} data found from yfinance.")
-                return None
+            # Prepare arguments for history()
+            kwargs = {"interval": interval}
+            if start_date and end_date:
+                kwargs["start"] = start_date.strftime("%Y-%m-%d")
+                kwargs["end"] = end_date.strftime("%Y-%m-%d")
+            else:
+                kwargs["period"] = period
 
-            latest_value = float(hist['Close'].iloc[-1])
-            timestamp = str(hist.index[-1].isoformat())
+            logger.info(f"YFinance: Fetching {ticker_symbol} | Interval: {interval} | Range: {kwargs.get('start', 'N/A')} - {kwargs.get('end', 'N/A')}")
             
-            return {
-                "symbol": yf_symbol,
-                "value": latest_value,
-                "timestamp": timestamp,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
+            df = await asyncio.to_thread(ticker.history, **kwargs)
+            
+            if df.empty:
+                logger.warning(f"YFinance: No data returned for {ticker_symbol}")
+                return []
+
+            candles = []
+            for ts, row in df.iterrows():
+                candles.append({
+                    "timestamp": ts.to_pydatetime() if hasattr(ts, 'to_pydatetime') else ts,
+                    "open": float(row["Open"]),
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"]),
+                    "volume": int(row["Volume"]),
+                })
+            
+            return candles
         except Exception as e:
-            logger.error(f"Error fetching {label} ({yf_symbol}) from yfinance: {e}")
-            return None
+            logger.error(f"YFinance error for {ticker_symbol}: {e}")
+            return []
 
     async def sync_all_macro(self, publisher: Any) -> Dict[str, float]:
         """

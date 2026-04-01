@@ -289,12 +289,26 @@
     "id": "69d5ce22-4f95-4a91-b534-5298ec2aec5b",
     "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
     "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
-    "symbol": "XAU_USD_YF",
-    "display_name": "Gold (Yahoo Finance)",
-    "order_index": null,
+    "symbol": "GC_FUTURES",
+    "display_name": "Gold Futures (YF)",
+    "order_index": 10,
     "is_active": true,
     "details": {
-      "yfinance_ticker": "GC=F"
+      "yfinance_ticker": "GC=F",
+      "asset_class": "Metals"
+    }
+  },
+  {
+    "id": "7a8b9c0d-e1f2-4a3b-b4c5-d6e7f8a9b0c1",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "f5e6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9",
+    "symbol": "XAUUSD_SPOT",
+    "display_name": "Gold Spot (YF)",
+    "order_index": 11,
+    "is_active": true,
+    "details": {
+      "yfinance_ticker": "XAU=X",
+      "asset_class": "Metals"
     }
   },
   {

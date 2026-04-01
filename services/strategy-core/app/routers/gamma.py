@@ -116,19 +116,35 @@ async def get_gamma_levels(
     if max_dte is not None:
         base_filter.append(OpenInterest.dte <= max_dte)
 
+    # Resolve Basis for Filtering
+    # If price_to_use is spot (~2350) and DB strikes are ~4800, we must adjust filter
+    db_underlying = snapshot_underlying or price_to_use
+    basis_adj = 0.0
+    if price_to_use > 0 and db_underlying > 0:
+        # If divergence is > 30% it's likely a scaling difference
+        if abs(db_underlying - price_to_use) / price_to_use > 0.3:
+            basis_adj = db_underlying - price_to_use
+    
+    # Strikes to fetch - centered around the adjusted spot
+    fetch_center = price_to_use + basis_adj
+    filter_range = 2000.0 # Catch major institutional walls (e.g. 4000, 6000)
+    
     max_call_record = db.query(OpenInterest).filter(*base_filter).order_by(OpenInterest.call_oi.desc()).first()
     max_put_record = db.query(OpenInterest).filter(*base_filter).order_by(OpenInterest.put_oi.desc()).first()
     
-    filter_range = 300.0
     filtered_records = db.query(OpenInterest).filter(
         *base_filter,
-        OpenInterest.strike >= price_to_use - filter_range,
-        OpenInterest.strike <= price_to_use + filter_range
+        OpenInterest.strike >= fetch_center - filter_range,
+        OpenInterest.strike <= fetch_center + filter_range
     ).all()
 
     if not filtered_records and not max_call_record:
-        if redis_client: await redis_client.close()
-        raise HTTPException(status_code=404, detail="No records found for specified parameters")
+        # Fallback: if no records near spot, just use global maxes
+        if max_call_record or max_put_record:
+            filtered_records = []
+        else:
+            if redis_client: await redis_client.close()
+            raise HTTPException(status_code=404, detail="No records found for specified parameters")
 
     combined_records_dict = {}
     if max_call_record: combined_records_dict[max_call_record.id] = max_call_record

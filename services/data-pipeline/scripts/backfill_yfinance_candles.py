@@ -25,8 +25,8 @@ YAHOO_MAPPINGS = {
     "^GSPC": "SPX",
     "TIP": "TIPS",
     # Gold & FX (Spot)
-    "GC=F": "XAU_USD_YF",  # Explicit mapping to our new symbol
-    "EURUSD=X": "EURUSD",
+    "GC=F": "GC_FUTURES",
+    "XAUUSD=X": "XAUUSD_SPOT",
     "GBPUSD=X": "GBPUSD",
     "USDJPY=X": "USDJPY"
 }

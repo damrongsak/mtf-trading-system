@@ -91,6 +91,7 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
                 break
                 
             batch_data = []
+            
             for c in candles:
                 # Oanda returns dicts in adapter
                 is_complete = c.get('complete', False)
@@ -98,16 +99,18 @@ async def process_oanda_backfill(client, ms, tf, from_date, to_date, db, logger)
                     ts = pd.to_datetime(c['time']).to_pydatetime()
                     if ts > to_date:
                         break
-                        
+                    
+                    o, h, l, cl = float(c['mid']['o']), float(c['mid']['h']), float(c['mid']['l']), float(c['mid']['c'])
+                    
                     batch_data.append({
                         "market_symbol_id": ms.id,
                         "symbol": symbol_name,
                         "timeframe": tf,
                         "timestamp": ts,
-                        "open": float(c['mid']['o']),
-                        "high": float(c['mid']['h']),
-                        "low": float(c['mid']['l']),
-                        "close": float(c['mid']['c']),
+                        "open": round(o, 5),
+                        "high": round(h, 5),
+                        "low": round(l, 5),
+                        "close": round(cl, 5),
                         "volume": int(c['volume']),
                         "is_complete": is_complete
                     })
@@ -169,8 +172,8 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
     
     batch_data = []
     # [SYSTEM OPTIMIZATION]: cTrader Trendbars use a fixed scalar of 100,000
-    # regardless of 'digits' for most price fields to maintain proto consistency.
     divisor = 100000.0
+    
     for bar in trendbars:
         low_raw = bar.low
         if bar.deltaOpen > (low_raw * 0.5):
@@ -191,6 +194,55 @@ async def process_ctrader_backfill(client, source, ms, tf, from_date, to_date, d
             "is_complete": True 
         })
     
+    if batch_data:
+        candle_repo = CandleRepository(db)
+        await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
+        return len(batch_data)
+    return 0
+
+async def process_yfinance_backfill(ms, tf, from_date, to_date, db, logger):
+    """Fetch candles from Yahoo Finance."""
+    from app.adapters.yfinance_adapter import yfinance_adapter
+    
+    details = ensure_dict(ms.details)
+    ticker = details.get("yfinance_ticker")
+    if not ticker:
+        logger.error(f"Missing yfinance_ticker for {ms.symbol}")
+        return 0
+        
+    yf_tf_map = {
+        "M1": "1m", "M2": "2m", "M5": "5m", "M15": "15m", "M30": "30m",
+        "H1": "60m", "H4": "1h", "D1": "1d", "W1": "1wk", "MN1": "1mo"
+    }
+    yf_interval = yf_tf_map.get(tf, "1h")
+    
+    logger.info(f"Fetching YFinance candles for {ms.symbol} ({ticker}) | TF: {tf} ({yf_interval})")
+    
+    candles = await yfinance_adapter.fetch_candles(
+        ticker_symbol=ticker,
+        interval=yf_interval,
+        start_date=from_date,
+        end_date=to_date
+    )
+    
+    if not candles:
+        return 0
+        
+    batch_data = []
+    for c in candles:
+        batch_data.append({
+            "market_symbol_id": ms.id,
+            "symbol": ms.symbol,
+            "timeframe": tf,
+            "timestamp": c["timestamp"],
+            "open": c["open"],
+            "high": c["high"],
+            "low": c["low"],
+            "close": c["close"],
+            "volume": c["volume"],
+            "is_complete": True
+        })
+        
     if batch_data:
         candle_repo = CandleRepository(db)
         await asyncio.to_thread(candle_repo.bulk_upsert, batch_data)
@@ -300,6 +352,8 @@ async def run_ingestion_job(
                     logger.error(f"Failed to connect to cTrader {source.name}: {e}")
                     continue
 
+            elif source.provider == "YAHOO_FINANCE":
+                client = None # No persistent client needed
             else:
                 logger.warning(f"Unknown provider {source.provider}. Skipping.")
                 continue
@@ -321,6 +375,8 @@ async def run_ingestion_job(
                                  await process_oanda_backfill(client, ms, tf, from_date, to_date, task_db, logger)
                             elif source.provider == "CTRADER":
                                 await process_ctrader_backfill(client, source, ms, tf, from_date, to_date, task_db, logger)
+                            elif source.provider == "YAHOO_FINANCE":
+                                await process_yfinance_backfill(ms, tf, from_date, to_date, task_db, logger)
                         else:
                             # SMART CATCHUP / REAL-TIME
                             # 1. Determine local last candle
@@ -353,6 +409,9 @@ async def run_ingestion_job(
                                     count = await process_ctrader_backfill(client, source, ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
                                     if count > 0:
                                         catchup_performed = True
+                                elif source.provider == "YAHOO_FINANCE":
+                                    await process_yfinance_backfill(ms, tf, catchup_start, datetime.now(timezone.utc), task_db, logger)
+                                    catchup_performed = True
 
                             # 2. Regular Real-time Catchup (Only if not already caught up via backfill)
                             if not catchup_performed:

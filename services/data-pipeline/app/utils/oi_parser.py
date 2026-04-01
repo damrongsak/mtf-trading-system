@@ -74,15 +74,21 @@ class OpenInterestParser:
             row_data = OpenInterestParser._process_row(row, col_map)
             
             for symbol, data in row_data.items():
+                # Determine if we need to apply scaling (e.g. Gold 2x basis correction)
+                is_gold = any(s in symbol.upper() for s in ["OG", "GC", "XAU"])
+                
+                final_strike = strike
+                final_underlying = (data['underlying_price'] or underlying_price)
+
                 records.append({
                     'snapshot_at': snapshot_at,
                     'contract_symbol': symbol,
                     'underlying_contract_symbol': data['underlying_symbol'],
                     'dte': data['dte'],
-                    'strike': strike,
+                    'strike': final_strike,
                     'call_oi': data['call'],
                     'put_oi': data['put'],
-                    'underlying_price': data['underlying_price'] or underlying_price,
+                    'underlying_price': final_underlying,
                     'created_at': datetime.utcnow()
                 })
                 

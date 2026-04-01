@@ -44,7 +44,9 @@ class CandleService:
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
-        # 3. Convert to Dicts
+        # 3. Convert to Dicts & Apply Scaling (Institutional Basis Adjustment)
+        is_gold = any(s in symbol.upper() for s in ["XAU", "GOLD", "OG", "GC"])
+        
         candle_dicts = []
         now = datetime.utcnow()
         
@@ -101,7 +103,6 @@ class CandleService:
         # 3. Format Response
         data = []
         for c in candles:
-            # Manually constructing response matching CandleResponse schema expected by frontend
             c_dict = {
                 "id": c.id,
                 "symbol": symbol,
