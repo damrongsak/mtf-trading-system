@@ -6,7 +6,8 @@ from app.repositories.open_interest_repository import OpenInterestRepository
 from app.schemas.open_interest import (
     OpenInterestSnapshotResponse,
     OpenInterestRecordResponse,
-    OpenInterestAnalysisResponse
+    OpenInterestAnalysisResponse,
+    OpenInterestGEXResponse
 )
 from app.utils.redis_client import redis_client
 from app.utils.http_client import get_internal_client
@@ -257,6 +258,55 @@ async def get_open_interest_analysis(
         logger.error(f"Fetch analysis failed: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Fetch failed: {str(e)}")
+
+@router.get("/open-interest/gex", response_model=APIResponse[OpenInterestGEXResponse])
+async def get_open_interest_gex(
+    snapshot_at: datetime = Query(...),
+    contract: Optional[str] = Query(None),
+    sigma: float = Query(0.16),
+    r: float = Query(0.05),
+    min_dte: Optional[int] = Query(None),
+    max_dte: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get GEX Surface and Gamma Flip Point analysis.
+    """
+    cache_key = f"oi:gex:{snapshot_at.isoformat()}:{contract}:{sigma}:{r}:{min_dte}:{max_dte}"
+    
+    try:
+        rc = await redis_client.get_client()
+        cached = await rc.get(cache_key)
+        if cached:
+            return success_response(data=json.loads(cached))
+    except Exception as re:
+        logger.warning(f"Redis cache check failed: {re}")
+
+    try:
+        repo = OpenInterestRepository(db)
+        data = repo.get_gex_analysis_data(
+            snapshot_at=snapshot_at,
+            contract_symbol=contract,
+            sigma=sigma,
+            r=r,
+            min_dte=min_dte,
+            max_dte=max_dte
+        )
+        
+        # Cache Result
+        try:
+            rc = await redis_client.get_client()
+            # Serialize for cache (isoformat for datetime)
+            cache_data = json.loads(json.dumps(data, default=str)) 
+            await rc.setex(cache_key, 300, json.dumps(cache_data))
+        except Exception as re:
+            logger.warning(f"Redis cache update failed: {re}")
+
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"GEX analysis failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @router.get("/open-interest/contracts", response_model=APIResponse[List[str]])
 async def get_open_interest_contracts(

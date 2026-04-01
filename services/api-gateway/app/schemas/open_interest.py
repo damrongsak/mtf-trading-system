@@ -54,3 +54,18 @@ class UnifiedOIProfileResponse(BaseModel):
     sentiment_drift: DriftAnalysis
     gamma_levels: List[dict]
     summary: AnalysisSummary
+
+class GEXDistribution(BaseModel):
+    strike: float
+    dte: int
+    call_gex: float
+    put_gex: float
+    net_gex: float
+
+class OpenInterestGEXResponse(BaseModel):
+    snapshot_at: datetime
+    spot_price: float
+    total_gex: float
+    gamma_flip: float
+    regime: str
+    distribution: List[GEXDistribution]

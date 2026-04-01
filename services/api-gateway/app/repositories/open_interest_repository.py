@@ -3,6 +3,7 @@ from sqlalchemy import func, desc, select
 from datetime import datetime
 from typing import List, Optional, Tuple, Dict, Any
 from app.models.open_interest import OpenInterest
+from app.utils.quant import calculate_black_scholes_gamma
 import logging
 
 logger = logging.getLogger(__name__)
@@ -228,3 +229,93 @@ class OpenInterestRepository:
             "latest_summary": lat_sum,
             "prev_summary": pre_sum
         }
+
+    def get_gex_analysis_data(
+        self, 
+        snapshot_at: datetime, 
+        contract_symbol: Optional[str] = None, 
+        sigma: float = 0.16, 
+        r: float = 0.05, 
+        min_dte: Optional[int] = None, 
+        max_dte: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculates GEX Surface and Gamma Flip Point for a snapshot.
+        """
+        query = select(
+            OpenInterest.strike,
+            OpenInterest.dte,
+            func.sum(OpenInterest.call_oi).label('call_oi'),
+            func.sum(OpenInterest.put_oi).label('put_oi'),
+            func.avg(OpenInterest.underlying_price).label('underlying_price')
+        ).filter(
+            OpenInterest.snapshot_at == snapshot_at
+        )
+
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
+        if contract_symbol:
+            query = query.filter(OpenInterest.contract_symbol == contract_symbol)
+
+        query = query.group_by(OpenInterest.strike, OpenInterest.dte).order_by(OpenInterest.strike)
+        
+        rows = self.db.execute(query).fetchall()
+        if not rows:
+            return {"total_gex": 0.0, "flip_point": 0.0, "distribution": []}
+
+        gex_dist = []
+        total_gex = 0.0
+        
+        # Spot Price (Average of all underlying prices in the snapshot)
+        spot = sum(float(r.underlying_price or 0) for r in rows) / len(rows)
+        
+        for row in rows:
+            strike = float(row.strike)
+            dte = int(row.dte)
+            c_oi = float(row.call_oi or 0)
+            p_oi = float(row.put_oi or 0)
+            T = dte / 365.25 # Years
+            
+            gamma = calculate_black_scholes_gamma(spot, strike, T, r, sigma)
+            
+            # GEX = OI * Gamma * 100 * Spot
+            call_gex = c_oi * gamma * 100 * spot
+            put_gex = p_oi * gamma * 100 * spot * -1
+            strike_gex = call_gex + put_gex
+            
+            total_gex += strike_gex
+            
+            gex_dist.append({
+                "strike": strike,
+                "dte": dte,
+                "call_gex": call_gex,
+                "put_gex": put_gex,
+                "net_gex": strike_gex
+            })
+
+        # Find Gamma Flip Point (Linear interpolation where Net GEX crosses Zero)
+        flip_point = 0.0
+        # Sort by strike for crossing detection
+        gex_dist.sort(key=lambda x: x["strike"])
+        for i in range(len(gex_dist) - 1):
+            g1 = gex_dist[i]["net_gex"]
+            g2 = gex_dist[i+1]["net_gex"]
+            if (g1 <= 0 and g2 > 0) or (g1 >= 0 and g2 < 0):
+                # Linear Interpolation
+                k1 = gex_dist[i]["strike"]
+                k2 = gex_dist[i+1]["strike"]
+                if g2 - g1 != 0:
+                    flip_point = k1 - g1 * (k2 - k1) / (g2 - g1)
+                    break
+
+        return {
+            "snapshot_at": snapshot_at,
+            "spot_price": spot,
+            "total_gex": total_gex,
+            "gamma_flip": flip_point,
+            "regime": "LONG_GAMMA" if total_gex > 0 else "SHORT_GAMMA",
+            "distribution": gex_dist
+        }
+

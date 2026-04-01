@@ -1985,6 +1985,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_OpenInterestAnalytics'
 
+  /api/v1/data/open-interest/gex:
+    get:
+      summary: Get GEX (Gamma Exposure) Analysis
+      description: Institutional-grade Gamma Exposure analysis including Gamma Flip Point and Market Regime.
+      parameters:
+        - name: snapshot_at
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: contract
+          in: query
+          description: "Optional contract filter"
+          schema:
+            type: string
+        - name: sigma
+          in: query
+          description: "Implied Volatility (default 0.16)"
+          schema:
+            type: number
+            default: 0.16
+        - name: r
+          in: query
+          description: "Risk-free rate (default 0.05)"
+          schema:
+            type: number
+            default: 0.05
+        - name: min_dte
+          in: query
+          schema:
+            type: integer
+        - name: max_dte
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: GEX Surface data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_OpenInterestGEX'
+
 
 
   /api/v1/analysis/calculate/smc:
@@ -7286,6 +7330,48 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/OpenInterestAnalysisResponse'
+
+    GEXDistribution:
+      type: object
+      properties:
+        strike:
+          type: number
+        dte:
+          type: integer
+        call_gex:
+          type: number
+        put_gex:
+          type: number
+        net_gex:
+          type: number
+
+    OpenInterestGEXResponse:
+      type: object
+      properties:
+        snapshot_at:
+          type: string
+          format: date-time
+        spot_price:
+          type: number
+        total_gex:
+          type: number
+        gamma_flip:
+          type: number
+        regime:
+          type: string
+          enum: [LONG_GAMMA, SHORT_GAMMA]
+        distribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/GEXDistribution'
+
+    APIResponse_OpenInterestGEX:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/OpenInterestGEXResponse'
 
     DriftAnalysis:
       type: object
