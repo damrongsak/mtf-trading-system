@@ -54,7 +54,7 @@ class OpenInterestRepository:
 
         return query.order_by(OpenInterest.strike).all()
         
-    def get_active_strike_range(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, std_dev_multiplier: float = 2.0) -> Tuple[float, float]:
+    def get_active_strike_range(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, std_dev_multiplier: float = 2.0, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> Tuple[float, float]:
         """
         Calculates the 'Active' strike range based on OI Weighted Mean and Standard Deviation.
         """

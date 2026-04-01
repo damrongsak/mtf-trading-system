@@ -24,91 +24,42 @@ class OpenInterestRepository:
          .limit(limit)\
          .all()
 
-    def get_active_underlying_map(self, snapshot_at: datetime) -> Dict[str, float]:
-        """
-        Returns a mapping of {contract_symbol: underlying_price}.
-        This avoids heuristics by using explicit data from the database.
-        """
-        results = self.db.query(
-            OpenInterest.contract_symbol,
-            OpenInterest.underlying_price
-        ).filter(
-            OpenInterest.snapshot_at == snapshot_at,
-            OpenInterest.underlying_price.isnot(None)
-        ).distinct().all()
-        
-        return {r.contract_symbol: float(r.underlying_price) for r in results}
-
-    def get_active_contract_by_oi(self, snapshot_at: datetime) -> Optional[str]:
-        """
-        Identifies the 'Front Month' or most active contract by Total OI.
-        """
-        result = self.db.query(
-            OpenInterest.contract_symbol,
-            func.sum(func.coalesce(OpenInterest.call_oi, 0) + func.coalesce(OpenInterest.put_oi, 0)).label('total_oi')
-        ).filter(
-            OpenInterest.snapshot_at == snapshot_at
-        ).group_by(OpenInterest.contract_symbol)\
-         .order_by(desc('total_oi'))\
-         .first()
-         
-        return result.contract_symbol if result else None
-
-    def get_by_snapshot(
-        self, 
-        snapshot_at: datetime, 
-        contract_symbol: Optional[str] = None, 
-        min_oi: int = 0, 
-        max_oi: Optional[int] = None, 
-        smart_filter: bool = False,
-        percentile_filter: Optional[float] = None
-    ) -> List[OpenInterest]:
+    def get_by_snapshot(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> List[OpenInterest]:
         """
         Get all Open Interest records for a specific snapshot with optional filters.
-        
-        Args:
-            percentile_filter: If set (e.g. 0.9), only returns strikes in the top 10% of OI.
         """
         query = self.db.query(OpenInterest).filter(
             OpenInterest.snapshot_at == snapshot_at
         )
 
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
+
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
-        # Apply Total OI Filter
-        total_oi_expr = OpenInterest.call_oi + OpenInterest.put_oi
-        
+        # Apply Total OI Filter (Call + Put)
         if min_oi > 0:
-            query = query.filter(total_oi_expr >= min_oi)
+            query = query.filter((OpenInterest.call_oi + OpenInterest.put_oi) >= min_oi)
         
         if max_oi is not None:
-            query = query.filter(total_oi_expr <= max_oi)
+            query = query.filter((OpenInterest.call_oi + OpenInterest.put_oi) <= max_oi)
 
         if smart_filter:
             min_k, max_k = self.get_active_strike_range(snapshot_at, contract_symbol)
             if min_k > 0:
                 query = query.filter(OpenInterest.strike >= min_k, OpenInterest.strike <= max_k)
 
-        if percentile_filter is not None:
-            # Subquery to find the threshold for the given percentile
-            # This is slightly more complex in SQL, but for now we filter in Python or use a threshold
-            pass # Implementation for percentile can be added if needed for HFT scaling
-
         return query.order_by(OpenInterest.strike).all()
         
-    def get_active_strike_range(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, std_dev_multiplier: float = 2.0) -> Tuple[float, float]:
+    def get_active_strike_range(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, std_dev_multiplier: float = 2.0, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> Tuple[float, float]:
         """
         Calculates the 'Active' strike range based on OI Weighted Mean and Standard Deviation.
-        Uses SQL aggregations for performance (E[X^2] - E[X]^2 formula).
-        Returns (min_strike, max_strike).
         """
         total_oi_expr = func.coalesce(OpenInterest.call_oi, 0) + func.coalesce(OpenInterest.put_oi, 0)
         
-        # Calculate Weighted Mean E[X] and E[X^2] in one pass
-        # sum_oi = Σ w_i
-        # sum_w_x = Σ (w_i * x_i)
-        # sum_w_x2 = Σ (w_i * x_i^2)
         query = select(
             func.sum(total_oi_expr).label('sum_oi'),
             func.sum(OpenInterest.strike * total_oi_expr).label('sum_w_x'),
@@ -116,6 +67,11 @@ class OpenInterestRepository:
         ).filter(
             OpenInterest.snapshot_at == snapshot_at
         )
+
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
 
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
@@ -128,7 +84,6 @@ class OpenInterestRepository:
         mean_strike = float(res.sum_w_x) / sum_oi
         mean_sq_strike = float(res.sum_w_x2) / sum_oi
 
-        # Variance = E[X^2] - (E[X])^2
         variance = mean_sq_strike - (mean_strike ** 2)
         std_dev = variance ** 0.5 if variance > 0 else 0
 
@@ -137,11 +92,10 @@ class OpenInterestRepository:
 
         return (min_strike, max_strike)
 
-    def get_analysis_data(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False) -> Dict[str, Any]:
+    def get_analysis_data(self, snapshot_at: datetime, contract_symbol: Optional[str] = None, min_oi: int = 0, max_oi: Optional[int] = None, smart_filter: bool = False, min_dte: Optional[int] = None, max_dte: Optional[int] = None) -> Dict[str, Any]:
         """
         Aggregates Open Interest data to calculate PCR, Max Pain, and detailed strike distribution.
         """
-        # base query
         query = select(
             OpenInterest.strike,
             func.sum(OpenInterest.call_oi).label('total_call_oi'),
@@ -150,10 +104,14 @@ class OpenInterestRepository:
             OpenInterest.snapshot_at == snapshot_at
         )
 
+        if min_dte:
+            query = query.filter(OpenInterest.dte >= min_dte)
+        if max_dte:
+            query = query.filter(OpenInterest.dte <= max_dte)
+
         if contract_symbol:
             query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
-        # Apply Smart Strike Range Filter
         if smart_filter:
             min_k, max_k = self.get_active_strike_range(snapshot_at, contract_symbol)
             if min_k > 0:
@@ -161,7 +119,6 @@ class OpenInterestRepository:
 
         query = query.group_by(OpenInterest.strike).order_by(OpenInterest.strike)
 
-        # Execute
         result = self.db.execute(query)
         rows = result.fetchall()
 
@@ -176,6 +133,10 @@ class OpenInterestRepository:
 
         max_call_oi = 0
         max_put_oi = 0
+
+        # OIWAP Accumulators
+        sum_weighted_strike = 0.0
+        sum_total_oi = 0.0
 
         for row in rows:
             c_oi = float(row.total_call_oi or 0)
@@ -192,7 +153,10 @@ class OpenInterestRepository:
             summary["total_call_oi"] += c_oi
             summary["total_put_oi"] += p_oi
             
-            # ... update max strikes ...
+            # Accumulate for OIWAP
+            sum_weighted_strike += (float(row.strike) * total_leg_oi)
+            sum_total_oi += total_leg_oi
+            
             distribution.append({
                 "strike": row.strike,
                 "call_oi": c_oi,
@@ -203,13 +167,16 @@ class OpenInterestRepository:
 
             if c_oi > max_call_oi:
                 max_call_oi = c_oi
-                summary["max_call_strike"] = row.strike
+                summary["max_call_strike"] = float(row.strike)
             if p_oi > max_put_oi:
                 max_put_oi = p_oi
-                summary["max_put_strike"] = row.strike
+                summary["max_put_strike"] = float(row.strike)
 
         if summary["total_call_oi"] > 0:
             summary["pcr"] = summary["total_put_oi"] / summary["total_call_oi"]
+        
+        # Calculate OIWAP
+        summary["oiwap"] = sum_weighted_strike / sum_total_oi if sum_total_oi > 0 else 0.0
         
         return {
             "summary": summary,
@@ -227,3 +194,37 @@ class OpenInterestRepository:
             .all()
         return [r[0] for r in results]
 
+    def get_drift_analysis(self, latest_snapshot: datetime, prev_snapshot: datetime, contract_symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Calculates drift metrics between two OI snapshots.
+        """
+        latest = self.get_analysis_data(latest_snapshot, contract_symbol=contract_symbol)
+        prev = self.get_analysis_data(prev_snapshot, contract_symbol=contract_symbol)
+
+        lat_sum = latest.get("summary", {})
+        pre_sum = prev.get("summary", {})
+
+        # Sentiment Drift
+        pcr_drift = lat_sum.get("pcr", 1.0) - pre_sum.get("pcr", 1.0)
+        
+        lat_net = lat_sum.get("total_call_oi", 0) - lat_sum.get("total_put_oi", 0)
+        pre_net = pre_sum.get("total_call_oi", 0) - pre_sum.get("total_put_oi", 0)
+        net_drift = lat_net - pre_net
+
+        # Wall Migration
+        cw_shift = lat_sum.get("max_call_strike", 0.0) - pre_sum.get("max_call_strike", 0.0)
+        pw_shift = lat_sum.get("max_put_strike", 0.0) - pre_sum.get("max_put_strike", 0.0)
+        
+        # OIWAP Migration
+        oiwap_shift = lat_sum.get("oiwap", 0.0) - pre_sum.get("oiwap", 0.0)
+
+        return {
+            "pcr_drift": round(pcr_drift, 4),
+            "net_oi_drift": net_drift,
+            "call_wall_shift": cw_shift,
+            "put_wall_shift": pw_shift,
+            "oiwap_shift": round(oiwap_shift, 2),
+            "sentiment": "Bullish Shift" if net_drift > 0 else "Bearish Shift",
+            "latest_summary": lat_sum,
+            "prev_summary": pre_sum
+        }

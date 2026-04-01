@@ -34,23 +34,29 @@ class OpenInterestService:
             if not records_to_insert:
                 return {"status": "no_records_found"}
 
-            # Bulk Insert / Upsert
-            stmt = insert(OpenInterest).values(records_to_insert)
-            
-            update_dict = {
-                'call_oi': stmt.excluded.call_oi,
-                'put_oi': stmt.excluded.put_oi,
-                'dte': stmt.excluded.dte,
-                'underlying_price': stmt.excluded.underlying_price,
-                'underlying_contract_symbol': stmt.excluded.underlying_contract_symbol
-            }
-            
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['contract_symbol', 'strike', 'snapshot_at'],
-                set_=update_dict
-            )
-            
-            db.execute(stmt)
+            # Bulk Insert / Upsert with Chunking to avoid Postgres parameter limits (65535)
+            # 30k records * 9 columns = 270k parameters -> exceeds limit
+            chunk_size = 500
+            for i in range(0, len(records_to_insert), chunk_size):
+                chunk = records_to_insert[i:i + chunk_size]
+                
+                stmt = insert(OpenInterest).values(chunk)
+                
+                update_dict = {
+                    'call_oi': stmt.excluded.call_oi,
+                    'put_oi': stmt.excluded.put_oi,
+                    'dte': stmt.excluded.dte,
+                    'underlying_price': stmt.excluded.underlying_price,
+                    'underlying_contract_symbol': stmt.excluded.underlying_contract_symbol
+                }
+                
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['contract_symbol', 'strike', 'snapshot_at'],
+                    set_=update_dict
+                )
+                
+                db.execute(stmt)
+                
             db.commit()
             
             logger.info(f"Successfully processed {len(records_to_insert)} OI records for {snapshot_time}")
@@ -89,13 +95,15 @@ class OpenInterestService:
         contract: Optional[str] = None, 
         min_oi: int = 0,
         max_oi: Optional[int] = None,
-        smart_filter: bool = False
+        smart_filter: bool = False,
+        min_dte: Optional[int] = None,
+        max_dte: Optional[int] = None
     ) -> List[OpenInterestRecordResponse]:
         """
         Get detailed Open Interest records for a specific snapshot.
         """
         repo = OpenInterestRepository(db)
-        records = repo.get_by_snapshot(snapshot_at, contract, min_oi, max_oi, smart_filter)
+        records = repo.get_by_snapshot(snapshot_at, contract, min_oi, max_oi, smart_filter, min_dte, max_dte)
         
         return [
             OpenInterestRecordResponse(
@@ -116,14 +124,16 @@ class OpenInterestService:
         snapshot_at: datetime, 
         contract_symbol: Optional[str] = None, 
         min_oi: int = 0,
-        max_oi: Optional[int] = None
+        max_oi: Optional[int] = None,
+        min_dte: Optional[int] = None,
+        max_dte: Optional[int] = None
     ) -> OpenInterestAnalysisResponse:
         """
         Get aggregated analytics for a specific snapshot with optional filters.
         """
         repo = OpenInterestRepository(db)
         # Repository now handles aggregation and returns the final structure
-        analysis_data = repo.get_analysis_data(snapshot_at, contract_symbol, min_oi, max_oi, smart_filter=True)
+        analysis_data = repo.get_analysis_data(snapshot_at, contract_symbol, min_oi, max_oi, smart_filter=True, min_dte=min_dte, max_dte=max_dte)
         
         return OpenInterestAnalysisResponse(
             summary=AnalysisSummary(**analysis_data['summary']),
