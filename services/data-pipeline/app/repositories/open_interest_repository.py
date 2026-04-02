@@ -18,7 +18,8 @@ class OpenInterestRepository:
         return self.db.query(
             OpenInterest.snapshot_at,
             func.count(OpenInterest.id).label('count'),
-            func.max(OpenInterest.created_at).label('created_at')
+            func.max(OpenInterest.created_at).label('created_at'),
+            func.max(OpenInterest.underlying_price).label('underlying_price')
         ).group_by(OpenInterest.snapshot_at)\
          .order_by(desc(OpenInterest.snapshot_at))\
          .limit(limit)\

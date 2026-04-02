@@ -6,6 +6,7 @@ class OpenInterestSnapshotResponse(BaseModel):
     snapshot_at: datetime
     count: int
     created_at: Optional[datetime]
+    underlying_price: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 

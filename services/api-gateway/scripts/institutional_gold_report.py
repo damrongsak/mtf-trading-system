@@ -49,14 +49,18 @@ class MTFClient:
         res_json = response.json()
         return res_json.get("data", [])
 
-    def get_latest_oi_snapshot(self):
+    def get_latest_oi_snapshot_data(self):
         url = f"{self.base_url}/data/open-interest/snapshots"
         params = {"limit": 1}
-        response = requests.get(url, params=params, headers=self.headers)
-        response.raise_for_status()
-        res_json = response.json()
-        data = res_json.get("data", [])
-        return data[0]["snapshot_at"] if data else None
+        try:
+            response = requests.get(url, params=params, headers=self.headers)
+            response.raise_for_status()
+            res_json = response.json()
+            data = res_json.get("data", [])
+            return data[0] if data else None
+        except Exception as e:
+            logger.error(f"Error fetching latest snapshot: {e}")
+            return None
 
     def get_oi_analysis(self, snapshot_at, min_dte=0, max_dte=30, min_oi=500):
         url = f"{self.base_url}/data/open-interest/analysis"
@@ -93,20 +97,30 @@ def calculate_physics(df_gold):
     if df_gold.empty:
         return {}
     
-    # Simple displacement (Price change over last 5 periods)
-    p_current = df_gold['close'].iloc[-1]
-    p_start = df_gold['close'].iloc[-5] if len(df_gold) >= 5 else df_gold['close'].iloc[0]
+    # API returns DESC (index 0 is newest).
+    # For TA calculation (rolling ATR), we MUST work on ASC data.
+    # Flip to ASC then calculate
+    df_asc = df_gold.iloc[::-1].copy()
+    p_current = df_asc['close'].iloc[-1]
+    p_start = df_asc['close'].iloc[0]
+    
     displacement = (p_current - p_start) / p_start * 100
     
-    # Net Force (Approximate using Volume * Acceleration)
-    # This is a heuristic for 3rd party consumption
-    returns = df_gold['close'].pct_change().dropna()
+    # Net Force
+    returns = df_asc['close'].pct_change().dropna()
     volatility = returns.std()
     
     # Energy (Market potential based on ATR expansion)
-    high_low = df_gold['high'] - df_gold['low']
-    atr = high_low.rolling(14).mean().iloc[-1]
-    energy = (atr / p_current) * 100000 # Normalized scale
+    high_low = df_asc['high'] - df_asc['low']
+    # Rolling 14 on chronological data correctly populates the newer rows
+    atr_series = high_low.rolling(14).mean()
+    atr = atr_series.iloc[-1] # Newest ATR
+    
+    # Bulletproofing: If ATR is still nan due to short history, use last known range or 0
+    if np.isnan(atr):
+        atr = high_low.mean() if not high_low.empty else 1.0
+        
+    energy = (atr / p_current) * 100000 if p_current > 0 else 0.0
     
     return {
         "price": p_current,
@@ -221,39 +235,76 @@ def generate_markdown(data):
     return report
 
 def main():
+    parser = argparse.ArgumentParser(description="Institutional Gold Quantitative Report Generator (V4.1)")
+    parser.add_argument("--spot-price", type=float, help="Override spot price for analysis (e.g. 4784.0)")
+    parser.add_argument("--max-dte", type=float, default=90, help="Maximum DTE for total GEX calculation")
+    parser.add_argument("--sigma", type=float, default=0.16, help="Volatility estimate (0.16 = 16%)")
+    args = parser.parse_args()
+
     client = MTFClient(API_BASE_URL)
     client.authenticate("demo1", "password123")
     
-    # 1. Fetch Gold Data
-    logger.info("Fetching Gold candles...")
+    # 1. Fetch Gold Data for Physics
+    logger.info("Fetching Gold candles (H1) for physics...")
     gold_candles = client.get_candles(GOLD_SYMBOL, timeframe="H1", limit=100)
     df_gold = pd.DataFrame(gold_candles)
     physics = calculate_physics(df_gold)
-    current_price = physics['price']
     
-    # 2. Fetch GEX Analysis (Term Structure)
+    # 2. Resolve Latest OI Snapshot and Underlying Price
+    logger.info("Resolving latest Open Interest snapshot...")
+    snapshot_data = client.get_latest_oi_snapshot_data()
+    if not snapshot_data:
+        logger.error("No Open Interest snapshots found.")
+        return
+        
+    snapshot_at = snapshot_data['snapshot_at']
+    # The underlying price from the matrix is the authoritative anchor for GEX
+    matrix_price = float(snapshot_data.get('underlying_price', 0.0)) or physics['price']
+    
+    # Priority: CLI Arg > Matrix Price > Live Spot
+    current_price = args.spot_price if args.spot_price else matrix_price
+    
+    logger.info(f"Using Snapshot: {snapshot_at} | Anchor Price: ${current_price:,.2f}")
+    if args.spot_price:
+        logger.info(f"Using CLI OVERRIDE for spot price: ${current_price:,.2f}")
+    
+    # Force physics price to match our GEX anchor for reporting consistency
+    physics['price'] = current_price
+    
+    # 3. Fetch GEX Analysis (Term Structure)
     logger.info("Analyzing Multi-Timeframe GEX Surface...")
-    snap_at = client.get_latest_oi_snapshot()
     
     buckets = {
         "Tactical (Nearest)": (None, None), # Default to Nearest in Repo logic
-        "Strategic (26-65d)": (26, 65),
+        "Strategic (6-65d)": (6, 65),
         "Macro (66-130d)": (66, 130)
     }
     
     gex_mtf = {}
     for name, (mi, ma) in buckets.items():
-        gex_data = client.get_gex_analysis(snap_at, min_dte=mi, max_dte=ma, spot_price=current_price)
+        gex_data = client.get_gex_analysis(
+            snapshot_at, 
+            min_dte=mi, 
+            max_dte=ma, 
+            spot_price=current_price,
+            sigma=args.sigma
+        )
         gex_mtf[name] = {
-            "total_gex": gex_data.get("total_gex_notional", 0.0),
+            "total_gex": gex_data.get("total_gex", 0.0),
             "gamma_flip": gex_data.get("gamma_flip", 0.0),
             "regime": gex_data.get("regime", "UNKNOWN"),
             "nearest_dte": gex_data.get("nearest_dte", 0.0)
         }
     
     # Total GEX (Unfiltered DTE but with correct spot)
-    gex_total = client.get_gex_analysis(snap_at, spot_price=current_price)
-    gex_total["total_gex"] = gex_total.get("total_gex_notional", 0.0) # Mapping key
+    # Respect --max-dte for specialized quarterly reporting
+    gex_total = client.get_gex_analysis(
+        snapshot_at, 
+        max_dte=args.max_dte, 
+        spot_price=current_price,
+        sigma=args.sigma
+    )
+    gex_total["total_gex"] = gex_total.get("total_gex", 0.0)
     
     # 3. Strategy Calculation (Institutional Anchor)
     # Use Tactical (Nearest) Gamma Flip for the most significant data
@@ -266,13 +317,11 @@ def main():
     strategy = generate_3_bullets_strategy(physics, pivots, fibo)
     
     # VALIDATION: Check for Significant Data Divergence
-    # Threshold reduced to 20% to prevent anchoring to non-sensical artifacts
     if flip_point > 0:
         drift_pct = (abs(flip_point - current_price) / current_price) * 100
         if drift_pct > 25.0:
             logger.warning(f"SANITY CHECK FAILED: Gamma Flip ${flip_point:,.2f} is {drift_pct:.1f}% away from Spot ${current_price:,.2f}.")
             logger.info("Falling back to ATR-based Relative Levels (LIQUIDITY_GAP).")
-            # Entry stays current_price from default strategy
         else:
             logger.info(f"Anchoring strategy to Validated Gamma Flip Point: ${flip_point:,.2f} (Drift: {drift_pct:.1f}%)")
             strategy["entry"] = flip_point
@@ -283,12 +332,11 @@ def main():
             strategy["tp1"] = strategy["entry"] + (2.0 * atr)
             strategy["tp2"] = strategy["entry"] + (4.0 * atr)
             strategy["tp3"] = strategy["entry"] + (6.0 * atr)
-
-        
+            
     # 7. Build Data
     final_data = {
         "physics": physics,
-        "oi_snapshot": snap_at,
+        "oi_snapshot": snapshot_at,
         "gex_mtf": gex_mtf,
         "gex_total": gex_total,
         "strategy": strategy
@@ -300,7 +348,7 @@ def main():
     # Save to standard V4 path
     with open(REPORT_PATH, "w") as f:
         f.write(report_md)
-    logger.info(f"Institutional Report V4.0 generated: {REPORT_PATH}")
+    logger.info(f"Institutional Report V4.1 generated: {REPORT_PATH}")
     
     # Save to requested tmp path for user compatibility
     tmp_path = "/tmp/Gold_Quantitative_Report_V3_5.md" 

@@ -163,7 +163,8 @@ async def get_open_interest_snapshots(
             {
                 "snapshot_at": r.snapshot_at.isoformat(),
                 "count": r.count,
-                "created_at": r.created_at.isoformat() if r.created_at else None
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "underlying_price": float(r.underlying_price) if getattr(r, 'underlying_price', None) is not None else None
             }
             for r in results
         ]
@@ -297,13 +298,12 @@ async def get_open_interest_gex(
             spot_price=spot_price
         )
         
-        # 3. Serialization Safety (Convert result items to strings/scalars)
-        if isinstance(data.get("snapshot_at"), datetime):
-            data["snapshot_at"] = data["snapshot_at"].isoformat()
-            
-        # 4. Cache Result (60 min)
+        # 3. Cache Result (60 min)
         if client:
-            await client.set(cache_key, json.dumps(data), ex=3600)
+            # We cache the raw data dict (json.dumps handles datetime via a custom encoder if needed, 
+            # but usually repo returns serializable structures or Pydantic models)
+            # Actually, we should use the Pydantic model's json() for consistent caching
+            await client.set(cache_key, json.dumps(data, default=str), ex=3600)
             
         return success_response(data=data)
         

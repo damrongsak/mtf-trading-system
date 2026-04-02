@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, select
+from sqlalchemy import func, desc, asc, select
 from datetime import datetime
 from typing import List, Optional, Tuple, Dict, Any
 from app.models.open_interest import OpenInterest
@@ -19,7 +19,8 @@ class OpenInterestRepository:
         return self.db.query(
             OpenInterest.snapshot_at,
             func.count(OpenInterest.id).label('count'),
-            func.max(OpenInterest.created_at).label('created_at')
+            func.max(OpenInterest.created_at).label('created_at'),
+            func.max(OpenInterest.underlying_price).label('underlying_price')
         ).group_by(OpenInterest.snapshot_at)\
          .order_by(desc(OpenInterest.snapshot_at))\
          .limit(limit)\
@@ -251,39 +252,50 @@ class OpenInterestRepository:
         spot = spot_price or 0.0
         regime = "NEUTRAL"
         
-        # 1. First, find available DTEs...
-        if not contract_symbol:
-            # AUTO-RESOLVER: Find the contract with the highest net OI for this snapshot
-            # This ensures we anchor to the most significant liquidity surface (usually the monthly active)
+        # 1. Resolve target contracts and DTE range
+        # If a range is provided, we NEVER pin to a single contract unless explicitly requested.
+        targeting_range = (min_dte is not None or max_dte is not None)
+        
+        if not contract_symbol and not targeting_range:
+            # AUTO-RESOLVER: Default to the highest OI contract ONLY if no DTE range is specified.
             oi_rank = (
-                select(OpenInterest.contract_symbol, func.sum(OpenInterest.call_oi + OpenInterest.put_oi).label('total_oi'))
+                select(OpenInterest.contract_symbol, func.min(OpenInterest.dte).label('dte'))
                 .filter(OpenInterest.snapshot_at == snapshot_at)
                 .group_by(OpenInterest.contract_symbol)
-                .order_by(desc('total_oi'))
+                # We often want the front month first if no range is given
+                .order_by(asc('dte'))
             )
             top_contract = self.db.execute(oi_rank).fetchone()
             if top_contract:
                 contract_symbol = top_contract[0]
-                # Log the resolved symbol for auditability (if logging is enabled)
-                # print(f"Resolved contract_symbol to {contract_symbol} (Highest OI)")
+                logger.info(f"GEX: Auto-resolver selected nearest front-month: {contract_symbol}")
         
+        # Build DTE discovery query
         dte_query = select(OpenInterest.dte).filter(OpenInterest.snapshot_at == snapshot_at)
         if contract_symbol:
             dte_query = dte_query.filter(OpenInterest.contract_symbol == contract_symbol)
+        if min_dte is not None:
+            dte_query = dte_query.filter(OpenInterest.dte >= min_dte)
+        if max_dte is not None:
+            dte_query = dte_query.filter(OpenInterest.dte <= max_dte)
         
         available_dtes = [float(x[0]) for x in self.db.execute(dte_query.distinct()).fetchall()]
         if not available_dtes:
+            logger.warning(f"GEX: No data found for snapshot {snapshot_at} with filters symbol={contract_symbol}, dte_range={min_dte}-{max_dte}")
             return {
-                "total_gex_notional": 0.0, 
+                "snapshot_at": snapshot_at,
+                "spot_price": spot or 0.0,
+                "total_gex": 0.0, 
                 "gamma_flip": 0.0, 
                 "distribution": [],
                 "nearest_dte": 0.0,
+                "max_dte": 0.0,
                 "regime": "NEUTRAL"
             }
             
         nearest_dte = min(available_dtes)
         
-        # 2. Main Query
+        # 2. Main Query Construction
         query = select(
             OpenInterest.strike,
             OpenInterest.dte,
@@ -294,18 +306,16 @@ class OpenInterestRepository:
             OpenInterest.snapshot_at == snapshot_at
         )
 
-        # Apply DTE Filtering (Prefer Quarterly Aggregation if not specified)
+        if contract_symbol:
+            query = query.filter(OpenInterest.contract_symbol == contract_symbol)
+        
         if min_dte is not None:
             query = query.filter(OpenInterest.dte >= min_dte)
         if max_dte is not None:
             query = query.filter(OpenInterest.dte <= max_dte)
-        
-        # If no range provided, default to Quarterly (90 days) to aggregate short-term liquidity
-        if min_dte is None and max_dte is None:
+        elif not targeting_range and not contract_symbol:
+            # Global fallback: Default to Quarterly (90 days)
             query = query.filter(OpenInterest.dte <= 90)
-
-        if contract_symbol:
-            query = query.filter(OpenInterest.contract_symbol == contract_symbol)
 
         query = query.group_by(OpenInterest.strike, OpenInterest.dte).order_by(OpenInterest.strike)
         
@@ -331,6 +341,10 @@ class OpenInterestRepository:
         gex_dist = []
         total_gex_val = 0.0
         
+        # INSTITUTIONAL FILTER: Group by strike and calculate total net OI to identify significance
+        total_net_oi = sum(float(r.call_oi or 0) + float(r.put_oi or 0) for r in rows)
+        significance_threshold = total_net_oi * 0.01  # 1% Significance Threshold
+        
         for row in rows:
             strike = float(row.strike)
             
@@ -339,9 +353,14 @@ class OpenInterestRepository:
             if abs(strike - spot) / spot > 0.20:
                 continue
                 
-            dte = int(row.dte)
             c_oi = float(row.call_oi or 0)
             p_oi = float(row.put_oi or 0)
+            
+            # SIGNIFICANCE FILTER: Ignore strikes with less than 1% of total surface OI
+            if (c_oi + p_oi) < significance_threshold:
+                continue
+                
+            dte = int(row.dte)
             T = dte / 365.25 # Years
             
             # Handle T=0 for expiration day
