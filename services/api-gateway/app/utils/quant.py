@@ -1,7 +1,9 @@
 import math
-import numpy as np
-from scipy.stats import norm
 from typing import Optional
+
+def _standard_normal_pdf(x: float) -> float:
+    """Standard Normal Probability Density Function."""
+    return (1.0 / (math.sqrt(2 * math.pi))) * math.exp(-0.5 * x**2)
 
 def calculate_black_scholes_gamma(
     S: float, 
@@ -22,7 +24,8 @@ def calculate_black_scholes_gamma(
         return 0.0
         
     d1 = (math.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
-    gamma = (math.exp(-q * T) * norm.pdf(d1)) / (S * sigma * math.sqrt(T))
+    # Replace scipy norm.pdf with pure math version
+    gamma = (math.exp(-q * T) * _standard_normal_pdf(d1)) / (S * sigma * math.sqrt(T))
     return gamma
 
 def calculate_gex_per_strike(
@@ -44,7 +47,6 @@ def calculate_gex_per_strike(
     gamma = calculate_black_scholes_gamma(S, K, T, r, sigma)
     
     # Notional GEX (Value change in underlying per point moved)
-    # Some systems use Strike price for notional, but Spot (S) is more common for GEX.
     call_gex = call_oi * gamma * multiplier * S
     put_gex = put_oi * gamma * multiplier * S * -1
     

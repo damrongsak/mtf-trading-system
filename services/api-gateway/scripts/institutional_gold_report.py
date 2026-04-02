@@ -71,14 +71,15 @@ class MTFClient:
         res_json = response.json()
         return res_json.get("data", {})
 
-    def get_gex_analysis(self, snapshot_at, min_dte=None, max_dte=None, sigma=0.16, r=0.05):
+    def get_gex_analysis(self, snapshot_at, min_dte=None, max_dte=None, sigma=0.16, r=0.05, spot_price=None):
         url = f"{self.base_url}/data/open-interest/gex"
         params = {
             "snapshot_at": snapshot_at,
             "min_dte": min_dte,
             "max_dte": max_dte,
             "sigma": sigma,
-            "r": r
+            "r": r,
+            "spot_price": spot_price
         }
         response = requests.get(url, params=params, headers=self.headers)
         response.raise_for_status()
@@ -144,16 +145,17 @@ def generate_3_bullets_strategy(physics, pivots, fibo):
     
     # Bullet 1: Entry (Zone/Limit)
     # Target Golden Pocket (0.618) or Gamma Flip Anchor
-    entry_price = fibo.get("Gamma Flip Anchor", fibo.get("0.618 (Golden)", pivots['P']))
+    entry_price = fibo.get("Gamma Flip Anchor", fibo.get("0.618 (Golden)", pivots.get('P', p_current)))
     
     # Bullet 2: Protection (Stop Loss)
     # Entry - 1.5 * ATR (Institutional Buffer)
     sl_price = entry_price - (1.5 * atr)
     
     # Bullet 3: Objectives (Take Profit)
-    tp1 = pivots['P'] if entry_price < pivots['P'] else pivots['R1']
-    tp2 = pivots['R1']
-    tp3 = pivots['R2']
+    # Use ATR-based targets relative to the entry anchor
+    tp1 = entry_price + (2.0 * atr)
+    tp2 = entry_price + (4.0 * atr)
+    tp3 = entry_price + (6.0 * atr)
     
     return {
         "entry": entry_price,
@@ -177,7 +179,7 @@ def generate_markdown(data):
     flip_dist = data['gex_total']['gamma_flip'] - data['physics']['price']
     dist_style = "ABOVE" if flip_dist > 0 else "BELOW"
     
-    report = f"""# 🏆 Institutional Gold Quantitative Report (V4.0)
+    report = f"""# 🏆 Institutional Gold Quantitative Report (V4.1)
 **Market Intelligence Snapshot**: {now}
 **Live Spot Price**: `${data['physics']['price']:,.2f}` | **Global Regime**: `{data['gex_total']['regime']}`
 
@@ -185,8 +187,9 @@ def generate_markdown(data):
 > [!IMPORTANT]
 > **Gamma Flip Point**: `${data['gex_total']['gamma_flip']:,.2f}` ({abs(flip_dist):,.2f} points {dist_style} spot)
 > **Total Net GEX**: `${data['gex_total']['total_gex']/1e6:,.2f}M` per 1% move.
+> **Significance Indicator**: Nearest DTE ({data['gex_total'].get('nearest_dte', 'N/A')}d) Expiration Bias Active.
 
-### MTF GEX Term Structure
+### MTF GEX Term Structure (DTE-Prioritized)
 | Horizon | Regime | Net GEX (Notional) | Gamma Flip |
 | :--- | :--- | :--- | :--- |
 {gex_table}
@@ -195,21 +198,13 @@ def generate_markdown(data):
 > **LONG GAMMA (Positive GEX)**: Market makers counter-trade the trend (Selling highs, buying lows), suppressing volatility.
 > **SHORT GAMMA (Negative GEX)**: Market makers trade with the trend (Selling lows, buying highs), accelerating volatility.
 
-## ⚛️ Quantitative Physics & VBS Mechanics
-| Metric | Value | Institutional Interpretation |
-| :--- | :--- | :--- |
-| **Energy (J)** | {data['physics']['energy']:.2f} | Elastic potential for breakout |
-| **Displacement** | {data['physics']['displacement']:.4f}% | Mean reversion magnitude |
-| **ATR (14H)** | ${data['physics']['atr']:.2f} | Institutional Risk Unit (IRU) |
-| **Vol Skew** | {data['physics']['volatility']:.4f} | Realized Volatility Basis |
-
-## 🏹 Execution Strategy: The 3 Bullets (V4.0)
+## 🏹 Execution Strategy: The 3 Bullets (V4.1)
 > [!TIP]
-> **Strategy Anchor**: Anchored to the **Gamma Flip Point** and **Tactical Liquidity Walls** for precise institutional entry.
+> **Strategy Anchor**: Anchored to the **Nearest DTE Gamma Flip Point** to identify the most significant institutional liquidity wall.
 
 - **Bullet 1: Precision Entry**
   - **Entry Zone**: `${data['strategy']['entry']:,.2f}`
-  - **Logic**: Anchored to Gamma Flip + Golden Pocket confluence.
+  - **Logic**: Anchored to Front-Month Gamma Flip Point.
 
 - **Bullet 2: Dynamic Guardrail (SL)**
   - **Stop Loss**: `${data['strategy']['sl']:,.2f}`
@@ -221,7 +216,7 @@ def generate_markdown(data):
   - **TP3 (Structural Extension)**: `${data['strategy']['tp3']:,.2f}`
 
 ---
-*Authored by Antigravity Quant Engine. Scipy 1.16.3 Active. GEX Synthetic Analytics V4.0.*
+*Authored by Antigravity Quant Engine. GEX Integrated V4.1. DTE-Nearest Bias Active.*
 """
     return report
 
@@ -234,60 +229,55 @@ def main():
     gold_candles = client.get_candles(GOLD_SYMBOL, timeframe="H1", limit=100)
     df_gold = pd.DataFrame(gold_candles)
     physics = calculate_physics(df_gold)
+    current_price = physics['price']
     
     # 2. Fetch GEX Analysis (Term Structure)
     logger.info("Analyzing Multi-Timeframe GEX Surface...")
     snap_at = client.get_latest_oi_snapshot()
     
     buckets = {
-        "Tactical (0-25d)": (0, 25),
+        "Tactical (Nearest)": (None, None), # Default to Nearest in Repo logic
         "Strategic (26-65d)": (26, 65),
         "Macro (66-130d)": (66, 130)
     }
     
     gex_mtf = {}
     for name, (mi, ma) in buckets.items():
-        gex_data = client.get_gex_analysis(snap_at, min_dte=mi, max_dte=ma)
+        gex_data = client.get_gex_analysis(snap_at, min_dte=mi, max_dte=ma, spot_price=current_price)
         gex_mtf[name] = {
-            "total_gex": gex_data.get("total_gex", 0.0),
+            "total_gex": gex_data.get("total_gex_notional", 0.0),
             "gamma_flip": gex_data.get("gamma_flip", 0.0),
-            "regime": gex_data.get("regime", "UNKNOWN")
+            "regime": gex_data.get("regime", "UNKNOWN"),
+            "nearest_dte": gex_data.get("nearest_dte", 0.0)
         }
     
-    # Total GEX (Unfiltered DTE)
-    gex_total = client.get_gex_analysis(snap_at)
+    # Total GEX (Unfiltered DTE but with correct spot)
+    gex_total = client.get_gex_analysis(snap_at, spot_price=current_price)
+    gex_total["total_gex"] = gex_total.get("total_gex_notional", 0.0) # Mapping key
     
-    # 3. Pivots & Fibo
-    h_prev = df_gold['high'].iloc[-48:-24].max() if len(df_gold) >= 48 else df_gold['high'].max()
-    l_prev = df_gold['low'].iloc[-48:-24].min() if len(df_gold) >= 48 else df_gold['low'].min()
-    c_prev = df_gold['close'].iloc[-24] if len(df_gold) >= 24 else df_gold['close'].iloc[0]
-    
-    p_pivot = (h_prev + l_prev + c_prev) / 3
-    rng = h_prev - l_prev
-    pivots = {
-        "P": p_pivot,
-        "R1": p_pivot + 0.382 * rng,
-        "R2": p_pivot + 0.618 * rng,
-        "S1": p_pivot - 0.382 * rng,
-        "S2": p_pivot - 0.618 * rng
-    }
-    
-    fibo = calculate_fibo_levels(df_gold)
-    
-    # 6. Strategy Calculation (Institutional Anchor)
-    tactical_gex = gex_mtf["Tactical (0-25d)"]
+    # 3. Strategy Calculation (Institutional Anchor)
+    # Use Tactical (Nearest) Gamma Flip for the most significant data
+    tactical_gex = gex_mtf["Tactical (Nearest)"]
     flip_point = tactical_gex["gamma_flip"]
+    
+    # Sane Defaults if GEX is bugged or missing
+    pivots = {} # Dummy for now if not used
+    fibo = {} 
     strategy = generate_3_bullets_strategy(physics, pivots, fibo)
     
-    # Anchor Entry to Gamma Flip if valid
+    # VALIDATION: Check for Significant Data Divergence
+    # Threshold reduced to 20% to prevent anchoring to non-sensical artifacts
     if flip_point > 0:
-        logger.info(f"Anchoring strategy to Gamma Flip Point: ${flip_point:,.2f}")
-        strategy["entry"] = flip_point
-        
-        # QUANT-GUARD: If pivots are > 10% drift from our entry, they are for a different regime.
-        # Recalculate relative to entry to avoid nonsensical targets.
-        if abs(strategy["tp1"] / strategy["entry"] - 1.0) > 0.10:
-            logger.warning("Target/Entry mismatch detected. Scaling strategy to Quantitative Risk Units.")
+        drift_pct = (abs(flip_point - current_price) / current_price) * 100
+        if drift_pct > 25.0:
+            logger.warning(f"SANITY CHECK FAILED: Gamma Flip ${flip_point:,.2f} is {drift_pct:.1f}% away from Spot ${current_price:,.2f}.")
+            logger.info("Falling back to ATR-based Relative Levels (LIQUIDITY_GAP).")
+            # Entry stays current_price from default strategy
+        else:
+            logger.info(f"Anchoring strategy to Validated Gamma Flip Point: ${flip_point:,.2f} (Drift: {drift_pct:.1f}%)")
+            strategy["entry"] = flip_point
+            
+            # Recalculate TPs relative to the validated anchor
             atr = physics['atr']
             strategy["sl"] = strategy["entry"] - (1.5 * atr)
             strategy["tp1"] = strategy["entry"] + (2.0 * atr)

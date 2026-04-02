@@ -267,22 +267,25 @@ async def get_open_interest_gex(
     r: float = Query(0.05),
     min_dte: Optional[int] = Query(None),
     max_dte: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    spot_price: Optional[float] = Query(None)
 ):
     """
-    Get GEX Surface and Gamma Flip Point analysis.
+    Gamma Exposure (GEX) Analysis.
+    Calculates liquidity walls and Gamma Flip Point.
     """
-    cache_key = f"oi:gex:{snapshot_at.isoformat()}:{contract}:{sigma}:{r}:{min_dte}:{max_dte}"
+    cache_key = f"gex:{snapshot_at.isoformat()}:{contract}:{sigma}:{r}:{min_dte}:{max_dte}:{spot_price}"
     
     try:
-        rc = await redis_client.get_client()
-        cached = await rc.get(cache_key)
-        if cached:
-            return success_response(data=json.loads(cached))
-    except Exception as re:
-        logger.warning(f"Redis cache check failed: {re}")
-
-    try:
+        # 1. Attempt Cache Hit
+        from app.utils.redis_client import get_redis_client
+        client = await get_redis_client()
+        if client:
+            cached = await client.get(cache_key)
+            if cached:
+                return success_response(data=json.loads(cached))
+        
+        # 2. Calculation
         repo = OpenInterestRepository(db)
         data = repo.get_gex_analysis_data(
             snapshot_at=snapshot_at,
@@ -290,23 +293,27 @@ async def get_open_interest_gex(
             sigma=sigma,
             r=r,
             min_dte=min_dte,
-            max_dte=max_dte
+            max_dte=max_dte,
+            spot_price=spot_price
         )
         
-        # Cache Result
-        try:
-            rc = await redis_client.get_client()
-            # Serialize for cache (isoformat for datetime)
-            cache_data = json.loads(json.dumps(data, default=str)) 
-            await rc.setex(cache_key, 300, json.dumps(cache_data))
-        except Exception as re:
-            logger.warning(f"Redis cache update failed: {re}")
-
+        # 3. Serialization Safety (Convert result items to strings/scalars)
+        if isinstance(data.get("snapshot_at"), datetime):
+            data["snapshot_at"] = data["snapshot_at"].isoformat()
+            
+        # 4. Cache Result (60 min)
+        if client:
+            await client.set(cache_key, json.dumps(data), ex=3600)
+            
         return success_response(data=data)
+        
     except Exception as e:
-        logger.error(f"GEX analysis failed: {e}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.error(f"GEX analysis failed for {snapshot_at}: {e}")
+        # Institutional rejection of bugged/stale GEX surface
+        return error_response(
+            message="Institutional analysis engine encountered a validation error. Check snapshot data integrity.", 
+            status_code=500
+        )
 
 @router.get("/open-interest/contracts", response_model=APIResponse[List[str]])
 async def get_open_interest_contracts(
