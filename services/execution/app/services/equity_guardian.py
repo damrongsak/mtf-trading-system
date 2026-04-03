@@ -137,12 +137,14 @@ class EquityGuardian:
              return self._token
              
         logger.info("Fetching system auth token...")
-        url = f"{settings.API_GATEWAY_URL}/auth/token"
-        # OAuth2PasswordRequestForm expects username and password
-        data = {
-            "username": settings.SYSTEM_USER,
-            "password": settings.SYSTEM_PASSWORD
-        }
+        # Fix the URL construction to ensure no double slashes or missing parts
+        url = f"{settings.API_GATEWAY_URL.rstrip('/')}/api/v1/auth/token"
+        logger.info(f"Auth URL: {url}")
+
+        # OAuth2PasswordRequestForm expects form-data
+        data = aiohttp.FormData()
+        data.add_field("username", settings.SYSTEM_USER)
+        data.add_field("password", settings.SYSTEM_PASSWORD)
         
         try:
             async with aiohttp.ClientSession() as session:
@@ -151,9 +153,13 @@ class EquityGuardian:
                         res = await resp.json()
                         # The auth response has { "auth": { "access_token": "..." } }
                         self._token = res.get("auth", {}).get("access_token")
+                        if not self._token:
+                            # Fallback if the token is directly in the response
+                            self._token = res.get("access_token")
                         return self._token
                     else:
-                        logger.error(f"Failed to get token: {resp.status} - {await resp.text()}")
+                        error_text = await resp.text()
+                        logger.error(f"Failed to get token: {resp.status} - {error_text}")
                         return None
         except Exception as e:
             logger.error(f"Error fetching token: {e}")

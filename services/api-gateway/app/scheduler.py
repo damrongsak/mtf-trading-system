@@ -270,9 +270,11 @@ async def check_price_alerts_job():
 
 def start_scheduler():
     scheduler.add_job(
+        # Daily midnight refresh
         with_tracing(check_and_refresh_tokens_job),
-        CronTrigger(hour=0, minute=0), # Daily midnight
+        CronTrigger(hour=0, minute=0),
         id="daily_token_refresh",
+        misfire_grace_time=3600, # Allow 1 hour of lag for daily jobs
         replace_existing=True
     )
     
@@ -281,6 +283,7 @@ def start_scheduler():
         with_tracing(cleanup_strategy_logs_job),
         IntervalTrigger(hours=1),
         id="strategy_log_cleanup",
+        misfire_grace_time=300, # Allow 5 minutes of lag
         replace_existing=True
     )
     
@@ -289,7 +292,7 @@ def start_scheduler():
         with_tracing(auto_load_trades_to_journal_job),
         IntervalTrigger(minutes=5),
         id="auto_load_journal",
-        misfire_grace_time=30, # Allow 30 seconds of lag
+        misfire_grace_time=60, # Increased to 1 minute
         replace_existing=True
     )
 
@@ -298,6 +301,7 @@ def start_scheduler():
         with_tracing(check_price_alerts_job),
         IntervalTrigger(minutes=1),
         id="price_alert_monitor",
+        misfire_grace_time=60, # Standard 1 minute
         replace_existing=True
     )
 

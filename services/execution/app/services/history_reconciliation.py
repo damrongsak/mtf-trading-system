@@ -190,7 +190,9 @@ class HistoryReconciliationService:
     async def _get_system_token(cls) -> str:
         """Fetch a system JWT from the api-gateway."""
         import aiohttp
-        url = f"{settings.API_GATEWAY_URL}/api/v1/auth/token"
+        url = f"{settings.API_GATEWAY_URL.rstrip('/')}/api/v1/auth/token"
+        logger.info(f"Recon Auth URL: {url}")
+        
         data = aiohttp.FormData()
         data.add_field("username", settings.SYSTEM_USER)
         data.add_field("password", settings.SYSTEM_PASSWORD)
@@ -202,9 +204,14 @@ class HistoryReconciliationService:
                         resp_json = await resp.json()
                         # Extract access_token from response (handles both flat and nested 'auth' structures)
                         auth_data = resp_json.get("auth", {}) if "auth" in resp_json else resp_json
-                        return auth_data.get("access_token")
+                        token = auth_data.get("access_token")
+                        if not token:
+                            # Fallback
+                            token = resp_json.get("access_token")
+                        return token
                     else:
-                        logger.error(f"Failed to fetch system token: {resp.status} {await resp.text()}")
+                        error_text = await resp.text()
+                        logger.error(f"Failed to fetch system token: {resp.status} {error_text}")
         except Exception as e:
             logger.error(f"Error fetching system token: {e}")
         return "SYSTEM_TOKEN"
