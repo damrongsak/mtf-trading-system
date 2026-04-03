@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query, Body, status, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.security import get_current_user
+from app.models.user import User
 from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
 from app.utils.response import success_response
@@ -539,3 +541,75 @@ async def get_macro_status():
     except Exception as e:
         logger.error(f"Failed to fetch macro status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+from app.models.trade import Trade, TradeStatus
+from sqlalchemy import func, extract, desc
+
+@router.get("/metrics/edge-optimization", status_code=200)
+async def get_edge_optimization(
+    fund_id: Optional[str] = Query(None),
+    strategy_name: Optional[str] = Query(None),
+    lookback_days: int = Query(30),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns a statistical matrix of PnL grouped by Entry Hour and Day of Week.
+    Identifies the 'Window of Edge' for institutional allocation.
+    """
+    try:
+        # 1. Base Query: Only Closed Trades for current user
+        query = db.query(extract('hour', Trade.signal_timestamp).label('hour'), extract('dow', Trade.signal_timestamp).label('dow'), func.sum(Trade.pnl_usd).label('total_pnl'), func.count(Trade.trade_id).label('trade_count'), func.avg(Trade.pnl_usd).label('avg_pnl')).filter(Trade.status == TradeStatus.CLOSED).filter(Trade.user_id == current_user.id)
+
+        # 2. Apply Filters
+        if fund_id:
+            query = query.filter(Trade.fund_id == fund_id)
+        if strategy_name:
+            query = query.filter(Trade.strategy_name == strategy_name)
+        
+        # Lookback filter
+        if lookback_days > 0:
+            from datetime import datetime, timedelta, timezone
+            since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+            query = query.filter(Trade.signal_timestamp >= since)
+
+        # 3. Group and Execute
+        results = query.group_by('hour', 'dow').all()
+
+        # 4. Format into Matrix
+        # Matrix structure: {hour: {dow: pnl}}
+        matrix = {}
+        total_pnl = 0.0
+        best_pnl = -float('inf')
+        best_hour = -1
+        best_day = -1
+
+        for r in results:
+            h = int(r.hour)
+            d = int(r.dow)
+            pnl = float(r.total_pnl or 0.0)
+            
+            if h not in matrix:
+                matrix[h] = {}
+            matrix[h][d] = pnl
+            
+            total_pnl += pnl
+            if pnl > best_pnl:
+                best_pnl = pnl
+                best_hour = h
+                best_day = d
+
+        return success_response(data={
+            "matrix": matrix,
+            "summary": {
+                "best_hour": best_hour,
+                "best_day": best_day,
+                "best_pnl": best_pnl if best_pnl != -float('inf') else 0.0,
+                "total_pnl": total_pnl,
+                "trade_count": sum(int(r.trade_count) for r in results)
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Edge Optimization analysis failed: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")

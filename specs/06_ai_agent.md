@@ -99,6 +99,15 @@ The **AI Analyst** is a specialized microservice designed to act as a "Co-Pilot"
     - **Tier 3 (Backup)**: `gpt-4o-mini` via OpenRouter (SSE supported) to guarantee service continuity during primary provider outages.
 - **Connection Resilience**: Uses a singleton `httpx.AsyncClient` with connection pooling and specialized SSE parsers for provider-specific delta formats.
 
+### 2.11. Persistent Notifications & Alerts (v3.3)
+- **Goal:** Enable users to set persistent market-driven triggers that notify via Telegram.
+- **Agent:** `MarketObserverAgent` (via `DeployTelegramAlertTool`)
+- **Process:**
+    - Agent analyzes market context and suggests an alert (e.g., "Set alert if XAUUSD > 2750").
+    - Tool calls `POST /api/v1/alerts`.
+    - **Background Monitoring**: API Gateway scheduler monitors the condition every 60 seconds.
+    - **Trigger**: Sends a Telegram message when condition is met and deactivates the alert.
+
 ## 3. Architecture components
 
 ### 3.1. System Data Flow (Consolidated v3.0)
@@ -152,6 +161,8 @@ graph TD
     - `ShellCommandTool`: Execute bash commands for system operations.
     - `PythonInterpreterTool`: Run generic Python code for advanced logic.
     - `WebReaderTool`: Web content extraction.
+    - `GetEdgeOptimizationTool`: Analyzes historical trade data for statistical edge (Win Rate/PnL by Hour/Day).
+    - `DeployTelegramAlertTool`: Set persistent price alerts.
 - **Nodes & Loop (OODA)**:
     - **Observe**: Fetch data via resilient tools.
     - **Orient**: Retrieve similar historical contexts or specs via RAG.

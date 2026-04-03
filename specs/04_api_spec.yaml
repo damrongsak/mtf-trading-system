@@ -626,6 +626,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/analysis/metrics/edge-optimization:
+    get:
+      tags:
+        - Analysis
+      summary: Get Statistical Edge Optimization Matrix
+      description: Returns a matrix of Win Rate/PnL grouped by Entry Hour and Day of Week to identify the "Window of Edge".
+      parameters:
+        - name: fund_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: strategy_name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: lookback_days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Edge Optimization Matrix
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string}
+                  data:
+                    type: object
+                    properties:
+                      matrix:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          additionalProperties:
+                            type: number
+                      summary:
+                        type: object
+                        properties:
+                          best_hour: {type: integer}
+                          best_day: {type: integer}
+                          total_pnl: {type: number}
   /api/v1/analysis/oi/unified-profile:
     get:
       tags:
@@ -3866,6 +3915,53 @@ paths:
                 $ref: '#/components/schemas/ConfigureBotResponse'
         '400':
           description: Invalid bot token
+
+  /api/v1/alerts:
+    get:
+      tags: [Alerts]
+      summary: List all alerts for the current user
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_AlertList'
+    post:
+      tags: [Alerts]
+      summary: Create a new persistent alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertCreate'
+      responses:
+        '201':
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_Alert'
+
+  /api/v1/alerts/{alert_id}:
+    delete:
+      tags: [Alerts]
+      summary: Cancel/Delete an alert
+      parameters:
+        - name: alert_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alert deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
 
 components:
   schemas:
@@ -7758,3 +7854,72 @@ components:
         temperature:
           type: number
           default: 0.7
+
+    # --- Alerts ---
+    AlertCondition:
+      type: string
+      enum: [PRICE_ABOVE, PRICE_BELOW]
+
+    AlertCreate:
+      type: object
+      required: [symbol, condition, threshold]
+      properties:
+        symbol:
+          type: string
+          example: "XAUUSD"
+        condition:
+          $ref: '#/components/schemas/AlertCondition'
+        threshold:
+          type: number
+          example: 2750.0
+        is_active:
+          type: boolean
+          default: true
+
+    AlertResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        condition:
+          $ref: '#/components/schemas/AlertCondition'
+        threshold:
+          type: number
+        is_active:
+          type: boolean
+        is_triggered:
+          type: boolean
+        last_triggered_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    APIResponse_Alert:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AlertResponse'
+
+    APIResponse_AlertList:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AlertResponse'

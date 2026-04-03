@@ -34,6 +34,8 @@ from app.tools.library import SearchQuantLibraryTool, ListLibraryBooksTool
 from app.tools.skills_execution import ExecuteSkillTool
 from app.tools.open_claw import OpenClawResearcherTool, OpenClawChatTool
 from app.tools.memory import EpisodicMemoryTool
+from app.tools.edge_optimization import EdgeOptimizationTool
+from app.tools.alert import DeployTelegramAlertTool
 
 
 logger = logging.getLogger(__name__)
@@ -430,7 +432,9 @@ class ToolRegistry:
             "consult_specialist": ConsultSpecialistTool(),
             "open_claw_research": OpenClawResearcherTool(),
             "open_claw_chat": OpenClawChatTool(),
-            "episodic_memory": EpisodicMemoryTool()
+            "episodic_memory": EpisodicMemoryTool(),
+            "get_edge_optimization": EdgeOptimizationTool(),
+            "deploy_telegram_alert": DeployTelegramAlertTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

@@ -8,7 +8,7 @@ from app.logging_config import setup_logging
 
 # Configure logging
 logger = setup_logging()
-from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics, orchestration
+from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics, orchestration, alerts
 
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
@@ -160,6 +160,7 @@ app.include_router(plugins.router, prefix="/api/v1")
 app.include_router(alpha.router, prefix="/api/v1")
 app.include_router(telegram.router, prefix="/api/v1")
 app.include_router(execution.router, prefix="/api/v1", tags=["Execution"])
+app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(data_source.router, prefix="/api/v1", tags=["Data Sources"])
 app.include_router(backtest.router, prefix="/api/v1", tags=["Backtest"])
 app.include_router(analysis.router, prefix="/api/v1/analysis", tags=["Analysis"])

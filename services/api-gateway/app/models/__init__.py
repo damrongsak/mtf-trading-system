@@ -37,3 +37,4 @@ from .sentiment_score import SentimentScore
 from .economic_event import EconomicEvent
 from .news import NewsArticle
 from .cot import COTRecord
+from .alert import Alert, AlertCondition

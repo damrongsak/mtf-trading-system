@@ -180,6 +180,94 @@ async def auto_load_trades_to_journal_job():
         logger.error(f"Auto-Load Trades Job Failed: {e}")
 
 
+async def check_price_alerts_job():
+    """
+    Background job to monitor price alerts and notify users via Telegram.
+    Runs every minute.
+    """
+    logger.info("Checking Price Alerts...")
+    db = SessionLocal()
+    try:
+        from app.models.alert import Alert, AlertCondition
+        from app.models.candle import Candle
+        from app.models.telegram_chat_mapping import TelegramChatMapping
+        from sqlalchemy import func
+        
+        # 1. Fetch active, untriggered alerts
+        active_alerts = db.query(Alert).filter(
+            Alert.is_active == True,
+            Alert.is_triggered == False
+        ).all()
+        
+        if not active_alerts:
+            return
+
+        # 2. Group by symbol and get latest price for each symbol
+        symbols = list(set(a.symbol for a in active_alerts))
+        latest_prices = {}
+        
+        for symbol in symbols:
+            # Get the latest candle across all timeframes (highest precision available)
+            latest_candle = db.query(Candle).filter(
+                Candle.symbol == symbol
+            ).order_by(Candle.timestamp.desc()).first()
+            
+            if latest_candle:
+                latest_prices[symbol] = float(latest_candle.close)
+
+        # 3. Check conditions
+        triggered_count = 0
+        for alert in active_alerts:
+            current_price = latest_prices.get(alert.symbol)
+            if current_price is None:
+                continue
+            
+            is_triggered = False
+            if alert.condition == AlertCondition.PRICE_ABOVE:
+                if current_price >= float(alert.threshold):
+                    is_triggered = True
+            elif alert.condition == AlertCondition.PRICE_BELOW:
+                if current_price <= float(alert.threshold):
+                    is_triggered = True
+            
+            if is_triggered:
+                # MARK AS TRIGGERED IMMEDIATELY
+                alert.is_triggered = True
+                alert.is_active = False # Deactivate after trigger
+                alert.last_triggered_at = func.now()
+                db.add(alert)
+                db.commit()
+                
+                # 4. Notify User via Telegram
+                mapping = db.query(TelegramChatMapping).filter(
+                    TelegramChatMapping.user_id == alert.user_id
+                ).first()
+                
+                if mapping:
+                    from app.routers.telegram import send_telegram_message
+                    msg = (
+                        f"🔔 *ALERT TRIGGERED*\n\n"
+                        f"Asset: `{alert.symbol}`\n"
+                        f"Condition: `{alert.condition.value}`\n"
+                        f"Target: `{alert.threshold}`\n"
+                        f"Current Price: `{current_price}`"
+                    )
+                    # Note: send_telegram_message is async
+                    asyncio.create_task(send_telegram_message(mapping.chat_id, msg))
+                    triggered_count += 1
+                else:
+                    logger.warning(f"Alert {alert.id} triggered but no Telegram mapping found for user {alert.user_id}")
+
+        if triggered_count > 0:
+            logger.info(f"Price Alerts: Triggered and notified {triggered_count} alerts.")
+            
+    except Exception as e:
+        logger.error(f"Price Alert Job Failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 def start_scheduler():
     scheduler.add_job(
         with_tracing(check_and_refresh_tokens_job),
@@ -202,6 +290,14 @@ def start_scheduler():
         IntervalTrigger(minutes=5),
         id="auto_load_journal",
         misfire_grace_time=30, # Allow 30 seconds of lag
+        replace_existing=True
+    )
+
+    # Schedule Price Alert Monitoring every 1 minute
+    scheduler.add_job(
+        with_tracing(check_price_alerts_job),
+        IntervalTrigger(minutes=1),
+        id="price_alert_monitor",
         replace_existing=True
     )
 

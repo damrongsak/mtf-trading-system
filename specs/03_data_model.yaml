@@ -236,6 +236,46 @@ entities:
           Synced from broker API (e.g. cTrader, OANDA).
 
 
+  Alert:
+    description: "User-defined persistent price alerts"
+    table_name: "alerts"
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: user_id
+        type: uuid
+        foreign_key: "users.id"
+        required: true
+      - name: symbol
+        type: string
+        required: true
+        description: "Unified symbol identifier (e.g., 'XAUUSD')"
+      - name: condition
+        type: enum
+        enum_values: ["PRICE_ABOVE", "PRICE_BELOW"]
+        required: true
+      - name: threshold
+        type: decimal
+        precision: 18
+        scale: 8
+        required: true
+      - name: is_active
+        type: boolean
+        default: true
+      - name: is_triggered
+        type: boolean
+        default: false
+      - name: last_triggered_at
+        type: datetime
+        nullable: true
+      - name: created_at
+        type: datetime
+        default: "now()"
+      - name: updated_at
+        type: datetime
+        default: "now()"
+
   Strategy:
     description: "Active Strategy Instance (Fleet Member)"
     table_name: "strategies"

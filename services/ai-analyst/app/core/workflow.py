@@ -142,6 +142,8 @@ from app.tools.market_state import MarketStateTool
 from app.tools.volatility import VolatilityStructureTool
 from app.tools.quant_analysis import RiskMapTool
 from app.tools.journal import GetJournalEntriesTool
+from app.tools.edge_optimization import EdgeOptimizationTool
+from app.tools.alert import DeployTelegramAlertTool
 
 registry.register("get_account_status", GetAccountStatusTool(), "Fetches account health including balance, equity, and leverage.")
 registry.register("account_status", GetAccountStatusTool()) # Alias
@@ -151,6 +153,8 @@ registry.register("volatility_structure_analysis", VolatilityStructureTool())
 registry.register("get_risk_map", RiskMapTool())
 registry.register("get_journal_entries", GetJournalEntriesTool())
 registry.register("run_post_mortem", PostMortemTool(), "Run institutional analysis on a specific trade_id")
+registry.register("get_edge_optimization", EdgeOptimizationTool())
+registry.register("deploy_telegram_alert", DeployTelegramAlertTool())
 
 # --- Workflow Base ---
 class OlympusWorkflow:
