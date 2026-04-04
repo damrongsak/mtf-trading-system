@@ -1,0 +1,10 @@
+{
+  "name": "ai-trading-system",
+  "version": "1.0.0",
+  "description": "Professional-grade systematic trading skill for market structure, risk management, and order execution.",
+  "metadata": {
+    "requires": {
+      "bins": ["python3"]
+    }
+  }
+}
