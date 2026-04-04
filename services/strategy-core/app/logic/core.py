@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, Tuple
 # Heavy imports moved inside functions to prevent hang during registration initialization
 from app.indicators import calculate_ema, calculate_atr
-from app.indicators.smc import detect_order_blocks, detect_fvg
+from app.indicators.smc import detect_order_blocks, detect_fvg, calculate_displacement_velocity
 # from app.features.quant_features import QuantreoFeatures
 
 class SignalDirection(str, Enum):
@@ -298,6 +298,68 @@ def calculate_target_price(df_h1, direction: SignalDirection, entry_price: float
         
     return fallback_tp
 
+def detect_choch(df: pd.DataFrame, direction: SignalDirection) -> Tuple[bool, str]:
+    """
+    Detects Change of Character (CHoCH) on the trigger timeframe.
+    Bullish CHoCH: Low[i] < Recent Low (Sweep) followed by Close[j] > Last LH (Shift).
+    """
+    if len(df) < 20:
+        return False, "Insufficient data for CHoCH"
+        
+    from app.indicators.smc import detect_structure
+    structure = detect_structure(df, window=3)
+    
+    # 1. Look for the most recent high/low pivots
+    pivots = structure.get("pivots", [])
+    if len(pivots) < 2:
+        return False, "No established structure for CHoCH"
+        
+    last_close = df['close'].iloc[-1]
+    
+    if direction == SignalDirection.BULLISH:
+        # Bullish CHoCH: Price breaks above the last Lower High (LH)
+        lh_pivots = [p for p in pivots if p["type"] == "high"]
+        if not lh_pivots:
+             return False, "No LH found to break"
+        
+        last_lh = lh_pivots[-1]
+        if last_close > last_lh["price"]:
+             return True, f"Bullish CHoCH: Price broke LH at {last_lh['price']:.2f}"
+    
+    elif direction == SignalDirection.BEARISH:
+        # Bearish CHoCH: Price breaks below the last Higher Low (HL)
+        hl_pivots = [p for p in pivots if p["type"] == "low"]
+        if not hl_pivots:
+             return False, "No HL found to break"
+             
+        last_hl = hl_pivots[-1]
+        if last_close < last_hl["price"]:
+             return True, f"Bearish CHoCH: Price broke HL at {last_hl['price']:.2f}"
+             
+    return False, "Structure remains intact"
+
+def detect_bos_recent(df: pd.DataFrame, direction: SignalDirection, lookback: int = 15) -> bool:
+    """
+    Checks if a Break of Structure (BOS) occurred within the recent lookback window.
+    BOS is a trend-continuation break (High[i] > HH or Low[i] < LL).
+    """
+    from app.indicators.smc import detect_structure
+    structure = detect_structure(df, window=5)
+    
+    events = structure.get("events", [])
+    if not events:
+        return False
+        
+    recent_events = [e for e in events if e["index"] >= len(df) - lookback]
+    
+    for event in recent_events:
+        if direction == SignalDirection.BULLISH and event["type"] == "bos_bullish":
+            return True
+        if direction == SignalDirection.BEARISH and event["type"] == "bos_bearish":
+            return True
+            
+    return False
+
 def check_rrr(entry_price: float, sl_price: float, tp_price: float, min_rrr: float = 1.5) -> bool:
     """
     Rule E: Risk Reward Ratio Check
@@ -311,4 +373,162 @@ def check_rrr(entry_price: float, sl_price: float, tp_price: float, min_rrr: flo
     rrr = reward / risk
     
     return rrr >= min_rrr
+
+
+def calculate_confluence_score(
+    df_macro: pd.DataFrame, 
+    df_poi: pd.DataFrame, 
+    df_trigger: pd.DataFrame, 
+    direction: SignalDirection
+) -> Dict[str, Any]:
+    """
+    Institutional 1-6 Point Confluence Scoring (SMC v2.4)
+    Supports Flexible Trigger (M1, M5, or M15).
+    """
+    import pandas as pd
+    checklist = {}
+    metrics = {}
+    score = 0
+
+    last_close = float(df_trigger['close'].iloc[-1])
+
+    # 1. Trend (H4)
+    bias = check_macro_bias(df_macro)
+    trend_pass = bias == direction
+    
+    # Capture Macro EMA for metrics
+    from app.indicators.trend import calculate_ema
+    ema_h4 = calculate_ema(df_macro['close'], span=200)
+    last_ema_h4 = float(ema_h4.iloc[-1]) if not ema_h4.empty else 0.0
+    
+    checklist["trend"] = {
+        "status": trend_pass,
+        "value": bias.value,
+        "comment": f"Macro Bias is {bias.value} (Price {last_close:.2f} vs H4 EMA {last_ema_h4:.2f}). Target: {direction.value}"
+    }
+    metrics["h4_ema_200"] = str(round(last_ema_h4, 2))
+    if trend_pass: score += 1
+
+    # 2. POI (H1)
+    poi_pass = check_setup_zone(df_poi, direction)
+    
+    # Find nearest POI for comment
+    from app.indicators.smc import detect_order_blocks
+    obs_h1 = detect_order_blocks(df_poi)
+    nearest_ob_price = "N/A"
+    if obs_h1:
+        active_obs = [ob for ob in obs_h1 if not ob.get("mitigated") and ob['type'] == ('bullish' if direction == SignalDirection.BULLISH else 'bearish')]
+        if active_obs:
+            nearest_ob = active_obs[-1]
+            nearest_ob_price = f"{nearest_ob['top']:.2f}" if direction == SignalDirection.BULLISH else f"{nearest_ob['bottom']:.2f}"
+
+    checklist["poi"] = {
+        "status": poi_pass,
+        "value": "Inside OB/FVG" if poi_pass else "No POI",
+        "comment": f"Price testing POI zone at {nearest_ob_price}" if poi_pass else f"Price ({last_close:.2f}) has not reached POI zone ({nearest_ob_price})"
+    }
+    metrics["poi_reference_price"] = nearest_ob_price
+    if poi_pass: score += 1
+
+    # 3. Trigger (Flexible: M1/M5/M15)
+    choch_pass, choch_msg = detect_choch(df_trigger, direction)
+    checklist["trigger"] = {
+        "status": choch_pass,
+        "value": "CHoCH Confirmed" if choch_pass else "Wait for CHoCH",
+        "comment": f"{choch_msg} (Last Price: {last_close:.2f})"
+    }
+    if choch_pass: score += 1
+
+    # 4. Displacement
+    v_d = calculate_displacement_velocity(df_trigger)
+    last_v = float(v_d.iloc[-1]) if not v_d.empty else 0.0
+    disp_pass = last_v > 1.3 # Expansion threshold
+    checklist["displacement"] = {
+        "status": disp_pass,
+        "value": f"{last_v:.2f}",
+        "comment": f"Expansion velocity {last_v:.2f} confirmed (>1.3 threshold)" if disp_pass else f"Low momentum entry (Velocity {last_v:.2f} < 1.3)"
+    }
+    metrics["displacement_velocity"] = str(round(last_v, 2))
+    if disp_pass: score += 1
+
+    # 5. Volatility
+    from app.indicators.volatility import calculate_atr
+    atr = calculate_atr(df_poi['high'], df_poi['low'], df_poi['close'])
+    current_atr = float(atr.iloc[-1]) if not atr.empty else 0.0
+    avg_atr = float(atr.rolling(window=50).mean().iloc[-1]) if len(atr) > 50 else current_atr
+    vol_pass = current_atr >= (avg_atr * 0.7) # Not too quiet
+    checklist["volatility"] = {
+        "status": vol_pass,
+        "value": f"{current_atr:.5f}",
+        "comment": f"ATR {current_atr:.5f} >= {avg_atr*0.7:.5f} (70% of Avg)" if vol_pass else f"Thin liquidity: ATR {current_atr:.5f} < {avg_atr*0.7:.5f}"
+    }
+    metrics["current_atr"] = str(round(current_atr, 5))
+    metrics["avg_atr_50"] = str(round(avg_atr, 5))
+    if vol_pass: score += 1
+
+    # 6. Risk/Reward
+    sl = calculate_stop_loss(df_trigger, direction)
+    entry = df_trigger['close'].iloc[-1]
+    tp = calculate_target_price(df_poi, direction, entry, sl)
+    
+    rrr = 0.0
+    if abs(entry - sl) > 0:
+        rrr = abs(tp - entry) / abs(entry - sl)
+        
+    rrr_pass = check_rrr(entry, sl, tp, min_rrr=1.5)
+    checklist["risk_reward"] = {
+        "status": rrr_pass,
+        "value": f"1:{rrr:.2f}",
+        "comment": f"Attractive RRR 1:{rrr:.2f} (Target TP: {tp:.2f})" if rrr_pass else f"Poor RRR 1:{rrr:.2f} (Target TP: {tp:.2f}, SL: {sl:.2f})"
+    }
+    metrics["rrr_ratio"] = str(round(rrr, 2))
+    if rrr_pass: score += 1
+
+    # Summary
+    summary = f"Institutional Confluence: {score}/6. "
+    if score >= 5:
+        summary += "High-conviction SMC setup."
+    elif score >= 3:
+        summary += "Intermediate setup, consider lower leverage."
+    else:
+        summary += "Failed institutional filters."
+
+    return {
+        "score": score,
+        "checklist": checklist,
+        "metrics": metrics,
+        "summary": summary,
+        "bias": direction.value,
+        "visuals": {
+             "trigger_level": float(entry),
+             "stop_loss": float(sl),
+             "take_profit": float(tp)
+        }
+    }
+
+def detect_case_b_mitigation(df_poi: pd.DataFrame, direction: SignalDirection) -> Tuple[bool, str]:
+    """
+    Case B Detection: Mitigation AFTER BOS.
+    - Check for BOS in the last 15 candles.
+    - Check if price is currently tapping an OB.
+    """
+    has_bos = detect_bos_recent(df_poi, direction, lookback=15)
+    if not has_bos:
+        return False, "Case B Rejected: No recent BOS before mitigation tap"
+        
+    obs = detect_order_blocks(df_poi)
+    if not obs:
+        return False, "No Order Blocks found on POI timeframe"
+        
+    current_close = df_poi['close'].iloc[-1]
+    
+    for ob in reversed(obs):
+        if direction == SignalDirection.BULLISH and ob['type'] == 'bullish':
+            if ob['bottom'] <= current_close <= ob['top']:
+                return True, f"Case B Confirmed: Bullish Mitigation tap after BOS"
+        elif direction == SignalDirection.BEARISH and ob['type'] == 'bearish':
+            if ob['bottom'] <= current_close <= ob['top']:
+                return True, f"Case B Confirmed: Bearish Mitigation tap after BOS"
+                
+    return False, "Case B Rejected: No active mitigation tap"
 

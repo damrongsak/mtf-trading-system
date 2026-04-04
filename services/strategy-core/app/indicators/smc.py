@@ -853,3 +853,85 @@ def analyze_smc(df: pd.DataFrame, symbol: str = "Unknown", timeframe: str = "H1"
         "timeframe": timeframe,
         "meta": meta
     }
+
+def analyze_mtf_smc(
+    symbol: str,
+    df_macro: pd.DataFrame,
+    df_poi: pd.DataFrame,
+    df_trigger: pd.DataFrame,
+    macro_tf: str = "H4",
+    poi_tf: str = "H1",
+    trigger_tf: str = "M1"
+) -> Dict[str, Any]:
+    """
+    Refined v2.4 Multi-Timeframe SMC Orchestrator.
+    Supports generic timeframes and human-readable scenario analysis.
+    """
+    from datetime import datetime
+    import time
+    from app.logic.core import calculate_confluence_score, detect_case_b_mitigation, SignalDirection, check_macro_bias
+    
+    start_time = time.time()
+    
+    # 1. Resolve Direction (Macro)
+    macro_bias = check_macro_bias(df_macro)
+    direction = macro_bias if macro_bias != SignalDirection.NEUTRAL else SignalDirection.BULLISH 
+    
+    # 2. Institutional Scoring (1-6)
+    score_data = calculate_confluence_score(df_macro, df_poi, df_trigger, direction)
+    
+    # 3. Case B (Mitigation after BOS)
+    is_case_b, case_b_comment = detect_case_b_mitigation(df_poi, direction)
+    
+    # 4. Extract POI Visuals (from df_poi)
+    poi_obs = detect_order_blocks(df_poi)
+    poi_zone = None
+    if poi_obs:
+        active_obs = [ob for ob in poi_obs if not ob.get("mitigated")]
+        if active_obs:
+            nearest_ob = active_obs[-1]
+            poi_zone = {"top": nearest_ob["top"], "bottom": nearest_ob["bottom"]}
+
+    # 5. Scenario Analysis (Human-Readable Metadata)
+    scenario_analysis = []
+    if score_data["score"] >= 5:
+        scenario_analysis.append(f"ACCEPTED: High-conviction {direction.value} setup detected across {macro_tf}, {poi_tf}, and {trigger_tf}.")
+    elif score_data["score"] >= 3:
+        scenario_analysis.append(f"CAUTION: Intermediate {direction.value} setup. Triggered on {trigger_tf} but lacks full confluence.")
+    else:
+        scenario_analysis.append(f"REJECTED: Institutional filters failed ({score_data['score']}/6).")
+
+    if is_case_b:
+        scenario_analysis.append(f"STRATEGY: Case B (Mitigation tap) detected on {poi_tf}. Prioritizing limit entry at POI.")
+    else:
+        scenario_analysis.append(f"STRATEGY: Case A (Direct Flow) active. Prioritizing market execution on {trigger_tf} CHoCH.")
+
+    # 6. Build Response (MTF Olympus Standard)
+    processing_ms = (time.time() - start_time) * 1000
+    last_candle_ts = df_trigger.index[-1].isoformat() if not df_trigger.empty else datetime.utcnow().isoformat()
+
+    return {
+        "summary": score_data["summary"] + (f" | {case_b_comment}" if is_case_b else ""),
+        "confluence_score": score_data["score"],
+        "is_case_b": is_case_b,
+        "bias": direction.value,
+        "checklist": score_data["checklist"],
+        "scenario_analysis": scenario_analysis,
+        "visuals": {
+            "poi_zone": poi_zone,
+            "trigger_level": score_data["visuals"]["trigger_level"],
+            "stop_loss": score_data["visuals"]["stop_loss"],
+            "take_profit": score_data["visuals"]["take_profit"],
+            "timeframes": {
+                "macro": macro_tf,
+                "poi": poi_tf,
+                "trigger": trigger_tf
+            }
+        },
+        "metrics": score_data.get("metrics", {}),
+        "debug_info": {
+            "last_candle_ts": last_candle_ts,
+            "processing_ms": round(processing_ms, 2),
+            "data_source": "MTF-Logic-Core-v2.4"
+        }
+    }

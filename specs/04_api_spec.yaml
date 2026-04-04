@@ -627,6 +627,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse'
 
+  /api/v1/analysis/smc:
+    post:
+      tags:
+        - Analysis
+      summary: Institutional SMC Analysis (Confluence & Mitigation)
+      description: Returns systematic analysis including Market Structure, OBs, FVGs, and a 1-6 point Confluence Score with rich debugging metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMCAnalysisRequest'
+      responses:
+        '200':
+          description: SMC Analysis Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse_SMC'
+
   /api/v1/analysis/metrics/edge-optimization:
     get:
       tags:
@@ -3864,6 +3884,29 @@ paths:
         '200':
           description: Tick successful
 
+  /api/v1/external/analysis/smc:
+    post:
+      summary: Institutional SMC Analysis (Multi-Timeframe)
+      description: |
+        Performs advanced SMC analysis across multiple timeframes.
+        Requires HMAC-SHA256 signature for authentication.
+      tags: [3rd Party Gateway]
+      security:
+        - HMACAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMCAnalysisRequest'
+      responses:
+        '200':
+          description: SMC analysis result with confluence score and scenario reasoning.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMCAnalysisResponse'
+
   /api/v1/analysis/macro/status:
     get:
       tags:
@@ -4056,6 +4099,83 @@ components:
               type: number
         confidence_bands:
           type: object
+
+    SMCAnalysisRequest:
+      type: object
+      required: [symbol]
+      properties:
+        symbol:
+          type: string
+          default: "XAUUSD"
+        timeframes:
+          type: array
+          items:
+            type: string
+          default: ["H4", "H1", "M15"]
+        candles:
+          type: object
+          description: "Optional override for real-time candles (symbol -> timeframe -> candles)"
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: array
+              items:
+                type: object
+
+    SMCAnalysisResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+          description: "Semantic explanation of the setup"
+        confluence_score:
+          type: integer
+          minimum: 0
+          maximum: 6
+        is_case_b:
+          type: boolean
+          description: "True if OB mitigation occurred after a confirmed BOS"
+        bias:
+          type: string
+          enum: [LONG, SHORT, NEUTRAL]
+        checklist:
+          type: object
+          properties:
+            trend: { $ref: '#/components/schemas/SMCChecklistItem' }
+            poi: { $ref: '#/components/schemas/SMCChecklistItem' }
+            trigger: { $ref: '#/components/schemas/SMCChecklistItem' }
+            displacement: { $ref: '#/components/schemas/SMCChecklistItem' }
+            volatility: { $ref: '#/components/schemas/SMCChecklistItem' }
+            risk_reward: { $ref: '#/components/schemas/SMCChecklistItem' }
+        scenario_analysis:
+          type: array
+          items:
+            type: string
+          description: "List of human-readable scenario reasoning and confluence details."
+        visuals:
+          $ref: '#/components/schemas/SMCVisuals'
+        metrics:
+          type: object
+          description: "Raw indicator values and technical metrics for institutional auditing."
+          additionalProperties:
+            type: string
+        debug_info:
+          $ref: '#/components/schemas/SMCDebugInfo'
+
+    SMCChecklistItem:
+      type: object
+      properties:
+        status: { type: boolean }
+        value: { type: string }
+        comment: { type: string }
+
+    APIResponse_SMC:
+      type: object
+      properties:
+        status: { type: string }
+        data:
+          $ref: '#/components/schemas/SMCAnalysisResponse'
+        timestamp: { type: string, format: date-time }
 
     PortfolioOptimizationRequest:
       type: object
