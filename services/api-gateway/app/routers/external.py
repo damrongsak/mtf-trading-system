@@ -15,6 +15,12 @@ import logging
 import asyncio
 from app.database import SessionLocal
 from app.models import User
+from app.utils.symbol_utils import normalize_symbol
+from app.schemas.smc import SMCAnalysisRequest, SMCAnalysisResponse
+import httpx
+import os
+
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +104,57 @@ async def verify_external_auth(
 
     if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid HMAC Signature")
+
+    return user_id
+
+@router.post("/analysis/smc", status_code=200, response_model=SMCAnalysisResponse)
+async def analyze_smc_external(
+    req: SMCAnalysisRequest,
+    user_id: str = Depends(verify_external_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    3rd Party Institutional SMC Analysis.
+    Authenticated via HMAC-SHA256 (X-API-KEY, X-SIGNATURE, X-TIMESTAMP).
+    """
+    try:
+        # 1. Normalize Symbol (Strict Standard)
+        req.symbol = normalize_symbol(req.symbol)
+        
+        # 2. Resolve Fund ID (External users must have a fund linked)
+        from app.models.user_fund import UserFund
+        user_fund = db.query(UserFund).filter(UserFund.user_id == user_id).first()
+        if not user_fund and not req.fund_id:
+            raise HTTPException(status_code=400, detail="User has no linked funds. Cannot perform analysis.")
+        
+        if not req.fund_id:
+            req.fund_id = str(user_fund.fund_id)
+
+        # 3. Proxy to Strategy Core
+        start_time = time.time()
+        async with httpx.AsyncClient(timeout=120.0) as http_client:
+            response = await http_client.post(
+                f"{STRATEGY_CORE_URL}/api/v1/calculate/smc/mtf",
+                json=req.model_dump()
+            )
+        
+        process_time = time.time() - start_time
+        logger.info(f"3rd Party SMC MTF proxy: {process_time:.4f}s [User: {user_id}, Symbol: {req.symbol}]")
+
+        if response.status_code != 200:
+            logger.error(f"Strategy Core returned {response.status_code}: {response.text}")
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        
+        return SMCAnalysisResponse(**response.json())
+
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core connection error (External): {str(e)}")
+        raise HTTPException(status_code=503, detail="Analytics engine unavailable")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"External SMC Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal analysis error")
     
     return api_key
 

@@ -17,29 +17,40 @@ def sanitize_numeric_dict(obj: Any) -> Any:
         return obj
     return obj
 
-def resolve_market_symbol(db: Session, symbol: str, data_source: str = None) -> 'MarketSymbol':
+def resolve_market_symbol(db: Session, symbol: str, data_source: str = None, fund_id: str = None) -> 'MarketSymbol':
     """
-    Resolve MarketSymbol object from symbol string.
-    Prioritizes CTRADER if no source is specified.
+    Resolve MarketSymbol object from symbol string with cross-service hierarchy support.
+    
+    Standard variants: XAUUSD, XAU_USD, XAU/USD, XAU-USD
     """
     from app.models.market import MarketSymbol
     from app.models.data_source import DataSource
+    from app.models.broker_account import BrokerAccount
     
-    sym_variants = [symbol, symbol.replace("/", "_"), symbol.replace("_", "/")]
+    # 1. Standardize and create variants
+    clean = symbol.upper().replace("/", "").replace("_", "").replace("-", "").replace(" ", "")
+    sym_variants = list(set([symbol.upper(), clean, symbol.replace("/", "_"), symbol.replace("_", "/")]))
     
+    # 2. Hierarchy override: If fund_id is provided, find the linked data source
+    if fund_id and not data_source:
+        account = db.query(BrokerAccount).filter(
+            BrokerAccount.fund_id == fund_id,
+            BrokerAccount.is_active == True
+        ).first()
+        if account and account.data_source_id:
+            # We found an authoritative source for this fund
+            return db.query(MarketSymbol).filter(
+                MarketSymbol.symbol.in_(sym_variants),
+                MarketSymbol.data_source_id == account.data_source_id
+            ).first()
+
+    # 3. Standard resolution logic (existing)
     query = db.query(MarketSymbol).join(DataSource)
     
     if data_source:
         query = query.filter(DataSource.name == data_source)
     else:
-        # Prioritize CTRADER then OANDA if source is ambiguous
-        query = query.filter(MarketSymbol.symbol.in_(sym_variants))
-        # Custom ordering to pick CTRADER first if available
-        # This is a bit tricky with SQLAlchemy query.first(), so we can just pick the first one 
-        # but in a real env we might order by DataSource.name.
-        ms = query.order_by(DataSource.name.desc()).first() # "OANDA" < "CTRADER" but "CTRADER" comes first if we desc? No.
-        # "CTRADER" vs "OANDA" -> C comes before O. 
-        # Let's just try to find CTRADER explicitly first if source is None
+        # Prioritize CTRADER then OANDA if source is ambiguous (institutional standard)
         ct_ms = db.query(MarketSymbol).join(DataSource).filter(
             MarketSymbol.symbol.in_(sym_variants),
             DataSource.name == "CTRADER"
@@ -48,9 +59,9 @@ def resolve_market_symbol(db: Session, symbol: str, data_source: str = None) -> 
         
     return query.filter(MarketSymbol.symbol.in_(sym_variants)).first()
 
-def resolve_market_symbol_id(db: Session, symbol: str, data_source: str = "OANDA") -> str:
+def resolve_market_symbol_id(db: Session, symbol: str, data_source: str = None, fund_id: str = None) -> str:
     """
-    Legacy wrapper for resolving symbol ID.
+    Wrapper for resolving symbol ID with fund context.
     """
-    ms = resolve_market_symbol(db, symbol, data_source)
+    ms = resolve_market_symbol(db, symbol, data_source, fund_id)
     return str(ms.id) if ms else None

@@ -8,8 +8,9 @@ from pydantic import BaseModel
 from app.utils.response import success_response
 from app.schemas.open_interest import UnifiedOIProfileResponse
 from app.schemas.opportunity import OpportunityLogResponse
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import httpx
+from datetime import datetime
 import os
 import logging
 import time
@@ -17,6 +18,13 @@ import json
 import redis.asyncio as redis
 from app.repositories.open_interest_repository import OpenInterestRepository
 import traceback
+from app.schemas.smc import (
+    SMCChecklistItem,
+    SMCVisuals,
+    SMCDebugInfo,
+    SMCAnalysisResponse,
+    SMCAnalysisRequest
+)
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -72,6 +80,8 @@ class SMCRequest(BaseModel):
     oi_call: Optional[List[float]] = None
     oi_put: Optional[List[float]] = None
     oi_strikes: Optional[List[float]] = None
+
+# SMC Schemas moved to app/schemas/smc.py
 
 class QuantAnalyzeRequest(BaseModel):
     symbol: str
@@ -232,6 +242,50 @@ async def calculate_smc(req: SMCRequest):
     except Exception as e:
         logger.error(f"SMC Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
+
+@router.post("/smc", status_code=200, response_model=SMCAnalysisResponse)
+async def analyze_smc_institutional(
+    req: SMCAnalysisRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Advanced Institutional SMC Analysis (Multi-Timeframe).
+    Includes Confluence Scoring (1-6) and Case B Mitigation detection.
+    """
+    try:
+        from app.utils.symbol_utils import normalize_symbol
+        from app.models.user_fund import UserFund
+        
+        # 1. Normalize Symbol (Logic-First Standard)
+        req.symbol = normalize_symbol(req.symbol)
+        
+        # 2. Inject Primary Fund ID if not provided
+        if not req.fund_id:
+            user_fund = db.query(UserFund).filter(UserFund.user_id == current_user.id).first()
+            if user_fund:
+                req.fund_id = str(user_fund.fund_id)
+        
+        start_time = time.time()
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/calculate/smc/mtf",
+            json=req.model_dump()
+        )
+        process_time = time.time() - start_time
+        logger.info(f"Strategy Core SMC MTF response time: {process_time:.4f}s for {req.symbol} (Fund: {req.fund_id})")
+        
+        if response.status_code != 200:
+                logger.error(f"Strategy Core returned {response.status_code}: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+        
+        data = response.json()
+        return SMCAnalysisResponse(**data)
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core connection error: {str(e)}")
+        raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
+        logger.error(f"SMC MTF Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/opportunities", status_code=200, response_model=List[OpportunityLogResponse])
 def get_opportunities(limit: int = 50, db: Session = Depends(get_db)):

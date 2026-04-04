@@ -19,8 +19,8 @@ class SignalLog(Base):
     direction = Column(String, nullable=False) # BULLISH, BEARISH, NEUTRAL
     
     # Execution Flow
-    status = Column(String, default="CREATED") # CREATED, PENDING_APPROVAL, EXECUTED, REJECTED
-    execution_id = Column(UUID(as_uuid=True), nullable=True) # ID from Execution Service
+    status = Column(String, default="CREATED") # CREATED, PENDING_APPROVAL, EXECUTED, FILLED, REJECTED, EXPIRED, FAILED
+    execution_id = Column(UUID(as_uuid=True), nullable=True) # ID of the executed trade (link to trades.trade_id)
     
     strategy_name = Column(String, nullable=True) # "SMC Scanner" or "Deployment-123"
     strategy_id = Column(UUID(as_uuid=True), ForeignKey("strategies.id"), nullable=True, index=True)

@@ -79,11 +79,17 @@ class StreamManager:
 
     async def _publish_callback(self, data: dict):
         # Channel convention: market_data:{type}:{symbol}
-        event_type = data.get("type", "tick").lower()
-        symbol = data.get("instrument", "UNKNOWN")
-        norm_symbol = symbol.replace("_", "").replace("/", "").upper()
+        from app.utils.symbol_utils import normalize_symbol
         
-        # --- High-Performance Path with Throttling ---
+        event_type = data.get("type", "tick").lower()
+        symbol = data.get("instrument") or data.get("symbol", "UNKNOWN")
+        norm_symbol = normalize_symbol(symbol)
+        
+        # Inject standard symbol into payload
+        data["instrument"] = norm_symbol
+        if "symbol" in data:
+            data["symbol"] = norm_symbol
+        
         if event_type == "price":
             now = time.time()
             source = data.get("source", "unknown").upper()
@@ -129,7 +135,7 @@ class StreamManager:
             return
 
         if event_type == "symbol_details":
-            channel = f"market_data:info:{symbol}"
+            channel = f"market_data:info:{norm_symbol}"
             # Update Database in background to avoid blocking stream
             import asyncio
             from app.database import SessionLocal
@@ -140,18 +146,22 @@ class StreamManager:
                 try:
                     repo = MarketRepository(db)
                     source_name = data.get("source", "").upper()
+                    # Use original symbol for DB lookup by default, but fallback to norm
                     ms = repo.get_symbol_by_name_and_source(symbol, source_name)
+                    if not ms:
+                        ms = repo.get_symbol_by_name_and_source(norm_symbol, source_name)
+                        
                     if ms:
                         repo.update(ms, details=data.get("details"))
-                        logger.info(f"Updated symbol {symbol} details from {source_name} feed.")
+                        logger.info(f"Updated symbol {norm_symbol} details from {source_name} feed.")
                 except Exception as e:
-                    logger.error(f"Failed to update symbol details for {symbol}: {e}")
+                    logger.error(f"Failed to update symbol details for {norm_symbol}: {e}")
                 finally:
                     db.close()
             
             asyncio.create_task(update_db())
         else:
-            channel = f"market_data:tick:{symbol}"
+            channel = f"market_data:tick:{norm_symbol}"
             
         await self.publisher.publish(channel, data)
 

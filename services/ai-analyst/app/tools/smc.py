@@ -70,7 +70,7 @@ class SMCAnalystTool(BaseTool):
 
         from app.core.config import settings
         data_url = f"{settings.DATA_PIPELINE_URL}/api/v1/candles"
-        smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc"
+        smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc/mtf"
         
         headers = {}
         if auth_token:
@@ -92,38 +92,30 @@ class SMCAnalystTool(BaseTool):
                 # Reverse to ascending order for analysis
                 candles_data.reverse()
                 
-                # 2. Prepare payload for Strategy Core
+                # 2. Prepare payload for Multi-Timeframe SMC
                 payload = {
                     "symbol": normalized_symbol,
-                    "timeframe": timeframe,
-                    "open": [float(c["open"]) for c in candles_data],
-                    "high": [float(c["high"]) for c in candles_data],
-                    "low": [float(c["low"]) for c in candles_data],
-                    "close": [float(c["close"]) for c in candles_data],
-                    "volume": [float(c["volume"]) for c in candles_data],
-                    "timestamps": [c["timestamp"] for c in candles_data]
+                    "timeframes": ["H4", "H1", "M15"]
                 }
                 
-                # 3. Call Strategy Core
-                smc_resp = await client.post(smc_url, json=payload, headers=headers, timeout=10.0)
+                # 3. Call Strategy Core (MTF Endpoint)
+                smc_resp = await client.post(smc_url, json=payload, headers=headers, timeout=15.0)
                 if smc_resp.status_code == 200:
-                    # Enrich with market status metadata (Simplified version for AI)
                     analysis_data = smc_resp.json()
                     
-                    # If raw requested, return early
                     if return_raw_data:
                         return json.dumps(analysis_data)
                         
                     data = {
                         "analysis": analysis_data,
-                        "direction": analysis_data.get("institutional_bias", "NEUTRAL"),
-                        "reason": analysis_data.get("strategic_reasoning", "Consolidating."),
+                        "direction": analysis_data.get("bias", "NEUTRAL"),
+                        "reason": analysis_data.get("summary", "Consolidating."),
                         "entry_price": float(candles_data[-1]["close"]),
-                        "market_status": "open", # Assumed if we have recent candles
+                        "market_status": "open",
                         "data_freshness": "real-time"
                     }
                 else:
-                    return f"Error from Strategy Core: {smc_resp.status_code} - {smc_resp.text}"
+                    return f"Error from Strategy Core (MTF): {smc_resp.status_code} - {smc_resp.text}"
             except Exception as e:
                 return f"Internal Orchestration Error in SMC Tool: {str(e)}"
                 
@@ -140,57 +132,38 @@ class SMCAnalystTool(BaseTool):
         price = data.get("entry_price", 0)
         current_price_val = float(price or 0.0)
         
-        global_meta = analysis.get("meta", {})
-        
-        # --- Dynamic Volatility Filtering ---
-        atr_baseline = float(global_meta.get("atr", current_price_val * 0.005) or current_price_val * 0.005)
-        max_range = atr_baseline * 3.0
-        upper_bound = current_price_val + max_range
-        lower_bound = current_price_val - max_range
-
-        def is_in_range(top, bottom):
-            if include_distant_zones: return True
-            if current_price_val == 0: return True
-            return not (bottom > upper_bound or top < lower_bound)
-
-        raw_obs = analysis.get("order_blocks", [])
-        raw_fvgs = analysis.get("fvgs", [])
-        
-        obs = [ob for ob in raw_obs if is_in_range(float(ob.get('top') or 0), float(ob.get('bottom') or 0))]
-        fvgs = [fvg for fvg in raw_fvgs if is_in_range(float(fvg.get('top') or 0), float(fvg.get('bottom') or 0))]
-        
-        filtered_out = (len(raw_obs) - len(obs)) + (len(raw_fvgs) - len(fvgs))
-        structure = analysis.get("structure", {})
+        checklist = analysis.get("checklist", {})
+        visuals = analysis.get("visuals", {})
+        confluence = analysis.get("confluence_score", 0)
+        is_case_b = analysis.get("is_case_b", False)
         
         # Build the professional report
         report = [
-            f"### 🏛️ SMC Institutional Analysis: {symbol} ({timeframe})",
-            f"\n> **📊 Data Source:** Real-time database feed from active broker connection"
+            f"### 🏛️ Institutional SMC Briefing: {symbol}",
+            f"\n> [!IMPORTANT]\n> **Market Condition**: {reason}"
         ]
         
-        if not include_distant_zones and filtered_out > 0:
-           report.append(f"> **✂️ Relevance Filter ACTIVE:** {filtered_out} distant zones hidden. Range: {lower_bound:.2f} to {upper_bound:.2f} (+/- 3x ATR).")
+        if is_case_b:
+            report.append(f"\n> [!TIP]\n> **CASE B MITIGATION DETECTED**: Institutional liquidity has been successfully re-tested after BOS. Risk profile improved.")
 
-        if market_status == "closed":
-            report.append(f"\n> [!NOTE]\n> **📊 Analysis Mode**: Historical Data Analysis\n> Markets are currently closed ({market_reason}).")
+        report.append(f"\n#### ⚖️ Confluence Scoring: {confluence}/6")
         
-        report.append(f"\n- **Current Rate**: {current_price_val:.2f}")
+        # Checklist Table
+        report.append("| Pillar | Status | Analysis |")
+        report.append("| :--- | :--- | :--- |")
+        for pillar, item in checklist.items():
+            status_icon = "✅" if item.get("status") else "❌"
+            report.append(f"| **{pillar.title()}** | {status_icon} | {item.get('comment')} |")
+            
+        report.append(f"\n#### 🎯 Execution Parameters")
         report.append(f"- **Institutional Bias**: {direction}")
-        report.append(f"- **Strategic Assessment**: {reason}")
+        report.append(f"- **Trigger Level**: {visuals.get('trigger_level', 0.0):.2f}")
+        report.append(f"- **Stop Loss**: {visuals.get('stop_loss', 0.0):.2f}")
+        report.append(f"- **Take Profit**: {visuals.get('take_profit', 0.0):.2f}")
         
-        vol = float(global_meta.get("volatility_score") or 0.0)
-        report.append(f"- **Volatility Environment**: {'High' if vol > 0.005 else 'Contracting'} (Index: {vol:.4f})")
-
-        if obs:
-            report.append("\n#### 🧱 Institutional Order Blocks (OB)")
-            for ob in sorted(obs, key=lambda x: x.get("index", 0), reverse=True)[:3]:
-                mitigated = "✅ Mitigated" if ob.get("mitigated") else "⬜ FRESH"
-                report.append(f"- **{ob.get('type').capitalize()}**: {float(ob.get('bottom')):.2f} - {float(ob.get('top')):.2f} [{mitigated}]")
-        
-        if fvgs:
-            report.append("\n#### 💧 Liquidity Gaps (FVG)")
-            for fvg in sorted(fvgs, key=lambda x: x.get("index", 0), reverse=True)[:2]:
-                report.append(f"- **{fvg.get('type').capitalize()}**: {float(fvg.get('bottom')):.2f} - {float(fvg.get('top')):.2f}")
+        if visuals.get("poi_zone"):
+            poi = visuals["poi_zone"]
+            report.append(f"- **POI Zone**: {poi.get('bottom', 0.0):.2f} - {poi.get('top', 0.0):.2f}")
 
         return "\n".join(report)
 

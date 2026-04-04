@@ -4,7 +4,8 @@ from app.schemas import (
     IndicatorRequest, IndicatorResponse, ATRRequest, BacktestRequest, BacktestResponse,
     RSIRequest, MACDRequest, BBandsRequest, MACDResponse, BBandsResponse,
     SMCRequest, SMCResponse, SMCBatchRequest, SMCBatchResponse, SimulationRequest, SimulationResponse,
-    OptimizationResponse, MonteCarloRequest, MonteCarloResponse, StrategyBacktestRequest
+    OptimizationResponse, MonteCarloRequest, MonteCarloResponse, StrategyBacktestRequest,
+    SMCMTFRequest, SMCMTFResponse
 )
 # from app.indicators import (
 #     calculate_ema, calculate_atr, calculate_rsi, calculate_macd, calculate_bbands
@@ -341,6 +342,99 @@ def get_smc(req: SMCRequest):
         raise
     except Exception as e:
         logger.error(f"SMC calculation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/calculate/smc/mtf", response_model=SMCMTFResponse)
+def get_smc_mtf(req: SMCMTFRequest):
+    try:
+        from app.indicators.smc import analyze_mtf_smc
+        from app.backtest import fetch_data_from_db
+        from app.utils.helpers import resolve_market_symbol_id, sanitize_numeric_dict
+        from app.database import SessionLocal
+        
+        # 1. Prepare DataFrames
+        dfs = {}
+        if req.candles and req.symbol in req.candles:
+             for tf, candle_list in req.candles[req.symbol].items():
+                 dfs[tf] = pd.DataFrame(candle_list)
+                 if not dfs[tf].empty and 'timestamp' in dfs[tf].columns:
+                     dfs[tf].index = pd.to_datetime(dfs[tf]['timestamp'])
+        
+        # 2. Fetch missing TF from DB if needed
+        required_tfs = ["H4", "H1", "M15"] # Standard Institutional Set
+        from app.market_data import market_data_manager
+        
+        if any(tf not in dfs for tf in required_tfs):
+            db = SessionLocal()
+            ms_id = resolve_market_symbol_id(db, req.symbol, fund_id=req.fund_id)
+            db.close()
+            
+            if not ms_id:
+                # If ms_id resolution fails, try resolution without fund context as fallback
+                # but only for internal debugging log
+                logger.warning(f"Failed to resolve symbol_id for {req.symbol} under fund {req.fund_id}")
+                raise HTTPException(status_code=404, detail=f"Symbol {req.symbol} not found in DB for fund {req.fund_id}")
+            
+            for tf in required_tfs:
+                if tf not in dfs:
+                    end_dt = datetime.utcnow()
+                    start_dt = end_dt - pd.Timedelta(days=7) # 7 days is plenty for SMC pillars
+                    df_tf = fetch_data_from_db(ms_id, tf, start_dt, end_dt)
+                    
+                    if df_tf.empty:
+                         # [Phase 3] Fallback to Market Data Buffer (Memory)
+                         # Institutional logic: RAM is faster and more up-to-date than batch DB writes
+                         logger.info(f"DB empty for {req.symbol} {tf}, attempting Memory Buffer fallback")
+                         df_tf = market_data_manager.get_candles(req.symbol, timeframe=tf, limit=1000)
+                         
+                    if df_tf.empty:
+                         raise HTTPException(status_code=404, detail=f"No data available (DB or Buffer) for {req.symbol} {tf}")
+                    
+                    dfs[tf] = df_tf
+        
+        # 3. Analyze
+        # Dynamically assign roles based on available timeframes
+        available_tfs = sorted(dfs.keys(), key=lambda x: {"M1":1, "M5":2, "M15":3, "H1":4, "H4":5, "D1":6, "W1":7}.get(x, 99))
+        
+        if not available_tfs:
+            raise HTTPException(status_code=400, detail="No timeframe data available for analysis")
+            
+        # Trigger: Lowest available
+        trigger_tf = available_tfs[0]
+        df_trigger = dfs[trigger_tf]
+        
+        # Macro: Highest available
+        macro_tf = available_tfs[-1]
+        df_macro = dfs[macro_tf]
+        
+        # POI: Middle ground (or macro if only 2 TFs)
+        if len(available_tfs) >= 3:
+            poi_idx = len(available_tfs) // 2
+            poi_tf = available_tfs[poi_idx]
+        else:
+            poi_tf = macro_tf
+        df_poi = dfs[poi_tf]
+        
+        logger.info(f"SMC MTF Roles for {req.symbol}: Macro={macro_tf}, POI={poi_tf}, Trigger={trigger_tf}")
+        
+        result = analyze_mtf_smc(
+            req.symbol, 
+            df_macro, 
+            df_poi, 
+            df_trigger,
+            macro_tf=macro_tf,
+            poi_tf=poi_tf,
+            trigger_tf=trigger_tf
+        )
+        
+        # 4. Sanitize and Return
+        sanitized_result = sanitize_numeric_dict(result)
+        return SMCMTFResponse(**sanitized_result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"SMC MTF calculation failed: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/calculate/smc/batch", response_model=SMCBatchResponse)

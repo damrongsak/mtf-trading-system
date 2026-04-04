@@ -40,6 +40,7 @@ from app.services.equity_guardian import EquityGuardian
 from app.services.janitor_service import JanitorService
 from app.services.oanda_streamer import MultiStreamManager
 from app.core.config import settings
+from app.utils.symbol_utils import normalize_symbol, get_broker_format
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
 
 # Setup Logger
@@ -410,7 +411,13 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
     try:
         logger.info(f"Incoming Order Request: {req.dict()}")
         account, credentials = await get_account_and_credentials(req.broker_account_id, db)
-        logger.info(f"🚀 [HFT-lite] Creating adapter for {account.broker_name}...")
+        
+        # 1. Standardize Symbol Internal (ISO 4217)
+        req.symbol = normalize_symbol(req.symbol)
+        # 2. Map to Broker-Specific Format for Adapter Calls
+        broker_symbol = get_broker_format(req.symbol, account.broker_name)
+
+        logger.info(f"🚀 [HFT-lite] Creating adapter for {account.broker_name} (Symbol: {req.symbol} -> {broker_symbol})...")
         adapter = BrokerFactory.get_adapter(account.broker_name, credentials)
         
         # [SAFETY] Basic Input Validation
@@ -428,7 +435,7 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
         if price_err:
              # Fallback to API if cache miss
              try:
-                 current_price = await adapter.get_current_price(req.symbol)
+                 current_price = await adapter.get_current_price(broker_symbol)
              except Exception:
                  current_price = 0.0
         
@@ -467,9 +474,9 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
 
         # Support Market, Limit, Stop based on order_type
         if req.order_type == "MARKET":
-            logger.info(f"🚀 [HFT-lite] Placing MARKET {req.side} order for {req.symbol} ({req.units} units)...")
+            logger.info(f"🚀 [HFT-lite] Placing MARKET {req.side} order for {broker_symbol} ({req.units} units)...")
             response = await adapter.place_market_order(
-                symbol=req.symbol,
+                symbol=broker_symbol,
                 units=req.units,
                 side=req.side,
                 sl_price=req.sl_price,
@@ -495,9 +502,9 @@ async def place_order(authenticated: str = Depends(verify_internal_api_key), req
             if req.order_type == "STOP": target_order_type = ProtoOAOrderType.STOP
             if req.order_type == "STOP_LIMIT": target_order_type = ProtoOAOrderType.STOP_LIMIT
 
-            logger.info(f"🚀 [HFT-lite] Placing {req.order_type} {req.side} order for {req.symbol}...")
+            logger.info(f"🚀 [HFT-lite] Placing {req.order_type} {req.side} order for {broker_symbol}...")
             response = await adapter.place_limit_order(
-                symbol=req.symbol,
+                symbol=broker_symbol,
                 units=req.units,
                 side=req.side,
                 price=req.price or req.stop_price, # Use price as limit price

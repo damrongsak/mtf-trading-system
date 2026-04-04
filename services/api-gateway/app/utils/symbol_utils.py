@@ -37,7 +37,23 @@ def normalize_symbol(symbol: Any) -> str:
 
     # Canonical normalization: 
     # 1. Uppercase
-    # 2. Remove slashes (used in legacy or display formats)
-    # 3. We keep underscores by default for OANDA compatibility, 
-    # but market.py should check both stripped and underscored versions.
-    return raw.upper().replace("/", "").replace("-", "")
+    # 2. Remove all separators (ISO 4217 Commercial Standard)
+    return raw.upper().replace("/", "").replace("_", "").replace("-", "").replace(" ", "")
+
+def get_broker_format(symbol: str, broker: str = "OANDA") -> str:
+    """
+    Translates internal 'XAUUSD' into broker-specific formats.
+    """
+    normalized = normalize_symbol(symbol)
+    
+    # OANDA prefers 6-7 chars with underscores for FX/Metals
+    if broker.upper() == "OANDA":
+        if normalized == "XAUUSD": return "XAU_USD"
+        if normalized == "EURUSD": return "EUR_USD"
+        if normalized == "USDJPY": return "USD_JPY"
+        if normalized == "GBPUSD": return "GBP_USD"
+        if len(normalized) == 6:
+            return f"{normalized[:3]}_{normalized[3:]}"
+            
+    # CTRADER usually uses just the symbol or specific numeric ID (handled via DB details)
+    return normalized

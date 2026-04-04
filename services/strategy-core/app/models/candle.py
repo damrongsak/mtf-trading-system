@@ -1,25 +1,27 @@
 """
 Candle SQLAlchemy model.
+Source of truth: specs/03_data_model.yaml -> Candle entity
 """
 
-from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, Numeric, Index, func, Boolean, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 import uuid
 from app.database import Base
 
 
 class Candle(Base):
-    """
-    OHLCV candlestick data with multi-timeframe indicators.
-    """
     __tablename__ = "candles"
+    __table_args__ = {"extend_existing": True}
 
-    # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
+    
     # Core Identification
+    market_symbol_id = Column(UUID(as_uuid=True), ForeignKey("market_symbols.id"), nullable=False, index=True,
+                             comment="Foreign Key to MarketSymbol (defines Symbol + DataSource)")
+    
     symbol = Column(String(20), nullable=False, index=True,
-                   comment="Trading pair symbol (e.g., XAU/USD)")
+                    comment="Denormalized symbol for easier querying (e.g. XAUUSD)")
+    
     timeframe = Column(String(10), nullable=False, index=True,
                       comment="Timeframe identifier (15m, 1h, 4h, D)")
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True,
@@ -49,6 +51,11 @@ class Candle(Base):
                        comment="ATR(14) on 15m timeframe (for stop loss calculation)")
     body_to_wick_ratio = Column(Numeric(5, 4), nullable=True,
                                comment="Body-to-Wick Ratio (Rv) for vector candle confirmation")
+    
+    # Dynamic Indicators (JSONB)
+    indicators = Column(JSONB, nullable=True, comment="Flexible storage for calculated indicators (RSI, EMA, etc.)")
+    ai_labels = Column(JSONB, nullable=True, comment="Automated labels (e.g., fake_sweep, expansion_confirmed)")
+    regime_tag = Column(String(50), nullable=True, comment="Market regime classification")
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(),
@@ -58,9 +65,13 @@ class Candle(Base):
 
     # Indexes for performance
     __table_args__ = (
-        Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp', unique=True),
-        {'comment': 'OHLCV candlestick data with multi-timeframe indicators'}
+        Index('ix_candles_market_symbol_timeframe_timestamp', 'market_symbol_id', 'timeframe', 'timestamp', unique=True),
+        Index('ix_candles_symbol_timeframe_timestamp', 'symbol', 'timeframe', 'timestamp'),
+        {
+            'comment': 'OHLCV candlestick data with multi-timeframe indicators',
+            'extend_existing': True
+        }
     )
 
     def __repr__(self):
-        return f"<Candle {self.symbol} {self.timeframe} {self.timestamp} close={self.close}>"
+        return f"<Candle {self.market_symbol_id} {self.timeframe} {self.timestamp} close={self.close}>"

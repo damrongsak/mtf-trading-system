@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Numeric, UniqueConstraint, Index
-from sqlalchemy.dialects.postgresql import UUID as Uuid
 import uuid
 from datetime import datetime
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, UniqueConstraint, Index, Uuid
 from app.database import Base
 
 class OpenInterest(Base):
