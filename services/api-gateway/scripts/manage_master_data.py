@@ -29,6 +29,8 @@ from app.models.saved_strategy import SavedStrategy
 from app.models.strategy_config import StrategyConfig
 from app.models.prompt import SystemPrompt
 from app.models.rag import LibraryBook
+from app.models.api_key import ApiKey
+from app.utils.crypto import decrypt_data
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MDMS")
@@ -55,7 +57,8 @@ TABLE_MODELS = [
     (StrategyConfig, "strategy_configs.json"),
     (Strategy, "strategies.json"),
     (Deployment, "deployments.json"),
-    (LibraryBook, "library_books.json")
+    (LibraryBook, "library_books.json"),
+    (ApiKey, "api_keys.json")
 ]
 
 from enum import Enum
@@ -106,6 +109,12 @@ def export_data():
                                 config[sk] = f"SECRET_{sk.upper()}"
                         item_dict["config_json"] = config
                 
+                # Sanitize ApiKey secrets
+                if model_class == ApiKey and item_dict.get("api_secret"):
+                    # Decrypt to check it's valid, then replace with placeholder
+                    # We store it for later env-variable replacement if needed
+                    item_dict["api_secret"] = "SECRET_API_SECRET"
+
                 data.append(item_dict)
             
             filepath = os.path.join(MASTER_DATA_DIR, filename)

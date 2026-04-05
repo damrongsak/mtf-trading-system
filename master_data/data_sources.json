@@ -4,7 +4,11 @@
     "name": "OANDA",
     "provider": "OANDA",
     "type": "api",
-    "config_json": "Z0FBQUFBQnB0cHM1SUdIRHhTV05lRm94UTJRVURRb3phQnJXWlMzTzh4aWc1R3JuVnU5TTRVcEVIMFZUTUlmVEI4RmxyMnE5d2RCenA2RWpJeHBHWHlkSEdKZkNZN2tDWWUyNmVKUFpSangzY3h5UnlKN0NqYzdoc3ZLcGU5WVozZ2hGM0ttcWJFVDBxbVd2b1RxdmNSdUZVTHpESW90dmIxYm9CYjhxS1hDa3ZvSmpyMlZYd3FCS0JsUHB0UUt4ZmJoM3NVRGphVVVHVV82R2VkYnREa0pvZmFyVER2ODdfaV80NjFXSXd3dWJrbTkzSUVKdXJPc2VuV2JSenB0bTRpbkcwN093NXR6NA==",
+    "config_json": {
+      "token": "SECRET_TOKEN",
+      "account_id": "001-011-437083-005",
+      "environment": "live"
+    },
     "schema_json": null,
     "is_active": true
   },
@@ -13,7 +17,16 @@
     "name": "CTRADER",
     "provider": "CTRADER",
     "type": "api",
-    "config_json": "Z0FBQUFBQnB1TU5kNVBSVXBQa1RXXzYtOEZ0X0NPUVRTZHhsN0k1WDdSbEU4VHVDV3B4Nmt2LVlJdVdEdFRVR09kU3R3WVZuQy1ObWVBTnF6ZGpaU3BuWVhtbm5HZ1BraHJBVC1UN2RiMjRDbnFzS0xvOWJ0R2R3dkU5NVpWa21ZWk1ubGF5UkZKNmw1VEJrQTd4dTVxaGMxQkswMmw0OHFUallYa3FycDltQTF4X1kwOFhGWnluV0NJRkt0QUJ2NHRQQTh1S0ZhWUhxMk94a3ZPdFlWSEFwSVNKVmhia2NYWG43VWZsX3VvVEE4SXhVQUxoQndlOV81NHQ1MnFncGVUSnU3dHdhZ2UyaW43MzFvTXJ0S1U3ZmpFREd4YkozMGVRdUtBeU91dDdoaDlrTkx1RWFtcTZabTZTMjNaSW9TSW5pUktuQWdZcHZOaGVuS3Uydi05ZGN0N0ZJWkY5dlU1SUdhNXQ2cHh2WmFPYVhrZ29XOVptR2NqUUtGTUM2eDY2VXpaM25nT2o0cnd5TE5PZXJ6eDhibnBJcUk0WDI1c3V6VXVrUkpuVks0RkdicnJ4VUt1QjJEdy1pd1BSS2d2SWV3akx3aWdXZ0Q2TmF5ZHpDdlhHcXZiM1pyd1d0STdYVzN5alUzUjF6QnpqVGZyeFRhZTB0ZnN3Mnl4enIxTDJta05KYnROODNuTEtMSmNQbWFsZEo5OXpRYWxTbVNVWkoyYmRNOU9MWW9rWGE0N19ReHZnPQ==",
+    "config_json": {
+      "host": "live.ctraderapi.com",
+      "port": 5035,
+      "token": "SECRET_TOKEN",
+      "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
+      "account_id": "40816494",
+      "expires_at": 1776344317,
+      "client_secret": "SECRET_CLIENT_SECRET",
+      "refresh_token": "SECRET_REFRESH_TOKEN"
+    },
     "schema_json": null,
     "is_active": true
   },

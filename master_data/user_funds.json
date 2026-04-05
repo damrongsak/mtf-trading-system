@@ -58,5 +58,11 @@
     "user_id": "6a4a2b5d-c41a-4b2a-b467-66b6ebbf6644",
     "fund_id": "f132981c-174e-4c12-9f3c-bb20b8c2557d",
     "role": "OWNER"
+  },
+  {
+    "id": "b583cecf-7e7c-46cb-9c69-3090487acf0e",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "0b4fa6dd-da49-4e4f-8345-10d9271324cb",
+    "role": "VIEWER"
   }
 ]

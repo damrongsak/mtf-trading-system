@@ -1,0 +1,58 @@
+[
+  {
+    "id": "4494d3a6-4964-456b-8d9c-a504164506f2",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Key Alpha",
+    "api_key": "ak_live_ApdpEZ8QBxLq78Yh76tcDhCs",
+    "api_secret": "SECRET_API_SECRET",
+    "role": "MANAGER",
+    "scopes": [
+      "read",
+      "write"
+    ],
+    "allowed_ips": null,
+    "expires_at": null,
+    "rate_limit_rpm": 60,
+    "last_used_at": null,
+    "is_active": true,
+    "created_at": "2026-04-05T05:35:57.260225+00:00"
+  },
+  {
+    "id": "dd691478-e526-446f-91f9-1cbd703191a4",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Key Beta",
+    "api_key": "ak_live_xRMe963ZCQnqXBn88b1pVss6",
+    "api_secret": "SECRET_API_SECRET",
+    "role": "TRADER",
+    "scopes": [
+      "read",
+      "execute"
+    ],
+    "allowed_ips": null,
+    "expires_at": null,
+    "rate_limit_rpm": 60,
+    "last_used_at": null,
+    "is_active": true,
+    "created_at": "2026-04-05T05:35:57.407833+00:00"
+  },
+  {
+    "id": "d664724d-0f7f-40bd-b6ad-ad3a50eee523",
+    "user_id": "e2079cc2-11d0-4e8f-9b69-49ea0ba7cd96",
+    "fund_id": "bdbbd139-3fc4-4ad5-ac9d-b680f77c1bf5",
+    "name": "Key Gamma",
+    "api_key": "ak_live_NhSfn4YYZ58ueaXWUyrWT3HS",
+    "api_secret": "SECRET_API_SECRET",
+    "role": "VIEWER",
+    "scopes": [
+      "read"
+    ],
+    "allowed_ips": null,
+    "expires_at": null,
+    "rate_limit_rpm": 60,
+    "last_used_at": null,
+    "is_active": true,
+    "created_at": "2026-04-05T05:35:57.501858+00:00"
+  }
+]

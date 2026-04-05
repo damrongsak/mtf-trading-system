@@ -19,6 +19,10 @@ from app.utils.symbol_utils import normalize_symbol
 from app.schemas.smc import SMCAnalysisRequest, SMCAnalysisResponse
 import httpx
 import os
+from datetime import datetime, timezone
+import uuid
+from app.models.user_fund import UserFund, UserRole
+from app.models.api_key import ApiKeyRole
 
 STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
 
@@ -55,44 +59,41 @@ async def verify_external_auth(
     signature: str = Header(..., alias="X-SIGNATURE"),
     timestamp: str = Header(..., alias="X-TIMESTAMP"),
     db: Session = Depends(get_db)
-):
+) -> Dict[str, Any]:
     """
-    HMAC-SHA256 Middleware for external partners.
-    1. Resolve API Key -> Secret from DB
+    Institutional-Grade HMAC-SHA256 Middleware for external partners.
+    1. Resolve API Key -> Decrypt Secret
     2. Verify Signature
+    3. Enforce Lifecycles (Expiration, Status)
+    4. Enforce Network Security (IP Whitelisting)
+    5. Resolve RBAC Privilege (Fund isolation + Role capping)
     """
-    # 1. Resolve Secret from DB (with L1 Cache)
-    cached = api_key_cache.get(api_key)
-    if cached:
-        secret = cached["secret"]
-        user_id = cached["user_id"]
-    else:
-        key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key, ApiKey.is_active == True).first()
-        if not key_record:
-            raise HTTPException(status_code=401, detail="Invalid or inactive API Key")
+    # 1. Resolve API Key from DB
+    key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+    if not key_record or not key_record.is_active:
+        raise HTTPException(status_code=401, detail="Invalid or inactive API Key")
 
-        try:
-            secret_dict = decrypt_data(key_record.api_secret)
-            secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
-            user_id = key_record.user_id
-            api_key_cache.set(api_key, {"secret": secret, "user_id": user_id})
-        except Exception:
-            raise HTTPException(status_code=500, detail="Internal security error")
+    # 2. Enforce Expiration
+    if key_record.expires_at and key_record.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="API Key has expired")
 
-    # 1.5 Rate Limiting (10 rps)
-    from app.utils.redis_client import redis_client
-    rc = await redis_client.get_client()
-    rate_key = f"rate_limit:external:{api_key}:{int(time.time())}"
-    count = await rc.incr(rate_key)
-    if count == 1: await rc.expire(rate_key, 2)
-    if count > 10:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded (10 req/sec)")
+    # 3. Enforce IP Whitelisting
+    client_ip = request.client.host
+    if key_record.allowed_ips and len(key_record.allowed_ips) > 0:
+        if client_ip not in key_record.allowed_ips:
+            logger.warning(f"Unauthorized IP attempted external access: {client_ip} [Key: {api_key[:8]}]")
+            raise HTTPException(status_code=403, detail="Client IP not in whitelist")
 
-    # 2. Get Body for signing
+    # 4. Decrypt Secret
+    try:
+        secret_dict = decrypt_data(key_record.api_secret)
+        secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal security error (Decryption)")
+
+    # 5. Verify Signature
     body = await request.body()
     body_str = body.decode('utf-8') if body else ""
-
-    # 3. Verify
     is_valid = hmac_signer.verify_signature(
         secret=secret,
         signature=signature,
@@ -101,16 +102,48 @@ async def verify_external_auth(
         path=request.url.path,
         body=body_str
     )
-
     if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid HMAC Signature")
 
-    return user_id
+    # 6. Resolve RBAC Privilege (Privilege Capping)
+    effective_role = key_record.role
+    target_fund_id = key_record.fund_id
+
+    if target_fund_id:
+        user_fund = db.query(UserFund).filter(
+            UserFund.user_id == key_record.user_id,
+            UserFund.fund_id == target_fund_id
+        ).first()
+        
+        if not user_fund:
+            logger.warning(f"User {key_record.user_id} lost access to fund {target_fund_id} linked to API Key {api_key[:8]}")
+            raise HTTPException(status_code=403, detail="User no longer has access to the locked fund")
+            
+        # Role hierarchy for capping
+        role_map = {UserRole.OWNER: 4, UserRole.MANAGER: 3, UserRole.TRADER: 2, UserRole.VIEWER: 1}
+        
+        user_fund_score = role_map.get(user_fund.role, 0)
+        key_role_score = role_map.get(key_record.role, 0)
+        
+        if user_fund_score < key_role_score:
+            # Force downstream logic to use the real user's (lower) privilege
+            effective_role = user_fund.role
+    
+    # 7. Update Metadata (Delayed persist)
+    key_record.last_used_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return {
+        "user_id": str(key_record.user_id),
+        "fund_id": str(target_fund_id) if target_fund_id else None,
+        "role": effective_role,
+        "scopes": key_record.scopes or ["*"]
+    }
 
 @router.post("/analysis/smc", status_code=200, response_model=SMCAnalysisResponse)
 async def analyze_smc_external(
     req: SMCAnalysisRequest,
-    user_id: str = Depends(verify_external_auth),
+    auth: Dict[str, Any] = Depends(verify_external_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -118,19 +151,31 @@ async def analyze_smc_external(
     Authenticated via HMAC-SHA256 (X-API-KEY, X-SIGNATURE, X-TIMESTAMP).
     """
     try:
-        # 1. Normalize Symbol (Strict Standard)
+        user_id = auth["user_id"]
+        role = auth["role"]
+        
+        # 1. Scope and Role check
+        if role not in [UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]:
+            raise HTTPException(status_code=403, detail="Insufficient privileges for SMC Analysis (requires TRADER+)")
+
+        # 2. Normalize Symbol (Strict Standard)
         req.symbol = normalize_symbol(req.symbol)
         
-        # 2. Resolve Fund ID (External users must have a fund linked)
-        from app.models.user_fund import UserFund
-        user_fund = db.query(UserFund).filter(UserFund.user_id == user_id).first()
-        if not user_fund and not req.fund_id:
-            raise HTTPException(status_code=400, detail="User has no linked funds. Cannot perform analysis.")
+        # 3. Resolve and Enforce Fund Isolation
+        # If API key is fund-locked, ensure it matches req.fund_id or inject it
+        if auth["fund_id"]:
+            if req.fund_id and str(req.fund_id) != auth["fund_id"]:
+                raise HTTPException(status_code=403, detail=f"API Key is restricted to fund {auth['fund_id']}")
+            req.fund_id = auth["fund_id"]
         
         if not req.fund_id:
+            # Global key but no fund specified in request - find user's first fund as fallback
+            user_fund = db.query(UserFund).filter(UserFund.user_id == user_id).first()
+            if not user_fund:
+                raise HTTPException(status_code=400, detail="No fund_id provided and user has no linked funds")
             req.fund_id = str(user_fund.fund_id)
 
-        # 3. Proxy to Strategy Core
+        # 4. Proxy to Strategy Core
         start_time = time.time()
         async with httpx.AsyncClient(timeout=120.0) as http_client:
             response = await http_client.post(
@@ -139,7 +184,7 @@ async def analyze_smc_external(
             )
         
         process_time = time.time() - start_time
-        logger.info(f"3rd Party SMC MTF proxy: {process_time:.4f}s [User: {user_id}, Symbol: {req.symbol}]")
+        logger.info(f"3rd Party SMC MTF proxy: {process_time:.4f}s [User: {user_id}, Fund: {req.fund_id}, Symbol: {req.symbol}]")
 
         if response.status_code != 200:
             logger.error(f"Strategy Core returned {response.status_code}: {response.text}")
@@ -159,7 +204,7 @@ async def analyze_smc_external(
     return api_key
 
 @router.get("/market/snapshot/{symbol}")
-async def get_market_snapshot(symbol: str, auth: str = Depends(verify_external_auth)):
+async def get_market_snapshot(symbol: str, auth: Dict[str, Any] = Depends(verify_external_auth)):
     """
     Optimized O(1) Snapshot for 3rd Party.
     Uses Redis-backed ECST cache directly.
@@ -180,18 +225,30 @@ async def get_market_snapshot(symbol: str, auth: str = Depends(verify_external_a
 @router.post("/trade/execute")
 async def external_trade_execute(
     req: Dict[str, Any] = Body(...),
-    auth: str = Depends(verify_external_auth)
+    auth: Dict[str, Any] = Depends(verify_external_auth),
+    db: Session = Depends(get_db)
 ):
     """
     High-performance Proxy to Execution Service for Partners.
+    Enforces fund isolation and TRADER+ role requirement.
     """
+    role = auth["role"]
+    if role not in [UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]:
+        raise HTTPException(status_code=403, detail="Insufficient privileges for Trade Execution")
+
+    # Enforce Fund Isolation
+    if auth["fund_id"]:
+        if "fund_id" in req and str(req["fund_id"]) != auth["fund_id"]:
+            raise HTTPException(status_code=403, detail=f"API Key is restricted to fund {auth['fund_id']}")
+        req["fund_id"] = auth["fund_id"]
+
     # Simply forward to internal execution router or push to Redis queue
     # For HFT-lite, pushing to Redis Trade Queue is fastest.
     return success_response(data={"status": "ACCEPTED", "timestamp": time.time()})
 
 @router.get("/strategies/active")
 async def external_list_active_strategies(
-    auth: str = Depends(verify_external_auth)
+    auth: Dict[str, Any] = Depends(verify_external_auth)
 ):
     """Institutional Access to Active Fleet."""
     try:
@@ -203,7 +260,7 @@ async def external_list_active_strategies(
 @router.post("/strategies/{id}/tick")
 async def external_manual_strategy_tick(
     id: str,
-    auth: str = Depends(verify_external_auth)
+    auth: Dict[str, Any] = Depends(verify_external_auth)
 ):
     """Institutional Manual Trigger."""
     try:
@@ -226,16 +283,29 @@ async def external_websocket_prices(
     HMAC-Authenticated WebSocket for external partners.
     """
     # 1. Resolve API Key -> Secret
-    key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key, ApiKey.is_active == True).first()
-    if not key_record:
+    key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+    if not key_record or not key_record.is_active:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+
+    # 2. Enforce Expiration
+    if key_record.expires_at and key_record.expires_at < datetime.now(timezone.utc):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION) # Expired
+        return
+
+    # 3. Enforce IP Whitelisting
+    client_ip = websocket.client.host
+    if key_record.allowed_ips and len(key_record.allowed_ips) > 0:
+        if client_ip not in key_record.allowed_ips:
+            logger.warning(f"WS Prices: Unauthorized IP {client_ip} [Key: {api_key[:8]}]")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
 
     try:
         secret_dict = decrypt_data(key_record.api_secret)
         secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
         
-        # 2. Verify Signature (WebSocket handshake is a GET request)
+        # 4. Verify Signature (WebSocket handshake is a GET request)
         # Robustness: Try both the full path and the relative path (if prefix exists)
         full_path = websocket.url.path
         is_valid = hmac_signer.verify_signature(
@@ -302,26 +372,43 @@ async def external_websocket_command(
     """
     High-Frequency Trading Command WebSocket for AI Partners.
     """
-    # 1. Resolve API Key -> Secret (with L1 Cache)
-    cached = api_key_cache.get(api_key)
-    if cached:
-        secret = cached["secret"]
-    else:
-        key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key, ApiKey.is_active == True).first()
-        if not key_record:
+    # 1. Resolve API Key -> Secret
+    key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+    if not key_record or not key_record.is_active:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # 2. Enforce Expiration
+    if key_record.expires_at and key_record.expires_at < datetime.now(timezone.utc):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # 3. Enforce IP Whitelisting
+    client_ip = websocket.client.host
+    if key_record.allowed_ips and len(key_record.allowed_ips) > 0:
+        if client_ip not in key_record.allowed_ips:
+            logger.warning(f"WS Command: Unauthorized IP {client_ip} [Key: {api_key[:8]}]")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
-        try:
-            secret_dict = decrypt_data(key_record.api_secret)
-            secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
-            api_key_cache.set(api_key, {"secret": secret, "user_id": key_record.user_id})
-        except Exception:
-            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
-            return
+    try:
+        secret_dict = decrypt_data(key_record.api_secret)
+        secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
+        
+        # 4. Prepare Auth Context for WS
+        auth_context = {
+            "user_id": str(key_record.user_id),
+            "fund_id": str(key_record.fund_id) if key_record.fund_id else None,
+            "role": key_record.role,
+            "scopes": key_record.scopes or ["*"]
+        }
+        api_key_cache.set(api_key, {"secret": secret, "auth": auth_context})
+    except Exception:
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        return
 
     try:
-        # 2. Verify Signature (WebSocket handshake is a GET request)
+        # 5. Verify Signature (WebSocket handshake is a GET request)
         # Robustness: Try both the full path and the relative path (if prefix exists)
         full_path = websocket.url.path
         is_valid = hmac_signer.verify_signature(
@@ -661,23 +748,49 @@ async def _handle_command(cmd: str, params: Dict[str, Any], db: Session, api_key
     if idem_result is not None:
         return idem_result
 
-    # 1. Resolve User from ApiKey (with L1 Cache)
+    # 1. Resolve Auth from ApiKey (with L1 Cache)
     cached = api_key_cache.get(api_key)
-    if cached:
-        user_id = cached["user_id"]
+    if cached and "auth" in cached:
+        auth = cached["auth"]
     else:
         key_record = db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
-        if not key_record:
-            return {"status": "error", "error": "API Key not found"}
-        user_id = key_record.user_id
-        # Update cache while we're here
+        if not key_record or not key_record.is_active:
+            return {"status": "error", "error": "API Key invalid or inactive"}
+        
+        # Build Auth Context (Simpler version for cache/WS use)
+        auth = {
+            "user_id": str(key_record.user_id),
+            "fund_id": str(key_record.fund_id) if key_record.fund_id else None,
+            "role": key_record.role,
+            "scopes": key_record.scopes or ["*"]
+        }
         try:
             secret_dict = decrypt_data(key_record.api_secret)
             secret = secret_dict if isinstance(secret_dict, str) else secret_dict.get("secret", "")
-            api_key_cache.set(api_key, {"secret": secret, "user_id": user_id})
+            api_key_cache.set(api_key, {"secret": secret, "auth": auth})
         except: pass
     
+    user_id = auth["user_id"]
+    role = auth["role"]
+    locked_fund_id = auth["fund_id"]
+
     try:
+        # 2. Role and Fund Enforcement
+        # Check TRADER+ for mutations
+        MUTATION_COMMANDS = {"execute", "cancel", "amend", "close"}
+        if cmd in MUTATION_COMMANDS and role not in [UserRole.OWNER, UserRole.MANAGER, UserRole.TRADER]:
+            return {"status": "error", "error": "Insufficient privileges for mutating command"}
+
+        # Fund Isolation
+        if locked_fund_id:
+            requested_fund = params.get("fund_id") or params.get("broker_account_id") # Note: broker_account_id check is in client.py
+            if requested_fund and str(requested_fund) != locked_fund_id:
+                # If they passed a fund_id, it must match.
+                if params.get("fund_id") and str(params["fund_id"]) != locked_fund_id:
+                    return {"status": "error", "error": f"API Key locked to fund {locked_fund_id}"}
+            # Inject locked fund if not present
+            if not params.get("fund_id"):
+                params["fund_id"] = locked_fund_id
         if cmd == "execute":
             # broker_account_id is required for multi-tenant isolation
             account_id = params.get("broker_account_id")

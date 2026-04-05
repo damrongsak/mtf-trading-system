@@ -2709,6 +2709,32 @@ redis_streams:
         type: string
         required: true
         description: "HMAC Secret (Encrypted in DB)"
+      - name: fund_id
+        type: uuid
+        foreign_key: "funds.id"
+        nullable: true
+        description: "If set, the key is strictly restricted to this fund."
+      - name: role
+        type: enum
+        enum_values: ["OWNER", "MANAGER", "TRADER", "VIEWER"]
+        default: "VIEWER"
+        description: "The RBAC role this key carries when used."
+      - name: scopes
+        type: jsonb
+        default: '["*"]'
+        description: "Granular permissions (e.g., ['market:read', 'trade:write'])"
+      - name: allowed_ips
+        type: jsonb
+        nullable: true
+        description: "List of allowed source IPv4/IPv6 addresses"
+      - name: expires_at
+        type: datetime
+        nullable: true
+        description: "Optional expiration date for the key"
+      - name: rate_limit_rpm
+        type: integer
+        default: 60
+        description: "Requests per minute limit"
       - name: last_used_at
         type: datetime
         nullable: true
