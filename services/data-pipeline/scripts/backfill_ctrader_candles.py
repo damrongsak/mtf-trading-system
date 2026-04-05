@@ -35,7 +35,7 @@ TIMEFRAME_MAP = {
     "MN1": ProtoOATrendbarPeriod.MN1,
 }
 
-async def backfill_candles(days: int = 30):
+async def backfill_candles(days: int = 30, target_timeframes: list = None, target_symbols: list = None):
     # Sync DB session
     db = SessionLocal()
     
@@ -86,13 +86,17 @@ async def backfill_candles(days: int = 30):
             logger.error("CTRADER Data Source not found")
             return
 
-        active_symbols = db.query(MarketSymbol).filter(
+        query = db.query(MarketSymbol).filter(
             MarketSymbol.data_source_id == ds.id, 
             MarketSymbol.is_active == True
-        ).all()
+        )
+        if target_symbols:
+            query = query.filter(MarketSymbol.symbol.in_(target_symbols))
+            
+        active_symbols = query.all()
 
         if not active_symbols:
-            logger.warning("No active cTrader symbols found.")
+            logger.warning("No active cTrader symbols found matching criteria.")
             return
 
         divisor = 100000.0
@@ -117,6 +121,15 @@ async def backfill_candles(days: int = 30):
             await client.authorize_account(account_id, token)
             return client
 
+        # Prepare timeframe list
+        tfs_to_process = []
+        if target_timeframes:
+            for tf in target_timeframes:
+                if tf in TIMEFRAME_MAP:
+                    tfs_to_process.append((tf, TIMEFRAME_MAP[tf]))
+        else:
+            tfs_to_process = list(TIMEFRAME_MAP.items())
+
         for ms in active_symbols:
             sym_name = ms.symbol
             logger.info(f"Processing symbol: {sym_name}")
@@ -127,7 +140,7 @@ async def backfill_candles(days: int = 30):
             
             if not symbol_id: continue
 
-            for tf_name, tf_enum in TIMEFRAME_MAP.items():
+            for tf_name, tf_enum in tfs_to_process:
                 if tf_name == 'T15': continue
                 
                 logger.info(f"  Timeframe: {tf_name}")
@@ -224,6 +237,12 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
+    parser.add_argument("--timeframes", type=str, help="Comma separated timeframes (e.g. H1,H4)")
+    parser.add_argument("--symbols", type=str, help="Comma separated symbols (e.g. XAUUSD,EURUSD)")
     args = parser.parse_args()
     
-    asyncio.run(backfill_candles(days=args.days))
+    tf_list = args.timeframes.split(',') if args.timeframes else None
+    sym_list = args.symbols.split(',') if args.symbols else None
+    
+    asyncio.run(backfill_candles(days=args.days, target_timeframes=tf_list, target_symbols=sym_list))
+

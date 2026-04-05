@@ -499,7 +499,7 @@ entities:
         primary_key: true
       - name: provider
         type: enum
-        enum_values: ["OANDA", "BINANCE", "CTRADER"]
+        enum_values: ["OANDA", "BINANCE", "CTRADER", "YAHOO_FINANCE"]
         required: true
         description: "Provider Implementation (e.g., OANDA, BINANCE)"
       - name: name

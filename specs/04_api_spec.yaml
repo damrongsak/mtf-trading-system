@@ -7953,12 +7953,18 @@ components:
     # --- Data Ingestion & Integrity ---
     BackfillRequest:
       type: object
-      required:
-        - symbol
       properties:
         symbol:
           type: string
+          description: "Specific symbol (e.g. 'EUR_USD'). Optional if 'symbols' is provided."
           example: "EUR_USD"
+          nullable: true
+        symbols:
+          type: array
+          items:
+            type: string
+          description: "Bulk backfill multiple symbols (e.g. ['EUR_USD', 'GBP_USD']). Overrides 'symbol' if provided."
+          example: ["VIX", "DXY"]
         timeframe:
           type: string
           description: "Specific timeframe or 'ALL' for all supported timeframes"

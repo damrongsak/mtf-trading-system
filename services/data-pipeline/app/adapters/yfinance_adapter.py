@@ -19,6 +19,46 @@ class YFinanceAdapter:
         "GVZ": "^GVZ"
     }
 
+    async def fetch_indicator(self, label: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetches the latest value for a macro indicator.
+        """
+        ticker_symbol = self.MACRO_SYMBOLS.get(label)
+        if not ticker_symbol:
+            return None
+            
+        try:
+            logger.info(f"YFinance: Fetching indicator {label} ({ticker_symbol})")
+            ticker = yf.Ticker(ticker_symbol)
+            # Fetch last 5 days to ensure we get at least one close (weekends)
+            df = await asyncio.to_thread(ticker.history, period="5d", interval="1d")
+            
+            if df.empty:
+                logger.warning(f"YFinance: No indicator data for {label}")
+                return None
+                
+            last_row = df.iloc[-1]
+            prev_row = df.iloc[-2] if len(df) > 1 else last_row
+            
+            value = float(last_row["Close"])
+            prev_value = float(prev_row["Close"])
+            change = value - prev_value
+            change_pct = (change / prev_value * 100) if prev_value != 0 else 0
+            
+            data = {
+                "symbol": label,
+                "ticker": ticker_symbol,
+                "value": round(value, 4),
+                "change": round(change, 4),
+                "change_pct": round(change_pct, 4),
+                "timestamp": df.index[-1].to_pydatetime().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            return data
+        except Exception as e:
+            logger.error(f"YFinance indicator error for {label}: {e}")
+            return None
+
     async def fetch_candles(
         self, 
         ticker_symbol: str, 

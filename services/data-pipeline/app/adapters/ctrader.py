@@ -76,8 +76,24 @@ class CTraderClient:
             req.symbolId = symbol_id
             req.count = count
             
-            # Use current time as end (Required in some versions/brokers)
-            req.toTimestamp = int(datetime.utcnow().timestamp() * 1000)
+            # Use current time as end
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            req.toTimestamp = now_ms
+
+            # MUST provide fromTimestamp if required by the OpenAPI spec/broker
+            if count:
+                # Timeframe multiplication for count (in seconds)
+                m_map = {
+                    "M1": 60, "M5": 300, "M15": 900, "M30": 1800,
+                    "H1": 3600, "H4": 14400, "D1": 86400, "W1": 604800, "MN1": 2592000
+                }
+                # Use timeframe string instead of period int
+                offset_sec = count * m_map.get(timeframe, 60)
+                # Ensure we look back far enough (add 20% buffer for missing candles/weekends)
+                req.fromTimestamp = now_ms - (int(offset_sec * 1.2) * 1000)
+            else:
+                # Fallback to 1 week if no count
+                req.fromTimestamp = now_ms - (7 * 86400 * 1000)
 
             resp = await client.send(req)
             

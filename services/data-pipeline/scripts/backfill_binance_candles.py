@@ -24,57 +24,46 @@ def get_binance_symbol(symbol: str) -> str:
     if sym in ["ETHUSD"]: return "ETHUSDT"
     return sym
 
-async def backfill_binance(days: int = 30):
+async def backfill_binance(days: int = 30, target_timeframes: list = None, target_symbols: list = None):
     db = SessionLocal()
-    from app.models.market import MarketCategory
     try:
-        ds = db.query(DataSource).filter(DataSource.name == "BINANCE").first()
+        # 1. Find BINANCE Data Source
+        ds = db.query(DataSource).filter(DataSource.name == "BINANCE", DataSource.is_active == True).first()
         if not ds:
-            logger.info("Creating BINANCE Data Source...")
-            ds = DataSource(name="BINANCE", provider="BINANCE", type="api", config_json={})
-            db.add(ds)
-            db.commit()
+            logger.error("BINANCE Data source not found or inactive.")
+            return
 
-        cat = db.query(MarketCategory).filter(MarketCategory.name == "Crypto").first()
-        if not cat:
-            cat = MarketCategory(name="Crypto", order_index=2)
-            db.add(cat)
-            db.commit()
+        # 2. Get Active BINANCE Symbols
+        query = db.query(MarketSymbol).filter(
+            MarketSymbol.data_source_id == ds.id, 
+            MarketSymbol.is_active == True
+        )
+        if target_symbols:
+            query = query.filter(MarketSymbol.symbol.in_(target_symbols))
+            
+        active_symbols = query.all()
 
-        # Target only BTCUSDT and ETHUSDT
-        target_symbols = ["BTCUSDT", "ETHUSDT"]
-        filtered_symbols = []
-        for sym in target_symbols:
-            ms = db.query(MarketSymbol).filter(MarketSymbol.symbol == sym).first()
-            if not ms:
-                logger.info(f"Creating MarketSymbol for {sym}")
-                ms = MarketSymbol(
-                    category_id=cat.id,
-                    data_source_id=ds.id,
-                    symbol=sym,
-                    display_name=sym,
-                    is_active=True,
-                    details={"baseAsset": sym[:-4] if sym.endswith("USDT") else sym, "quoteAsset": "USDT"}
-                )
-                db.add(ms)
-                db.commit()
-            filtered_symbols.append(ms)
+        if not active_symbols:
+            logger.warning("No active BINANCE symbols found matching criteria.")
+            return
 
         client = BinanceClient()
-        timeframes = ["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
+        all_timeframes = ["M1", "M5", "M15", "H1", "H4", "D1", "W1", "MN1"]
+        tfs_to_process = target_timeframes if target_timeframes else all_timeframes
+        
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
         start_ts = int(start_date.timestamp() * 1000)
 
-        for ms in filtered_symbols:
+        for ms in active_symbols:
             binance_sym = get_binance_symbol(ms.symbol)
-            if binance_sym not in ["BTCUSDT", "ETHUSDT"]:
-                logger.info(f"Skipping {ms.symbol} as per strict restriction to BTCUSDT, ETHUSDT spot.")
-                continue
-                
             logger.info(f"Processing Binance symbol: {ms.symbol} (Mapped to {binance_sym})")
             
-            for tf in timeframes:
+            for tf in tfs_to_process:
+                if tf not in all_timeframes:
+                    logger.warning(f"  Skipping invalid timeframe: {tf}")
+                    continue
+                    
                 logger.info(f"  Timeframe: {tf}")
                 current_to_ts = int(end_date.timestamp() * 1000)
                 total_saved = 0
@@ -166,5 +155,12 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, default=30)
+    parser.add_argument("--timeframes", type=str, help="Comma separated timeframes (e.g. H1,H4)")
+    parser.add_argument("--symbols", type=str, help="Comma separated symbols (e.g. BTCUSDT,ETHUSDT)")
     args = parser.parse_args()
-    asyncio.run(backfill_binance(days=args.days))
+    
+    tf_list = args.timeframes.split(',') if args.timeframes else None
+    sym_list = args.symbols.split(',') if args.symbols else None
+    
+    asyncio.run(backfill_binance(days=args.days, target_timeframes=tf_list, target_symbols=sym_list))
+

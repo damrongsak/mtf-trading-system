@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, text
 from app.adapters.ctrader_client import AsyncCTraderClient
+from app.utils.crypto import decrypt_data
 
 # Database context
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://trader:trader@mtf-postgres:5432/mtf_db")
@@ -17,7 +18,8 @@ async def verify_ctrader_htf():
         if not ds_res:
              print("No active cTrader data source.")
              return
-        ds_id, config = ds_res
+        ds_id, config_encrypted = ds_res
+        config = decrypt_data(config_encrypted)
         
         # Get Symbol ID for XAUUSD (Using confirmed ID 41)
         ms_res = conn.execute(text("SELECT id FROM market_symbols WHERE symbol = 'XAUUSD' AND data_source_id = :ds_id"), {"ds_id": ds_id}).fetchone()

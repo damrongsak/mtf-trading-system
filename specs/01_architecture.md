@@ -119,6 +119,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Tick Streamer**: Dedicated service for real-time market data streaming.
     - **Data Sources**: DB-driven configuration (`DataSource` model) with institutional Fernet encryption for `config_json`.
     - **MTF Implementation**: Native support for 8 timeframes (`M1` to `MN1`) with vectorized transition logic.
+    - **Macro Market Observer**: Periodic synchronization of global macro indicators (DXY, VIX, GVZ) from Yahoo Finance to Redis/DB.
     - **Adaptive Throttling**: 10Hz (100ms) safety cap on price updates in `StreamManager` for platform stability.
     - **Ingestion Optimization**: Real-time candle fetching reduced to 20 candles per request to optimize event-loop timing.
 
