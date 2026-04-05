@@ -20,7 +20,7 @@ services:
   api-gateway:
     build: ./services/api-gateway
     container_name: api-gateway
-    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info --proxy-headers --timeout-keep-alive 180
+    command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info --proxy-headers --timeout-keep-alive 600
     env_file: .env
     ports:
       - "8000:8000"
@@ -204,7 +204,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
+          cpus: "1.0"
           memory: 1G
     networks:
       - default
@@ -217,7 +217,7 @@ services:
     volumes:
       - ./services/ai-analyst:/app
       - /app/.venv
-    command: /bin/bash -c "uv pip install 'redis==5.2.1' 'falkordb==1.2.0' --break-system-packages && /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 180"
+    command: /bin/bash -c "uv pip install 'redis==5.2.1' 'falkordb==1.2.0' --break-system-packages && /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 600"
     depends_on:
       mtf-postgres:
         condition: service_healthy

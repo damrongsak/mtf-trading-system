@@ -645,6 +645,9 @@ app.include_router(gamma_router, prefix="/api/v1")
 from app.routers.risk import router as risk_router
 app.include_router(risk_router, prefix="/api/v1")
 
+from app.routers.indicators import router as indicators_router
+app.include_router(indicators_router, prefix="/api/v1")
+
 # Global Workers
 from app.workers.reconciliation import reconciliation_worker
 from app.workers.market_context_worker import context_worker

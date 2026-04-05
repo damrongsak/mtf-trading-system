@@ -186,6 +186,29 @@ class StrategyClient(BaseInternalClient):
         )
         return resp.json()
 
+    async def calculate_indicators(
+        self,
+        payload: Dict[str, Any],
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Institutional Batch Indicator Engine.
+        Proxies to POST /api/v1/indicators on strategy-core.
+        Passes X-User-ID for fund-based data source isolation.
+        """
+        try:
+            resp = await self._request(
+                "POST",
+                "/api/v1/indicators",
+                json=payload,
+                headers={"X-User-ID": user_id},
+                timeout=60.0,
+            )
+            return resp.json()
+        except Exception as e:
+            logger.error(f"Indicator batch calculation failed: {e}", exc_info=True)
+            raise
+
 class ExecutionClient(BaseInternalClient):
     def __init__(self):
         super().__init__(

@@ -1,23 +1,116 @@
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
+try:
+    from pydantic import field_validator as validator
+except ImportError:
+    from pydantic import validator
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 from enum import Enum
+import re
+
+class IndicatorMetadata(BaseModel):
+    parameters: Dict[str, Any] = {}
+    formula: str = ""
+    data_source: str = "CTRADER"
+    resolved_symbol: str = ""
+    calc_latency_ms: float = 0.0
+    fund_context: Optional[str] = None
+    timeframe: str = "H1"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class IndicatorInterpretation(BaseModel):
+    summary: str = ""
+    bias: str = "NEUTRAL" # BULLISH, BEARISH, NEUTRAL
+    strength: float = 0.5 # 0.0 to 1.0
+    ai_advice: str = ""
+    signals: List[Dict[str, Any]] = []
+
+class DetailedIndicatorResponse(BaseModel):
+    status: str = "success"
+    values: List[Optional[float]]
+    meta: IndicatorMetadata
+    interpretation: IndicatorInterpretation
 
 class ExecutionMode(str, Enum):
     MANUAL = "MANUAL"
-    SEMIAUTO = "SEMIAUTO"
-    AUTO = "AUTO"
     PENDING_APPROVAL = "PENDING_APPROVAL"
+    AUTO = "AUTO"
 
-class IndicatorRequest(BaseModel):
-    data: List[float]
+# ==========================
+# Institutional Indicator Engine — Batch API (v3.0)
+# POST /api/v1/indicators
+# ==========================
+
+class IndicatorType(str, Enum):
+    ATR  = "atr"
+    RSI  = "rsi"
+    EMA  = "ema"
+    MACD = "macd"
+
+class IndicatorSpec(BaseModel):
+    """Specification for a single indicator in a batch request."""
+    type: IndicatorType
+    params: Dict[str, Any] = Field(
+        default={},
+        description=(
+            "Per-indicator parameters. "
+            "atr/rsi: {window: int} | "
+            "ema: {span: int} | "
+            "macd: {fast: int, slow: int, signal: int}"
+        )
+    )
+
+class BatchIndicatorRequest(BaseModel):
+    """
+    Unified batch indicator request.
+    Fetches candle data once and computes all requested indicators in a single round-trip.
+    """
+    symbol: str = Field("XAUUSD", description="ISO 4217 symbol, or known macro index (VIX, DXY, US10Y)")
+    timeframe: str = Field("H1", description="Timeframe: M1 M5 M15 H1 H4 D1 W1 MN1")
+    fund_id: Optional[str] = Field(None, description="Fund UUID for institutional data isolation")
+    indicators: List[IndicatorSpec] = Field(
+        ...,
+        description="List of indicator specs to calculate in this batch.",
+        min_length=1
+    )
+
+    @validator('symbol')
+    def validate_symbol_iso(cls, v):
+        if v in ["VIX", "DXY", "US10Y", "US02Y", "SPX500", "NAS100"]:
+            return v
+        v = v.upper().replace("/", "").replace("_", "")
+        if not re.match(r"^[A-Z]{3,8}$", v):
+            raise ValueError("Symbol must be valid uppercase ISO (e.g. EURUSD) or known index.")
+        return v
+
+class BatchIndicatorResponse(BaseModel):
+    """
+    Unified batch indicator response.
+    Each key in 'results' maps to the indicator type requested.
+    """
+    status: str = "success"
+    symbol: str
+    timeframe: str
+    data_source: str
+    batch_latency_ms: float
+    results: Dict[str, DetailedIndicatorResponse]
+
+# Legacy single-indicator request (kept for backward compat with /calculate/* endpoints)
+class BaseIndicatorRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    timeframe: str = "H1"
+    fund_id: Optional[str] = None
     params: Dict[str, Any] = {}
 
-class ATRRequest(BaseModel):
-    high: List[float]
-    low: List[float]
-    close: List[float]
-    window: int = 14
+    @validator('symbol')
+    def validate_symbol_iso(cls, v):
+        # Allow common indices (VIX, DXY, US10Y)
+        if v in ["VIX", "DXY", "US10Y", "US02Y", "SPX500", "NAS100"]:
+            return v
+        v = v.upper().replace("/", "").replace("_", "")
+        if not re.match(r"^[A-Z]{3,8}$", v):
+            raise ValueError("Symbol must be valid uppercase ISO (e.g. EURUSD) or known index.")
+        return v
 
 class IndicatorResponse(BaseModel):
     values: List[Optional[float]]
@@ -379,3 +472,14 @@ class APIResponse_DrawdownMetrics(BaseModel):
     status: str
     data: DrawdownMetrics
     timestamp: datetime
+
+# Backward Compatibility Aliases
+IndicatorRequest = BaseIndicatorRequest
+IndicatorResponse = DetailedIndicatorResponse
+IndicatorResponse = DetailedIndicatorResponse
+ATRRequest = BaseIndicatorRequest
+RSIRequest = BaseIndicatorRequest
+MACDRequest = BaseIndicatorRequest
+BBandsRequest = BaseIndicatorRequest
+MACDResponse = DetailedIndicatorResponse
+BBandsResponse = DetailedIndicatorResponse

@@ -1,11 +1,21 @@
 # Implementation Status
 
-**Last Updated:** 2026-03-22
-**Current Phase:** Phase 61 - [Planned] (Phase 60 Completed)
+**Last Updated:** 2026-04-05
+**Current Phase:** Phase 62 - [Planned] (Phase 61 Completed)
 
 ---
 
 ## 🟢 Completed / Stable
+
+### **0. Institutional Indicator Engine (v3.0) (`services/strategy-core`)**
+- **Status:** ✅ Complete (Phase 61)
+- **Features:**
+    - Replaced fragmented indicator endpoints with a centralized, batch-capable `UniversalIndicatorEngine`.
+    - Implemented Fetch-Once, Dispatch-Many pattern: OHLC data is fetched exactly once for all requested indicators.
+    - Added data isolation rules ensuring that `XAUUSD` resolves via `fund_id` and the authorized data source (e.g., `CTRADER`, `YAHOO_FINANCE`).
+    - Standardized "White-Box" `DetailedIndicatorResponse` providing interpretation (strength, bias, latency).
+    - API Gateway proxy at `POST /api/v1/indicators` forwards requests with the authenticated user ID for RBAC validation.
+    - Updated `04_api_spec.yaml` to reflect the new institutional standard.
 
 ### **1. Execution & Risk Engine (`services/execution`)**
 - **Status:** ✅ Complete
@@ -854,3 +864,12 @@
     - **Schema Sync:** Resolved missing `ai_labels` column via Alembic migration `c1b94a3f0277`.
     - **Ingestion:** Fixed Data Pipeline startup warnings for macro-only sources.
     - **Quality Gate:** 100% service health verified across full Docker stack.
+
+### Phase 61: Institutional Indicator Suite (v2.1)
+- **Status: ✅ Complete (2026-04-05)**
+- **Features:**
+    - **Vectorized Engine:** High-performance ATR, RSI, EMA, and MACD using `vectorbt` and `numba` JIT.
+    - **White-Box Architecture:** All indicators return structured metadata (latency, source) and AI-ready interpretations (bias, summary).
+    - **Data Isolation:** Dynamic source resolution (`CTRADER` for funds vs `YAHOO_FINANCE` for macro) based on Fund context.
+    - **API Recovery:** Stabilized `strategy-core` endpoints and schemas after infrastructure refactoring.
+    - **Documentation:** Full synchronization across API Spec (04), Data Model (03), and service READMEs.

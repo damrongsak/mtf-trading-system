@@ -78,6 +78,7 @@ class AgentRunRequest(BaseModel):
 class StrategyChatRequest(BaseModel):
     message: str
     user_id: str
+    active_fund_id: Optional[str] = None  # Injected by api-gateway for data isolation
     strategy_id: Optional[str] = None
     context_code: Optional[str] = None
     image_b64: Optional[str] = None
@@ -315,7 +316,8 @@ async def chat_strategy(
             auth_token=auth_token,
             context_code=request.context_code,
             image_b64=request.image_b64,
-            thread_id=request.thread_id
+            thread_id=request.thread_id,
+            active_fund_id=request.active_fund_id
         )
         
         # Send response to Telegram if requested

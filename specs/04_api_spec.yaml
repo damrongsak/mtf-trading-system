@@ -2210,6 +2210,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdxResponse'
+
+  # --- Institutional Batch Indicators ---
+  /api/v1/indicators:
+    post:
+      summary: "Batch Indicator Engine"
+      description: "Compute multiple technical indicators in a single request (Fetch-Once, Dispatch-Many)"
+      tags:
+        - "Institutional Indicators"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+                - timeframe
+                - indicators
+              properties:
+                symbol:
+                  type: string
+                  example: "XAUUSD"
+                timeframe:
+                  type: string
+                  example: "H1"
+                fund_id:
+                  type: string
+                  format: uuid
+                  description: "Optional fund UUID for data source resolution"
+                indicators:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                        enum: [atr, rsi, ema, macd]
+                      params:
+                        type: object
+                        description: "Per-indicator parameters"
+      responses:
+        "200":
+          description: "Successful computation"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  symbol:
+                    type: string
+                  timeframe:
+                    type: string
+                  data_source:
+                    type: string
+                  batch_latency_ms:
+                    type: number
+                  results:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/DetailedIndicatorResponse'
   /api/v1/data/open-interest/details:
     get:
       summary: Get Open Interest Details
@@ -8204,3 +8271,50 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/AlertResponse'
+
+    # --- Institutional Indicators v2 Schemas ---
+    BaseIndicatorRequest:
+      type: object
+      required: [symbol, timeframe, fund_id]
+      properties:
+        symbol:
+          type: string
+          example: "XAUUSD"
+        timeframe:
+          type: string
+          example: "H1"
+        fund_id:
+          type: string
+          format: uuid
+        params:
+          type: object
+          description: "Indicator specific parameters (window, span, etc.)"
+
+    IndicatorMetadata:
+      type: object
+      properties:
+        symbol: {type: string}
+        timeframe: {type: string}
+        params: {type: object}
+        data_source: {type: string}
+        calculated_at: {type: string, format: date-time}
+        latency_ms: {type: number}
+        fund_id: {type: string}
+
+    IndicatorInterpretation:
+      type: object
+      properties:
+        bias: {type: string, enum: [BULLISH, BEARISH, NEUTRAL]}
+        summary: {type: string}
+        confluence_score: {type: number}
+
+    DetailedIndicatorResponse:
+      type: object
+      properties:
+        values:
+          type: array
+          items: {type: number, nullable: true}
+        metadata:
+          $ref: '#/components/schemas/IndicatorMetadata'
+        interpretation:
+          $ref: '#/components/schemas/IndicatorInterpretation'

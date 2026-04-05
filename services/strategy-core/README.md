@@ -47,10 +47,21 @@ graph TD
 ### 1. The Strategy Fleet (`app/fleet.py`)
 Manages the lifecycle of live strategies. It identifies which strategies need to re-calculate based on incoming symbols and timeframes, preventing redundant compute.
 
-### 2. Indicator Engine (`app/indicators/`)
-All indicators are optimized using **Numba JIT**. 
+### 2. Institutional Indicator Engine (`app/indicators/`)
+The V2.1 engine provides **"White-Box" transparency** and high-performance vectorized analysis.
+- **Vectorized Backing**: Built on `vectorbt` with `numba` JIT for O(1) performance on historical data.
+- **Unified Standard**: All indicators (ATR, RSI, EMA, MACD) return high-fidelity metadata including source attribution, calculation latency, and human-readable interpretations.
+- **Institutional Isolation**: Automated fund-based data routing (`resolve_source_for_fund`).
+
 > [!NOTE]  
-> The first execution of an indicator (e.g., after service restart) may experience a "JIT warm-up" delay of 1-3 seconds. Subsequent calls are near-instant (<10ms).
+> The first execution of an indicator (e.g., after service restart) may experience a "JIT warm-up" delay of 10-20 seconds for Numba compilation. Subsequent calls are near-instant (<5ms).
+
+### 3. V2.1 Indicator Endpoints
+New endpoints are available under `/api/v1/calculate/v2/*`:
+- `POST /atr`: Average True Range with institutional volatility interpretation.
+- `POST /rsi`: Relative Strength Index with automated bias detection.
+- `POST /ema`: Exponential Moving Average with macro/local trend context.
+- `POST /macd`: Moving Average Convergence Divergence with detailed momentum histology.
 
 ### 3. Plugin Hooks (`app/plugins/`)
 The `HookManager` allows external injection into the trading loop:

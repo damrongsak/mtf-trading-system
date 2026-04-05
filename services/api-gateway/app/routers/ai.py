@@ -11,6 +11,7 @@ import pydantic
 logger = logging.getLogger(__name__)
 
 # Standard app imports
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.chat import ChatSession, ChatMessage
@@ -19,6 +20,19 @@ from app.security import get_current_user
 from app.schemas.response import APIResponse
 from app.utils.response import success_response
 from app.utils.cache import cached_response
+
+def session_to_dict(s):
+    return {
+        "id": s.id, "user_id": s.user_id, "strategy_id": s.strategy_id,
+        "title": s.title, "created_at": s.created_at, "updated_at": s.updated_at
+    }
+
+def msg_to_dict(m):
+    return {
+        "id": m.id, "session_id": m.session_id, "role": m.role,
+        "content": m.content, "context_snapshot": m.context_snapshot,
+        "created_at": m.created_at
+    }
 
 # Generated schemas
 from app.schemas.generated import (
@@ -46,7 +60,7 @@ router = APIRouter(
 )
 
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
-AI_SERVICE_TIMEOUT = float(os.getenv("AI_SERVICE_TIMEOUT", "300.0"))
+AI_SERVICE_TIMEOUT = float(os.getenv("AI_SERVICE_TIMEOUT", "600.0")) # Increased for indicator heavy reasoning
 
 async def _get_broker_account_id(db: Session, user_id: Any) -> Optional[str]:
     """Helper to get user's active broker account ID."""
@@ -205,23 +219,35 @@ class StrategyChatRequest(pydantic.BaseModel):
 async def chat_strategy(
     request: Request,
     chat_req: StrategyChatRequest, 
-    authorization: str = Header(None, alias="Authorization")
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(OAuth2PasswordBearer(tokenUrl="token"))
 ):
     """
     Direct chat with Strategy Advisor (Stateless wrapper for CLI/Quick Chat).
-    Proxies to AI Analyst service.
+    Proxies to AI Analyst service. Injects authenticated user/fund context.
     """
     request_id = getattr(request.state, "request_id", None)
-    headers = {"Authorization": authorization} if authorization else {}
+    headers = {"Authorization": f"Bearer {token}"}
     if request_id:
         headers["X-Request-ID"] = request_id
 
+    # Resolve active fund for this user to enable indicator data isolation
+    from app.models.user_fund import UserFund
+    user_fund = db.query(UserFund).filter(UserFund.user_id == current_user.id).first()
+    active_fund_id = str(user_fund.fund_id) if user_fund else None
+
+    # Override with authenticated context — never trust caller-supplied user_id
+    payload = chat_req.model_dump()
+    payload["user_id"] = str(current_user.id)
+    payload["active_fund_id"] = active_fund_id
+
     async with await get_internal_client() as client:
         try:
-            # Forward to AI Analyst
+            # Forward to AI Analyst with enriched context
             response = await client.post(
                 f"{AI_SERVICE_URL}/api/v1/ai/chat/sessions/message", 
-                json=chat_req.model_dump(),
+                json=payload,
                 headers=headers,
                 timeout=AI_SERVICE_TIMEOUT # Long timeout for CoT
             )
@@ -288,7 +314,7 @@ def list_chat_sessions(
     
     sessions = query.order_by(ChatSession.updated_at.desc()).all()
     
-    return success_response(data=sessions)
+    return success_response(data=[session_to_dict(s) for s in sessions])
 
 @router.post("/chat/sessions", response_model=APIResponseChatSession)
 def create_chat_session(
@@ -305,7 +331,7 @@ def create_chat_session(
     db.commit()
     db.refresh(new_session)
     
-    return success_response(data=new_session)
+    return success_response(data=session_to_dict(new_session))
 
 @router.get("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessageList)
 def list_session_messages(
@@ -325,7 +351,7 @@ def list_session_messages(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.created_at.asc()).all()
     
-    return success_response(data=messages)
+    return success_response(data=[msg_to_dict(m) for m in messages])
 
 @router.post("/chat/sessions/{session_id}/messages", response_model=APIResponseChatMessage)
 async def send_chat_message(
@@ -418,7 +444,7 @@ async def send_chat_message(
     db.commit()
     db.refresh(ai_msg)
     
-    return success_response(data=ai_msg)
+    return success_response(data=msg_to_dict(ai_msg))
 
 @router.post("/ingest/upload")
 async def proxy_upload_file(request: Request):

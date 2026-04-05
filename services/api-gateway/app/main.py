@@ -9,6 +9,7 @@ from app.logging_config import setup_logging
 # Configure logging
 logger = setup_logging()
 from app.routers import signal, signals, risk, backtest, strategy, saved_strategies, journal, auth, dashboard, fund, settings, transaction, simulation, ai, data, execution, stream, market, analysis, market_data, broker_account, system, deployments, internal, foundry, features, olympus, quant, external, api_key, analytics, orchestration, alerts
+from app.routers import indicators as indicators_router_module
 
 from app.schemas.response import ErrorCode
 from app.utils.response import error_response
@@ -171,6 +172,7 @@ app.include_router(news.router)
 app.include_router(external.router, prefix="/api/v1", tags=["3rd Party Gateway"])
 app.include_router(api_key.router, prefix="/api/v1", tags=["API Key Management"])
 app.include_router(orchestration.router)
+app.include_router(indicators_router_module.router)  # POST /api/v1/indicators
 
 @app.get("/health")
 async def health():

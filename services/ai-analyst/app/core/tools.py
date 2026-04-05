@@ -36,7 +36,7 @@ from app.tools.open_claw import OpenClawResearcherTool, OpenClawChatTool
 from app.tools.memory import EpisodicMemoryTool
 from app.tools.edge_optimization import EdgeOptimizationTool
 from app.tools.alert import DeployTelegramAlertTool
-
+from app.tools.indicators import TechnicalIndicatorsTool
 
 logger = logging.getLogger(__name__)
 
@@ -434,7 +434,8 @@ class ToolRegistry:
             "open_claw_chat": OpenClawChatTool(),
             "episodic_memory": EpisodicMemoryTool(),
             "get_edge_optimization": EdgeOptimizationTool(),
-            "deploy_telegram_alert": DeployTelegramAlertTool()
+            "deploy_telegram_alert": DeployTelegramAlertTool(),
+            "get_technical_indicators": TechnicalIndicatorsTool()
         }
 
     def get_tools(self) -> List[BaseTool]:
@@ -449,6 +450,11 @@ class ToolRegistry:
             schema_info = ""
             if hasattr(t, "args_schema") and t.args_schema:
                 schema_json = t.args_schema.model_json_schema()
-                schema_info = f" | Schema: {json.dumps(schema_json.get('properties', {}))}"
+                props = schema_json.get('properties', {})
+                defs = schema_json.get('$defs', {})
+                schema_dict = {"properties": props}
+                if defs:
+                    schema_dict["$defs"] = defs
+                schema_info = f" | Schema: {json.dumps(schema_dict)}"
             descriptions.append(f"- {t.name}: {t.description}{schema_info}")
         return "\n".join(descriptions)

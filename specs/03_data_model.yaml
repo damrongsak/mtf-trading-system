@@ -2837,3 +2837,39 @@ redis_streams:
       - name: created_at
         type: datetime
         default: "now()"
+
+schemas:
+  IndicatorMetadata:
+    description: "Standardized metadata for institutional indicators"
+    fields:
+      - name: symbol
+        type: string
+        required: true
+      - name: timeframe
+        type: string
+        required: true
+      - name: data_source
+        type: string
+        required: true
+        description: "Source used (e.g. CTRADER, YAHOO_FINANCE)"
+      - name: calculated_at
+        type: datetime
+        required: true
+      - name: latency_ms
+        type: float
+        description: "Actual compute time (excluding compilation on first run)"
+
+  IndicatorInterpretation:
+    description: "AI-ready interpretation of a technical indicator"
+    fields:
+      - name: bias
+        type: enum
+        enum_values: ["BULLISH", "BEARISH", "NEUTRAL"]
+        required: true
+      - name: summary
+        type: string
+        required: true
+        description: "Human-readable summary of the current state"
+      - name: confluence_score
+        type: float
+        description: "0-1.0 confidence score for the signal"

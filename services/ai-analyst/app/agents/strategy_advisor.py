@@ -61,6 +61,7 @@ class AgentState(TypedDict):
     retrieved_docs: List[str]
     user_facts: Annotated[List[str], operator.add]
     market_context: str
+    active_fund_id: str
     strategy_code: str
     
     # Outputs
@@ -1096,8 +1097,14 @@ class StrategyAdvisorAgent:
                  logger.info("🛡️ Journal Analysis detected in Selection Router. Forcing DONE to prevent tool loops.")
                  return "done"
 
-            # Limit loops using turn-based count
+            # Hard cap to prevent runaway tool loops
             loop_count = state.get("tool_loop_count", 0)
+            if loop_count >= 7:
+                logger.warning(f"Tool loop cap reached ({loop_count}). Forcing generation.")
+                return "done"
+
+            logger.info(f"Routing to execute_tools (loop {loop_count}): {[tc.get('tool_name') for tc in state['tool_calls']]}")
+            return "execute"
             
         # No tools selected -> Move to final response generation
         return "done"
@@ -1311,16 +1318,12 @@ class StrategyAdvisorAgent:
         # 3. Filter Tools (Search Guard Phase 2)
         if state.get("block_web_search"):
              # Filter out search tools manually from the descriptions
-             filtered = []
              excluded_tools = ["google_search", "open_claw_research"]
-             for t in tool_descriptions:
-                 if any(ex in t for ex in excluded_tools): # Check names in description strings or registry
-                     continue
-                 filtered.append(t)
-             
-             # Fallback: If registry doesn't provide structured access, we might need a better filter.
-             # Assuming tool_descriptions is a list of strings for the prompt.
-             tool_descriptions = [t for t in tool_descriptions if not any(ex in t for ex in excluded_tools)]
+             if isinstance(tool_descriptions, str):
+                 lines = tool_descriptions.split("\n")
+                 tool_descriptions = "\n".join([line for line in lines if not any(ex in line for ex in excluded_tools)])
+             elif isinstance(tool_descriptions, list):
+                 tool_descriptions = [t for t in tool_descriptions if not any(ex in t for ex in excluded_tools)]
              state["scratchpad"].append("Search Guard Active: Web search tools excluded for system-specific query.")
 
         
@@ -1462,7 +1465,7 @@ class StrategyAdvisorAgent:
                     # Handle both local BaseTool and Langchain BaseTool
                     if hasattr(tool, "run") and not hasattr(tool, "_arun"):
                         # Local BaseTool
-                        result = await tool.run_resilient(tool_input, auth_token=current_auth_token, request_id=current_request_id)
+                        result = await tool.arun(tool_input, auth_token=current_auth_token, request_id=current_request_id, fund_id=state.get("active_fund_id"))
                     else:
                         # Langchain Tool
                         logger.debug(f"Executing Langchain tool: {tool_name} with input: {tool_input}")
@@ -1470,9 +1473,9 @@ class StrategyAdvisorAgent:
                             # Pass context as separate kwargs to arun if the tool supports it
                             # Note: LangChain's standard arun might not accept these, 
                             # but our BaseTool._arun does via **kwargs.
-                            result = await tool.arun(tool_input, auth_token=current_auth_token, request_id=current_request_id)
+                            result = await tool.arun(tool_input, auth_token=current_auth_token, request_id=current_request_id, fund_id=state.get("active_fund_id"))
                         else:
-                            result = await tool.arun(tool_input, auth_token=current_auth_token, request_id=current_request_id)
+                            result = await tool.arun(tool_input, auth_token=current_auth_token, request_id=current_request_id, fund_id=state.get("active_fund_id"))
                     return f"Tool '{tool_name}' output:\n{result}"
                 except Exception as e:
                     logger.error(f"Tool execution failed: {tool_name}, error: {e}")
@@ -2376,7 +2379,7 @@ class StrategyAdvisorAgent:
              
         return {"scratchpad": ["Data recovery tool unavailable."]}
 
-    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None, trade_id: str = None, is_journal_job: bool = False):
+    async def run(self, input_text: str, user_id: str, auth_token: str = None, context_code: str = None, image_b64: str = None, thread_id: str = None, intent_hint: str = None, trade_id: str = None, is_journal_job: bool = False, active_fund_id: str = None):
         """
         Main entry point.
         """
@@ -2384,6 +2387,7 @@ class StrategyAdvisorAgent:
             "input_text": input_text,
             "user_id": user_id,
             "auth_token": auth_token,
+            "active_fund_id": active_fund_id,
             "intent": intent_hint,
             "scratchpad": [],
             "retrieved_docs": [],
