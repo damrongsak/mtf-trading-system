@@ -513,6 +513,100 @@
     }
   },
   {
+    "id": "fa65c2d9-de1e-457d-a25a-6dd1defb1563",
+    "category_id": "cc20cd25-f361-42f2-873c-cfb93a66e5ed",
+    "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",
+    "symbol": "XAGUSD",
+    "display_name": "XAG/USD",
+    "order_index": 1,
+    "is_active": true,
+    "details": {
+      "raw": {
+        "digits": 3,
+        "holiday": [
+          {
+            "name": "03.04.2026 - METALS, GCM26, XTIUSD, XBRUSD, XNGUSD",
+            "endSecond": 0,
+            "holidayId": "1055",
+            "description": "Good Friday",
+            "holidayDate": "20546",
+            "isRecurring": false,
+            "startSecond": 0,
+            "scheduleTimeZone": "Europe/Moscow"
+          }
+        ],
+        "lotSize": "10000",
+        "schedule": [
+          {
+            "endSecond": 147540,
+            "startSecond": 64920
+          },
+          {
+            "endSecond": 233940,
+            "startSecond": 151320
+          },
+          {
+            "endSecond": 320340,
+            "startSecond": 237720
+          },
+          {
+            "endSecond": 406740,
+            "startSecond": 324120
+          },
+          {
+            "endSecond": 493020,
+            "startSecond": 410520
+          }
+        ],
+        "swapLong": -5.48,
+        "swapTime": 1260,
+        "symbolId": "42",
+        "gslCharge": "0",
+        "maxVolume": "1000000",
+        "minVolume": "100",
+        "swapShort": 4.88,
+        "commission": "3000",
+        "leverageId": "1438",
+        "slDistance": 0,
+        "stepVolume": "100",
+        "swapPeriod": 24,
+        "tpDistance": 0,
+        "gslDistance": 0,
+        "maxExposure": "10000000000000",
+        "pipPosition": 3,
+        "tradingMode": "ENABLED",
+        "distanceSetIn": "SYMBOL_DISTANCE_IN_POINTS",
+        "minCommission": "0",
+        "commissionType": "USD_PER_MILLION_USD",
+        "skipSWAPPeriods": 0,
+        "scheduleTimeZone": "America/New_York",
+        "skipRolloverDays": 3,
+        "minCommissionType": "QUOTE_CURRENCY",
+        "swapRollover3Days": "WEDNESDAY",
+        "enableShortSelling": true,
+        "guaranteedStopLoss": false,
+        "minCommissionAsset": "USD",
+        "rolloverCommission": "0",
+        "swapCalculationType": "PIPS",
+        "chargeSwapAtWeekends": false,
+        "pnlConversionFeeRate": 0,
+        "preciseMinCommission": "0",
+        "rolloverCommission3Days": "WEDNESDAY",
+        "preciseTradingCommissionRate": "3000000000"
+      },
+      "digits": 3,
+      "maxLot": 10000.0,
+      "minLot": 1.0,
+      "lotStep": 1.0,
+      "lot_size": 10000,
+      "symbol_id": 42,
+      "pipPosition": 3,
+      "step_volume": 1.0,
+      "baseCurrency": "XAG",
+      "quoteCurrency": "USD"
+    }
+  },
+  {
     "id": "dc195892-5c05-4de2-897c-fb533c06440f",
     "category_id": "73b884c9-db3c-4d8b-895a-cbaa6352c1ec",
     "data_source_id": "64d12d1a-353a-4eb0-ba46-b117c4ceedae",

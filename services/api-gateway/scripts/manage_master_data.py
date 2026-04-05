@@ -168,6 +168,11 @@ def import_data():
                         # Special handling for JSONB fields with sanitization
                         if isinstance(value, dict) and key == "config_json":
                             existing_config = getattr(existing, key) or {}
+                            if isinstance(existing_config, str):
+                                try:
+                                    existing_config = json.loads(existing_config)
+                                except Exception:
+                                    existing_config = {}
                             for sub_key, sub_val in value.items():
                                 # Only update if it's not a placeholder
                                 if isinstance(sub_val, str) and sub_val.startswith("SECRET_"):
