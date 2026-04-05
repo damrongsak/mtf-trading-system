@@ -97,7 +97,7 @@ To navigate this project as an AI Agent, use the following **System Discovery Pa
 | **AI Analyst** | L5: Intelligence | [README](services/ai-analyst/README.md) | LangGraph reasoning, RAG, & Psychological coaching. |
 | **Execution** | L4: Risk | [README](services/execution/README.md) | Prioritized cTrader execution & Minimax Risk. |
 | **Knowledge Ingestor** | L5: Ingestion | [README](services/knowledge-ingestor/README.md) | Hierarchical document ingestion for Knowledge Graphs. |
-| **API Gateway** | Orchestration | [README](services/api-gateway/README.md) | Central Routing, Auth, & ECST synchronization. |
+| **API Gateway** | Orchestration | [README](services/api-gateway/README.md) | Central Routing, Auth, & Fund-Scoped Market Data. |
 
 ---
 

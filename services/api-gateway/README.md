@@ -45,7 +45,7 @@ graph TD
 
 ## 🎯 Core Responsibilities
 
-- **Authentication & Security**: Robust JWT-based security layer with encrypted credential management for broker accounts.
+- **Authentication & Security**: Robust JWT-based security layer. All market data requests (e.g., candles) are now authenticated and scoped to the user's linked Funds and Broker Accounts.
 - **Event-Carried State Transfer (ECST)**: Localized caching of symbol metadata broadcasted by the `data-pipeline`, ensuring zero-latency symbol lookup.
 - **Trade Journaling**: Direct integration with PostgreSQL for high-fidelity trade logging and psychological data capture.
 - **Portfolio Management**: Hierarchical management of Funds, Accounts, and Risk Rules via SQLAlchemy (Async).

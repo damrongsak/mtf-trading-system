@@ -3480,22 +3480,49 @@ paths:
   /api/v1/market/candles:
     get:
       summary: Fetch historical candle data
+      description: |
+        Fetch historical candle data for a given symbol and timeframe.
+        Requires authentication. Access is limited to data sources linked to the user's funds.
+      tags: [Market]
+      security:
+        - BearerAuth: []
       parameters:
         - name: symbol
           in: query
           required: true
+          description: Symbol (e.g. EUR_USD, XAUUSD)
           schema:
             type: string
         - name: timeframe
           in: query
           required: true
+          description: Timeframe (e.g. H1, M15)
           schema:
             type: string
-        - name: limit
+        - name: count
           in: query
+          description: Number of candles to return
           schema:
             type: integer
-            default: 1000
+            default: 500
+        - name: from_time
+          in: query
+          description: Start time (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: to_time
+          in: query
+          description: End time (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+        - name: data_source
+          in: query
+          description: Data Source Provider (e.g. OANDA, CTRADER)
+          schema:
+            type: string
+            default: CTRADER
       responses:
         '200':
           description: List of candles

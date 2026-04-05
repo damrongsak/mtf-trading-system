@@ -11,6 +11,8 @@ from app.schemas.response import APIResponse, ResponseStatus
 from app.utils.response import success_response
 from pydantic import BaseModel, ConfigDict
 from app.utils.symbol_utils import normalize_symbol
+from app.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(
     tags=["market"]
@@ -34,13 +36,34 @@ async def get_candles(
     from_time: Optional[datetime] = Query(None, description="Start time"),
     to_time: Optional[datetime] = Query(None, description="End time"),
     provider: str = Query("CTRADER", alias="data_source", description="Data Source Provider (e.g., OANDA, CTRADER)"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # 1. Resolve MarketSymbol ID
-    # Use flexible matching (replace slash with underscore or vice versa if needed)
-    # Default is handled by the Query parameter or passed explicitly.
-    from app.models.market import MarketSymbol
+    # 0. Auth Check: Verify that user has access to this data source via their funds
+    from app.models.user_fund import UserFund, Fund
+    from app.models.broker_account import BrokerAccount
     from app.models.data_source import DataSource
+    
+    # Simple check: Is the user part of ANY fund linked to a broker account using this provider?
+    if not current_user.is_superuser:
+        # Check if user has access to a fund that uses this data source name
+        has_access = db.query(DataSource).join(
+            BrokerAccount, BrokerAccount.data_source_id == DataSource.id
+        ).join(
+            UserFund, UserFund.fund_id == BrokerAccount.fund_id
+        ).filter(
+            UserFund.user_id == current_user.id,
+            DataSource.name == provider
+        ).first()
+        
+        if not has_access:
+            # Check symbols direct data source link if no broker account link
+            # Some data sources might be "global" or linked directly to symbols.
+            # But the user asked for "Model user of funds and link to data source".
+            raise HTTPException(status_code=403, detail=f"Permission denied for data source {provider}")
+
+    # 1. Resolve MarketSymbol ID
+    from app.models.market import MarketSymbol
     
     symbol_norm = normalize_symbol(symbol)
     symbol_stripped = symbol_norm.replace("_", "")
