@@ -1,10 +1,6 @@
 {
-  "name": "ai-trading-system",
+  "ownerId": "local",
+  "slug": "ai-trading-system",
   "version": "1.0.0",
-  "description": "Professional-grade systematic trading skill for market structure, risk management, and order execution.",
-  "metadata": {
-    "requires": {
-      "bins": ["python3"]
-    }
-  }
+  "publishedAt": 1775070000000
 }

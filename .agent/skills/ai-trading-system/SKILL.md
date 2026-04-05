@@ -1,3 +1,9 @@
+---
+name: ai-trading-system
+version: 1.0.0
+description: Professional-grade systematic trading skill for market structure, risk management, and order execution.
+---
+
 # 📈 AI Trading System — Professional Systematic Logic
 
 This skill transforms raw market data into institutional-grade execution decisions using Market Structure (BOS/CHoCH), Order Blocks (OB), and Fair Value Gaps (FVG).
