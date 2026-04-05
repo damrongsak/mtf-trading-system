@@ -100,7 +100,7 @@ class LabellingService:
             # Skip lookback buffer if it already had labels? 
             # Or just update everything to ensures consistency.
             candle_id = row['id']
-            db_candle = self.db.query(Candle).get(candle_id)
+            db_candle = self.db.get(Candle, candle_id)
             if db_candle:
                 db_candle.ai_labels = row['ai_labels']
                 db_candle.regime_tag = row['regime_tag']
