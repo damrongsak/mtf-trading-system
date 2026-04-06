@@ -47,17 +47,22 @@ class RiskMapEngine:
         
         # 3. Probability Layer (Regime)
         regime = detect_regime(df)
+        if not regime:
+            regime = MarketRegime.RANGING # Default fallback
         regime_risk = self._calculate_regime_risk(regime)
         
         # 4. Liquidity Layer (Gamma Proxy)
         gamma_bias = self._estimate_gamma_proxy(df, vol_regime)
         
         # 5. Composite Risk Score
+        # Defensive check for NaN
         composite_score = (
-            structure_risk * self.weights["structural"] +
-            vol_risk * self.weights["volatility"] +
-            regime_risk * self.weights["regime"]
+            float(structure_risk) * self.weights["structural"] +
+            float(vol_risk) * self.weights["volatility"] +
+            float(regime_risk) * self.weights["regime"]
         )
+        if np.isnan(composite_score):
+            composite_score = 0.5
         
         # 6. Edge Score (Signal Quality)
         edge_score = self._calculate_edge_score(smc_data, regime, last_close)

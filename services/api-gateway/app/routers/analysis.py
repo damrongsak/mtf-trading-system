@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.security import get_current_user
 from app.models.user import User
+from app.utils.fund_resolver import get_best_fund_for_user
+
 from app.models.opportunity_log import OpportunityLog
 from pydantic import BaseModel
 from app.utils.response import success_response
@@ -87,6 +89,7 @@ class QuantAnalyzeRequest(BaseModel):
     symbol: str
     timeframe: str = "H1"
     limit: int = 1000
+    fund_id: Optional[str] = None
 
 class QuantSizingRequest(BaseModel):
     symbol: str
@@ -96,6 +99,18 @@ class QuantSizingRequest(BaseModel):
     strategy_id: Optional[str] = None
     timeframe: str = "H1"
     limit: int = 1000
+    fund_id: Optional[str] = None
+
+class RegimeRequest(BaseModel):
+    symbol: str
+    timeframe: str = "H1"
+    bias: str = "NEUTRAL"
+    fund_id: Optional[str] = None
+
+class PIVVolatilityRequest(BaseModel):
+    symbol: str
+    timeframe: str = "H1"
+    fund_id: Optional[str] = None
 
 # ... (imports)
 import httpx
@@ -358,27 +373,32 @@ async def get_positioning_status(symbol: str = "XAUUSD", db: Session = Depends(g
             "crowding_regime": "Unavailable"
         })
 
-@router.get("/market-regime/{symbol}", status_code=200)
-async def get_market_regime(symbol: str, timeframe: str = "H1", bias: str = "NEUTRAL"):
+@router.post("/market_regime", status_code=200)
+async def post_market_regime(
+    req: RegimeRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
-    Fetches Adaptive Guardrails (Regime, Fakeout, Risk) from Strategy Core.
+    Proxy Adaptive Guardrails (Regime, Fakeout, Risk) to Strategy Core via POST.
     """
     try:
-        payload = {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "bias": bias
-        }
+        payload = req.model_dump()
         
-        # Call Strategy Core
-        # Note: Strategy Core endpoint is POST /api/v1/market/regime
+        # 1. Resolve Fund ID (Institutional Data Isolation)
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+        
+        # 2. Call Strategy Core
         url = f"{STRATEGY_CORE_URL}/api/v1/market/regime"
+        headers = {"X-User-Id": str(current_user.id)}
         
-        response = await http_client.post(url, json=payload)
+        response = await http_client.post(url, json=payload, headers=headers)
         
         if response.status_code != 200:
              logger.error(f"Strategy Core Regime Check failed: {response.text}")
-             # Return fallback or error?
              raise HTTPException(status_code=response.status_code, detail=response.text)
              
         data = response.json()
@@ -387,7 +407,46 @@ async def get_market_regime(symbol: str, timeframe: str = "H1", bias: str = "NEU
     except httpx.RequestError as e:
         logger.error(f"Strategy Core unavailable: {str(e)}")
         raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
         logger.error(f"Market Regime Proxy failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/piv_volatility", status_code=200)
+async def post_piv_volatility(
+    req: PIVVolatilityRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Proxy PIV Volatility (Statistical Probability Bands) to Strategy Core.
+    """
+    try:
+        payload = req.model_dump()
+        
+        # 1. Resolve Fund ID (Institutional Data Isolation)
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+        
+        # 2. Call Strategy Core
+        url = f"{STRATEGY_CORE_URL}/api/v1/market/volatility/piv"
+        headers = {"X-User-Id": str(current_user.id)}
+        
+        response = await http_client.post(url, json=payload, headers=headers)
+        
+        if response.status_code != 200:
+             logger.error(f"Strategy Core Volatility Check failed: {response.text}")
+             raise HTTPException(status_code=response.status_code, detail=response.text)
+             
+        data = response.json()
+        return success_response(data=data)
+        
+    except httpx.RequestError as e:
+        logger.error(f"Strategy Core unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail="Strategy Core unavailable")
+    except Exception as e:
+        logger.error(f"PIV Volatility Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/gamma/levels", status_code=200)
@@ -395,14 +454,23 @@ async def get_gamma_levels(
     symbol: str = "XAUUSD", 
     current_price: Optional[float] = None,
     max_dte: Optional[int] = None,
-    snapshot_at: Optional[str] = None
+    snapshot_at: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Fetches Gamma Levels and Market Regime from Strategy Core.
     """
     try:
+        headers = {"X-User-ID": str(current_user.id)}
+        
+        # Resolve Fund ID (Institutional Data Isolation)
+        fund_id = get_best_fund_for_user(db, current_user.id)
+        
         url = f"{STRATEGY_CORE_URL}/api/v1/analysis/gamma/levels"
         params = {"symbol": symbol}
+        if fund_id:
+            params["fund_id"] = fund_id
         if current_price:
             params["current_price"] = str(current_price)
         if max_dte:
@@ -410,12 +478,9 @@ async def get_gamma_levels(
         if snapshot_at:
             params["snapshot_at"] = snapshot_at
             
-        response = await http_client.get(url, params=params)
+        response = await http_client.get(url, params=params, headers=headers)
         
         if response.status_code != 200:
-             # If 404/500, might be no data or service down.
-             # Return empty/error structure rather than failing hard if possible?
-             # But here we proxy, so maybe just pass through error or return standard structure
              if response.status_code == 404:
                  return success_response(data={"error": "No Gamma Data Found"})
              raise HTTPException(status_code=response.status_code, detail=response.text)
@@ -425,7 +490,6 @@ async def get_gamma_levels(
         
     except httpx.RequestError as e:
         logger.error(f"Strategy Core unavailable: {str(e)}")
-        # Start of fallback for AI tool
         return success_response(data={"error": "Service Unavailable"})
     except Exception as e:
         logger.error(f"Gamma Levels Proxy failed: {str(e)}")
@@ -505,14 +569,30 @@ async def get_unified_oi_profile(
         raise HTTPException(status_code=500, detail=f"Failed to aggregate OI profile: {str(e)}")
 
 @router.post("/quant/analyze", status_code=200)
-async def proxy_quant_analyze(req: QuantAnalyzeRequest):
+async def proxy_quant_analyze(
+    req: QuantAnalyzeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Proxy Quant Map analysis to Strategy Core.
     """
     try:
+        # Resolve Fund ID if missing (Institutional Data Isolation)
+        payload = req.model_dump()
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+            else:
+                logger.warning(f"Could not resolve fund_id for user {current_user.id}")
+
+        headers = {"X-User-Id": str(current_user.id)}
+        logger.info(f"Proxying Quant Analyze: {payload}")
         response = await http_client.post(
             f"{STRATEGY_CORE_URL}/api/v1/quant/analyze",
-            json=req.model_dump()
+            json=payload,
+            headers=headers
         )
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.text)
@@ -524,15 +604,32 @@ async def proxy_quant_analyze(req: QuantAnalyzeRequest):
         logger.error(f"Quant Analyze Proxy failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/quant/size", status_code=200)
-async def proxy_quant_sizing(req: QuantSizingRequest):
+@router.post("/quant/sizing", status_code=200)
+async def proxy_quant_sizing(
+    req: QuantSizingRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Proxy Quant Positioning/Sizing to Strategy Core.
     """
     try:
+        # Resolve Fund ID if missing (Institutional Data Isolation)
+        payload = req.model_dump()
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+                logger.info(f"Resolved fund_id for sizing: {fund_id}")
+            else:
+                logger.warning(f"Could not resolve fund_id for sizing: user {current_user.id}")
+
+        headers = {"X-User-Id": str(current_user.id)}
+        logger.info(f"Proxying Quant Sizing: {payload}")
         response = await http_client.post(
             f"{STRATEGY_CORE_URL}/api/v1/quant/size",
-            json=req.model_dump()
+            json=payload,
+            headers=headers
         )
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.text)

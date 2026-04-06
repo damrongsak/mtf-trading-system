@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from app.backtest import fetch_data_from_db
 from app.models.market import MarketSymbol
 from app.models.data_source import DataSource
 from app.utils.data_resolver import resolve_source_for_fund
@@ -47,6 +46,9 @@ async def fetch_candles_logic(
         days = 30 
         start_dt = datetime.now(timezone.utc) - pd.Timedelta(days=days)
         end_dt = datetime.now(timezone.utc)
+        
+        # Deferred import to break circular dependency with app.backtest
+        from app.backtest import fetch_data_from_db
         
         df = fetch_data_from_db(
             market_symbol_id=market_symbol_id, 

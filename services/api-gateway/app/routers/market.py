@@ -13,10 +13,29 @@ from pydantic import BaseModel, ConfigDict
 from app.utils.symbol_utils import normalize_symbol
 from app.security import get_current_user
 from app.models.user import User
+from app.utils.fund_resolver import get_best_fund_for_user
+
 
 router = APIRouter(
     tags=["market"]
 )
+
+STRATEGY_CORE_URL = os.getenv("STRATEGY_CORE_URL", "http://strategy-core:8000")
+
+@router.on_event("startup")
+async def startup_event():
+    global http_client
+    http_client = httpx.AsyncClient(timeout=60.0)
+
+@router.on_event("shutdown")
+async def shutdown_event():
+    await http_client.aclose()
+
+class RegimeRequest(BaseModel):
+    symbol: str = "XAUUSD"
+    timeframe: str = "H1"
+    bias: str = "NEUTRAL"
+    fund_id: Optional[str] = None
 
 class CandleRes(BaseModel):
     timestamp: datetime
@@ -236,3 +255,65 @@ async def get_symbol_details(
         if ms.details:
             return success_response(data=ms.details)
         raise HTTPException(status_code=400, detail=f"Provider {source.provider} does not support on-demand detail refresh yet")
+
+@router.post("/regime", status_code=200)
+async def proxy_market_regime(
+    req: RegimeRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Proxy Market Regime analysis to Strategy Core with Adaptive Guardrails.
+    """
+    try:
+        # 1. Resolve Fund ID if missing (Institutional Data Isolation)
+        payload = req.model_dump()
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+
+        
+        # 2. Inject standard user-id header for data isolation
+        headers = {"X-User-ID": str(current_user.id)}
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/market/regime",
+            json=payload,
+            headers=headers
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        return success_response(data=response.json())
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")
+
+@router.post("/volatility/piv", status_code=200)
+async def proxy_volatility_piv(
+    req: RegimeRequest, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Proxy PIV (GARCH Volatility + N-Bands) analysis to Strategy Core.
+    """
+    try:
+        # 1. Resolve Fund ID if missing
+        payload = req.model_dump()
+        if not payload.get("fund_id"):
+            fund_id = get_best_fund_for_user(db, current_user.id)
+            if fund_id:
+                payload["fund_id"] = fund_id
+
+
+        # 2. Proxy to Strategy Core
+        headers = {"X-User-ID": str(current_user.id)}
+        response = await http_client.post(
+            f"{STRATEGY_CORE_URL}/api/v1/market/volatility/piv",
+            json=payload,
+            headers=headers
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        return success_response(data=response.json())
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Strategy Core unavailable: {str(e)}")

@@ -403,6 +403,7 @@ class QuantAnalyzeRequest(BaseModel):
     symbol: str
     timeframe: str = "H1"
     limit: int = 1000
+    fund_id: Optional[str] = None
 
 class QuantSizingRequest(BaseModel):
     symbol: str
@@ -412,6 +413,7 @@ class QuantSizingRequest(BaseModel):
     strategy_id: Optional[str] = None
     timeframe: str = "H1"
     limit: int = 1000
+    fund_id: Optional[str] = None
 
 class QuantAnalyzeResponse(BaseModel):
     symbol: str

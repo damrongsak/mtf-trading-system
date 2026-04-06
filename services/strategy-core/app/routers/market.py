@@ -53,11 +53,11 @@ async def check_market_regime_endpoint(
     # Default user for local testing if header is missing
     user_id = x_user_id or "demo1"
     
-    # 1. Fetch Data
-    df = await fetch_candles_logic(db, req.symbol, req.timeframe, user_id, req.fund_id, limit=200)
+    # 1. Fetch Data (Returns Tuple: df, source_name)
+    df, source_name = await fetch_candles_logic(db, req.symbol, req.timeframe, user_id, req.fund_id, limit=200)
     
     if df.empty:
-        raise HTTPException(status_code=404, detail=f"No data found for {req.symbol} {req.timeframe}")
+        raise HTTPException(status_code=404, detail=f"No data found for {req.symbol} {req.timeframe} via {source_name}")
         
     # 2. Analyze
     context = get_market_context(df, req.bias)
@@ -65,6 +65,7 @@ async def check_market_regime_endpoint(
     # 3. Augment with input info
     context["meta"]["timeframe"] = req.timeframe
     context["meta"]["fund_id"] = req.fund_id
+    context["meta"]["data_source"] = source_name
     
     return sanitize_numeric_dict(context)
 
@@ -91,12 +92,12 @@ async def get_piv_analysis(
     }.get(timeframe, "H4")
         
     try:
-        # Fetch data for both primary and setup timeframes
-        df_primary = await fetch_candles_logic(db, symbol, timeframe, user_id, req.fund_id, limit=100)
-        df_setup = await fetch_candles_logic(db, symbol, tf_setup, user_id, req.fund_id, limit=200)
+        # Fetch data for both primary and setup timeframes (Unpack Tuples)
+        df_primary, source_p = await fetch_candles_logic(db, symbol, timeframe, user_id, req.fund_id, limit=100)
+        df_setup, source_s = await fetch_candles_logic(db, symbol, tf_setup, user_id, req.fund_id, limit=200)
         
         if df_primary.empty or df_setup.empty:
-            raise HTTPException(status_code=404, detail=f"No data for {symbol} on {timeframe}/{tf_setup}")
+            raise HTTPException(status_code=404, detail=f"No data for {symbol} on {timeframe}/{tf_setup} via {source_p}/{source_s}")
 
         # 1. Projected Volatility
         returns = df_setup['close'].pct_change().dropna()
@@ -119,7 +120,8 @@ async def get_piv_analysis(
             "meta": {
                 "primary_tf": timeframe,
                 "setup_tf": tf_setup,
-                "fund_id": req.fund_id
+                "fund_id": req.fund_id,
+                "data_source": source_p
             }
         }
         

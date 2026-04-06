@@ -647,6 +647,86 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_SMC'
 
+  /api/v1/analysis/market_regime:
+    post:
+      tags:
+        - Analysis
+      summary: Adaptive Guardrails & Regime Analysis
+      description: Returns structural regime (TRENDING/RANGING), ADX strength, and institutional bias.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegimeRequest'
+      responses:
+        '200':
+          description: Regime Analysis Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/analysis/piv_volatility:
+    post:
+      tags:
+        - Analysis
+      summary: PIV Volatility Probability Bands
+      description: Returns statistical probability bands for price action derived from PIV/GARCH volatility.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PIVVolatilityRequest'
+      responses:
+        '200':
+          description: PIV Volatility Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/analysis/quant/analyze:
+    post:
+      tags:
+        - Analysis
+      summary: Full Quantitative Edge Analysis
+      description: Executes the complete QuantEngine pipeline (Market Regime + PIV + SMC Confluence).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuantAnalyzeRequest'
+      responses:
+        '200':
+          description: Quantitative Analysis Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
+  /api/v1/analysis/quant/sizing:
+    post:
+      tags:
+        - Analysis
+      summary: Quant-Adjusted Position Sizing
+      description: Calculates institutional lot size based on composite risk score and equity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuantSizingRequest'
+      responses:
+        '200':
+          description: Position Sizing Result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponse'
+
   /api/v1/analysis/metrics/edge-optimization:
     get:
       tags:
@@ -8318,3 +8398,41 @@ components:
           $ref: '#/components/schemas/IndicatorMetadata'
         interpretation:
           $ref: '#/components/schemas/IndicatorInterpretation'
+
+    RegimeRequest:
+      type: object
+      required: [symbol]
+      properties:
+        symbol: {type: string}
+        timeframe: {type: string, default: "H1"}
+        bias: {type: string, default: "NEUTRAL"}
+        fund_id: {type: string, format: uuid}
+
+    PIVVolatilityRequest:
+      type: object
+      required: [symbol]
+      properties:
+        symbol: {type: string}
+        timeframe: {type: string, default: "H1"}
+        fund_id: {type: string, format: uuid}
+
+    QuantAnalyzeRequest:
+      type: object
+      required: [symbol]
+      properties:
+        symbol: {type: string}
+        timeframe: {type: string, default: "H1"}
+        limit: {type: integer, default: 1000}
+        fund_id: {type: string, format: uuid}
+
+    QuantSizingRequest:
+      type: object
+      required: [symbol, entry_price, stop_loss, equity]
+      properties:
+        symbol: {type: string}
+        entry_price: {type: number}
+        stop_loss: {type: number}
+        equity: {type: number}
+        timeframe: {type: string, default: "H1"}
+        limit: {type: integer, default: 1000}
+        fund_id: {type: string, format: uuid}

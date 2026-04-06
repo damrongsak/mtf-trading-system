@@ -56,7 +56,7 @@ class MarketContextWorker:
         logger.info("MarketContextWorker loop started.")
         while self.running:
             try:
-                await asyncio.to_thread(self._refresh_cache)
+                await self._refresh_cache()
                 for symbol, market_symbol_id in self.symbol_cache.items():
                     async with tracing_context(f"worker-context-{symbol}"):
                         # Process each symbol concurrently or simply sequentially

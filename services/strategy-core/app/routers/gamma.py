@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from sqlalchemy.orm import Session
 from typing import Optional, List, Any
 from datetime import datetime
@@ -63,8 +63,10 @@ async def get_gamma_levels(
     current_price: Optional[float] = None,
     min_dte: Optional[int] = None,
     max_dte: Optional[int] = None,
+    fund_id: Optional[str] = None,
     db: Session = Depends(get_db),
-    fetch_candles: Any = Depends(get_fetch_candles)
+    fetch_candles: Any = Depends(get_fetch_candles),
+    x_user_id: Optional[str] = Header(None)
 ):
     """
     Get the latest Gamma Levels and Market Regime.
@@ -167,7 +169,8 @@ async def get_gamma_levels(
     smc_data = None
     try:
         # Wrap in timeout to prevent blocking if provider is slow
-        df = await asyncio.wait_for(fetch_candles(symbol, "H1", limit=200), timeout=2.0)
+        user_context_id = x_user_id or "demo1"
+        df, _ = await asyncio.wait_for(fetch_candles(db, symbol, "H1", user_context_id, fund_id, limit=200), timeout=2.0)
         if not df.empty:
             smc_data = analyze_smc(df, symbol=symbol)
     except Exception as e:
