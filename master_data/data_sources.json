@@ -5,7 +5,7 @@
     "provider": "OANDA",
     "type": "api",
     "config_json": {
-      "token": "SECRET_TOKEN",
+      "token": "SECRET_OANDA_API_KEY",
       "account_id": "001-011-437083-005",
       "environment": "live"
     },
@@ -20,12 +20,12 @@
     "config_json": {
       "host": "live.ctraderapi.com",
       "port": 5035,
-      "token": "SECRET_TOKEN",
+      "token": "SECRET_CTRADER_TOKEN",
       "client_id": "20383_R8XWLegmMzooUUNZ1BbrBiWXCrlypf1ucGPd5ioaQaptQLsY8B",
       "account_id": "40816494",
       "expires_at": 1776344317,
-      "client_secret": "SECRET_CLIENT_SECRET",
-      "refresh_token": "SECRET_REFRESH_TOKEN"
+      "client_secret": "SECRET_CTRADER_CLIENT_SECRET",
+      "refresh_token": "SECRET_CTRADER_REFRESH_TOKEN"
     },
     "schema_json": null,
     "is_active": true

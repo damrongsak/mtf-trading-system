@@ -30,7 +30,7 @@ from app.models.strategy_config import StrategyConfig
 from app.models.prompt import SystemPrompt
 from app.models.rag import LibraryBook
 from app.models.api_key import ApiKey
-from app.utils.crypto import decrypt_data
+from app.utils.crypto import decrypt_data, encrypt_data
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("MDMS")
@@ -103,17 +103,38 @@ def export_data():
                         pass
                         
                     if isinstance(config, dict):
+                        provider = item_dict.get("provider", "UNKNOWN")
                         sensitive_keys = ["token", "client_secret", "refresh_token", "api_key", "password"]
                         for sk in sensitive_keys:
                             if sk in config:
-                                config[sk] = f"SECRET_{sk.upper()}"
+                                # Standard prefixing for deployment reproducibility
+                                env_suffix = sk.upper()
+                                # Special case mapping for OANDA
+                                if provider == "OANDA" and sk == "token":
+                                    env_suffix = "API_KEY"
+                                
+                                config[sk] = f"SECRET_{provider.upper()}_{env_suffix}"
                         item_dict["config_json"] = config
                 
                 # Sanitize ApiKey secrets
                 if model_class == ApiKey and item_dict.get("api_secret"):
-                    # Decrypt to check it's valid, then replace with placeholder
-                    # We store it for later env-variable replacement if needed
                     item_dict["api_secret"] = "SECRET_API_SECRET"
+
+                # Sanitize BrokerAccount credentials
+                if model_class == BrokerAccount and "credentials_encrypted" in item_dict:
+                    creds = item_dict["credentials_encrypted"]
+                    try:
+                        if isinstance(creds, str):
+                            creds = decrypt_data(creds)
+                    except Exception:
+                        pass
+                    
+                    if isinstance(creds, dict):
+                        # Simple sanitization for all keys starting with SECRET_ logic
+                        # or just mask everything if it's sensitive
+                        for sk in creds:
+                            creds[sk] = f"SECRET_{item_dict.get('broker_name', 'BROKER').upper()}_{sk.upper()}"
+                        item_dict["credentials_encrypted"] = creds
 
                 data.append(item_dict)
             
@@ -167,12 +188,9 @@ def import_data():
                             
                         # Special handling for JSONB fields with sanitization
                         if isinstance(value, dict) and key == "config_json":
+                            # Force a new dictionary object to ensure SQLAlchemy detects the change
                             existing_config = getattr(existing, key) or {}
-                            if isinstance(existing_config, str):
-                                try:
-                                    existing_config = json.loads(existing_config)
-                                except Exception:
-                                    existing_config = {}
+                            temp_config = dict(existing_config)
                             for sub_key, sub_val in value.items():
                                 # Only update if it's not a placeholder
                                 if isinstance(sub_val, str) and sub_val.startswith("SECRET_"):
@@ -180,11 +198,31 @@ def import_data():
                                     env_key = sub_val.replace("SECRET_", "")
                                     env_val = os.getenv(env_key)
                                     if env_val:
-                                        existing_config[sub_key] = env_val
-                                    # else: keep existing_config[sub_key] as is
+                                        temp_config[sub_key] = env_val
+                                    else:
+                                        provider = item_dict.get("provider", "UNKNOWN")
+                                        logger.warning(f"  - [SKIP] Could not resolve {env_key} from ENV for {provider}. Keeping placeholder.")
+                                        temp_config[sub_key] = sub_val
                                 else:
-                                    existing_config[sub_key] = sub_val
-                            setattr(existing, key, existing_config)
+                                    temp_config[sub_key] = sub_val
+                            
+                            # [ENCRYPTION-ENFORCEMENT] Encrypt before saving
+                            setattr(existing, key, encrypt_data(temp_config))
+                        elif model_class == ApiKey and key == "api_secret" and isinstance(value, str) and value.startswith("SECRET_"):
+                            env_val = os.getenv(value.replace("SECRET_", ""))
+                            if env_val:
+                                setattr(existing, key, encrypt_data(env_val))
+                        elif model_class == BrokerAccount and key == "credentials_encrypted" and isinstance(value, dict):
+                            # Resolve placeholders for credentials
+                            temp_creds = dict(getattr(existing, key) or {})
+                            for sk, sv in value.items():
+                                if isinstance(sv, str) and sv.startswith("SECRET_"):
+                                    ev = os.getenv(sv.replace("SECRET_", ""))
+                                    if ev: temp_creds[sk] = ev
+                                    else: temp_creds[sk] = sv
+                                else:
+                                    temp_creds[sk] = sv
+                            setattr(existing, key, encrypt_data(temp_creds))
                         else:
                             setattr(existing, key, value)
                 else:
@@ -197,7 +235,33 @@ def import_data():
                                 env_val = os.getenv(env_key)
                                 if env_val:
                                     item_dict["config_json"][sub_key] = env_val
+                                else:
+                                    provider = item_dict.get("provider", "UNKNOWN")
+                                    logger.warning(f"  - [SKIP] Could not resolve {env_key} from ENV for {provider} during insert. Keeping placeholder.")
                     
+                    if "credentials_encrypted" in item_dict and isinstance(item_dict["credentials_encrypted"], dict):
+                        for sub_key, sub_val in item_dict["credentials_encrypted"].items():
+                            if isinstance(sub_val, str) and sub_val.startswith("SECRET_"):
+                                env_key = sub_val.replace("SECRET_", "")
+                                env_val = os.getenv(env_key)
+                                if env_val:
+                                    item_dict["credentials_encrypted"][sub_key] = env_val
+                    
+                    if "api_secret" in item_dict and isinstance(item_dict["api_secret"], str) and item_dict["api_secret"].startswith("SECRET_"):
+                         env_val = os.getenv(item_dict["api_secret"].replace("SECRET_", ""))
+                         if env_val:
+                             item_dict["api_secret"] = env_val
+
+                    # [ENCRYPTION-ENFORCEMENT] Encrypt sensitive fields before creating model instance
+                    if model_class == DataSource and "config_json" in item_dict:
+                        item_dict["config_json"] = encrypt_data(item_dict["config_json"])
+                    
+                    if model_class == BrokerAccount and "credentials_encrypted" in item_dict:
+                        item_dict["credentials_encrypted"] = encrypt_data(item_dict["credentials_encrypted"])
+                    
+                    if model_class == ApiKey and "api_secret" in item_dict:
+                        item_dict["api_secret"] = encrypt_data(item_dict["api_secret"])
+
                     new_item = model_class(**item_dict)
                     db.add(new_item)
             

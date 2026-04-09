@@ -466,8 +466,8 @@ class CTraderClient:
                     if str(config.get("account_id")) == str(self.account_id):
                         config["token"] = new_access
                         config["refresh_token"] = new_refresh
-                        # DataSource.config_json is usually just JSONB in this DB
-                        src.config_json = config
+                        # [ENCRYPTION-ENFORCEMENT] Encrypt before saving
+                        src.config_json = encrypt_data(config)
                         db.add(src)
                 except Exception as src_e:
                     logger.warning(f"Failed to update DataSource {src.id}: {src_e}")

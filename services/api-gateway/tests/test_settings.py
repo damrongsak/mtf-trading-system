@@ -17,7 +17,9 @@ def test_get_preferences_existing(client, mock_db_session, mock_current_user):
         default_fund_id=fund_id,
         preferred_timeframes=["4H", "1H", "15m"],
         default_symbol="XAU/USD",
-        session_preferences=["LONDON", "NY"]
+        session_preferences=["LONDON", "NY"],
+        oanda_janitor_enabled=False,
+        ctrader_janitor_enabled=False
     )
     
     mock_db_session.query.return_value.filter.return_value.first.return_value = prefs
@@ -45,6 +47,8 @@ def test_get_preferences_creates_default(client, mock_db_session, mock_current_u
         # Set defaults that would be set by DB
         if getattr(instance, 'default_symbol', None) is None:
             instance.default_symbol = "XAU/USD"
+        instance.oanda_janitor_enabled = False
+        instance.ctrader_janitor_enabled = False
     
     mock_db_session.refresh.side_effect = mock_refresh
     
@@ -81,7 +85,9 @@ def test_update_preferences_success(client, mock_db_session, mock_current_user):
         default_symbol="XAU/USD",
         preferred_timeframes=["4H", "1H", "15m"],
         session_preferences=None,
-        default_fund_id=None
+        default_fund_id=None,
+        oanda_janitor_enabled=False,
+        ctrader_janitor_enabled=False
     )
     
     mock_db_session.query.return_value.filter.return_value.first.return_value = prefs
@@ -119,6 +125,8 @@ def test_update_preferences_creates_if_not_exists(client, mock_db_session, mock_
         # Set defaults that would be set by DB
         if getattr(instance, 'default_symbol', None) is None:
             instance.default_symbol = "XAU/USD"
+        instance.oanda_janitor_enabled = False
+        instance.ctrader_janitor_enabled = False
     
     mock_db_session.refresh.side_effect = mock_refresh
     

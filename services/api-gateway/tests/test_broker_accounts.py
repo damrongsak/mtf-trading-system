@@ -46,7 +46,7 @@ async def test_fetch_symbols_cached(client, mock_db_session, mock_current_user):
         is_live=False
     )
     
-    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id)
+    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id, role=UserRole.OWNER)
     
     # Mock DataSource and Symbols
     mock_ds = DataSource(id=uuid.uuid4(), name="OANDA")
@@ -116,7 +116,7 @@ async def test_fetch_symbols_cold_start(client, mock_db_session, mock_current_us
         credentials_encrypted="enc"
     )
     
-    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id)
+    mock_user_fund = UserFund(user_id=mock_current_user.id, fund_id=fund_id, role=UserRole.OWNER)
     
     # Mock Queries: DataSource is None (triggers cold start)
     def query_side_effect(model):

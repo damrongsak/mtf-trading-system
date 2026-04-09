@@ -43,6 +43,17 @@ class RequireRole:
                     fund_id = uuid.UUID(path_params["id"])
                 except:
                     pass
+            elif "account_id" in path_params:
+                # Resolve fund_id from account_id
+                try:
+                    acc_id = uuid.UUID(path_params["account_id"])
+                    from app.models.broker_account import BrokerAccount
+                    acc = db.query(BrokerAccount).filter(BrokerAccount.id == acc_id).first()
+                    if acc:
+                        fund_id = acc.fund_id
+                except Exception as e:
+                    logger.warning(f"Failed to resolve fund_id from account_id in RBAC: {e}")
+                    pass
 
         # 2. Body Fallback (Only if not already resolved)
         if not fund_id:
