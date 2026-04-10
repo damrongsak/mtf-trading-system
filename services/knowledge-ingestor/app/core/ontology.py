@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 
 NodeLabel = Literal[
     "Paper",
+    "Source",  # Added for alignment
     "Asset",
+    "Ticker",  # Added for alignment
+    "Indicator", # Added for alignment
     "Concept",
     "MacroIndicator",
     "Event",
@@ -24,6 +27,8 @@ NodeLabel = Literal[
 
 RelationshipType = Literal[
     "MENTIONS",
+    "COVERS",  # Added for alignment
+    "PREREQUISITE", # Added for alignment
     "INFLUENCES",
     "SUPPORTS",
     "CONTRADICTS",

@@ -164,3 +164,44 @@ async def list_tasks(request: Request):
             raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
         except Exception as e:
             raise HTTPException(status_code=503, detail="Knowledge Ingestor service unreachable")
+
+@router.post("/maintenance/merge-concepts")
+async def trigger_concept_merge(request: Request, dry_run: bool = True):
+    """Proxy concept merge maintenance request."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with await get_internal_client() as client:
+        try:
+            response = await client.post(
+                f"{KNOWLEDGE_SERVICE_URL}/maintenance/merge-concepts",
+                params={"dry_run": dry_run},
+                headers=headers,
+                timeout=300.0  # Maintenance can be slow
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail="Knowledge Ingestor service unreachable")
+
+@router.post("/maintenance/re-ingest-test")
+async def trigger_test_ingestion(request: Request):
+    """Proxy manual test ingestion trigger."""
+    request_id = getattr(request.state, "request_id", None)
+    headers = {"X-Request-ID": request_id} if request_id else {}
+    
+    async with await get_internal_client() as client:
+        try:
+            response = await client.post(
+                f"{KNOWLEDGE_SERVICE_URL}/maintenance/re-ingest-test",
+                headers=headers,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail="Knowledge Ingestor service unreachable")

@@ -128,6 +128,8 @@ async def ingest_directory(request: DirectoryIngestRequest):
 
     ingest_svc = get_ingestor()
     if request.clean_first:
+        # NOTE: Clean is discouraged in production to prevent data loss.
+        # But we keep it as a developer/manual option for now as requested by DirectoryIngestRequest schema.
         await asyncio.to_thread(ingest_svc.client.delete_graph)
 
     extensions = {".md", ".pdf", ".txt", ".markdown"}
@@ -197,53 +199,48 @@ async def list_tasks():
     return tasks
 
 
+# ────────────────────────── Maintenance Endpoints ─────────────────────────
+
+@app.post("/maintenance/merge-concepts", tags=["Maintenance"])
+async def trigger_concept_merge(dry_run: bool = True):
+    """Manually trigger the LLM-driven concept clustering and merging process."""
+    from app.workers.merger import ConceptMerger
+    merger = ConceptMerger()
+    result = await merger.run_maintenance(dry_run=dry_run)
+    return result
+
+
+@app.post("/maintenance/re-ingest-test", tags=["Maintenance"])
+async def trigger_test_ingestion():
+    """Specific manual trigger to ingest the smc_liquidity_guide.md target file."""
+    # Using container internal path
+    test_file = Path("/app/temp/md_economics_real/smc_liquidity_guide.md")
+    if not test_file.exists():
+        # Fallback to local temp if not in /app
+        test_file = Path("temp/md_economics_real/smc_liquidity_guide.md")
+        if not test_file.exists():
+             raise HTTPException(status_code=404, detail=f"Test file not found at {test_file}")
+    
+    # Register task for the worker to pick up
+    task_id = await orchestrator.register_task(str(test_file))
+    
+    # Copy file to source dir for worker processing
+    temp_path = Path(config.source_dir) / f"{task_id}_{test_file.name}"
+    shutil.copy2(test_file, temp_path)
+    
+    logger.info(f"📥 Queued test ingestion: {test_file.name} (Task: {task_id})")
+    return {"task_id": task_id, "status": "queued", "file": str(test_file)}
+
+
 # ────────────────────────── Scheduled Workers ────────────────────────────────
 
 
 async def start_background_workers():
     """Initialize all non-blocking background workers."""
-    from app.workers.merger import MarketMerger
-
-    async def price_refresher():
-        from app.tools.market_reader import MarketReaderTool
-        from app.tools.falkordb_client import FalkorDBClient
-
-        client = FalkorDBClient(host=config.falkor_host, port=config.falkor_port)
-        assets = ["Gold", "Bitcoin", "Silver", "Crude Oil", "S&P 500"]
-
-        while True:
-            r = await asyncio.to_thread(orchestrator._get_redis)
-            lock_key = "lock:asset_price_refresher"
-            if await asyncio.to_thread(r.set, lock_key, "1", nx=True, ex=3500):
-                try:
-                    for asset in assets:
-                        # MarketReaderTool.get_spot_price IS ALREADY ASYNC.
-                        # DO NOT wrap it in asyncio.to_thread.
-                        price = await MarketReaderTool.get_spot_price(asset)
-                        if price:
-                            now_str = datetime.now().isoformat()
-                            query = f"MERGE (a:Asset {{name: '{asset}'}}) SET a.price = {price}, a.last_updated = '{now_str}'"
-                            # GraphQL execute_query handles its own threading or is async
-                            await asyncio.to_thread(client.execute_query, query)
-                except Exception as e:
-                    logger.error(f"❌ Price refresher error: {e}")
-            await asyncio.sleep(3600)
-
-    async def merger_loop():
-        r = await asyncio.to_thread(orchestrator._get_redis)
-        while True:
-            lock_key = "lock:market_merger"
-            if await asyncio.to_thread(r.set, lock_key, "1", nx=True, ex=1700):
-                try:
-                    merger = MarketMerger()
-                    await merger.seed_baseline()
-                    await merger.merge_market_sentiment()
-                except Exception:
-                    pass
-            await asyncio.sleep(600)
-
-    asyncio.create_task(price_refresher())
-    asyncio.create_task(merger_loop())
+    # Automated loops (price_refresher, merger_loop) are DISABLED per user request.
+    # Knowledge Ingestor now operates via MANUAL TRIGGER ONLY.
+    logger.info("🛠️ Automated background maintenance loops are DISABLED (Manual Trigger Mode Active).")
+    pass
 
 
 @app.on_event("startup")

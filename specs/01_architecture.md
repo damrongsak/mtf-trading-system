@@ -126,10 +126,12 @@ The system is organized into five decoupled layers of responsibility:
 ### 4.6. Knowledge Ingestor (`services/knowledge-ingestor`)
 - **Role**: The "Ingestion Engine" for the Brain.
 - **Key Features**:
-    - **Hierarchical Ingestion**: 3-tier processing (Planner -> Architect -> Committer) for complex document understanding.
-    - **Async Pipeline**: Fully asynchronous LLM-orchestrated pipeline for high throughput.
-    - **Graph Intelligence**: Ingests unstructured data into FalkorDB for relationship mapping.
+    - **Manual-Trigger Pipeline**: Transitioned from automated background tasks to a strictly manual, audit-ready trigger system via API.
+    - **Tiered High-Density Extraction**: Implements 3-tier deep analysis (Summary -> Detail -> Conclusion) for maximum knowledge density and strategic logic capture.
+    - **Semantic Concept Merger**: LLM-driven maintenance tool for deduplicating concepts and clustering related information in FalkorDB.
+    - **Graph Intelligence**: Ingests unstructured data into FalkorDB for relationship mapping with institutional ontology (Ticker, Indicator, Source).
     - **Vector Integration**: Generates embeddings and syncs with Qdrant for semantic search.
+
 
 ## 4.11. Data Governance & Institutional Security
 

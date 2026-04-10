@@ -1460,6 +1460,43 @@ paths:
                 additionalProperties:
                   type: object
 
+  /api/v1/knowledge/maintenance/merge-concepts:
+    get:
+      summary: Manually trigger semantic concept merging
+      tags: [Knowledge]
+      parameters:
+        - name: dry_run
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: If true, only identify potential merges without executing them.
+      responses:
+        '200':
+          description: Merging operation report
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/knowledge/maintenance/re-ingest-test:
+    post:
+      summary: Manually trigger the baseline test ingestion (SMC Liquidity Guide)
+      tags: [Knowledge]
+      responses:
+        '202':
+          description: Test ingestion task queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+
+
 
   /api/v1/orchestration/logs:
     get:

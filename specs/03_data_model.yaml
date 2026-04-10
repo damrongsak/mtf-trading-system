@@ -2873,3 +2873,58 @@ schemas:
       - name: confluence_score
         type: float
         description: "0-1.0 confidence score for the signal"
+
+# ---
+# Olympus Knowledge Graph (FalkorDB Ontology)
+# ---
+KnowledgeGraph:
+  description: "High-density semantic relationships for MTF/SMC logic"
+  nodes:
+    Concept:
+      description: "Fundamental unit of knowledge (e.g., Fair Value Gap)"
+      fields:
+        - name: name
+          type: string
+          required: true
+        - name: definition
+          type: string
+          required: true
+        - name: source_ref
+          type: string
+          description: "Full path or URI to the document"
+    Source:
+      description: "Document origin for knowledge"
+      fields:
+        - name: name
+          type: string
+          required: true
+        - name: date
+          type: string
+        - name: importance
+          type: integer
+        - name: file_ref
+          type: string
+    Ticker:
+      description: "Financial asset identifier (e.g., XAUUSD)"
+      fields:
+        - name: name
+          type: string
+          required: true
+    Indicator:
+      description: "Technical or Macro indicator (e.g., RSI, DXY)"
+      fields:
+        - name: name
+          type: string
+          required: true
+    Cluster:
+      description: "Grouping for semantic deduplication and merging"
+      fields:
+        - name: name
+          type: string
+          required: true
+
+  relationships:
+    MENTIONS: "Source -> Concept | Source -> Ticker | Source -> Indicator"
+    COVERS: "Concept -> Ticker | Concept -> Indicator"
+    PREREQUISITE: "Concept -> Concept (Educational hierarchy)"
+    SIMILAR_TO: "Concept -> Concept (Semantic discovery)"
