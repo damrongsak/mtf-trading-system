@@ -1,4 +1,5 @@
 import json
+import os
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,24 +16,26 @@ class FalkorDBClient:
 
     def __init__(
         self,
-        host: str = "falkordb",
-        port: int = 6379,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
         graph_name: str = "OlympusKnowledgeGraph",
+        timeout: Optional[int] = None,
     ):
-        self.host = host
-        self.port = port
+        self.host = host or os.environ.get("FALKORDB_HOST", "falkordb")
+        self.port = int(port or os.environ.get("FALKORDB_PORT", 6379))
         self.graph_name = graph_name
+        self.timeout = int(timeout or os.environ.get("FALKORDB_TIMEOUT", 30))
         self._client: Optional["redis.Redis"] = None
 
     def connect(self) -> Dict[str, Any]:
         """Establish connection to FalkorDB using shared pool"""
-        pool_key = f"{self.host}:{self.port}"
+        pool_key = f"{self.host}:{self.port}:{self.timeout}"
 
         if pool_key in FalkorDBClient._connection_pool:
             self._client = FalkorDBClient._connection_pool[pool_key]
             try:
                 self._client.ping()
-                return {"status": "connected", "pooled": True, "graph": self.graph_name}
+                return {"status": "connected", "pooled": True, "graph": self.graph_name, "timeout": self.timeout}
             except Exception:
                 # Pool instance failed, recreate
                 del FalkorDBClient._connection_pool[pool_key]
@@ -41,11 +44,11 @@ class FalkorDBClient:
             import redis
 
             self._client = redis.Redis(
-                host=self.host, port=self.port, decode_responses=True, socket_timeout=10
+                host=self.host, port=self.port, decode_responses=True, socket_timeout=self.timeout
             )
             self._client.ping()
             FalkorDBClient._connection_pool[pool_key] = self._client
-            return {"status": "connected", "pooled": False, "graph": self.graph_name}
+            return {"status": "connected", "pooled": False, "graph": self.graph_name, "timeout": self.timeout}
         except ImportError:
             return {"status": "error", "message": "redis module not installed"}
         except Exception as e:

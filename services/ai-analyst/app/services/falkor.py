@@ -19,24 +19,27 @@ class FalkorService:
     def connect(self):
         """Initializes connection to FalkorDB."""
         try:
-            self.db = FalkorDB.from_url(self.url)
+            # Add socket_timeout to prevent hanging the event loop
+            timeout = int(os.getenv("FALKORDB_TIMEOUT", 30))
+            self.db = FalkorDB.from_url(self.url, socket_timeout=timeout)
             self.graph = self.db.select_graph(self.graph_name)
-            logger.info(f"✅ Connected to FalkorDB at {self.url} (Graph: {self.graph_name})")
+            logger.info(f"✅ Connected to FalkorDB at {self.url} (Graph: {self.graph_name}, Timeout: {timeout}s)")
         except Exception as e:
             logger.error(f"❌ Failed to connect to FalkorDB: {e}")
             raise
 
-    async def query_context(self, symbol: str) -> Dict[str, Any]:
+    async def query_context(self, symbol: str, timeout: Optional[int] = None) -> Dict[str, Any]:
         """
         Retrieves semantic context for a specific symbol.
         Supports both 'Asset' and 'Symbol' labels and pulls related concepts/strategies.
         """
+        import time
         if not self.graph:
             self.connect()
             
+        start_time = time.perf_counter()
         try:
             # Enhanced Cypher query to get related concepts, strategies, and risks
-            # Supports multi-hop (e.g., Asset -> Concept -> Strategy)
             query = f"""
             MATCH (s) WHERE (s:Symbol OR s:Asset) AND s.name = '{symbol}'
             OPTIONAL MATCH (s)-[r1]-(n)
@@ -45,11 +48,21 @@ class FalkorService:
                    collect(distinct {{relation: type(r1), type: labels(n)[0], properties: properties(n)}}) as direct_entities,
                    collect(distinct {{relation: type(r2), type: labels(m)[0], properties: properties(m)}}) as indirect_entities
             """
+            
+            # Note: falkordb-py uses sync execution by default.
+            # We log time to identify slow queries in production.
             result = self.graph.query(query)
+            elapsed = time.perf_counter() - start_time
+            
+            if elapsed > 1.0:
+                logger.warning(f"⚠️ Slow FalkorDB query for {symbol}: {elapsed:.3f}s")
+            else:
+                logger.debug(f"FalkorDB query for {symbol} took {elapsed:.3f}s")
             
             context_data = {
                 "symbol": symbol,
-                "timestamp": None,
+                "timestamp": time.time(),
+                "execution_time": elapsed,
                 "entities": [],
                 "summary": "No semantic context found in Knowledge Graph."
             }

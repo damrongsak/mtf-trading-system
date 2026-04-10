@@ -305,6 +305,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - KI_LOG_FORMAT=json
+      - FALKORDB_TIMEOUT=45
     command: ["python", "-m", "gunicorn", "app.api.main:app", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300", "--preload"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -487,7 +488,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     volumes:
       - ./infra/falkordb_data:/var/lib/falkordb/data
     healthcheck:
