@@ -61,11 +61,14 @@ Document Title: {doc_title}
 Key Themes: {main_themes}
 Anchor Entities: {key_entities}
 
-Your mission: Extract structured concepts and causal relationships from the provided text chunk.
+Your mission: Extract structured concepts, Smart Money Patterns (SMC), and causal relationships from the provided text chunk.
 
-OLYMPUS ONTOLOGY:
-Nodes: Concept, Ticker, Indicator, Asset, SMC_Pattern, Organization, Person
-Relationships: INFLUENCES, PREREQUISITE, MENTIONS, COVERS
+STRICT EXTRACTION POLICY:
+- EXHAUSTIVE: Do NOT summarize. Extract EVERY unique trading term, pattern, and technical concept mentioned.
+- LABEL PRECISION: 
+    - Put TRADING PATTERNS (Order Blocks, FVG, BOS, Liquidity Sweeps, Judas Swing, Volume Gaps) into 'smc_patterns'.
+    - Put GENERAL CONCEPTS (Inflation, Liquidity as a general term, Interest Rates, etc.) into 'concepts'.
+- DENSITY: High knowledge density is required. If a sentence contains a technical term (e.g., 'Judas Swing', 'BOS'), it MUST be a node.
 
 JSON SCHEMA REQUIREMENT:
 {{
@@ -79,6 +82,14 @@ JSON SCHEMA REQUIREMENT:
       "influences": [
         {{"target": "Target Concept", "direction": "positive|negative", "strength": 1-5, "context": "Detailed reasoning"}}
       ]
+    }}
+  ],
+  "smc_patterns": [
+    {{
+      "name": "Pattern Name (e.g. Order Block)",
+      "definition": "How to identify it",
+      "logic": "The institutional logic behind it",
+      "timeframe": "Relevant timeframe if mentioned"
     }}
   ]
 }}
@@ -100,7 +111,12 @@ Output format (Valid JSON only):
 COMMITTER_PROMPT = """You are THE COMMITTER for Project Olympus.
 
 Your role: Merge results from 3 tiers (Summary, Detail, Conclusion) into a single unified JSON object.
-Deduplicate entities and resolve conflicts.
+Deduplicate entities and resolve conflicts. Ensure EVERY minor pattern found in detail tier is preserved.
+
+STRICT SCHEMATIC ENFORCEMENT:
+- All Smart Money Patterns (e.g. Order Block, FVG, BOS, Liquidity, Judas Swing) MUST be placed in the 'smc_patterns' list.
+- Standard macroeconomic or non-trading institutional concepts go in 'concepts'. 
+- DO NOT BLEND THEM. If it's a tradeable pattern, it's an 'smc_pattern'.
 
 Output format (Valid JSON only):
 {{
@@ -122,13 +138,21 @@ Output format (Valid JSON only):
         {{"target": "...", "direction": "...", "strength": 5, "context": "..."}}
       ]
     }}
+  ],
+  "smc_patterns": [
+    {{
+      "name": "...",
+      "definition": "...",
+      "logic": "...",
+      "timeframe": "..."
+    }}
   ]
 }}"""
 
 
 WEBSCOUT_PROMPT = """You are THE WEBSCOUT for Project Olympus.
 
-Your mission: Given the extracted entities and merge notes, generate 1-3 highly targeted search queries to find real-time context or missing facts that enrich the Knowledge Graph.
+Your mission: Given the extracted entities and merge notes, generate 1-3 highly targeted search queries to find real-time context or missing facts (especially specific trading rules, institutional behaviors, or asset correlations) that enrich the Knowledge Graph.
 
 Input:
 {scout_input}
@@ -248,9 +272,9 @@ class HierarchicalIngestor(BaseIngestor):
 
     async def process_tier_detail(
         self, content: str | List[str], doc_analysis: DocStructure
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """Tier 2: Full Content Details with Structured Schema Enforcement"""
-        all_concepts = []
+        all_results = {"concepts": [], "smc_patterns": []}
         prompt = TIER_DETAIL_PROMPT.format(
             doc_title=doc_analysis.title,
             main_themes=", ".join(doc_analysis.main_themes),
@@ -262,11 +286,13 @@ class HierarchicalIngestor(BaseIngestor):
             try:
                 result = await LLMUtils.call_llm(prompt, chunk, f"detail_{i}", max_tokens=4000)
                 if "concepts" in result:
-                    all_concepts.extend(result["concepts"])
+                    all_results["concepts"].extend(result["concepts"])
+                if "smc_patterns" in result:
+                    all_results["smc_patterns"].extend(result["smc_patterns"])
             except Exception as e:
                 self.logger.error(f"❌ Detail Ingestion failed for chunk {i}: {e}")
         
-        return all_concepts
+        return all_results
 
     async def process_tier_conclusion(
         self, content: str, doc_analysis: DocStructure
@@ -284,9 +310,11 @@ class HierarchicalIngestor(BaseIngestor):
         self, results: List[Any], filename: str
     ) -> Dict[str, Any]:
         """Merge all tiers into a single source-controlled knowledge object"""
+        detail_results = results[1] # Now a dict with concepts and smc_patterns
         merge_input = f"""Filename: {filename}
 Summary Tier: {json.dumps(results[0])}
-Detail Tier Count: {len(results[1])}
+Detail Concepts: {json.dumps(detail_results.get("concepts", []))}
+Detail SMC Patterns: {json.dumps(detail_results.get("smc_patterns", []))}
 Conclusion Tier: {json.dumps(results[2])}
 """
         result = await LLMUtils.call_llm(
@@ -298,12 +326,16 @@ Conclusion Tier: {json.dumps(results[2])}
         """Translate the Olympus Gold Standard JSON into Cypher queries (Ref: olympus_falkor_ingestor.py)"""
         source = data.get("source", {})
         concepts = data.get("concepts", [])
+        smc_patterns = data.get("smc_patterns", [])
+        
+        self.logger.info(f"📐 [Cypher] Translating results for {filename}: {len(concepts)} concepts, {len(smc_patterns)} smc_patterns")
+        
         queries = []
 
         # 1. Source Node
-        source_name = (source.get("title") or filename).replace('"', "'")
-        source_thesis = (source.get("thesis") or "").replace('"', "'")
-        source_author = (source.get("author") or "Unknown").replace('"', "'")
+        source_name = str(source.get("title") or filename).replace('"', "'")
+        source_thesis = str(source.get("thesis") or "").replace('"', "'")
+        source_author = str(source.get("author") or "Unknown").replace('"', "'")
         
         queries.append(
             f'MERGE (s:Source {{name: "{source_name}"}}) '
@@ -314,17 +346,17 @@ Conclusion Tier: {json.dumps(results[2])}
         
         for t in source.get("tickers", []):
             tick_id = str(t).replace('"', "'")
-            queries.append(f'MERGE (tick:Ticker {{id: "{tick_id}"}}) MERGE (s)-[:COVERS]->(tick)')
+            queries.append(f'MERGE (tick:Ticker {{name: "{tick_id}"}}) MERGE (s)-[:COVERS]->(tick)')
         for ind in source.get("indicators", []):
             ind_id = str(ind).replace('"', "'")
-            queries.append(f'MERGE (i:Indicator {{id: "{ind_id}"}}) MERGE (s)-[:COVERS]->(i)')
+            queries.append(f'MERGE (i:Indicator {{name: "{ind_id}"}}) MERGE (s)-[:COVERS]->(i)')
 
         # 2. Concept Nodes
         for c in concepts:
-            name = (c.get("name") or "Unnamed Concept").replace('"', "'")
-            definition = (c.get("definition") or "").replace('"', "'")
-            math = (c.get("math") or "").replace('"', "'")
-            example = (c.get("example") or "").replace('"', "'")
+            name = str(c.get("name") or "Unnamed Concept").replace('"', "'")
+            definition = str(c.get("definition") or "").replace('"', "'")
+            math = str(c.get("math") or "").replace('"', "'")
+            example = str(c.get("example") or "").replace('"', "'")
             
             queries.append(f'MERGE (c:Concept {{name: "{name}"}}) SET c.definition = "{definition}", c.math = "{math}", c.example = "{example}"')
             queries.append(f'MATCH (s:Source {{name: "{source_name}"}}), (c:Concept {{name: "{name}"}}) MERGE (s)-[:MENTIONS]->(c)')
@@ -338,18 +370,29 @@ Conclusion Tier: {json.dumps(results[2])}
             # Influences
             for inf in c.get("influences", []):
                 if isinstance(inf, dict) and "target" in inf:
-                    target = (inf.get("target") or "Unknown").replace('"', "'")
+                    target = str(inf.get("target") or "Unknown").replace('"', "'")
                     queries.append(f'MERGE (t:Concept {{name: "{target}"}})')
                     
                     inf_direction = str(inf.get("direction", "positive")).replace('"', "'")
                     inf_strength = inf.get("strength", 3)
-                    inf_context = (inf.get("context") or "").replace('"', "'")
+                    inf_context = str(inf.get("context") or "").replace('"', "'")
                     
                     queries.append(
                         f'MATCH (c:Concept {{name: "{name}"}}), (t:Concept {{name: "{target}"}}) '
                         f'MERGE (c)-[r:INFLUENCES]->(t) '
                         f'SET r.direction = "{inf_direction}", r.strength = {inf_strength}, r.context = "{inf_context}"'
                     )
+
+        # 3. SMC Pattern Nodes
+        for p in smc_patterns:
+            name = str(p.get("name") or "Unnamed Pattern").replace('"', "'")
+            definition = str(p.get("definition") or "").replace('"', "'")
+            logic = str(p.get("logic") or "").replace('"', "'")
+            timeframe = str(p.get("timeframe") or "").replace('"', "'")
+
+            queries.append(f'MERGE (pc:SMC_Pattern {{name: "{name}"}}) SET pc.definition = "{definition}", pc.logic = "{logic}", pc.timeframe = "{timeframe}"')
+            queries.append(f'MATCH (s:Source {{name: "{source_name}"}}), (pc:SMC_Pattern {{name: "{name}"}}) MERGE (s)-[:MENTIONS]->(pc)')
+
         return queries
 
     async def enrich_with_intelligence(
@@ -515,12 +558,15 @@ Conclusion Tier: {json.dumps(results[2])}
 
         # 6. Archival (Timestamped)
         if exec_result.get("success", 0) > 0 or force:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            archive_name = f"{timestamp}_{file_path.name}"
-            archive_dir = file_path.parent / "archive"
-            archive_dir.mkdir(exist_ok=True)
-            shutil.move(str(file_path), str(archive_dir / archive_name))
-            self.logger.info(f"📦 Archived {file_path.name} -> {archive_name}")
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                archive_name = f"{timestamp}_{file_path.name}"
+                archive_dir = file_path.parent / "archive"
+                archive_dir.mkdir(exist_ok=True)
+                shutil.move(str(file_path), str(archive_dir / archive_name))
+                self.logger.info(f"📦 Archived {file_path.name} -> {archive_name}")
+            except Exception as e:
+                self.logger.warning(f"⚠️ Archival failed (likely read-only FS), skipping: {e}")
 
         elapsed_ms = int((time.time() - start_time) * 1000)
         return HierarchicalResult(
