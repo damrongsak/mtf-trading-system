@@ -490,7 +490,7 @@ services:
         limits:
           memory: 512M
     volumes:
-      - ./infra/falkordb_data:/var/lib/falkordb/data
+      - falkordb_data:/var/lib/falkordb/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -505,3 +505,7 @@ networks:
   external:
     external: true
     name: orignx-network
+
+volumes:
+  falkordb_data:
+    name: mtf_falkordb_data

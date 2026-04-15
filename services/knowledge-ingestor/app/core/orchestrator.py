@@ -238,12 +238,16 @@ class TaskOrchestrator:
         return stats
 
     def get_global_stats(self) -> Dict[str, Any]:
-        """Get aggregate metrics for the entire service."""
+        """Get aggregate metrics for the entire service, including graph stats."""
         r = self._get_redis()
         if not r:
             return {"error": "Redis not connected"}
 
         keys = r.keys(f"{self.prefix}*")
+        
+        # Pull real-time graph stats from FalkorDB
+        graph_info = self.client.get_stats()
+        
         stats = {
             "global": {
                 "total_tasks_last_24h": len(keys),
@@ -253,7 +257,10 @@ class TaskOrchestrator:
                 if self._semaphore
                 else config.ki_max_concurrency,
                 "max_concurrency": config.ki_max_concurrency,
+                "graph_name": self.client.graph_name,
+                "falkordb_status": graph_info.get("status", "unknown")
             },
+            "graph": graph_info.get("info", {}),
             "statuses": {
                 "queued": 0,
                 "processing": 0,

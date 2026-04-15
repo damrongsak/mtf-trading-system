@@ -91,6 +91,39 @@ app-ingestor/
 
 ---
 
+## 🗄️ FalkorDB Persistence (Named Volumes)
+
+To ensure data integrity and high performance, especially on **WSL2** and **Docker Desktop**, this project uses **Docker Named Volumes** for FalkorDB persistence.
+
+### Why Named Volumes?
+- **WSL2 Reliability**: Prevents the "0 nodes" issue caused by Bind Mount desync (where files appear on the host but are not visible to the container).
+- **High Performance**: Native I/O performance for the Redis-based FalkorDB engine.
+- **Data Safety**: Data persists independently of the container lifecycle. Even if the container is removed (`docker compose down`), your knowledge graph remains safe.
+
+### Volume Configuration
+The system is pre-configured in `docker-compose.yml`:
+```yaml
+volumes:
+  falkordb_data:
+    name: mtf_falkordb_data
+```
+
+---
+
+## 🔍 Service Observability & Stats
+
+The ingestor provides a comprehensive metrics dashboard via the `/stats` endpoint.
+
+### Global Statistics
+Accessing `http://localhost:8004/stats` returns real-time insights:
+- **Task Metrics**: Total tasks, active concurrency, and task statuses (queued, processing, completed, failed).
+- **Graph Metrics**: **Real-time node and edge counts** directly from FalkorDB.
+- **Connectivity Status**: Validation of the connection to the FalkorDB engine.
+
+This ensures you can verify the "health" and "density" of your knowledge graph at a glance.
+
+---
+
 ## 🛠️ Configuration
 
 Settings are managed via `.env` (automatically loaded by `AppConfig`):
@@ -208,4 +241,4 @@ The ingestor includes a professional **StartupGuard** that prevents "Silent Fail
 - **Logger Configuration**: Optimized structured logging with corrected `structlog` endpoints.
 
 ---
-*Last updated: 2026-03-09*
+*Last updated: 2026-04-15*
