@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 import time
+from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Boolean, Text
@@ -106,9 +107,56 @@ async def backfill_candles(days: int = 30, target_timeframes: list = None, targe
         # Connection management wrapper
         client = None
 
-        async def get_connected_client():
-            nonlocal client
-            if client and client._connected:
+        async def refresh_token_and_update_db(client_obj: AsyncCTraderClient) -> Optional[str]:
+            """
+            Internal helper to refresh token using existing refresh_token and update DB.
+            """
+            try:
+                # 1. Get Refresh Token from current credentials
+                refresh_token_val = credentials.get("refresh_token")
+                if not refresh_token_val:
+                    logger.error(f"No refresh_token found for account {account_id}")
+                    return None
+
+                # 2. Request New Tokens
+                logger.info(f"Requesting token refresh for account {account_id}...")
+                new_access, new_refresh, _, _ = await client_obj.refresh_token(refresh_token_val)
+
+                # 3. Update Local Credentials
+                credentials["token"] = new_access
+                credentials["refresh_token"] = new_refresh
+                
+                # 4. Update Database
+                if account:
+                    account.credentials_encrypted = encrypt_data(credentials)
+                    db.add(account)
+                    
+                    # Update DataSource
+                    sources = db.query(DataSource).filter(DataSource.provider == "CTRADER").all()
+                    for src in sources:
+                        try:
+                            from app.scheduler.jobs import ensure_dict
+                            config = ensure_dict(src.config_json)
+                            if str(config.get("account_id")) == str(account_id):
+                                config["token"] = new_access
+                                config["refresh_token"] = new_refresh
+                                src.config_json = encrypt_data(config)
+                                db.add(src)
+                        except: pass
+                    
+                    db.commit()
+                    logger.info(f"Successfully refreshed and persisted tokens for account {account_id}")
+                
+                return new_access
+
+            except Exception as e:
+                logger.error(f"Token refresh failed for account {account_id}: {e}")
+                db.rollback()
+                return None
+
+        async def get_connected_client(force_refresh: bool = False):
+            nonlocal client, token
+            if client and client._connected and not force_refresh:
                 return client
             
             if client:
@@ -118,7 +166,22 @@ async def backfill_candles(days: int = 30, target_timeframes: list = None, targe
             client = AsyncCTraderClient(host, port)
             await client.connect()
             await client.authorize_app(client_id, client_secret)
-            await client.authorize_account(account_id, token)
+            
+            if force_refresh:
+                new_token = await refresh_token_and_update_db(client)
+                if new_token:
+                    token = new_token
+                else:
+                    raise Exception("Failed to refresh token after expiration")
+            
+            try:
+                await client.authorize_account(account_id, token)
+            except Exception as auth_e:
+                if "CH_ACCESS_TOKEN_INVALID" in str(auth_e) and not force_refresh:
+                    logger.warning("Access token expired. Attempting refresh...")
+                    return await get_connected_client(force_refresh=True)
+                raise auth_e
+                
             return client
 
         # Prepare timeframe list
@@ -217,6 +280,15 @@ async def backfill_candles(days: int = 30, target_timeframes: list = None, targe
                             break
                             
                     except Exception as e:
+                        if "CH_ACCESS_TOKEN_INVALID" in str(e):
+                            logger.warning(f"    Access token expired in loop for {tf_name}. Reconnecting with refresh...")
+                            if client:
+                                try: await client.disconnect()
+                                except: pass
+                            client = None # Force new connection with refresh logic
+                            await asyncio.sleep(2)
+                            continue
+                        
                         logger.error(f"    Error in chunk for {tf_name}: {e}. Retrying in 5s...")
                         if client:
                             client._connected = False # Force reconnect
