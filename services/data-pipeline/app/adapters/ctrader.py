@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.config import settings
 from app.utils.crypto import decrypt_data, encrypt_data
 from app.adapters.ctrader_client import AsyncCTraderClient
@@ -152,7 +152,7 @@ class CTraderClient:
                         close_p_norm /= 2.0
 
                     candles.append({
-                        "timestamp": datetime.fromtimestamp(b.utcTimestampInMinutes * 60) if b.utcTimestampInMinutes else datetime.now(),
+                        "timestamp": datetime.fromtimestamp(b.utcTimestampInMinutes * 60, tz=timezone.utc) if b.utcTimestampInMinutes else datetime.now(timezone.utc),
                         "open": open_p_norm,
                         "high": high_p_norm,
                         "low": low_p_norm,
@@ -316,7 +316,7 @@ class CTraderClient:
                         "broker_deal_id": str(d.dealId),
                         "symbol": s_name,
                         "strategy_name": "Imported", # Default
-                        "signal_timestamp": datetime.fromtimestamp(d.createTimestamp / 1000.0),
+                        "signal_timestamp": datetime.fromtimestamp(d.createTimestamp / 1000.0, tz=timezone.utc),
                         "status": "CLOSED",
                         "direction": "LONG" if d.tradeSide == ProtoOATradeSide.SELL else "SHORT", # If we SELL to close, we were LONG
                         "entry_price": entry_p,
@@ -329,7 +329,7 @@ class CTraderClient:
                         "swap": swap,
                         "gross_pnl": gross_profit,
                         "pnl_usd": net_pnl,
-                        "exit_timestamp": datetime.fromtimestamp(d.executionTimestamp / 1000.0),
+                        "exit_timestamp": datetime.fromtimestamp(d.executionTimestamp / 1000.0, tz=timezone.utc),
                         "metadata_json": {
                             "deal_id": str(d.dealId), 
                             "position_id": str(d.positionId),

@@ -3,7 +3,7 @@ import redis
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,7 +32,7 @@ async def fetch_gvz():
             "symbol": "^GVZ",
             "value": latest_value,
             "timestamp": timestamp,
-            "updated_at": str(datetime.now())
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
         r = redis.from_url(REDIS_URL)
