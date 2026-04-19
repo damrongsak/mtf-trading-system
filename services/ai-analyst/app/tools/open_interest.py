@@ -56,13 +56,30 @@ class OpenInterestTool(BaseTool):
                 current_price = 0.0
                 try:
                     redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    # Try direct first
                     spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
-                    if spot_data and "bid" in spot_data:
-                        bid = float(spot_data.get("bid", 0))
-                        ask = float(spot_data.get("ask", 0))
+                    if not spot_data:
+                        # Try common prefixes (CTRADER:XAUUSD, OANDA:XAUUSD)
+                        for prefix in ["CTRADER", "OANDA", "BINANCE"]:
+                            spot_data = await redis_client.hgetall(f"market_data:spot:{prefix}:{symbol}")
+                            if spot_data: 
+                                logger.info(f"Found spot price for {symbol} using prefix {prefix}")
+                                break
+                    
+                    if not spot_data:
+                        # Scan for ANY matching suffix or content
+                        keys = await redis_client.keys(f"market_data:spot:*{symbol}*")
+                        if keys:
+                            logger.info(f"Found spot price for {symbol} via scan: {keys[0]}")
+                            spot_data = await redis_client.hgetall(keys[0])
+
+                    if spot_data and ("bid" in spot_data or "price" in spot_data):
+                        bid = float(spot_data.get("bid", spot_data.get("price", 0)))
+                        ask = float(spot_data.get("ask", bid))
                         current_price = (bid + ask) / 2.0 if ask > 0 else bid
                     await redis_client.close()
-                except: pass
+                except Exception as e:
+                    logger.warning(f"Redis spot lookup failed: {e}")
 
                 if current_price <= 0:
                     try:

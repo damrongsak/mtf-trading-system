@@ -89,13 +89,20 @@ async def get_gamma_levels(
     
     # 2. Determine base price for filtering and cache key
     snapshot_underlying = None
-    if not current_price:
+    usd_rec = db.query(OpenInterest.underlying_price).filter(
+        OpenInterest.snapshot_at >= snapshot_time,
+        OpenInterest.underlying_price.isnot(None)
+    ).order_by(OpenInterest.snapshot_at.asc()).first()
+    
+    if not usd_rec:
+        # Try finding the latest one BEFORE or AT snapshot
         usd_rec = db.query(OpenInterest.underlying_price).filter(
-            OpenInterest.snapshot_at == snapshot_time,
+            OpenInterest.snapshot_at <= snapshot_time,
             OpenInterest.underlying_price.isnot(None)
-        ).first()
-        if usd_rec:
-            snapshot_underlying = float(usd_rec[0])
+        ).order_by(OpenInterest.snapshot_at.desc()).first()
+
+    if usd_rec:
+        snapshot_underlying = float(usd_rec[0])
 
     price_to_use = current_price if current_price else snapshot_underlying
     if not price_to_use:

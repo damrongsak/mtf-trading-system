@@ -117,6 +117,36 @@ To maintain a mathematically valid liquidity surface, agents MUST adhere to the 
    - **Recommendation**: Always use the 90-day aggregate for structural support/resistance analysis to capture the full breadth of dealer hedging.
 3. **Regime Validation**: If `total_gex` is exceptionally low or the `gamma_flip` is mathematically impossible given the spot price, trigger a **Data Integrity Alert** and refuse to generate a trade signal.
 
+### 🧮 5.6 Institutional Open Interest (CME Heatmap Standard)
+The system integrates CME Group COMEX Gold (OG) options open interest to map institutional capital commitments.
+
+1. **CME Heatmap Schema**: Data is stored in the `open_interest` table with one row per (contract_symbol, strike, snapshot_at):
+   - `contract_symbol`: Option series (e.g., OGM6, OGZ6).
+   - `underlying_contract_symbol`: Linked Gold future (e.g., GCM6, GCQ6).
+   - `dte`: Days to expiry.
+   - `strike`: Option strike price.
+   - `call_oi` / `put_oi`: Open interest at that strike.
+   - `underlying_price`: Futures price at snapshot time.
+   - `snapshot_at`: Weekly snapshots (Mar 30 → Apr 18, 5 available).
+
+2. **Revised OI Aggregation Strategy (Regime Monitor)**:
+   To provide a stable signal for the regime monitor, aggregate across all strikes and focus on the front-month (short DTE ≤ 60 days):
+   ```sql
+   -- Per snapshot: aggregate across all strikes, focus on front-month
+   SELECT
+       snapshot_at::date,
+       SUM(call_oi)              AS oi_call_total,
+       SUM(put_oi)               AS oi_put_total,
+       SUM(call_oi + put_oi)     AS oi_total,
+       SUM(put_oi) / NULLIF(SUM(call_oi), 0) AS put_call_ratio,
+       AVG(underlying_price)     AS underlying_price
+   FROM open_interest
+   WHERE dte <= 60   -- near-term (front-month) options only
+   GROUP BY snapshot_at::date
+   ORDER BY snapshot_at::date
+   ```
+   **Note**: This produces one row per weekly snapshot, which must be forward-filled (`ffill`) onto the H4 candle index for continuous analysis.
+
 ## 📓 Step 13: Institutional Journaling & Post-Mortem (V2.2 Standard)
 The system implements an automated "Post-Mortem Analysis" pipeline for every closed trade.
 
