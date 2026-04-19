@@ -144,6 +144,8 @@ from app.tools.quant_analysis import RiskMapTool
 from app.tools.journal import GetJournalEntriesTool
 from app.tools.edge_optimization import EdgeOptimizationTool
 from app.tools.alert import DeployTelegramAlertTool
+from app.tools.open_interest import OpenInterestTool
+from app.tools.cot import COTAnalystTool
 
 registry.register("get_account_status", GetAccountStatusTool(), "Fetches account health including balance, equity, and leverage.")
 registry.register("account_status", GetAccountStatusTool()) # Alias
@@ -155,6 +157,8 @@ registry.register("get_journal_entries", GetJournalEntriesTool())
 registry.register("run_post_mortem", PostMortemTool(), "Run institutional analysis on a specific trade_id")
 registry.register("get_edge_optimization", EdgeOptimizationTool())
 registry.register("deploy_telegram_alert", DeployTelegramAlertTool())
+registry.register("open_interest", OpenInterestTool())
+registry.register("cot_analyst", COTAnalystTool())
 
 # --- Workflow Base ---
 class OlympusWorkflow:

@@ -264,6 +264,7 @@ To prevent schema drift across microservices, MTF Olympus follows a **Spec-First
 *   ✅ **Binance Integration:** Multi-broker support including Crypto.
 *   ✅ **System Drift Monitor:** Real-time health check (`/analysis/drift`).
 *   ✅ **AI Analyst V2:** Doc-RAG, Workflow Engine, BYOK, **Semantic Summarization**, and **Universal Agents (MCP)**.
+*   ✅ **Institutional Gamma Skill:** New agent skill for **GEX/OI analysis**, mapping Gamma Flip and institutional walls for XAU/USD.
 *   ✅ **Decoupled Architecture (v2.1):** Implemented **ECST** for symbol metadata and **Async RPC** for resilient execution.
 *   ✅ **Institutional Indicator Suite (v2.1):** Implemented **White-Box** technical indicators (ATR, RSI, EMA, MACD) with vectorized performance (`vectorbt`), institutional data isolation, and AI-ready interpretations.
 *   ✅ **AI Risk Rebalancer:** Autonomous **Sentiment-to-Risk** pipeline with automated Telegram alerts.
