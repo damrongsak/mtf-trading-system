@@ -605,7 +605,11 @@ paths:
       tags:
         - Analysis
       summary: Get Gamma Levels and Market Regime
-      description: Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+      description: |
+        Returns key liquidity levels (Call/Put Walls, Flip) derived from Options Open Interest.
+        
+        **V2.5 Standard**: Defaults to a 90-day DTE aggregate if no DTE filters are provided.
+        Includes integrity validation flags (is_valid, integrity_alerts) for reliability monitoring.
       parameters:
         - name: symbol
           in: query
@@ -619,13 +623,24 @@ paths:
           schema:
             type: number
             format: float
+        - name: min_dte
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: max_dte
+          in: query
+          required: false
+          description: "Defaults to 90 if omitted (Institutional V2.5 Standard)"
+          schema:
+            type: integer
       responses:
         '200':
           description: Gamma Analysis Data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/APIResponse'
+                $ref: '#/components/schemas/APIResponse_GammaAnalysis'
 
   /api/v1/analysis/smc:
     post:
@@ -7991,6 +8006,47 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UnifiedOIProfileResponse'
+
+    GammaLevel:
+      type: object
+      properties:
+        level: { type: number }
+        label: { type: string }
+        metadata: { type: object, nullable: true }
+
+    MarketRegimeResponse:
+      type: object
+      properties:
+        net_gex: { type: number }
+        regime: { type: string }
+        gamma_flip_level: { type: number, nullable: true }
+        summary: { type: string }
+        is_valid: { type: boolean }
+        integrity_alerts: 
+          type: array
+          items: { type: string }
+
+    GammaAnalysisResponse:
+      type: object
+      properties:
+        snapshot_at: { type: string, format: date-time }
+        underlying_price: { type: number, nullable: true }
+        levels:
+          type: array
+          items: { $ref: '#/components/schemas/GammaLevel' }
+        regime: { $ref: '#/components/schemas/MarketRegimeResponse' }
+        max_pain: { type: number }
+        mapped_max_pain: { type: number }
+        heatmap:
+          type: array
+          items: { type: object }
+
+    APIResponse_GammaAnalysis:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/GammaAnalysisResponse' }
 
     APIResponse_Agent:
       allOf:

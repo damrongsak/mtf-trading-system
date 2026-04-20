@@ -49,7 +49,18 @@ Strategies are assembled from these standardized, reusable blocks.
     * **Logic**: Price Close > Upper Keltner Channel OR < Lower Keltner Channel.
     * **State**: BREAKOUT_UP / BREAKOUT_DOWN.
 
-## 2.5 Strategy Compositions
+### 2.5 Liquidity & Gamma Analysis (v2.5)
+* **Gamma Flip Calculation (OIWAP)**:
+    * **Logic**: Instead of finding the strike with the absolute minimum `|Call - Put|` (which fails on sparse/zero-OI data), the system uses an **OI-Weighted Average Price (OIWAP)**.
+    * **Formula**: `Flip_Level = Σ(Strike_i * Total_OI_i) / Σ(Total_OI_i)` for all `Total_OI_i > 0`.
+    * **Benefit**: Anchors the "Zero Gamma" level to the actual center of gravity of institutional positioning.
+* **GEX V2.5 Integrity Standards**:
+    * **Reality-Anchoring**: The `underlying_price` from option symbols must match the `current_spot_price` within ±20%. Non-compliance triggers `STALE_OR_SCALE_DIVERGENCE`.
+    * **Noise Floor Guard**: Total GEX across the analysis snapshots must be >= 1.0 to ensure a statistically significant sample.
+    * **Proximity Guard**: Rejects Gamma Flip levels if they are > 25% away from Spot (Impossible Gamma Flips).
+    * **Timeframe Alignment**: Default institutional aggregation is **90 Days (Quarterly)**.
+
+## 2.6 Strategy Compositions
 
 ### STRAT_VOL_BREAKOUT_V1
 A pure volatility expansion strategy.

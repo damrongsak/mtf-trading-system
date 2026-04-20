@@ -115,12 +115,22 @@ class OpenInterestTool(BaseTool):
                 raw_futures = float(underlying_futures or 0.0)
                 raw_spot = float(current_price or 0.0)
                 max_pain = float(g_data.get("max_pain", 0.0))
+                g_regime = g_data.get("regime", {})
+                is_valid = g_regime.get("is_valid", True)
+                alerts = g_regime.get("integrity_alerts", [])
                 
-                report = [
+                report = []
+                if not is_valid:
+                    alert_str = ", ".join(alerts) if alerts else "STALE_DATA"
+                    report.append(f"⚠️ **DATA_INTEGRITY_ALERT**: Institutional Gamma regime is currently INVALID ({alert_str}).")
+                    report.append("Explanation: The divergence between spot and futures prices exceeds institutional safety limits, or liquidity is too low for reliable analysis.")
+                
+                report.extend([
                     f"**OI Snapshot ({actual_snapshot_at})**",
                     f"Spot: {raw_spot:.2f} | Futures: {raw_futures:.2f} | Max Pain: {max_pain:.2f}",
+                    f"Gamma Regime: {g_regime.get('regime', 'UNKNOWN')} (Flip: {g_regime.get('gamma_flip_level', 'N/A')})",
                     "\n**Key Liquidity Zones**:"
-                ]
+                ])
                 
                 if gamma_levels:
                     # Sort by significance and take top 10

@@ -1,6 +1,7 @@
-from typing import Any, Optional, Type
+from typing import Any, Optional, Type, List
 import aiohttp
 import logging
+import json
 from app.core.config import settings
 from app.core.base_tool import BaseTool
 from pydantic import BaseModel, Field
@@ -105,8 +106,12 @@ class MarketStateTool(BaseTool):
                         call_wall = next((l for l in g_levels if l.get("type") == "CALL_WALL"), None)
                         put_wall = next((l for l in g_levels if l.get("type") == "PUT_WALL"), None)
                         
+                        is_valid = g_regime.get("is_valid", True)
+                        alerts = g_regime.get("integrity_alerts", [])
+                        valid_status = "✅" if is_valid else f"⚠️ INVALID ({', '.join(alerts)})"
+                        
                         gamma_report = (
-                            f"**{g_regime.get('regime', 'UNKNOWN')} Gamma**\n"
+                            f"**{g_regime.get('regime', 'UNKNOWN')} Gamma** {valid_status}\n"
                             f"  - Gamma Flip: {g_regime.get('gamma_flip_level', 'N/A')}\n"
                             f"  - Call Wall: {call_wall['strike'] if call_wall else 'N/A'}\n"
                             f"  - Put Wall: {put_wall['strike'] if put_wall else 'N/A'}"

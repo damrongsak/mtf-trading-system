@@ -190,6 +190,13 @@ def import_data():
                         if isinstance(value, dict) and key == "config_json":
                             # Force a new dictionary object to ensure SQLAlchemy detects the change
                             existing_config = getattr(existing, key) or {}
+                            # If encrypted string, decrypt first so we can update as a dict
+                            if isinstance(existing_config, str):
+                                try:
+                                    existing_config = decrypt_data(existing_config)
+                                except Exception:
+                                    existing_config = {}
+                            
                             temp_config = dict(existing_config)
                             for sub_key, sub_val in value.items():
                                 # Only update if it's not a placeholder

@@ -115,7 +115,9 @@ To maintain a mathematically valid liquidity surface, agents MUST adhere to the 
 2. **Quarterly Aggregation (90-Day DTE)**: Institutional liquidity is best analyzed through a quarterly lens. 
    - **Default Behavior**: If `min_dte` and `max_dte` are omitted, the engine defaults to **DTE <= 90**.
    - **Recommendation**: Always use the 90-day aggregate for structural support/resistance analysis to capture the full breadth of dealer hedging.
-3. **Regime Validation**: If `total_gex` is exceptionally low or the `gamma_flip` is mathematically impossible given the spot price, trigger a **Data Integrity Alert** and refuse to generate a trade signal.
+3. **Regime Validation**: If `total_gex` is exceptionally low or the `gamma_flip` is mathematically impossible given the spot price, the system flags `is_valid=False`.
+   - **Agent Response**: If `is_valid` is `false`, AI agents MUST NOT prioritize the Gamma levels for trade entry. Check `integrity_alerts` (e.g., `STALE_OR_SCALE_DIVERGENCE`, `LOW_LIQUIDITY_NOISE_FLOOR`) to provide a detailed explanation to the user instead of suggesting a trade.
+   - **OIWAP Standard**: The Gamma Flip level is now calculated using OIWAP. If it diverges significantly from the previous day's level without a price move, flag it as a "Structural Repositioning" event.
 
 ### 🧮 5.6 Institutional Open Interest (CME Heatmap Standard)
 The system integrates CME Group COMEX Gold (OG) options open interest to map institutional capital commitments.

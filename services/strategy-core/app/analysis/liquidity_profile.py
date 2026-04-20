@@ -3,6 +3,9 @@ import numpy as np
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class GammaLevel:
@@ -25,6 +28,8 @@ class MarketRegime:
     regime: str  # 'POSITIVE_GAMMA' (Mean Reversion) or 'NEGATIVE_GAMMA' (Volatile/Trend)
     gamma_flip_level: Optional[float]
     summary: str
+    is_valid: bool = True
+    integrity_alerts: List[str] = field(default_factory=list)
 
 class LiquidityProfileAnalyzer:
     """
@@ -258,11 +263,51 @@ class LiquidityProfileAnalyzer:
         weights = 1.0 / (1.0 + pct_distance ** 2)
         weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
         net_gex = float(weighted_net.sum())
+        total_gex = float(np.abs(weighted_net).sum())
         
+        # 4. Calculate Gamma Flip (OIWAP Method for Stability - V2.5 Standard)
+        # Filter for active strikes to avoid picking strikes with zero OI
         df_sorted = df_target.sort_values('strike')
-        gamma_flip_row = df_sorted.iloc[(df_sorted['call_oi'] - df_sorted['put_oi']).abs().argsort()[:1]]
-        gamma_flip_level = gamma_flip_row['strike'].values[0] if not gamma_flip_row.empty else None
+        df_active = df_sorted[df_sorted['total_oi'] > 0].copy()
+        
+        gamma_flip_level = current_spot_price # Default
+        integrity_alerts = []
+        
+        if not df_active.empty:
+            # OIWAP: OI-Weighted Average Price
+            # This provides a more robust 'center of gravity' for dealer hedging
+            total_oi_weighted_sum = (df_active['strike'] * df_active['total_oi']).sum()
+            total_active_oi = df_active['total_oi'].sum()
+            
+            if total_active_oi > 0:
+                gamma_flip_level = float(total_oi_weighted_sum / total_active_oi)
+        
+        # 5. Reality-Anchoring & Regime Validation (V2.5 Standard)
+        is_valid = True
+        
+        # Check 1: Reality Anchoring (Stale Price Protection)
+        if current_spot_price > 0 and snapshot_futures_price > 0:
+            divergence = abs(current_spot_price - snapshot_futures_price) / current_spot_price
+            if divergence > 0.20:
+                is_valid = False
+                integrity_alerts.append("STALE_OR_SCALE_DIVERGENCE")
+        
+        # Check 2: Low Liquidity Floor
+        if total_gex < 1.0: # Arbitrary noise floor for institutional relevance
+            is_valid = False
+            integrity_alerts.append("LOW_TOTAL_GEX")
+            
+        # Check 3: Mathematical Impossibility
+        if gamma_flip_level > 0 and current_spot_price > 0:
+            flip_dist = abs(gamma_flip_level - current_spot_price) / current_spot_price
+            if flip_dist > 0.25: # Flip point should be within reasonable proximity
+                is_valid = False
+                integrity_alerts.append("IMPOSSIBLE_FLIP_PROXIMITY")
 
+        # 6. Final Outputs
+        regime_type = 'POSITIVE_GAMMA' if net_gex > 0 else 'NEGATIVE_GAMMA'
+        
+        # Add Gamma Flip to Levels (V2.5 Mapping)
         if gamma_flip_level:
             mapped_flip = gamma_flip_level - basis
             flip_conf = check_confluence_vec(np.array([mapped_flip]))[0]
@@ -278,13 +323,17 @@ class LiquidityProfileAnalyzer:
                 confluence=flip_conf
             ))
 
-        regime_type = 'POSITIVE_GAMMA' if net_gex > 0 else 'NEGATIVE_GAMMA'
-        
+        regime_summary = f"Market is in {regime_type} regime for {target_contract}. Net Distance-Weighted GEX: {net_gex:,.0f} (Raw Call: {total_call_oi:,.0f}, Raw Put: {total_put_oi:,.0f})"
+        if not is_valid:
+            regime_summary = f"⚠️ DATA_INTEGRITY_ALERT ({', '.join(integrity_alerts)}): " + regime_summary
+
         regime = MarketRegime(
             net_gex=net_gex,
             regime=regime_type,
             gamma_flip_level=gamma_flip_level,
-            summary=f"Market is in {regime_type} regime for {target_contract}. Net Distance-Weighted GEX: {net_gex:,.0f} (Raw Call: {total_call_oi:,.0f}, Raw Put: {total_put_oi:,.0f})"
+            summary=regime_summary,
+            is_valid=is_valid,
+            integrity_alerts=integrity_alerts
         )
 
         # 7. Optimized Max Pain (on filtered data)

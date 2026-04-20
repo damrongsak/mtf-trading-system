@@ -46,6 +46,8 @@ class MarketRegimeResponse(BaseModel):
     regime: str
     gamma_flip_level: Optional[float]
     summary: str
+    is_valid: bool = True
+    integrity_alerts: List[str] = []
 
 class GammaAnalysisResponse(BaseModel):
     snapshot_at: datetime
@@ -122,8 +124,10 @@ async def get_gamma_levels(
     base_filter = [OpenInterest.snapshot_at == snapshot_time]
     if min_dte is not None:
         base_filter.append(OpenInterest.dte >= min_dte)
-    if max_dte is not None:
-        base_filter.append(OpenInterest.dte <= max_dte)
+    
+    # Institutional GEX Standard (V2.5): Default to 90-day DTE if omitted
+    effective_max_dte = max_dte if max_dte is not None else 90
+    base_filter.append(OpenInterest.dte <= effective_max_dte)
 
     # Resolve Basis for Filtering
     # If price_to_use is spot (~2350) and DB strikes are ~4800, we must adjust filter
