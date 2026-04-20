@@ -28,8 +28,9 @@ Before starting ANY task in a new session, the agent MUST perform these three st
 2.  **Hierarchy of Truth**: Root `specs/*.yaml` files supersede any subdirectories.
     - Authoritative Data Model: `specs/03_data_model.yaml`
     - Authoritative API: `specs/04_api_spec.yaml`
-3.  **Planning Mode**: Always create or update an `implementation_plan.md` that explicitly lists the spec changes.
-4.  **🚫 Never Auto-Commit**: You MUST NOT run `git commit` or `git push` autonomously. Present staged changes to the user first.
+3.  **Single Migration Authority**: The `data-pipeline` service is the **Source of Truth** for database schemas. ALL changes MUST be applied via **Alembic** in `services/data-pipeline`. Manual SQL scripts are strictly prohibited.
+4.  **Planning Mode**: Always create or update an `implementation_plan.md` that explicitly lists the spec changes.
+5.  **🚫 Never Auto-Commit**: You MUST NOT run `git commit` or `git push` autonomously. Present staged changes to the user first.
 
 ### 🛠️ SDD Workflow Steps
 1.  **Identify**: Determine if the change affects Data Models (`03`), API Contracts (`04`), or Logic (`01`/`08`).
@@ -90,6 +91,7 @@ All AI tools (in `ai-analyst`) MUST adhere to these resilience standards:
 - **cTrader IDs**: `orderId` for Pending; `positionId` for Filled. Use `broker_trade_id` for stable mapping.
 - **HFT-lite Path**: Execution path is **DB-free**. Uses Redis Streams and in-memory caches.
 - **GEX V2.5**: Must provide `spot_price` for reality-anchoring. Default aggregation = **90-Day DTE**.
+- **Strike-level Greeks**: `open_interest` data must be stored with per-strike Greeks (Delta, Gamma, Vanna, Charm) to enable second-order risk analysis.
 
 ---
 

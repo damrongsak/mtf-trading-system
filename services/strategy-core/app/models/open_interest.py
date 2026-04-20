@@ -15,6 +15,13 @@ class OpenInterest(Base):
     put_oi = Column(Numeric(18, 2), nullable=True)
     underlying_price = Column(Numeric(18, 8), nullable=True)
     underlying_contract_symbol = Column(String(50), nullable=True)
+    implied_volatility = Column(Numeric(18, 8), nullable=True, comment="Synthetic or derived Implied Volatility (GVZ baseline + Skew)")
+    delta = Column(Numeric(18, 8), nullable=True)
+    gamma = Column(Numeric(18, 8), nullable=True)
+    vega = Column(Numeric(18, 8), nullable=True)
+    theta = Column(Numeric(18, 8), nullable=True)
+    vanna = Column(Numeric(18, 8), nullable=True, comment="Sensitivity of Option Delta to changes in IV (dDelta/dVol)")
+    charm = Column(Numeric(18, 8), nullable=True, comment="Rate of Change of Option Delta over time (Delta Decay)")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

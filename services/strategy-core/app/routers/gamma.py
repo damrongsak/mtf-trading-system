@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List, Any
 from datetime import datetime
@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 from app.database import get_db
 from app.models.open_interest import OpenInterest
 from app.analysis.liquidity_profile import LiquidityProfileAnalyzer, GammaLevel, MarketRegime
+from app.utils.macro_data import macro_engine
+
 from app.indicators.smc import analyze_smc
 from .market import fetch_candles_logic
 
@@ -40,6 +42,11 @@ class GammaLevelResponse(BaseModel):
     zone_type_v2: Optional[str] = None
     significance_score: Optional[float] = None
     confluence: List[str] = []
+    # V3.0 Greeks
+    iv: Optional[float] = None
+    vanna: Optional[float] = None
+    charm: Optional[float] = None
+
 
 class MarketRegimeResponse(BaseModel):
     net_gex: float
@@ -48,6 +55,12 @@ class MarketRegimeResponse(BaseModel):
     summary: str
     is_valid: bool = True
     integrity_alerts: List[str] = []
+    # V3.0 Metrics
+    fragility_index: Optional[float] = 0.0
+    fragility_alert: Optional[str] = "STABLE"
+    total_vanna_exposure: Optional[float] = 0.0
+    total_charm_decay: Optional[float] = 0.0
+
 
 class GammaAnalysisResponse(BaseModel):
     snapshot_at: datetime
@@ -57,6 +70,8 @@ class GammaAnalysisResponse(BaseModel):
     max_pain: float
     mapped_max_pain: float
     heatmap: List[dict]
+    macro_context: Optional[dict] = None
+
 
 @router.get("/levels", response_model=GammaAnalysisResponse)
 async def get_gamma_levels(
@@ -66,6 +81,7 @@ async def get_gamma_levels(
     min_dte: Optional[int] = None,
     max_dte: Optional[int] = None,
     fund_id: Optional[str] = None,
+    regime_monitor_mode: bool = Query(False, description="Institutional Monitor Mode: Focus on front-month (DTE <= 60)"),
     db: Session = Depends(get_db),
     fetch_candles: Any = Depends(get_fetch_candles),
     x_user_id: Optional[str] = Header(None)
@@ -111,7 +127,7 @@ async def get_gamma_levels(
         price_to_use = 0.0
 
     # 3. Redis Caching
-    cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}:{min_dte}:{max_dte}"
+    cache_key = f"gamma_analysis:{symbol}:{snapshot_time.isoformat()}:{price_to_use}:{min_dte}:{max_dte}:{regime_monitor_mode}"
     try:
         redis_client = get_redis_client()
         cached_result = await redis_client.get(cache_key)
@@ -125,8 +141,13 @@ async def get_gamma_levels(
     if min_dte is not None:
         base_filter.append(OpenInterest.dte >= min_dte)
     
-    # Institutional GEX Standard (V2.5): Default to 90-day DTE if omitted
-    effective_max_dte = max_dte if max_dte is not None else 90
+    # Institutional GEX Standard (V2.5): Default to 90-day DTE
+    # Rule 5.6.2: Regime Monitor focus on front-month (DTE <= 60)
+    if max_dte is not None:
+        effective_max_dte = max_dte
+    else:
+        effective_max_dte = 60 if regime_monitor_mode else 90
+    
     base_filter.append(OpenInterest.dte <= effective_max_dte)
 
     # Resolve Basis for Filtering
@@ -198,8 +219,10 @@ async def get_gamma_levels(
         "regime": asdict(result['regime']) if 'regime' in result else {},
         "max_pain": result.get('max_pain', 0.0),
         "mapped_max_pain": result.get('mapped_max_pain', 0.0),
-        "heatmap": result.get('heatmap', [])
+        "heatmap": result.get('heatmap', []),
+        "macro_context": macro_engine.get_macro_snapshot()
     }
+
 
     class NpEncoder(json.JSONEncoder):
         def default(self, obj):

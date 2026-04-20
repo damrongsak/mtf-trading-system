@@ -24,121 +24,74 @@ class MarketStateTool(BaseTool):
             symbol = input_data.get("symbol", symbol)
             timeframe = input_data.get("timeframe", timeframe)
         elif isinstance(input_data, str):
-            # Defensive JSON check
-            if input_data.strip().startswith("{") and input_data.strip().endswith("}"):
-                try:
-                    parsed = json.loads(input_data)
-                    symbol = parsed.get("symbol") or parsed.get("SYMBOL") or symbol
-                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME") or timeframe
-                except:
-                    symbol = input_data
-            else:
-                symbol = input_data
+            symbol = input_data
 
-        # Normalize symbol
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         
         async with aiohttp.ClientSession() as session:
             try:
-                # We use direct service URLs instead of API Gateway
                 strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
                 
                 headers = {}
                 if auth_token:
-                    if not auth_token.startswith("Bearer "):
-                        headers["Authorization"] = f"Bearer {auth_token}"
-                    else:
-                        headers["Authorization"] = auth_token
+                    headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
                 
-                # 1 & 2. Fetch Regime and Gamma in parallel with strict 3s target
-                logger.info(f"MarketState: Fetching parallel data for {normalized_symbol}")
+                # 1 & 2. Fetch Regime and Gamma (V3.0) in parallel
                 regime_url = f"{strategy_core_url}/market/regime"
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
                 
-                regime_payload = {"symbol": normalized_symbol, "timeframe": timeframe, "bias": "NEUTRAL"}
-                
                 import asyncio
-                
                 async def fetch_regime():
-                    async with session.post(regime_url, json=regime_payload, headers=headers, timeout=2.5) as resp:
+                    async with session.post(regime_url, json={"symbol": normalized_symbol, "timeframe": timeframe}, headers=headers, timeout=5.0) as resp:
                         if resp.status == 200: return await resp.json()
                         return {}
 
                 async def fetch_gamma():
-                    async with session.get(gamma_url, params={"symbol": normalized_symbol}, headers=headers, timeout=2.5) as resp:
+                    async with session.get(gamma_url, params={"symbol": normalized_symbol}, headers=headers, timeout=5.0) as resp:
                         if resp.status == 200: return await resp.json()
                         return {}
 
-                
-                try:
-                    regime_task = fetch_regime()
-                    gamma_task = fetch_gamma()
-                    ctx, g_ctx = await asyncio.gather(regime_task, gamma_task)
-                except Exception as e:
-                    logger.warning(f"MarketState parallel fetch failed: {e}")
-                    ctx, g_ctx = {}, {}
+                ctx, g_ctx = await asyncio.gather(fetch_regime(), fetch_gamma())
 
                 # 3. Process Results
                 regime = ctx.get("regime", "UNSTABLE")
                 score = ctx.get("regime_score", 0.0)
-                fakeout = ctx.get("fakeout_type")
+                risk_mult = float(ctx.get("risk_multiplier") or 1.0)
                 
-                try:
-                    risk_mult = float(ctx.get("risk_multiplier") or ctx.get("recommended_risk") or 1.0)
-                except (TypeError, ValueError):
-                    risk_mult = 1.0
+                # V3.0 Metrics
+                g_regime = g_ctx.get("regime", {})
+                lfi = float(g_regime.get("fragility_index", 0.0))
+                f_alert = g_regime.get("fragility_alert", "STABLE")
+                macro = g_ctx.get("macro_context") or {}
                 
-                fakeout_text = "None"
-                if fakeout:
-                    fakeout_text = f"⚠️ {fakeout} (Trap Detected)"
+                is_valid = g_regime.get("is_valid", True)
+                valid_status = "✅" if is_valid else "⚠️ INVALID"
                 
-                risk_advice = "STANDARD"
-                if risk_mult < 1.0: risk_advice = "REDUCED SIZE (CAUTION)"
-                elif risk_mult > 1.0: risk_advice = "AGGRESSIVE (HIGH PROB)"
-                
-                gamma_report = "Unavailable"
-                if g_ctx:
-                    if "error" in g_ctx:
-                        gamma_report = g_ctx["error"]
-                    else:
-                        g_regime = g_ctx.get("regime", {})
-                        g_levels = g_ctx.get("levels", [])
-                        call_wall = next((l for l in g_levels if l.get("type") == "CALL_WALL"), None)
-                        put_wall = next((l for l in g_levels if l.get("type") == "PUT_WALL"), None)
-                        
-                        is_valid = g_regime.get("is_valid", True)
-                        alerts = g_regime.get("integrity_alerts", [])
-                        valid_status = "✅" if is_valid else f"⚠️ INVALID ({', '.join(alerts)})"
-                        
-                        gamma_report = (
-                            f"**{g_regime.get('regime', 'UNKNOWN')} Gamma** {valid_status}\n"
-                            f"  - Gamma Flip: {g_regime.get('gamma_flip_level', 'N/A')}\n"
-                            f"  - Call Wall: {call_wall['strike'] if call_wall else 'N/A'}\n"
-                            f"  - Put Wall: {put_wall['strike'] if put_wall else 'N/A'}"
-                        )
-                adx_slope = float(ctx.get("adx_slope", 0.0))
-                p_di = float(ctx.get("plus_di", 0.0))
-                m_di = float(ctx.get("minus_di", 0.0))
-                
-                slope_text = "Steady"
-                if adx_slope > 1.5: slope_text = "Strengthening 📈"
-                elif adx_slope < -1.5: slope_text = "Weakening 📉"
-                
-                di_text = "Neutral"
-                if p_di > m_di + 5: di_text = "Bullish Dominance (DI+ > DI-)"
-                elif m_di > p_di + 5: di_text = "Bearish Dominance (DI- > DI+)"
-                
+                # Macro Logic
+                macro_report = "N/A"
+                if macro:
+                    ry = macro.get('real_yield_10y', 'N/A')
+                    dxy = macro.get('dxy_index', 'N/A')
+                    macro_report = f"Real Yield: {ry}% | DXY: {dxy}"
+
                 report = (
                     f"--- Adaptive Market State ({symbol} {timeframe}) ---\n"
-                    f"- Regime: {regime}\n"
-                    f"- **Trend Strength (ADX)**: {score:.1f} ({slope_text})\n"
-                    f"- **Directional Index**: {di_text} [+DI: {p_di:.1f}, -DI: {m_di:.1f}]\n"
-                    f"- Fakeout/Trap: {fakeout_text}\n"
-                    f"- **Dynamic Risk**: {risk_mult}x ({risk_advice})\n"
-                    f"- **Liquidity Profile (Gamma)**: {gamma_report}\n"
-                    f"- Context: The market is {regime.split('_')[0].lower()} with {fakeout_text.lower() if fakeout else 'no'} traps."
+                    f"- **Regime**: {regime} | Risk: {risk_mult}x\n"
+                    f"- **Macro Context**: {macro_report}\n"
+                    f"- **Institutional Fragility (LFI)**: `{lfi:.1f}/100` ({f_alert}) {valid_status}\n"
+                    f"- **Trend Strength (ADX)**: {score:.1f}\n"
+                    f"- **Gamma Profile**: {g_regime.get('regime', 'UNKNOWN')} Gamma (Flip: {g_regime.get('gamma_flip_level', 'N/A')})\n"
+                    f"- **Interpretation**: The market is {regime.lower()}. "
                 )
+                
+                if lfi > 70:
+                    report += "⚠️ CAUTION: High Liquidity Fragility detected. Institutional walls are unstable."
+                elif is_valid:
+                    report += "Liquidity regime is stable and valid for execution."
+                
                 return report
+                
             except Exception as e:
                 logger.error(f"Failed to fetch market state: {e}")
                 return f"Institutional analysis tool error: {e}"
+

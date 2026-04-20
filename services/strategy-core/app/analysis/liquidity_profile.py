@@ -4,6 +4,9 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
+from app.utils.options_math import black_scholes_greeks
+from app.utils.vol_surface import get_gvz_index, get_synthetic_iv, get_vanna_charm_sensitivity
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,12 @@ class GammaLevel:
     zone_type_v2: str = "NEUTRAL" # 'DEMAND_ZONE' | 'SUPPLY_ZONE' | 'NEUTRAL'
     significance_score: float = 0.5 # 0.0 to 1.0
     confluence: List[str] = field(default_factory=list) # SMC/Fib confluence tags
+    # V3.0 Greeks
+    iv: Optional[float] = None
+    vanna: Optional[float] = None
+    charm: Optional[float] = None
+    fragility_score: float = 0.0
+
 
 @dataclass
 class MarketRegime:
@@ -30,6 +39,12 @@ class MarketRegime:
     summary: str
     is_valid: bool = True
     integrity_alerts: List[str] = field(default_factory=list)
+    # V3.0 Metrics
+    fragility_index: float = 0.0 # 0-100 LFI
+    fragility_alert: str = "STABLE"
+    total_vanna_exposure: float = 0.0
+    total_charm_decay: float = 0.0
+
 
 class LiquidityProfileAnalyzer:
     """
@@ -103,6 +118,56 @@ class LiquidityProfileAnalyzer:
             basis = 0.0
             
         df_target['mapped_price'] = df_target['strike'] - basis
+        
+        # 3. GEX & Greeks (V3.0 Institutional Standard)
+        # Distance-Weighted GEX Proxy
+        pct_distance = np.abs(df_target['strike'] - current_spot_price) / current_spot_price * 100.0
+        # Weight exponentially favors At-The-Money (ATM) strikes
+        weights = 1.0 / (1.0 + pct_distance ** 2)
+        weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
+        net_gex = float(weighted_net.sum())
+        total_gex = float(np.abs(weighted_net).sum())
+        
+        # Synthetic IV & Greeks
+        atm_iv = get_gvz_index()
+        df_target['iv'] = get_synthetic_iv(current_spot_price, df_target['mapped_price'], atm_iv)
+        
+        # Calculate Greeks for each strike
+        greeks_list = []
+        for _, row in df_target.iterrows():
+            option_type = 'CALL' if row['call_oi'] >= row['put_oi'] else 'PUT'
+            # T (Years to Expiry) - Approx from DTE
+            t_years = max(row['dte'], 1) / 365.25
+            gref = black_scholes_greeks(
+                S=current_spot_price,
+                K=row['mapped_price'], 
+                T=t_years,
+                r=0.045, # Global Risk-Free Proxy
+                sigma=row['iv'],
+                option_type=option_type
+            )
+            greeks_list.append(gref)
+        
+        greeks_df = pd.DataFrame(greeks_list)
+        df_target = pd.concat([df_target.reset_index(drop=True), greeks_df.reset_index(drop=True)], axis=1)
+        
+        # Calculate Total Exposures
+        # Vanna Exposure = Sum(Vanna * OI)
+        df_target['vanna_exposure'] = df_target['vanna'] * df_target['total_oi']
+        df_target['charm_decay'] = df_target['charm'] * df_target['total_oi']
+        
+        total_vanna = float(df_target['vanna_exposure'].sum())
+        total_charm = float(df_target['charm_decay'].sum())
+        
+        # Calculate Liquidity Fragility Index (LFI)
+        # Higher absolute Vanna/Charm relative to GEX implies fragile walls
+        lfi = 0.0
+        if total_gex > 0:
+            # Normalize sensitivities to GEX magnitude
+            v_sens = abs(total_vanna) / (total_gex * 0.1)
+            c_sens = abs(total_charm) / (total_gex * 0.01)
+            lfi = min((v_sens + c_sens) * 50, 100.0)
+
 
         # 4. Identify Walls (Local vs Global)
         # Global Walls (Absolute maximums)
@@ -199,8 +264,12 @@ class LiquidityProfileAnalyzer:
             market_action="RESISTANCE",
             zone_type_v2="SUPPLY_ZONE",
             significance_score=self.calculate_significance('CALL_WALL', get_zone_type(primary_call_row['strike']), p_call_conf, primary_call_row['call_oi']/max_oi_overall),
-            confluence=p_call_conf
+            confluence=p_call_conf,
+            iv=float(primary_call_row['iv']),
+            vanna=float(primary_call_row['vanna']),
+            charm=float(primary_call_row['charm'])
         ))
+
 
         # Major Resistance (Absolute Call Wall)
         if primary_call_row['strike'] != max_call_row['strike']:
@@ -252,18 +321,9 @@ class LiquidityProfileAnalyzer:
                 confluence=m_put_conf
             ))
 
-        # 6. GEX Regime
+        # 6. Sentiment Context
         total_call_oi = df_target['call_oi'].sum()
         total_put_oi = df_target['put_oi'].sum()
-        
-        # Distance-Weighted GEX Proxy
-        mapped_strikes = df_target['strike'] - basis
-        pct_distance = np.abs(mapped_strikes - current_spot_price) / current_spot_price * 100.0
-        # Weight exponentially favors At-The-Money (ATM) strikes
-        weights = 1.0 / (1.0 + pct_distance ** 2)
-        weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
-        net_gex = float(weighted_net.sum())
-        total_gex = float(np.abs(weighted_net).sum())
         
         # 4. Calculate Gamma Flip (OIWAP Method for Stability - V2.5 Standard)
         # Filter for active strikes to avoid picking strikes with zero OI
@@ -295,7 +355,7 @@ class LiquidityProfileAnalyzer:
         # Check 2: Low Liquidity Floor
         if total_gex < 1.0: # Arbitrary noise floor for institutional relevance
             is_valid = False
-            integrity_alerts.append("LOW_TOTAL_GEX")
+            integrity_alerts.append("LOW_LIQUIDITY_NOISE_FLOOR")
             
         # Check 3: Mathematical Impossibility
         if gamma_flip_level > 0 and current_spot_price > 0:
@@ -333,8 +393,13 @@ class LiquidityProfileAnalyzer:
             gamma_flip_level=gamma_flip_level,
             summary=regime_summary,
             is_valid=is_valid,
-            integrity_alerts=integrity_alerts
+            integrity_alerts=integrity_alerts,
+            fragility_index=lfi,
+            fragility_alert=get_vanna_charm_sensitivity(lfi),
+            total_vanna_exposure=total_vanna,
+            total_charm_decay=total_charm
         )
+
 
         # 7. Optimized Max Pain (on filtered data)
         max_pain_strike = self.calculate_max_pain(df_filtered)

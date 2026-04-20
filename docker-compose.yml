@@ -55,7 +55,7 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 512M
+          memory: 1024M
     networks:
       - default
       - external
@@ -177,6 +177,7 @@ services:
   strategy-core:
     build: ./services/strategy-core
     container_name: strategy-core
+    env_file: .env
     ports:
       - "8003:8000"
     command: /venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info

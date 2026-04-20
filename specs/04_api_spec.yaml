@@ -8013,6 +8013,13 @@ components:
         level: { type: number }
         label: { type: string }
         metadata: { type: object, nullable: true }
+        implied_volatility: { type: number, nullable: true }
+        delta: { type: number, nullable: true }
+        gamma: { type: number, nullable: true }
+        vega: { type: number, nullable: true }
+        theta: { type: number, nullable: true }
+        vanna: { type: number, nullable: true }
+        charm: { type: number, nullable: true }
 
     MarketRegimeResponse:
       type: object
@@ -8021,6 +8028,8 @@ components:
         regime: { type: string }
         gamma_flip_level: { type: number, nullable: true }
         summary: { type: string }
+        fragility_index: { type: number, nullable: true, description: "Liquidity Fragility Index (0-100)" }
+        fragility_alert: { type: string, nullable: true }
         is_valid: { type: boolean }
         integrity_alerts: 
           type: array

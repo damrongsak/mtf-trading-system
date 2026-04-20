@@ -127,9 +127,14 @@ The system integrates CME Group COMEX Gold (OG) options open interest to map ins
    - `underlying_contract_symbol`: Linked Gold future (e.g., GCM6, GCQ6).
    - `dte`: Days to expiry.
    - `strike`: Option strike price.
-   - `call_oi` / `put_oi`: Open interest at that strike.
-   - `underlying_price`: Futures price at snapshot time.
-   - `snapshot_at`: Weekly snapshots (Mar 30 → Apr 18, 5 available).
+    - `call_oi` / `put_oi`: Open interest at that strike.
+    - `underlying_price`: Futures price at snapshot time.
+    - `implied_volatility` / `delta` / `gamma` / `vanna` / `charm`: Greeks calculated at snapshot time.
+    - `snapshot_at`: Weekly snapshots (Mar 30 → Apr 18, 5 available).
+
+3. **Institutional Guardrails (V3.0)**:
+   - **Single Migration Authority**: AI Agents MUST NOT use manual SQL scripts for schema changes. ALL database migrations must be performed via **Alembic** within the `services/data-pipeline` directory.
+   - **Grain Alignment**: Greeks MUST be stored at the same grain as OI (Contract + Strike + Snapshot) to enable dynamic Risk Aggregation in the Regime Monitor.
 
 2. **Revised OI Aggregation Strategy (Regime Monitor)**:
    To provide a stable signal for the regime monitor, aggregate across all strikes and focus on the front-month (short DTE ≤ 60 days):

@@ -2085,6 +2085,44 @@ validation_rules:
         max_length: 50
         nullable: true
         description: "The specific futures contract symbol (e.g. GCJ6) for this option"
+      - name: implied_volatility
+        type: decimal
+        precision: 10
+        scale: 6
+        nullable: true
+        description: "Synthetic or market-derived implied volatility"
+      - name: delta
+        type: decimal
+        precision: 10
+        scale: 6
+        nullable: true
+      - name: gamma
+        type: decimal
+        precision: 18
+        scale: 12
+        nullable: true
+      - name: vega
+        type: decimal
+        precision: 10
+        scale: 6
+        nullable: true
+      - name: theta
+        type: decimal
+        precision: 10
+        scale: 6
+        nullable: true
+      - name: vanna
+        type: decimal
+        precision: 18
+        scale: 12
+        nullable: true
+        description: "Sensitivity of delta to volatility"
+      - name: charm
+        type: decimal
+        precision: 18
+        scale: 12
+        nullable: true
+        description: "Sensitivity of delta to time (delta decay)"
       - name: created_at
         type: datetime
         default: "now()"
