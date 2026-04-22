@@ -177,7 +177,7 @@ async def get_gamma_levels(
         if max_call_record or max_put_record:
             filtered_records = []
         else:
-            if redis_client: await redis_client.close()
+            if redis_client: await redis_client.aclose()
             raise HTTPException(status_code=404, detail="No records found for specified parameters")
 
     combined_records_dict = {}

@@ -53,7 +53,7 @@ class OpenInterestTool(BaseTool):
                         bid = float(spot_data.get("bid", spot_data.get("price", 0)))
                         ask = float(spot_data.get("ask", bid))
                         current_price = (bid + ask) / 2.0 if ask > 0 else bid
-                    await redis_client.close()
+                    await redis_client.aclose()
                 except Exception as e:
                     logger.warning(f"Redis spot lookup failed: {e}")
 

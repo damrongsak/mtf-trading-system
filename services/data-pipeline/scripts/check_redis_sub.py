@@ -41,8 +41,8 @@ async def listen_to_stream():
             except asyncio.TimeoutError:
                 continue
                 
-        await pubsub.close()
-        await r.close()
+        await pubsub.aclose()
+        await r.aclose()
         
     except Exception as e:
         print(f"Error: {e}")

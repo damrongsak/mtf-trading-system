@@ -60,7 +60,7 @@ class ConnectionManager:
                 # Fetch provider-specific snapshot if source is provided
                 redis_key = f"market_data:spot:{source.upper()}:{norm_symbol}" if source else f"market_data:spot:{norm_symbol}"
                 snapshot = await temp_redis.hgetall(redis_key)
-                await temp_redis.close()
+                await temp_redis.aclose()
                 
                 if snapshot and "bid" in snapshot:
                     logger.info(f"Sending instant snapshot for {norm_symbol} to new client")
@@ -153,7 +153,7 @@ class ConnectionManager:
             except asyncio.CancelledError:
                 pass
         
-        await self.redis.close()
+        await self.redis.aclose()
         logger.info("StreamManager background listener stopped.")
 
     async def _redis_listener(self):

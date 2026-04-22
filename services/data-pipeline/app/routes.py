@@ -455,7 +455,7 @@ async def get_cached_news_headlines(
             
         return json.loads(cached_data)
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
 
 @router.post("/news/sentiment", response_model=SentimentResponse, status_code=201)
 def save_news_sentiment(
@@ -545,7 +545,7 @@ async def get_latest_tick(
                 snapshot = temp
                 break
         
-        await r.close()
+        await r.aclose()
         
         if not snapshot or "bid" not in snapshot:
             raise HTTPException(status_code=404, detail=f"No tick data found for {symbol}")

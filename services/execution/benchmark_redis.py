@@ -12,7 +12,7 @@ async def benchmark_old_way():
         # The "old" way: create connection every time
         r = aioredis.from_url(redis_url, decode_responses=True)
         await r.ping()
-        await r.close()
+        await r.aclose()
     end = time.perf_counter()
     return (end - start) / 100
 

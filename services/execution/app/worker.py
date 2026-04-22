@@ -69,7 +69,7 @@ class ExecutionWorker:
     async def stop(self):
         self._running = False
         # if self.redis:
-        #     await self.redis.close()
+        #     await self.redis.aclose()
         logger.info("Execution Worker stopped.")
 
     async def _process_command(self, queue_key: str, message_json: str):
@@ -315,7 +315,7 @@ class FillTradeConsumer:
     async def stop(self):
         self._running = False
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
         logger.info("[FillConsumer] Stopped.")
 
     async def _ensure_consumer_group(self):
@@ -599,7 +599,7 @@ class CloseTradeConsumer:
     async def stop(self):
         self._running = False
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     async def _ensure_consumer_group(self):
         try:

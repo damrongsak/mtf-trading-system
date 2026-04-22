@@ -11,4 +11,4 @@ async def test_redis_connection_mock():
     # Just checking instantiation doesn't fail
     r = redis.Redis.from_url("redis://localhost")
     assert r is not None
-    await r.close()
+    await r.aclose()

@@ -169,7 +169,7 @@ async def run_simulation(symbol: str = "XAUUSD", timeframe: str = "M15", lookbac
             logger.info(f"✅ Exhaustive Report & Visual Saved.")
             
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
         await db_pool.close()
 
 if __name__ == "__main__":

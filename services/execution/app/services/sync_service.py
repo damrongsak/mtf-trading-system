@@ -214,7 +214,7 @@ class SyncService:
         # For now, we log the net exposure per asset per fund.
         await cls._calculate_net_exposure_drift(fund_id, broker_states, redis_client)
         
-        await redis_client.close()
+        await redis_client.aclose()
 
     @classmethod
     async def _calculate_net_exposure_drift(cls, fund_id: str, broker_states: Dict[str, List[Dict[str, Any]]], redis_client):

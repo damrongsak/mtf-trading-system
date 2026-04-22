@@ -51,7 +51,7 @@ class RedisStreamClient:
         """Closes the Redis connection."""
         self.running = False
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     async def consume(self, batch_size: int = 10, block_ms: int = 2000) -> AsyncGenerator[tuple[str, Dict[str, Any]], None]:
         """

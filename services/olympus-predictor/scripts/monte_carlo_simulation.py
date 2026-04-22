@@ -183,7 +183,7 @@ async def run_monte_carlo(symbol: str = "XAUUSD", n_trials: int = 10000, steps: 
         logger.info(f"✅ Monte Carlo Analytics Saved.")
         
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
         await db_pool.close()
 
 if __name__ == "__main__":

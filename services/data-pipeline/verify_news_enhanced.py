@@ -49,7 +49,7 @@ async def main():
     else:
         print("\nWARNING: Quota incremented! Caching might be broken.")
         
-    await r.close()
+    await r.aclose()
 
 if __name__ == "__main__":
     asyncio.run(main())

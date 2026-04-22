@@ -55,7 +55,7 @@ async def test_close(subscriber):
     subscriber.redis = mock_redis
     subscriber.pubsub = mock_pubsub
     
-    await subscriber.close()
+    await subscriber.aclose()
     
     mock_pubsub.aclose.assert_awaited()
     mock_redis.aclose.assert_awaited()

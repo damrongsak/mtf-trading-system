@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
             logger.error("🛑 Service will proceed with local MemorySaver, but cross-turn memory will be DISABLED.")
         else:
             logger.info(f"✅ Infrastructure Verified (Redis Modules: {module_names})")
-        await redis.close()
+        await redis.aclose()
     except Exception as e:
         logger.warning(f"⚠️ Infrastructure check skipped (Redis not ready): {e}")
 

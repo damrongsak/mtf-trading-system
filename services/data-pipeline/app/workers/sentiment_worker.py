@@ -44,7 +44,7 @@ class SentimentWorker:
     async def stop(self):
         self.running = False
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     async def _consume_loop(self):
         logger.info("SentimentWorker loop started.")

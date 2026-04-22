@@ -20,7 +20,7 @@ class SentimentService:
     async def close(self):
         """Close Redis connection."""
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     async def get_sentiment(self, symbol: str = "XAUUSD") -> dict:
         if not settings.gemini.api_key:

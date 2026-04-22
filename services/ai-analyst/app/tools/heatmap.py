@@ -53,7 +53,7 @@ class LiquidityHeatmapTool(BaseTool):
                         bid = float(spot_data.get("bid", 0))
                         ask = float(spot_data.get("ask", 0))
                         current_price = (bid + ask) / 2.0 if ask > 0 else bid
-                    await redis_client.close()
+                    await redis_client.aclose()
                 except Exception as e:
                     logger.warning(f"Redis price fetch failed: {e}")
 

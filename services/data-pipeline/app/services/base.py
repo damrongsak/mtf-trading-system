@@ -30,7 +30,7 @@ class BaseService:
     async def close(self):
         """Cleanup resources."""
         if self._redis:
-            await self._redis.close()
+            await self._redis.aclose()
             self._redis = None
         if self._session and not self._session.closed:
             await self._session.close()

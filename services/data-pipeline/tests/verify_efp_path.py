@@ -37,7 +37,7 @@ async def benchmark_redis_binary_publish():
     
     avg_latency = (end_time - start_time) / iterations * 1e6
     print(f"Average Redis Publish Latency: {avg_latency:.2f} μs")
-    await r.close()
+    await r.aclose()
 
 if __name__ == "__main__":
     asyncio.run(benchmark_efp_engine())

@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     
     # Cleanup
     if redis_client:
-        await redis_client.close()
+        await redis_client.aclose()
     if db_pool:
         await db_pool.close()
     logger.info("Shutdown complete.")

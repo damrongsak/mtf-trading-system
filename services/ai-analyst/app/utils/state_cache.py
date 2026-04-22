@@ -91,7 +91,7 @@ class StateCache:
                     await asyncio.sleep(1)
         finally:
             await pubsub.unsubscribe("state_updates")
-            await redis.close()
+            await redis.aclose()
 
 # Global instance
 state_cache = StateCache()

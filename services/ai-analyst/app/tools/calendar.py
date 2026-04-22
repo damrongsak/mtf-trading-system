@@ -39,7 +39,7 @@ class GetEconomicCalendarTool(BaseTool):
                 r = redis.from_url(settings.REDIS_URL, decode_responses=True)
                 data = await r.get("calendar:USD")
                 if data: events = json.loads(data)
-                await r.close()
+                await r.aclose()
             except: pass
 
         if not events:

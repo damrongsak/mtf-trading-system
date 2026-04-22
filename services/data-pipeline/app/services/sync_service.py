@@ -77,6 +77,6 @@ class SyncService:
                     }
                     await redis_client.xadd("system.alerts.drift", {"payload": json.dumps(alert)})
         finally:
-            await redis_client.close()
+            await redis_client.aclose()
 
 sync_service = SyncService()

@@ -74,7 +74,7 @@ class TrainingWorker:
     async def stop(self):
         self._running = False
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
         if self.db_pool:
             await self.db_pool.close()
         logger.info("Predictor Training Worker stopped.")
