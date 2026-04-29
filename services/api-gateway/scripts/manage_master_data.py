@@ -187,7 +187,7 @@ def import_data():
                             continue
                             
                         # Special handling for JSONB fields with sanitization
-                        if isinstance(value, dict) and key == "config_json":
+                        if isinstance(value, dict) and key == "config_json" and model_class == DataSource:
                             # Force a new dictionary object to ensure SQLAlchemy detects the change
                             existing_config = getattr(existing, key) or {}
                             # If encrypted string, decrypt first so we can update as a dict
