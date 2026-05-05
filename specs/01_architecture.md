@@ -109,6 +109,7 @@ The system is organized into five decoupled layers of responsibility:
     - **Personalized Q&A**: Leverages `MemoryService` for deep awareness of user preferences and session history.
     - **Psychological MRI**: Analyzes execution patterns for "Tilt".
     - **Jargon Normalization**: Enforces "Medium Financial" jargon levels for executive accessibility.
+    - **Hardness Overrides (v3.5)**: Implements graph-level conditional routing to bypass high-latency auditing/recovery nodes for routine intents (`DAILY_BRIEFING`, `JOURNAL_ANALYSIS`), ensuring deterministic <30s execution.
 
 ### 4.5. Data Pipeline (`services/data-pipeline`)
 - **Role**: The foundation. Providing clean, bias-free data for L1 and L3.

@@ -38,3 +38,4 @@ from .user import User
 from .user_fund import Fund, UserFund
 from .user_preferences import UserPreferences
 from .alert import Alert, AlertCondition
+from .regime_monitor import RegimeMonitor

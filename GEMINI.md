@@ -17,6 +17,11 @@ Before starting ANY task in a new session, the agent MUST perform these three st
     # Check Spot Price (XAUUSD Example)
     docker compose exec api-gateway redis-cli get market_data:spot:XAUUSD
     ```
+4.  **Institutional Regime**: Verify the current GEX regime for context.
+    ```bash
+    docker compose exec api-gateway python scripts/update_regime_monitor.py
+    ```
+5.  **Historical Anchor**: Use `get_regime_history` tool to verify historical bias consistency before high-risk analysis.
 
 ---
 
@@ -91,6 +96,7 @@ All AI tools (in `ai-analyst`) MUST adhere to these resilience standards:
 - **cTrader IDs**: `orderId` for Pending; `positionId` for Filled. Use `broker_trade_id` for stable mapping.
 - **HFT-lite Path**: Execution path is **DB-free**. Uses Redis Streams and in-memory caches.
 - **GEX V2.5**: Must provide `spot_price` for reality-anchoring. Default aggregation = **90-Day DTE**.
+- **Regime Synchronization**: Institutional regimes are synced to the **H4 timeframe** (Rule 5.6.3).
 - **Strike-level Greeks**: `open_interest` data must be stored with per-strike Greeks (Delta, Gamma, Vanna, Charm) to enable second-order risk analysis.
 
 ---
@@ -101,6 +107,8 @@ All AI tools (in `ai-analyst`) MUST adhere to these resilience standards:
 | **Start Backend** | `docker compose up api execution strategy-core` |
 | **Verify Schema** | `docker compose exec api-gateway python scripts/verify_api_schemas.py` |
 | **Export/Import MDMS** | `docker compose exec api-gateway python scripts/manage_master_data.py [export/import]` |
+| **Update Regime Monitor** | `docker compose exec api-gateway python scripts/update_regime_monitor.py` |
+| **Check Regime History** | `curl -X GET http://localhost:8000/api/v1/analysis/gamma/regime-history?symbol=XAUUSD` |
 | **Reload Strategies** | `curl -X POST http://localhost:8000/api/v1/strategies/reload` |
 
 ---

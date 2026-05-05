@@ -177,7 +177,11 @@ class StrategyAdvisorAgent:
         # 2. Add Edges
         workflow.set_entry_point("memory_recall")
         workflow.add_edge("memory_recall", "query_optimizer")
+        
+        # Phase 68: Hardness Overrides - Selective bypassing
+        # We always want market_context for accurate data
         workflow.add_edge("query_optimizer", "market_context")
+        
         workflow.add_edge("market_context", "drift_analyzer")
         workflow.add_edge("drift_analyzer", "severity_classifier")
         workflow.add_edge("severity_classifier", "check_cache")
@@ -289,6 +293,8 @@ class StrategyAdvisorAgent:
         Fetches real-time market context (volatility, trend) for benchmark symbols.
         Used to inform the severity classifier of current market regimes.
         """
+        # Routine intents still need context for accurate reporting
+             
         logger.info("Fetching real-time market context for severity assessment...")
         
         # Benchmark symbols for regime detection
@@ -324,6 +330,8 @@ class StrategyAdvisorAgent:
         Ad-hoc Statistical Drift Analysis using StabilityObserver.
         Updates state with drift status to trigger Safe Mode in Sentinel.
         """
+        # Routine intents still benefit from drift check for risk assessment
+             
         logger.info("🔍 Analyzing performance drift for Safe Mode assessment...")
         db = SessionLocal()
         try:
@@ -504,6 +512,18 @@ class StrategyAdvisorAgent:
         query = state["input_text"]
         logger.info(f"Optimizing query: {query}")
         
+        # Phase 68: Hardness Overrides for Briefing/Journal
+        if "briefing" in query.lower() or "journal" in query.lower():
+             intent = "DAILY_BRIEFING" if "briefing" in query.lower() else "JOURNAL_ANALYSIS"
+             logger.info(f"🛡️ Hardness Override: Intent forced to {intent}")
+             return {
+                 "optimized_query": query,
+                 "intent": intent,
+                 "severity": "ROUTINE",
+                 "iteration_count": state.get("iteration_count", 0) + 1,
+                 "data_gap_detected": False
+             }
+        
         # Format recent history for context
         history = state.get("messages", [])
         history_str = "No recent history."
@@ -652,13 +672,14 @@ class StrategyAdvisorAgent:
         """
         Classifies the severity of the request to determine the graph topology.
         """
+        intent = state.get("intent", "CHAT")
+        
         # --- Phase 68: Hardness Override ---
-        if state.get("is_journal_job") or state.get("intent") == "JOURNAL_ANALYSIS":
-            logger.info("🛡️ Severity Classifier: Skipping for Journal Job. Forcing ROUTINE.")
+        if intent in ["DAILY_BRIEFING", "JOURNAL_ANALYSIS"] or state.get("is_journal_job"):
+            logger.info(f"🛡️ Severity Classifier: Skipping for {intent}. Forcing ROUTINE.")
             return {"severity": "ROUTINE", "market_severity": "ROUTINE"}
 
         query = state["optimized_query"]
-        intent = state.get("intent", "CHAT")
         
         # Simple heuristic: TOOL_USE for trades is always at least VOLATILITY
         # But let LLM decide based on context.
@@ -750,9 +771,9 @@ class StrategyAdvisorAgent:
         severity = state.get("severity", "ROUTINE")
         intent = state.get("intent", "CHAT")
 
-        # Phase 68: Hardness Override - Journal Analysis does not need Sentinel Review
-        if intent == "JOURNAL_ANALYSIS" or state.get("is_journal_job"):
-            logger.info("🛡️ Sentinel: Skipping review for JOURNAL_ANALYSIS to ensure persistence.")
+        # Phase 68: Hardness Override - Journal Analysis and Daily Briefing do not need Sentinel Review
+        if intent in ["JOURNAL_ANALYSIS", "DAILY_BRIEFING"] or state.get("is_journal_job"):
+            logger.info(f"🛡️ Sentinel: Skipping review for {intent} to ensure persistence.")
             return {"sentinel_result": {"approved": True}}
         
         # skip for ROUTINE if no tools were called
@@ -1086,7 +1107,7 @@ class StrategyAdvisorAgent:
 
     def _route_selection_output(self, state: AgentState):
         """
-        Routes based on whether tools were selected or we are done.
+        Routes the output of the tool selection.
         """
         # If tools were selected, go to execution
         if state.get("tool_calls"):
@@ -1108,6 +1129,16 @@ class StrategyAdvisorAgent:
             
         # No tools selected -> Move to final response generation
         return "done"
+
+    def _route_query_optimization(self, state: AgentState) -> str:
+        """
+        Phase 68: Routes query optimization output to bypass heavy nodes for routine reports.
+        """
+        intent = state.get("intent")
+        if intent in ["DAILY_BRIEFING", "JOURNAL_ANALYSIS"]:
+            logger.info(f"Graph Bypass Triggered: Intent={intent} -> Skipping Market Context/Drift Analysis")
+            return "bypass"
+        return "normal"
 
     async def node_decompose(self, state: AgentState):
         """
@@ -1663,16 +1694,14 @@ class StrategyAdvisorAgent:
                  logger.error(f"Error running briefing tool {name}: {e}")
                  return f"### {name.replace('_', ' ').title()}\nError running {name}: {e}"
 
-        # Global timeout for the entire node: 20 seconds
+        # Global timeout for the entire node: 45 seconds
         try:
             results = await asyncio.wait_for(
                 asyncio.gather(*[run_briefing_tool(t) for t in tools]),
-                timeout=60.0
+                timeout=45.0
             )
         except asyncio.TimeoutError:
             logger.error("🛑 GLOBAL Briefing Timeout! Falling back to partial results.")
-            # This shouldn't happen often if individual tools time out at 8s, 
-            # but it's a safety net for the gather itself or node overhead.
             results = ["### Daily Briefing\nSystem was unable to gather all data in time. Please check specific tools."]
 
         # Filter out empty or extremely small results to avoid polluting generation
@@ -1873,7 +1902,7 @@ class StrategyAdvisorAgent:
                  if finish_reason == "SAFETY":
                      final = (
                          "I'm sorry, I was unable to generate a response. The content triggered a safety filter "
-                         "(likely related to financial advice restrictions). Please try rephรasing or asking for technical data only."
+                         "(likely related to financial advice restrictions). Please try rephrasing or asking for technical data only."
                      )
                  elif finish_reason == "UNEXPECTED_TOOL_CALL":
                      final = (
@@ -1901,15 +1930,15 @@ class StrategyAdvisorAgent:
         The 'Judge' node. Evaluates if the response is complete and accurate.
         Uses Flash Lite with capped context to avoid token quota issues.
         """
-        # Phase 68: Hardness Override - Journal Analysis does not need evaluation loops
-        if state.get("is_journal_job") or state.get("intent") == "JOURNAL_ANALYSIS":
-            logger.info("🛡️ Evaluator: Skipping review for Journal Job to ensure persistence.")
-            return {"is_satisfactory": True}
-        
         query = state["optimized_query"]
         response = state["final_response"]
         iteration = state.get("iteration_count", 0)
         intent = state.get("intent", "CHAT")
+
+        # Phase 68: Hardness Override - Journal Analysis and Daily Briefing do not need evaluation loops
+        if state.get("is_journal_job") or intent in ["JOURNAL_ANALYSIS", "DAILY_BRIEFING"]:
+            logger.info(f"🛡️ Evaluator: Skipping review for {intent} to ensure persistence.")
+            return {"is_satisfactory": True, "data_gap_detected": False}
 
         if iteration >= 3:
             logger.warning(f"⚠️ Hard Safety Cap reached (Iteration {iteration}). Forcing satisfactory=True.")
@@ -2249,6 +2278,10 @@ class StrategyAdvisorAgent:
         # We only learn from primary analytical intents
         learning_intents = ["market_analysis", "strategy_design", "strategy_explain", "journal_analysis", "TOOL_USE"]
         
+        # Phase 68: Skip memory learn for briefings/journaling to reduce critical path latency
+        if intent in ["DAILY_BRIEFING", "JOURNAL_ANALYSIS"]:
+             return {}
+             
         if not self.episodic_memory or not user_id or intent not in learning_intents:
             return {}
 
@@ -2299,6 +2332,9 @@ class StrategyAdvisorAgent:
         Phase 67: Zero-Hallucination Audit.
         Verifies that final_response facts match scratchpad data.
         """
+        intent = state.get("intent", "CHAT")
+        if intent in ["JOURNAL_ANALYSIS", "DAILY_BRIEFING"]:
+             return {"fact_check_result": {"status": "SKIPPED"}, "data_gap_detected": False}
         response = state.get("final_response", "")
         scratchpad = "\n".join(state.get("scratchpad", []))[-15000:]
         query = state.get("optimized_query", "")

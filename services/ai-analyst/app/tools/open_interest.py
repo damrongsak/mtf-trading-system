@@ -48,7 +48,16 @@ class OpenInterestTool(BaseTool):
                 current_price = 0.0
                 try:
                     redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                    spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
+                    # Try multiple prefixes for broker-aware spot data
+                    prefixes = ["", "CTRADER:", "OANDA:"]
+                    spot_data = {}
+                    for prefix in prefixes:
+                        lookup_key = f"market_data:spot:{prefix}{symbol}"
+                        spot_data = await redis_client.hgetall(lookup_key)
+                        if spot_data:
+                            logger.info(f"Found spot data in Redis using key: {lookup_key}")
+                            break
+                    
                     if spot_data and ("bid" in spot_data or "price" in spot_data):
                         bid = float(spot_data.get("bid", spot_data.get("price", 0)))
                         ask = float(spot_data.get("ask", bid))
@@ -108,10 +117,10 @@ class OpenInterestTool(BaseTool):
                         z_type = lvl.get("zone_type", "MAJOR")
                         action = lvl.get("market_action", "PIVOT")
                         price_val = float(lvl.get("price", 0.0))
-                        iv = lvl.get("iv", 0.0)
-                        vanna = lvl.get("vanna", 0.0)
+                        iv_val = float(lvl.get("iv") or 0.0)
+                        vanna_val = float(lvl.get("vanna") or 0.0)
                         
-                        greek_info = f" [IV: {iv*100:.1f}%, Van: {vanna:.1e}]"
+                        greek_info = f" [IV: {iv_val*100:.1f}%, Van: {vanna_val:.1e}]"
                         report.append(f"- ${price_val:.2f} [{z_type}/{action}] | Significance: {lvl.get('significance_score', 0):.2f}{greek_info}")
                 else:
                     report.append("No major zones detected.")

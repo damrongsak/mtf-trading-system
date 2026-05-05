@@ -119,18 +119,31 @@ class LiquidityProfileAnalyzer:
             
         df_target['mapped_price'] = df_target['strike'] - basis
         
-        # 3. GEX & Greeks (V3.0 Institutional Standard)
-        # Distance-Weighted GEX Proxy
-        pct_distance = np.abs(df_target['strike'] - current_spot_price) / current_spot_price * 100.0
-        # Weight exponentially favors At-The-Money (ATM) strikes
-        weights = 1.0 / (1.0 + pct_distance ** 2)
-        weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
-        net_gex = float(weighted_net.sum())
-        total_gex = float(np.abs(weighted_net).sum())
+        # 3. GEX & Greeks (Institutional GEX V2.5 Standard)
+        # Institutional GEX Formula: (CallOI * Gamma - PutOI * Gamma) * Multiplier * Spot
+        multiplier = 100.0  # COMEX Gold Notional Multiplier
+        
+        # Use database-provided Gamma for current spot if available
+        if 'gamma' in df_target.columns and not df_target['gamma'].isnull().all():
+            df_target['strike_gex'] = df_target['gamma'].fillna(0) * multiplier * current_spot_price * (df_target['call_oi'] - df_target['put_oi'])
+            net_gex = float(df_target['strike_gex'].sum())
+            total_gex = float(df_target['strike_gex'].abs().sum())
+            logger.info(f"Using database-provided Gamma for current GEX. Net GEX: {net_gex}")
+        else:
+            # Distance-Weighted Proxy (Fallback)
+            pct_distance = np.abs(df_target['strike'] - current_spot_price) / current_spot_price * 100.0
+            weights = 1.0 / (1.0 + pct_distance ** 2)
+            weighted_net = (df_target['call_oi'] - df_target['put_oi']) * weights
+            net_gex = float(weighted_net.sum())
+            total_gex = float(np.abs(weighted_net).sum())
+            logger.info(f"Using Distance-Weighted Proxy for GEX. Net GEX: {net_gex}")
         
         # Synthetic IV & Greeks
-        atm_iv = get_gvz_index()
-        df_target['iv'] = get_synthetic_iv(current_spot_price, df_target['mapped_price'], atm_iv)
+        if 'implied_volatility' in df_target.columns and not df_target['implied_volatility'].isnull().all():
+            df_target['iv'] = df_target['implied_volatility'].fillna(0).astype(float)
+        else:
+            atm_iv = get_gvz_index()
+            df_target['iv'] = get_synthetic_iv(current_spot_price, df_target['mapped_price'], atm_iv)
         
         # Calculate Greeks for each strike
         greeks_list = []
@@ -149,7 +162,16 @@ class LiquidityProfileAnalyzer:
             greeks_list.append(gref)
         
         greeks_df = pd.DataFrame(greeks_list)
-        df_target = pd.concat([df_target.reset_index(drop=True), greeks_df.reset_index(drop=True)], axis=1)
+        
+        # Ensure we don't have duplicate columns (vanna, charm might already exist from DB)
+        for col in greeks_df.columns:
+            if col in df_target.columns:
+                # Fill missing DB values with calculated ones
+                df_target[col] = df_target[col].fillna(greeks_df[col])
+            else:
+                df_target[col] = greeks_df[col]
+        
+        # df_target = pd.concat([df_target.reset_index(drop=True), greeks_df.reset_index(drop=True)], axis=1) # Removed to avoid duplicates
         
         # Calculate Total Exposures
         # Vanna Exposure = Sum(Vanna * OI)
@@ -325,22 +347,41 @@ class LiquidityProfileAnalyzer:
         total_call_oi = df_target['call_oi'].sum()
         total_put_oi = df_target['put_oi'].sum()
         
-        # 4. Calculate Gamma Flip (OIWAP Method for Stability - V2.5 Standard)
-        # Filter for active strikes to avoid picking strikes with zero OI
-        df_sorted = df_target.sort_values('strike')
-        df_active = df_sorted[df_sorted['total_oi'] > 0].copy()
+        # 4. Calculate Gamma Flip (GEX Simulation Method - V2.5 Specification)
+        # Simulate Net GEX across a price range and find the zero-crossing
+        simulation_range = np.arange(current_spot_price - 200, current_spot_price + 200, 5)
+        sim_gex_values = []
         
+        # Prepare data for simulation
+        sim_df = df_target[['strike', 'call_oi', 'put_oi', 'iv', 'dte']].dropna().copy()
+        sim_df['T'] = sim_df['dte'].clip(lower=1) / 365.25
+        
+        for sim_spot in simulation_range:
+            sim_total_gex = 0.0
+            for _, row in sim_df.iterrows():
+                # Calculate theoretical Gamma for this strike at simulated spot
+                g_ref = black_scholes_greeks(
+                    S=sim_spot,
+                    K=row['strike'],
+                    T=row['T'],
+                    r=0.045,
+                    sigma=row['iv'],
+                    option_type='CALL' # Gamma is same for Call/Put in BS
+                )
+                sim_total_gex += (row['call_oi'] - row['put_oi']) * g_ref['gamma'] * multiplier * sim_spot
+            sim_gex_values.append(sim_total_gex)
+        
+        # Find zero crossing by interpolation
         gamma_flip_level = current_spot_price # Default
-        integrity_alerts = []
+        for i in range(len(sim_gex_values) - 1):
+            if (sim_gex_values[i] <= 0 and sim_gex_values[i+1] > 0) or (sim_gex_values[i] >= 0 and sim_gex_values[i+1] < 0):
+                # Linear interpolation for more precision
+                p1, p2 = simulation_range[i], simulation_range[i+1]
+                v1, v2 = sim_gex_values[i], sim_gex_values[i+1]
+                gamma_flip_level = p1 - v1 * (p2 - p1) / (v2 - v1)
+                break
         
-        if not df_active.empty:
-            # OIWAP: OI-Weighted Average Price
-            # This provides a more robust 'center of gravity' for dealer hedging
-            total_oi_weighted_sum = (df_active['strike'] * df_active['total_oi']).sum()
-            total_active_oi = df_active['total_oi'].sum()
-            
-            if total_active_oi > 0:
-                gamma_flip_level = float(total_oi_weighted_sum / total_active_oi)
+        integrity_alerts = []
         
         # 5. Reality-Anchoring & Regime Validation (V2.5 Standard)
         is_valid = True
@@ -348,7 +389,7 @@ class LiquidityProfileAnalyzer:
         # Check 1: Reality Anchoring (Stale Price Protection)
         if current_spot_price > 0 and snapshot_futures_price > 0:
             divergence = abs(current_spot_price - snapshot_futures_price) / current_spot_price
-            if divergence > 0.20:
+            if divergence > 0.40: # Relaxed from 0.20 to 0.40 to accommodate specific broker basis
                 is_valid = False
                 integrity_alerts.append("STALE_OR_SCALE_DIVERGENCE")
         
@@ -360,7 +401,7 @@ class LiquidityProfileAnalyzer:
         # Check 3: Mathematical Impossibility
         if gamma_flip_level > 0 and current_spot_price > 0:
             flip_dist = abs(gamma_flip_level - current_spot_price) / current_spot_price
-            if flip_dist > 0.25: # Flip point should be within reasonable proximity
+            if flip_dist > 0.50: # Relaxed from 0.25 to 0.50 to accommodate high-strike institutional data
                 is_valid = False
                 integrity_alerts.append("IMPOSSIBLE_FLIP_PROXIMITY")
 

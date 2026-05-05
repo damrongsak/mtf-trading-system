@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel
@@ -97,11 +98,16 @@ async def get_gamma_levels(
         # In this system, contract_symbol might be GCG4 (Gold) etc.
         # But we mostly care about the primary asset data.
         # If symbol is XAUUSD, we look for anything that maps to it or just the latest global OI if symbol isn't contract-specific.
-        latest_snapshot = db.query(OpenInterest.snapshot_at)\
-            .order_by(OpenInterest.snapshot_at.desc())\
+        # Institutional Mandate: Use OG% symbols for Gold and ensure latest snapshot for those specifically
+        latest_snapshot = db.query(func.max(OpenInterest.snapshot_at))\
+            .filter(OpenInterest.contract_symbol.like('OG%'))\
             .first()
         
-        if not latest_snapshot:
+        if not latest_snapshot or latest_snapshot[0] is None:
+            # Fallback to global latest if no OG% data found
+            latest_snapshot = db.query(func.max(OpenInterest.snapshot_at)).first()
+            
+        if not latest_snapshot or latest_snapshot[0] is None:
             raise HTTPException(status_code=404, detail="No Open Interest data found")
         snapshot_time = latest_snapshot[0]
     
@@ -137,7 +143,18 @@ async def get_gamma_levels(
         logger.warning(f"Redis cache read failed: {e}")
 
     # 4. Database Query Pushdown (Filter DB side instead of fetching all)
-    base_filter = [OpenInterest.snapshot_at == snapshot_time]
+    # Institutional Mandate: Filter by OG% and DTE <= 60
+    base_filter = [
+        OpenInterest.snapshot_at == snapshot_time,
+        OpenInterest.contract_symbol.like('OG%')
+    ]
+    
+    # Apply DTE constraint from Mandate
+    max_dte_to_use = max_dte if max_dte is not None else 60
+    base_filter.append(OpenInterest.dte <= max_dte_to_use)
+    
+    if min_dte is not None:
+        base_filter.append(OpenInterest.dte >= min_dte)
     if min_dte is not None:
         base_filter.append(OpenInterest.dte >= min_dte)
     
@@ -194,7 +211,11 @@ async def get_gamma_levels(
             'put_oi': float(r.put_oi or 0),
             'dte': r.dte,
             'contract_symbol': r.contract_symbol,
-            'underlying_price': float(r.underlying_price) if r.underlying_price else None
+            'underlying_price': float(r.underlying_price) if r.underlying_price else None,
+            'gamma': float(r.gamma) if r.gamma else None,
+            'iv': float(r.implied_volatility) if r.implied_volatility else None,
+            'vanna': float(r.vanna) if r.vanna else None,
+            'charm': float(r.charm) if r.charm else None
         })
 
     # 5. Decoupled SMC Data Fetching (Graceful Fallback)
@@ -243,3 +264,40 @@ async def get_gamma_levels(
         logger.warning(f"Redis cache write failed: {e}")
 
     return response_data
+
+
+from app.models.regime_monitor import RegimeMonitor
+
+class RegimeHistoryResponse(BaseModel):
+    symbol: str
+    timestamp: datetime
+    gex_proxy: float
+    underlying_price: Optional[float]
+    regime_type: str
+    is_noise: bool
+    fragility_index: Optional[float]
+
+@router.get("/regime-history", response_model=List[RegimeHistoryResponse])
+async def get_regime_history(
+    symbol: str = "XAUUSD",
+    limit: int = Query(50, ge=1, le=1000),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch historical institutional regimes from regime_monitor table.
+    """
+    records = db.query(RegimeMonitor).filter(
+        RegimeMonitor.symbol == symbol
+    ).order_by(RegimeMonitor.timestamp.desc()).limit(limit).all()
+    
+    return [
+        RegimeHistoryResponse(
+            symbol=r.symbol,
+            timestamp=r.timestamp,
+            gex_proxy=float(r.gex_proxy),
+            underlying_price=float(r.underlying_price) if r.underlying_price else None,
+            regime_type=r.regime_type,
+            is_noise=r.is_noise,
+            fragility_index=float(r.fragility_index) if r.fragility_index else None
+        ) for r in records
+    ]

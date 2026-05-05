@@ -2309,6 +2309,37 @@ validation_rules:
         default: "DAILY"
         required: true
 
+  RegimeMonitor:
+    description: "Historical institutional market regimes and GEX values"
+    table_name: "regime_monitor"
+    indexes:
+      - fields: ["symbol", "timestamp"]
+        unique: true
+    fields:
+      - name: id
+        type: uuid
+        primary_key: true
+      - name: symbol
+        type: string
+        required: true
+      - name: timestamp
+        type: datetime
+        required: true
+      - name: regime
+        type: string
+        required: true
+      - name: gex
+        type: decimal
+        precision: 18
+        scale: 2
+      - name: spot_price
+        type: decimal
+        precision: 18
+        scale: 8
+      - name: metadata
+        type: json
+        description: "Flexible storage for institutional Greeks and bias"
+
   OpportunityLog:
     description: "Log of skipped trade opportunities due to filters (e.g. Volatility, Sentiment)"
     table_name: "opportunity_logs"
@@ -2911,6 +2942,59 @@ schemas:
       - name: confluence_score
         type: float
         description: "0-1.0 confidence score for the signal"
+
+  RegimeMonitor:
+    description: "Institutional GEX/Liquidity regime tracking (H4 resolution)"
+    table_name: "regime_monitor"
+    indexes:
+      - fields: ["symbol", "timestamp"]
+        unique: true
+    fields:
+      - name: id
+        type: integer
+        primary_key: true
+      - name: symbol
+        type: string
+        required: true
+      - name: timeframe
+        type: string
+        required: true
+        default: "H4"
+      - name: timestamp
+        type: datetime
+        required: true
+        description: "Candle timestamp (UTC)"
+      - name: gex_proxy
+        type: decimal
+        precision: 20
+        scale: 4
+        required: true
+        description: "Distance-weighted net GEX proxy"
+      - name: underlying_price
+        type: decimal
+        precision: 18
+        scale: 8
+      - name: regime_type
+        type: string
+        required: true
+        description: "POSITIVE_GAMMA | NEGATIVE_GAMMA"
+      - name: fragility_index
+        type: decimal
+        precision: 10
+        scale: 4
+        description: "LFI (Liquidity Fragility Index) 0-100"
+      - name: is_valid
+        type: boolean
+        default: true
+      - name: is_noise
+        type: boolean
+        default: false
+      - name: metadata
+        type: jsonb
+        description: "Snapshot details and lineage"
+      - name: created_at
+        type: datetime
+        default: "now()"
 
 # ---
 # Olympus Knowledge Graph (FalkorDB Ontology)

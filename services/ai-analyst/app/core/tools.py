@@ -37,6 +37,7 @@ from app.tools.memory import EpisodicMemoryTool
 from app.tools.edge_optimization import EdgeOptimizationTool
 from app.tools.alert import DeployTelegramAlertTool
 from app.tools.indicators import TechnicalIndicatorsTool
+from app.tools.regime_history import RegimeHistoryTool
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +436,8 @@ class ToolRegistry:
             "episodic_memory": EpisodicMemoryTool(),
             "get_edge_optimization": EdgeOptimizationTool(),
             "deploy_telegram_alert": DeployTelegramAlertTool(),
-            "get_technical_indicators": TechnicalIndicatorsTool()
+            "get_technical_indicators": TechnicalIndicatorsTool(),
+            "get_regime_history": RegimeHistoryTool()
         }
 
     def get_tools(self) -> List[BaseTool]:

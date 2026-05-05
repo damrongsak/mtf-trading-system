@@ -642,6 +642,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIResponse_GammaAnalysis'
 
+  /api/v1/analysis/gamma/regime-history:
+    get:
+      tags:
+        - Analysis
+      summary: Get Historical Market Regimes
+      description: Returns historical GEX and market regime data for institutional trend analysis.
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XAUUSD
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Historical Regime Data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegimeHistoryResponse'
+
   /api/v1/analysis/smc:
     post:
       tags:
@@ -8056,6 +8083,33 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/GammaAnalysisResponse' }
+
+    RegimeHistoryItem:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        regime:
+          type: string
+        gex:
+          type: number
+        spot_price:
+          type: number
+        meta_data:
+          type: object
+
+    RegimeHistoryResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegimeHistoryItem'
 
     APIResponse_Agent:
       allOf:
