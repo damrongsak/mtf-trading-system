@@ -42,7 +42,29 @@ class CTraderStreamer(StreamAdapter):
             try:
                 await self.client.connect()
                 await self.client.authorize_app(self.client_id, self.client_secret)
-                await self.client.authorize_account(self.account_id, self.token)
+                try:
+                    await self.client.authorize_account(self.account_id, self.token)
+                except Exception as auth_e:
+                    if "CH_ACCESS_TOKEN_INVALID" in str(auth_e):
+                        logger.warning(f"cTrader token expired for account {self.account_id} during stream connection. Attempting refresh...")
+                        from app.adapters.ctrader import CTraderClient
+                        adapter = CTraderClient(
+                            client_id=self.client_id,
+                            client_secret=self.client_secret,
+                            account_id=str(self.account_id),
+                            token=self.token,
+                            host=self.host,
+                            port=self.port
+                        )
+                        new_token = await adapter._refresh_token_and_update_db(self.client)
+                        if new_token:
+                            self.token = new_token
+                            await self.client.authorize_account(self.account_id, self.token)
+                        else:
+                            raise auth_e
+                    else:
+                        raise auth_e
+
             
                 # 0. Resolve BrokerAccount UUIDs for trade sync
                 from app.database import SessionLocal

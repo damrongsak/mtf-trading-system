@@ -347,7 +347,27 @@ async def run_ingestion_job(
                 try:
                     await client.connect()
                     await client.authorize_app(config.get("client_id"), config.get("client_secret"))
-                    await client.authorize_account(int(config.get("account_id")), config.get("token"))
+                    try:
+                        await client.authorize_account(int(config.get("account_id")), config.get("token"))
+                    except Exception as auth_e:
+                        if "CH_ACCESS_TOKEN_INVALID" in str(auth_e):
+                            logger.warning(f"cTrader token expired for account {config.get('account_id')} in scheduler job. Attempting refresh...")
+                            from app.adapters.ctrader import CTraderClient
+                            adapter = CTraderClient(
+                                client_id=config.get("client_id"),
+                                client_secret=config.get("client_secret"),
+                                account_id=str(config.get("account_id")),
+                                token=config.get("token"),
+                                host=config.get("host", "demo.ctraderapi.com"),
+                                port=int(config.get("port", 5035))
+                            )
+                            new_token = await adapter._refresh_token_and_update_db(client)
+                            if new_token:
+                                await client.authorize_account(int(config.get("account_id")), new_token)
+                            else:
+                                raise auth_e
+                        else:
+                            raise auth_e
                 except Exception as e:
                     logger.error(f"Failed to connect to cTrader {source.name}: {e}")
                     continue
