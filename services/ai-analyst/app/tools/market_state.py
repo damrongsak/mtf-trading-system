@@ -17,14 +17,23 @@ class MarketStateTool(BaseTool):
     description: str = "Fetches comprehensive institutional market state including PCR, Max Pain, and Volatility projected from strategy-core."
     args_schema: Type[BaseModel] = MarketStateInput
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, fund_id: str = None, **kwargs) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", symbol)
             timeframe = input_data.get("timeframe", timeframe)
         elif isinstance(input_data, str):
-            symbol = input_data
+            # Attempt to parse as JSON if it looks like a dict
+            if input_data.strip().startswith("{"):
+                try:
+                    data = json.loads(input_data)
+                    symbol = data.get("symbol", symbol)
+                    timeframe = data.get("timeframe", timeframe)
+                except json.JSONDecodeError:
+                    symbol = input_data
+            else:
+                symbol = input_data
 
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         
@@ -36,19 +45,38 @@ class MarketStateTool(BaseTool):
                 if auth_token:
                     headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
                 
+                # Propagate User and Fund IDs for data isolation
+                user_id = kwargs.get("user_id")
+                if user_id:
+                    headers["X-User-Id"] = str(user_id)
+                if fund_id:
+                    headers["X-Fund-ID"] = str(fund_id)
+
                 # 1 & 2. Fetch Regime and Gamma (V3.0) in parallel
                 regime_url = f"{strategy_core_url}/market/regime"
                 gamma_url = f"{strategy_core_url}/analysis/gamma/levels"
                 
                 import asyncio
                 async def fetch_regime():
-                    async with session.post(regime_url, json={"symbol": normalized_symbol, "timeframe": timeframe}, headers=headers, timeout=5.0) as resp:
-                        if resp.status == 200: return await resp.json()
+                    payload = {"symbol": normalized_symbol, "timeframe": timeframe}
+                    if fund_id:
+                        payload["fund_id"] = fund_id
+                    async with session.post(regime_url, json=payload, headers=headers, timeout=10.0) as resp:
+                        if resp.status == 200: 
+                            return await resp.json()
+                        err_text = await resp.text()
+                        logger.warning(f"Regime fetch failed: {resp.status} - {err_text}")
                         return {}
 
                 async def fetch_gamma():
-                    async with session.get(gamma_url, params={"symbol": normalized_symbol}, headers=headers, timeout=5.0) as resp:
-                        if resp.status == 200: return await resp.json()
+                    params = {"symbol": normalized_symbol}
+                    if fund_id:
+                        params["fund_id"] = fund_id
+                    async with session.get(gamma_url, params=params, headers=headers, timeout=10.0) as resp:
+                        if resp.status == 200: 
+                            return await resp.json()
+                        err_text = await resp.text()
+                        logger.warning(f"Gamma fetch failed: {resp.status} - {err_text}")
                         return {}
 
                 ctx, g_ctx = await asyncio.gather(fetch_regime(), fetch_gamma())
@@ -92,6 +120,6 @@ class MarketStateTool(BaseTool):
                 return report
                 
             except Exception as e:
-                logger.error(f"Failed to fetch market state: {e}")
-                return f"Institutional analysis tool error: {e}"
+                logger.error(f"Failed to fetch market state: {repr(e)}", exc_info=True)
+                return f"Institutional analysis tool error: {repr(e)}"
 

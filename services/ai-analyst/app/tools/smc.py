@@ -20,7 +20,7 @@ class SMCAnalystTool(BaseTool):
     description: str = "Perform institutional Smart Money Concepts (SMC) technical analysis on a specific trading symbol."
     args_schema: Type[BaseModel] = SMCInput
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, **kwargs) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, fund_id: str = None, **kwargs) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         include_distant_zones = False
@@ -44,30 +44,9 @@ class SMCAnalystTool(BaseTool):
             else:
                 symbol = input_data
 
-        # Second level check: Did the LLM pass {symbol: "{...}"}?
-        if isinstance(symbol, str) and symbol.strip().startswith("{") and symbol.strip().endswith("}"):
-            try:
-                parsed = json.loads(symbol)
-                # If it's a nested JSON, extract fields
-                if "symbol" in parsed or "SYMBOL" in parsed:
-                    symbol = parsed.get("symbol") or parsed.get("SYMBOL")
-                if "timeframe" in parsed or "TIMEFRAME" in parsed:
-                    timeframe = parsed.get("timeframe") or parsed.get("TIMEFRAME")
-                if "return_raw_data" in parsed or "RETURNRAWDATA" in parsed:
-                    return_raw_data = parsed.get("return_raw_data") or parsed.get("RETURNRAWDATA")
-            except:
-                pass
-
-
         # Normalize symbol
         normalized_symbol = symbol.replace("/", "").replace("_", "").upper()
         
-        # Normalize Timeframe 
-        if timeframe.lower() in ["15m", "15min", "m15"]: timeframe = "M15"
-        elif timeframe.lower() in ["1h", "1hr", "h1"]: timeframe = "H1"
-        elif timeframe.lower() in ["4h", "4hr", "h4"]: timeframe = "H4"
-        elif timeframe.lower() in ["1d", "daily", "d1"]: timeframe = "D1"
-
         from app.core.config import settings
         data_url = f"{settings.DATA_PIPELINE_URL}/api/v1/candles"
         smc_url = f"{settings.STRATEGY_CORE_URL}/api/v1/calculate/smc/mtf"
@@ -75,6 +54,9 @@ class SMCAnalystTool(BaseTool):
         headers = {}
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
+        
+        if fund_id:
+            headers["X-Fund-ID"] = fund_id
 
         data = None
         # 1. Fetch Candles from Data Pipeline
@@ -97,6 +79,8 @@ class SMCAnalystTool(BaseTool):
                     "symbol": normalized_symbol,
                     "timeframes": ["H4", "H1", "M15"]
                 }
+                if fund_id:
+                    payload["fund_id"] = fund_id
                 
                 # 3. Call Strategy Core (MTF Endpoint)
                 smc_resp = await client.post(smc_url, json=payload, headers=headers, timeout=15.0)

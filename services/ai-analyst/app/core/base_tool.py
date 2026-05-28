@@ -23,7 +23,7 @@ class BaseTool(LCTool):
     3. Standardized retries.
     """
     is_heavy: bool = Field(default=False, description="Whether this tool performs heavy IO/CPU work.")
-    timeout: int = Field(default=60, description="Max execution time in seconds before cancellation.")
+    timeout: int = Field(default=120, description="Max execution time in seconds before cancellation.")
     
     # Circuit Breaker state (simplified)
     # Note: In Pydantic v2/LangChain BaseTool, private attributes starting with _ are allowed
@@ -78,11 +78,30 @@ class BaseTool(LCTool):
         t_uid = user_id_ctx.set(user_id)
         t_fid = fund_id_ctx.set(fund_id)
         
+        import inspect
+        kwargs = {
+            "auth_token": auth_token,
+            "request_id": request_id,
+            "user_id": user_id,
+            "fund_id": fund_id
+        }
+        
+        # Filter kwargs based on the actual signature of run_tool
+        sig = inspect.signature(self.run_tool)
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())}
+
         try:
-            return await asyncio.wait_for(
-                self.run_tool(input_data, auth_token=auth_token, request_id=request_id),
-                timeout=self.timeout
-            )
+            if asyncio.iscoroutinefunction(self.run_tool):
+                return await asyncio.wait_for(
+                    self.run_tool(input_data, **filtered_kwargs),
+                    timeout=self.timeout
+                )
+            else:
+                # Use to_thread for blocking sync tools
+                return await asyncio.wait_for(
+                    asyncio.to_thread(self.run_tool, input_data, **filtered_kwargs),
+                    timeout=self.timeout
+                )
         except asyncio.TimeoutError:
             logger.error(f"⌛ Tool '{self.name}' timed out after {self.timeout}s.")
             return f"❌ Tool '{self.name}' timed out after {self.timeout}s. Please try again or simplify the query."
@@ -92,6 +111,6 @@ class BaseTool(LCTool):
             user_id_ctx.reset(t_uid)
             fund_id_ctx.reset(t_fid)
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, user_id: str = None, fund_id: str = None, **kwargs) -> str:
         """Subclasses should implement this instead of run or _arun."""
         raise NotImplementedError("Subclasses must implement run_tool.")

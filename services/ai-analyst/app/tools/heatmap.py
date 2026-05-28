@@ -20,39 +20,61 @@ class LiquidityHeatmapTool(BaseTool):
     Identifies 'Gravity Zones' where price is likely to be pinned or rejected.
     """
     args_schema: Type[BaseModel] = HeatmapInput
+    timeout: int = 120
     is_heavy: bool = True # Heatmap fetch and price check involve multiple IO layers
 
-    async def run_tool(self, input_data: Any, **kwargs) -> str:
-        logger.info(f"DEBUG HEATMAP: input_data={input_data} ({type(input_data)})")
-        
+    async def run_tool(self, input_data: Any, auth_token: str = None, fund_id: str = None, **kwargs) -> str:
         symbol = "XAUUSD"
-        if hasattr(input_data, "dict"):
-            input_data = input_data.dict()
-            
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", "XAUUSD")
         elif isinstance(input_data, str):
-            symbol = input_data
+            # Attempt to parse as JSON if it looks like a dict
+            if input_data.strip().startswith("{"):
+                try:
+                    data = json.loads(input_data)
+                    symbol = data.get("symbol", "XAUUSD")
+                except json.JSONDecodeError:
+                    symbol = input_data
+            else:
+                symbol = input_data
 
-        auth_token = kwargs.get("auth_token")
         strategy_core_url = f"{settings.STRATEGY_CORE_URL}/api/v1"
         
         headers = {}
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}" if not auth_token.startswith("Bearer ") else auth_token
+        
+        # Propagate User and Fund IDs for data isolation
+        user_id = kwargs.get("user_id")
+        if user_id:
+            headers["X-User-Id"] = str(user_id)
+        if fund_id:
+            headers["X-Fund-ID"] = str(fund_id)
 
         async with aiohttp.ClientSession() as session:
             try:
-                # 1. Fetch Current Spot Price
+                # 1. Fetch Current Spot Price (Resilient Lookup)
                 current_price = 0.0
                 try:
                     redis_url = settings.REDIS_URL
                     redis_client = redis.from_url(redis_url, decode_responses=True)
-                    spot_data = await redis_client.hgetall(f"market_data:spot:{symbol}")
-                    if spot_data and "bid" in spot_data:
-                        bid = float(spot_data.get("bid", 0))
-                        ask = float(spot_data.get("ask", 0))
-                        current_price = (bid + ask) / 2.0 if ask > 0 else bid
+                    
+                    # Try various key patterns
+                    keys_to_try = [
+                        f"market_data:spot:{symbol}",
+                        f"market_data:spot:CTRADER:{symbol}",
+                        f"market_data:spot:OANDA:{symbol}"
+                    ]
+                    
+                    for key in keys_to_try:
+                        spot_data = await redis_client.hgetall(key)
+                        if spot_data and "bid" in spot_data:
+                            bid = float(spot_data.get("bid", 0))
+                            ask = float(spot_data.get("ask", 0))
+                            current_price = (bid + ask) / 2.0 if ask > 0 else bid
+                            logger.info(f"Heatmap: Found spot price {current_price} from {key}")
+                            break
+                            
                     await redis_client.aclose()
                 except Exception as e:
                     logger.warning(f"Redis price fetch failed: {e}")
@@ -60,6 +82,8 @@ class LiquidityHeatmapTool(BaseTool):
                 # 2. Fetch Gamma Levels (V3.0)
                 url = f"{strategy_core_url}/analysis/gamma/levels"
                 params = {"symbol": symbol}
+                if fund_id:
+                    params["fund_id"] = fund_id
                 if current_price > 0:
                     params["current_price"] = str(current_price)
 

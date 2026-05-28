@@ -22,7 +22,7 @@ class RiskMapTool(BaseTool):
     )
     args_schema: Any = RiskMapInput
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, **kwargs) -> str:
         input_dict = parse_tool_input(input_data)
         symbol = input_dict.get("symbol", "XAUUSD").upper().replace("/", "").replace("_", "")
         timeframe = input_dict.get("timeframe", "H1")
@@ -31,7 +31,16 @@ class RiskMapTool(BaseTool):
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
-        base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
+        # Propagate User and Fund IDs for data isolation
+        user_id = kwargs.get("user_id")
+        fund_id = kwargs.get("fund_id")
+        if user_id:
+            headers["X-User-Id"] = str(user_id)
+        if fund_id:
+            headers["X-Fund-ID"] = str(fund_id)
+
+        # Call Strategy Core directly (No Reentrancy)
+        base_url = settings.STRATEGY_CORE_URL
         url = f"{base_url}/api/v1/quant/analyze"
 
         try:
@@ -40,7 +49,7 @@ class RiskMapTool(BaseTool):
                     url, 
                     json={"symbol": symbol, "timeframe": timeframe}, 
                     headers=headers, 
-                    timeout=15.0
+                    timeout=30.0 # Heavy analytics
                 )
                 
                 if response.status_code != 200:

@@ -42,6 +42,14 @@ class OpenInterestTool(BaseTool):
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
         
+        # Propagate User and Fund IDs for data isolation
+        user_id = kwargs.get("user_id")
+        if user_id:
+            headers["X-User-Id"] = str(user_id)
+        fund_id = kwargs.get("fund_id")
+        if fund_id:
+            headers["X-Fund-ID"] = str(fund_id)
+        
         async with aiohttp.ClientSession() as session:
             try:
                 # 1. Fetch Current Spot Price

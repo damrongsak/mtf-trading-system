@@ -94,17 +94,24 @@ async def process_job(redis_client: Redis, job_id: str, payload: dict, headers: 
             except:
                 pass
                 
+        # Fund ID extraction
+        active_fund_id = headers.get("X-Fund-ID")
+        if not active_fund_id:
+            active_fund_id = headers.get("X-Broker-Account-ID")
+
         # Run
         result = await services["strategy_advisor"].run(
             input_text=message,
             user_id=target_user_id,
             auth_token=auth_token,
+            active_fund_id=active_fund_id,
             image_b64=image_b64,
             thread_id=thread_id,
             intent_hint=intent,
             trade_id=payload.get("trade_id"),
             is_journal_job=payload.get("is_journal_job", False)
         )
+
         
         result_payload = {
             "status": "completed", 

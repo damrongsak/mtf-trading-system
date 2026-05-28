@@ -36,8 +36,13 @@ class TechnicalIndicatorsInput(BaseModel):
         description="The data resolution timeframe. Supported: M1, M5, M15, H1, H4, D1, W1, MN1."
     )
     indicators: List[IndicatorSpec] = Field(
-        ..., 
-        description="A list of indicators to calculate simultaneously. Providing custom parameters is fully supported and encouraged for dynamic analysis."
+        default_factory=lambda: [
+            IndicatorSpec(type="atr", params={"window": 14}),
+            IndicatorSpec(type="rsi", params={"window": 14}),
+            IndicatorSpec(type="ema", params={"span": 20}),
+            IndicatorSpec(type="macd", params={"fast": 12, "slow": 26, "signal": 9})
+        ],
+        description="A list of indicators to calculate simultaneously. Defaults to ATR, RSI, EMA, and MACD."
     )
 
 class TechnicalIndicatorsTool(BaseTool):
@@ -50,13 +55,22 @@ class TechnicalIndicatorsTool(BaseTool):
     )
     args_schema: type[BaseModel] = TechnicalIndicatorsInput
 
-    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any, auth_token: str = None, request_id: str = None, **kwargs) -> str:
         # Prevent circular logic/unauthenticated issues by mandating tokens if required by Gateway.
         headers = {}
         if auth_token:
             headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
             
-        base_url = getattr(settings, "API_GATEWAY_URL", "http://api-gateway:8000")
+        # Propagate User and Fund IDs for data isolation
+        user_id = kwargs.get("user_id")
+        fund_id = kwargs.get("fund_id")
+        if user_id:
+            headers["X-User-ID"] = str(user_id)
+        if fund_id:
+            headers["X-Fund-ID"] = str(fund_id)
+
+        # Call Strategy Core directly (No Reentrancy)
+        base_url = settings.STRATEGY_CORE_URL
         url = f"{base_url}/api/v1/indicators"
         
         # Determine payload

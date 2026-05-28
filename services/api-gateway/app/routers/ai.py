@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, Request, Body, Query
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timezone
 import httpx
@@ -62,8 +62,8 @@ router = APIRouter(
 AI_SERVICE_URL = os.getenv("AI_ANALYST_URL", "http://ai-analyst:8000")
 AI_SERVICE_TIMEOUT = float(os.getenv("AI_SERVICE_TIMEOUT", "600.0")) # Increased for indicator heavy reasoning
 
-async def _get_broker_account_id(db: Session, user_id: Any) -> Optional[str]:
-    """Helper to get user's active broker account ID."""
+async def _get_broker_account_info(db: Session, user_id: Any) -> Tuple[Optional[str], Optional[str]]:
+    """Helper to get user's active broker account ID and fund ID."""
     from app.models.broker_account import BrokerAccount
     from app.models.user_fund import UserFund, Fund
     
@@ -74,10 +74,10 @@ async def _get_broker_account_id(db: Session, user_id: Any) -> Optional[str]:
     
     if not account:
         logger.warning(f"No active BrokerAccount found for user_id: {user_id}")
+        return None, None
     else:
-        logger.info(f"Retrieved active Account ID: {account.id} for user_id: {user_id}")
-        
-    return str(account.id) if account else None
+        logger.info(f"Retrieved active Account ID: {account.id}, Fund ID: {account.fund_id} for user_id: {user_id}")
+        return str(account.id), str(account.fund_id)
 
 @router.get("/agents")
 async def list_agents(request: Request):
@@ -539,9 +539,11 @@ async def proxy_ai_think(
     if request_id:
         headers["X-Request-ID"] = request_id
     
-    account_id = await _get_broker_account_id(db, current_user.id)
+    account_id, fund_id = await _get_broker_account_info(db, current_user.id)
     if account_id:
         headers["X-Broker-Account-ID"] = account_id
+    if fund_id:
+        headers["X-Fund-ID"] = fund_id
 
     job_id = str(uuid.uuid4())
     redis = await get_redis_client()

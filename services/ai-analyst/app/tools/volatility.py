@@ -17,12 +17,23 @@ class VolatilityStructureTool(BaseTool):
         "Input: {'symbol': 'XAUUSD', 'timeframe': 'H1'}."
     )
 
-    async def run_tool(self, input_data: Any = None, auth_token: str = None, request_id: str = None) -> str:
+    async def run_tool(self, input_data: Any = None, auth_token: str = None, fund_id: str = None, **kwargs) -> str:
         symbol = "XAUUSD"
         timeframe = "H1"
         if isinstance(input_data, dict):
             symbol = input_data.get("symbol", "XAUUSD")
             timeframe = input_data.get("timeframe", "H1")
+        elif isinstance(input_data, str):
+            # Attempt to parse as JSON if it looks like a dict
+            if input_data.strip().startswith("{"):
+                try:
+                    data = json.loads(input_data)
+                    symbol = data.get("symbol", "XAUUSD")
+                    timeframe = data.get("timeframe", "H1")
+                except json.JSONDecodeError:
+                    symbol = input_data
+            else:
+                symbol = input_data
 
         async with aiohttp.ClientSession() as session:
             try:
@@ -33,7 +44,12 @@ class VolatilityStructureTool(BaseTool):
                 if auth_token:
                     headers["Authorization"] = f"Bearer {auth_token}" if not auth_token.startswith("Bearer ") else auth_token
                 
+                if fund_id:
+                    headers["X-Fund-ID"] = fund_id
+
                 payload = {"symbol": symbol, "timeframe": timeframe, "bias": "NEUTRAL"}
+                if fund_id:
+                    payload["fund_id"] = fund_id
                 
                 async with session.post(url, json=payload, headers=headers) as resp:
                     if resp.status == 200:
